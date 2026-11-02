@@ -26,6 +26,8 @@ pub mod catalogue;
 pub mod catalogue_export;
 // M63-03: source-relative quality metrics.
 pub mod metrics;
+// W2: the Polaris link table and in-flight sign-in state.
+pub mod oidc;
 pub mod category_governance;
 pub mod collaboration;
 pub mod community;

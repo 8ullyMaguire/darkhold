@@ -1,6 +1,8 @@
 //! HTTP routes.
 
 pub mod account_permissions;
+// W2: sign in with Polaris.
+pub mod oidc;
 pub mod admin;
 pub mod admin_discovery;
 pub mod operator_hit_rate;

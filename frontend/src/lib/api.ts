@@ -249,6 +249,13 @@ export interface Capabilities {
 export interface Account {
   id: string;
   email: string;
+  /**
+   * The name the estate vouches for, cached from Polaris at sign-in. Absent on a local account, which keeps
+   * whatever name its own pseuds carry.
+   */
+  display_name?: string | null;
+  /** The avatar as an immutable media URL — the same file every Polaris site renders. */
+  avatar_url?: string | null;
   age_state: string;
   email_verified: boolean;
   session_expires_at: string;

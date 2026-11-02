@@ -19,6 +19,11 @@
   let submitting = $state(false);
   let fieldErrors = $state<Record<string, string>>({});
 
+  // W2: one account for the estate. The button is a plain navigation, not a fetch: the provider has to be
+  // a top-level document, because its session cookie is first-party to id.polarisocial.xyz and a
+  // cross-site fetch would send nothing.
+  const polarisHref = `/api/v1/auth/oidc/start?next=${encodeURIComponent(next)}`;
+
   async function submit(event: SubmitEvent) {
     event.preventDefault();
     submitting = true;
@@ -44,6 +49,12 @@
   {#if error}
     <ErrorSummary {error} />
   {/if}
+
+  <p class="polaris">
+    <a class="polaris-button" href={polarisHref}>Continue with Polaris</a>
+    <span class="note">One account for every Polaris site. If you are already signed in there, this takes
+      you straight back.</span>
+  </p>
 
   <form onsubmit={submit} novalidate>
     <TextField
@@ -93,6 +104,23 @@
   h1 {
     font-family: var(--font-heading);
     margin-bottom: var(--space-5);
+  }
+
+  .polaris {
+    display: grid;
+    gap: var(--space-2);
+    margin: 0 0 var(--space-5);
+  }
+
+  .polaris-button {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: var(--space-3) var(--space-4);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-md);
+    font-weight: 600;
+    background: var(--color-surface-2);
   }
 
   .note {

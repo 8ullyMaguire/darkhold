@@ -57,6 +57,8 @@ pub fn router() -> Router<AppState> {
         .route("/auth/sessions/revoke-all", post(revoke_all_sessions))
         .route("/auth/sessions/{id}", delete(revoke_session))
         .route("/auth/me", get(me))
+        // W2: sign in with Polaris. Same module class, so the auth rate limit and the module gate apply.
+        .merge(super::oidc::router())
 }
 
 /// Minimum password length.
@@ -103,6 +105,13 @@ struct AccountResponse {
 struct AccountView {
     id: AccountId,
     email: String,
+    /// The name the estate vouches for (from Polaris, refreshed at each sign-in). `None` for a local
+    /// account, which keeps whatever name its own pseuds carry.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    display_name: Option<String>,
+    /// The avatar as a media URL — one file, the same bytes on every site.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    avatar_url: Option<String>,
     age_state: &'static str,
     /// Whether an address has been confirmed. Not enforced yet; reported
     /// honestly rather than implied.
@@ -283,6 +292,14 @@ async fn login(
     }
     if !matches!(account.status, AccountStatus::Active) {
         tracing::info!(account = %account.id, status = account.status.as_str(), "login to a non-active account");
+        return Err(ApiError(AppError::AccessDenied));
+    }
+
+    // An account with a Polaris link signs in through the provider (estate W2 §8): its local password is
+    // retired. The password is verified *first*, so a refusal cannot be used to ask "does this address
+    // exist?", and the check comes *before* a session is issued, so there is nothing to undo.
+    if darkhold_db::oidc::signs_in_through_provider(state.db(), account.id).await? {
+        tracing::info!(account = %account.id, "password login to an account that signs in through the estate");
         return Err(ApiError(AppError::AccessDenied));
     }
 
@@ -582,8 +599,17 @@ async fn me(
         .await
         .unwrap_or(0);
 
+    let mut view = account_view(&account, &sessions::now());
+    // The link cache, not a live call: a profile render must not depend on the provider being reachable.
+    if let Ok(Some((picture, name))) =
+        darkhold_db::oidc::profile_for_account(state.db(), "polaris-id", account.id).await
+    {
+        view.avatar_url = picture;
+        view.display_name = name;
+    }
+
     Ok(Json(MeResponse {
-        account: account_view(&account, &sessions::now()),
+        account: view,
         pseuds: pseuds
             .into_iter()
             .map(|pseud| PseudView {
@@ -951,6 +977,8 @@ fn account_view(account: &darkhold_db::identity::Account, session_expires_at: &s
     AccountView {
         id: account.id,
         email: account.email.clone(),
+        display_name: None,
+        avatar_url: None,
         age_state: age_state_name(account.age_state),
         email_verified: account.email_verified_at.is_some(),
         session_expires_at: session_expires_at.to_owned(),
