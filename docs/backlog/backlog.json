@@ -1,0 +1,817 @@
+{
+  "sources": {
+    "requirements.csv": {
+      "rows": 834,
+      "by_status": {
+        "implemented-verified-e2e": 129,
+        "implemented-locally-tested": 245,
+        "unsupported": 4,
+        "implemented-fully-tested": 376,
+        "planned": 79,
+        "evaluated-and-rejected": 1
+      }
+    },
+    "concord": {
+      "cards_in_snapshot": 93,
+      "rollups": 6,
+      "work_cards": 87,
+      "linked_to_a_requirement": 29,
+      "unlinked": 58
+    },
+    "roadmap": {
+      "items": 15
+    }
+  },
+  "open_requirements": [
+    {
+      "id": "M45-32",
+      "milestone": "M45",
+      "requirement": "Trend radar: emerging-fandom detection for event and bounty timing",
+      "notes": "Gaps review C8."
+    },
+    {
+      "id": "M45-33",
+      "milestone": "M45",
+      "requirement": "Beta and specialist matchmaking: betas, Britpickers, sensitivity readers",
+      "notes": "Gaps review C9. Credit-rewarded, opt-in, critique only where requested."
+    },
+    {
+      "id": "M45-34",
+      "milestone": "M45",
+      "requirement": "Fic Finder bounties: pay for identifying half-remembered works",
+      "notes": "Gaps review C10. Full-text search + optional semantic search + reverse media search."
+    },
+    {
+      "id": "M45-36",
+      "milestone": "M45",
+      "requirement": "MediaReference descriptions as link-rot last fallback, curator-bountied",
+      "notes": "Gaps review D1."
+    },
+    {
+      "id": "M45-37",
+      "milestone": "M45",
+      "requirement": "Stable identifiers for media: MusicBrainz/ISRC, tracklists, Wikidata, ISBN/TMDB",
+      "notes": "Gaps review D2. Identity over location."
+    },
+    {
+      "id": "M45-38",
+      "milestone": "M45",
+      "requirement": "Author-note links through snapshot-and-monitor pipeline",
+      "notes": "Gaps review D3."
+    },
+    {
+      "id": "M45-39",
+      "milestone": "M45",
+      "requirement": "Instance-death protection: mutual backup, dead-man's-switch export, redirect registry",
+      "notes": "Gaps review D4. Persistent work IDs; ActivityPub Move for accounts."
+    },
+    {
+      "id": "M45-40",
+      "milestone": "M45",
+      "requirement": "Curator lenses: invited rec-bloggers publish opt-in taste-profile views",
+      "notes": "Gaps review E2. Browse archive through X's eyes; operator's own lens stays invisible."
+    },
+    {
+      "id": "M45-41",
+      "milestone": "M45",
+      "requirement": "Rec-post attribution: share links carry sharer code, both sides earn credits",
+      "notes": "Gaps review E3."
+    },
+    {
+      "id": "M45-42",
+      "milestone": "M45",
+      "requirement": "Claim your works: invite authors whose works exist as metadata",
+      "notes": "Gaps review E4. AO3-profile code verification; exclusion registry for opt-outs."
+    },
+    {
+      "id": "M45-43",
+      "milestone": "M45",
+      "requirement": "Discord bot with rec commands, per-fandom feeds, account linking",
+      "notes": "Gaps review E5. Extends \u00a737 companion bot."
+    },
+    {
+      "id": "M45-44",
+      "milestone": "M45",
+      "requirement": "Sister instances: subscribe to public picks over ActivityPub",
+      "notes": "Gaps review E6. Directory searchable by public topics (\u00a70.4)."
+    },
+    {
+      "id": "M45-45",
+      "milestone": "M45",
+      "requirement": "Taste as versioned blendable object with governance mode",
+      "notes": "Gaps review F1. Operator/council/community-vote lens ownership; succession plan."
+    },
+    {
+      "id": "M45-46",
+      "milestone": "M45",
+      "requirement": "Preview before apply: view-as persona preview of discover/search under proposed config",
+      "notes": "Gaps review F2. Config history and rollback."
+    },
+    {
+      "id": "M45-47",
+      "milestone": "M45",
+      "requirement": "Scale-aware activation: mechanisms declare minimum activity, dormant below it",
+      "notes": "Gaps review F3. Small instances get simpler behavior, features unlock as they grow."
+    },
+    {
+      "id": "M45-48",
+      "milestone": "M45",
+      "requirement": "Hardware-aware presets with graceful degradation tiers",
+      "notes": "Gaps review F4. SQLite weekly batches/no embeddings \u2192 Postgres+Redis incremental."
+    },
+    {
+      "id": "M45-50",
+      "milestone": "M45",
+      "requirement": "Scheduled gravity: time-boxed theme configs for events and seasons",
+      "notes": "Gaps review F6."
+    },
+    {
+      "id": "M45-52",
+      "milestone": "M45",
+      "requirement": "DSA notice-and-action flow and statements of reasons",
+      "notes": "Gaps review G2. Art. 17 covers demotion \u2014 collides with shadow sanction tier; DMCA intake kept for US claimants."
+    },
+    {
+      "id": "M45-54",
+      "milestone": "M45",
+      "requirement": "RPF instance policy knob; Spain honor/image rights awareness",
+      "notes": "Gaps review G5. LO 1/1982."
+    },
+    {
+      "id": "M45-55",
+      "milestone": "M45",
+      "requirement": "Built-in compliance tooling: notice forms, SOR templates, DSAR export",
+      "notes": "Gaps review G6. Operators are legally responsible for their own instance."
+    },
+    {
+      "id": "M63-03",
+      "milestone": "M63",
+      "requirement": "dh rec --sort accepts any registered metric name (wilson, kudos, kudos_per_1k_views, kudos_per_hour, completion, updater_reliability, hidden_gem, freshness_weighted_quality)",
+      "notes": "Weights: quality = 0.40 source_pct + 0.25 consensus + 0.15 engagement_density + 0.10 crosspost + 0.10 confidence, renormalised over the signals a row has. source_pct is a RAW percentile among engaged rows with both ends anchored (0 = bottom, 1 = best of its own archive) because two earlier guardrails each made the achievable maximum depend on n and put 34 of the top 40 rows in the largest archive; evidence is the separate `confidence` signal instead. Gate: `ranked N of M`, and `measured: false` on rows the metric could not score. velocity, hidden_gem, likes_per_view and wilson are refused by name with the work item that unblocks them (M63-32)."
+    },
+    {
+      "id": "M63-05",
+      "milestone": "M63",
+      "requirement": "dh rec --jsonl --fields, --table/--wide/--cols, --link md|epub|url: output shape is a contract",
+      "notes": "Power-user sweep P5. Field projection for jq pipelines; stable ordering; nothing wraps without --wrap. Scripts must not break when a column is added."
+    },
+    {
+      "id": "M63-06",
+      "milestone": "M63",
+      "requirement": "Saved queries: dh rec --save <name>, shareable URL, schedulable, with --digest-diff printing only rows new since that query last ran",
+      "notes": "Power-user sweep P6. Builds on the saved-query shelf work already in discussion; --digest-diff is the actual recurring need behind a weekly ritual."
+    },
+    {
+      "id": "M63-07",
+      "milestone": "M63",
+      "requirement": "dh q '<expr>' with a real grammar (tag: AND OR NOT, kudos>=, updated>=-7d, words>, completion:), shared with web search",
+      "notes": "Power-user sweep P7. One parser for terminal, saved queries, watch filters, feeds and the web search box, so an expression is the same object on every surface."
+    },
+    {
+      "id": "M63-08",
+      "milestone": "M63",
+      "requirement": "dh q --explain prints the query plan and index used; parse errors point at the token and exit 2",
+      "notes": "Power-user sweep P8. Slow-query diagnosis without psql, and a usage error distinguishable from a runtime error by exit code."
+    },
+    {
+      "id": "M63-09",
+      "milestone": "M63",
+      "requirement": "dh q --from-file with .darkhold/queries/*.q: the user's query library is a versioned file, not browser history",
+      "notes": "Power-user sweep P9. Same shape as the instance's own config: reviewable, diffable, shareable."
+    },
+    {
+      "id": "M63-10",
+      "milestone": "M63",
+      "requirement": "dh lib sync --since: incremental local sqlite mirror of the library and catalogue",
+      "notes": "Power-user sweep P10. Enables sub-millisecond dh q, true --offline, and dh bench; the same download machinery a mirror instance needs (P34/P35 preservation)."
+    },
+    {
+      "id": "M63-11",
+      "milestone": "M63",
+      "requirement": "dh lib tag --from-csv with a per-row error report and a rollback file; dh lib diff and push --dry-run before any bulk write",
+      "notes": "Power-user sweep P11. Batch editorial work on 500 rows must be resumable and reversible; a partial failure that cannot be resumed is not a feature."
+    },
+    {
+      "id": "M63-12",
+      "milestone": "M63",
+      "requirement": "dh watch <saved-query> --exec '<cmd>' --notify ntfy|desktop|webhook: a debounced polling daemon",
+      "notes": "Power-user sweep P12. The difference between a saved search and a workflow. Pluggable sinks so the notification path is not tied to one provider."
+    },
+    {
+      "id": "M63-13",
+      "milestone": "M63",
+      "requirement": "dh cron install --every 6h --jitter 10m: writes a systemd user timer for a saved query or recheck job",
+      "notes": "Power-user sweep P13. The instance already runs timers for fic-catalogue-ingest; this hands the same mechanism to a user without a unit file."
+    },
+    {
+      "id": "M63-14",
+      "milestone": "M63",
+      "requirement": "Per-saved-query RSS/Atom and JSON Feed endpoints with ETag/If-None-Match",
+      "notes": "Power-user sweep P14. The cheapest client for a power user who lives in a feed reader; conditional GET makes polling a 304 instead of a query."
+    },
+    {
+      "id": "M63-15",
+      "milestone": "M63",
+      "requirement": "dh doctor: diagnoses token scope, clock skew, TLS, DNS and API version drift, one suggested fix per problem",
+      "notes": "Power-user sweep P15. The first command anyone runs when something feels wrong; turns a support thread into a paste."
+    },
+    {
+      "id": "M63-16",
+      "milestone": "M63",
+      "requirement": "Exit codes as a documented, tested API (0 ok, 1 error, 2 usage, 3 not found, 4 auth, 5 rate-limited)",
+      "notes": "Power-user sweep P16. A contract test per code; without it every wrapper script guesses."
+    },
+    {
+      "id": "M63-17",
+      "milestone": "M63",
+      "requirement": "Shell completions and man pages generated from the clap definition (bash/zsh/fish)",
+      "notes": "Power-user sweep P17. A subcommand nobody can discover may as well not exist; generation keeps completions honest by construction, no drift."
+    },
+    {
+      "id": "M63-18",
+      "milestone": "M63",
+      "requirement": "Config profiles (--profile, DARKHOLD_PROFILE) with per-profile instance URL and token; dh config get/set with dotted keys",
+      "notes": "Power-user sweep P18. One user, two instances, without exporting variables per shell; every knob settable from the tool that reads it."
+    },
+    {
+      "id": "M63-19",
+      "milestone": "M63",
+      "requirement": "Scoped tokens per command family, with the missing scope named on refusal",
+      "notes": "Power-user sweep P19. dh never sends a request it knows will be refused, and the refusal says 'token lacks library:write' rather than 403. Extends the shipped scoped-token issuance UI."
+    },
+    {
+      "id": "M63-20",
+      "milestone": "M63",
+      "requirement": "Rate-limit awareness: back off with jitter on 429, print the retry window, never die silently mid-batch",
+      "notes": "Power-user sweep P20. A batch that fails at row 400 because of a 429 is a tooling bug, not a user error."
+    },
+    {
+      "id": "M63-21",
+      "milestone": "M63",
+      "requirement": "Dry-run is the default for every bulk verb; --yes applies; dh redact strips pseudonyms and emails from JSON output",
+      "notes": "Power-user sweep P21. The safe path is the short path, and the privacy rule is applied at the tool boundary rather than remembered by the user."
+    },
+    {
+      "id": "M63-22",
+      "milestone": "M63",
+      "requirement": "dh admin explain-rec <work>: full feature vector and every strategy's score for one work",
+      "notes": "Power-user sweep P22. The operator's microscope for 'why is this ranked first' \u2014 the debugging counterpart of the shipped slot explanation."
+    },
+    {
+      "id": "M63-23",
+      "milestone": "M63",
+      "requirement": "dh admin backup --to - streams a consistent dump to stdout; dh admin health emits machine-readable checks with per-check exit codes",
+      "notes": "Power-user sweep P23. `ssh host dh admin backup | zstd > backup.zst`, and monitoring is a cron job rather than a dashboard."
+    },
+    {
+      "id": "M63-24",
+      "milestone": "M63",
+      "requirement": "dh bench: times the 20 canonical queries against a local or remote instance and prints a table",
+      "notes": "Power-user sweep P24. A performance regression visible from a user's machine, not only in CI, and a shared language for 'the instance got slow'."
+    },
+    {
+      "id": "M63-25",
+      "milestone": "M63",
+      "requirement": "dh audit --since 7d: the account owner sees every write their tokens made",
+      "notes": "Power-user sweep P25. Automation is accountable to the person it acts for; the operation log already records the writes."
+    },
+    {
+      "id": "M63-26",
+      "milestone": "M63",
+      "requirement": "dh stats --by week --year: streaks and a shareable wrapped-style personal report for the engineering-minded reader",
+      "notes": "Power-user sweep P26. Recognition for the engine: contribution score from the operation log (imports, tags applied, reports filed) shown on a private profile, never on a public ranking."
+    },
+    {
+      "id": "M63-28",
+      "milestone": "M63",
+      "requirement": "crates/cli: the `dh` binary, a thin client of /api/v1 that may not depend on crates/app or crates/db",
+      "notes": "Placement decision recorded in docs/plans/cli-placement.md: the CLI owns no durable data beyond a cache, so it belongs beside the contract it consumes rather than in lorebook (which owns Calibre metadata.db and forbids cross-repo dependencies in either direction) or in a fourth repo (which would drift silently instead of failing the workspace build). Depends on wire types (crates/metadata, crates/domain) + reqwest only; if it needs more, the type belongs in crates/metadata. Tests: in-process router for serialisation and error mapping, plus the sqlite snapshot for dh q --local; no direct database access."
+    },
+    {
+      "id": "M63-29",
+      "milestone": "M63",
+      "requirement": "dh tui: a full-screen mode of the same binary behind a feature flag, not a separate project",
+      "notes": "Same verbs, same window grammar, same saved queries, same snapshot cache; only the output layer differs. A separate TUI project would duplicate the parser, which is the fork the window grammar exists to prevent. Built last, after rec/q/export/local are real."
+    },
+    {
+      "id": "M63-30",
+      "milestone": "M63",
+      "requirement": "dh lib --calibre <path>: read Calibre's metadata.db as a data source to seed a reading history, with no crate or RPC link to lorebook",
+      "notes": "The honest interop direction between the two products: same file format, no dependency (the Ascend file-handshake precedent applied to a database). Read-only, dry-run by default, prints what would be imported. Mirrors the other direction: GET /api/v1/catalogue/export.sqlite is a file lorebook could open to gain a catalogue overlay without importing Darkhold code."
+    },
+    {
+      "id": "M63-32",
+      "milestone": "M63",
+      "requirement": "fandom tags cover the whole catalogue and can be ranked: backfill tags for the sb/sv/qq/ao3/ffnet estate and import the endorsement counts the tagged rows lack",
+      "notes": "Found while shipping M63-01. The filter works and is honest about coverage (fandom_tagged_rows / fandom_tagged_with_likes), but as data it answers 'Naruto' with 265 pawchive rows that carry no likes, so --sort likes orders ties. The tagging came in with the pawchive importer; the forum and AO3 imports wrote no tags. Needs either a backfill from the source metadata (AO3 tags are in the work page the importer already fetches) or a tag-inference pass, and a like-count import for pawchive."
+    },
+    {
+      "id": "M63-33",
+      "milestone": "M63",
+      "requirement": "reconcile the live database with the workspace migrations: 11 tables the migrations create are absent, 12 legacy-named tables are present",
+      "notes": "Found while planning M63-01. The live instance was migrated by the other lineage (lorehaven), whose migration numbers collide with this tree's, so master's files are recorded as applied while the schema is the other one. Everything M63-01 touches exists in both shapes, so the milestone was verifiable; anything that reads chapters/bodies/ships from the live instance will not be. Decide per table: rename (units->chapters, entity_*->canonical_*, revisions->chapter_revisions) or create-and-backfill. Do not run this blind: 127k rows live in the legacy shapes."
+    },
+    {
+      "id": "M63-34",
+      "milestone": "M63",
+      "requirement": "catalogue q= searches the summary as well as title and author, and can search title+summary in one query from the CLI",
+      "notes": "Found while answering a real question ('20 best progression-fantasy fics with a system') with dh rec: the verb could not find them, because the words that identify the subgenre ('the Gamer', 'LitRPG', 'Chaos Gacha', 'Celestial Grimoire') live in the summary and the tags, not the title. A summary scan belongs behind the same route so the CLI and the site share one definition; weighing it (summary is long, so a plain LIKE over 141k rows needs measuring before it ships) is part of the item."
+    },
+    {
+      "id": "M63-04",
+      "milestone": "M63",
+      "requirement": "per-source engagement is stored as the source reports it (likes, hits, replies, bookmarks) instead of one normalised `likes`, so a rate metric can be computed per archive",
+      "notes": "Blocks likes_per_view, wilson and any rate metric. The same import should carry the board's reply count and the AO3 hits, which the source pages already publish."
+    },
+    {
+      "id": "M63-05",
+      "milestone": "M63",
+      "requirement": "the quality weights are per-operator and per-surface rather than compiled in",
+      "notes": "Belongs with M63-30's taste layer, not before it: a weight nobody can explain is worse than a constant. The registry shape is already there \u2014 each metric is addressable by name, so a profile is a weight vector over names."
+    },
+    {
+      "id": "M63-35",
+      "milestone": "M63",
+      "requirement": "six milestone ids are duplicated in this file (M63-03/04/05 appear twice, once per area), so a row can be closed twice for two different pieces of work",
+      "notes": "Found while closing M63-04: the catalogue sweep appended rows without checking the id space, and M63-03 was closed twice for the API metrics and the CLI metric vocabulary. Renumbering is an operator decision, so nothing was renumbered; M63-04's plan and this row disambiguate by area. The same pass added two pre-existing clippy warnings in crates/app/src/routes/draw.rs (useless conversion to the same type, lines 191 and 254) to the three in work_ratings.rs that already fail --all-targets."
+    },
+    {
+      "id": "M64-01",
+      "milestone": "M64",
+      "requirement": "every recommendation surface has a canonical id and a field of two to four named algorithms chosen by config, and an algorithm whose data is empty refuses by name instead of serving a page",
+      "notes": "P1 of the ranking design. Surfaces: story.similar, story.also_enjoyed, story.more_by_author, story.lists_containing, search.results, search.facets, author.works, author.similar, author.colists, author.fandoms, home.trending, home.hidden_gems, home.popular_in_fandom, home.recently_updated, home.new_this_week, home.curated, library.because_you_shelved, library.fill_the_gap, library.authors_updated, tag.default_sort, tag.adjacent, tag.cross_fandom, tag.facets. The registry is closed and each algorithm declares its data dependency (needs = [work_tags]) so a missing dependency is a refusal naming the milestone, exactly as ?sort=velocity refuses today. A surface with one algorithm is legal and is where every surface starts. A recipe (M11-05) composes algorithms rather than being a fourth kind of thing. \u00a743's ordering contract and M43-02 hold: an algorithm reorders, never filters."
+    },
+    {
+      "id": "M64-02",
+      "milestone": "M64",
+      "requirement": "impressions and the events that follow them are logged append-only per (surface, algorithm, position, item), with a sticky bucket assignment per pseud or session",
+      "notes": "P2. Events: open, read_threshold (50% of the first chapter), bookmark, kudos, negative (hide / not interested). Assignment is hash(surface, experiment_id, subject), sticky for the experiment, anonymous sessions included with a capped share so one bot cannot decide a winner. Append-only."
+    },
+    {
+      "id": "M64-03",
+      "milestone": "M64",
+      "requirement": "per-arm metrics and guardrails are computed as daily snapshots, so a promotion reads a snapshot and never the raw log at decision time",
+      "notes": "P3. Primary: CTR@k and conversion per 1,000 impressions. Guardrails: negative-feedback rate, served-set diversity (distinct fandom/author share), catalogue coverage, p95 latency. Anti-gaming: impression share per source, new-work share. A challenger that wins CTR by serving one archive is a regression with better numbers."
+    },
+    {
+      "id": "M64-04",
+      "milestone": "M64",
+      "requirement": "a challenger is promoted automatically only on a sequential-test win with every guardrail in bounds, at minimum sample and after seven days, and demoted automatically when a guardrail breaches on two consecutive snapshots",
+      "notes": "P4. The four conditions are all required: confidence sequence valid under continuous monitoring (not a peeked fixed-horizon p-value), guardrails in bounds, >= 1000 impressions and >= 50 conversions per arm plus >= 7 days, and a written record (experiment id, arms, metric values, guardrail values, algorithms swapped, previous incumbent) so rollback is one row. Rollback restores the previous incumbent and marks the experiment rolled_back with the numbers."
+    },
+    {
+      "id": "M64-06",
+      "milestone": "M64",
+      "requirement": "tag_jaccard and tag_cooccurrence over the normalised tag taxonomy with synonym mapping, refused by name while no engaged row carries a tag",
+      "notes": "P6, blocked on M63-32. Measured 2026-11-01: work_tags joins 0 of the 1,247 rows that carry likes; all 7,626 tagged rows are pawchive with none. Shipping this before the backfill returns a page that reads as 'nothing is similar'."
+    },
+    {
+      "id": "M64-07",
+      "milestone": "M64",
+      "requirement": "crosspost_union: one story's engagement is summed across every archive it appears on, reusing M63-04's resolution rule for which copy a name means",
+      "notes": "P7. The catalogue already computes total_likes and source_count by normalised title+author; this row is the algorithm that exposes it as a ranking input rather than a displayed number."
+    },
+    {
+      "id": "M64-08",
+      "milestone": "M64",
+      "requirement": "fandom_graph: an operator-managed adjacency map with edge weights (Worm<->Ward, Naruto<->Boruto, MCU<->616, SB<->SV culture) used by tag.cross_fandom and author.similar",
+      "notes": "P8. Static by nature and that is the point: it works before any reader exists. Managed as data (an operator file or admin surface), versioned, and never inferred from co-occurrence alone."
+    },
+    {
+      "id": "M64-09",
+      "milestone": "M64",
+      "requirement": "taste gravity applies at every recommendation surface as a bounded influence layer after the blend, with a per-surface strength, reordering and never filtering",
+      "notes": "P9. served = (1-g)*algorithm + g*taste_match, taste_match from the operator profile (\u00a716.2) over fandom/tag/author/source. Default g = 0.15; story.more_by_author = 0.0, story.similar = 0.10, home.trending = 0.35. Constraints: reorders never filters (M43-02), floor/ceiling are configuration (\u00a716.16's shape), the reader's dial reaches zero unless locked (\u00a716.5), no per-item reason is printed and no score is exposed (\u00a70.3) while the mode and a coarse pull histogram are published, and gravity is measured as its own experimental arm so 'it helped' is a number."
+    },
+    {
+      "id": "M64-10",
+      "milestone": "M64",
+      "requirement": "length, status, rating and cadence are first-class facets on every browse and search surface, and a facet whose column is null on the filtered rows says so instead of returning an empty page",
+      "notes": "P10. Depends on data more than code: word_count is null on every engaged board row and views is null on all 141,317, so a length facet today filters on a column that is almost entirely null. The refusal is the deliverable until M63-04 (catalogue) and M63-32 land."
+    },
+    {
+      "id": "M64-11",
+      "milestone": "M64",
+      "requirement": "co_shelving: reading lists are first-class (create, curate, publish, follow) and list co-occurrence feeds story.similar and library.because_you_shelved",
+      "notes": "P11, the endgame signal and the one with the longest lead time: it needs lists to exist and to be used before it has any rows. Design lists first so the data accumulates from the day the feature ships."
+    },
+    {
+      "id": "M64-12",
+      "milestone": "M64",
+      "requirement": "co_read: session transitions feed story.also_enjoyed, with bot and single-click traffic excluded",
+      "notes": "P12. Needs M64-02's logging. Noisy by nature; the threshold is a minimum transitions-per-item before an edge is usable."
+    },
+    {
+      "id": "M64-13",
+      "milestone": "M64",
+      "requirement": "engagement_overlap at reader-cluster level with k-anonymity (a minimum number of readers per cluster) and aggregation thresholds, exposing no per-reader signal",
+      "notes": "P13. Feeds author.similar, library.fill_the_gap and story.similar. The privacy floor is the gate: below the threshold the algorithm reports unmeasured rather than pretending."
+    },
+    {
+      "id": "M64-14",
+      "milestone": "M64",
+      "requirement": "embedding similarity for summaries first and full text last, feature-gated on a configured AI provider and degrading to disabled rather than erroring",
+      "notes": "P14. The spec already names embedding and matrix-factorisation strategies as provider-gated (\u00a716). Summary embeddings are the cheap half; full-text style matching needs the bodies, which the catalogue deliberately does not store."
+    },
+    {
+      "id": "M64-15",
+      "milestone": "M64",
+      "requirement": "the operator console lists every live experiment per surface with its numbers, allows hold, promote and preview-as-persona, and shows why each promotion happened",
+      "notes": "P15. Promotion is automatic (M64-04); this is the surface where the operator can disagree without editing a table. preview-as-persona reuses M45-46 (preview before apply)."
+    },
+    {
+      "id": "M45-58",
+      "milestone": "M45",
+      "requirement": "erasure reaches the supply routing record: \u00a758.3 keeps a routing row forever, and GDPR erasure must still remove the account from it",
+      "notes": "Found while building M45-25. \u00a758.3 says a routing row is never deleted because an abandoned routing is evidence the reader was asked; \u00a751's cascade (M45-51) has to reach supply_routing.account_id anyway, because it is personal data. The two are compatible (keep the row, replace the account with a per-snapshot key) but the cascade list has to be told, and nothing today enumerates which tables carry an account column. Already recorded as drop_table in docs/snapshot-column-policy.json so the row never reaches a published dataset."
+    },
+    {
+      "id": "M65-06",
+      "milestone": "M65",
+      "requirement": "the frontend hides its links from /api/v1/modules instead of assuming every surface exists",
+      "notes": "Phase 1 declares `nav` on rows (all empty so far, because no module has declared its entries yet) and serves it. The SvelteKit shell must read the payload and render nav from it; until then an instance that disables `quiz` serves a link to a 404. Also the slot contracts \u00a76.3 promised: dashboard, reader-sidebar, work-metadata, search-decorator, writing-tool, theme-token."
+    },
+    {
+      "id": "M65-08",
+      "milestone": "M65",
+      "requirement": "an idea row becomes a module when it is built, without a second backlog",
+      "notes": "Today an idea is `idea.<slug>` and a built surface is `<module id>`; nothing links the two, so building an idea leaves a stale planned row beside the new module. Decide the join (a `realised_by` field on the idea, or the generator dropping an idea whose slug matches a module id) and assert it: every planned idea that has been built must be gone from IDEAS."
+    },
+    {
+      "id": "M65-09",
+      "milestone": "M65",
+      "requirement": "the module gate skips the per-user lookup when nobody holds an override",
+      "notes": "Deferred from M65-04 with its reason: the gate currently does one indexed primary-key read per request to a per_user surface with a session. A process-wide 'any overrides exist' flag would skip it, but the flag must be initialised from the table at startup, bumped on every PATCH, cleared when the last row is deleted, and would be wrong for a second process sharing the database. Worth doing when a per_user surface is hot enough for the read to appear in a profile, not before."
+    },
+    {
+      "id": "M65-10",
+      "milestone": "M65",
+      "requirement": "module_user_state rows are rekeyed with their account on erasure",
+      "notes": "0134 declares no foreign key on account_id because \u00a751 erases by rekeying the account rather than deleting it, so ON DELETE CASCADE never fires. The policy entry says rekey_account and this row is the work: add module_user_state to M45-51's erasure pass and prove with a test that after an erasure the row still exists with the new account id. Until then the policy is a decision, not a behaviour."
+    },
+    {
+      "id": "GS-1",
+      "milestone": "M66",
+      "requirement": "guest access with consent: a reader may read before registering, and the consent gate exists before the surface it gates. The estate standard sets the free-to-read boundary; this site's only delta is guest.mau_limit = 500.",
+      "notes": "Adopted from the estate standard (secondbrain 2026-10-16-guest-access-trust-and-self-governance.md). Config delta for this site: guest.mau_limit = 500. Blocked on GS-3 (the guest identity is a cookie, so the consent gate must exist before the thing it gates)."
+    },
+    {
+      "id": "GS-2",
+      "milestone": "M66",
+      "requirement": "the guest fold moves reading progress and bookmarks with the guest: progress and bookmarks are the guest's most valuable and most private artifact, so registering moves them rather than abandoning them, and nothing is published about a guest beforehand.",
+      "notes": "Firewall specific to this site: reader-visible data is the guest's most valuable and most private artifact, and nothing may be published about a guest before they register. Ordered after GS-3 because offering guest access without the fold creates work to clean up later."
+    },
+    {
+      "id": "GS-3",
+      "milestone": "M66",
+      "requirement": "guest identity as a first-class pseudonym: the guest identity is a cookie-backed pseudonym that upgrades in place on registration, and it comes first because the gate has to exist before the thing it gates.",
+      "notes": "Measured 2026-11-02: consent appears only in crates/app/tests/milestone_16.rs; no guest identity and no fold exist in this tree. The standard names this first because the gate has to exist before the thing it gates."
+    },
+    {
+      "id": "GS-4",
+      "milestone": "M66",
+      "requirement": "elastic trust from karma, not a parallel score: trust is derived from the karma terms already in this tree (karma: 99 references, trust_level: 52) rather than a parallel score, because two trust numbers that disagree is the failure mode.",
+      "notes": "An upgrade of machinery that exists rather than new machinery: karma (99 references) and trust_level (52) are already here. Two trust numbers that disagree is the failure mode. Cheap to fake, so it needs a test that would pass for the wrong reason, written and killed on purpose."
+    },
+    {
+      "id": "GS-5",
+      "milestone": "M66",
+      "requirement": "a jury drawn from the eligible pool: governance decisions are made by a jury drawn from the eligible pool; cheap to fake, so it needs a test that would pass for the wrong reason, written and killed on purpose.",
+      "notes": "The other item nothing in this repo has. Same caution as GS-4: the numbers belong in the roadmap file when they are real."
+    },
+    {
+      "id": "M66-08",
+      "milestone": "M66",
+      "requirement": "P2P local file sharing over the LAN and by direct link, with a seeding network later: a reader serves their own files to another person directly \u2014 no relay, no DHT, no node discovery, no global namespace \u2014 and their files stay their own files.",
+      "notes": "The first milestone is deliberately smaller and shippable: serve local files to another person on the LAN or by a direct link, with no relay, no DHT, no node discovery and no global namespace; the user's own files stay their own files. Items 50, 51, 61, 69 and 96 belong to it (drag-drop import, local full-text search, offline queue, Calibre metadata.db ingestion, a local engine over local edges). The seeding network (81, 93, 98, 99) is a later spec that needs a threat model first \u2014 a document, not a weekend."
+    },
+    {
+      "id": "M45-61",
+      "milestone": "M45",
+      "requirement": "`comments.created_at` is not constrained to the canonical shape, so the welcome rota's 72-hour window compares text against text and a non-canonical writer would silently match nothing",
+      "notes": "Found while making the PostgreSQL arm pass: the fixture wrote $4::timestamptz, PostgreSQL stored '2026-11-02 02:13:48+00', and created_at >= '2026-11-02T02:13:48Z' compared a space against 'T' and matched nothing \u2014 a refusal with no error. The real writer (community::insert_comment) uses now_rfc3339, so live rows are canonical; the gap is that nothing stops the next writer. M63-31 added the CHECK to library_items only."
+    },
+    {
+      "id": "M45-62",
+      "milestone": "M45",
+      "requirement": "`event_participation.account` and `events.created_by` hold pseud ids although the columns are named for accounts, so every \u00a718 query and the exchange matcher pair pseuds through an account-named column",
+      "notes": "Found while wiring M45-27. post_event binds pseud_id into events.created_by and join_event binds it into event_participation.account; the schema says account and the CHECK-free TEXT column accepts either. The matcher was written to match the data (pseuds) rather than the name, and says so in its kinds. The fix is either a rename migration (and the \u00a751 erasure list gaining pseud treatment) or accepting the name and documenting it; the second is cheaper and the first is not this ticket's to decide."
+    }
+  ],
+  "open_by_milestone": {
+    "M63": 32,
+    "M45": 23,
+    "M64": 14,
+    "M66": 6,
+    "M65": 4
+  },
+  "unlinked_concord": [
+    {
+      "id": "2473",
+      "title": "Quorum-gated front page",
+      "status": "discussion"
+    },
+    {
+      "id": "2507",
+      "title": "Taste-portability file",
+      "status": "discussion"
+    },
+    {
+      "id": "2511",
+      "title": "Reader-set \"effort\" bands",
+      "status": "unknown"
+    },
+    {
+      "id": "2512",
+      "title": "Explicit \"why not\" for hidden works",
+      "status": "unknown"
+    },
+    {
+      "id": "2513",
+      "title": "Cohort-level taste drift alarms",
+      "status": "unknown"
+    },
+    {
+      "id": "2514",
+      "title": "Author-side cohort targeting",
+      "status": "unknown"
+    },
+    {
+      "id": "2515",
+      "title": "Non-fiction and meta shelf",
+      "status": "unknown"
+    },
+    {
+      "id": "2516",
+      "title": "Multi-work reading sessions",
+      "status": "unknown"
+    },
+    {
+      "id": "2517",
+      "title": "Recency-weighted kudos for revived works",
+      "status": "unknown"
+    },
+    {
+      "id": "2518",
+      "title": "Curator rotation with handover notes",
+      "status": "unknown"
+    },
+    {
+      "id": "2519",
+      "title": "Discovery regression suite",
+      "status": "unknown"
+    },
+    {
+      "id": "2521",
+      "title": "Publish the trust-level thresholds",
+      "status": "unknown"
+    },
+    {
+      "id": "2522",
+      "title": "Per-category quorum thresholds",
+      "status": "discussion"
+    },
+    {
+      "id": "2523",
+      "title": "Jury duty from the eligible pool",
+      "status": "unknown"
+    },
+    {
+      "id": "2525",
+      "title": "One appeal, differently sampled",
+      "status": "discussion"
+    },
+    {
+      "id": "2526",
+      "title": "Decision receipts",
+      "status": "unknown"
+    },
+    {
+      "id": "2527",
+      "title": "Rules as versioned objects",
+      "status": "unknown"
+    },
+    {
+      "id": "2528",
+      "title": "Meta-moderation",
+      "status": "unknown"
+    },
+    {
+      "id": "2544",
+      "title": "Sybil resistance from reading depth",
+      "status": "unknown"
+    },
+    {
+      "id": "2546",
+      "title": "Signed instance policy documents",
+      "status": "unknown"
+    },
+    {
+      "id": "2564",
+      "title": "Status-quo default for unresolved disputes",
+      "status": "unknown"
+    },
+    {
+      "id": "2569",
+      "title": "Everything reversible by quorum",
+      "status": "unknown"
+    },
+    {
+      "id": "2570",
+      "title": "Continuity document",
+      "status": "unknown"
+    },
+    {
+      "id": "2579",
+      "title": "Two-vouch promotion",
+      "status": "unknown"
+    },
+    {
+      "id": "2590",
+      "title": "Governance dry-run simulator",
+      "status": "unknown"
+    },
+    {
+      "id": "2592",
+      "title": "WebFinger and actor discovery",
+      "status": "discussion"
+    },
+    {
+      "id": "2594",
+      "title": "Inbox idempotency and replay defence",
+      "status": "discussion"
+    },
+    {
+      "id": "2598",
+      "title": "Cross-instance work identity",
+      "status": "unknown"
+    },
+    {
+      "id": "2601",
+      "title": "Tombstones for deletions",
+      "status": "discussion"
+    },
+    {
+      "id": "2604",
+      "title": "Content-addressed bodies",
+      "status": "unknown"
+    },
+    {
+      "id": "2619",
+      "title": "ActivityPub bridge to PieFed, announce-only",
+      "status": "unknown"
+    },
+    {
+      "id": "2621",
+      "title": "Webmention support",
+      "status": "discussion"
+    },
+    {
+      "id": "2626",
+      "title": "Cross-instance jury for federated content",
+      "status": "unknown"
+    },
+    {
+      "id": "2627",
+      "title": "Bounded credit reconciliation",
+      "status": "discussion"
+    },
+    {
+      "id": "2632",
+      "title": "Category-scoped federation",
+      "status": "unknown"
+    },
+    {
+      "id": "2634",
+      "title": "Signed instance manifests for clients",
+      "status": "discussion"
+    },
+    {
+      "id": "2638",
+      "title": "Cross-instance spam hashes",
+      "status": "unknown"
+    },
+    {
+      "id": "2639",
+      "title": "Mirror-first publish",
+      "status": "discussion"
+    },
+    {
+      "id": "2640",
+      "title": "Air-gapped instance sync via signed bundles",
+      "status": "unknown"
+    },
+    {
+      "id": "2643",
+      "title": "Peer delivery honesty score",
+      "status": "discussion"
+    },
+    {
+      "id": "2644",
+      "title": "Deterministic merged-edit conflict resolution",
+      "status": "unknown"
+    },
+    {
+      "id": "2652",
+      "title": "Per-chapter content hashing",
+      "status": "discussion"
+    },
+    {
+      "id": "2698",
+      "title": "Content-addressed garbage collection with retention",
+      "status": "unknown"
+    },
+    {
+      "id": "2704",
+      "title": "Self-hosted mirror in a box",
+      "status": "unknown"
+    },
+    {
+      "id": "2734",
+      "title": "Calibre interop contract",
+      "status": "discussion"
+    },
+    {
+      "id": "2736",
+      "title": "Rate-limit visibility",
+      "status": "discussion"
+    },
+    {
+      "id": "2737",
+      "title": "Custom feed builder",
+      "status": "unknown"
+    },
+    {
+      "id": "2742",
+      "title": "Snippet and quote cards",
+      "status": "discussion"
+    },
+    {
+      "id": "2750",
+      "title": "Scriptable moderation webhooks",
+      "status": "unknown"
+    },
+    {
+      "id": "2755",
+      "title": "Content-hash dedupe across archives",
+      "status": "discussion"
+    },
+    {
+      "id": "2760",
+      "title": "AI-generated content flagged at import and filtered everywhere",
+      "status": "discussion"
+    },
+    {
+      "id": "2772",
+      "title": "Cursor-paged server-rendered catalogue grid",
+      "status": "discussion"
+    },
+    {
+      "id": "2773",
+      "title": "Work page carries everything attached to it",
+      "status": "discussion"
+    },
+    {
+      "id": "2785",
+      "title": "Taste-ordered front page with a for-you redirect",
+      "status": "discussion"
+    },
+    {
+      "id": "2810",
+      "title": "Theme and density remembered",
+      "status": "discussion"
+    },
+    {
+      "id": "2851",
+      "title": "Imports page: runs, refusals, yield",
+      "status": "discussion"
+    },
+    {
+      "id": "2852",
+      "title": "Per-source health page",
+      "status": "discussion"
+    },
+    {
+      "id": "2853",
+      "title": "Storage page with budgets and what would be evicted",
+      "status": "discussion"
+    }
+  ],
+  "roadmap": [
+    "`spec.md` \u00a754 \u2192 implementation note",
+    "The pre-existing CI reds",
+    "The 27 `planned` + 6 `specified` tracker rows",
+    "Path B (WASM), \u00a755.4",
+    "`if not CLAUSE_END.match(after)`",
+    "added `AS\\b` to fix #1",
+    "`EXTRACT(EPOCH FROM (...))`",
+    "`ON` is a bare identifier",
+    "`operator does not exist: text <= timestamp with time zone`",
+    "`42803 subquery uses ungrouped column \"r.created_at\" from outer query`",
+    "`42883 operator does not exist: timestamp with time zone >= text`",
+    "remove the gate call",
+    "`AppError::Forbidden`",
+    "`AppError::AccessDenied { resource }`",
+    "`AppError::AccessDenied`"
+  ]
+}

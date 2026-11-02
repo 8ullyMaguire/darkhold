@@ -547,6 +547,12 @@ pub fn build_router(state: AppState) -> Router {
         // Administration — M19.
         .merge(module_mount(&state, "admin", routes::admin::router(), RouteClass::Default))
         .merge(module_mount(&state, "admin_discovery", routes::admin_discovery::router(), RouteClass::Default))
+        .merge(module_mount(
+            &state,
+            "operator_hit_rate",
+            routes::operator_hit_rate::router(),
+            RouteClass::Default,
+        ))
         .merge(module_mount(&state, "flows", routes::flows::router(), RouteClass::Default))
         // Separate `classified` rather than a second router in the merge above: the two
         // views are both `Default`, and one `classified` call takes exactly one router.

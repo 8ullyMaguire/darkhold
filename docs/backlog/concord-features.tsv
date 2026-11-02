@@ -1,0 +1,94 @@
+id	title	status
+34	M09: 41 implemented	shipped
+36	M10: 37 implemented	unknown
+55	M41: 34 implemented	shipped
+64	M54: 1 implemented, 1 planned	discussion
+67	M57: 5 implemented	shipped
+75	M8: 2 implemented	shipped
+186	Application starts with SQLite	in_progress
+212	One shared content-eligibility service	in_progress
+238	Content-addressed storage and quota handling	in_progress
+366	Import and library pages	rejected
+398	Theme gravity applied in discovery ranking	unknown
+415	Structured content warnings with per-user reveal prefs	in_progress
+457	Browse-and-demand-weight implementation plan	unknown
+462	AI content declaration per work with Pool B multipliers	unknown
+466	Processor-agnostic billing adapter replacing the Stripe reference	unknown
+468	Incentivized interactions tagged at write time and discounted in ranking	unknown
+469	Generated-content posture as instance policy: forbid|disclose|allow	unknown
+471	Work coordinates: deterministic stylometry + end-of-work micro-surveys	unknown
+489	Trend radar: emerging-fandom detection for event and bounty timing	unknown
+502	Taste as versioned blendable object with governance mode	unknown
+504	Scale-aware activation: mechanisms declare minimum activity, dormant below it	unknown
+506	Variety within the aligned set: MMR re-ranking and satiation modeling	unknown
+507	Scheduled gravity: time-boxed theme configs for events and seasons	unknown
+508	GDPR compliance: resonance score disclosed on access requests, erasure cascades	unknown
+511	RPF instance policy knob; Spain honor/image rights awareness	unknown
+512	Built-in compliance tooling: notice forms, SOR templates, DSAR export	unknown
+513	Roadmap board: cards grouped by stage, Elo-ordered, anonymously readable	unknown
+515	Voting and suggesting gated at TL>=1 via trust ladder	unknown
+521	Public metric bar gated by work.show_public_ratings	unknown
+525	Per-domain settings tables: search_settings, content_filters, notification_routes	unknown
+527	Server-side content-filter enforcement on search, feeds, recommendations, notifications	unknown
+529	Per-event notification channel routing extending §17.5	unknown
+532	Settings writes audited to the governance audit log	unknown
+533	RecStrategy trait + registry with per-strategy enable and config	unknown
+547	OpenAPI specification generated from the router and published docs page	unknown
+2473	Quorum-gated front page	discussion
+2507	Taste-portability file	discussion
+2511	Reader-set "effort" bands	unknown
+2512	Explicit "why not" for hidden works	unknown
+2513	Cohort-level taste drift alarms	unknown
+2514	Author-side cohort targeting	unknown
+2515	Non-fiction and meta shelf	unknown
+2516	Multi-work reading sessions	unknown
+2517	Recency-weighted kudos for revived works	unknown
+2518	Curator rotation with handover notes	unknown
+2519	Discovery regression suite	unknown
+2521	Publish the trust-level thresholds	unknown
+2522	Per-category quorum thresholds	discussion
+2523	Jury duty from the eligible pool	unknown
+2525	One appeal, differently sampled	discussion
+2526	Decision receipts	unknown
+2527	Rules as versioned objects	unknown
+2528	Meta-moderation	unknown
+2544	Sybil resistance from reading depth	unknown
+2546	Signed instance policy documents	unknown
+2564	Status-quo default for unresolved disputes	unknown
+2569	Everything reversible by quorum	unknown
+2570	Continuity document	unknown
+2579	Two-vouch promotion	unknown
+2590	Governance dry-run simulator	unknown
+2592	WebFinger and actor discovery	discussion
+2594	Inbox idempotency and replay defence	discussion
+2598	Cross-instance work identity	unknown
+2601	Tombstones for deletions	discussion
+2604	Content-addressed bodies	unknown
+2619	ActivityPub bridge to PieFed, announce-only	unknown
+2621	Webmention support	discussion
+2626	Cross-instance jury for federated content	unknown
+2627	Bounded credit reconciliation	discussion
+2632	Category-scoped federation	unknown
+2634	Signed instance manifests for clients	discussion
+2638	Cross-instance spam hashes	unknown
+2639	Mirror-first publish	discussion
+2640	Air-gapped instance sync via signed bundles	unknown
+2643	Peer delivery honesty score	discussion
+2644	Deterministic merged-edit conflict resolution	unknown
+2652	Per-chapter content hashing	discussion
+2698	Content-addressed garbage collection with retention	unknown
+2704	Self-hosted mirror in a box	unknown
+2734	Calibre interop contract	discussion
+2736	Rate-limit visibility	discussion
+2737	Custom feed builder	unknown
+2742	Snippet and quote cards	discussion
+2750	Scriptable moderation webhooks	unknown
+2755	Content-hash dedupe across archives	discussion
+2760	AI-generated content flagged at import and filtered everywhere	discussion
+2772	Cursor-paged server-rendered catalogue grid	discussion
+2773	Work page carries everything attached to it	discussion
+2785	Taste-ordered front page with a for-you redirect	discussion
+2810	Theme and density remembered	discussion
+2851	Imports page: runs, refusals, yield	discussion
+2852	Per-source health page	discussion
+2853	Storage page with budgets and what would be evicted	discussion

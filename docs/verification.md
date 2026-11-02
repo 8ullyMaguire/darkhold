@@ -1,3 +1,102 @@
+## 2026-11-02 — §53.5 gets a door, and §59.3's promised gate turns out never to have existed
+
+**Spec:** §53.5, §59.3 · **Requirements:** `M66-09`, and the §59.3 gate the registry header claimed ·
+**Tests:** `crates/app/tests/operator_hit_rate.rs` (5), `crates/app/tests/module_registry.rs` (5)
+
+### What was asked, and what "everything" actually is
+
+The standing prompt was to implement the roadmap and then every feature named in the repository, the
+brainstorms and the Concord project. That is not one session's work, so the first action was a
+**count**, not code: `scripts/backlog.py` now joins the three sources and `python3 scripts/backlog.py
+--check` fails when the inventory is stale.
+
+| source | count |
+|---|---:|
+| requirements in `docs/requirements.csv` | 834 |
+| …still `planned` before this entry | 80 |
+| Concord cards on the project page | 93 |
+| …milestone rollups (`M09: 41 implemented`), not work | 6 |
+| …work cards | 87 |
+| …already restating a requirement | 29 |
+| …genuinely unlinked (new surface) | 58 |
+| items in the session roadmap's own list | 15 |
+
+**The first matcher said 0 unlinked.** It used substring containment, and rows whose `requirement`
+cell is empty make the needle the empty string — `"" in anything` is true, so all 87 work cards
+"matched". A de-duplicator that reports total coverage is the most expensive kind of wrong; the
+matcher now requires at least three shared content words and a Jaccard of 0.6. The real number is 58.
+
+### The two defects
+
+**1. §53.5's number had no door.** `darkhold_db::hit_rate` was built, documented and covered by ten
+tests, and `grep -rn hit_rate crates/app` returned no route: the operator's one number could only be
+read by writing SQL against the instance by hand. `GET /api/v1/operator/hit-rate?window_days=N` now
+serves `shown`, `hits`, `rate` and `defined`.
+
+**2. §59.3's central guarantee was a sentence, not a test.** The registry's own header said
+`m59_extensions::every_route_module_is_registered` fails when a mounted surface has no row.
+`grep -rn every_route_module_is_registered crates/` found the sentence and nothing else — so a surface
+could be mounted outside the mechanism and no gate would have said so. `crates/app/tests/module_registry.rs`
+is now that gate.
+
+### The refusals, and why each is one shape
+
+- **Non-operator: `404`**, not `403`. On a single-reader instance the *existence* of a hit-rate door is
+  a statement about the reader, so §0.3's rule applies to the door itself.
+- **Disabled extension: also `404`**, via `MODULE_UNAVAILABLE` from `module_mount`. Two codes ("you may
+  not" and "this instance does not") would let a caller map the operator's configuration from outside.
+- **Undefined: `"rate": null` with `"defined": false`.** §53.5 says a zero would read as total failure
+  and invite a change to a recipe nothing has tested; the field exists so a client never has to infer
+  which null it is looking at.
+- **Window clamped to `1..=365`**, not trusted, and echoed as `since`/`until`.
+
+### The gate's own two mistakes
+
+The first draft of `module_registry.rs` asserted "every row is mounted" and "no id is mounted twice"
+and failed **23 true rows and 10 true mounts**:
+
+- a module may legitimately be mounted at several prefixes (`roadmap` three times, `monetization`
+  three), so duplicate mount ids are the design;
+- the 23 dotted rows (`story.similar`, `home.trending`, …) are `Stability::Planned` slots with
+  `default_on: false`, which is exactly what §59.7 asks for.
+
+The rows were right and the rule was not. The gate now says: every mount site is `CORE` or a `Stable`
+row; every `Stable` row is mounted; a `Planned` row is never on by default and never `Toggle::Fixed`;
+and the counts (`97` mount sites, `79` stable, `23` planned) are pinned so a parser that stops
+matching fails instead of passing vacuously.
+
+### Verification
+
+```
+cargo test -p darkhold-app --test operator_hit_rate   → 5 passed
+cargo test -p darkhold-app --test module_registry     → 5 passed
+```
+
+Mutations, each failing exactly the named test:
+
+| mutation | test that failed |
+|---|---|
+| `"defined": true` unconditionally | `an_empty_window_is_undefined_rather_than_zero` |
+| the operator comparison short-circuited to `false` | `a_non_operator_gets_404` |
+| the `clamp` removed from `window_days` | `the_window_is_clamped_to_a_year` |
+| the new row's id renamed so the mount matches nothing | `every_mount_site_is_core_or_a_stable_row` |
+| `home.trending` promoted from `Planned` to `Stable` | `every_stable_row_is_mounted` |
+| a planned row set `default_on: true` | `planned_rows_are_off_by_default_and_plannable` |
+
+### Three things the fixtures taught, recorded because they will recur
+
+- **The window is half-open.** Seeding an impression at "now" and asking in the same second measures
+  zero: `created_at < until` is false when both truncate to the same second. The fixture seeds one
+  minute back, and the test says why.
+- **`docs/requirements.csv` is CRLF.** A `DictWriter` round-trip rewrote 837 lines to LF; `git diff`
+  showed the whole file changed. The row is now patched in place and the file stays byte-identical
+  apart from the one line.
+- **The split spec does not cover §28–61.** `scripts/split-spec.py` splits sections 1–27 of the vault
+  master; §53.5 and §59.3 live in `docs/spec.md`, which the split gate never reads. Editing a
+  section past 27 therefore has no gate behind it — the drift this project's `--check` exists to
+  prevent, in the half of the document it does not cover. Recorded as the next doc task rather than
+  fixed here.
+
 ## 2026-11-02 — §11.5 rung 2: "more by this author" offered back what you had just finished
 
 **Spec:** §11.5 rung 2 · **Requirement:** `M64-05` · **Plan:**

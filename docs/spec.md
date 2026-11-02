@@ -10012,6 +10012,32 @@ whether a change helped by remembering.
   rate is undefined, not zero: reporting zero would read as total failure and
   invite a change to a recipe that has simply not been tested yet.
 
+**As built (`2026-11-02`, `M66-09`).** The store existed and nothing served it: `grep -rn hit_rate
+crates/app` returned no route, so the one number this section calls the cheapest thing here could
+only be read by writing SQL against the instance by hand. It now has a door,
+`GET /api/v1/operator/hit-rate?window_days=N`, registered as the extension `operator_hit_rate`
+(`default_on: true`, `toggle: operator`).
+
+- **The window is clamped, not trusted** — `window_days` is bounded to `1..=365` and echoed back with
+  `since`/`until` (unix seconds). The bound is what keeps "a lifetime average" out of a metric whose
+  whole argument is that a rate is scoped to a window.
+- **The window is half-open, `[since, until)`.** An impression served in the second the request
+  arrives is not yet inside it. That is correct — a slot cannot be a hit before it is served — but a
+  fixture that seeds "now" measures zero, which is how the first version of the test failed.
+- **Undefined is a field, not an inference.** The response carries `"rate": null` *and*
+  `"defined": false`; a client must never have to decide whether a null means "not measured" or
+  "measured nothing".
+- **Refusal is one shape.** A non-operator gets `404`, and an instance that does not run the
+  extension also gets `404` (`MODULE_UNAVAILABLE`). A `403` for the first would confirm the surface
+  exists, which on a single-reader instance is itself a statement about the reader; two different
+  codes would let a caller map the operator's configuration from outside.
+- **The pseud is the session's, else the account's first.** With no pseud there is no feed and no
+  impressions, so the door answers `404` rather than inventing an account-wide number this section
+  does not define.
+
+Five tests in `crates/app/tests/operator_hit_rate.rs`; mutation-checked by making `defined` always
+true, dropping the operator check, and removing the clamp — each fails exactly the named test.
+
 ### 53.6 Earned bookmark: the ratio that cannot be faked
 
 The ideas list asks for a bookmark-to-hit ratio, on the argument that it is cheap to
@@ -11063,6 +11089,26 @@ not a flag's.
 A flag cannot compile a feature, and a catalogue that lists only what ships is how a roadmap
 silently loses items. This is the same rule §0.3 applies to explanations: the absent thing says
 what it is missing.
+
+**As built (`2026-11-02`).** The registry's own header claimed that
+`m59_extensions::every_route_module_is_registered` fails when a mounted surface has no row. **That
+test did not exist**: `grep -rn every_route_module_is_registered crates/` found the sentence and
+nothing else, so a surface could be mounted outside the mechanism and nothing would say so. The gate
+now exists (`crates/app/tests/module_registry.rs`, 5 tests) and reads `server.rs` as text, because
+the agreement under test is between two files:
+
+- every `module_mount` id is in `CORE` or is a `Stability::Stable` row;
+- every `Stable` row is mounted — a row for a surface nothing mounts advertises a feature that does
+  not exist;
+- a `Planned` row is **never** `default_on` and **never** `Toggle::Fixed`, so it can be turned on
+  once built and is not offered to readers before then;
+- the counts (`97` mount sites, `79` stable rows, `23` planned rows) are pinned, so a parser that
+  stops matching fails instead of passing vacuously.
+
+Two rules the first draft of the gate got wrong, both worth keeping: a module may legitimately be
+mounted at several prefixes (`roadmap` three times, `monetization` three), so duplicate mount ids are
+the design and not a fault; and the 23 dotted rows (`story.similar`, `home.trending`, …) are planned
+slots, so "every row is mounted" would have deleted true rows to satisfy a false rule.
 
 ### 59.8 What an operator gets
 
