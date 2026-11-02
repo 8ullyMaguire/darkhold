@@ -4,6 +4,29 @@ Where the tree stands, what is left, and the three things a cold start must know
 anything. Written after a session that closed M45-38b, M65-08, M45-36 (partly) and M45-62, and opened
 M45-65.
 
+## The Suki intake — 26 rows, `M69` (2026-11-02)
+
+Suki is a booru: images, tags, ratings. darkhold is fiction: works, units, tropes, warnings. The intake
+read one spec against the other and kept only what a fiction platform needs, in this project's
+vocabulary. **Twenty-six rows, `M69-01..26`, all `planned`** — and one of them (`M69-25`, OpenSearch)
+shipped the same day because it is three lines and always loses the argument for a slot.
+
+The five worth reading before the other twenty-one:
+
+- **M69-24** — one shared taste crate and JSON schema set, so suki and darkhold cannot drift on the
+  blend, affinity or the passport. This is the row that keeps the rest honest.
+- **M69-01..03** — instance DNA, auto-peering and a signed taste passport, in one wire format both
+  products read, so a booru and a fiction archive can peer with each other.
+- **M69-04** — tombstones that survive re-import. DMCA intake is planned (M45-52) and nothing today
+  stops the same work returning through the importer, which is the failure a takedown exists to stop.
+- **M69-10/11** — Glicko-2 with deviation and a calibration window; the arena is Elo at K=32, where two
+  votes and two hundred share a ladder.
+- **M69-16** — three-layer filtering; today every filter is equally overridable, including the
+  illegal-content one that must not be.
+
+Nothing needed to change for "everything is an extension": a planned row has no code and cannot default
+on, and `OPT_IN` (modules/mod.rs) already fails a built surface that gets it wrong.
+
 ## The two checkouts are one lineage now (2026-11-02, later the same day)
 
 `~/code/rust/darkhold` (the thinkcentre checkout, upstream `lorehaven`) and `~/code-local/rust/darkhold`
@@ -30,16 +53,16 @@ only exist in this tree.
 ## The count, from the ledger rather than from feeling
 
 ```
-docs/requirements.csv  857 rows
-  implemented-fully-tested     408
+docs/requirements.csv  883 rows
+  implemented-fully-tested     409
   implemented-locally-tested   247
   implemented-verified-e2e     129
-  planned                       68
+  planned                       93   (68 before the Suki intake, +26 rows, -1 shipped)
   unsupported                    4   M2-06, M6-10, M7-03, M6-15
   evaluated-and-rejected         1   M62-01
 ```
 
-784 of 857 are implemented, at one of three strengths, and **the strength is the honest part of the
+785 of 883 are implemented, at one of three strengths, and **the strength is the honest part of the
 ledger**: `locally-tested` means the unit and integration tests ran on this machine; `fully-tested` adds
 the second engine or the gate that would catch it drifting; `verified-e2e` means a browser or a live
 instance answered. Every `planned` row names what it needs, and `--` in `evidence` means nothing ran.
