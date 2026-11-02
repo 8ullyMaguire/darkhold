@@ -33,6 +33,33 @@ pub async fn create_translation(
         )));
     }
 
+    // §40.2: "the translation pipeline (M17) checks `translation` before a request is created".
+    // Measured 2026-11-02: this door created a job without ever reading the statement, so the
+    // enforcement sentence was a spec claim with nothing behind it (M45-30).
+    let permission =
+        darkhold_db::permission::get_work_permission_statement(state.db(), &work_id)
+            .await
+            .map_err(|e| ApiError(darkhold_domain::AppError::Internal(e)))?;
+    match darkhold_domain::translation::funding_gate(permission.translation) {
+        darkhold_domain::translation::Funding::Fundable => {}
+        darkhold_domain::translation::Funding::MustAsk => {
+            return Err(ApiError(darkhold_domain::AppError::field(
+                "translation",
+                "the author has asked to be consulted before a translation is made: this build \
+                 does not create a request it cannot get an answer to (the `ask` workflow, §40.2)",
+            )))
+        }
+        darkhold_domain::translation::Funding::Forbidden { statement } => {
+            return Err(ApiError(darkhold_domain::AppError::field(
+                "translation",
+                &format!(
+                    "this work's translation statement is `{statement}`: the author has not \
+                     allowed translations"
+                ),
+            )))
+        }
+    }
+
     let id = darkhold_db::translation::create_job(
         state.db(),
         &work_id,
@@ -212,4 +239,128 @@ pub fn router() -> axum::Router<AppState> {
             "/translation-reviews/{review_id}/decide",
             post(decide_review),
         )
+        // §61 (M45-30) — the supply report and the funding door.
+        .route("/translations/supply", get(supply))
+        .route("/translations/bounties", get(list_translation_bounties))
+        .route("/works/{id}/translation-bounty", post(fund_translation))
+}
+
+/// The languages this instance holds, and whether C6's taste transfer can be computed here.
+///
+/// The transfer half answers `available: false` with the two measured gaps named: this tree has no
+/// stylometry (`grep -rln stylometr crates/` finds a catalogue string and nothing else), and
+/// `work_tags` is not backfilled (M63-32). A cross-language taste score over that would be a number
+/// with no signal behind it.
+pub async fn supply(State(state): State<AppState>) -> ApiResult<Json<Value>> {
+    let supply = darkhold_db::translation::language_supply(state.db())
+        .await
+        .map_err(|e| ApiError(darkhold_domain::AppError::Internal(e.into())))?;
+    // C6 names the communities it cares about; the report says which are missing rather than
+    // leaving a reader to compare counts by eye.
+    let wanted = ["pt", "es", "fr", "ru", "zh", "ja", "ko", "id"];
+    let unrepresented = darkhold_domain::translation::unrepresented(&supply, &wanted);
+    let transfer = darkhold_domain::translation::transfer_available(false, false);
+    let (transfer_available, missing) = match &transfer {
+        darkhold_domain::translation::Transfer::Available => (true, Vec::new()),
+        darkhold_domain::translation::Transfer::Unavailable { missing } => (false, missing.clone()),
+    };
+    Ok(Json(json!({
+        "by_language": supply.by_language,
+        "total": supply.total,
+        "unrepresented": unrepresented,
+        "transfer": { "available": transfer_available, "missing": missing },
+    })))
+}
+
+pub async fn list_translation_bounties(
+    State(state): State<AppState>,
+) -> ApiResult<Json<Value>> {
+    let bounties = darkhold_db::translation::translation_bounties(state.db(), 50)
+        .await
+        .map_err(|e| ApiError(darkhold_domain::AppError::Internal(e.into())))?;
+    Ok(Json(json!({ "bounties": bounties, "count": bounties.len() })))
+}
+
+#[derive(Debug, Deserialize)]
+pub struct FundTranslationBody {
+    /// The language the patron wants the work translated into.
+    pub target_language: String,
+    /// Basis points, as the economy stores amounts.
+    pub amount: i64,
+}
+
+/// Fund a translation of a work.
+///
+/// The gate is the author's `translation` statement, read through §40.2's model, and it is checked
+/// **before** the balance: a refusal that named a balance first would tell a patron to top up for
+/// something the author has forbidden.
+pub async fn fund_translation(
+    State(state): State<AppState>,
+    Path(work_id): Path<String>,
+    MaybeSession(user): MaybeSession,
+    Json(body): Json<FundTranslationBody>,
+) -> ApiResult<Json<Value>> {
+    let Some(user) = user else {
+        return Err(ApiError(darkhold_domain::AppError::field(
+            "session",
+            "sign in to fund a translation",
+        )));
+    };
+    let target = darkhold_domain::translation::normalise_language(&body.target_language);
+    let Some(target) = target else {
+        return Err(ApiError(darkhold_domain::AppError::field(
+            "target_language",
+            "a translation needs a language tag to translate into, such as `pt-BR` or `es`",
+        )));
+    };
+    if body.amount <= 0 {
+        return Err(ApiError(darkhold_domain::AppError::field(
+            "amount",
+            "a bounty is a promise of credits: it must be greater than zero",
+        )));
+    }
+
+    let outcome = darkhold_db::translation::fund_translation(
+        state.db(),
+        &work_id,
+        &target,
+        &user.account_id.to_string(),
+        body.amount,
+    )
+    .await
+    .map_err(|e| ApiError(darkhold_domain::AppError::Internal(e.into())))?;
+
+    match outcome {
+        darkhold_db::translation::FundOutcome::Funded { bounty_id } => Ok(Json(json!({
+            "funded": true,
+            "bounty_id": bounty_id,
+            "target_language": target,
+            "amount": body.amount,
+        }))),
+        darkhold_db::translation::FundOutcome::MustAsk => {
+            Err(ApiError(darkhold_domain::AppError::field(
+                "translation",
+                "the author has asked to be consulted before translations are made: funding one \
+                 now would be spending their silence",
+            )))
+        }
+        darkhold_db::translation::FundOutcome::Forbidden { statement } => {
+            Err(ApiError(darkhold_domain::AppError::field(
+                "translation",
+                &format!(
+                    "this work's translation statement is `{statement}`: the author has not \
+                     allowed translations, so there is nothing to fund"
+                ),
+            )))
+        }
+        darkhold_db::translation::FundOutcome::InsufficientBalance { available, required } => {
+            Err(ApiError(darkhold_domain::AppError::field(
+                "amount",
+                &format!(
+                    "the bounty promises {required} and this account holds {available}: a bounty \
+                     the account cannot pay is a promise the archive would have to break"
+                ),
+            )))
+        }
+    }
 }

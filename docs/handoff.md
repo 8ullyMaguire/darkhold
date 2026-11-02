@@ -3544,3 +3544,69 @@ revisions has revisions on exactly **one** day; the 30,577 rows dated `2026-09-2
 that have only that day, and there are no orphan units. So cadence is unmeasurable for **every work**
 on this instance, not for most. The global number was true and useless; the per-work number is the
 one the door answers with.
+
+## M45-30 — cross-language supply (§61): the count, the gate, and the refusal
+
+**Measured first (2026-11-02).** The gaps review's C6 asks for three things: taste-score foreign
+works, fund translation bounties, with author permission. Measuring before planning changed the
+ticket twice, and both corrections are worth recording:
+
+| premise | measurement | verdict |
+|---|---|---|
+| works carry a language | `works.language TEXT NOT NULL DEFAULT 'en'` | holds |
+| there is foreign supply | live: **58,042 of 58,042 works are `en`** | **zero** |
+| permission exists | `works.permission_statement` (a `PermissionStatement` JSON with a `translation` arm), and `GET`/`PUT /works/{id}/permissions` are already mounted | holds — no new door needed |
+| lineage handles translations | `derivative_lineage.kind` includes `'translation'`; `/works/{id}/lineage` has GET and POST | holds |
+| bounties exist | `bounties` + `economy::create_bounty`; live **0** rows | holds |
+| tags map across languages | `work_tags` exists, **not backfilled** (M63-32) | **blocked** |
+| stylometry partially transfers | `grep -rln stylometr crates/` → a catalogue string and nothing else | **absent** |
+| `crates/domain/src/translation.rs` is free to be the new module | **it already exists** — M17's whole pipeline (jobs, units, memory, glossaries, reviews, publications), six tables, routes, and a registry row | the ticket is **not** a new module |
+
+The last row is the one that nearly shipped a duplicate: the first write to
+`crates/domain/src/translation.rs` was refused by the editor ("Refusing to overwrite"), which is how
+the existing M17 surface was found. §61 therefore **extends** `translation` rather than adding a
+module, and the register is one row richer in doors, not in modules.
+
+**What shipped.** No migration — three milestones in a row have needed none.
+
+- `domain::translation` gains `normalise_language`, `funding_gate`, `Supply`/`unrepresented`,
+  `Transfer`/`transfer_available`, and 5 unit tests.
+- `db::translation` gains `language_supply`, `fund_translation`, `translation_bounties`.
+- `GET /api/v1/translations/supply` — public: counts by primary subtag, `unrepresented`, and
+  `transfer: {available: false, missing: ["stylometry", "tag backfill (M63-32)"]}` on this build.
+- `GET /api/v1/translations/bounties` — open `job_kind='translation'` bounties.
+- `POST /api/v1/works/{id}/translation-bounty` — funds a translation on the existing `bounties` table.
+- **§40.2's enforcement sentence is now true.** The spec already said *the translation pipeline (M17)
+  checks `translation` before a request is created*; measured, `POST /works/{id}/translations`
+  created the job without reading the statement. It now refuses on the field `translation`, with a
+  different sentence per statement.
+
+**The two rules that carry the section.**
+
+- **Permission before money.** A refusal that named a balance first would tell a patron to top up for
+  something the author has forbidden. The test that proves the order gives the patron zero credits
+  and a `no` statement, and asserts the refusal is on `translation`.
+- **`unstated` refuses.** C6 says *author permission required*, and §40's default is the restrictive
+  reading: funding a translation of a work whose author said nothing would spend silence as consent.
+
+**Refused by name, not answered with a number.** "Taste-score foreign works" is not implemented: with
+no stylometry and no tag backfill, a cross-language score would be a plausible float with nothing
+behind it, so the supply door answers `available: false` and names the two gaps.
+
+**Verification.** 5 domain unit tests, 7 store tests on SQLite **and** PostgreSQL, 6 route tests,
+10 mutations caught, and the mutation pass earned its keep twice. Two first versions were
+*compile errors*, which is not a verdict (C removed the permission match, G left `permission`
+unused under `-D warnings`), so both were re-cut. Re-cut **C survived**: the test meant to prove
+"permission before money" gave the patron a fresh account, and a fresh account already holds starter
+credits, so the balance check passed and the answer did not change. The premise was false, not the
+code. The proof now lives in two places — a store test that reads the two statements with an account
+holding **nothing**, and a route test whose amount is larger than any balance the account could hold
+— and re-cut C is caught.. Two PG-only defects were found and fixed on the way: `bounties.amount`
+is INT4 on PostgreSQL (`CAST(amount AS BIGINT)`) — the same trap `likes` set — and the first generic
+row-mapper did not compile for two drivers, so mapping happens inside each arm.
+
+**Deferred, by name.** Claiming and paying a bounty (`create_bounty` writes `open`/`pending`;
+settlement is §20.3's), the `ask` permission-request workflow (refused with that as the reason), and
+language detection (`works.language` is declared by the importer).
+
+**Live proof.** LIVE_PROOF

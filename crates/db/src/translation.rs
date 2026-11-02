@@ -561,3 +561,176 @@ pub async fn record_publication(
     }
     Ok(id)
 }
+
+// ---------------------------------------------------------------------------
+// §61 — cross-language supply (M45-30)
+// ---------------------------------------------------------------------------
+
+/// How much of the catalogue is in each language, counted from `works.language`.
+///
+/// The whole catalogue, not a sample: a supply report that samples is a report about the sampler.
+/// Works whose tag is unusable land in `unknown` rather than being dropped, so `total` always equals
+/// the number of works.
+pub async fn language_supply(
+    db: &Database,
+) -> Result<darkhold_domain::translation::Supply, sqlx::Error> {
+    let sql = db.sql(
+        "SELECT language, COUNT(*) AS n FROM works GROUP BY language",
+        "SELECT language, COUNT(*) AS n FROM works GROUP BY language",
+    );
+    let rows: Vec<(String, i64)> = match db.backend() {
+        Backend::Sqlite => sqlx::query(&sql)
+            .fetch_all(db.sqlite_pool().expect("sqlite"))
+            .await?
+            .iter()
+            .map(|r| (r.get::<String, _>("language"), r.get::<i64, _>("n")))
+            .collect(),
+        Backend::Postgres => sqlx::query(&sql)
+            .fetch_all(db.postgres_pool().expect("postgres"))
+            .await?
+            .iter()
+            .map(|r| (r.get::<String, _>("language"), r.get::<i64, _>("n")))
+            .collect(),
+    };
+    let mut supply = darkhold_domain::translation::Supply::default();
+    for (language, count) in rows {
+        supply.add(Some(&language), count);
+    }
+    Ok(supply)
+}
+
+/// What happened when a patron tried to fund a translation.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum FundOutcome {
+    Funded { bounty_id: String },
+    /// `translation: ask` — the author must answer first.
+    MustAsk,
+    /// `translation: no` or `unstated`, with the statement named for the refusal.
+    Forbidden { statement: &'static str },
+    /// The account cannot cover the amount it is promising.
+    InsufficientBalance { available: i64, required: i64 },
+}
+
+/// Fund a translation of `work_id` into `target_lang`, on the existing `bounties` table.
+///
+/// Two gates, in this order, and the order matters: **permission before money**. A refusal that
+/// mentioned a balance first would tell a patron to top up for something the author has forbidden.
+///
+/// The bounty is written with `job_kind = 'translation'` and terms naming the work and both
+/// languages; `create_bounty` is the §20.3 path and this function does not invent a second one. The
+/// balance check exists because a bounty from an account that cannot pay is a promise the archive
+/// would have to break.
+pub async fn fund_translation(
+    db: &Database,
+    work_id: &str,
+    target_lang: &str,
+    account: &str,
+    amount: i64,
+) -> Result<FundOutcome, sqlx::Error> {
+    let permission = crate::permission::get_work_permission_statement(db, work_id)
+        .await
+        .map_err(|e| sqlx::Error::Protocol(format!("{e}")))?;
+    match darkhold_domain::translation::funding_gate(permission.translation) {
+        darkhold_domain::translation::Funding::Fundable => {}
+        darkhold_domain::translation::Funding::MustAsk => return Ok(FundOutcome::MustAsk),
+        darkhold_domain::translation::Funding::Forbidden { statement } => {
+            return Ok(FundOutcome::Forbidden { statement })
+        }
+    }
+
+    let available: i64 = crate::economy::balances(db, account)
+        .await?
+        .into_iter()
+        .map(|(_, amount)| amount)
+        .sum();
+    if available < amount {
+        return Ok(FundOutcome::InsufficientBalance {
+            available,
+            required: amount,
+        });
+    }
+
+    // The source language is the work's own, so a translator is never told to guess it.
+    let source_lang: String = match db.backend() {
+        Backend::Sqlite => {
+            sqlx::query("SELECT language FROM works WHERE id = ?")
+                .bind(work_id)
+                .fetch_one(db.sqlite_pool().expect("sqlite"))
+                .await?
+                .get(0)
+        }
+        Backend::Postgres => {
+            sqlx::query("SELECT language FROM works WHERE id::text = $1")
+                .bind(work_id)
+                .fetch_one(db.postgres_pool().expect("postgres"))
+                .await?
+                .get(0)
+        }
+    };
+
+    let terms = serde_json::json!({
+        "work_id": work_id,
+        "source_language": darkhold_domain::translation::normalise_language(&source_lang)
+            .unwrap_or(source_lang),
+        "target_language": target_lang,
+    })
+    .to_string();
+
+    // `create_bounty` takes the id and the timestamp from its caller, and returns nothing.
+    let bounty_id = Uuid::new_v4().to_string();
+    let now = crate::identity::now_rfc3339();
+    crate::economy::create_bounty(db, &bounty_id, account, "translation", &terms, amount, &now)
+        .await?;
+    Ok(FundOutcome::Funded { bounty_id })
+}
+
+/// Open translation bounties, newest first.
+pub async fn translation_bounties(db: &Database, limit: i64) -> Result<Vec<Value>, sqlx::Error> {
+    let sql = db.sql(
+        // `amount` is INT4 on PostgreSQL and INT8 on SQLite; the cast is what lets one Rust type
+        // read both (the same trap `likes` set).
+        "SELECT id, terms, state, created_by, created_at, account, CAST(amount AS BIGINT) AS amount
+           FROM bounties WHERE job_kind = 'translation' AND state = 'open'
+          ORDER BY created_at DESC, id LIMIT ?",
+        "SELECT id, terms, state, created_by, created_at, account, CAST(amount AS BIGINT) AS amount
+           FROM bounties WHERE job_kind = 'translation' AND state = 'open'
+          ORDER BY created_at DESC, id LIMIT $1",
+    );
+    // Mapping happens inside each arm: the two drivers have different row types, and a generic
+    // helper cannot satisfy `Row::get` for both.
+    let out: Vec<Value> = match db.backend() {
+        Backend::Sqlite => sqlx::query(&sql)
+            .bind(limit)
+            .fetch_all(db.sqlite_pool().expect("sqlite"))
+            .await?
+            .iter()
+            .map(|r| {
+                serde_json::json!({
+                    "id": r.get::<String, _>("id"),
+                    "terms": r.get::<String, _>("terms"),
+                    "state": r.get::<String, _>("state"),
+                    "created_by": r.get::<String, _>("created_by"),
+                    "created_at": r.get::<String, _>("created_at"),
+                    "amount": r.get::<i64, _>("amount"),
+                })
+            })
+            .collect(),
+        Backend::Postgres => sqlx::query(&sql)
+            .bind(limit)
+            .fetch_all(db.postgres_pool().expect("postgres"))
+            .await?
+            .iter()
+            .map(|r| {
+                serde_json::json!({
+                    "id": r.get::<String, _>("id"),
+                    "terms": r.get::<String, _>("terms"),
+                    "state": r.get::<String, _>("state"),
+                    "created_by": r.get::<String, _>("created_by"),
+                    "created_at": r.get::<String, _>("created_at"),
+                    "amount": r.get::<i64, _>("amount"),
+                })
+            })
+            .collect(),
+    };
+    Ok(out)
+}

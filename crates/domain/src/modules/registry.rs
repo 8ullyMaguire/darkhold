@@ -1049,13 +1049,15 @@ pub const MODULES: &[Module] = &[
     Module {
         id: "translation",
         name: "Translation",
-        summary: "M17 — Translation routes: jobs, units, memory, glossaries, reviews, publications.",
+        summary: "M17 — Translation routes: jobs, units, memory, glossaries, reviews, publications. \
+                  M45-30 adds §61: the language supply report, and funding a translation on the \
+                  author's `translation` statement (§40.2), which `create_translation` now enforces.",
         default_on: true,
         stability: Stability::Stable,
         toggle: Toggle::Operator,
         requires: &[],
         milestone: "pre-M65",
-        spec: "§59",
+        spec: "§40.2, §61",
         nav: &[],
         relevance: 10,
         source: "crates/app/src/routes/translation.rs",
