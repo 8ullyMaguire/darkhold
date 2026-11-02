@@ -21,6 +21,8 @@ mod gen;
 mod http;
 mod module;
 mod rec;
+mod redact;
+mod safety;
 mod supply;
 
 use clap::{Parser, Subcommand};
@@ -65,6 +67,20 @@ pub struct Cli {
     /// Print the server's JSON verbatim instead of a table.
     #[arg(long, global = true)]
     pub json: bool,
+
+    /// Apply a change. Mutating verbs preview their request and exit 0 without it (`M63-21`).
+    ///
+    /// ```text
+    /// dh module off arena            → would PATCH …/modules/arena {"enabled":false}
+    /// dh module off arena --yes      → the request is sent
+    /// ```
+    #[arg(long, global = true)]
+    pub yes: bool,
+
+    /// Print what would happen and send nothing. The default for mutating verbs; say it explicitly
+    /// in a generated script so the intent is visible.
+    #[arg(long, global = true, conflicts_with = "yes")]
+    pub dry_run: bool,
 
     #[command(subcommand)]
     pub command: Command,
@@ -112,6 +128,14 @@ pub enum Command {
     },
     /// The man page, generated from this parser. `dh man | man -l -`
     Man,
+    /// Strip ids, emails, session cookies and tokens from stdin, so a transcript can be pasted
+    /// (`M63-21`). `dh rec … --json | dh redact`
+    ///
+    /// UUIDs become `uuid#1`, emails `email#1`, and so on, numbered by first appearance: two pastes
+    /// of the same transcript redact identically, and a reader can still see that two lines name the
+    /// same value without learning which. Fandom names, handles and titles are left alone — a
+    /// redactor that guesses corrupts the output that makes a paste useful.
+    Redact,
 }
 
 #[tokio::main]
@@ -125,6 +149,16 @@ async fn main() -> std::process::ExitCode {
                 std::process::ExitCode::from(error.code)
             }
         },
+        Command::Redact => {
+            use std::io::Read as _;
+            let mut input = String::new();
+            if let Err(error) = std::io::stdin().read_to_string(&mut input) {
+                eprintln!("reading stdin: {error}");
+                return std::process::ExitCode::from(exit::ERROR);
+            }
+            print!("{}", redact::redact(&input));
+            std::process::ExitCode::SUCCESS
+        }
         Command::Completions { shell } => {
             gen::completions(*shell);
             std::process::ExitCode::SUCCESS

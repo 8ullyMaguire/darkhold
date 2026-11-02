@@ -19,7 +19,7 @@ use clap::{Args, Subcommand};
 use darkhold_domain::modules::{self, ModuleState};
 use serde::Deserialize;
 
-use crate::rec::{bad_request, environment, failure_for, Failure};
+use crate::rec::{auth_required, bad_request, environment, failure_for, Failure};
 use crate::Cli;
 
 /// What to do with the module registry.
@@ -420,12 +420,20 @@ async fn override_one(cli: &Cli, id: &str, enabled: bool) -> Result<(), Failure>
     let cookie = cli
         .cookie
         .as_deref()
-        .ok_or_else(|| bad_request("changing a surface is per-account: set DARKHOLD_COOKIE"))?;
+        // `M63-16`: a missing session is code 4 wherever it is noticed. This said `bad_request`
+        // (2), so a wrapper was told the command was wrong.
+        .ok_or_else(|| auth_required("changing a surface is per-account: set DARKHOLD_COOKIE"))?;
     let client = reqwest::Client::builder()
         .timeout(std::time::Duration::from_secs(30))
         .build()
         .map_err(|error| environment(format!("http client: {error}")))?;
     let url = format!("{}/api/v1/modules/{id}", cli.base_url);
+    // A change is previewed unless `--yes` (`M63-21`): withdrawing a surface from readers is not the
+    // kind of thing a mistyped id should do silently.
+    let preview = format!("PATCH {url} {{\"enabled\":{enabled}}}",);
+    if !crate::safety::mutating(cli, &preview)? {
+        return Ok(());
+    }
     // The shared request path: a rate-limited PATCH was not applied, so retrying it is safe, and a
     // 429 that outlasts the attempts is code 5 rather than a generic failure.
     let (status, bytes) = crate::http::send(

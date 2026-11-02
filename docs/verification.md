@@ -1,3 +1,50 @@
+## 2026-11-02 — the safe path was not the short path, and two credentials still answered `2`
+
+**Requirement:** `M63-21` · **Tests:** `crates/cli/tests/dry_run.rs` (7) + 8 in `redact.rs` ·
+**Docs:** `docs/cli-safety.md`
+
+### The change
+
+Every mutating verb (`module on|off`, `supply recompute|route|complete`) now prints the exact request
+and exits `0` unless `--yes`:
+
+```text
+$ dh module off arena
+would PATCH http://127.0.0.1:8081/api/v1/modules/arena {"enabled":false}
+re-run with --yes to apply (nothing was changed)
+```
+
+- **The guard is decided from the HTTP method**, not from a list of subcommands: `if method != GET`.
+  A verb added later is covered by construction, and a read never asks for a confirmation — a tool that
+  demands one to look at something trains people to type the flag by reflex.
+- `--dry-run` is the same as the default and exists so a generated script says what it means;
+  `--yes --dry-run` is refused by the parser with exit `2`.
+- `dh redact` scrubs UUIDs, emails, `darkhold_session=` values and `Bearer`/`DARKHOLD_TOKEN` values
+  from stdin, numbering each class by first appearance (`uuid#1`), so two pastes of the same
+  transcript redact identically and the result is idempotent. Fandom names, handles and titles are
+  left alone: a redactor that guesses corrupts the output that makes a paste useful.
+
+### The defect found while wiring the preconditions
+
+`dh module off` without a cookie and `dh supply …` without a token still answered with `bad_request`
+— code **2**, "your command is wrong" — although `M63-16` settled that a missing session is code
+**4** wherever it is noticed. Two more per-verb decisions that the one mapping replaced. Both are `4`
+now, and the preview comes *after* them: there is no request to describe if the credential is absent.
+
+### Verification
+
+```
+cargo test -p darkhold-cli --test dry_run   → 7 passed
+cargo test -p darkhold-cli                  → 23 lib + 4 completions + 9 exit_codes
+                                              + 2 layering + 3 rate_limit + 7 dry_run
+```
+
+The tests count **server connections**, because "nothing was sent" is the claim — a printed preview
+alone would pass even if the write went out behind it. Mutations, each failing a named test:
+always-apply, `--yes` ignored, reads previewed too, and UUID redaction removed.
+
+Open requirements go **74 → 73** (`M63` 27 → 26).
+
 ## 2026-11-02 — completions that could not be installed, and a panic on `| head`
 
 **Requirement:** `M63-17` · **Tests:** `crates/cli/tests/completions.rs` (4) · **Code:**

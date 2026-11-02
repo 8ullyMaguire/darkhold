@@ -20,7 +20,7 @@
 use clap::Subcommand;
 use serde_json::Value;
 
-use crate::rec::{bad_request, environment, failure_for, Failure};
+use crate::rec::{auth_required, bad_request, environment, failure_for, Failure};
 use crate::Cli;
 
 #[derive(Debug, Clone, Subcommand)]
@@ -69,7 +69,8 @@ pub async fn run(cli: &Cli, args: &SupplyArgs) -> Result<(), Failure> {
     let token = cli
         .token
         .as_deref()
-        .ok_or_else(|| bad_request("every supply door needs a session: set DARKHOLD_TOKEN"))?;
+        // `M63-16`: a missing session is code 4, here as everywhere.
+        .ok_or_else(|| auth_required("every supply door needs a session: set DARKHOLD_TOKEN"))?;
 
     let client = reqwest::Client::builder()
         .timeout(std::time::Duration::from_secs(30))
@@ -132,6 +133,22 @@ pub async fn run(cli: &Cli, args: &SupplyArgs) -> Result<(), Failure> {
             None,
         ),
     };
+
+    // A write is previewed unless `--yes` (`M63-21`). Decided from the METHOD rather than from a
+    // list of subcommands, so a verb added later is covered by construction: a POST or PATCH that
+    // forgot the guard would be a new branch, and this line reads the same tuple the request does.
+    if method != reqwest::Method::GET {
+        let preview = format!(
+            "{} {url}{}",
+            method,
+            body.as_ref()
+                .map(|b| format!(" with body {b}"))
+                .unwrap_or_default()
+        );
+        if !crate::safety::mutating(cli, &preview)? {
+            return Ok(());
+        }
+    }
 
     // The same request path as `dh rec`, so a `429` is waited out here too (`crate::http`).
     let (status, bytes) = crate::http::send(

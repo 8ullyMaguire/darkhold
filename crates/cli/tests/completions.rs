@@ -46,6 +46,12 @@ fn subcommands_from_help() -> Vec<String> {
         if line.trim().is_empty() {
             break;
         }
+        // A subcommand line starts with exactly two spaces; clap indents a wrapped description to the
+        // description column, and reading those as commands is how this parser first produced the
+        // "subcommand" `pasted` from the middle of `redact`'s help text.
+        if !line.starts_with("  ") || line.starts_with("   ") {
+            continue;
+        }
         if let Some(name) = line.split_whitespace().next() {
             if name.chars().all(|c| c.is_ascii_lowercase() || c == '-') {
                 names.push(name.to_owned());

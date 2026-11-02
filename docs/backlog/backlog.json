@@ -6,8 +6,8 @@
         "implemented-verified-e2e": 129,
         "implemented-locally-tested": 246,
         "unsupported": 4,
-        "implemented-fully-tested": 380,
-        "planned": 74,
+        "implemented-fully-tested": 381,
+        "planned": 73,
         "evaluated-and-rejected": 1
       }
     },
@@ -226,12 +226,6 @@
       "milestone": "M63",
       "requirement": "Scoped tokens per command family, with the missing scope named on refusal",
       "notes": "Power-user sweep P19. dh never sends a request it knows will be refused, and the refusal says 'token lacks library:write' rather than 403. Extends the shipped scoped-token issuance UI."
-    },
-    {
-      "id": "M63-21",
-      "milestone": "M63",
-      "requirement": "Dry-run is the default for every bulk verb; --yes applies; dh redact strips pseudonyms and emails from JSON output",
-      "notes": "Power-user sweep P21. The safe path is the short path, and the privacy rule is applied at the tool boundary rather than remembered by the user."
     },
     {
       "id": "M63-22",
@@ -469,7 +463,7 @@
     }
   ],
   "open_by_milestone": {
-    "M63": 27,
+    "M63": 26,
     "M45": 23,
     "M64": 14,
     "M66": 6,
