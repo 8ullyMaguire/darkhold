@@ -1,3 +1,39 @@
+## 2026-11-02 — M45-39b: the account archive (§13, M45-39 phase 2)
+
+**Requirement:** `M45-39b` · **Tests:** 3 store + 3 route (both engines)
+
+Measured before building, as M45-53 taught: a per-work exporter already exists (EPUB, PDF, AZW3, as a
+queued job). This is the other artefact — the **recovery copy**. One document per account: profile,
+pseuds, works, shelf, reading state, ratings, reviews, credit balances, each section with its own
+SHA-256 and row count.
+
+Four decisions:
+
+- **Not a job.** A rendered novel is expensive; this is a handful of indexed reads. A reader on a
+  dying instance should not be queued behind a worker that may never run.
+- **No work bodies.** The words travel through the exporter, where the licence, the CTA and the
+  sanitising live. A second path to the same bytes would be a second, unaudited path.
+- **Erased rows excluded.** An archive of erased data would be an erasure that did not happen, and
+  the test soft-deletes a pseud, a rating and a review to check exactly that.
+- **The checksums are real.** The tests recompute each section's SHA-256 from the returned rows
+  instead of comparing the field to itself.
+
+**PostgreSQL found five separate faults**, all of them the ADR 0004 family and none of them visible on
+SQLite: `id`/`account_id`/`subject_id`/`work_id` are UUID there and need `::text` on both the cast and
+the predicate; `is_public` and `contains_spoilers` are BOOLEAN there and INTEGER here, so the `::int`
+cast differs by engine rather than by width; and `stars` is BIGINT there while SQLite's INTEGER decodes
+as `i64` anyway.
+
+```
+cargo test -p darkhold-db  --test archive          -> 3 passed, SQLite and PostgreSQL
+cargo test -p darkhold-app --test m45_39_archive   -> 3 passed, both engines
+cargo test -p darkhold-app --test route_inventory  -> 5 passed
+```
+
+**Red by removal:** a constant section hash fails the checksum test; dropping the account predicate
+from `bookmarks` fails both the store and the route isolation tests; ignoring `deleted_at` on works
+fails the erasure test.
+
 ## 2026-11-02 — M45-39a: the succession document and the redirect registry (§11.11a)
 
 **Requirement:** `M45-39a` · **Tests:** 8 domain + 6 route (both engines)

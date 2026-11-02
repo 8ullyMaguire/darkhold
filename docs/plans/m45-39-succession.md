@@ -17,7 +17,7 @@ Split by what each half actually needs:
 |---|---|---|
 | redirect registry | a table and two routes | **1 — this** |
 | dead-man's switch export (the *document* readers read) | a table, a clock, one operator route | **1 — this** |
-| the export itself (a complete, resumable archive of an account) | an archive writer, checksums, resume | 2 |
+| the export itself (a complete, resumable archive of an account) | an archive writer, checksums, resume | **2 — done**, `M45-39b` |
 | mutual backup between two instances | a peer protocol and a trust relationship | 3 |
 | ActivityPub `Move` | actor-keyed signing; `federation.rs` has no such write | 3 |
 
@@ -93,11 +93,18 @@ most error-prone one.
 
 ## What is deliberately not in phase 1
 
-- **The export itself.** `export_url` is a URL the operator publishes, not a route this instance
-  serves. Building an account archive (works, pseuds, bookmarks, feedback, media manifest, checksums,
-  resumable download) is phase 2 and is its own milestone; publishing a URL to a page that 404s would
-  be worse than publishing none, so the validator accepts any https URL and the operator is
-  responsible for it being real. Recorded here so nobody reads the column name as a promise.
+- ~~The export itself~~ — **built** as `M45-39b`: `GET /api/v1/me/archive` returns one JSON document
+  with the account, its pseuds, works, shelf, reading state, ratings, reviews and credit balances,
+  each section carrying a SHA-256 that the tests recompute rather than trust. It is synchronous, not
+  a job, because a reader on a dying instance should not wait for a worker that may never run.
+
+  Two consequences worth stating plainly. **A reader can only archive their own account** — there is
+  no id parameter — so the dead-man's switch works for readers who download *before* the instance
+  dies, which is what publishing the URL is for. And **`export_url` is still operator-declared**: the
+  validator accepts any https URL and cannot know whether it resolves, so an operator who points it
+  at `/api/v1/me/archive` has published a URL that answers only to a signed-in reader. That is the
+  honest shape of a self-hosted instance's succession: the pointer is a promise, and the archive is
+  the thing that makes the promise keepable for anyone who acts on it in time.
 - **Mutual backup.** Needs a peer protocol: which instance, what is mirrored, how a conflict is
   resolved, how trust is established, and what happens when the peer is the one that dies. Two
   instances holding each other's archive is a federation project, not a table.

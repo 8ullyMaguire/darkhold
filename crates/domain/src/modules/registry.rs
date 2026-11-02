@@ -749,6 +749,22 @@ pub const MODULES: &[Module] = &[
         source: "crates/app/src/routes/rating_integrity.rs",
     },
     Module {
+        id: "archive",
+        name: "Account Archive",
+        summary: "§13: one document holding everything this instance knows about an account, with a \
+                  per-section SHA-256 — the recovery copy a succession export URL points at \
+                  (M45-39 phase 2).",
+        default_on: true,
+        stability: Stability::Stable,
+        toggle: Toggle::Operator,
+        requires: &[],
+        milestone: "M45",
+        spec: "§13",
+        nav: &[],
+        relevance: 10,
+        source: "crates/app/src/routes/archive.rs",
+    },
+    Module {
         id: "succession",
         name: "Succession",
         summary: "§11.11a: the plan an instance publishes for its own death, and the redirect \

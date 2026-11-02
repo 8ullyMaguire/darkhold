@@ -327,6 +327,8 @@ pub fn build_router(state: AppState) -> Router {
         // §11.11a succession. Its two read doors are public on purpose: the reader who needs the
         // document may be holding a dead link from another instance and cannot log in here.
         .merge(module_mount(&state, "succession", routes::succession::router(), RouteClass::Default))
+        // §13's account archive (M45-39 phase 2): the thing a succession export URL points at.
+        .merge(module_mount(&state, "archive", routes::archive::router(), RouteClass::Default))
         .merge(module_mount(&state, "works", routes::works::router(), RouteClass::Write))
         .merge(module_mount(&state, "collaborators", routes::collaborators::router(), RouteClass::Write))
         .layer(middleware::from_fn_with_state(

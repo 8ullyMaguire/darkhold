@@ -334,6 +334,13 @@ pub const ROUTE_TABLE: &[RouteEntry] = &[
         audience: Audience::Authenticated,
     },
     RouteEntry {
+        file: "archive.rs",
+        handler: "download",
+        method: "GET",
+        path: "/me/archive",
+        audience: Audience::Authenticated,
+    },
+    RouteEntry {
         file: "succession.rs",
         handler: "read_plan",
         method: "GET",

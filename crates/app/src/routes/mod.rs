@@ -7,6 +7,7 @@ pub mod operator_hit_rate;
 pub mod analytics;
 pub mod arena;
 pub mod audience;
+pub mod archive;
 pub mod auth;
 pub mod author_media;
 pub mod browse;

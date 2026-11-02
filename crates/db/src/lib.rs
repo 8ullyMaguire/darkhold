@@ -20,6 +20,7 @@ pub mod analytics;
 pub mod bounties;
 pub mod browse;
 pub mod canon_agnostic;
+pub mod archive;
 pub mod badges;
 pub mod catalogue;
 pub mod catalogue_export;
