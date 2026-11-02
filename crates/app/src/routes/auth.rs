@@ -57,6 +57,8 @@ pub fn router() -> Router<AppState> {
         .route("/auth/sessions/revoke-all", post(revoke_all_sessions))
         .route("/auth/sessions/{id}", delete(revoke_session))
         .route("/auth/me", get(me))
+        // W2: sign in with Polaris. Same module class, so the auth rate limit and the module gate apply.
+        .merge(super::oidc::router())
 }
 
 /// Minimum password length.
