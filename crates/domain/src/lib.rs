@@ -57,6 +57,7 @@ pub mod payouts;
 pub mod permission;
 pub mod policy;
 pub mod positivity;
+pub mod quick_reactions;
 pub mod preread;
 pub mod preservation;
 pub mod quality;

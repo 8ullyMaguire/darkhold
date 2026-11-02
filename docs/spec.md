@@ -1284,6 +1284,21 @@ Reactions:
 - Count once per reader per target.
 - Bypass the positivity filter (they are pre-classified positive).
 
+**Storage and gate.** A quick reaction is `(work, pseud, label)` with one row per reader per label
+per work, so "count once per reader per target" is the primary key rather than a deduplication rule
+someone has to remember. The label is a slug from the §9.4 vocabulary and is refused if it is not
+one of them — the free-text column is how a reaction bar fills with typos that each count once.
+
+The bar appears when the author's feedback preferences allow feedback: `work_feedback_preferences
+.comments_enabled`, falling back to `feedback_preferences.comments_enabled`, falling back to
+enabled. That is the only preference the schema carries today, and a reaction is feedback; an
+author who has turned feedback off does not get a bar they did not ask for. Reads of the aggregate
+answer `enabled: false` rather than an error, so a reader sees nothing rather than a refusal.
+
+Aggregates are public (`{label, count}` per label that has at least one vote) and carry no
+count of who reacted; the reader's own labels are returned separately and are the only part scoped
+to them.
+
 ## 9.5 Ratings and reviews
 
 Support optional 1–5-star personal rating, optional written review, spoiler marking, edit and delete, independent rating/review visibility, reporting and blocking, inclusion in personal discovery only under the relevant learning setting.

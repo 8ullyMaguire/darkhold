@@ -1766,6 +1766,52 @@ export function clearSearchHistory(): Promise<{ cleared: number }> {
   return apiFetch<{ cleared: number }>('/search/history', { method: 'DELETE' });
 }
 
+/** One labelled reaction and how many readers have it (§9.4). */
+export interface QuickReactionTally {
+  label: string;
+  count: number;
+}
+
+export interface QuickReactionsView {
+  items: QuickReactionTally[];
+  /** This reader's own labels, in vocabulary order. Empty when signed out. */
+  mine: string[];
+  /** False when the work's author has turned feedback off: the bar is not rendered at all. */
+  enabled: boolean;
+  /** `[slug, display label]` pairs, from the server that validates them. */
+  vocabulary: [string, string][];
+}
+
+export function fetchQuickReactions(
+  workId: string,
+  signal?: AbortSignal,
+): Promise<QuickReactionsView> {
+  return apiFetch<QuickReactionsView>(
+    `/works/${encodeURIComponent(workId)}/quick-reactions`,
+    { signal },
+  );
+}
+
+/** Add one label. The server is idempotent, so a double-tap is one reaction. */
+export function addQuickReaction(
+  workId: string,
+  label: string,
+): Promise<{ label: string; reacted: boolean }> {
+  return apiFetch(`/works/${encodeURIComponent(workId)}/quick-reactions/${encodeURIComponent(label)}`, {
+    method: 'PUT',
+  });
+}
+
+/** Withdraw one label; `removed` says whether there was anything to remove. */
+export function removeQuickReaction(
+  workId: string,
+  label: string,
+): Promise<{ label: string; removed: boolean }> {
+  return apiFetch(`/works/${encodeURIComponent(workId)}/quick-reactions/${encodeURIComponent(label)}`, {
+    method: 'DELETE',
+  });
+}
+
 /** Search within a single work. */
 export function searchInWork(
   workId: string,

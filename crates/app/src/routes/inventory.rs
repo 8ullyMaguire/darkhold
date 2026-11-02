@@ -3563,6 +3563,27 @@ pub const ROUTE_TABLE: &[RouteEntry] = &[
     },
     RouteEntry {
         file: "work_discussion.rs",
+        handler: "get_quick_reactions",
+        method: "GET",
+        path: "/works/{id}/quick-reactions",
+        audience: Audience::Public,
+    },
+    RouteEntry {
+        file: "work_discussion.rs",
+        handler: "put_quick_reaction",
+        method: "PUT",
+        path: "/works/{id}/quick-reactions/{label}",
+        audience: Audience::Pseudonymous,
+    },
+    RouteEntry {
+        file: "work_discussion.rs",
+        handler: "delete_quick_reaction",
+        method: "DELETE",
+        path: "/works/{id}/quick-reactions/{label}",
+        audience: Audience::Pseudonymous,
+    },
+    RouteEntry {
+        file: "work_discussion.rs",
         handler: "get_thread",
         method: "GET",
         path: "/works/{id}/thread",

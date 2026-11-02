@@ -4,16 +4,18 @@
 //! work page; the routes here serve both and enforce the mode rules.
 
 use axum::extract::{Path, State};
-use axum::routing::{get, post};
+use axum::routing::{get, post, put};
 use axum::{Json, Router};
 use serde::Deserialize;
 use serde_json::json;
 
+use darkhold_domain::quick_reactions;
 use darkhold_domain::work_discussion::{is_valid_work_reaction, WorkDiscussionMode};
 
-use crate::auth::{RequirePseud, RequireSession};
+use crate::auth::{MaybeSession, RequirePseud, RequireSession};
 use crate::http::{ApiError, ApiResult};
 use crate::state::AppState;
+use darkhold_db::identity::now_rfc3339;
 use darkhold_db::work_backlink::LinkedWork;
 
 pub fn router() -> Router<AppState> {
@@ -23,10 +25,17 @@ pub fn router() -> Router<AppState> {
             "/works/{id}/discussion-mode",
             get(get_discussion_mode).put(put_discussion_mode),
         )
-        // The typed-vote reaction bar.
+        // The typed-vote reaction bar (§35.1).
         .route(
             "/works/{id}/reactions",
             get(get_reactions).post(post_reaction),
+        )
+        // The labelled one-click bar (§9.4, M47-12). A different surface from the votes above:
+        // a reader may vote "insightful" AND react "made me cry" to the same work.
+        .route("/works/{id}/quick-reactions", get(get_quick_reactions))
+        .route(
+            "/works/{id}/quick-reactions/{label}",
+            put(put_quick_reaction).delete(delete_quick_reaction),
         )
         // The linked forum topic ("Discuss" link target).
         .route("/works/{id}/thread", get(get_thread))
@@ -159,6 +168,103 @@ async fn post_reaction(
         darkhold_domain::work_discussion::ReactionOutcome::Retracted => "retracted",
     };
     Ok(Json(json!({ "outcome": outcome_str })))
+}
+
+
+// ---------------------------------------------------------------------------
+// §9.4 quick reactions (M47-12)
+// ---------------------------------------------------------------------------
+
+/// The labelled bar for one work: the public tally, this reader's own labels, and whether the
+/// author allows feedback at all.
+///
+/// Public, and `mine` is empty for an anonymous caller rather than the route being session-only:
+/// the tally is public (§9.4 "aggregate publicly if the author permits"), and a signed-out reader
+/// seeing six labels with counts is the intended experience — pressing one is what needs a pseud.
+async fn get_quick_reactions(
+    State(state): State<AppState>,
+    MaybeSession(session): MaybeSession,
+    Path(id): Path<String>,
+) -> ApiResult<Json<serde_json::Value>> {
+    let enabled = darkhold_db::quick_reactions::enabled_for(state.db(), &id)
+        .await
+        .map_err(internal)?;
+    if !enabled {
+        // A refusal is not an error here: §9.4 makes the bar the author's to permit, and a `403`
+        // on a page that is otherwise readable would tell the reader they did something wrong.
+        return Ok(Json(json!({
+            "items": [],
+            "mine": [],
+            "enabled": false,
+            "vocabulary": quick_reactions::QUICK_REACTIONS,
+        })));
+    }
+
+    let tally = darkhold_db::quick_reactions::tally(state.db(), &id)
+        .await
+        .map_err(internal)?;
+    let mine = match session.as_ref().and_then(|s| s.pseud_id.as_ref()) {
+        Some(pseud) => darkhold_db::quick_reactions::mine(state.db(), &id, &pseud.as_uuid().to_string())
+            .await
+            .map_err(internal)?,
+        None => Vec::new(),
+    };
+
+    Ok(Json(json!({
+        "items": tally
+            .into_iter()
+            .map(|(label, count)| json!({ "label": label, "count": count }))
+            .collect::<Vec<_>>(),
+        "mine": mine,
+        "enabled": true,
+        // The vocabulary ships with the answer so the bar renders the spec's labels from the
+        // server that will validate them, instead of a frontend copy that can drift.
+        "vocabulary": quick_reactions::QUICK_REACTIONS,
+    })))
+}
+
+/// A label from the path, refused with the vocabulary named if it is not one.
+fn known_label(label: &str) -> Result<&str, ApiError> {
+    if quick_reactions::is_known(label) {
+        Ok(label)
+    } else {
+        Err(ApiError(darkhold_domain::AppError::field(
+            "label",
+            quick_reactions::refusal(),
+        )))
+    }
+}
+
+/// Record a reaction. Idempotent, so a double-tap is one reaction.
+async fn put_quick_reaction(
+    State(state): State<AppState>,
+    RequirePseud { pseud_id, .. }: RequirePseud,
+    Path((id, label)): Path<(String, String)>,
+) -> ApiResult<Json<serde_json::Value>> {
+    let label = known_label(&label)?;
+    if !darkhold_db::quick_reactions::enabled_for(state.db(), &id)
+        .await
+        .map_err(internal)?
+    {
+        return Err(ApiError(darkhold_domain::AppError::AccessDenied));
+    }
+    darkhold_db::quick_reactions::add(state.db(), &id, &pseud_id.to_string(), label, &now_rfc3339())
+        .await
+        .map_err(internal)?;
+    Ok(Json(json!({ "label": label, "reacted": true })))
+}
+
+/// Withdraw a reaction. Silent and idempotent on a label this reader never held.
+async fn delete_quick_reaction(
+    State(state): State<AppState>,
+    RequirePseud { pseud_id, .. }: RequirePseud,
+    Path((id, label)): Path<(String, String)>,
+) -> ApiResult<Json<serde_json::Value>> {
+    let label = known_label(&label)?;
+    let removed = darkhold_db::quick_reactions::remove(state.db(), &id, &pseud_id.to_string(), label)
+        .await
+        .map_err(internal)?;
+    Ok(Json(json!({ "label": label, "removed": removed })))
 }
 
 /// The work's linked discussion topic, if one exists.

@@ -73,6 +73,7 @@ pub mod outbox;
 pub mod payout_store;
 pub mod permission;
 pub mod positivity;
+pub mod quick_reactions;
 pub mod preread_store;
 pub mod preservation;
 pub mod ranking;

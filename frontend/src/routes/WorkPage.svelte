@@ -41,6 +41,7 @@
   import NotePanel from '../lib/components/NotePanel.svelte';
   import Rating from '../lib/components/Rating.svelte';
   import ReactionBar from '../lib/components/ReactionBar.svelte';
+  import QuickReactions from '../lib/components/QuickReactions.svelte';
   import KudosButton from '../lib/components/KudosButton.svelte';
   import ReadingStatusControl from '../lib/components/ReadingStatusControl.svelte';
   import ResumePrompt from '../lib/components/ResumePrompt.svelte';
@@ -417,6 +418,7 @@
   <!-- Discussion surface (spec §35): reaction bar + Discuss link. -->
   {#if discussionMode?.thread_enabled}
     <ReactionBar workId={workId} />
+    <QuickReactions workId={workId} />
     <KudosButton workId={workId} />
     <DiscussLink workId={workId} />
   {/if}
