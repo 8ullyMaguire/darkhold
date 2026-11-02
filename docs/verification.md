@@ -1,3 +1,31 @@
+## 2026-11-02 — M65-12: a module's own tests run the module
+
+**Requirement:** `M65-12` · **Tests:** `arena_routes` 4/4
+
+`arena` is registered `default_on: false, toggle: per_user` and M65-01's gate refuses to merge it on
+an instance that has not opted in. `crates/app/tests/arena_routes.rs` built its router from
+development defaults and asserted `200` on the surface anyway, so all four tests answered
+`404 MODULE_UNAVAILABLE` — and the message read like the route was broken rather than like the
+instance did not run it.
+
+Found while running the app suite for `M47-06`, and shown not to be `M47-06`'s doing: stashing those
+three files and re-running gives the identical four failures.
+
+Two things this cost, worth keeping:
+
+* **`cargo test` stops at the first failing binary.** A suite that aborts here reports nothing about
+  the ninety files after it, which is how a four-test failure hides a workspace-wide question.
+  `--no-fail-fast` is the flag that measures the rest.
+* The fix belongs in the harness, not the registry: the test is about the surface, so the instance it
+  builds opts in (`config.modules.enabled.push("arena")`). Whether arena *should* be default-on is a
+  product decision and is recorded on the row as an open question — its row says opt-in by design and
+  it declares no nav entry, which is at odds with the standing instruction that relevant features are
+  enabled by default.
+
+```
+cargo test -p darkhold-app --test arena_routes   -> 4 passed
+```
+
 ## 2026-11-02 — M47-06: search applies the filters it reports
 
 **Requirement:** `M47-06` · **Tests:** 5 new, both engines · **Plan:** `docs/plans/m47-06-search-applies-its-filters.md`
