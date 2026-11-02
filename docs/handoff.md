@@ -3609,4 +3609,40 @@ row-mapper did not compile for two drivers, so mapping happens inside each arm.
 settlement is §20.3's), the `ask` permission-request workflow (refused with that as the reason), and
 language detection (`works.language` is declared by the importer).
 
-**Live proof.** LIVE_PROOF
+**Live proof.**
+
+Live on `thinkcentre` as **`0.1.0+ed9bc650`**, **134 migrations**, 101 modules, catalogue **175
+ideas**. Hand-run against the real instance:
+
+- **The report, anonymous**: `{"by_language": {"en": 58042}, "total": 58042, "unrepresented":
+  ["pt","es","fr","ru","zh","ja","ko","id"], "transfer": {"available": false, "missing":
+  ["stylometry", "tag backfill (M63-32)"]}}` — one number that is true, and a refusal with names.
+- **§40.2, enforced**: a fresh work reads `{"translation": "Unstated"}`; `POST /works/{id}/translations`
+  answers **422** *"this work's translation statement is `unstated`: the author has not allowed
+  translations"* on the field `translation`. Before this build the same call created the job.
+- **Allowed**: `PUT` the statement to `yes`, and the identical request answers **200** with a job id.
+- **Zero credits**: the bounty door answers **422** *"the bounty promises 500 and this account holds
+  0"* — live accounts start with **no credits**, while the test harness grants starter credits, which
+  is exactly why the order test uses an amount larger than any balance could be.
+- **Credited** (a probe grant of 100000 bp): `POST …/translation-bounty {"target_language": "pt-BR",
+  "amount": 500}` → **200** `{"funded": true, "bounty_id": "01d52383-…", "target_language": "pt",
+  "amount": 500}`, and the public listing returns it with
+  `terms {"source_language":"en","target_language":"pt","work_id":"e41be3ce-…"}`.
+- **The statement is the gate, not the balance**: with the credits still in hand, the statement
+  flipped to `ask` refuses with *"the author has asked to be consulted before translations are made:
+  funding one now would be spending their silence"* — the live form of `permission_is_read_before_the_balance`.
+- **Probe rows deleted**: `works` back to **58,042**, `bounties` **0**, `translation_jobs` **0**,
+  probe accounts **0**, `derivative_lineage` **0**.
+
+**A deploy trap this run exposed.** The deploy recipe's `./target/release/darkhold migrate` is a
+**stale binary**: the host's `target/` still holds an Oct 29 build that predates the `[modules]`
+config field, so it refuses the config (*"unknown field `modules`"*) and — under a pipeline that
+hides the exit code — the migration step silently does nothing. The command that runs the same binary
+the unit starts is `~/.cargo-target/darkhold/release/darkhold migrate`, which answers *"schema already
+up to date: 134 migration(s)"*. No migration was needed for this milestone, so nothing was missed
+here, but the recipe is wrong and the skill now says so.
+
+**A listing field worth knowing about.** `create_bounty` writes `created_by = ''` (§20.3's own quirk)
+and records the patron in `account`; the public listing therefore shows a blank `created_by`. Not
+changed here — it is the economy's row shape, not §61's — but an operator reading the listing should
+know which column carries the funder.
