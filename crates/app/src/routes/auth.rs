@@ -105,6 +105,13 @@ struct AccountResponse {
 struct AccountView {
     id: AccountId,
     email: String,
+    /// The name the estate vouches for (from Polaris, refreshed at each sign-in). `None` for a local
+    /// account, which keeps whatever name its own pseuds carry.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    display_name: Option<String>,
+    /// The avatar as a media URL — one file, the same bytes on every site.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    avatar_url: Option<String>,
     age_state: &'static str,
     /// Whether an address has been confirmed. Not enforced yet; reported
     /// honestly rather than implied.
@@ -584,8 +591,17 @@ async fn me(
         .await
         .unwrap_or(0);
 
+    let mut view = account_view(&account, &sessions::now());
+    // The link cache, not a live call: a profile render must not depend on the provider being reachable.
+    if let Ok(Some((picture, name))) =
+        darkhold_db::oidc::profile_for_account(state.db(), "polaris-id", account.id).await
+    {
+        view.avatar_url = picture;
+        view.display_name = name;
+    }
+
     Ok(Json(MeResponse {
-        account: account_view(&account, &sessions::now()),
+        account: view,
         pseuds: pseuds
             .into_iter()
             .map(|pseud| PseudView {
@@ -953,6 +969,8 @@ fn account_view(account: &darkhold_db::identity::Account, session_expires_at: &s
     AccountView {
         id: account.id,
         email: account.email.clone(),
+        display_name: None,
+        avatar_url: None,
         age_state: age_state_name(account.age_state),
         email_verified: account.email_verified_at.is_some(),
         session_expires_at: session_expires_at.to_owned(),

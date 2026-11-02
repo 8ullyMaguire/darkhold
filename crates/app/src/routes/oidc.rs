@@ -241,6 +241,9 @@ async fn callback(
         .get("email")
         .and_then(|v| v.as_str())
         .filter(|_| profile.get("email_verified").and_then(|v| v.as_bool()).unwrap_or(false));
+    // Kept beside the link so a page render never has to call the provider: see migration 0139.
+    let picture = profile.get("picture").and_then(|v| v.as_str());
+    let display_name = profile.get("name").and_then(|v| v.as_str());
     if subject.is_empty() {
         tracing::warn!("userinfo returned no subject");
         return Redirect::to("/login?oidc=invalid_response").into_response();
@@ -249,7 +252,16 @@ async fn callback(
 
     // 1. An established link wins — it is the only mapping that survives an email change.
     let mut account = match oidc::find_link(state.db(), PROVIDER, subject).await {
-        Ok(Some(id)) => identity::find_account(state.db(), id).await.ok().flatten(),
+        Ok(Some(id)) => {
+            // An established link still refreshes the cached profile: a rename at the provider reaches this
+            // site on the next sign-in rather than never.
+            if let Ok(Some(found)) = identity::find_account(state.db(), id).await {
+                let _ = oidc::link(state.db(), PROVIDER, subject, found.id, email, picture, display_name, &now).await;
+                Some(found)
+            } else {
+                None
+            }
+        }
         _ => None,
     };
     let mut linked_now = false;
@@ -258,7 +270,7 @@ async fn callback(
     if account.is_none() {
         if let Some(email) = email {
             if let Ok(Some(found)) = identity::find_account_by_email(state.db(), email).await {
-                if oidc::link(state.db(), PROVIDER, subject, found.id, Some(email), &now)
+                if oidc::link(state.db(), PROVIDER, subject, found.id, Some(email), picture, display_name, &now)
                     .await
                     .is_ok()
                 {

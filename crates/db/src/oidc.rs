@@ -119,13 +119,21 @@ pub async fn link(
     subject: &str,
     account_id: AccountId,
     email: Option<&str>,
+    picture: Option<&str>,
+    display_name: Option<&str>,
     at: &str,
 ) -> Result<()> {
+    // The name and picture are refreshed on every sign-in: they are a cache of what `/userinfo` said, so a
+    // rename at the provider reaches every site on the next visit without a background sync.
     let sql = db.sql(
-        "INSERT INTO oidc_links (provider, subject, account_id, email, linked_at) VALUES (?, ?, ?, ?, ?)
-         ON CONFLICT (provider, subject) DO UPDATE SET account_id = excluded.account_id, email = excluded.email",
-        "INSERT INTO oidc_links (provider, subject, account_id, email, linked_at) VALUES (?, ?, ?, ?, ?)
-         ON CONFLICT (provider, subject) DO UPDATE SET account_id = excluded.account_id, email = excluded.email",
+        "INSERT INTO oidc_links (provider, subject, account_id, email, picture, display_name, linked_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?)
+         ON CONFLICT (provider, subject) DO UPDATE SET account_id = excluded.account_id, email = excluded.email,
+           picture = excluded.picture, display_name = excluded.display_name",
+        "INSERT INTO oidc_links (provider, subject, account_id, email, picture, display_name, linked_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?)
+         ON CONFLICT (provider, subject) DO UPDATE SET account_id = excluded.account_id, email = excluded.email,
+           picture = excluded.picture, display_name = excluded.display_name",
     );
     let account = account_id.to_string();
     match db.backend() {
@@ -135,6 +143,8 @@ pub async fn link(
                 .bind(subject)
                 .bind(&account)
                 .bind(email)
+                .bind(picture)
+                .bind(display_name)
                 .bind(at)
                 .execute(db.sqlite_pool().expect("sqlite handle"))
                 .await
@@ -146,6 +156,8 @@ pub async fn link(
                 .bind(subject)
                 .bind(&account)
                 .bind(email)
+                .bind(picture)
+                .bind(display_name)
                 .bind(at)
                 .execute(db.postgres_pool().expect("postgres handle"))
                 .await
@@ -153,4 +165,38 @@ pub async fn link(
         }
     }
     Ok(())
+}
+
+/// The profile the provider vouches for, as last seen at sign-in.
+///
+/// Returns `None` when the account has no Polaris link — a local account keeps its own name and picture.
+pub async fn profile_for_account(
+    db: &Database,
+    provider: &str,
+    account_id: AccountId,
+) -> Result<Option<(Option<String>, Option<String>)>> {
+    let sql = db.sql(
+        "SELECT picture, display_name FROM oidc_links WHERE provider = ? AND account_id = ?",
+        "SELECT picture, display_name FROM oidc_links WHERE provider = $1 AND account_id = $2",
+    );
+    let account = account_id.to_string();
+    let row = match db.backend() {
+        crate::Backend::Sqlite => {
+            sqlx::query_as::<_, (Option<String>, Option<String>)>(&sql)
+                .bind(provider)
+                .bind(&account)
+                .fetch_optional(db.sqlite_pool().expect("sqlite handle"))
+                .await
+                .context("reading an OIDC profile")?
+        }
+        crate::Backend::Postgres => {
+            sqlx::query_as::<_, (Option<String>, Option<String>)>(&sql)
+                .bind(provider)
+                .bind(&account)
+                .fetch_optional(db.postgres_pool().expect("postgres handle"))
+                .await
+                .context("reading an OIDC profile")?
+        }
+    };
+    Ok(row)
 }

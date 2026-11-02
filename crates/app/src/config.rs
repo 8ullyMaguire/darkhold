@@ -2229,6 +2229,12 @@ pub struct SiteConfig {
     pub base_url: String,
     /// Operator contact address, for legal pages and feeds.
     pub contact_email: Option<String>,
+    /// The estate's media service, when this site is part of one (`https://media.polarisocial.xyz`).
+    ///
+    /// It exists for one reason: a site that renders the estate's avatar must allow its origin in
+    /// `img-src`, and a CSP is all-or-nothing — without this the image is blocked and the avatar silently
+    /// fails to load while the API keeps returning a perfectly good URL.
+    pub media_base: Option<String>,
     /// Instance topics (M30) — configurable public/private with bonus credits.
     pub topics: Vec<InstanceTopic>,
 }
@@ -2374,6 +2380,9 @@ impl Config {
                 .unwrap_or_else(|| "The dark side of fanfiction".to_owned()),
             base_url: base_url.trim_end_matches('/').to_owned(),
             contact_email: site_file.contact_email,
+            media_base: site_file
+                .media_base
+                .map(|base| base.trim_end_matches('/').to_owned()),
             topics: site_file.topics.unwrap_or_default(),
         };
 
@@ -3319,6 +3328,7 @@ impl Config {
                 tagline: "The dark side of fanfiction".to_owned(),
                 base_url: "http://localhost:8080".to_owned(),
                 contact_email: None,
+                media_base: None,
                 topics: Vec::new(),
             },
             server: ServerConfig {
@@ -4622,6 +4632,8 @@ struct SiteSection {
     tagline: Option<String>,
     base_url: Option<String>,
     contact_email: Option<String>,
+    /// The estate's media service, if this site renders avatars from one.
+    media_base: Option<String>,
     topics: Option<Vec<InstanceTopic>>,
 }
 

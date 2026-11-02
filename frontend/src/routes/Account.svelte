@@ -176,10 +176,26 @@
       <div>
         <h1>Your account</h1>
         {#if session.me}
-          <p class="who">
-            {session.me.account.email} ·
-            <span class="age">{describeAgeState(session.me.account.age_state)}</span>
-          </p>
+          <div class="identity">
+            {#if session.me.account.avatar_url}
+              <img
+                class="avatar"
+                src={session.me.account.avatar_url}
+                alt=""
+                width="48"
+                height="48"
+                loading="lazy"
+                decoding="async"
+              />
+            {/if}
+            <p class="who">
+              {#if session.me.account.display_name}
+                <strong>{session.me.account.display_name}</strong> ·
+              {/if}
+              {session.me.account.email} ·
+              <span class="age">{describeAgeState(session.me.account.age_state)}</span>
+            </p>
+          </div>
         {/if}
       </div>
       <Button variant="secondary" loading={signingOut} onclick={signOut}>Sign out</Button>
@@ -397,6 +413,20 @@
 <style>
   .page {
     max-width: 52rem;
+  }
+
+  .identity {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-top: 6px;
+  }
+
+  .avatar {
+    border-radius: 50%;
+    border: 1px solid var(--border-1);
+    object-fit: cover;
+    background: var(--surface-2);
   }
 
   .head {

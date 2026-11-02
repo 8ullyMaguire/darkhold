@@ -21,7 +21,7 @@ use std::sync::Arc;
 use std::time::Instant;
 
 use anyhow::{Context, Result};
-use axum::extract::Request;
+use axum::extract::{Request, State};
 use axum::http::{header, HeaderName, HeaderValue, Method, StatusCode};
 use axum::middleware::{self, Next};
 use axum::response::IntoResponse;
@@ -641,7 +641,10 @@ pub fn build_router(state: AppState) -> Router {
             config.server.request_timeout,
         ))
         .layer(middleware::from_fn(add_trust_proxy_flag))
-        .layer(middleware::from_fn(security_headers))
+        .layer(middleware::from_fn_with_state(
+            config.site.media_base.clone(),
+            security_headers,
+        ))
         // Added last, therefore outermost: nothing escapes correlation.
         .layer(middleware::from_fn(request_context));
 
@@ -868,7 +871,11 @@ pub async fn request_context(mut request: Request, next: Next) -> Response {
 /// external module scripts from our own origin, styles from our own origin
 /// plus inline style attributes (which Svelte uses for dynamic values), and no
 /// object embedding or framing at all.
-pub async fn security_headers(request: Request, next: Next) -> Response {
+pub async fn security_headers(
+    State(media_base): State<Option<String>>,
+    request: Request,
+    next: Next,
+) -> Response {
     let hsts = request.extensions().get::<HstsFlag>().is_some();
 
     let mut response = next.run(request).await;
@@ -890,11 +897,18 @@ pub async fn security_headers(request: Request, next: Next) -> Response {
         HeaderName::from_static("permissions-policy"),
         HeaderValue::from_static("geolocation=(), microphone=(), camera=(), payment=()"),
     );
+    // The avatar lives on the estate's media host, so `img-src` names it when one is configured. A
+    // hard-coded origin would be wrong for a darkhold that is not part of an estate, and a wildcard would
+    // give up the point of the policy.
+    let img_src = match media_base.as_deref() {
+        Some(base) => format!("img-src 'self' data: {}", base.trim_end_matches('/')),
+        None => "img-src 'self' data:".to_string(),
+    };
     headers.insert(
         HeaderName::from_static("content-security-policy"),
-        HeaderValue::from_static(
+        HeaderValue::from_str(&format!(
             "default-src 'self'; \
-             img-src 'self' data:; \
+             {img_src}; \
              style-src 'self' 'unsafe-inline'; \
              script-src 'self'; \
              connect-src 'self'; \
@@ -903,7 +917,10 @@ pub async fn security_headers(request: Request, next: Next) -> Response {
              base-uri 'none'; \
              frame-ancestors 'none'; \
              object-src 'none'",
-        ),
+        ))
+        // A media origin that cannot be a header value is a configuration fault, and the safe answer is the
+        // strict policy rather than no policy.
+        .unwrap_or_else(|_| HeaderValue::from_static("default-src 'self'")),
     );
 
     if hsts {
