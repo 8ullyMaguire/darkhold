@@ -6,8 +6,8 @@
         "implemented-verified-e2e": 129,
         "implemented-locally-tested": 245,
         "unsupported": 4,
-        "implemented-fully-tested": 376,
-        "planned": 79,
+        "implemented-fully-tested": 377,
+        "planned": 78,
         "evaluated-and-rejected": 1
       }
     },
@@ -318,22 +318,16 @@
       "notes": "Found while answering a real question ('20 best progression-fantasy fics with a system') with dh rec: the verb could not find them, because the words that identify the subgenre ('the Gamer', 'LitRPG', 'Chaos Gacha', 'Celestial Grimoire') live in the summary and the tags, not the title. A summary scan belongs behind the same route so the CLI and the site share one definition; weighing it (summary is long, so a plain LIKE over 141k rows needs measuring before it ships) is part of the item."
     },
     {
-      "id": "M63-04",
+      "id": "M63-37",
       "milestone": "M63",
       "requirement": "per-source engagement is stored as the source reports it (likes, hits, replies, bookmarks) instead of one normalised `likes`, so a rate metric can be computed per archive",
-      "notes": "Blocks likes_per_view, wilson and any rate metric. The same import should carry the board's reply count and the AO3 hits, which the source pages already publish."
+      "notes": "Renumbered from `M63-04` on 2026-11-02: that id was assigned to two rows, so a citation of it landed on whichever row sorted first. Blocks likes_per_view, wilson and any rate metric. The same import should carry the board's reply count and the AO3 hits, which the source pages already publish."
     },
     {
-      "id": "M63-05",
+      "id": "M63-38",
       "milestone": "M63",
       "requirement": "the quality weights are per-operator and per-surface rather than compiled in",
-      "notes": "Belongs with M63-30's taste layer, not before it: a weight nobody can explain is worse than a constant. The registry shape is already there \u2014 each metric is addressable by name, so a profile is a weight vector over names."
-    },
-    {
-      "id": "M63-35",
-      "milestone": "M63",
-      "requirement": "six milestone ids are duplicated in this file (M63-03/04/05 appear twice, once per area), so a row can be closed twice for two different pieces of work",
-      "notes": "Found while closing M63-04: the catalogue sweep appended rows without checking the id space, and M63-03 was closed twice for the API metrics and the CLI metric vocabulary. Renumbering is an operator decision, so nothing was renumbered; M63-04's plan and this row disambiguate by area. The same pass added two pre-existing clippy warnings in crates/app/src/routes/draw.rs (useless conversion to the same type, lines 191 and 254) to the three in work_ratings.rs that already fail --all-targets."
+      "notes": "Renumbered from `M63-05` on 2026-11-02: that id was assigned to two rows, so a citation of it landed on whichever row sorted first. Belongs with M63-30's taste layer, not before it: a weight nobody can explain is worse than a constant. The registry shape is already there \u2014 each metric is addressable by name, so a profile is a weight vector over names."
     },
     {
       "id": "M64-01",
@@ -499,7 +493,7 @@
     }
   ],
   "open_by_milestone": {
-    "M63": 32,
+    "M63": 31,
     "M45": 23,
     "M64": 14,
     "M66": 6,

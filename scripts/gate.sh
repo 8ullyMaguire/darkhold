@@ -196,11 +196,15 @@ run_dialects() {
 #   * the reachability probe -- every table has a reader and a writer, or is
 #     listed in the known-gaps file with the reason and the pinning test;
 #   * the split-spec checker -- the specification's split is in step with its
-#     master, and every file's heading number matches its filename.
+#     master, and every file's heading number matches its filename;
+#   * the requirement-id checker -- every row of docs/requirements.csv has a
+#     unique id, because eight ids once named twelve extra rows (M63-35) and
+#     every count of "open requirements" inherited the ambiguity.
 run_repo() {
     cd "$REPO_ROOT"
     python3 "$REPO_ROOT/scripts/reachability.py"
     python3 "$REPO_ROOT/scripts/check-vocabulary.py"
+    python3 "$REPO_ROOT/scripts/check-requirement-ids.py"
     python3 "$REPO_ROOT/scripts/check-frontend-routes.py"
     python3 "$REPO_ROOT/scripts/check-split-spec.py"
 }

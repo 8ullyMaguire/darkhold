@@ -1,3 +1,67 @@
+## 2026-11-02 — twelve requirement rows were invisible to `grep`, and the gate that counts them was wrong twice
+
+**Requirement:** `M63-35` · **Gate:** `scripts/check-requirement-ids.py`, wired into `scripts/gate.sh
+run_repo`
+
+### The defect
+
+`docs/requirements.csv` had **834 rows and 822 unique ids**: `M46-05` named six different
+requirements, `M63-03/04/05` two each, `M6-05`, `M46-01/02/03` two each. Twelve rows were therefore
+invisible to any citation of their id — `grep -rn M63-04 docs/` returned the wrong row first — and
+every count derived from the file (open items, milestone progress, the backlog inventory published an
+hour earlier) inherited the ambiguity. The row that recorded the defect, `M63-35`, said so and had no
+gate behind it.
+
+### The repair
+
+The later occurrence of each duplicate was renumbered into a free id in its own milestone, and each
+moved row says so in its own `notes`:
+
+| old | new | row |
+|---|---|---|
+| `M6-05` | `M6-16` | character/relationship assertions |
+| `M46-01`, `M46-02`, `M46-03` | `M46-06`, `M46-07`, `M46-08` | the search rows |
+| `M46-05` ×5 | `M46-09` … `M46-13` | min_match, taxonomy expansion, ValueKinds, complexity budget, pretty-printer |
+| `M63-03`, `M63-04`, `M63-05` | `M63-36`, `M63-37`, `M63-38` | the catalogue rows |
+
+Verified: `834 rows, 834 unique ids, 51 milestones`. No `docs/` or `crates/` file cites any of the
+twelve new ids, so nothing else changed meaning.
+
+### The gate was wrong twice before it was right, and both times the FILE was right
+
+- **Draft 1** required every id to match `M<n>-<two digits>`. It reported **435 failures**: the
+  tracker is also a test ledger, and `M09.a_work_round_trips`,
+  `M15.search.a_rebuild_indexes_every_token`, `DM3-04`, `GS-1`, `PG-01a`, `M57A-01`, `M45-45g1` are
+  ids on purpose — a test row cites the test by name. Demanding one shape would have meant renaming
+  435 real rows.
+- **Draft 2** required the id's prefix to equal the `milestone` column. It reported **5 failures**:
+  `M11-17`, `M11-17a`…`M11-17d`, all filed under `M57`. Those ids are correct — the id names the
+  **section of origin** (§15.17) and the milestone names the schedule, which `docs/goal.md` says
+  outright ("Finish the M11-17 block (M57)"), and ten files cite them including
+  `crates/app/tests/m57_metadata_exchange.rs`. Renaming them to satisfy the gate would have broken
+  every citation to make a rule true.
+
+The shipped gate checks what `M63-35` actually asked for — **uniqueness** — plus a row floor so a
+parser that matches nothing cannot pass, and prints the five id/milestone divergences as information.
+Mutation: renaming one renumbered row back to its old id fails with
+`id M46-05 is used by 2 rows`.
+
+### Verification
+
+```
+python3 scripts/check-requirement-ids.py
+→ OK: 834 rows, 834 unique ids, 51 milestones; 411 canonical requirement ids and 423 ledger ids …
+→ note: 5 id(s) name their section of origin rather than their milestone (M11-17…→M57) — by design
+python3 scripts/backlog.py --check
+→ the backlog is current: 78 open requirements, 58 unlinked Concord cards, 17 roadmap items
+```
+
+### Why this came before the next feature
+
+A count that includes twelve phantom rows cannot order a backlog. The inventory published earlier
+today said "79 open"; with unique ids it is **78** (`M63` 31, `M45` 23, `M64` 14, `M66` 6, `M65` 4),
+and the difference is not bookkeeping — one of those rows was the duplicate of a row already counted.
+
 ## 2026-11-02 — §53.5 gets a door, and §59.3's promised gate turns out never to have existed
 
 **Spec:** §53.5, §59.3 · **Requirements:** `M66-09`, and the §59.3 gate the registry header claimed ·
