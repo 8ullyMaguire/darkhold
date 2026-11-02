@@ -4,14 +4,22 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import Search from './Search.svelte';
 
 const searchWorks = vi.fn();
+const fetchSearchHistory = vi.fn();
+const clearSearchHistory = vi.fn();
 
 vi.mock('../lib/api', () => ({
   searchWorks: (...args: unknown[]) => searchWorks(...args),
+  fetchSearchHistory: (...args: unknown[]) => fetchSearchHistory(...args),
+  clearSearchHistory: (...args: unknown[]) => clearSearchHistory(...args),
 }));
 
 beforeEach(() => {
   searchWorks.mockReset();
   searchWorks.mockResolvedValue({ items: [] });
+  fetchSearchHistory.mockReset();
+  fetchSearchHistory.mockResolvedValue({ items: [], recording: true });
+  clearSearchHistory.mockReset();
+  clearSearchHistory.mockResolvedValue({ cleared: 0 });
 });
 
 describe('Search page', () => {
@@ -168,5 +176,78 @@ describe('Search page presets', () => {
     const last = searchWorks.mock.calls.at(-1)?.[0] as string;
     expect(last.match(/completion:/g)?.length).toBe(1);
     expect(last.match(/words:/g)?.length).toBe(1);
+  });
+});
+
+describe('Search page history', () => {
+  function entry(query: string) {
+    return { query, result_count: 3, searched_at: '2026-11-02T10:00:00Z' };
+  }
+
+  it('renders this reader\'s recent searches as chips', async () => {
+    fetchSearchHistory.mockResolvedValue({
+      items: [entry('time travel'), entry('fandom:"Naruto"')],
+      recording: true,
+    });
+    render(Search);
+
+    expect(await screen.findByText('time travel')).toBeInTheDocument();
+    expect(screen.getByText('fandom:"Naruto"')).toBeInTheDocument();
+    expect(screen.getByLabelText('Recent searches')).toBeInTheDocument();
+  });
+
+  it('renders no history row at all when there is none, signed out included', async () => {
+    // The 401 an anonymous caller gets is swallowed into "none": a search page must not open
+    // with an error banner for a feature nobody asked for.
+    fetchSearchHistory.mockRejectedValue(new Error('401'));
+    render(Search);
+    await waitFor(() => expect(fetchSearchHistory).toHaveBeenCalled());
+
+    expect(screen.queryByLabelText('Recent searches')).not.toBeInTheDocument();
+    expect(screen.queryByText('Clear')).not.toBeInTheDocument();
+  });
+
+  it('re-runs a query from a chip without retyping it', async () => {
+    fetchSearchHistory.mockResolvedValue({ items: [entry('time travel')], recording: true });
+    render(Search);
+
+    await fireEvent.click(await screen.findByText('time travel'));
+
+    expect(searchWorks).toHaveBeenCalledWith('time travel', 20);
+    expect((screen.getByPlaceholderText(/fandom:/) as HTMLInputElement).value).toBe('time travel');
+  });
+
+  it('Clear forgets every entry and empties the row', async () => {
+    fetchSearchHistory.mockResolvedValue({ items: [entry('one')], recording: true });
+    render(Search);
+    await screen.findByText('one');
+
+    // The refetch after the delete is what the row then renders.
+    fetchSearchHistory.mockResolvedValue({ items: [], recording: true });
+    await fireEvent.click(screen.getByText('Clear'));
+
+    expect(clearSearchHistory).toHaveBeenCalledTimes(1);
+    await waitFor(() => expect(screen.queryByLabelText('Recent searches')).not.toBeInTheDocument());
+  });
+
+  it('says so when recording is off, because the entries shown are still stored', async () => {
+    fetchSearchHistory.mockResolvedValue({ items: [entry('kept before')], recording: false });
+    render(Search);
+
+    expect(await screen.findByText('kept before')).toBeInTheDocument();
+    expect(screen.getByText(/not being kept/i)).toBeInTheDocument();
+  });
+
+  it('re-reads the history after a search, so the server owns dedupe and the cap', async () => {
+    fetchSearchHistory.mockResolvedValue({ items: [], recording: true });
+    render(Search);
+    await waitFor(() => expect(fetchSearchHistory).toHaveBeenCalledTimes(1));
+
+    await fireEvent.input(screen.getByPlaceholderText(/fandom:/), {
+      target: { value: 'a query' },
+    });
+    await fireEvent.click(screen.getByText('Search'));
+
+    await waitFor(() => expect(fetchSearchHistory.mock.calls.length).toBeGreaterThan(1));
   });
 });

@@ -30,6 +30,7 @@ use axum::routing::get;
 use axum::{Json, Router};
 use serde::Serialize;
 
+use crate::auth::MaybeSession;
 use crate::http::{ApiError, ApiResult};
 use crate::state::AppState;
 use darkhold_db::finishers;
@@ -55,6 +56,10 @@ struct AuthorSignals {
 
 async fn author_signals(
     State(state): State<AppState>,
+    // Declared and unused, the way every public surface in this tree states its audience: an
+    // anonymous read that never names the viewer has no way to *become* viewer-aware later
+    // without the route inventory noticing.
+    MaybeSession(_session): MaybeSession,
     Path(pseud): Path<String>,
 ) -> ApiResult<Json<AuthorSignals>> {
     if !finishers::pseud_exists(state.db(), &pseud)
@@ -79,6 +84,7 @@ async fn author_signals(
 
 async fn work_cadence(
     State(state): State<AppState>,
+    MaybeSession(_session): MaybeSession,
     Path(work_id): Path<String>,
 ) -> ApiResult<Json<Cadence>> {
     let cadence = finishers::work_cadence(state.db(), &work_id)

@@ -1,5 +1,12 @@
 <script lang="ts">
-  import { searchWorks, type SearchResultList } from '../lib/api';
+  import { onMount } from 'svelte';
+  import {
+    clearSearchHistory,
+    fetchSearchHistory,
+    searchWorks,
+    type SearchHistoryEntry,
+    type SearchResultList,
+  } from '../lib/api';
   import Combobox from '../lib/components/Combobox.svelte';
   import EmptyState from '../lib/components/EmptyState.svelte';
   import ErrorSummary from '../lib/components/ErrorSummary.svelte';
@@ -57,6 +64,46 @@
    */
   function bound(value: string | number | null): string {
     return value === null || value === undefined ? '' : String(value).trim();
+  }
+
+  // §9.6 / M47-08: this pseud's own last searches. Empty for a signed-out reader, and for one
+  // who has never searched, and in both cases the row is not rendered at all — which is why the
+  // 401 from `fetchSearchHistory` is swallowed into "none" rather than shown as an error.
+  let history = $state<SearchHistoryEntry[]>([]);
+  /** False when the reader turned `search.record_history` off: what is shown is what is stored. */
+  let recording = $state(true);
+
+  async function loadHistory() {
+    try {
+      const view = await fetchSearchHistory();
+      history = view.items;
+      recording = view.recording;
+    } catch {
+      history = [];
+    }
+  }
+
+  onMount(() => {
+    void loadHistory();
+  });
+
+  /** Re-run a query from the history row, without a second trip to the server for the text. */
+  function runFromHistory(entry: SearchHistoryEntry) {
+    query = entry.query;
+    void runSearch();
+  }
+
+  async function forgetHistory() {
+    // Optimistic and unconditional: the list is a convenience the reader just asked to clear,
+    // and showing a spinner while a three-row DELETE lands would be longer than the result.
+    history = [];
+    try {
+      await clearSearchHistory();
+    } catch {
+      // Nothing to report: the next `loadHistory` restores the truth, and a failed clear that
+      // left an empty row on screen is a smaller lie than an error banner over a search page.
+    }
+    void loadHistory();
   }
 
   let debounceTimer: ReturnType<typeof setTimeout> | null = null;
@@ -169,6 +216,10 @@
     searched = true;
     try {
       results = await searchWorks(fullQuery, 20);
+      // The server recorded this search (unless the reader turned recording off), so the row
+      // is re-read rather than patched locally: the store owns dedupe and the cap, and a local
+      // prepend would disagree with it the first time a repeated query moved instead of added.
+      void loadHistory();
     } catch (failure) {
       error = failure;
       results = null;
@@ -209,6 +260,23 @@
       {loading ? 'Searching…' : 'Search'}
     </button>
   </form>
+
+  {#if history.length > 0}
+    <div class="history" aria-label="Recent searches">
+      <span class="history-label">Recent</span>
+      {#each history as entry (entry.query)}
+        <button type="button" class="history-chip" onclick={() => runFromHistory(entry)}>
+          {entry.query}
+        </button>
+      {/each}
+      <button type="button" class="history-clear" onclick={forgetHistory}>Clear</button>
+    </div>
+    {#if !recording}
+      <p class="history-note">
+        New searches are not being kept. <a href="/settings">Search settings</a>
+      </p>
+    {/if}
+  {/if}
 
   <fieldset class="filters">
     <legend>Refine by</legend>
@@ -394,6 +462,46 @@
     padding: 0 var(--space-1);
   }
 
+  .history {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+    margin: 0.75rem 0 1rem;
+  }
+  .history-label {
+    color: var(--text-muted);
+    font-size: 0.85rem;
+  }
+  .history-chip {
+    background: transparent;
+    color: var(--text);
+    border: 1px solid var(--border);
+    border-radius: 999px;
+    padding: 0.25rem 0.75rem;
+    cursor: pointer;
+    font-size: 0.85rem;
+    max-width: 22ch;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .history-chip:hover {
+    border-color: var(--accent);
+  }
+  .history-clear {
+    background: none;
+    border: none;
+    color: var(--text-muted);
+    cursor: pointer;
+    font-size: 0.8rem;
+    text-decoration: underline;
+  }
+  .history-note {
+    color: var(--text-muted);
+    font-size: 0.8rem;
+    margin: -0.5rem 0 1rem;
+  }
   .presets {
     display: flex;
     gap: 0.5rem;

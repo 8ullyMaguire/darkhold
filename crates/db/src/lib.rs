@@ -90,6 +90,7 @@ pub mod revisions;
 pub mod roadmap;
 pub mod roles;
 pub mod search;
+pub mod search_history;
 pub mod secrets;
 pub mod series_recs;
 pub mod sessions;

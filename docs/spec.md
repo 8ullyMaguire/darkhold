@@ -1318,6 +1318,16 @@ A **year in review** page compiles the reader's own year: works finished, words 
 
 Do not count opens as proof of reading. Label estimates as such.
 
+**Search history.** A signed-in reader's last 20 *distinct* searches, kept per pseud and visible
+only to that pseud. A repeated query moves to the front with its new result count rather than
+appearing twice, a query shorter than two characters or one the query language rejected is not
+recorded at all, and clearing removes every entry at once with no confirm-and-wait. Recording is
+governable per pseud through `search.record_history` (default on) in the existing search-settings
+surface; with it off the endpoint answers an empty list, so a reader who turns it off is not
+offered a history that will not refill. It is not a recommendation input: nothing reads this table
+to rank, personalise or aggregate, which is why it carries no `result_count` history and no
+per-account rollup.
+
 ## 9.7 Reading goals, streaks, and gamification
 
 ### 9.7.1 Design principles

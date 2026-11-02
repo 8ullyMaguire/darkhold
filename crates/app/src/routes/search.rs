@@ -2,13 +2,14 @@
 //!
 //! Spec §15.4, §15.9.
 
-use crate::auth::MaybeSession;
+use crate::auth::{MaybeSession, RequireSession};
 use crate::http::{ApiError, ApiResult};
 use crate::state::AppState;
 use axum::extract::{Path, Query, State};
 use axum::routing::get;
 use axum::{Json, Router};
 use darkhold_db::search::{search_in_work, search_works_ast_scoped, InWorkMatch, SearchError, SearchFilters};
+use darkhold_db::search_history as db_history;
 use darkhold_db::settings as db_settings;
 use darkhold_domain::ids::WorkId;
 use serde::Deserialize;
@@ -16,6 +17,12 @@ use serde::Deserialize;
 pub fn router() -> Router<AppState> {
     Router::new()
         .route("/search", get(search))
+        // §9.6 / M47-08. Declared before `/search/in-work/{id}` for readability; axum matches
+        // `/search/history` exactly, so the `{id}` route below cannot swallow it.
+        .route(
+            "/search/history",
+            get(list_history).delete(clear_history),
+        )
         .route("/search/in-work/{id}", get(in_work))
         .route("/users/search", get(users_search))
 }
@@ -131,6 +138,96 @@ async fn resolve_search_defaults(
     (min_words, max_words, sort, max_rating)
 }
 
+/// How many distinct searches a pseud keeps (spec §9.6), and how many the UI asks for.
+const HISTORY_CAP: i64 = 20;
+const HISTORY_DEFAULT_LIMIT: i64 = 10;
+
+/// The pseud a search belongs to.
+///
+/// `SessionUser.pseud_id` is optional — a signed-in account that has not picked a pseud yet
+/// searches as the account, which is what every other per-pseud surface in this file does. One
+/// helper because three call sites must agree: if the writer keyed on the pseud and the reader on
+/// the account, a reader would have a history that never appears.
+fn viewer_pseud(session: &crate::auth::SessionUser) -> uuid::Uuid {
+    session
+        .pseud_id
+        .as_ref()
+        .map(|p| p.as_uuid())
+        .unwrap_or_else(|| session.account_id.as_uuid())
+}
+
+/// Whether this pseud wants searches recorded (`search.record_history`, default on).
+///
+/// Absent means on: the registry's default is `true` and a reader who has never opened settings
+/// has not opted out. An unreadable settings row also means on, because failing closed would
+/// silently disable a feature for everyone the moment the settings query broke, and the reader
+/// would have no way to tell that from having turned it off.
+async fn recording_enabled(state: &AppState, pseud_id: uuid::Uuid) -> bool {
+    let stored = db_settings::read_search_settings(state.db(), pseud_id)
+        .await
+        .unwrap_or_default();
+    stored
+        .iter()
+        .find(|(key, _)| key == "search.record_history")
+        .and_then(|(_, value)| value.as_bool())
+        .unwrap_or(true)
+}
+
+#[derive(Debug, Deserialize)]
+pub struct HistoryQuery {
+    #[serde(default = "default_history_limit")]
+    limit: i64,
+}
+
+fn default_history_limit() -> i64 {
+    HISTORY_DEFAULT_LIMIT
+}
+
+/// The reader's own last searches (spec §9.6, item 31 of the reader audit).
+///
+/// `RequireSession`, not `MaybeSession`: an anonymous caller has no pseud to key on, and answering
+/// an empty list would make "not signed in" indistinguishable from "no history yet" — the same
+/// confusion this file's query parser refuses to create for a typo'd field.
+///
+/// With `search.record_history` off the answer is an empty list *and* `recording: false`, so the
+/// reader is not shown a history that will never refill.
+async fn list_history(
+    State(state): State<AppState>,
+    RequireSession(session): RequireSession,
+    Query(params): Query<HistoryQuery>,
+) -> ApiResult<Json<serde_json::Value>> {
+    let pseud_id = viewer_pseud(&session);
+    let recording = recording_enabled(&state, pseud_id).await;
+
+    // The list is what is stored, whether or not recording continues. `search.record_history`
+    // governs *keeping new* searches; it does not make the instance forget what it already holds.
+    //
+    // The first version returned an empty list once the switch was off, and that was the wrong
+    // lie: the rows were still on disk, so "recording off" showed an empty history while the
+    // database kept it — the one combination a privacy switch must not produce. Showing what is
+    // stored and reporting `recording: false` makes the state visible, and the reader who wants
+    // it gone has the Clear control two buttons away.
+    let items = db_history::recent(state.db(), pseud_id, params.limit.clamp(1, HISTORY_CAP))
+        .await
+        .map_err(|e| ApiError(darkhold_domain::AppError::Internal(e)))?;
+    Ok(Json(serde_json::json!({ "items": items, "recording": recording })))
+}
+
+/// Forget every recorded search (spec §9.6: cleared history is a cleared review).
+///
+/// No confirmation step and no undo: the reader can recreate any entry by running the search
+/// again, which is exactly why a confirm dialog here would be friction without protection.
+async fn clear_history(
+    State(state): State<AppState>,
+    RequireSession(session): RequireSession,
+) -> ApiResult<Json<serde_json::Value>> {
+    let pseud_id = viewer_pseud(&session);
+    let cleared = db_history::clear(state.db(), pseud_id)
+        .await
+        .map_err(|e| ApiError(darkhold_domain::AppError::Internal(e)))?;
+    Ok(Json(serde_json::json!({ "cleared": cleared })))
+}
+
 async fn search(
     State(state): State<AppState>,
     MaybeSession(session): MaybeSession,
@@ -185,6 +282,31 @@ async fn search(
     let results = search_works_ast_scoped(state.db(), &params.q, viewer_id.as_deref(), params.limit, &filters, &scope)
         .await
         .map_err(search_failure)?;
+
+    // §9.6 / M47-08: record the search — AFTER it succeeded, so a 422 from the query language
+    // leaves no entry (a query the parser rejected is not one the reader would want offered
+    // back), and with the count the reader is about to see rather than a later recount.
+    //
+    // The write may not fail the search. A history is a convenience on top of a working result
+    // page; turning a successful search into a 500 because a bookkeeping insert hit a lock would
+    // be a worse bug than a missing history row, so the error is logged and dropped.
+    if let Some(ref session) = session {
+        let pseud_id = viewer_pseud(session);
+        if db_history::worth_recording(&params.q) && recording_enabled(&state, pseud_id).await {
+            let now = chrono::Utc::now()
+                .format("%Y-%m-%dT%H:%M:%SZ")
+                .to_string();
+            if let Err(error) =
+                db_history::record(state.db(), pseud_id, &params.q, results.len() as i64, &now, HISTORY_CAP)
+                    .await
+            {
+                tracing::warn!(
+                    error = %error,
+                    "search history write failed; the search itself succeeded"
+                );
+            }
+        }
+    }
 
     Ok(Json(serde_json::json!({
         "items": results,

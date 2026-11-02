@@ -39,6 +39,12 @@ pub const SETTING_KEYS: &[SettingKeyDef] = &[
         summary: "How many results to return per search page",
     },
     SettingKeyDef {
+        key: "search.record_history",
+        namespace: SettingNamespace::Search,
+        default_json: "true",
+        summary: "Keep the last 20 distinct searches made with this pseudonym",
+    },
+    SettingKeyDef {
         key: "reader.font_family",
         namespace: SettingNamespace::Reader,
         default_json: r#""system""#,

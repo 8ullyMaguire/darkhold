@@ -1738,6 +1738,34 @@ export function searchWorks(
   return apiFetch<SearchResultList>(`/search?${params}`, { signal });
 }
 
+/** One recorded search, newest first, as its owner sees it (spec §9.6 / M47-08). */
+export interface SearchHistoryEntry {
+  query: string;
+  /** How many works it returned when it was run — a fact about that search, not a recount. */
+  result_count: number;
+  /** Canonical `YYYY-MM-DDTHH:MM:SSZ`. */
+  searched_at: string;
+}
+
+export interface SearchHistoryView {
+  items: SearchHistoryEntry[];
+  /**
+   * False when this pseud turned `search.record_history` off. The items are still what is
+   * stored: the switch stops new searches being kept, it does not make the instance forget.
+   */
+  recording: boolean;
+}
+
+/** The reader's own last searches. 401 for an anonymous caller, which the page renders as none. */
+export function fetchSearchHistory(signal?: AbortSignal): Promise<SearchHistoryView> {
+  return apiFetch<SearchHistoryView>('/search/history', { signal });
+}
+
+/** Forget every recorded search; returns how many were removed. */
+export function clearSearchHistory(): Promise<{ cleared: number }> {
+  return apiFetch<{ cleared: number }>('/search/history', { method: 'DELETE' });
+}
+
 /** Search within a single work. */
 export function searchInWork(
   workId: string,

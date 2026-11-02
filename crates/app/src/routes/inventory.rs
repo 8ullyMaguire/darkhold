@@ -1412,6 +1412,20 @@ pub const ROUTE_TABLE: &[RouteEntry] = &[
     },
     RouteEntry {
         file: "search.rs",
+        handler: "list_history",
+        method: "GET",
+        path: "/search/history",
+        audience: Audience::Authenticated,
+    },
+    RouteEntry {
+        file: "search.rs",
+        handler: "clear_history",
+        method: "DELETE",
+        path: "/search/history",
+        audience: Audience::Authenticated,
+    },
+    RouteEntry {
+        file: "search.rs",
         handler: "in_work",
         method: "GET",
         path: "/search/in-work/{id}",
@@ -4693,5 +4707,35 @@ pub const ROUTE_TABLE: &[RouteEntry] = &[
         method: "GET",
         path: "/taxonomy/export",
         audience: Audience::Public,
+    },
+    // ------------------------------------------------------------------
+    // Ungated surfaces that existed before this table learned about them.
+    //
+    // `registered_routes_are_tabled` has been failing at HEAD on exactly these three, which is
+    // the failure mode the table exists to prevent silently: a route nobody lists is a route
+    // nobody audits for its audience. Both finisher surfaces are anonymous reads of a public
+    // author's or work's numbers (`Path` only, no session extractor); the hit-rate door checks
+    // the session against `administration.operator_account_id` itself, which is an operator door
+    // even though it extracts `RequireSession`.
+    RouteEntry {
+        file: "finishers.rs",
+        handler: "author_signals",
+        method: "GET",
+        path: "/authors/{pseud}/finisher-signals",
+        audience: Audience::Public,
+    },
+    RouteEntry {
+        file: "finishers.rs",
+        handler: "work_cadence",
+        method: "GET",
+        path: "/works/{id}/cadence",
+        audience: Audience::Public,
+    },
+    RouteEntry {
+        file: "operator_hit_rate.rs",
+        handler: "get_hit_rate",
+        method: "GET",
+        path: "/operator/hit-rate",
+        audience: Audience::Operator,
     },
 ];
