@@ -1,6 +1,6 @@
 {
  "generated_by": "scripts/ideas_catalogue.py",
- "count": 163,
+ "count": 162,
  "ideas": [
   {
    "why_summary": "",
@@ -123,19 +123,6 @@
    "why_summary": "-- Gaps review C10. Full-text search + optional semantic search + reverse media search.",
    "id": "M45-34",
    "title": "Fic Finder bounties",
-   "sources": [
-    "docs/requirements.csv"
-   ],
-   "milestone": "M45",
-   "relevance": 4,
-   "because": "a requirements row exists (+4)",
-   "default_on": false,
-   "built": false
-  },
-  {
-   "why_summary": "-- Gaps review D1.",
-   "id": "M45-36",
-   "title": "MediaReference descriptions as link-rot last fallback, curator-bountied",
    "sources": [
     "docs/requirements.csv"
    ],

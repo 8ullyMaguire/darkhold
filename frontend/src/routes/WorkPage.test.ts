@@ -19,13 +19,16 @@ vi.mock('../lib/api', async (importOriginal) => {
     upsertReview: vi.fn(),
     isAuthorWork: vi.fn().mockReturnValue(false),
     fetchWorkNoteLinks: vi.fn().mockResolvedValue({ links: [], count: 0, dead: 0 }),
+    fetchWorkMediaReferences: vi.fn().mockResolvedValue({ items: [] }),
     recheckWorkNoteLinks: vi.fn().mockResolvedValue({ checked: 0, dead: 0 }),
   };
 });
 
 import {
   fetchWork,
+  fetchWorkMediaReferences,
   fetchWorkNoteLinks,
+  isAuthorWork,
   fetchWorkPricing,
   fetchReviews,
   recheckWorkNoteLinks,
@@ -93,7 +96,7 @@ describe('WorkPage paywall', () => {
  * that the element which hides it is there, is a `details`, and starts closed.
  */
 
-const WORK = {
+const sharedWork = {
   id: 'work-1',
   title: 'The Salt Road',
   summary: 'A cartographer walks inland.',
@@ -140,7 +143,7 @@ describe('WorkPage withheld text', () => {
   });
 
   it('lists the units without links, and says why', async () => {
-    (fetchWork as any).mockResolvedValue({ ...WORK, content_withheld: true });
+    (fetchWork as any).mockResolvedValue({ ...sharedWork, content_withheld: true });
 
     render(WorkPage, { props: { workId: 'work-1' } });
 
@@ -154,7 +157,7 @@ describe('WorkPage withheld text', () => {
   });
 
   it('links the units when the text is readable', async () => {
-    (fetchWork as any).mockResolvedValue(WORK);
+    (fetchWork as any).mockResolvedValue(sharedWork);
 
     render(WorkPage, { props: { workId: 'work-1' } });
 
@@ -174,7 +177,7 @@ describe('WorkPage spoiler reveal', () => {
 
   it('wraps a spoiler review in a closed <details> element', async () => {
     const spoilerReview = review({ contains_spoilers: true, body: 'The butler did it.' });
-    (fetchWork as any).mockResolvedValue(WORK);
+    (fetchWork as any).mockResolvedValue(sharedWork);
     (fetchReviews as any).mockResolvedValue({ items: [spoilerReview] });
 
     render(WorkPage, { props: { workId: 'work-1' } });
@@ -188,7 +191,7 @@ describe('WorkPage spoiler reveal', () => {
 
   it('does not wrap a non-spoiler review in <details>', async () => {
     const normalReview = review({ contains_spoilers: false });
-    (fetchWork as any).mockResolvedValue(WORK);
+    (fetchWork as any).mockResolvedValue(sharedWork);
     (fetchReviews as any).mockResolvedValue({ items: [normalReview] });
 
     render(WorkPage, { props: { workId: 'work-1' } });
@@ -234,7 +237,7 @@ describe('WorkPage note links', () => {
     vi.clearAllMocks();
     session.status = 'anonymous';
     session.me = null as any;
-    (fetchWork as any).mockResolvedValue(WORK);
+    (fetchWork as any).mockResolvedValue(sharedWork);
     (fetchReviews as any).mockResolvedValue({ items: [] });
     (fetchWorkPricing as any).mockResolvedValue({ pricing: [] });
     (fetchWorkNoteLinks as any).mockResolvedValue({ links: [], count: 0, dead: 0 });
@@ -274,7 +277,7 @@ describe('WorkPage note links', () => {
   it('offers the re-check to the author only', async () => {
     const { isAuthorWork } = await import('../lib/api');
     (isAuthorWork as any).mockReturnValue(true);
-    (fetchWork as any).mockResolvedValue({ ...WORK, lifecycle: 'published' });
+    (fetchWork as any).mockResolvedValue({ ...sharedWork, lifecycle: 'published' });
     (fetchWorkNoteLinks as any).mockResolvedValue({ links: [healthy], count: 1, dead: 0 });
 
     render(WorkPage, { props: { workId: 'work-1' } });
@@ -286,5 +289,74 @@ describe('WorkPage note links', () => {
     });
     // The page reloads the report after a check, so the statuses on screen are the new ones.
     expect((fetchWorkNoteLinks as any).mock.calls.length).toBeGreaterThan(1);
+  });
+});
+
+describe('WorkPage media fallback (M45-36)', () => {
+  // WorkPage reads `authors`, `units` and `language` off the work; a thinner fixture renders
+  // nothing at all rather than failing loudly, which reads as a missing element, not a bad fixture.
+
+  const deadRef = {
+    id: 'ref-1',
+    work_id: 'work-1',
+    unit_id: null,
+    context: 'inline_embed',
+    display_url: 'https://old-host.example/song.mp3',
+    author_note: 'Listen while you read',
+    inserted_at: '2026-01-01T00:00:00Z',
+    healthy_links: 0,
+    total_links: 0,
+    best_url: null,
+  };
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    session.status = 'anonymous';
+    session.me = null as any;
+    (fetchWork as any).mockResolvedValue(sharedWork);
+    (fetchWorkPricing as any).mockResolvedValue({ pricing: [] });
+    (fetchReviews as any).mockResolvedValue({ items: [] });
+    (fetchWorkNoteLinks as any).mockResolvedValue({ links: [], count: 0, dead: 0 });
+    (fetchWorkMediaReferences as any).mockResolvedValue({ items: [] });
+    // The note-links block flips this on for the author test; left on, the page renders the author
+    // header instead of the reader's and the media block never mounts.
+    (isAuthorWork as any).mockReturnValue(false);
+  });
+
+  it('names the missing media instead of saying only that it is unavailable', async () => {
+    (fetchWorkMediaReferences as any).mockResolvedValue({ items: [deadRef] });
+
+    render(WorkPage, { props: { workId: 'work-1' } });
+
+    const fallback = await screen.findByTestId('media-ref-unavailable');
+    // What kind of media it was…
+    expect(fallback.textContent).toContain('This inline embed is currently unavailable.');
+    // …what the author said about it…
+    expect(fallback.textContent).toContain('Listen while you read');
+    // …and where it used to live, so the reader has something to look for.
+    expect(fallback.textContent).toContain('old-host.example');
+  });
+
+  it('does not show the fallback while a healthy link exists', async () => {
+    (fetchWorkMediaReferences as any).mockResolvedValue({
+      items: [{ ...deadRef, healthy_links: 1, total_links: 2, best_url: 'https://ok.example/x.png' }],
+    });
+
+    render(WorkPage, { props: { workId: 'work-1' } });
+
+    await screen.findByRole('heading', { name: /Media references/i });
+    expect(screen.queryByTestId('media-ref-unavailable')).toBeNull();
+  });
+
+  it('degrades to the note alone when the stored URL is unparseable', async () => {
+    (fetchWorkMediaReferences as any).mockResolvedValue({
+      items: [{ ...deadRef, display_url: 'not a url at all' }],
+    });
+
+    render(WorkPage, { props: { workId: 'work-1' } });
+
+    const fallback = await screen.findByTestId('media-ref-unavailable');
+    expect(fallback.textContent).toContain('Listen while you read');
+    expect(fallback.textContent).not.toContain('It was hosted at');
   });
 });

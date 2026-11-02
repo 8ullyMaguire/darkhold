@@ -226,6 +226,20 @@
   let noteLinksReceipt = $state<string | null>(null);
 
   let gallery = $state<GalleryItem[] | null>(null);
+  /**
+   * The host a dead reference pointed at, or null when the stored URL does not parse.
+   *
+   * A malformed URL is not worth an error in the reader's face: the fallback degrades to the note
+   * alone. `display_url` is author-supplied, so it is parsed defensively rather than trusted.
+   */
+  function hostOf(displayUrl: string): string | null {
+    try {
+      return new URL(displayUrl).host;
+    } catch {
+      return null;
+    }
+  }
+
   /** Media references from the media-resilience graph (§32.7.7). */
   let mediaRefs = $state<WorkMediaReferenceView[] | null>(null);
   let brokenReports = $state<Set<string>>(new Set());
@@ -425,8 +439,23 @@
               <img src={ref.best_url} alt={ref.author_note ?? ''} loading="lazy" />
             </a>
           {:else}
-            <div class="media-ref-unavailable" role="status">
-              This media is currently unavailable.
+            <!--
+              §32.7 last fallback (M45-36): when every link is gone the reader still has to be told
+              WHAT is gone. A bare "unavailable" is indistinguishable from a bug — it names no item,
+              keeps no author note, and gives the reader nothing to search for. So the fallback keeps
+              the note, the kind of media, and the host the link pointed at. It names the host rather
+              than showing a dead URL, because a dead URL is a promise the page cannot keep.
+            -->
+            <div class="media-ref-unavailable" role="status" data-testid="media-ref-unavailable">
+              <p>This {ref.context.replace(/_/g, ' ')} is currently unavailable.</p>
+              {#if ref.author_note}
+                <p class="media-ref-unavailable-note">“{ref.author_note}”</p>
+              {/if}
+              {#if hostOf(ref.display_url)}
+                <p class="media-ref-unavailable-host">
+                  It was hosted at <span class="media-ref-host">{hostOf(ref.display_url)}</span>.
+                </p>
+              {/if}
             </div>
           {/if}
           <div class="media-ref-meta">
@@ -726,6 +755,25 @@
     border-radius: var(--radius-sm);
     color: var(--color-muted);
     text-align: center;
+  }
+
+  .media-ref-unavailable p {
+    margin: 0;
+  }
+
+  .media-ref-unavailable-note {
+    margin-top: var(--space-2) !important;
+    color: var(--color-text);
+    font-style: italic;
+  }
+
+  .media-ref-unavailable-host {
+    margin-top: var(--space-1) !important;
+    font-size: var(--text-sm);
+  }
+
+  .media-ref-host {
+    font-family: var(--font-mono);
   }
 
   .media-ref-meta {

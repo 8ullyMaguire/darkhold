@@ -1,3 +1,34 @@
+## 2026-11-02 — M45-36 (partial): what the reader is told when the media is gone
+
+**Requirement:** `M45-36` · **Tests:** 3 component · **Status:** partial, and the row says so
+
+A media reference with no healthy link rendered "This media is currently unavailable." That sentence is
+indistinguishable from a bug: it names no item, keeps no author note, and leaves the reader nothing to
+search for. The fallback now says what kind of media it was, quotes the author, and names the host it
+used to live at.
+
+Two deliberate limits, both asserted: the host is **named, not linked** (a dead URL is a promise the
+page cannot keep), and an unparseable stored URL degrades to the note alone rather than an error in the
+reader's face — `display_url` is author-supplied, so it is parsed defensively.
+
+**What this does not do:** the fallback uses the author's note, not a curator-authored description of
+the media, and there is no bounty that pays a curator to write one. Both need a column and a curator
+door. That is why the row is `implemented-locally-tested` rather than closed.
+
+```
+node node_modules/vitest/vitest.mjs run src/routes/WorkPage.test.ts -> 12 passed
+node node_modules/vitest/vitest.mjs run src/routes                  -> 324 passed (46 files)
+node node_modules/vite/bin/vite.js build                            -> built in 3.16s
+```
+
+**Red by removal (all three measured):** dropping the host line fails one test, dropping the note line
+fails two, and returning the raw URL when `new URL` throws fails the degradation test.
+
+**Test-pollution note, since it cost more than the feature:** the media tests passed alone and failed in
+the file. The cause was the note-links block leaving `isAuthorWork` mocked `true`; the page then
+renders the author header and the media block never mounts, so the failure looked like a missing
+element instead of a leaking mock. Each block now resets the mocks it depends on.
+
 ## 2026-11-02 — M65-08: the catalogue caught its own author, one row later
 
 **Requirement:** `M65-08` · **Tests:** 3, one of which failed against the tree before this pass

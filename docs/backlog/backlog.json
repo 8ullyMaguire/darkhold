@@ -4,10 +4,10 @@
       "rows": 856,
       "by_status": {
         "implemented-verified-e2e": 129,
-        "implemented-locally-tested": 246,
+        "implemented-locally-tested": 247,
         "unsupported": 4,
         "implemented-fully-tested": 407,
-        "planned": 69,
+        "planned": 68,
         "evaluated-and-rejected": 1
       }
     },
@@ -40,12 +40,6 @@
       "milestone": "M45",
       "requirement": "Fic Finder bounties: pay for identifying half-remembered works",
       "notes": "Gaps review C10. Full-text search + optional semantic search + reverse media search."
-    },
-    {
-      "id": "M45-36",
-      "milestone": "M45",
-      "requirement": "MediaReference descriptions as link-rot last fallback, curator-bountied",
-      "notes": "Gaps review D1."
     },
     {
       "id": "M45-37",
@@ -440,7 +434,7 @@
   ],
   "open_by_milestone": {
     "M63": 25,
-    "M45": 21,
+    "M45": 20,
     "M64": 14,
     "M66": 6,
     "M65": 1,
