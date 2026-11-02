@@ -1,5 +1,31 @@
 # Handoff
 
+## The backlog's tail, measured — 2026-11-02
+
+Full text: `docs/handoffs/2026-11-02T2145+0100-backlog-tail-measured-handoff.md`.
+
+**Where it stands:** 857 requirements, 784 implemented (408 fully-tested, 247 locally-tested, 129
+verified-e2e), **68 planned**, 4 unsupported, 1 rejected. Nothing in this section is inferred from the
+plan; it is counted from `docs/requirements.csv` and `scripts/ideas_catalogue.py`.
+
+**What this session closed:** the note-link report on the work page (with a browser journey that types
+the note rather than calling the API), the idea catalogue's id join (which caught its own author one
+commit later), the dead-media fallback (partial — the curator-authored description and its bounty are
+still open), and M45-62, which turned out to be two findings: §11.16's snapshot gate had been **red in
+a clean tree since M47-14 because it was never in CI**, and 37 of the 68 identity-carrying columns
+outside the foreign-key graph are invisible to *both* identity gates. That class is M45-65, opened with
+a measurement instead of a suspicion.
+
+**Two rows a cold start must not "fix" blind:** M45-65 (widening the gate's regex turns it red until
+all 68 columns carry a treatment read off their writer — `RequirePseud` or `RequireSession`) and
+M65-09 (deferred on purpose, with its reason recorded; it looks cheap and is not).
+
+**One decision needs a person:** `arena`'s `default_on`. It ranks people.
+
+**Next three:** `M63-05`/`M63-07` (the CLI's output shapes and grammar — they unblock most of the 18
+other power-user rows), then `M64-02`/`M64-03` (the impression log and daily snapshots, the spine of
+the other eleven M64 rows), then M45-65 as an inventory pass.
+
 ## M6-05 — the facets §6.4 names, and the rename that had to wait for them
 
 **In the tree, migration `0127`, 2026-10-27.** §6.4 defines a character assertion as
