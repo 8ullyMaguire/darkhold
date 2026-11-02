@@ -39,7 +39,7 @@ exit=1
 | the refusal branch reports `Some(0.0)` instead of `None` | `a_refused_rung_is_not_a_zero` | `a refusal must not report 0.0` |
 | the coverage limb of the verdict deleted | `the_bar_is_a_conjunction` | ships a collapsed engine |
 
-### Both export dialects were executed, and three defects came out
+### Both export dialects were executed, and four defects came out
 
 A scratch SQLite database and a scratch PostgreSQL 16 database, each with 30 works, 30 kudos (24
 before the cutoff, 6 after), one bookmark and two tag rows. Both dialects produced the same document:
@@ -58,6 +58,12 @@ What the execution found, and what a review would not have:
    `-v ON_ERROR_STOP=1` and refuses to hand an empty or partial document to the pseudonymiser — a
    partial set reads as a smaller population, which is the silent-no-op class this project keeps
    finding.
+4. **The 0124 rename is invisible until a query names a column it dropped.** `data/lorehaven.sqlite`
+   predates it, so there `canonical_entities` still means the exchange table (keyed `kind, norm`) and
+   the taxonomy is `taxonomy_nodes`; the export died on `no such column: ce.id`. The wrapper now
+   probes for the column first and refuses with the migration named — and on PostgreSQL that probe
+   also closes the `psql` exit-0 hole, which would otherwise have reported a one-column failure as a
+   successful export of zero readers.
 
 ### What this does NOT prove
 
@@ -66,6 +72,9 @@ What the execution found, and what a review would not have:
   expected to print four refusals and score nobody, which is a result and not a pass.
 - **The Postgres body ran against a scratch schema, not the deployed database.** The columns and
   types match migrations `0068`/`0098`/`0129`, but the corpus is not exercised.
+- **The local dev shell cannot export until it is migrated.** `data/lorehaven.sqlite` is behind
+  `0124`, so the export refuses there by design; the scratch database is what proved the query, and
+  the refusal with the migration named is the behaviour a stale checkout needs.
 - **The bar is a proposal.** `1.25×` popularity with a 5 % coverage floor and a 40 % group ceiling is
   written in `Bar::proposed` so a run cannot choose it after seeing the numbers; the operator may
   change the constant, and that change is a decision to record, not a tuning step.

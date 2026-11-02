@@ -508,7 +508,9 @@ cmp eval/a.json eval/b.json && echo "byte-identical"
 ```
 
 Expected on the **local dev shell** (`data/lorehaven.sqlite`, two accounts and no corpus): sixteen
-zero rows, the census exiting `1` on the absent `work_ratings`, and `0` readers exported:
+zero rows, the census exiting `1` on the absent `work_ratings`, and the export **refusing** rather
+than writing a set — that database predates migration `0124` (`canonical_entities` there is still the
+pre-rename exchange table, with no `id`), so the probe stops it with the migration named:
 
 ```
 works|0
@@ -523,7 +525,17 @@ slots_with_a_propensity|0
 engaged_works_carrying_a_tag|0
 ...
 Parse error near line 47: no such table: work_ratings
+
+$ scripts/eval/02-export-set.sh sqlite data/lorehaven.sqlite --out eval/eval-set.json
+the schema is behind: canonical_entities has no `id` column, which migration 0124
+adds when it renames taxonomy_nodes. Run `darkhold migrate` on this database first.
+exit=1
 ```
+
+**That refusal is the correct behaviour and it was found by running it.** Without the probe the
+export died on `no such column: ce.id`, which names neither the migration nor the fix; on PostgreSQL
+it would have died the same way *and exited 0*, because `psql` does not stop on a failed statement
+unless told to.
 
 Expected on the **deployed corpus** (2026-11-01 measurement, to be re-measured rather than copied):
 `library_items 141,317`, `engaged_works 1,247`, `engaged_works_carrying_a_tag 0`,

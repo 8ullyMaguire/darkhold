@@ -39,12 +39,26 @@ fi
 
 case "$engine" in
     sqlite)
+        # The export reads post-0124 `canonical_entities` (the taxonomy, keyed by id) and post-0129
+        # shapes. An older checkout answers "no such column: ce.id", which names neither the
+        # migration nor the fix, so the probe does.
+        sqlite3 -readonly "$source" "SELECT id FROM canonical_entities LIMIT 1" >/dev/null 2>&1 || {
+            echo "the schema is behind: canonical_entities has no \`id\` column, which migration 0124" >&2
+            echo "adds when it renames taxonomy_nodes. Run \`darkhold migrate\` on this database first." >&2
+            exit 1
+        }
         sqlite3 -readonly "$source" < "$dirname_of_source/02-export-set.sqlite.sql"
         ;;
     postgres)
         # ON_ERROR_STOP, because psql exits 0 after a failed statement by default — a broken query
         # would otherwise hand the pseudonymiser a partial document and the run would read as a
         # smaller population rather than as a failure.
+        psql "$source" -tA -q -v ON_ERROR_STOP=1 -c "SELECT id FROM canonical_entities LIMIT 1" \
+            >/dev/null 2>&1 || {
+            echo "the schema is behind: canonical_entities has no \`id\` column, which migration 0124" >&2
+            echo "adds when it renames taxonomy_nodes. Run \`darkhold migrate\` on this database first." >&2
+            exit 1
+        }
         psql "$source" -tA -q -v ON_ERROR_STOP=1 -f "$dirname_of_source/02-export-set.postgres.sql"
         ;;
     *)
