@@ -11,7 +11,12 @@
 //! different from the same window in a URL. That is also why `--sort wilson`
 //! fails today with the server's own message rather than being mapped to `likes`:
 //! a client-side alias table is a second definition waiting to disagree.
+//!
+//! **The exit codes are part of the API** (`M63-16`): `0` ok, `1` environment, `2` usage, `3` not
+//! found, `4` auth, `5` rate-limited — defined once in [`exit`] and documented in
+//! `docs/cli-exit-codes.md`, because a wrapper script decides what to do from that number alone.
 
+mod exit;
 mod module;
 mod rec;
 mod supply;
@@ -105,7 +110,14 @@ async fn main() -> std::process::ExitCode {
                 std::process::ExitCode::from(error.code)
             }
         },
-        Command::Module { action } => match module::run(&cli, module::ModuleArgs { action: action.clone() }).await {
+        Command::Module { action } => match module::run(
+            &cli,
+            module::ModuleArgs {
+                action: action.clone(),
+            },
+        )
+        .await
+        {
             Ok(()) => std::process::ExitCode::SUCCESS,
             Err(error) => {
                 eprintln!("{error}");

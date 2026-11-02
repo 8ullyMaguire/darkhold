@@ -1,3 +1,73 @@
+## 2026-11-02 — the CLI told scripts that a missing session was a typo
+
+**Requirements:** `M63-16` (exit codes as an API), `M63-28` (the crate may not depend on the server) ·
+**Tests:** `crates/cli/tests/exit_codes.rs` (9), `crates/cli/tests/layering.rs` (2), plus 21 in-crate
+tests · **Doc:** `docs/cli-exit-codes.md`
+
+### The defect
+
+`M63-16` asks for `0` ok, `1` error, `2` usage, `3` not found, `4` auth, `5` rate-limited. The binary
+had **two**: `1` and `2`. `401`, `403` **and** `404` were all reported as `2` — the usage code — so a
+wrapper was told *"your command is wrong"* when the truth was *"your session is missing"* or *"that
+work was deleted"*. Those are the two cases a script can act on, and they were indistinguishable from
+the one it cannot.
+
+The cause was a second mapping: `rec.rs` decided status→code one way and `module.rs` another
+(`module.rs` returned `bad_request` for every non-2xx). A per-verb mapping is how the same `401`
+becomes two different numbers depending on which verb the caller used.
+
+### The change
+
+- `crates/cli/src/exit.rs` — the constants and one `for_status`, documented as the contract, with the
+  table in one place and a test asserting every documented code is reachable.
+- Both verbs now call it. `429` gained its own message naming `Retry-After`.
+- **Local refusals follow the same table.** `dh rec --engine rrf` without a token refuses before
+  sending anything; it returned `2` and now returns `4`. Refusing locally must not change what the
+  number means, or a wrapper learns a different code depending on where the check happened.
+- `docs/cli-exit-codes.md` — the table, why `2` is usage rather than `1` (`clap` already exits `2`, so
+  `2` means "nothing ran"), and the rule that codes are appended, never renumbered.
+
+### The tests drive the real binary
+
+`exit_codes.rs` runs `CARGO_BIN_EXE_dh` against a canned `TcpListener` that answers one status, so
+what is asserted is the number a shell sees, not what a unit test believes:
+
+| status | exit |
+|---:|---:|
+| `404` | 3 |
+| `401` | 4 |
+| `429` | 5 |
+| `422` | 2 |
+| `500` | 1 |
+| connection refused | 1 |
+| unparseable flag | 2 |
+| `--list-metrics` (no network) | 0 |
+
+**One of those tests was not testing what it claimed.** The first `a_missing_session_is_four` used
+`--engine`, which `dh` refuses *locally*, so mutating `for_status(401)` to `USAGE` left it green. The
+mutation is what found it: the test now exists as two — `a_local_refusal_that_needs_a_session_is_four`
+and `a_server_refusal_of_a_session_is_four`, the second driving `dh module show`, which lets the server
+answer. With that split, the `401 → 2` mutation fails as it should.
+
+### `M63-28`: a rule that held by accident
+
+The crate already depended on `darkhold-domain` alone, so the placement rule was true and **nothing
+said so**. One `cargo add darkhold-db` for a convenient helper would have made it false with every test
+green. `crates/cli/tests/layering.rs` reads the manifest and fails on `darkhold-app`, `darkhold-db`,
+`darkhold-taste`, `darkhold-scrapers`, `darkhold-metadata`; the control asserts `darkhold-domain` is
+present, so the absence check cannot pass on an empty read. Mutation: adding `darkhold-db` fails the
+gate.
+
+### Verification
+
+```
+cargo test -p darkhold-cli
+→ 21 passed (in-crate), 9 passed (exit_codes), 2 passed (layering)
+```
+
+Mutations, each failing the named test: `404 → USAGE`, `401 → USAGE`, `429 → ERROR`,
+`darkhold-db` added to the manifest. Open requirements go **78 → 76** (`M63` 31 → 29).
+
 ## 2026-11-02 — twelve requirement rows were invisible to `grep`, and the gate that counts them was wrong twice
 
 **Requirement:** `M63-35` · **Gate:** `scripts/check-requirement-ids.py`, wired into `scripts/gate.sh

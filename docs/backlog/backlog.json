@@ -4,10 +4,10 @@
       "rows": 834,
       "by_status": {
         "implemented-verified-e2e": 129,
-        "implemented-locally-tested": 245,
+        "implemented-locally-tested": 246,
         "unsupported": 4,
-        "implemented-fully-tested": 377,
-        "planned": 78,
+        "implemented-fully-tested": 378,
+        "planned": 76,
         "evaluated-and-rejected": 1
       }
     },
@@ -216,12 +216,6 @@
       "notes": "Power-user sweep P15. The first command anyone runs when something feels wrong; turns a support thread into a paste."
     },
     {
-      "id": "M63-16",
-      "milestone": "M63",
-      "requirement": "Exit codes as a documented, tested API (0 ok, 1 error, 2 usage, 3 not found, 4 auth, 5 rate-limited)",
-      "notes": "Power-user sweep P16. A contract test per code; without it every wrapper script guesses."
-    },
-    {
       "id": "M63-17",
       "milestone": "M63",
       "requirement": "Shell completions and man pages generated from the clap definition (bash/zsh/fish)",
@@ -280,12 +274,6 @@
       "milestone": "M63",
       "requirement": "dh stats --by week --year: streaks and a shareable wrapped-style personal report for the engineering-minded reader",
       "notes": "Power-user sweep P26. Recognition for the engine: contribution score from the operation log (imports, tags applied, reports filed) shown on a private profile, never on a public ranking."
-    },
-    {
-      "id": "M63-28",
-      "milestone": "M63",
-      "requirement": "crates/cli: the `dh` binary, a thin client of /api/v1 that may not depend on crates/app or crates/db",
-      "notes": "Placement decision recorded in docs/plans/cli-placement.md: the CLI owns no durable data beyond a cache, so it belongs beside the contract it consumes rather than in lorebook (which owns Calibre metadata.db and forbids cross-repo dependencies in either direction) or in a fourth repo (which would drift silently instead of failing the workspace build). Depends on wire types (crates/metadata, crates/domain) + reqwest only; if it needs more, the type belongs in crates/metadata. Tests: in-process router for serialisation and error mapping, plus the sqlite snapshot for dh q --local; no direct database access."
     },
     {
       "id": "M63-29",
@@ -493,7 +481,7 @@
     }
   ],
   "open_by_milestone": {
-    "M63": 31,
+    "M63": 29,
     "M45": 23,
     "M64": 14,
     "M66": 6,

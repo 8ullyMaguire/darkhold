@@ -66,9 +66,10 @@ pub async fn run(cli: &Cli, args: &SupplyArgs) -> Result<(), Failure> {
     // Every door needs a session: the operator doors check a role the server
     // holds, and the reader doors are keyed by account. Refused here so the
     // message says what to set rather than quoting a 401.
-    let token = cli.token.as_deref().ok_or_else(|| {
-        bad_request("every supply door needs a session: set DARKHOLD_TOKEN")
-    })?;
+    let token = cli
+        .token
+        .as_deref()
+        .ok_or_else(|| bad_request("every supply door needs a session: set DARKHOLD_TOKEN"))?;
 
     let client = reqwest::Client::builder()
         .timeout(std::time::Duration::from_secs(30))
@@ -275,10 +276,7 @@ fn render(args: &SupplyArgs, body: &Value) -> String {
                     r["created_at"].as_str().unwrap_or(""),
                     r["title"].as_str().unwrap_or(""),
                     match r["completed_at"].as_str() {
-                        Some(_) => format!(
-                            "  [done, {} bp]",
-                            r["credit_bp"].as_i64().unwrap_or(0)
-                        ),
+                        Some(_) => format!("  [done, {} bp]", r["credit_bp"].as_i64().unwrap_or(0)),
                         None => "  [open]".to_string(),
                     },
                     r["author_key"].as_str().unwrap_or(""),

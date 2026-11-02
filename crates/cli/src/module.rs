@@ -178,7 +178,12 @@ fn print_rows(rows: &[&ServerRow], json: bool) -> Result<(), Failure> {
         );
         return Ok(());
     }
-    let width = rows.iter().map(|row| row.id.len()).max().unwrap_or(2).max(6);
+    let width = rows
+        .iter()
+        .map(|row| row.id.len())
+        .max()
+        .unwrap_or(2)
+        .max(6);
     for row in rows {
         println!(
             "{:<width$}  {:<4}  {:<12}  {:<9}  {}",
@@ -268,14 +273,18 @@ async fn show(cli: &Cli, id: &str) -> Result<(), Failure> {
     let server = catalogue(cli).await?;
     // An idea is not a module, and saying "unknown" for one is the CLI confusing
     // two catalogues the API keeps apart.
-    let idea = server.as_ref().and_then(|catalogue| {
-        catalogue.ideas.iter().find(|row| row.id == id).cloned()
-    });
+    let idea = server
+        .as_ref()
+        .and_then(|catalogue| catalogue.ideas.iter().find(|row| row.id == id).cloned());
     let state = if let Some(idea) = &idea {
         format!(
             "planned — idea, relevance {} (from {})",
             idea.relevance,
-            idea.source.split(',').next().unwrap_or("an unknown document").trim()
+            idea.source
+                .split(',')
+                .next()
+                .unwrap_or("an unknown document")
+                .trim()
         )
     } else {
         match &server {
@@ -437,12 +446,12 @@ async fn override_one(cli: &Cli, id: &str, enabled: bool) -> Result<(), Failure>
         .map_err(|error| environment(format!("reading the response: {error}")))?;
     let body: serde_json::Value = serde_json::from_slice(&bytes).unwrap_or(serde_json::Value::Null);
     if !(200..300).contains(&status) {
-        // The server's refusal is the useful text: it names the toggle that decides,
-        // or the milestone that owns the row. Quoting a status instead would hide it.
-        let message = body["error"]["message"]
-            .as_str()
-            .map_or_else(|| format!("HTTP {status}"), |text| text.to_owned());
-        return Err(bad_request(message));
+        // One mapping for every verb (`crate::exit::for_status`). This arm used to return
+        // `bad_request` for everything, so a `404` on an unknown module and a `401` on a missing
+        // session were both reported as a usage error (code 2) — the two cases a script can act on
+        // were indistinguishable from the one it cannot. The server's refusal stays the text,
+        // because it names the toggle that decides or the milestone that owns the row.
+        return Err(failure_for(status, &body, &cli.base_url));
     }
     if cli.json {
         println!(

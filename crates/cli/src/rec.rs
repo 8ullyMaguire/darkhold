@@ -121,6 +121,14 @@ fn validate_sort(raw: &str) -> Result<(), Failure> {
     }
 }
 
+/// A local refusal that means the same thing an HTTP `401` would: supply a session.
+pub(crate) fn auth_required(message: impl Into<String>) -> Failure {
+    Failure {
+        message: message.into(),
+        code: crate::exit::AUTH,
+    }
+}
+
 pub(crate) fn environment(message: impl Into<String>) -> Failure {
     Failure {
         message: message.into(),
@@ -318,7 +326,13 @@ fn pad(value: &str, width: usize) -> String {
     match len >= width {
         // Truncation is explicit: a title that silently overflows pushes every
         // column right and makes the table unreadable in a narrow terminal.
-        true => format!("{}…", value.chars().take(width.saturating_sub(1)).collect::<String>()),
+        true => format!(
+            "{}…",
+            value
+                .chars()
+                .take(width.saturating_sub(1))
+                .collect::<String>()
+        ),
         false => format!("{value}{}", " ".repeat(width - len)),
     }
 }
@@ -378,11 +392,17 @@ pub fn table(page: &Value) -> String {
 pub fn gate(page: &Value) -> Option<String> {
     let ranked = page.get("ranked").and_then(Value::as_i64)?;
     let total = page.get("total").and_then(Value::as_i64)?;
-    let metric = page.get("metric").and_then(Value::as_str).unwrap_or("metric");
+    let metric = page
+        .get("metric")
+        .and_then(Value::as_str)
+        .unwrap_or("metric");
     // A seed page has three numbers, not two, and the third is the one that stops
     // it reading as a claim about the catalogue: `scanned` is what the ranker saw.
     if metric == "similarity" {
-        let scanned = page.get("scanned").and_then(Value::as_i64).unwrap_or(ranked);
+        let scanned = page
+            .get("scanned")
+            .and_then(Value::as_i64)
+            .unwrap_or(ranked);
         let seed = page
             .get("seed")
             .and_then(|seed| seed.get("title"))
@@ -421,7 +441,12 @@ pub fn metrics_list() -> String {
             Support::Blocked(_) => format!("{}*", metric.as_str()),
             _ => metric.as_str().to_owned(),
         };
-        out.push_str(&format!("  {} {} {}\n", pad(&name, 20), pad(status, 8), detail));
+        out.push_str(&format!(
+            "  {} {} {}\n",
+            pad(&name, 20),
+            pad(status, 8),
+            detail
+        ));
     }
     out.push_str("\nraw = a stored column ordered in SQL. triage = metadata order for rows with no endorsement data.\n");
     out.push_str("* = refused with the reason and the work item that unblocks it.\n");
@@ -472,7 +497,10 @@ pub fn explanation(page: &Value) -> Option<String> {
     ));
     for strategy in strategies {
         let name = strategy.get("name").and_then(Value::as_str).unwrap_or("?");
-        let produced = strategy.get("produced").and_then(Value::as_u64).unwrap_or(0);
+        let produced = strategy
+            .get("produced")
+            .and_then(Value::as_u64)
+            .unwrap_or(0);
         let matched = strategy.get("matched").and_then(Value::as_u64).unwrap_or(0);
         let head = strategy
             .get("top")
@@ -503,14 +531,25 @@ pub fn failure_for(status: u16, body: &Value, base_url: &str) -> Failure {
         .and_then(Value::as_str)
         .map(str::to_owned)
         .unwrap_or_else(|| body.to_string());
-    match status {
-        401 | 403 => bad_request(format!(
+    // The code is decided in one place (`crate::exit::for_status`), so `dh rec` and `dh supply`
+    // cannot tell a script two different stories about the same `401`. The message is this verb's
+    // own: only an engine reads the caller's history.
+    let code = crate::exit::for_status(status);
+    let text = match status {
+        401 | 403 => format!(
             "{message}\nthis engine reads your own history, so it needs a session: \
              set DARKHOLD_TOKEN (or pass --token)"
-        )),
-        400 | 404 | 422 => bad_request(message),
-        500..=599 => environment(format!("{status} from {base_url}: {message}")),
-        other => environment(format!("{other} from {base_url}: {message}")),
+        ),
+        429 => format!(
+            "{message}\nrate-limited: the instance asked you to wait; the retry window is in the \
+             response's Retry-After header"
+        ),
+        400 | 404 | 422 => message,
+        _ => format!("{status} from {base_url}: {message}"),
+    };
+    Failure {
+        message: text,
+        code,
     }
 }
 
@@ -543,17 +582,20 @@ pub async fn run(cli: &Cli, args: &RecArgs) -> Result<(), Failure> {
         ));
     }
     // An engine request without a token is refused here rather than by the
-    // server, so the message can say what to do instead of quoting a 401.
+    // server, so the message can say what to do instead of quoting a 401 — and with the code the
+    // server would have used (`M63-16`): a missing session is **4**, not `2`. The first version
+    // returned the usage code, so a wrapper was told its command was wrong when the fix was to
+    // supply a token. Refusing locally must not change what the number means.
     let engine = args.engine.clone();
     if engine.is_some() && cli.token.is_none() {
-        return Err(bad_request(format!(
+        return Err(auth_required(format!(
             "--engine {} reads your own reading history, so it needs a session: \
              set DARKHOLD_TOKEN",
             engine.unwrap_or_default()
         )));
     }
     if args.exclude_read && cli.token.is_none() {
-        return Err(bad_request(
+        return Err(auth_required(
             "--exclude-read needs your reading history, so it needs a session: set DARKHOLD_TOKEN",
         ));
     }
@@ -634,8 +676,17 @@ mod tests {
     #[test]
     fn rec_parses_the_anchor_ask() {
         let (cli, rec) = args(&[
-            "dh", "rec", "--fandom", "naruto", "--updated", "7d", "--engine", "rrf", "--sort",
-            "wilson", "--explain",
+            "dh",
+            "rec",
+            "--fandom",
+            "naruto",
+            "--updated",
+            "7d",
+            "--engine",
+            "rrf",
+            "--sort",
+            "wilson",
+            "--explain",
         ]);
         assert_eq!(rec.fandom.as_deref(), Some("naruto"));
         assert_eq!(rec.updated.as_deref(), Some("7d"));
@@ -672,7 +723,15 @@ mod tests {
         );
 
         let (cli, rec) = args(&[
-            "dh", "rec", "--engine", "rrf", "--fandom", "naruto", "--explain", "--limit", "5",
+            "dh",
+            "rec",
+            "--engine",
+            "rrf",
+            "--fandom",
+            "naruto",
+            "--explain",
+            "--limit",
+            "5",
         ]);
         let request_url = url(&cli.base_url, &Target::Engine("rrf".to_owned()), &rec);
         assert!(request_url.starts_with("http://127.0.0.1:8081/api/v1/rec/run?"));
@@ -748,7 +807,10 @@ mod tests {
             "fandom_tagged_with_likes": 0, "catalogue_rows": 141317
         });
         let line = coverage(&with).expect("coverage");
-        assert!(line.contains("none of them publishes a like count"), "{line}");
+        assert!(
+            line.contains("none of them publishes a like count"),
+            "{line}"
+        );
 
         // When every tagged row can be ranked, the sentence is not printed.
         let rankable = serde_json::json!({
@@ -770,7 +832,10 @@ mod tests {
             ]
         });
         let block = explanation(&with).expect("explanation");
-        assert!(block.contains("cooccurrence"), "the silent strategy is the finding");
+        assert!(
+            block.contains("cooccurrence"),
+            "the silent strategy is the finding"
+        );
         assert!(block.contains("0.0164"), "{block}");
     }
 
@@ -794,7 +859,10 @@ mod tests {
     fn a_metric_page_prints_a_score_column_and_an_unmeasured_marker() {
         let rendered = table(&metric_page());
         assert!(rendered.contains("0.750"), "{rendered}");
-        assert!(rendered.contains("2026-10-27"), "the source date fills the column: {rendered}");
+        assert!(
+            rendered.contains("2026-10-27"),
+            "the source date fills the column: {rendered}"
+        );
         // The unmeasured row is marked, so a script cannot mistake triage for rank.
         assert!(rendered.contains('~'), "{rendered}");
     }
@@ -822,13 +890,32 @@ mod tests {
     #[test]
     fn the_metric_list_names_every_metric_its_status_and_what_unblocks_the_rest() {
         let text = metrics_list();
-        for name in ["quality", "source_pct", "engagement_density", "consensus", "crosspost",
-                     "words_maturity", "source_coverage", "cohort_pct", "recency", "unmeasured"] {
+        for name in [
+            "quality",
+            "source_pct",
+            "engagement_density",
+            "consensus",
+            "crosspost",
+            "words_maturity",
+            "source_coverage",
+            "cohort_pct",
+            "recency",
+            "unmeasured",
+        ] {
             assert!(text.contains(name), "{name} missing from:\n{text}");
         }
-        assert!(text.contains("velocity*"), "blocked metrics are marked: {text}");
-        assert!(text.contains("M63-32"), "and say what unblocks them: {text}");
-        assert!(text.contains("raw"), "the stored columns are still there: {text}");
+        assert!(
+            text.contains("velocity*"),
+            "blocked metrics are marked: {text}"
+        );
+        assert!(
+            text.contains("M63-32"),
+            "and say what unblocks them: {text}"
+        );
+        assert!(
+            text.contains("raw"),
+            "the stored columns are still there: {text}"
+        );
     }
 
     #[test]
@@ -844,16 +931,20 @@ mod tests {
     fn a_401_says_what_to_do_instead_of_quoting_the_status() {
         let body = serde_json::json!({"error": {"message": "session required"}});
         let failure = failure_for(401, &body, "http://127.0.0.1:8081");
-        assert_eq!(failure.code, 2, "retrying unchanged cannot help");
+        assert_eq!(
+            failure.code,
+            crate::exit::AUTH,
+            "M63-16: a missing session is code 4, not a usage error — a script can act on 4"
+        );
         assert!(failure.message.contains("DARKHOLD_TOKEN"));
     }
 
     #[test]
     fn a_500_is_retryable_and_a_422_is_not() {
         let body = serde_json::json!({"error": {"message": "fandom: no fandom called \"narut\""}});
-        assert_eq!(failure_for(500, &body, "u").code, 1);
+        assert_eq!(failure_for(500, &body, "u").code, crate::exit::ERROR);
         let failure = failure_for(422, &body, "u");
-        assert_eq!(failure.code, 2);
+        assert_eq!(failure.code, crate::exit::USAGE);
         assert!(failure.message.contains("no fandom called"));
     }
 }
