@@ -3522,4 +3522,25 @@ balance check, a ledger leg each way, and a sink for a burned promise: the econo
 row's. Also deferred: the Finisher *badge* — a badge is a threshold and the review names no number,
 so the surface reports counts.
 
-Live: deployed and hand-run in the same turn; see below.
+Live: **`0.1.0+266ec735`**, 134 migrations (none new), `/api/v1/modules` = `{modules: 101,
+enabled: 77, ideas: 176}`, `finishers` present and **disabled** with `toggle: operator` and no nav —
+the shipped default.
+
+The hand-run, in both states:
+
+- **Off (the default):** both doors answer `404 MODULE_UNAVAILABLE` — *"the finishers module is not
+  available on this instance"*.
+- **On** (`[modules] enabled = [..., "finishers"]`, one line, restart): a real author answers
+  `{finished: 291, concluded: 15511, summary: "finished 291 of 15511 concluded works", cadence:
+  {measurable: false, reason: "no work has revisions on two different days yet, so there is no
+  cadence to measure"}}` — the archive's own numbers, and a cadence that declines to invent one.
+- **Restored** to the shipped default afterwards; the doors answer `404` again, unit `active`,
+  config byte-identical to before.
+
+**A correction to this section's own premise, found by the live run.** The plan measured "`revisions`
+spans 2 distinct days" globally and concluded cadence would be measurable for *some* works. Measured
+at the unit the feature actually reports on — **per work** — every one of the **57,712** works with
+revisions has revisions on exactly **one** day; the 30,577 rows dated `2026-09-20` belong to works
+that have only that day, and there are no orphan units. So cadence is unmeasurable for **every work**
+on this instance, not for most. The global number was true and useless; the per-work number is the
+one the door answers with.
