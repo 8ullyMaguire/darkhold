@@ -1,3 +1,32 @@
+## 2026-11-02 — M65-11: the frontend type gate is green again
+
+**Requirement:** `M65-11` · **Gate:** `npx svelte-check` (11 errors → 0)
+
+A red gate is worse than no gate: it stops being run, and then the next regression walks past it.
+This one had regressed since the 2026-10-03 pass recorded "2 errors → 0 errors, 0 warnings", even
+though it is wired in both places it should be (`just check-frontend` and `npm run check` in
+`.github/workflows/ci.yml`). The cause is that nobody ran it.
+
+| file | error | fix |
+|---|---|---|
+| `src/lib/tokens.test.ts` (3) | `node:fs`/`node:path` untyped | extended `src/test-node.d.ts`, the project's documented shim — it deliberately does not depend on `@types/node` |
+| `src/routes/Roadmap.svelte` (5) | `boardIsEmpty` `$derived` read `board`/`STAGES` before their declarations | moved below both; a TDZ error, not a lazy read |
+| `src/routes/WorkPage.svelte` (2) | `content_withheld` missing from `AuthorWork` | added — `PublicWork` already had it and `works.rs:572` sends it on both shapes |
+| `src/routes/Arena.svelte` (1) | `round` possibly null in `submitVote` | guarded: a round can clear while the vote is in flight |
+
+Also deleted an unused `h2` selector in `ForumSearch.svelte`.
+
+**One warning remains, deliberately unsuppressed:** `NavMenu.svelte` puts `onkeydown`/`onfocusout`
+on the menu container, which is event delegation serving the buttons inside it. The a11y rule wants
+an interactive role; the honest fix is a refactor of how the menu handles keys, and a
+`svelte-ignore` would have made the warning invisible rather than answered.
+
+```
+npx svelte-check --threshold error   -> 0 errors, 1 warning
+npx vitest run                       -> 79 files, 582 tests, 0 failed
+node node_modules/vite/bin/vite.js build -> built in 3.19s
+```
+
 ## 2026-11-02 — M65-06: the header renders what the instance runs
 
 **Requirement:** `M65-06` · **Tests:** 9 new, plus the whole frontend suite (582)

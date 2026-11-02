@@ -23,10 +23,6 @@
    * heading, which reads as a broken page rather than as a board waiting for
    * its first idea. The columns come back as soon as there is one card.
    */
-  let boardIsEmpty = $derived(
-    board !== null && STAGES.every((stage) => (board.board[stage]?.length ?? 0) === 0),
-  );
-
   // Stage columns in canonical order.
   const STAGES = ['idea', 'up_next', 'in_progress', 'finished', 'shipped', 'rejected'] as const;
   const STAGE_LABELS: Record<string, string> = {
@@ -38,7 +34,24 @@
     rejected: 'Rejected',
   };
 
+
   let board = $state<RoadmapBoard | null>(null);
+
+  /**
+   * Whether the board has cards at all.
+   *
+   * Declared after `board` and `STAGES` because a `$derived` that reads a `let` before its
+   * declaration is a temporal-dead-zone error, not a lazy read — svelte-check reported that as
+   * "used before its declaration" five times for this file.
+   *
+   * The `!` is not a shrug: the `&&` on the same expression has already excluded `null`, and
+   * TypeScript does not carry that narrowing into a callback. Writing it as a local
+   * (`const b = board`) would be the other honest form; this one keeps the condition on one line.
+   */
+  let boardIsEmpty = $derived(
+    board !== null &&
+      STAGES.every((stage) => (board!.board[stage]?.length ?? 0) === 0),
+  );
   let changelog = $state<RoadmapChangelog | null>(null);
   let ballot = $state<ArenaBallot | null>(null);
   let loading = $state(true);

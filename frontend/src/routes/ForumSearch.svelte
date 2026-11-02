@@ -158,9 +158,6 @@
     margin: 0 auto;
     padding: 1rem;
   }
-  h2 {
-    margin-bottom: 1rem;
-  }
   .search-form {
     margin-bottom: 1.5rem;
   }

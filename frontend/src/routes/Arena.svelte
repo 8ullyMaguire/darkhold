@@ -88,6 +88,10 @@
   }
 
   async function submitVote() {
+    // `round` is the ballot the cards came from, and it can be cleared while a vote is in flight
+    // (the next round arrives, or the surface reloads). Without this guard the `card_ids` line
+    // dereferences null and the click throws instead of doing nothing.
+    if (!round) return;
     if (!bestId || !worstId) return;
     voting = true;
     error = null;

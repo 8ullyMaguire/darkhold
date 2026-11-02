@@ -550,6 +550,7 @@ export interface Contributor {
 /** A work as a contributor sees it: drafts, versions, blockers and all. */
 export interface AuthorWork {
   id: string;
+
   title: string;
   summary: string;
   language: string;
@@ -570,6 +571,9 @@ export interface AuthorWork {
   contributors: Contributor[];
   /** Why it cannot be published yet, in the interface's own language. */
   publication_blockers: string[];
+  /** §7.7.3: the record is readable and the text is not. Present on the author's own view as
+   *  well — a withheld work is withheld for everyone — so `WorkPage` can ask the union. */
+  content_withheld?: boolean;
 }
 
 /** A publicly credited author. */
@@ -582,6 +586,7 @@ export interface PublicAuthor {
 /** A work as the public sees it. */
 export interface PublicWork {
   id: string;
+
   title: string;
   summary: string;
   language: string;

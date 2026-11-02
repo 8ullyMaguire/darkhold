@@ -6,8 +6,8 @@
         "implemented-verified-e2e": 129,
         "implemented-locally-tested": 246,
         "unsupported": 4,
-        "implemented-fully-tested": 391,
-        "planned": 70,
+        "implemented-fully-tested": 392,
+        "planned": 69,
         "evaluated-and-rejected": 1
       }
     },
@@ -436,12 +436,6 @@
       "milestone": "M45",
       "requirement": "`event_participation.account` and `events.created_by` hold pseud ids although the columns are named for accounts, so every \u00a718 query and the exchange matcher pair pseuds through an account-named column",
       "notes": "Found while wiring M45-27. post_event binds pseud_id into events.created_by and join_event binds it into event_participation.account; the schema says account and the CHECK-free TEXT column accepts either. The matcher was written to match the data (pseuds) rather than the name, and says so in its kinds. The fix is either a rename migration (and the \u00a751 erasure list gaining pseud treatment) or accepting the name and documenting it; the second is cheaper and the first is not this ticket's to decide."
-    },
-    {
-      "id": "M65-11",
-      "milestone": "M65",
-      "requirement": "the frontend type gate is red: 11 errors in 6 files, so `svelte-check` cannot be used as a gate",
-      "notes": "Found 2026-11-02 while shipping M65-06 (the App.svelte half was mine and is fixed). The 2026-10-03 pass recorded 'svelte-check: 2 errors \u2192 0 errors, 0 warnings', so the gate has regressed since and would have caught nothing on the way. Fixing it needs a decision on tokens.test.ts: the errors are missing @types/node in the test tsconfig, and adding the dependency is a different change from the three real type errors."
     }
   ],
   "open_by_milestone": {
@@ -449,7 +443,7 @@
     "M45": 22,
     "M64": 14,
     "M66": 6,
-    "M65": 3
+    "M65": 2
   },
   "unlinked_concord": [
     {

@@ -9,6 +9,15 @@
  */
 declare module 'node:fs' {
   export function readFileSync(path: string, encoding: 'utf8'): string;
+  /** `tokens.test.ts` walks the sources: the check is a missing declaration, which
+   *  no rendered assertion can distinguish from a deliberately inherited value. */
+  export function readdirSync(path: string): string[];
+  export function statSync(path: string): { isDirectory(): boolean };
+}
+
+declare module 'node:path' {
+  export function join(...parts: string[]): string;
+  export function relative(from: string, to: string): string;
 }
 
 declare module 'node:url' {
