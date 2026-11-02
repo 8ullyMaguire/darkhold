@@ -48,8 +48,8 @@ about a term; the *wired/unwired* column is the finding.
 | **shipped AND wired** | **8** | items 1, 4, 7, 9, 11, 14, 27, 33 |
 | built by an earlier pass | 2 | items 8, 22 — the probe was wrong, not the code |
 | **shipped from `requirements.csv`** | **2** | M45-51 subject access + erasure (`9f9995f`), M45-53 import visibility (`da3dfe2`, `ded795a`) |
-| **open, Tier 1 remainder** | **5** | items 31, 41, 43, 75, 22-preset |
-| next in queue | — | item 31, or M45-39 (the two external-dependency rows) |
+| **open, Tier 1 remainder** | **3** | items 41, 43, 75 (31 and 22-preset closed 2026-11-02) |
+| next in queue | — | item 41 (reading-goal ring — needs a `reading_goals` table, so *not* a render job), or M45-39 |
 | deliberately refused | 3 | item 2 (archive scrape), the streak trio — argued in `100-ideas-scope.md` §1 |
 | not yet assessed | ~72 | see "what I did not touch" at the foot |
 
@@ -184,7 +184,9 @@ already found seven instances of.
 | 3 | ~~**4 — word count + minutes**~~ | DONE — store `2868b25`, rendering `f124a67` |
 | 4 | ~~**9 — reason tags**~~ | DONE — the backend already existed; this was pure UI |
 | 5 | ~~**7 — Surprise Me**~~ | DONE — `5759616`; the detail is in §2a below |
-| 6 | 31, 41, 43, 75, 22-preset | the Tier 1 remainder; all render work over existing columns |
+| 6 | ~~**22-preset**~~ | DONE — `0e9ae8bc` |
+| 7 | ~~**31 — search history**~~ | DONE — `6d14648d`; and it needed a migration, which the audit denied |
+| 8 | 41, 43, 75 | the Tier 1 remainder — 41 needs a table the audit said it did not |
 
 **Two fixes to this table, both from `REMAINING-2026-10-05.md` §7.**
 
@@ -567,3 +569,27 @@ the same measure-then-schedule loop, in impact order, after the six above.
 - `d04c225` — Tier 1 remainder named.
 - Concord project 41: 28 validated, 2 rejected, 19 open. The 2 rejected are the
   false-positive probes, and a rejected complaint is a *finding*, not a closure.
+## 5. Two corrections from 2026-11-02, both from probing instead of reading
+
+The five-item remainder was described as "all render work over columns that exist, none needs a
+migration". Two of the five disagreed with the tree:
+
+- **22 (preset)** — the audit said `search.rs` "already accepts the two params". It accepted
+  `max_words` (and until `M47-06` resolved it without applying it) and had no `completion` filter
+  at all. Behind the missing button sat two defects: the page sent `status:"Complete"`, which
+  renders `works.lifecycle`, so all three of its options matched nothing; and `completion:hiatus`
+  — the spelling `works.completion` actually stores — was a 422 because the filter accepted only
+  `on_hold`. Closed in `0e9ae8bc` / `M47-07`.
+- **31 (search history)** — `grep -rn "search_history\|SearchHistory" crates/` returns nothing
+  and no table holds a query string. It needed migration `0139` plus a store, two routes, a setting
+  and a UI row. Closed in `6d14648d` / `M47-08`.
+
+So the remaining three should be probed the same way before they are sized: **41** ("render §9.6's
+goal as a ring") has no `reading_goals` table in `crates/` either — `grep -rn "reading_goal"
+crates/` is empty — so it needs a table and a progress computation, not a ring component. **43**
+(a validation rule over a free-text label) and **75** (one boolean on `pseuds` plus a badge) are
+still believed to be as small as described, unprobed.
+
+**The pattern, since it is now five for five.** Every one of these status documents was written by
+reading the spec and grepping for a *name*; the ones that were wrong were wrong about whether the
+column existed, which a grep for the feature's name cannot answer. Probe the schema, not the prose.

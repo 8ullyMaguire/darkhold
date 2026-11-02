@@ -1,6 +1,6 @@
 # M47-08: private search history (audit item 31)
 
-**Ledger row:** new, `M47-08`. **Milestone:** M47. **Status:** implemented 2026-11-02.
+**Ledger row:** new, `M47-08`. **Milestone:** M47. **Status:** implemented 2026-11-02 (`6d14648d`); see `docs/verification.md` for the two engine bugs the gates caught.
 **Source:** `docs/audit-100-reader-ideas-2026-10-04.md` item 31, and
 `docs/plans/100-ideas-remaining.md` §2, which names item 31 as "next in queue".
 
