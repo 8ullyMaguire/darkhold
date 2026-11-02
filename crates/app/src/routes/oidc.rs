@@ -241,7 +241,7 @@ async fn callback(
         .get("email")
         .and_then(|v| v.as_str())
         .filter(|_| profile.get("email_verified").and_then(|v| v.as_bool()).unwrap_or(false));
-    // Kept beside the link so a page render never has to call the provider: see migration 0139.
+    // Kept beside the link so a page render never has to call the provider: see migration 0148.
     let picture = profile.get("picture").and_then(|v| v.as_str());
     let display_name = profile.get("name").and_then(|v| v.as_str());
     if subject.is_empty() {

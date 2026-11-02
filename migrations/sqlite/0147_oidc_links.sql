@@ -1,9 +1,6 @@
--- 0138 — W2: one account for the estate. Dialect: PostgreSQL. Columns mirror the SQLite file
--- exactly in name and order; the migration-catalogue test asserts it.
+-- 0147 — W2: one account for the estate.
 --
--- `oidc_links` is the durable fact (subject -> account). `oidc_pending` is one in-flight login, deleted
--- on redemption so a replayed callback finds nothing rather than a second session. No foreign key:
--- accounts.id is UUID while the newer tables keep TEXT ids, and erasure rekeys rather than deletes.
+-- Two tables, and the split is the point. `oidc_links` is the durable fact: this Polaris subject is that
 -- local account. `oidc_pending` is one in-flight login, deleted the moment it is redeemed, so a replayed
 -- callback finds nothing rather than a second session.
 --
