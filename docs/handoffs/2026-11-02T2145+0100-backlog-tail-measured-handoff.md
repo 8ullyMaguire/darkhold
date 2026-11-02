@@ -4,6 +4,29 @@ Where the tree stands, what is left, and the three things a cold start must know
 anything. Written after a session that closed M45-38b, M65-08, M45-36 (partly) and M45-62, and opened
 M45-65.
 
+## The two checkouts are one lineage now (2026-11-02, later the same day)
+
+`~/code/rust/darkhold` (the thinkcentre checkout, upstream `lorehaven`) and `~/code-local/rust/darkhold`
+(this tree, upstream `darkhold`) shared an ancestor at `4b731acc` and had diverged. They are merged:
+both checkouts stand at `5743f412`, this tree's history contains the other's three sign-in commits, and
+the merge is pushed to `origin` (git.polarisocial.xyz) and `github` (8ullyMaguire/darkhold). Tags
+`pre-merge-20261102` and `pre-merge-code-20261102` mark the tips in case the merge has to be undone.
+
+Two things to know before trusting it:
+
+- **The other checkout's own remotes were not pushed to.** `~/code/rust/darkhold` points at
+  `github/8ullyMaguire/lorehaven` and `origin/git.polarisocial.xyz/.../lorehaven`; those are still on
+  their old histories (1046 behind, 50 diverged). Publishing the merged lineage under the `lorehaven`
+  name is a decision about which repository is canonical, not a `git push`.
+- **The sign-in code came without tests.** `crates/app/src/routes/oidc.rs` (345 lines) and
+  `crates/db/src/oidc.rs` (229) compile, their migrations (0147/0148) apply, and their columns now carry
+  §11.16 decisions — but nobody has signed in through Polaris from this tree, and that needs a real
+  estate account.
+
+The four defects the merge surfaced are in `docs/verification.md` under the same date: a migration-number
+collision, two undecided identity columns, one unclassified erasure column, and two design tokens that
+only exist in this tree.
+
 ## The count, from the ledger rather than from feeling
 
 ```
