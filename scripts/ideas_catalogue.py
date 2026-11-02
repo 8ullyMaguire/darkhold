@@ -480,6 +480,17 @@ def coverage_gate(catalogue_slugs: set[str], retired_slugs: set[str],
                 continue
             if title.lower() in registry_titles:
                 continue
+            # A reserved spec section is homed by the requirement that claims its number.
+            # `docs/spec/29-…-and.md` slugifies to `29-community-roadmap-feature-consensus-and`
+            # — the file name itself is truncated mid-sentence — so demanding a slug match
+            # would demand that a CSV row end in the word "and". The number is the claim, and
+            # a requirement whose slug begins `NN-` makes it.
+            number = re.match(r"^(\d+)-", path.stem)
+            if number and any(
+                candidate.startswith(f"{number.group(1)}-")
+                for candidate in (*catalogue_slugs, *retired_slugs)
+            ):
+                continue
             homeless.append(f"{rel}: {title}")
     return homeless
 
@@ -665,9 +676,15 @@ def main() -> int:
         # overrides" is `implemented-verified-e2e`, and the idea catalogue
         # listing it as planned was a second backlog in miniature.
         row_status = requirement_titles.get(idea["title"].strip().lower())
+        # …and a third: the idea's own id, when the requirement row behind it has been
+        # built. The id joins even when the title does not — a document-sourced idea
+        # carries the requirement id and its own wording, so M63-04, M65-10 and twelve
+        # others sat in the catalogue as `planned` beside the rows that recorded them
+        # as `implemented`. The join was there to be made; nothing was making it.
+        idea_id_status = rows_by_id.get(idea.get("row_id") or "", {}).get("status", "").strip()
         if (idea.get("row_id") and idea["row_id"] not in planned_ids) or (
             row_status and row_status.startswith("implemented")
-        ):
+        ) or idea_id_status.startswith("implemented"):
             retired.append((idea.get("row_id") or idea["title"][:40], idea["title"]))
             continue
         # A built surface is judged by the toggle a human gave it, not by the

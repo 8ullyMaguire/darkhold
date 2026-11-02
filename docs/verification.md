@@ -1,3 +1,38 @@
+## 2026-11-02 — M65-08: an idea row becomes a module when it is built (§59.7/§59.8)
+
+**Requirement:** `M65-08` · **Tests:** 3 in `crates/domain/tests/ideas_match_requirements.rs`
+
+Measured before deciding anything: **14 rows in `IDEAS` had a `requirements.csv` row marked
+`implemented-…`.** The generator retired an idea by row id and by title; a document-sourced idea
+carries the requirement's id with its own wording, so neither rule reached it. The join was available
+and unused — the catalogue was a second backlog of ten to fourteen rows.
+
+**Why it had never been regenerated:** the generator's coverage gate refused to run. Two reserved spec
+sections (§29, §44) were ideas with no home, and the gate exits rather than write a catalogue that is
+missing them. Registered as `M29-08` and `M44-02`; the gate now also homes a reserved section by its
+**number**, because `docs/spec/29-community-roadmap-feature-consensus-and.md` slugifies with a
+file name truncated mid-sentence (`…-consensus-and`), and demanding a slug match would have demanded a
+requirement sentence ending in the word "and".
+
+Result: **175 → 165 idea rows, zero stale ones**, `docs/ideas-catalogue.json` regenerated from the same
+run, and the assertion is a test rather than a habit — `no_idea_row_describes_a_requirement_that_is_already_built`
+reads the CSV with `include_str!`, so it cannot be defeated by a working directory.
+
+```
+cargo test -p darkhold-domain --test ideas_match_requirements -> 3 passed
+cargo test -p darkhold-domain --lib modules                   -> 16 passed
+cargo test -p darkhold-app    --test route_inventory          -> 5 passed
+python3 scripts/ideas_catalogue.py                            -> 165 ideas, retired 2 by title
+```
+
+**Red by removal:** re-inserting `M63-04` as an idea row fails the first test with *"M63-04
+("crosspost union") is implemented-verified-e2e in docs/requirements.csv but still listed as an
+idea"*.
+
+One assumption in the third test was wrong and is now recorded there: the registry also carries rows
+for surfaces that are **specified and unbuilt** (`story.similar` and its M64 siblings are `Planned` on
+purpose), so "every registry row must be built" is not an invariant this tree holds.
+
 ## 2026-11-02 — M45-58: erasure reaches the supply routing record (§58.3 × §51)
 
 **Requirement:** `M45-58` · **Tests:** 3 store (both engines) + the erasure-coverage gate

@@ -1,6 +1,6 @@
 {
  "generated_by": "scripts/ideas_catalogue.py",
- "count": 175,
+ "count": 165,
  "ideas": [
   {
    "why_summary": "",
@@ -62,6 +62,32 @@
     "docs/requirements.csv"
    ],
    "milestone": "M66",
+   "relevance": 4,
+   "because": "a requirements row exists (+4)",
+   "default_on": false,
+   "built": false
+  },
+  {
+   "why_summary": "docs/spec/29-community-roadmap-feature-consensus-and.md Reserved section, specified in docs/spec/29-community-roadmap-feature-consensus-and.md. Registered 2026-11-02 while making t",
+   "id": "M29-08",
+   "title": "29 community roadmap feature consensus",
+   "sources": [
+    "docs/requirements.csv"
+   ],
+   "milestone": "M29",
+   "relevance": 4,
+   "because": "a requirements row exists (+4)",
+   "default_on": false,
+   "built": false
+  },
+  {
+   "why_summary": "docs/spec/44-roadmap-consensus-an-elo-ranked-community-voted.md Reserved section, specified in docs/spec/44-roadmap-consensus-an-elo-ranked-community-voted.md. Registered 2026-11-0",
+   "id": "M44-02",
+   "title": "44 roadmap consensus an elo ranked community voted board",
+   "sources": [
+    "docs/requirements.csv"
+   ],
+   "milestone": "M44",
    "relevance": 4,
    "because": "a requirements row exists (+4)",
    "default_on": false,
@@ -315,19 +341,6 @@
    "built": false
   },
   {
-   "why_summary": "crates/db/src/welcome.rs (complete); migrations/0132 Found while making the PostgreSQL arm pass: the fixture wrote $4::timestamptz, PostgreSQL stored '2026-11-02 02:13:48+00', and ",
-   "id": "M45-61",
-   "title": "`comments.created_at` is not constrained to the canonical shape, so the welcome rota's 72-hour window compares text against text and a non-canonical writer would silently match nothing",
-   "sources": [
-    "docs/requirements.csv"
-   ],
-   "milestone": "M45",
-   "relevance": 4,
-   "because": "a requirements row exists (+4)",
-   "default_on": false,
-   "built": false
-  },
-  {
    "why_summary": "crates/app/src/routes/events.rs (post_event, join_event); migrations/postgres/0014_events.sql Found while wiring M45-27. post_event binds pseud_id into events.created_by and join_e",
    "id": "M45-62",
    "title": "`event_participation.account` and `events.created_by` hold pseud ids although the columns are named for accounts, so every \u00a718 query and the exchange matcher pair pseuds through an account-named column",
@@ -354,9 +367,9 @@
    "built": false
   },
   {
-   "why_summary": "measured 2026-11-01: library_items.views is NULL on all 141,317 rows; likes exist on 1,247 of them; the crawler sums XenForo threadmark likes into one integer, which is total engag",
-   "id": "M63-04",
-   "title": "per-source engagement is stored as the source reports it (likes, hits, replies, bookmarks) instead of one normalised `likes`, so a rate metric can be computed per archive",
+   "why_summary": "docs/ideas/2026-11-01-idea-sweep-power-users.md Power-user sweep P5. Field projection for jq pipelines; stable ordering; nothing wraps without --wrap. Scripts must not break when a",
+   "id": "M63-05",
+   "title": "dh rec --jsonl --fields, --table/--wide/--cols, --link md|epub|url",
    "sources": [
     "docs/requirements.csv"
    ],
@@ -484,74 +497,9 @@
    "built": false
   },
   {
-   "why_summary": "docs/ideas/2026-11-01-idea-sweep-power-users.md Power-user sweep P16. A contract test per code; without it every wrapper script guesses.",
-   "id": "M63-16",
-   "title": "Exit codes as a documented, tested API (0 ok, 1 error, 2 usage, 3 not found, 4 auth, 5 rate-limited)",
-   "sources": [
-    "docs/requirements.csv"
-   ],
-   "milestone": "M63",
-   "relevance": 4,
-   "because": "a requirements row exists (+4)",
-   "default_on": false,
-   "built": false
-  },
-  {
-   "why_summary": "docs/ideas/2026-11-01-idea-sweep-power-users.md Power-user sweep P17. A subcommand nobody can discover may as well not exist; generation keeps completions honest by construction, n",
-   "id": "M63-17",
-   "title": "Shell completions and man pages generated from the clap definition (bash/zsh/fish)",
-   "sources": [
-    "docs/requirements.csv"
-   ],
-   "milestone": "M63",
-   "relevance": 4,
-   "because": "a requirements row exists (+4)",
-   "default_on": false,
-   "built": false
-  },
-  {
    "why_summary": "docs/ideas/2026-11-01-idea-sweep-power-users.md Power-user sweep P18. One user, two instances, without exporting variables per shell; every knob settable from the tool that reads i",
    "id": "M63-18",
    "title": "Config profiles (--profile, DARKHOLD_PROFILE) with per-profile instance URL and token; dh config get/set with dotted keys",
-   "sources": [
-    "docs/requirements.csv"
-   ],
-   "milestone": "M63",
-   "relevance": 4,
-   "because": "a requirements row exists (+4)",
-   "default_on": false,
-   "built": false
-  },
-  {
-   "why_summary": "docs/ideas/2026-11-01-idea-sweep-power-users.md Power-user sweep P19. dh never sends a request it knows will be refused, and the refusal says 'token lacks library:write' rather tha",
-   "id": "M63-19",
-   "title": "Scoped tokens per command family, with the missing scope named on refusal",
-   "sources": [
-    "docs/requirements.csv"
-   ],
-   "milestone": "M63",
-   "relevance": 4,
-   "because": "a requirements row exists (+4)",
-   "default_on": false,
-   "built": false
-  },
-  {
-   "why_summary": "docs/ideas/2026-11-01-idea-sweep-power-users.md Power-user sweep P20. A batch that fails at row 400 because of a 429 is a tooling bug, not a user error.",
-   "id": "M63-20",
-   "title": "Rate-limit awareness",
-   "sources": [
-    "docs/requirements.csv"
-   ],
-   "milestone": "M63",
-   "relevance": 4,
-   "because": "a requirements row exists (+4)",
-   "default_on": false,
-   "built": false
-  },
-  {
-   "why_summary": "docs/ideas/2026-11-01-idea-sweep-power-users.md Power-user sweep P21. The safe path is the short path, and the privacy rule is applied at the tool boundary rather than remembered b",
-   "id": "M63-21",
-   "title": "Dry-run is the default for every bulk verb; --yes applies; dh redact strips pseudonyms and emails from JSON output",
    "sources": [
     "docs/requirements.csv"
    ],
@@ -679,9 +627,9 @@
    "built": false
   },
   {
-   "why_summary": "measured 2026-11-01: docs/requirements.csv holds 790 rows and 6 colliding ids, each pair differing only by area Found while closing M63-04: the catalogue sweep appended rows withou",
-   "id": "M63-35",
-   "title": "six milestone ids are duplicated in this file (M63-03/04/05 appear twice, once per area), so a row can be closed twice for two different pieces of work",
+   "why_summary": "measured 2026-11-01: library_items.views is NULL on all 141,317 rows; likes exist on 1,247 of them; the crawler sums XenForo threadmark likes into one integer, which is total engag",
+   "id": "M63-37",
+   "title": "per-source engagement is stored as the source reports it (likes, hits, replies, bookmarks) instead of one normalised `likes`, so a rate metric can be computed per archive",
    "sources": [
     "docs/requirements.csv"
    ],
@@ -721,19 +669,6 @@
    "why_summary": "docs/design/2026-11-01-ranking-signals-and-surfaces.md P4. The four conditions are all required: confidence sequence valid under continuous monitoring (not a peeked fixed-horizon p",
    "id": "M64-04",
    "title": "a challenger is promoted automatically only on a sequential-test win with every guardrail in bounds, at minimum sample and after seven days, and demoted automatically when a guardrail breaches on two consecutive snapshots",
-   "sources": [
-    "docs/requirements.csv"
-   ],
-   "milestone": "M64",
-   "relevance": 4,
-   "because": "a requirements row exists (+4)",
-   "default_on": false,
-   "built": false
-  },
-  {
-   "why_summary": "docs/design/2026-11-01-ranking-signals-and-surfaces.md P5, and the cheapest real win: the data is author_text on every row. Ordering field for author.works is quality_pct/recency/v",
-   "id": "M64-05",
-   "title": "story.more_by_author and author.works are served from the author's own rows, ordered by that surface's field",
    "sources": [
     "docs/requirements.csv"
    ],
@@ -861,32 +796,6 @@
    "built": false
   },
   {
-   "why_summary": "docs/design/2026-11-01-ranking-signals-and-surfaces.md P16. crates/taste::eval already implements ndcg_at, recall_at and overlap_at; this row is the harness that runs a challenger ",
-   "id": "M64-16",
-   "title": "an offline pre-registration harness scores a challenger against recorded history on taste",
-   "sources": [
-    "docs/requirements.csv"
-   ],
-   "milestone": "M64",
-   "relevance": 4,
-   "because": "a requirements row exists (+4)",
-   "default_on": false,
-   "built": false
-  },
-  {
-   "why_summary": "docs/spec.md \u00a76.3 Phase 1 declares `nav` on rows (all empty so far, because no module has declared its entries yet) and serves it. The SvelteKit shell must read the payload and ren",
-   "id": "M65-06",
-   "title": "the frontend hides its links from /api/v1/modules instead of assuming every surface exists",
-   "sources": [
-    "docs/requirements.csv"
-   ],
-   "milestone": "M65",
-   "relevance": 4,
-   "because": "a requirements row exists (+4)",
-   "default_on": false,
-   "built": false
-  },
-  {
    "why_summary": "docs/spec.md \u00a759.7 Today an idea is `idea.<slug>` and a built surface is `<module id>`; nothing links the two, so building an idea leaves a stale planned row beside the new module.",
    "id": "M65-08",
    "title": "an idea row becomes a module when it is built, without a second backlog",
@@ -907,32 +816,6 @@
     "docs/requirements.csv"
    ],
    "milestone": "M65",
-   "relevance": 4,
-   "because": "a requirements row exists (+4)",
-   "default_on": false,
-   "built": false
-  },
-  {
-   "why_summary": "docs/snapshot-column-policy.json (rekey_account) 0134 declares no foreign key on account_id because \u00a751 erases by rekeying the account rather than deleting it, so ON DELETE CASCADE",
-   "id": "M65-10",
-   "title": "module_user_state rows are rekeyed with their account on erasure",
-   "sources": [
-    "docs/requirements.csv"
-   ],
-   "milestone": "M65",
-   "relevance": 4,
-   "because": "a requirements row exists (+4)",
-   "default_on": false,
-   "built": false
-  },
-  {
-   "why_summary": "crates/db/src/hit_rate.rs Found while registering M66-01. The store is built and tested (10 tests) and nothing serves it: `grep -rn hit_rate crates/app` returns no route. This is t",
-   "id": "M66-09",
-   "title": "Hit rate has an HTTP door, so the named measure is readable by the operator",
-   "sources": [
-    "docs/requirements.csv"
-   ],
-   "milestone": "M66",
    "relevance": 4,
    "because": "a requirements row exists (+4)",
    "default_on": false,
@@ -965,9 +848,9 @@
    "built": false
   },
   {
-   "why_summary": "crates/domain/src/quality.rs score_of(): the four weights are constants; an operator who trusts length more than consensus has no way to say so Belongs with M63-30's taste layer, n",
-   "id": "M63-05",
-   "title": "dh rec --jsonl --fields, --table/--wide/--cols, --link md|epub|url",
+   "why_summary": "crates/domain/src/quality.rs score_of(): the four weights are constants; an operator who trusts length more than consensus has no way to say so Renumbered from `M63-05` on 2026-11-",
+   "id": "M63-38",
+   "title": "the quality weights are per-operator and per-surface rather than compiled in",
    "sources": [
     "docs/requirements.csv"
    ],
@@ -1306,19 +1189,6 @@
    "why_summary": "docs/ideas/2026-11-01-idea-sweep-power-users.md Power-user sweep P12. The difference between a saved search and a workflow. Pluggable sinks so the notification path is not tied to ",
    "id": "M63-12",
    "title": "dh watch <saved-query> --exec '<cmd>' --notify ntfy|desktop|webhook",
-   "sources": [
-    "docs/requirements.csv"
-   ],
-   "milestone": "M63",
-   "relevance": 2,
-   "because": "a requirements row exists (+4); needs a third party or an external client (-2)",
-   "default_on": false,
-   "built": false
-  },
-  {
-   "why_summary": "docs/plans/cli-placement.md Placement decision recorded in docs/plans/cli-placement.md: the CLI owns no durable data beyond a cache, so it belongs beside the contract it consumes r",
-   "id": "M63-28",
-   "title": "crates/cli",
    "sources": [
     "docs/requirements.csv"
    ],
