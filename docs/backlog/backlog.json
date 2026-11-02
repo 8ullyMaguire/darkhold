@@ -6,8 +6,8 @@
         "implemented-verified-e2e": 129,
         "implemented-locally-tested": 246,
         "unsupported": 4,
-        "implemented-fully-tested": 379,
-        "planned": 75,
+        "implemented-fully-tested": 380,
+        "planned": 74,
         "evaluated-and-rejected": 1
       }
     },
@@ -214,12 +214,6 @@
       "milestone": "M63",
       "requirement": "dh doctor: diagnoses token scope, clock skew, TLS, DNS and API version drift, one suggested fix per problem",
       "notes": "Power-user sweep P15. The first command anyone runs when something feels wrong; turns a support thread into a paste."
-    },
-    {
-      "id": "M63-17",
-      "milestone": "M63",
-      "requirement": "Shell completions and man pages generated from the clap definition (bash/zsh/fish)",
-      "notes": "Power-user sweep P17. A subcommand nobody can discover may as well not exist; generation keeps completions honest by construction, no drift."
     },
     {
       "id": "M63-18",
@@ -475,7 +469,7 @@
     }
   ],
   "open_by_milestone": {
-    "M63": 28,
+    "M63": 27,
     "M45": 23,
     "M64": 14,
     "M66": 6,

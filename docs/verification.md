@@ -1,3 +1,54 @@
+## 2026-11-02 — completions that could not be installed, and a panic on `| head`
+
+**Requirement:** `M63-17` · **Tests:** `crates/cli/tests/completions.rs` (4) · **Code:**
+`crates/cli/src/gen.rs`
+
+### The change
+
+Two verbs, both rendered from the same `clap::Command` the binary parses with:
+
+```text
+dh completions bash|zsh|fish|elvish|powershell   > the shell's completion directory
+dh man                                            | man -l -
+```
+
+Generated rather than maintained, because a hand-written completion list is wrong the first time a
+flag is added, silently, since nobody re-reads one in review.
+
+### The defect the first version had
+
+`clap_complete::generate(shell, &mut command, "dh", &mut std::io::stdout())` **panics when the reader
+closes early** — it unwraps its own write:
+
+```text
+thread 'main' panicked at clap_complete-4.6.11/src/aot/shells/shell.rs:86:14:
+failed to write completion file: Os { code: 32, kind: BrokenPipe }
+```
+
+`dh completions zsh | head` is the first thing anyone does with a completion script, and it exited
+101 with a Rust backtrace. The page is now rendered into a `Vec<u8>` and written once, with a closed
+pipe treated as success — the caller asked for the first lines and got them.
+
+### Verification
+
+```
+cargo test -p darkhold-cli --test completions
+→ 4 passed in 0.02s
+dh completions zsh | head -2      → exit 0, two lines, nothing on stderr
+dh completions zsh | wc -l        → 830
+```
+
+The invariant that makes generation worth two dependencies: the test reads the subcommand list from
+`dh --help` — the parser's own description of itself — and requires every name to appear in every
+generated artefact. Mutations, each failing a named test:
+
+| mutation | test that failed |
+|---|---|
+| a hand-written completion list instead of `generate` | `every_shell_gets_a_script_that_names_every_subcommand` |
+| `generate(…, &mut std::io::stdout())` (unbuffered) | `a_closed_pipe_is_not_a_panic` |
+
+Open requirements go **75 → 74** (`M63` 28 → 27).
+
 ## 2026-11-02 — three request paths, and none of them waited
 
 **Requirement:** `M63-20` · **Tests:** `crates/cli/tests/rate_limit.rs` (3) · **Code:**

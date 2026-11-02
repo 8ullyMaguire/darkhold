@@ -17,6 +17,7 @@
 //! `docs/cli-exit-codes.md`, because a wrapper script decides what to do from that number alone.
 
 mod exit;
+mod gen;
 mod http;
 mod module;
 mod rec;
@@ -98,6 +99,19 @@ pub enum Command {
         #[command(subcommand)]
         action: module::ModuleAction,
     },
+    /// A completion script for your shell, generated from this parser (`M63-17`).
+    ///
+    /// ```text
+    /// dh completions bash > ~/.local/share/bash-completion/completions/dh
+    /// dh completions zsh  > ~/.zfunc/_dh
+    /// dh completions fish > ~/.config/fish/completions/dh.fish
+    /// ```
+    Completions {
+        /// Which shell: `bash`, `zsh`, `fish`, `elvish` or `powershell`.
+        shell: clap_complete::Shell,
+    },
+    /// The man page, generated from this parser. `dh man | man -l -`
+    Man,
 }
 
 #[tokio::main]
@@ -111,6 +125,14 @@ async fn main() -> std::process::ExitCode {
                 std::process::ExitCode::from(error.code)
             }
         },
+        Command::Completions { shell } => {
+            gen::completions(*shell);
+            std::process::ExitCode::SUCCESS
+        }
+        Command::Man => {
+            gen::man();
+            std::process::ExitCode::SUCCESS
+        }
         Command::Module { action } => match module::run(
             &cli,
             module::ModuleArgs {

@@ -20,6 +20,8 @@ serde.workspace = true
 toml.workspace = true
 serde_json.workspace = true
 tokio = { workspace = true, features = ["rt-multi-thread", "macros"] }
+clap_complete = "4.5.67"
+clap_mangen = "0.2.32"
 
 [dev-dependencies]
 tokio = { workspace = true, features = ["rt-multi-thread", "macros", "net", "io-util"] }
