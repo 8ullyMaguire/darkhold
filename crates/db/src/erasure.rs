@@ -9,6 +9,15 @@
 //! not cascade: `jobs.requested_by`, `ON DELETE SET NULL`, because a job's audit trail must
 //! survive the requester who asked for it.
 //!
+//! **That measurement was incomplete, and the omission was the leak.** Counting only tables
+//! already in the FK graph cannot see a table whose `account_id` is a plain `TEXT`/`UUID` column
+//! with no `REFERENCES` clause at all. Measured directly — every column named `account_id` or
+//! `*_account`, then `PRAGMA foreign_key_list` per table — there are **18 such columns across 16
+//! tables** (M45-64). `DELETE FROM accounts` touches none of them: the account goes and a
+//! `tasting_responses` row still records which way that person voted, under an id that resolves
+//! to nobody. See [`FK_FREE_ACCOUNT_COLUMNS`], which is that leak closed, and which is asserted
+//! against the schema by `tests/erasure_covers_fk_free_accounts.rs`.
+//!
 //! So [`erase_account`] is effectively a single `DELETE FROM accounts`. It is deliberately NOT
 //! an application-side list of 71 tables: such a list is 71 entries to keep in sync with the
 //! migrations, and it fails *silently* — the day a migration adds a table, the list is stale
@@ -90,6 +99,10 @@ pub struct ErasurePlan {
     /// Private row counts by table name, so the route can render "12 bookmarks, 3 in progress"
     /// without hardcoding a table list of its own.
     pub private_rows: Vec<(String, i64)>,
+    /// Rows in account-keyed tables that no foreign key reaches (M45-64), counted by table: what
+    /// the cascade would leave behind and the erasure removes explicitly. `DeferredTo` entries are
+    /// **not** counted here, because counting them would claim an erasure that does not happen.
+    pub unlinked_rows: Vec<(String, i64)>,
     pub published_work_count: i64,
     pub open_export_count: i64,
 }
@@ -115,6 +128,10 @@ impl ErasurePlan {
     pub fn total_private_rows(&self) -> i64 {
         self.private_rows.iter().map(|(_, n)| n).sum()
     }
+
+    pub fn total_unlinked_rows(&self) -> i64 {
+        self.unlinked_rows.iter().map(|(_, n)| n).sum()
+    }
 }
 
 /// The tables an erasure reports on, in the order a reader would hear them.
@@ -123,6 +140,93 @@ impl ErasurePlan {
 /// sentence; alphabetical is a dump. These are the *reported* tables, not the *deleted* ones —
 /// deletion is the cascade's job (see the module docs).
 const PRIVATE_TABLES: &[&str] = &["bookmarks", "reading_progress", "did_not_finish"];
+
+// ─────────────────────────────────────────────────────────────────────────────
+// The columns outside the foreign-key graph (M45-64, M65-10)
+// ─────────────────────────────────────────────────────────────────────────────
+
+/// What the store type of an account column is, which decides the SQL.
+///
+/// A `&str` bound to a `uuid` column is `incorrect binary data format` on PostgreSQL, so the two
+/// kinds cannot share one statement. TEXT columns compare directly; UUID columns compare as text.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ColumnKind {
+    Text,
+    Uuid,
+}
+
+/// What an erasure does to one account-keyed column that has no foreign key.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Treatment {
+    /// The row is about that person. It goes.
+    Delete,
+    /// The row must survive — a financial record, an audit trail — and its account link is
+    /// cleared. Only legal where the column is nullable.
+    Sever,
+    /// Must be severed and cannot be yet: the column is `NOT NULL` and rebuilding it is that
+    /// requirement's work. **Named with its owner, so it is a tracked gap and not an omission.**
+    DeferredTo(&'static str),
+}
+
+/// One account-keyed column that sits outside the foreign-key graph.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct UnlinkedColumn {
+    pub table: &'static str,
+    pub column: &'static str,
+    pub kind: ColumnKind,
+    pub treatment: Treatment,
+    /// Why this treatment, in one line — because the next reader of this table is deciding
+    /// whether the entry is right, and a bare `Delete` does not say whether it was measured.
+    pub why: &'static str,
+}
+
+/// Every account-keyed column that `DELETE FROM accounts` does **not** reach.
+///
+/// This list is load-bearing in both directions: `tests/erasure_covers_fk_free_accounts.rs` parses
+/// the migrations, collects every account-keyed column outside the FK graph, and fails when one is
+/// missing here (a new table cannot be added without deciding what erasure does to it) **and** when
+/// an entry here names a column the schema no longer has (the list cannot rot in place).
+pub const FK_FREE_ACCOUNT_COLUMNS: &[UnlinkedColumn] = &[
+    UnlinkedColumn { table: "directory_votes", column: "account_id", kind: ColumnKind::Text,
+        treatment: Treatment::Delete, why: "a vote is a personal act, not an audit record" },
+    UnlinkedColumn { table: "interaction_warmth", column: "account_id", kind: ColumnKind::Uuid,
+        treatment: Treatment::Delete, why: "warmth between two accounts is a relationship, and a relationship with an erased account does not exist" },
+    UnlinkedColumn { table: "interaction_warmth", column: "author_account", kind: ColumnKind::Uuid,
+        treatment: Treatment::Delete, why: "same row as the reader's side; the second column is the same evidence" },
+    UnlinkedColumn { table: "payment_events", column: "account_id", kind: ColumnKind::Uuid,
+        treatment: Treatment::Sever, why: "a payment record is a financial record and must survive its payer; the identity is cleared, the amount and date are not" },
+    UnlinkedColumn { table: "payment_events", column: "author_account", kind: ColumnKind::Uuid,
+        treatment: Treatment::Sever, why: "the payee side of the same record, on the same reasoning" },
+    UnlinkedColumn { table: "vanguard_roles", column: "account_id", kind: ColumnKind::Uuid,
+        treatment: Treatment::Delete, why: "a role is held by a person; the role ends with them" },
+    UnlinkedColumn { table: "curator_rewards", column: "account_id", kind: ColumnKind::Uuid,
+        treatment: Treatment::Delete, why: "a reward is addressed to a person and carries no accounting requirement of its own" },
+    UnlinkedColumn { table: "curator_roles", column: "account_id", kind: ColumnKind::Text,
+        treatment: Treatment::Delete, why: "a role held by a person" },
+    UnlinkedColumn { table: "author_media_preferences", column: "account_id", kind: ColumnKind::Text,
+        treatment: Treatment::Delete, why: "a preference is the clearest thing to delete: restoring it would act against the stated wish" },
+    UnlinkedColumn { table: "targeted_bounties", column: "account_id", kind: ColumnKind::Text,
+        treatment: Treatment::Delete, why: "a bounty is addressed to one person; it has no meaning for anyone else" },
+    UnlinkedColumn { table: "category_votes", column: "account_id", kind: ColumnKind::Text,
+        treatment: Treatment::Delete, why: "a vote is a personal act" },
+    UnlinkedColumn { table: "entry_moderation_votes", column: "account_id", kind: ColumnKind::Text,
+        treatment: Treatment::Delete, why: "a jury vote is a personal act; the decision it contributed to is recorded elsewhere" },
+    UnlinkedColumn { table: "exchange_signals", column: "account_id", kind: ColumnKind::Text,
+        treatment: Treatment::Delete, why: "a behavioural signal about one reader" },
+    UnlinkedColumn { table: "tasting_samples", column: "account_id", kind: ColumnKind::Text,
+        treatment: Treatment::Delete, why: "which pairs were sampled for this reader is a behavioural record" },
+    UnlinkedColumn { table: "tasting_responses", column: "account_id", kind: ColumnKind::Text,
+        treatment: Treatment::Delete, why: "a taste judgement is the most personal thing in the tree; deleting the row, not rekeying it, is the only answer that does not keep the preference alive" },
+    UnlinkedColumn { table: "trust_events", column: "account_id", kind: ColumnKind::Uuid,
+        treatment: Treatment::Delete, why: "the karma ledger is derived from acts; the account's rows go with it" },
+    UnlinkedColumn { table: "trust_events", column: "actor_account_id", kind: ColumnKind::Uuid,
+        treatment: Treatment::Delete, why: "the same row seen from the actor side" },
+    UnlinkedColumn { table: "supply_routing", column: "account_id", kind: ColumnKind::Text,
+        treatment: Treatment::DeferredTo("M45-58"),
+        why: "§58.3 keeps the routing row forever so a reader is never offered the same work twice; severing the link needs the column nullable, and that rebuild is M45-58's" },
+    UnlinkedColumn { table: "module_user_state", column: "account_id", kind: ColumnKind::Text,
+        treatment: Treatment::Delete, why: "M65-10: a module preference belongs to the person; the snapshot policy's `rekey_account` is a SNAPSHOT treatment (11.16.3b), not this one — live erasure deletes the account, so there is nothing to rekey to and a preference must not survive" },
+];
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Subject access
@@ -294,6 +398,35 @@ pub async fn plan_erasure(db: &Database, account_id: &str) -> Result<ErasurePlan
         private_rows.push((table.to_string(), n));
     }
 
+    // The columns the cascade cannot reach. Counted per table rather than per column: a table with
+    // two account columns (interaction_warmth, payment_events, trust_events) holds one row either
+    // way, and a reader counting rows should see 1, not 2.
+    let mut unlinked_rows: Vec<(String, i64)> = Vec::new();
+    for column in FK_FREE_ACCOUNT_COLUMNS {
+        if matches!(column.treatment, Treatment::DeferredTo(_)) {
+            continue;
+        }
+        let sql = count_unlinked_sql(db, column);
+        let n: i64 = match db.backend() {
+            Backend::Sqlite => {
+                sqlx::query_scalar::<_, i64>(&sql)
+                    .bind(account_id)
+                    .fetch_one(db.sqlite_pool().expect("sqlite handle"))
+                    .await?
+            }
+            Backend::Postgres => {
+                sqlx::query_scalar::<_, i64>(&sql)
+                    .bind(account_id)
+                    .fetch_one(db.postgres_pool().expect("postgres handle"))
+                    .await?
+            }
+        };
+        match unlinked_rows.iter_mut().find(|(t, _)| t == column.table) {
+            Some((_, total)) => *total += n,
+            None => unlinked_rows.push((column.table.to_string(), n)),
+        }
+    }
+
     // Published works are counted across ALL of the account's handles, not just the first. The
     // plan reports "the works you would lose", and a reader with three handles has three bodies
     // of work — counting only the first under-reports, and errs in the direction that destroys
@@ -345,6 +478,7 @@ pub async fn plan_erasure(db: &Database, account_id: &str) -> Result<ErasurePlan
         account_id: account_id.to_string(),
         handle,
         private_rows,
+        unlinked_rows,
         published_work_count,
         open_export_count,
     })
@@ -364,6 +498,47 @@ pub async fn plan_erasure(db: &Database, account_id: &str) -> Result<ErasurePlan
 /// account ceased to exist — an erasure that leaks via the export queue is not an erasure.
 /// This is the one ordering in the module that is not obvious, so it is the one the spec's
 /// mutation step reverts.
+/// The `COUNT(*)` for one unlinked column, in the right shape for the engine and the column type.
+fn count_unlinked_sql(db: &Database, column: &UnlinkedColumn) -> String {
+    let (table, col) = (column.table, column.column);
+    let sqlite = format!("SELECT COUNT(*) FROM {table} WHERE {col} = ?");
+    let pg = match column.kind {
+        ColumnKind::Text => format!("SELECT COUNT(*) FROM {table} WHERE {col} = $1"),
+        ColumnKind::Uuid => format!("SELECT COUNT(*) FROM {table} WHERE {col}::text = $1"),
+    };
+    sql_owned(db, sqlite, pg)
+}
+
+/// The statement that applies one unlinked column's treatment.
+///
+/// `None` for a `DeferredTo` column: the erasure does not touch it yet, and returning a statement
+/// whose failure would be swallowed is worse than returning nothing.
+fn apply_unlinked_sql(db: &Database, column: &UnlinkedColumn) -> Option<String> {
+    let (table, col) = (column.table, column.column);
+    let predicate = |bound: &str| match column.kind {
+        ColumnKind::Text => format!("{col} = {bound}"),
+        // A `&str` bound to a `uuid` column is `incorrect binary data format`, so the comparison is
+        // made in text on PostgreSQL. SQLite stores both as TEXT and needs no cast.
+        ColumnKind::Uuid => match db.backend() {
+            Backend::Postgres => format!("{col}::text = {bound}"),
+            Backend::Sqlite => format!("{col} = {bound}"),
+        },
+    };
+    match column.treatment {
+        Treatment::Delete => Some(sql_owned(
+            db,
+            format!("DELETE FROM {table} WHERE {}", predicate("?")),
+            format!("DELETE FROM {table} WHERE {}", predicate("$1")),
+        )),
+        Treatment::Sever => Some(sql_owned(
+            db,
+            format!("UPDATE {table} SET {col} = NULL WHERE {}", predicate("?")),
+            format!("UPDATE {table} SET {col} = NULL WHERE {}", predicate("$1")),
+        )),
+        Treatment::DeferredTo(_) => None,
+    }
+}
+
 pub async fn erase_account(db: &Database, account_id: &str) -> Result<()> {
     let cancel = db.sql(
         "UPDATE export_jobs SET state = 'cancelled' \
@@ -402,6 +577,33 @@ pub async fn erase_account(db: &Database, account_id: &str) -> Result<()> {
                 .bind(account_id)
                 .execute(db.postgres_pool().expect("postgres handle"))
                 .await?;
+        }
+    }
+
+    // The cascade is finished; what it could not reach is here (M45-64). Every column in
+    // `FK_FREE_ACCOUNT_COLUMNS` gets its treatment — the rows about this person are deleted, and the
+    // rows that must survive (a payment record, an audit trail) lose their account link instead.
+    //
+    // After the account is gone, deliberately: if this pass fails, the account is already erased and
+    // the spend is visible as an error the caller can retry — every statement here is idempotent, and
+    // a half-erasure that reports success is the outcome worth avoiding.
+    for column in FK_FREE_ACCOUNT_COLUMNS {
+        let Some(sql) = apply_unlinked_sql(db, column) else {
+            continue;
+        };
+        match db.backend() {
+            Backend::Sqlite => {
+                sqlx::query(&sql)
+                    .bind(account_id)
+                    .execute(db.sqlite_pool().expect("sqlite handle"))
+                    .await?;
+            }
+            Backend::Postgres => {
+                sqlx::query(&sql)
+                    .bind(account_id)
+                    .execute(db.postgres_pool().expect("postgres handle"))
+                    .await?;
+            }
         }
     }
 

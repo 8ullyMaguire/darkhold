@@ -157,6 +157,10 @@ async fn post_erasure(
         body: Json(json!({
             "deleted": true,
             "private_rows_erased": plan.total_private_rows(),
+            // The rows no foreign key reaches (M45-64). Reported separately from the cascaded ones
+            // because they are erased by name in `erase_account`, and a reader who asked what was
+            // destroyed should see the count that the cascade could not produce.
+            "unlinked_rows_erased": plan.total_unlinked_rows(),
             "published_work_count": plan.published_work_count,
             "cancelled_open_exports": plan.open_export_count,
         })),

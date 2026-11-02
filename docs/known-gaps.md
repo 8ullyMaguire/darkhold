@@ -1,3 +1,18 @@
+## `payment_events` declares foreign keys on PostgreSQL that SQLite does not
+
+**Found:** 2026-11-02, by `M45-64`'s PostgreSQL run refusing an insert that SQLite accepted.
+
+PostgreSQL's `0056_monetization.sql` gives `payment_events.account_id` and `author_account` each a
+`REFERENCES accounts (…) ON DELETE SET NULL`. SQLite's arm declares neither, so the two schemas differ:
+on PostgreSQL the cascade severs the payer, on SQLite nothing did until the erasure pass took it.
+
+Behaviour is now the same on both engines — `erase_account` severs both columns explicitly, which is a
+no-op on PostgreSQL and the only thing that happens on SQLite — but the **schemas still disagree**,
+and a future reader comparing them will find one arm's constraint missing without a reason recorded.
+
+Adding the keys to SQLite needs a table rebuild (SQLite cannot add a foreign key to an existing table)
+and that is not this pass's work. It is recorded here rather than silently accepted.
+
 ## `comments.edited_at` and `deleted_at` are not constrained to the canonical shape
 
 **Found:** 2026-11-02, while adding the `created_at` constraint (`M45-61`, migration `0138`).

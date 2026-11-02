@@ -1,13 +1,13 @@
 {
   "sources": {
     "requirements.csv": {
-      "rows": 839,
+      "rows": 840,
       "by_status": {
         "implemented-verified-e2e": 129,
         "implemented-locally-tested": 246,
         "unsupported": 4,
-        "implemented-fully-tested": 388,
-        "planned": 71,
+        "implemented-fully-tested": 390,
+        "planned": 70,
         "evaluated-and-rejected": 1
       }
     },
@@ -402,12 +402,6 @@
       "notes": "Deferred from M65-04 with its reason: the gate currently does one indexed primary-key read per request to a per_user surface with a session. A process-wide 'any overrides exist' flag would skip it, but the flag must be initialised from the table at startup, bumped on every PATCH, cleared when the last row is deleted, and would be wrong for a second process sharing the database. Worth doing when a per_user surface is hot enough for the read to appear in a profile, not before."
     },
     {
-      "id": "M65-10",
-      "milestone": "M65",
-      "requirement": "module_user_state rows are rekeyed with their account on erasure",
-      "notes": "0134 declares no foreign key on account_id because \u00a751 erases by rekeying the account rather than deleting it, so ON DELETE CASCADE never fires. The policy entry says rekey_account and this row is the work: add module_user_state to M45-51's erasure pass and prove with a test that after an erasure the row still exists with the new account id. Until then the policy is a decision, not a behaviour."
-    },
-    {
       "id": "GS-1",
       "milestone": "M66",
       "requirement": "guest access with consent: a reader may read before registering, and the consent gate exists before the surface it gates. The estate standard sets the free-to-read boundary; this site's only delta is guest.mau_limit = 500.",
@@ -455,7 +449,7 @@
     "M45": 22,
     "M64": 14,
     "M66": 6,
-    "M65": 4
+    "M65": 3
   },
   "unlinked_concord": [
     {

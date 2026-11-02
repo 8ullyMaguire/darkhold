@@ -1,3 +1,57 @@
+## 2026-11-02 — M45-64: erasure reaches the account columns no foreign key reaches
+
+**Requirement:** `M45-64` (new), closing `M65-10` with it · **Tests:** 4 new, on SQLite and PostgreSQL
+
+### What was measured
+
+`DELETE FROM accounts` and the schema's cascade cover 71 tables. They are **blind** to a table whose
+`account_id` is a plain TEXT/UUID column with no `REFERENCES` clause — invisible to any measurement
+that starts from the FK graph, which is why the M45-51 plan's "99% present" was wrong in the
+direction that leaks. Asking each table directly: **18 columns across 16 tables**, every one of them
+surviving an erasure under an id that resolves to nobody.
+
+The worst of them is `tasting_responses` — which way that person voted on a taste pair, kept forever
+by an erasure that reported success.
+
+### What was built
+
+`FK_FREE_ACCOUNT_COLUMNS`: one entry per column with a treatment and a one-line reason.
+
+| treatment | columns | meaning |
+|---|---|---|
+| `Delete` | 15 | the row is about that person |
+| `Sever` | 2 (`payment_events`) | the record must survive; the account link is cleared |
+| `DeferredTo("M45-58")` | 1 (`supply_routing`) | must be severed and cannot yet — the column is `NOT NULL` and the rebuild is that row's |
+
+`erase_account` applies them after the cascade (so a failure leaves an already-erased account and an
+idempotent retry, rather than a half-erasure that reports success), `plan_erasure` counts them into
+`unlinked_rows`, and `POST /api/v1/me/erasure` reports `unlinked_rows_erased`.
+
+### The invariant
+
+`tests/erasure_covers_fk_free_accounts.rs` parses the migrations and fails **in both directions**: an
+account-keyed column outside the FK graph that is not in the table (the next table cannot be added
+without deciding what erasure does to it), and an entry naming a column the schema no longer has. On
+its first run it caught its own list being wrong: `trust_events.actor_account_id` was missing from the
+scanner because it matches neither `account_id` nor `*_account`.
+
+### Verification
+
+```
+cargo test -p darkhold-db --test erasure_covers_fk_free_accounts       → 4 passed
+DARKHOLD_TEST_PG_URL=… (same)                                          → 4 passed
+cargo test -p darkhold-app --test erasure                              → 10 passed
+```
+
+**Red, by removal:** with the apply loop skipped, both behavioural tests fail —
+`a vote is a personal act…  left: 1  right: 0`.
+
+### Found while doing it
+
+`payment_events` has `ON DELETE SET NULL` foreign keys on PostgreSQL and **none** on SQLite. The
+erasure now severs on both, so the behaviour converges; the schemas still disagree, and that is what
+`docs/known-gaps.md` records.
+
 ## 2026-11-02 — M45-61: `comments.created_at` is a shape the database keeps (and M45-63, found doing it)
 
 **Requirement:** `M45-61`, plus `M45-63` (discovered by the same run) · **Migration:** `0138` on both

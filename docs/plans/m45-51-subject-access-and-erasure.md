@@ -20,6 +20,15 @@ and a commit that left the frontend unbuildable. So before designing anything:
   requester who asked for it.
 
 So the "erasure cascade" is **already 99% present** as schema. This item is not a migration.
+
+**Correction, 2026-11-02 (M45-64):** that sentence counted only tables **already inside the FK
+graph**, and a table whose `account_id` is a plain TEXT/UUID column with no `REFERENCES` clause is
+invisible to that measurement. Measured directly — every column named `account_id`/`*_account`/
+`*_account_id`, then `PRAGMA foreign_key_list` per table — **18 columns across 16 tables have no
+foreign key to `accounts`** and survived every erasure. The cascade is 71 tables *plus* a second
+population it could not see; `crates/db/src/erasure.rs` now classifies each one and a test refuses a
+new unclassified column. The lesson is the one this file already states elsewhere: a number derived
+from a query has to name its population.
 Building a second parallel erasure path would be the classic mistake this project has made
 before: `did_not_finish` vs `reading_history_entry` are two status tables where one richer
 one already existed, and standing up a third would make the real one harder to reason about.
