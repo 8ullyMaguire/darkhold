@@ -6,8 +6,8 @@
         "implemented-verified-e2e": 129,
         "implemented-locally-tested": 246,
         "unsupported": 4,
-        "implemented-fully-tested": 406,
-        "planned": 70,
+        "implemented-fully-tested": 407,
+        "planned": 69,
         "evaluated-and-rejected": 1
       }
     },
@@ -378,12 +378,6 @@
       "notes": "Found while building M45-25. \u00a758.3 says a routing row is never deleted because an abandoned routing is evidence the reader was asked; \u00a751's cascade (M45-51) has to reach supply_routing.account_id anyway, because it is personal data. The two are compatible (keep the row, replace the account with a per-snapshot key) but the cascade list has to be told, and nothing today enumerates which tables carry an account column. Already recorded as drop_table in docs/snapshot-column-policy.json so the row never reaches a published dataset."
     },
     {
-      "id": "M65-08",
-      "milestone": "M65",
-      "requirement": "an idea row becomes a module when it is built, without a second backlog",
-      "notes": "Today an idea is `idea.<slug>` and a built surface is `<module id>`; nothing links the two, so building an idea leaves a stale planned row beside the new module. Decide the join (a `realised_by` field on the idea, or the generator dropping an idea whose slug matches a module id) and assert it: every planned idea that has been built must be gone from IDEAS."
-    },
-    {
       "id": "M65-09",
       "milestone": "M65",
       "requirement": "the module gate skips the per-user lookup when nobody holds an override",
@@ -449,7 +443,7 @@
     "M45": 21,
     "M64": 14,
     "M66": 6,
-    "M65": 2,
+    "M65": 1,
     "M29": 1,
     "M44": 1
   },

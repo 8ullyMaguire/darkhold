@@ -1,3 +1,37 @@
+## 2026-11-02 — M65-08: the catalogue caught its own author, one row later
+
+**Requirement:** `M65-08` · **Tests:** 3, one of which failed against the tree before this pass
+
+I closed `M45-38` in the previous commit. `cargo test -p darkhold-domain` then failed:
+
+```
+M45-38 ("Author-note links through snapshot-and-monitor pipeline") is
+implemented-fully-tested in docs/requirements.csv but still listed as an idea
+```
+
+That is §59.8's second backlog happening to me, one row after I produced it: two lists, one saying a
+feature is planned while the tree serves it. The join existed and had not been consulted, because I
+edited the CSV by hand and never re-ran the generator. `python3 scripts/ideas_catalogue.py` retired
+the row and the suite went green.
+
+The retirement is three joins — the idea's `row_id`, the requirement title, and the requirement id
+behind the idea — because a brainstorm-sourced idea carries only one of them. The same regeneration
+retired two rows an earlier pass had left behind (`M57-T1-14` "New in your fandoms", `M57-T1-27` "Most
+bookmarked this week"), both `implemented-locally-tested` and both already modules
+(`home.new_this_week`, `home.popular_in_fandom`). Two more second backlogs, found by running the tool.
+
+```
+cargo test -p darkhold-domain --test ideas_match_requirements  -> 3 passed
+cargo test -p darkhold-domain                                  -> 16 suites ok, 0 failed (876 in the lib)
+python3 scripts/ideas_catalogue.py                             -> 95 ideas; idempotent on a second run
+```
+
+**Probed for vacuity:** renaming one idea's id to a built requirement id (`M45-38`) turns
+`no_idea_row_describes_a_requirement_that_is_already_built` red; restoring it turns it green. Removing
+the retirement branch *in the generator* is not a valid probe — the generator retires through three
+joins and the other two still catch the row, which I measured (96 rows, test still green) before
+discarding that mutation as inconclusive rather than reporting it as a pass.
+
 ## 2026-11-02 — M45-38b: the note-link report, and a journey that proves the chain
 
 **Requirement:** `M45-38b` (closing the surface `M45-38` left) · **Tests:** 3 component, 2 browser
