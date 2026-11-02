@@ -1,13 +1,13 @@
 {
   "sources": {
     "requirements.csv": {
-      "rows": 884,
+      "rows": 885,
       "by_status": {
         "implemented-verified-e2e": 129,
         "implemented-locally-tested": 247,
         "unsupported": 4,
         "implemented-fully-tested": 410,
-        "planned": 93,
+        "planned": 94,
         "evaluated-and-rejected": 1
       }
     },
@@ -580,6 +580,12 @@
       "milestone": "M44",
       "requirement": "44 roadmap consensus an elo ranked community voted board: a public board where the community ranks feature ideas by pairwise consensus, ported from FicHub's fichub-consensus Elo design",
       "notes": "Reserved section, specified in docs/spec/44-roadmap-consensus-an-elo-ranked-community-voted.md. Registered 2026-11-02 for the same reason as M29-08: an idea the coverage gate named with no home."
+    },
+    {
+      "id": "M47-15",
+      "milestone": "M47",
+      "requirement": "four requirement ids name two rows each (M47-06 \u2026 M47-09), and `scripts/check-requirement-ids.py` fails on the ledger until they are one row each",
+      "notes": "Found 2026-11-02 while putting `scripts/ledger_test.py` into `gate.sh repo`: the gate has been red on this for four ids, so `gate.sh repo` has not been green and nobody noticed because the check was not in the loop. M47-06..09 each name two rows \u2014 the \u00a746 settings row appended first, and a later sweep row about search filters, search history and the route inventory. Renaming is not a regex: BOTH members of the pair are cited from code, so `M47-06` means 'the search endpoint honours its filters' in `search.rs` and 'per-event notification routing' in the ledger. The work is therefore: renumber the later sweep rows to `M47-06b`/`07b`/`08b`/`09b`, update the four code and test citations that point at them, and record the renumbering in both rows' notes \u2014 which is what the checker's own message asks for. Default off: not a feature, a ledger repair; there is nothing to switch on."
     }
   ],
   "open_by_milestone": {
@@ -590,7 +596,8 @@
     "M66": 6,
     "M65": 1,
     "M29": 1,
-    "M44": 1
+    "M44": 1,
+    "M47": 1
   },
   "unlinked_concord": [
     {

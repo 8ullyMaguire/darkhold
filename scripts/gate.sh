@@ -35,7 +35,8 @@
 #   scripts/gate.sh frontend                svelte-check and vitest
 #   scripts/gate.sh e2e <suite>             one Playwright suite at a time
 #   scripts/gate.sh dialects                the dialect-parity gates
-#   scripts/gate.sh repo                    the reachability probe and the split-spec check
+#   scripts/gate.sh repo                    reachability, vocabulary, requirement ids, split spec, ledger
+#   scripts/gate.sh ledger                  the ledger's ending, header and idempotency
 #   scripts/gate.sh budget                  the archive's RSS budget
 #   scripts/gate.sh taste-budget            the taste engine's RSS budget (M13-09)
 #   scripts/gate.sh all                     fmt, lint, build, test, doc, frontend, dialects
@@ -203,6 +204,12 @@ run_dialects() {
 run_repo() {
     cd "$REPO_ROOT"
     python3 "$REPO_ROOT/scripts/reachability.py"
+    # The ledger's line ending is a tree-level invariant, not a formatting taste:
+    # `scripts/ledger.py` splits the header on `\r\n`, so a ledger that has drifted
+    # to LF makes its only sanctioned writer crash — and the drift is invisible to
+    # every other gate, which reads the file with `csv` and does not care. It sat
+    # undiscovered for ten commits before this line existed.
+    python3 "$REPO_ROOT/scripts/ledger_test.py"
     python3 "$REPO_ROOT/scripts/check-vocabulary.py"
     python3 "$REPO_ROOT/scripts/check-requirement-ids.py"
     python3 "$REPO_ROOT/scripts/check-frontend-routes.py"
@@ -273,6 +280,11 @@ case "$cmd" in
         ;;
     repo)
         run_gate repo run_repo
+        ;;
+    ledger)
+        # Alone, for the loop that edits the ledger: the ending, the header, and
+        # the writers' idempotency, without the rest of the tree checks.
+        run_gate ledger python3 "$REPO_ROOT/scripts/ledger_test.py"
         ;;
     budget)
         # The archive's RSS budget (T-M1-06). It boots the real binary against the
