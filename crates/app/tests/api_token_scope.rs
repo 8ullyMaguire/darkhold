@@ -293,6 +293,17 @@ async fn a_read_scoped_token_cannot_write() {
         body.to_string().contains("scope"),
         "the refusal names the scope: {body}"
     );
+    // `M63-19`: the scope is a **field**, not only a word in an English sentence. A client that has
+    // to find `content.write` inside a message is parsing prose this crate may reword, which is how
+    // "403" ends up printed to a person with no idea what to add to their token.
+    assert_eq!(
+        body["error"]["required_scope"], "content.write",
+        "a scope refusal carries the scope it wants: {body}"
+    );
+    assert_eq!(
+        body["error"]["code"], "ACCESS_DENIED",
+        "and keeps the stable code: {body}"
+    );
 
     harness.tdb.db().close().await;
 }

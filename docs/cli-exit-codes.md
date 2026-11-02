@@ -58,3 +58,36 @@ Append, never renumber. A script written against the current table is a script w
 it, and changing a number is a silent behaviour change in somebody else's automation. The test
 `every_code_in_the_table_is_reachable_from_a_status_or_a_verb` fails if a documented code cannot be
 produced, so the table cannot grow a row nobody has run.
+
+## A refusal names what is missing (`M63-19`)
+
+Exit `4` covers `401` and `403`, and those two still leave a caller with a decision: *which*
+credential, and *how much* of it. The server answers in the error body, and `dh` prints it:
+
+```json
+{"error": {"code": "ACCESS_DENIED",
+           "message": "this token lacks the content.write scope",
+           "required_scope": "content.write",
+           "request_id": "…"}}
+```
+
+`required_scope` is a **field** because the scope used to exist only inside an English sentence: a
+client that wants it has to run a regular expression over prose this crate is free to reword, and in
+practice prints `403` instead. Absent on every other refusal.
+
+The distinction the CLI makes, which a status code cannot:
+
+| refusal | exit | what `dh` says |
+|---|---|---|
+| `401` — no credential | `4` | this door needs a session: `DARKHOLD_TOKEN`, or `DARKHOLD_COOKIE` |
+| `403` **with** `required_scope` | `4` | this token lacks the `X` scope: mint one that has it, or use a session |
+| `403` **without** it | `4` | the account's **role** was refused, not a scope — adding scopes will not open it |
+
+That last row is the one worth having: a role refusal and a scope refusal are both `403`, and telling
+someone to mint a token when the answer is "this instance does not employ you" sends them to spend an
+afternoon on the wrong problem. A scope refusal names its scope; a role refusal deliberately does not,
+so the absence of the field *is* the signal.
+
+One sentence, one place: every verb goes through `http::refusal`, so `dh rec` and `dh supply complete`
+cannot describe the same refusal differently — which they did, each in its own words, until they were
+made to share the function.

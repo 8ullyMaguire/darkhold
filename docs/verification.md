@@ -1,3 +1,45 @@
+## 2026-11-02 — a `403` that names the scope, and a `403` that does not
+
+**Requirement:** `M63-19` · **Tests:** `crates/app/tests/api_token_scope.rs` (4) ·
+`crates/cli/tests/scopes.rs` (4) · **Docs:** `docs/cli-exit-codes.md`
+
+### The change
+
+The server already had `AppError::MissingScope { scope }` — and the scope existed **only inside the
+English sentence** "this token lacks the content.write scope". A client that wants it has to run a
+regular expression over prose this crate is free to reword, which in practice means printing `403`.
+
+- **`required_scope` is now a field in the error body** (`AppError::required_scope()` feeding
+  `ErrorBody.required_scope`), absent on every other refusal.
+- **`media.rs`'s hand-written 403** — `{"code":"FORBIDDEN","message":"token lacks content.read
+  scope"}` — was the last refusal in the tree that named its scope only in prose. It is now the typed
+  variant.
+- **`dh` distinguishes the two `403`s**, which a status code cannot: with `required_scope` it names the
+  scope and says where to mint a wider token; without it, it says the **role** was refused and that
+  adding scopes will not open the door. The absence of the field *is* the signal.
+- **One refusal path.** `rec::failure_for` (and through it `supply` and `module`) now delegates to
+  `http::refusal`. Each verb used to write its own sentence — `dh rec` said "this engine reads your own
+  history", which is true of `rec` and false of `dh supply complete`.
+
+### Verification
+
+```
+cargo test -p darkhold-app --test api_token_scope  → 4 passed in 3.52s
+cargo test -p darkhold-cli --test scopes           → 4 passed
+```
+
+The app test is a **real route**: a token minted with `content.read`, then `POST /api/v1/imports`
+refused with `403` — the assertion is that `error.required_scope == "content.write"`. Mutations, each
+failing a named test:
+
+| mutation | test that failed |
+|---|---|
+| server omits `required_scope` from the body | `a_read_scoped_token_cannot_write` |
+| CLI ignores the field | `a_scope_refusal_names_the_scope_and_how_to_get_one` |
+| role branch suggests minting a token | `a_role_refusal_does_not_invent_a_scope` |
+
+Open requirements go **73 → 72** (`M63` 26 → 25).
+
 ## 2026-11-02 — the safe path was not the short path, and two credentials still answered `2`
 
 **Requirement:** `M63-21` · **Tests:** `crates/cli/tests/dry_run.rs` (7) + 8 in `redact.rs` ·

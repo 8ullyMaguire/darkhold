@@ -6,8 +6,8 @@
         "implemented-verified-e2e": 129,
         "implemented-locally-tested": 246,
         "unsupported": 4,
-        "implemented-fully-tested": 381,
-        "planned": 73,
+        "implemented-fully-tested": 382,
+        "planned": 72,
         "evaluated-and-rejected": 1
       }
     },
@@ -220,12 +220,6 @@
       "milestone": "M63",
       "requirement": "Config profiles (--profile, DARKHOLD_PROFILE) with per-profile instance URL and token; dh config get/set with dotted keys",
       "notes": "Power-user sweep P18. One user, two instances, without exporting variables per shell; every knob settable from the tool that reads it."
-    },
-    {
-      "id": "M63-19",
-      "milestone": "M63",
-      "requirement": "Scoped tokens per command family, with the missing scope named on refusal",
-      "notes": "Power-user sweep P19. dh never sends a request it knows will be refused, and the refusal says 'token lacks library:write' rather than 403. Extends the shipped scoped-token issuance UI."
     },
     {
       "id": "M63-22",
@@ -463,7 +457,7 @@
     }
   ],
   "open_by_milestone": {
-    "M63": 26,
+    "M63": 25,
     "M45": 23,
     "M64": 14,
     "M66": 6,

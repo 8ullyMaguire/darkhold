@@ -524,33 +524,11 @@ pub fn explanation(page: &Value) -> Option<String> {
 }
 
 /// Turn the server's refusal into something a person can act on.
+///
+/// Delegates to [`crate::http::refusal`] (`M63-19`): the sentence is the same for every verb, so
+/// `dh rec` cannot tell a script one story about a `403` and `dh supply` another.
 pub fn failure_for(status: u16, body: &Value, base_url: &str) -> Failure {
-    let message = body
-        .get("error")
-        .and_then(|error| error.get("message"))
-        .and_then(Value::as_str)
-        .map(str::to_owned)
-        .unwrap_or_else(|| body.to_string());
-    // The code is decided in one place (`crate::exit::for_status`), so `dh rec` and `dh supply`
-    // cannot tell a script two different stories about the same `401`. The message is this verb's
-    // own: only an engine reads the caller's history.
-    let code = crate::exit::for_status(status);
-    let text = match status {
-        401 | 403 => format!(
-            "{message}\nthis engine reads your own history, so it needs a session: \
-             set DARKHOLD_TOKEN (or pass --token)"
-        ),
-        429 => format!(
-            "{message}\nrate-limited: the instance asked you to wait; the retry window is in the \
-             response's Retry-After header"
-        ),
-        400 | 404 | 422 => message,
-        _ => format!("{status} from {base_url}: {message}"),
-    };
-    Failure {
-        message: text,
-        code,
-    }
+    crate::http::refusal(status, body, base_url)
 }
 
 /// Run `dh rec`.

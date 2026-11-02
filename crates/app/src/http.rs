@@ -116,6 +116,15 @@ struct ErrorBody {
     /// "conflict" is a client that has to re-read and hope.
     #[serde(skip_serializing_if = "Option::is_none")]
     conflict: Option<darkhold_domain::error::ConflictDetail>,
+    /// The scope the door wanted, on a scope refusal (`M63-19`).
+    ///
+    /// Named as a field, not only inside `message`: a client that has to parse English out of an
+    /// error cannot tell "this token lacks `content.write`" from a reworded sentence, and the
+    /// whole point of naming the scope is that the caller can act on it. Absent on every other
+    /// refusal and, deliberately, on a *role* refusal — there is no scope to add, and inventing
+    /// one would send the caller to mint a token that still would not work.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    required_scope: Option<&'static str>,
     request_id: String,
 }
 
@@ -155,6 +164,7 @@ impl IntoResponse for ApiError {
                 message: error.public_message(),
                 field_errors: error.field_errors(),
                 conflict: error.conflict(),
+                required_scope: error.required_scope(),
                 request_id,
             },
         };

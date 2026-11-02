@@ -438,6 +438,22 @@ impl AppError {
         }
     }
 
+    /// The scope a refusal is asking for, when the refusal is a scope refusal (`M63-19`).
+    ///
+    /// The message has said this in prose since the variant existed — "this token lacks the
+    /// `content.write` scope" — and prose is what a person reads, not what a client parses. A
+    /// caller that has to find the scope inside an English sentence either uses a regular
+    /// expression over messages this crate is free to reword, or gives up and prints "403". The
+    /// error body carries it as a field instead, so `dh` can say *which* scope to add without
+    /// guessing.
+    #[must_use]
+    pub const fn required_scope(&self) -> Option<&'static str> {
+        match self {
+            Self::MissingScope { scope } => Some(*scope),
+            _ => None,
+        }
+    }
+
     /// Whether the details should be logged as a fault rather than a refusal.
     #[must_use]
     pub const fn is_fault(&self) -> bool {

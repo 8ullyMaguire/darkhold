@@ -96,11 +96,12 @@ async fn list_media(
     if let Some(t) = &token {
         use darkhold_domain::api_scopes::Scope;
         if !t.scopes.contains(&Scope::ContentRead) {
-            return (
-                StatusCode::FORBIDDEN,
-                Json(json!({"error": {"code": "FORBIDDEN", "message": "token lacks content.read scope"}})),
-            )
-                .into_response();
+            // The typed refusal, so the body carries `required_scope` (`M63-19`). A
+            // hand-written body was the one 403 in the tree that named its scope only in prose.
+            return crate::http::ApiError(darkhold_domain::error::AppError::MissingScope {
+                scope: "content.read",
+            })
+            .into_response();
         }
     }
     let db = state.db();

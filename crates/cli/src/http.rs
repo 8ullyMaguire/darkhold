@@ -109,6 +109,59 @@ pub async fn send(
     }
 }
 
+/// The refusal behind a non-2xx status, in one place (`M63-19`).
+///
+/// The verbs used to write their own sentence about a `403`, and each one guessed: `dh rec` said
+/// "this engine reads your own history", which is true of `rec` and false of `dh supply complete`.
+/// More importantly, none of them could say **which scope** was missing, because the server named it
+/// only inside an English sentence. The error body now carries `required_scope`, and this is the only
+/// place a refusal is turned into a message and a code.
+///
+/// The distinction that matters, and that a caller cannot make from the status alone:
+///
+/// - `403` **with** a scope — the token is real and too small. The fix is to mint a wider one, and
+///   the message says which scope.
+/// - `403` **without** one — the account's *role* was refused. There is no scope to add, and
+///   suggesting one would send the caller to mint a token that still would not open the door.
+#[must_use]
+pub fn refusal(status: u16, body: &serde_json::Value, base_url: &str) -> Failure {
+    let message = body
+        .get("error")
+        .and_then(|error| error.get("message"))
+        .and_then(serde_json::Value::as_str)
+        .map(str::to_owned)
+        .unwrap_or_else(|| body.to_string());
+    let scope = body
+        .get("error")
+        .and_then(|error| error.get("required_scope"))
+        .and_then(serde_json::Value::as_str);
+
+    let text = match (status, scope) {
+        (401, _) => format!(
+            "{message}\nthis door needs a session: set DARKHOLD_TOKEN (or pass --token), or \
+             DARKHOLD_COOKIE for a browser session"
+        ),
+        (403, Some(scope)) => format!(
+            "{message}\nthe token you are using lacks the `{scope}` scope: mint one that has it at \
+             {base_url}/settings/tokens, or use a session (DARKHOLD_COOKIE)"
+        ),
+        (403, None) => format!(
+            "{message}\nthis account's role was refused for this door, not a scope — a scope \
+             refusal names the scope it wants, so adding scopes to a token will not open it"
+        ),
+        (429, _) => format!(
+            "{message}\nrate-limited: the instance asked you to wait; the retry window is in the \
+             response's Retry-After header"
+        ),
+        (400 | 404 | 422, _) => message,
+        _ => format!("{status} from {base_url}: {message}"),
+    };
+    Failure {
+        message: text,
+        code: exit::for_status(status),
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
