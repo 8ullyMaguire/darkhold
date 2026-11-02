@@ -18,6 +18,12 @@
 //! to nobody. See [`FK_FREE_ACCOUNT_COLUMNS`], which is that leak closed, and which is asserted
 //! against the schema by `tests/erasure_covers_fk_free_accounts.rs`.
 //!
+//! **Every column in that table now has a treatment that runs.** `supply_routing.account_id` was the
+//! last `DeferredTo`, and M45-58 closed it without a migration: the routing row survives (§58.3 — an
+//! abandoned routing is evidence the reader was asked) and the account link is replaced with a
+//! per-row key `erased:<row id>`, because the column is `NOT NULL` and a shared placeholder would
+//! re-link every severed row of one person to the others. See [`Treatment::Rekey`].
+//!
 //! So [`erase_account`] is effectively a single `DELETE FROM accounts`. It is deliberately NOT
 //! an application-side list of 71 tables: such a list is 71 entries to keep in sync with the
 //! migrations, and it fails *silently* — the day a migration adds a table, the list is stale
@@ -163,6 +169,11 @@ pub enum Treatment {
     /// The row must survive — a financial record, an audit trail — and its account link is
     /// cleared. Only legal where the column is nullable.
     Sever,
+    /// The row must survive and the column is `NOT NULL`, so the link is replaced with a **per-row**
+    /// key rather than cleared. Distinct from `Sever` because a nullable column can say "nobody";
+    /// this one has to say "nobody", and a shared placeholder would re-link every severed row of the
+    /// same person to each other — a pseudonym is still personal data if it can be joined on.
+    Rekey,
     /// Must be severed and cannot be yet: the column is `NOT NULL` and rebuilding it is that
     /// requirement's work. **Named with its owner, so it is a tracked gap and not an omission.**
     DeferredTo(&'static str),
@@ -222,8 +233,10 @@ pub const FK_FREE_ACCOUNT_COLUMNS: &[UnlinkedColumn] = &[
     UnlinkedColumn { table: "trust_events", column: "actor_account_id", kind: ColumnKind::Uuid,
         treatment: Treatment::Delete, why: "the same row seen from the actor side" },
     UnlinkedColumn { table: "supply_routing", column: "account_id", kind: ColumnKind::Text,
-        treatment: Treatment::DeferredTo("M45-58"),
-        why: "§58.3 keeps the routing row forever so a reader is never offered the same work twice; severing the link needs the column nullable, and that rebuild is M45-58's" },
+        treatment: Treatment::Rekey,
+        why: "§58.3 keeps the routing row forever: an abandoned routing is the evidence the reader was asked, and deleting it would hide that. §51 still requires the person to leave, so the link becomes a per-row key — 'erased:<row id>' — unlinkable to the reader and to their other rows, and the column stays NOT NULL so nothing had to be rebuilt" },
+    UnlinkedColumn { table: "badge_award", column: "account_id", kind: ColumnKind::Text,
+        treatment: Treatment::Delete, why: "§9.7.1 makes recognition episodic and personal; a badge held by an erased account is not an audit record of anything, and M47-14's table was the leak this list found" },
     UnlinkedColumn { table: "module_user_state", column: "account_id", kind: ColumnKind::Text,
         treatment: Treatment::Delete, why: "M65-10: a module preference belongs to the person; the snapshot policy's `rekey_account` is a SNAPSHOT treatment (11.16.3b), not this one — live erasure deletes the account, so there is nothing to rekey to and a preference must not survive" },
 ];
@@ -534,6 +547,13 @@ fn apply_unlinked_sql(db: &Database, column: &UnlinkedColumn) -> Option<String> 
             db,
             format!("UPDATE {table} SET {col} = NULL WHERE {}", predicate("?")),
             format!("UPDATE {table} SET {col} = NULL WHERE {}", predicate("$1")),
+        )),
+        // `id` is the row's own primary key on every table in this list, and prefixing it makes the
+        // value unlinkable while keeping it unique — which `UNIQUE (account_id, work_id)` requires.
+        Treatment::Rekey => Some(sql_owned(
+            db,
+            format!("UPDATE {table} SET {col} = 'erased:' || id WHERE {}", predicate("?")),
+            format!("UPDATE {table} SET {col} = 'erased:' || id WHERE {}", predicate("$1")),
         )),
         Treatment::DeferredTo(_) => None,
     }

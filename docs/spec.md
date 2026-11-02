@@ -11010,6 +11010,12 @@ calls in a row agree.
   work twice, and a repeated request moves to the next work rather than duplicating.
 - **The row is never deleted.** Completion sets `completed_at`; an abandoned routing stays as
   evidence that the reader was asked.
+- **Erasure rekeys it, and the rekey is per row.** §51 requires erasure to reach every column that
+  identifies a person; §58.3 requires the row to survive. Both hold because `account_id` is `NOT
+  NULL` and is replaced with `erased:<row id>` — unique, so two severed routings cannot be joined to
+  each other, because a shared placeholder is a pseudonym and a pseudonym that links rows is still
+  personal data. `UNIQUE (account_id, work_id)` is unchanged and still admits one live routing per
+  reader per work. As built in `M45-58` (`Treatment::Rekey`).
 - **Opt-in is per request, not per account.** Nothing is routed by the instance acting alone:
   a reader who never asks is never on a list.
 

@@ -1,3 +1,38 @@
+## 2026-11-02 — M45-58: erasure reaches the supply routing record (§58.3 × §51)
+
+**Requirement:** `M45-58` · **Tests:** 3 store (both engines) + the erasure-coverage gate
+
+Two clauses that pull opposite ways: §58.3 says a routing row is **never deleted** (an abandoned
+routing is the evidence the reader was asked), and §51 says erasure reaches every column that
+identifies a person. The compatible answer is the third one — the row stays, the link becomes
+**`erased:<row id>`**.
+
+**No migration.** The first attempt rebuilt `supply_routing.account_id` to be nullable (0146, SQLite
+table rebuild + `DROP NOT NULL` on PostgreSQL). It was withdrawn: SQLite's rebuild leaves the helper
+table's name in the migration text, which `erasure_covers_fk_free_accounts` reads as a brand-new
+unclassified account column, and NULL is the weaker answer anyway. `Treatment::Rekey` updates a `NOT
+NULL` column in place, so the schema did not have to move.
+
+**Why per row and not a shared placeholder.** `'erased'` would be unique-per-nothing: every severed
+routing of one person would share it, and a pseudonym that links rows is still personal data. The
+mutation test proves the difference — switching to a shared placeholder turns all three tests red,
+the collision one first.
+
+**The gate found a real leak while this was being fixed.** `badge_award.account_id` — the table
+M47-14 added three commits ago — was unclassified, so erasing an account left its badges behind. It
+is now `Delete` (a badge is personal recognition, not an audit record), and removing that entry again
+turns the gate red with the column named.
+
+```
+cargo test -p darkhold-db  --test supply_routing_erasure         -> 3 passed, SQLite and PostgreSQL
+cargo test -p darkhold-db  --test erasure_covers_fk_free_accounts -> 4 passed
+cargo test -p darkhold-app --test erasure                         -> 10 passed
+cargo test -p darkhold-db  --test migration_catalogue             -> 6 passed
+```
+
+**Red by removal:** a shared `'erased'` placeholder fails all three; removing the `badge_award` entry
+fails the coverage gate naming the column.
+
 ## 2026-11-02 — M45-39b: the account archive (§13, M45-39 phase 2)
 
 **Requirement:** `M45-39b` · **Tests:** 3 store + 3 route (both engines)
