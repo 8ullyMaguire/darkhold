@@ -117,6 +117,12 @@ pub async fn find_link(db: &Database, provider: &str, subject: &str) -> Result<O
 }
 
 /// Record a link. Idempotent: the same subject seen twice updates the email it was matched by.
+///
+/// Eight arguments, allowed on purpose: they are the seven columns of `oidc_links` plus the
+/// database, each a distinct fact about one sign-in, and bundling them into a struct at the single
+/// call site would move the same list one indirection away rather than shorten it. The shape of
+/// this function is the shape of the row.
+#[allow(clippy::too_many_arguments)]
 pub async fn link(
     db: &Database,
     provider: &str,

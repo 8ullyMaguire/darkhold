@@ -163,8 +163,36 @@ async fn pseuds(db: &Database, account_id: &str) -> Result<Vec<Value>> {
         .collect())
 }
 
+/// One row of the export's `works` section: id, title, language, lifecycle, visibility,
+/// published_at, created_at.
+///
+/// Named rather than written inline: the same tuple appears twice per query — at the `fetch!` call
+/// and in its decode argument — so the column order is recorded in two places that must agree.
+/// A seven-element tuple repeated inline is what `clippy::type_complexity` is complaining about,
+/// and it is right.
+type WorksRow = (
+    String,
+    String,
+    String,
+    String,
+    String,
+    Option<String>,
+    String,
+);
+
+/// One row of the export's `reading_status` section: subject type, subject id, status, started_at,
+/// finished_at, updated_at. Six fields, two of them nullable.
+type ReadingStatusRow = (
+    String,
+    String,
+    String,
+    Option<String>,
+    Option<String>,
+    String,
+);
+
 async fn works(db: &Database, account_id: &str) -> Result<Vec<Value>> {
-    let rows: Vec<(String, String, String, String, String, Option<String>, String)> = fetch!(
+    let rows: Vec<WorksRow> = fetch!(
         db,
         "SELECT w.id, w.title, w.language, w.lifecycle, w.visibility, w.published_at, w.created_at
            FROM works w
@@ -177,7 +205,7 @@ async fn works(db: &Database, account_id: &str) -> Result<Vec<Value>> {
           WHERE p.account_id::text = ? AND p.deleted_at IS NULL AND w.deleted_at IS NULL
           ORDER BY w.created_at ASC, w.id ASC",
         account_id,
-        (String, String, String, String, String, Option<String>, String)
+        WorksRow
     );
     Ok(rows
         .into_iter()
@@ -270,14 +298,7 @@ async fn library(db: &Database, account_id: &str) -> Result<Vec<Value>> {
 }
 
 async fn reading_status(db: &Database, account_id: &str) -> Result<Vec<Value>> {
-    let rows: Vec<(
-        String,
-        String,
-        String,
-        Option<String>,
-        Option<String>,
-        String,
-    )> = fetch!(
+    let rows: Vec<ReadingStatusRow> = fetch!(
         db,
         "SELECT subject_type, subject_id, status, started_at, finished_at, updated_at
            FROM reading_status WHERE account_id = ?
@@ -286,14 +307,7 @@ async fn reading_status(db: &Database, account_id: &str) -> Result<Vec<Value>> {
            FROM reading_status WHERE account_id::text = ?
           ORDER BY updated_at ASC, id ASC",
         account_id,
-        (
-            String,
-            String,
-            String,
-            Option<String>,
-            Option<String>,
-            String
-        )
+        ReadingStatusRow
     );
     Ok(rows
         .into_iter()

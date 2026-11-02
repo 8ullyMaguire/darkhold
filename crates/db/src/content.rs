@@ -2056,6 +2056,48 @@ pub async fn wipe_content(db: &Database) -> Result<()> {
 /// place; re-exported here because the publication path needs it.
 pub use crate::collaboration::contributors_for_work;
 
+/// Award First Words when this publication is the author's debut (§9.7.6, audit item 75).
+///
+/// Fails quietly and on purpose. The work is published and committed; a badge that could not be
+/// written is not a reason to tell the author their publication failed, and the award is idempotent
+/// so the next publication by the same account re-attempts it. The failure is logged with the work
+/// id so an operator can see it instead of losing it.
+async fn award_debut_badge(db: &Database, work: &Work) {
+    let pseud = work.owner_pseud_id.to_string();
+    let count = match crate::badges::published_work_count(db, &pseud).await {
+        Ok(count) => count,
+        Err(error) => {
+            tracing::warn!(work = %work.id, %error, "counting published works for the debut badge");
+            return;
+        }
+    };
+    // `== 1`: this publication is the first. A re-publish of the same work keeps the count at one
+    // and is a no-op at the award; a second work makes it two, and the badge is already held.
+    if count != 1 {
+        return;
+    }
+    let account = match crate::badges::account_for_pseud(db, &pseud).await {
+        Ok(Some(account)) => account,
+        Ok(None) => return,
+        Err(error) => {
+            tracing::warn!(work = %work.id, %error, "resolving the author's account for the debut badge");
+            return;
+        }
+    };
+    match crate::badges::award(
+        db,
+        &account,
+        darkhold_domain::badges::FIRST_WORDS,
+        Some(&work.id.to_string()),
+    )
+    .await
+    {
+        Ok(true) => tracing::info!(work = %work.id, "awarded First Words"),
+        Ok(false) => {}
+        Err(error) => tracing::warn!(work = %work.id, %error, "awarding the debut badge"),
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -2109,47 +2151,5 @@ mod tests {
     fn a_malformed_stored_identifier_is_a_fault_rather_than_an_invention() {
         let error = parse_id::<UnitId>("not-a-uuid", "unit").expect_err("must refuse");
         assert!(matches!(error, ContentError::Fault(_)));
-    }
-}
-
-/// Award First Words when this publication is the author's debut (§9.7.6, audit item 75).
-///
-/// Fails quietly and on purpose. The work is published and committed; a badge that could not be
-/// written is not a reason to tell the author their publication failed, and the award is idempotent
-/// so the next publication by the same account re-attempts it. The failure is logged with the work
-/// id so an operator can see it instead of losing it.
-async fn award_debut_badge(db: &Database, work: &Work) {
-    let pseud = work.owner_pseud_id.to_string();
-    let count = match crate::badges::published_work_count(db, &pseud).await {
-        Ok(count) => count,
-        Err(error) => {
-            tracing::warn!(work = %work.id, %error, "counting published works for the debut badge");
-            return;
-        }
-    };
-    // `== 1`: this publication is the first. A re-publish of the same work keeps the count at one
-    // and is a no-op at the award; a second work makes it two, and the badge is already held.
-    if count != 1 {
-        return;
-    }
-    let account = match crate::badges::account_for_pseud(db, &pseud).await {
-        Ok(Some(account)) => account,
-        Ok(None) => return,
-        Err(error) => {
-            tracing::warn!(work = %work.id, %error, "resolving the author's account for the debut badge");
-            return;
-        }
-    };
-    match crate::badges::award(
-        db,
-        &account,
-        darkhold_domain::badges::FIRST_WORDS,
-        Some(&work.id.to_string()),
-    )
-    .await
-    {
-        Ok(true) => tracing::info!(work = %work.id, "awarded First Words"),
-        Ok(false) => {}
-        Err(error) => tracing::warn!(work = %work.id, %error, "awarding the debut badge"),
     }
 }
