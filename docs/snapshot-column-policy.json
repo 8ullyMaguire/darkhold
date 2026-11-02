@@ -137,6 +137,11 @@
       "why": "FOREIGN KEY, and 'replace' was wrong: a CONSTANT here collapses every row of author_media_preferences into one and destroys the join. Deterministically re-keyed so the graph survives. See 11.16.3 -- consistent pseudonymisation, not column destruction.",
       "reviewed_by": "alvaro, 2026-09-29, against spec 11.16.3"
     },
+    "badge_award.account_id": {
+      "treatment": "rekey_account",
+      "why": "The account that holds a badge. TEXT rather than uuid because the award is §9.7.1 history, so it is re-keyed on the same mapping as `accounts.id` (11.16.3b): a snapshot keeps \"someone earned this on this date\" attached to a pseudonymised account and to no person. The badge name and date are not personal, and the credits it paid are a ledger fact. Live erasure DELETEs the row instead (crates/db/src/erasure.rs) — the snapshot keeps the fact, erasure ends it.",
+      "reviewed_by": "alvaro, 2026-11-02, against spec 11.16"
+    },
     "bookmarks.account_id": {
       "treatment": "rekey_account",
       "why": "A UUID foreign key to accounts.id, so it must be re-keyed with snapshot_account -- the SAME derivation accounts.id uses, on the account salt, so the join survives. 11.16.3b, and this is the failure the requirement is 'most likely to be implemented backwards': rekey_text emits a `snp_` TEXT hash, which cannot be compared with a uuid, so the relationship to accounts is destroyed while every behavioural column still reads as pseudonymous. The snapshot LOOKS de-identified and is not.",

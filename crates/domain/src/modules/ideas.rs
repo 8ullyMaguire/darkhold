@@ -351,9 +351,9 @@ pub const IDEAS: &[Module] = &[
         source: "docs/requirements.csv",
     },
     Module {
-        id: "M45-62",
-        name: "`event_participation.account` and `events.created_by` hold pseud ids although…",
-        summary: "crates/app/src/routes/events.rs (post_event, join_event); migrations/postgres/0014_events.sql Found while wiring M45-27. post_event binds pseud_id into events.created_by and join_e",
+        id: "M45-65",
+        name: "both identity gates see the spellings the schema actually uses",
+        summary: "-- Measured 2026-11-02 while closing M45-62, from the migrations rather than from memory: 68 identity-carrying columns sit outside the foreign-key graph, and neither gate can see 3",
         default_on: false,
         stability: Stability::Planned,
         toggle: Toggle::Operator,

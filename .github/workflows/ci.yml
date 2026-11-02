@@ -114,6 +114,22 @@ jobs:
       - name: Pages have a top-level heading
         run: python3 scripts/check-page-headings.py
 
+      # §11.16's snapshot column policy, and the reason it is wired here now:
+      # `check-snapshot-pii.py` existed and was correct and NOBODY RAN IT — the
+      # gate was red in a clean tree from M47-14 (badge_award.account_id gained no
+      # decision) until it was fixed on 2026-11-02, and nothing noticed for months,
+      # because a gate that lives only in a docstring is a gate nobody trips over.
+      #
+      # A pass means a decision EXISTS, not that the decision is right — the gate
+      # cannot read `reviewed_by`. That is the point: it asks the question at the
+      # moment a column is added, when the person who added it still knows the
+      # answer.
+      - name: Snapshot policy gate self-test
+        run: python3 scripts/check-snapshot-pii.py --self-test
+
+      - name: Every column has a snapshot policy decision
+        run: python3 scripts/check-snapshot-pii.py
+
       # fix-timestamptz-binds.py is disabled. It assumed the PostgreSQL
       # timestamp columns are TIMESTAMPTZ; they are TEXT, so every cast it
       # added was itself a defect. Only the self-test runs, which keeps the

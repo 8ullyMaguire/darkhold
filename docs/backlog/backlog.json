@@ -1,12 +1,12 @@
 {
   "sources": {
     "requirements.csv": {
-      "rows": 856,
+      "rows": 857,
       "by_status": {
         "implemented-verified-e2e": 129,
         "implemented-locally-tested": 247,
         "unsupported": 4,
-        "implemented-fully-tested": 407,
+        "implemented-fully-tested": 408,
         "planned": 68,
         "evaluated-and-rejected": 1
       }
@@ -414,10 +414,10 @@
       "notes": "The first milestone is deliberately smaller and shippable: serve local files to another person on the LAN or by a direct link, with no relay, no DHT, no node discovery and no global namespace; the user's own files stay their own files. Items 50, 51, 61, 69 and 96 belong to it (drag-drop import, local full-text search, offline queue, Calibre metadata.db ingestion, a local engine over local edges). The seeding network (81, 93, 98, 99) is a later spec that needs a threat model first \u2014 a document, not a weekend."
     },
     {
-      "id": "M45-62",
+      "id": "M45-65",
       "milestone": "M45",
-      "requirement": "`event_participation.account` and `events.created_by` hold pseud ids although the columns are named for accounts, so every \u00a718 query and the exchange matcher pair pseuds through an account-named column",
-      "notes": "Found while wiring M45-27. post_event binds pseud_id into events.created_by and join_event binds it into event_participation.account; the schema says account and the CHECK-free TEXT column accepts either. The matcher was written to match the data (pseuds) rather than the name, and says so in its kinds. The fix is either a rename migration (and the \u00a751 erasure list gaining pseud treatment) or accepting the name and documenting it; the second is cheaper and the first is not this ticket's to decide."
+      "requirement": "both identity gates see the spellings the schema actually uses: bare `account`, `created_by`, `pseud_id`",
+      "notes": "Measured 2026-11-02 while closing M45-62, from the migrations rather than from memory: 68 identity-carrying columns sit outside the foreign-key graph, and neither gate can see 37 of them. `scripts/check-snapshot-pii.py`'s IDENTITY_NAME_RE matches account_id, user_id, owner_id, author_id, actor_id, e-mail/password, token/secret/api_key, ip, user_agent, real name, phone, address, lat/long, device_token, endpoint, session_id, cookie, fingerprint \u2014 and not a bare `account`, not `created_by`, not `pseud_id`. `crates/db/tests/erasure_covers_fk_free_accounts.rs` matches account_id, *_account and *_account_id \u2014 and not a bare `account` or `created_by`. So 25 bare `account` columns (taste_profiles, dashboard_layouts, group_members, conversation_participants, presence, wishlists, event_participation, trust_levels, sanctions, operator_role, credit_entries, credit_holds, subscriptions, usage_counters, extension_grants, push_subscriptions, ai_requests, privacy_requests, reader_work_progress, forum_throttle_log, exchange_terms, ...) and 12 `created_by` columns (challenges, events, bounties, translation_jobs, announcements, directory_lists, categories, category_proposals, entry_moderation_proposals, taxonomy_edges, ...) are decided by nothing but habit. The fix is not \"add a regex alternative\": both gates compare measured against classified in BOTH directions, so widening the pattern turns them red until all 68 columns carry a treatment, and each treatment is a judgement (pseud vs account vs public handle) that has to be read off the writer \u2014 RequirePseud or RequireSession in the handler that inserts the row. That inventory IS the ticket; the regex is one line of it. Second finding, fixed already and worth keeping: the snapshot gate was not in CI at all, so it had been red in a clean tree since M47-14 with nothing to notice. It runs now (.github/workflows/ci.yml)."
     },
     {
       "id": "M29-08",

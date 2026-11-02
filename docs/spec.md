@@ -3661,6 +3661,14 @@ be a second opinion about the same act.
 with the caller's **pseud id** by the §18 routes, despite the column's name; the matcher pairs what
 is in them, and `exchanges` names its kinds accordingly (`excludes_pseud`).
 
+**The names are kept, and the cost is recorded.** A rename would rewrite an applied migration and
+every matcher that reads these columns, to make a name truer for readers of the DDL and nothing else.
+The cost of keeping them is that **neither identity gate sees these columns**: §11.16's snapshot gate
+matches `account_id` and not a bare `account`, and the erasure scan matches `account_id`,
+`*_account` and `*_account_id` and not a bare `account` or `created_by`. Both are silent about these
+two, and the same is true of 66 other columns (M45-63). Deciding a column's treatment by hand here,
+in prose, is what the gates exist to stop relying on — so the gap is a requirement, not a footnote.
+
 - **Terms are whole, not appended.** `PUT` replaces the set. A preference is not a log: "remove a
   fandom" is the same verb with a shorter list.
 - **Values are normalised once, on the way in** (trimmed, lowercased, inner whitespace collapsed,

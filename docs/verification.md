@@ -1,3 +1,56 @@
+## 2026-11-02 — M45-62: the gate that ran for nobody, and the 37 columns it cannot see
+
+**Requirement:** `M45-62` (closed) → `M45-65` (opened, measured) · **Tests:** gate + 4 erasure invariants
+
+Running `python3 scripts/check-snapshot-pii.py` in a clean tree:
+
+```
+FAIL: 1 column(s) with no snapshot policy decision.
+  undecided: badge_award.account_id
+```
+
+`badge_award` shipped in M47-14 with no policy decision, so §11.16's gate had been **red in a clean
+tree** ever since — and nothing noticed, because **the gate was not in CI**. A gate that lives in a
+docstring is a gate nobody trips over. Both halves are fixed here: the decision exists
+(`rekey_account`, re-keyed on the `accounts.id` mapping so a snapshot keeps "someone earned this"
+attached to a pseudonymised account), and the gate now runs in `.github/workflows/ci.yml` with its
+self-test.
+
+Then the question the row actually asked — `events.created_by` and `event_participation.account`
+hold **pseud ids** under account-sounding names — turned out to be bigger than the two columns. The
+answer is *keep the names and record the cost*, because a rename rewrites an applied migration
+(sqlx checksums it) and every matcher that reads those columns, to make a name truer only for readers
+of the DDL. §18.11 already admitted the pseud ids; it now also says what the spelling costs:
+
+> neither identity gate sees these columns
+
+Measured, from the migrations rather than from memory: **68** identity-carrying columns outside the
+foreign-key graph, of which **37 are invisible to both gates** — 25 bare `account` columns and 12
+`created_by` columns. The snapshot gate matches `account_id` and not a bare `account`; the erasure
+scan matches `account_id`, `*_account`, `*_account_id` and not a bare `account` or `created_by`.
+Neither has ever asked about `taste_profiles.account`, `trust_levels.account`, `challenges.created_by`
+or 34 others.
+
+That inventory is `M45-65`, opened rather than half-done: both gates compare measured against
+classified in **both** directions, so widening the pattern turns them red until all 68 columns carry
+a treatment, and each treatment is a judgement that has to be read off the writer — `RequirePseud` or
+`RequireSession` in the handler that inserts the row. Widening the regex and leaving 68 entries blank
+would be a red gate in a tree where red is already background noise, which is precisely the failure
+this pass just fixed.
+
+```
+python3 scripts/check-snapshot-pii.py            -> OK: 2414 columns across 329 tables
+python3 scripts/check-snapshot-pii.py --self-test -> exit 0
+python3 -c "import yaml; yaml.safe_load(open('.github/workflows/ci.yml'))"  -> ok
+cargo test -p darkhold-db --test erasure_covers_fk_free_accounts -> 4 passed
+cargo test -p darkhold-domain --test ideas_match_requirements    -> 3 passed
+```
+
+**Red observed, not simulated:** the gate failed on `badge_award.account_id` before the decision was
+written and passed after. Closing M45-62 also turned `ideas_match_requirements` red in the same way
+it did last time (an implemented row still listed as a planned idea), and `scripts/ideas_catalogue.py`
+retired it.
+
 ## 2026-11-02 — M45-36 (partial): what the reader is told when the media is gone
 
 **Requirement:** `M45-36` · **Tests:** 3 component · **Status:** partial, and the row says so

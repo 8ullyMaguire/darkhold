@@ -315,9 +315,9 @@
    "built": false
   },
   {
-   "why_summary": "crates/app/src/routes/events.rs (post_event, join_event); migrations/postgres/0014_events.sql Found while wiring M45-27. post_event binds pseud_id into events.created_by and join_e",
-   "id": "M45-62",
-   "title": "`event_participation.account` and `events.created_by` hold pseud ids although the columns are named for accounts, so every \u00a718 query and the exchange matcher pair pseuds through an account-named column",
+   "why_summary": "-- Measured 2026-11-02 while closing M45-62, from the migrations rather than from memory: 68 identity-carrying columns sit outside the foreign-key graph, and neither gate can see 3",
+   "id": "M45-65",
+   "title": "both identity gates see the spellings the schema actually uses",
    "sources": [
     "docs/requirements.csv"
    ],
