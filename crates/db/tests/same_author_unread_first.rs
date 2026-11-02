@@ -144,7 +144,7 @@ impl Fixture {
                 "INSERT INTO works (id, owner_pseud_id, title, lifecycle, visibility, created_at, \
                  updated_at, published_at, generated_content_posture) \
                  VALUES (?1#u, ?2#u, ?3, 'published', 'public', ?4, ?4, ?4, 'forbid')",
-                &[&id, &author_pseud, title, &at],
+                &[&id, &author_pseud, title, at],
             )
             .await;
         }

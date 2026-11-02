@@ -68,7 +68,7 @@ async fn claim_one(
     let pseud = pseud.to_string();
     let claim = welcome::claim(state.db(), &pseud)
         .await
-        .map_err(|e| ApiError(AppError::Internal(e.into())))?;
+        .map_err(|e| ApiError(AppError::Internal(e)))?;
     let (assignment, taken, reason) = match claim {
         Claim::Assigned(a) => (Some(a), "new", None),
         Claim::AlreadyOpen(a) => (
@@ -90,7 +90,7 @@ async fn claim_one(
     };
     let eligible = match welcome::report(state.db()).await {
         Ok(r) => r.eligible,
-        Err(e) => return Err(ApiError(AppError::Internal(e.into()))),
+        Err(e) => return Err(ApiError(AppError::Internal(e))),
     };
     Ok(Json(ClaimResponse {
         assignment,
@@ -115,7 +115,7 @@ async fn my_rota(
     };
     let rows = welcome::mine(state.db(), &pseud.to_string())
         .await
-        .map_err(|e| ApiError(AppError::Internal(e.into())))?;
+        .map_err(|e| ApiError(AppError::Internal(e)))?;
     let open = rows.iter().filter(|a| a.completed_at.is_none()).count();
     let overdue = rows.iter().filter(|a| a.overdue).count();
     Ok(Json(serde_json::json!({
@@ -145,7 +145,7 @@ async fn complete_one(
     };
     let outcome = welcome::complete(state.db(), &pseud.to_string(), &id)
         .await
-        .map_err(|e| ApiError(AppError::Internal(e.into())))?;
+        .map_err(|e| ApiError(AppError::Internal(e)))?;
     Ok(Json(match outcome {
         Complete::Done(a) => CompleteResponse {
             completed: true,
@@ -180,6 +180,6 @@ async fn report(
     require_operator(&state, &user)?;
     let report = welcome::report(state.db())
         .await
-        .map_err(|e| ApiError(AppError::Internal(e.into())))?;
+        .map_err(|e| ApiError(AppError::Internal(e)))?;
     Ok(Json(report))
 }

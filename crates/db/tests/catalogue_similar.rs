@@ -321,7 +321,7 @@ fn keys(page: &metrics::SimilarPage) -> Vec<String> {
 async fn seeded(db: &Database) -> metrics::SimilarPage {
     let account = account(db).await;
     for row in ROWS {
-        insert(&db, &account, *row, None).await;
+        insert(db, &account, *row, None).await;
     }
     let lookup = match metrics::resolve_seed(db, "Ghost in the City").await.expect("resolve") {
         metrics::SeedMatch::One(row) => row,

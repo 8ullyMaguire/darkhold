@@ -122,7 +122,7 @@ async fn withdraw_offer(
 async fn list_offers(State(state): State<AppState>) -> ApiResult<Json<serde_json::Value>> {
     let offers = wip_adoption::list_open(state.db(), 100)
         .await
-        .map_err(|e| ApiError(AppError::Internal(e.into())))?;
+        .map_err(|e| ApiError(AppError::Internal(e)))?;
     Ok(Json(serde_json::json!({
         "offers": offers,
         "count": offers.len(),
@@ -165,7 +165,7 @@ async fn adopt_offer(
         ))),
         Err(AdoptionRefusal::BelowBar { bar, caller }) => Err(ApiError(AppError::field(
             "trust",
-            &format!(
+            format!(
                 "adoption is gated at the publishing trust level: this instance requires {bar}, \
                  and this account is at {caller}"
             ),
@@ -181,7 +181,7 @@ async fn contributors(
 ) -> ApiResult<Json<Lineage>> {
     let lineage = wip_adoption::contributors(state.db(), &work_id)
         .await
-        .map_err(|e| ApiError(AppError::Internal(e.into())))?;
+        .map_err(|e| ApiError(AppError::Internal(e)))?;
     Ok(Json(lineage))
 }
 
@@ -213,7 +213,7 @@ async fn put_closure_note(
     }
     let written = wip_adoption::put_closure_note(state.db(), &work_id, &pseud.to_string(), note)
         .await
-        .map_err(|e| ApiError(AppError::Internal(e.into())))?;
+        .map_err(|e| ApiError(AppError::Internal(e)))?;
     Ok(Json(written))
 }
 

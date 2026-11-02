@@ -490,7 +490,7 @@ async fn the_rota_closes_on_the_comment_and_not_on_the_button() {
     let (status, mine) = reader.get("/api/v1/welcome/rota").await;
     assert_eq!(status, StatusCode::OK);
     assert_eq!(mine["open"], json!(0), "{mine}");
-    assert_eq!(mine["assignments"][0]["completed_at"].is_string(), true);
+    assert!(mine["assignments"][0]["completed_at"].is_string());
 }
 
 #[tokio::test]

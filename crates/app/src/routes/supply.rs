@@ -93,7 +93,7 @@ async fn list_keystones(
     let limit = bounded(q.limit);
     let rows = supply::keystones(state.db(), limit)
         .await
-        .map_err(|e| ApiError(AppError::Internal(e.into())))?;
+        .map_err(|e| ApiError(AppError::Internal(e)))?;
     Ok(Json(serde_json::json!({
         "keystones": rows,
         "limit": limit,
@@ -131,7 +131,7 @@ async fn recompute(
     };
     let run = supply::recompute(state.db(), min_works, min_pct_bp)
         .await
-        .map_err(|e| ApiError(AppError::Internal(e.into())))?;
+        .map_err(|e| ApiError(AppError::Internal(e)))?;
     Ok(Json(run))
 }
 
@@ -143,7 +143,7 @@ async fn list_droughts(
     require_operator(&state, &user)?;
     let report = supply::drought(state.db(), bounded(q.limit))
         .await
-        .map_err(|e| ApiError(AppError::Internal(e.into())))?;
+        .map_err(|e| ApiError(AppError::Internal(e)))?;
     Ok(Json(report))
 }
 
@@ -160,7 +160,7 @@ async fn route_one(
         .filter(|a| !a.is_empty());
     let routed = supply::route(state.db(), &account, author.as_deref())
         .await
-        .map_err(|e| ApiError(AppError::Internal(e.into())))?;
+        .map_err(|e| ApiError(AppError::Internal(e)))?;
     Ok(Json(match routed {
         Some(route) => RouteResponse {
             reason: route.reason.clone(),
@@ -182,7 +182,7 @@ async fn my_routing(
     let account = user.account_id.to_string();
     let rows = supply::routes_for(state.db(), &account, bounded(q.limit))
         .await
-        .map_err(|e| ApiError(AppError::Internal(e.into())))?;
+        .map_err(|e| ApiError(AppError::Internal(e)))?;
     Ok(Json(serde_json::json!({ "routing": rows })))
 }
 
@@ -194,7 +194,7 @@ async fn complete_one(
     let account = user.account_id.to_string();
     let done = supply::complete(state.db(), &account, &id)
         .await
-        .map_err(|e| ApiError(AppError::Internal(e.into())))?;
+        .map_err(|e| ApiError(AppError::Internal(e)))?;
     match done {
         Some(route) => Ok(Json(route)),
         None => Err(ApiError(AppError::NotFound {

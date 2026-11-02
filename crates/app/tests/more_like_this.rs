@@ -403,13 +403,15 @@ async fn a_relation_to_a_work_that_is_not_here_is_refused() {
     assert_eq!(status, StatusCode::NOT_FOUND, "{body}");
 }
 
-/// §11.5 rung 2 — the reader's own reading history decides the order *within* the rung.
-///
-/// The database test (`crates/db/tests/same_author_unread_first.rs`) proves the query; this one
-/// proves the route passes the session to it. Without this, the viewer could be dropped at the call
-/// site and every db test would still be green — the ordering would simply never run for a real
-/// reader, which is the shape of a feature that is tested and inert.
-
+// §11.5 rung 2 — the reader's own reading history decides the order *within* the rung.
+//
+// The database test (`crates/db/tests/same_author_unread_first.rs`) proves the query; this one
+// proves the route passes the session to it. Without this, the viewer could be dropped at the call
+// site and every db test would still be green — the ordering would simply never run for a real
+// reader, which is the shape of a feature that is tested and inert.
+//
+// (A doc comment, not a `//!` one: it belongs to the file's argument, not to the helper below, and
+// two doc comments separated by a blank line leave the first one attached to nothing.)
 /// Pin a work's `published_at`, because two works published inside the same second give the rung no
 /// recency order to be different from — and a test whose anonymous arm is a coin flip is not a test.
 async fn set_published_at(db: &darkhold_db::Database, work: &str, at: &str) {

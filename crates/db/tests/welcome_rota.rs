@@ -135,6 +135,11 @@ async fn reader(db: &Database, tag: &str) -> Reader {
 }
 
 /// A catalogue row, with an optional work id. Returns the library item id.
+///
+/// Eight positional arguments is one too many for clippy, and right for a **test fixture**: every
+/// caller names them at the call site, where a struct literal would be longer and a builder would be
+/// a type defined once and read never.
+#[allow(clippy::too_many_arguments)]
 async fn item(
     db: &Database,
     account: &str,
@@ -149,14 +154,14 @@ async fn item(
     match db.backend() {
         darkhold_db::Backend::Postgres => {
             // A work id on a library row is a foreign key, so the work has to exist.
-            if work.is_some() {
+            if let Some(work) = work {
                 sqlx::query(
                     "INSERT INTO works (id, owner_pseud_id, title, created_at, updated_at,
                                         generated_content_posture)
                      VALUES ($1::uuid, $2::uuid, $3, $4::timestamptz, $4::timestamptz, 'forbid')
                      ON CONFLICT DO NOTHING",
                 )
-                .bind(uuid::Uuid::parse_str(work.expect("work id")).expect("uuid"))
+                .bind(uuid::Uuid::parse_str(work).expect("uuid"))
                 .bind(uuid::Uuid::parse_str(owner_pseud).expect("uuid"))
                 .bind(format!("{key} work"))
                 .bind(T0)

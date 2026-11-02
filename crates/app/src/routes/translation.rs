@@ -52,7 +52,7 @@ pub async fn create_translation(
         darkhold_domain::translation::Funding::Forbidden { statement } => {
             return Err(ApiError(darkhold_domain::AppError::field(
                 "translation",
-                &format!(
+                format!(
                     "this work's translation statement is `{statement}`: the author has not \
                      allowed translations"
                 ),
@@ -347,7 +347,7 @@ pub async fn fund_translation(
         darkhold_db::translation::FundOutcome::Forbidden { statement } => {
             Err(ApiError(darkhold_domain::AppError::field(
                 "translation",
-                &format!(
+                format!(
                     "this work's translation statement is `{statement}`: the author has not \
                      allowed translations, so there is nothing to fund"
                 ),
@@ -356,7 +356,7 @@ pub async fn fund_translation(
         darkhold_db::translation::FundOutcome::InsufficientBalance { available, required } => {
             Err(ApiError(darkhold_domain::AppError::field(
                 "amount",
-                &format!(
+                format!(
                     "the bounty promises {required} and this account holds {available}: a bounty \
                      the account cannot pay is a promise the archive would have to break"
                 ),

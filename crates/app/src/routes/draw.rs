@@ -188,7 +188,7 @@ async fn get_draw(
         &records,
     )
     .await
-    .map_err(|e| ApiError(AppError::Internal(e.into())))?;
+    .map_err(|e| ApiError(AppError::Internal(e)))?;
 
     let ids: Vec<String> = chosen_ids.iter().map(|id| id.to_string()).collect();
     let details = darkhold_db::discovery::work_details_for(state.db(), &ids)
@@ -251,7 +251,7 @@ async fn post_draw_pick(
     let chosen =
         darkhold_db::recommendation_slots::mark_chosen(state.db(), viewer, &body.request_id, &body.work_id)
             .await
-            .map_err(|e| ApiError(AppError::Internal(e.into())))?;
+            .map_err(|e| ApiError(AppError::Internal(e)))?;
 
     // The response names the card the HAND recorded, not the one that was posted:
     // a second tap on another card is a no-op, and answering with the posted id

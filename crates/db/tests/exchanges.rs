@@ -131,7 +131,7 @@ async fn a_self_exclusion_is_refused_rather_than_dropped() {
     let a = pseud("a");
     let event = event_with(&db, &pseud("org"), &[&a]).await;
 
-    let outcome = save_terms(&db, &event, &a, &[], &[], &[a.clone()])
+    let outcome = save_terms(&db, &event, &a, &[], &[], std::slice::from_ref(&a))
         .await
         .expect("no database error");
     assert_eq!(outcome, SaveTerms::SelfExclusion);
@@ -207,7 +207,7 @@ async fn an_exclusion_is_honoured_in_both_directions() {
     let event = event_with(&db, &pseud("org"), &[&a, &b, &c, &d]).await;
 
     // `a` refuses `b`; the pairing must not contain either direction of that edge.
-    save_terms(&db, &event, &a, &[], &[], &[b.clone()])
+    save_terms(&db, &event, &a, &[], &[], std::slice::from_ref(&b))
         .await
         .expect("save");
 
