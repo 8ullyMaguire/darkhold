@@ -239,7 +239,7 @@ pub async fn record_ballot(
                 .bind(*work)
                 .fetch_optional(&mut *tx)
                 .await?;
-                snapshot.push((*work, stored_from_row(*work, row)));
+                snapshot.push((*work, stored_from_row(work, row)));
             }
             for (work, stored) in &snapshot {
                 let opponents = opponents_for(work, &snapshot, best, worst, weight);
@@ -282,7 +282,7 @@ pub async fn record_ballot(
                 .bind(*work)
                 .fetch_optional(&mut *tx)
                 .await?;
-                snapshot.push((*work, stored_from_row(*work, row)));
+                snapshot.push((*work, stored_from_row(work, row)));
             }
             for (work, stored) in &snapshot {
                 let opponents = opponents_for(work, &snapshot, best, worst, weight);
@@ -375,11 +375,6 @@ fn opponents_for(
     }
     opponents
 }
-
-/// The leaderboard: highest-rated works first.
-///
-/// Ordered by `mu` and then by `phi` ascending, because two works at the same rating are not
-/// equally known and the more certain one is the better answer. Nothing here filters by
 
 /// A work the ladder would put in front of a reader, with the evidence behind it.
 ///

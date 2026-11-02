@@ -725,7 +725,7 @@ async fn publish_work(
 /// about the instance rather than about the build.
 async fn more_like_this(
     State(state): State<AppState>,
-    MaybeSession(_session): MaybeSession,
+    MaybeSession(session): MaybeSession,
     Path(id): Path<String>,
     Query(query): Query<MoreLikeThisQuery>,
 ) -> ApiResult<Json<Value>> {
@@ -776,9 +776,18 @@ async fn more_like_this(
     }
 
     // **Rung 2: the same author.**
-    for related in darkhold_db::series_recs::same_author_works(state.db(), &work_id.to_string())
-        .await
-        .map_err(|e| ApiError(AppError::Internal(e)))?
+    //
+    // The viewer decides the order *within* the rung — a work this reader has not opened leads one
+    // they have (§11.5) — and an anonymous visitor passes `None`, which keeps `published_at DESC`.
+    // The account id never reaches the response: the reason stays `more by {author}`.
+    let viewer = session.as_ref().map(|s| s.account_id.to_string());
+    for related in darkhold_db::series_recs::same_author_works(
+        state.db(),
+        &work_id.to_string(),
+        viewer.as_deref(),
+    )
+    .await
+    .map_err(|e| ApiError(AppError::Internal(e)))?
     {
         let Ok(related_id) = related.work_id.parse::<WorkId>() else {
             continue;

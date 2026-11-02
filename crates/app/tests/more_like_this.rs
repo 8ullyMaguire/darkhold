@@ -133,6 +133,10 @@ impl Client {
         self.request("PATCH", uri, Some(body)).await
     }
 
+    async fn put(&mut self, uri: &str, body: Value) -> (StatusCode, Value) {
+        self.request("PUT", uri, Some(body)).await
+    }
+
     async fn register(&mut self, email: &str, handle: &str) -> String {
         let (status, body) = self
             .post(
@@ -397,4 +401,106 @@ async fn a_relation_to_a_work_that_is_not_here_is_refused() {
         )
         .await;
     assert_eq!(status, StatusCode::NOT_FOUND, "{body}");
+}
+
+/// §11.5 rung 2 — the reader's own reading history decides the order *within* the rung.
+///
+/// The database test (`crates/db/tests/same_author_unread_first.rs`) proves the query; this one
+/// proves the route passes the session to it. Without this, the viewer could be dropped at the call
+/// site and every db test would still be green — the ordering would simply never run for a real
+/// reader, which is the shape of a feature that is tested and inert.
+
+/// Pin a work's `published_at`, because two works published inside the same second give the rung no
+/// recency order to be different from — and a test whose anonymous arm is a coin flip is not a test.
+async fn set_published_at(db: &darkhold_db::Database, work: &str, at: &str) {
+    let sql = db.sql(
+        "UPDATE works SET published_at = ?, updated_at = ? WHERE id = ?",
+        "UPDATE works SET published_at = $1, updated_at = $2 WHERE id = $3::uuid",
+    );
+    match db.backend() {
+        darkhold_db::Backend::Sqlite => {
+            sqlx::query(&sql)
+                .bind(at)
+                .bind(at)
+                .bind(work)
+                .execute(db.sqlite_pool().expect("sqlite"))
+                .await
+                .expect("pin published_at");
+        }
+        darkhold_db::Backend::Postgres => {
+            let id: uuid::Uuid = work.parse().expect("work id");
+            sqlx::query(&sql)
+                .bind(at)
+                .bind(at)
+                .bind(id)
+                .execute(db.postgres_pool().expect("postgres"))
+                .await
+                .expect("pin published_at");
+        }
+    }
+}
+
+#[tokio::test]
+async fn a_signed_in_reader_is_offered_the_unread_work_first() {
+    let harness = Harness::new("ladder_unread").await;
+    let mut author = harness.client();
+    author
+        .register("author-unread@example.test", "UnreadAuthor")
+        .await;
+    let seed = published_work(&mut author, "The seed").await;
+    let older = published_work(&mut author, "The older one").await;
+    let newer = published_work(&mut author, "The newer one").await;
+    // Recency must be a real order for the anonymous arm below to mean anything.
+    set_published_at(harness.tdb.db(), &seed, "2026-01-01T00:00:00Z").await;
+    set_published_at(harness.tdb.db(), &older, "2026-02-01T00:00:00Z").await;
+    set_published_at(harness.tdb.db(), &newer, "2026-06-01T00:00:00Z").await;
+
+    let mut reader = harness.client();
+    reader
+        .register("reader-unread@example.test", "UnreadReader")
+        .await;
+    // The reader finishes the NEWER work, so recency and "unread first" disagree about the rung.
+    let (status, body) = reader
+        .put(
+            &format!("/api/v1/works/{newer}/reading-status"),
+            json!({ "status": "finished" }),
+        )
+        .await;
+    assert_eq!(status, StatusCode::OK, "finish the newer work: {body}");
+
+    let (status, ladder) = reader
+        .get(&format!("/api/v1/works/{seed}/more-like-this"))
+        .await;
+    assert_eq!(status, StatusCode::OK, "{ladder}");
+    let same_author: Vec<String> = ladder["items"]
+        .as_array()
+        .expect("items")
+        .iter()
+        .filter(|item| item["rung"] == json!("same_author"))
+        .map(|item| item["work_id"].as_str().unwrap_or_default().to_owned())
+        .collect();
+    assert_eq!(
+        same_author,
+        vec![older.clone(), newer.clone()],
+        "the unread work leads the one this reader finished: {ladder}"
+    );
+
+    // And a visitor, who has no history, still gets the newest first — the reason string does not
+    // change, because the affinity that ordered the rows is not something the row says.
+    let mut visitor = harness.client();
+    let (status, anonymous) = visitor
+        .get(&format!("/api/v1/works/{seed}/more-like-this"))
+        .await;
+    assert_eq!(status, StatusCode::OK, "{anonymous}");
+    let anon_rung: Vec<String> = anonymous["items"]
+        .as_array()
+        .expect("items")
+        .iter()
+        .filter(|item| item["rung"] == json!("same_author"))
+        .map(|item| item["work_id"].as_str().unwrap_or_default().to_owned())
+        .collect();
+    assert_ne!(
+        anon_rung, same_author,
+        "a visitor has no history, so the two orders must differ: {anonymous}"
+    );
 }

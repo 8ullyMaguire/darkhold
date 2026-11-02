@@ -586,7 +586,13 @@ pub async fn recompute_taste_profile(db: &Database, account: &str) -> Result<()>
     save_taste_profile(db, account, &signals_json, &now).await
 }
 
-/// Get public recommendations (popular recent works).
+/// Get the public feed: published, visible works newest-first.
+///
+/// This is the **browse** order of spec §11.7 (`new`), not a ranking, and it is the one place
+/// recency is legitimate — §12.7a rule 1 convicts recency as a *recommendation* (the published
+/// study measured newest-first below random, f1@20 < that of chance), so nothing may treat this
+/// result as a personalised list. The engine that has to clear the popularity bar is
+/// [`personalized_recommendations`].
 ///
 /// `account` is the viewer's account, used only to exclude the works they have
 /// content-filtered (spec §46.4, §46.7.1). `None` -- an anonymous visitor --
@@ -651,7 +657,16 @@ pub async fn public_recommendations(
         .collect())
 }
 
-/// Get personalized recommendations based on taste profile.
+/// Get personalized recommendations: the reader's tags are a *candidate generator*, and the order is
+/// popularity.
+///
+/// Spec §12.7a rule 2 forbids tag similarity from being the ranker — the published study's pure
+/// tag-profile scorer was its worst result at 0.0016 f1@20 against popularity's 0.0364 — and rule 1
+/// forbids recency from being the fallback ranker. So the profile's signals decide *which* works are
+/// eligible and the aggregate kudos (then views) decide the *order*, with recency surviving only as
+/// a tie-break, then the work id so two calls on the same state agree (§47.9). Before this, the
+/// order was `updated_at DESC` over a tag-filtered set: a tag filter wired to a recency sort, which
+/// is the shape §12.7a rules 1 and 2 both name.
 pub async fn personalized_recommendations(
     db: &Database,
     account: &str,
@@ -669,8 +684,9 @@ pub async fn personalized_recommendations(
             let rules = content_filter_sql::for_pseud(db, viewer_pseud).await?;
             let filter = content_filter_sql::exclusion_for(&rules, "w.id");
             let sqlite = format!(
-                "SELECT DISTINCT w.id FROM works w
+                "SELECT w.id FROM works w
                  JOIN work_tags wt ON wt.work_id = w.id
+                 LEFT JOIN work_metric_aggregates m ON m.work_id = w.id
                  WHERE w.lifecycle = 'published' AND w.visibility = 'public'
                  AND wt.node_id IN (
                      SELECT json_each.value FROM taste_profiles tp,
@@ -681,13 +697,16 @@ pub async fn personalized_recommendations(
                      SELECT id FROM pseuds WHERE account_id = ?
                  )
                  {filter_clause}
-                 ORDER BY w.updated_at DESC
+                 GROUP BY w.id
+                 ORDER BY COALESCE(m.kudos, 0) DESC, COALESCE(m.views, 0) DESC,
+                          w.updated_at DESC, w.id
                  LIMIT ?",
                 filter_clause = filter.clause()
             );
             let postgres = format!(
-                "SELECT DISTINCT w.id::text FROM works w
+                "SELECT w.id::text FROM works w
                  JOIN work_tags wt ON wt.work_id = w.id
+                 LEFT JOIN work_metric_aggregates m ON m.work_id = w.id
                  WHERE w.lifecycle = 'published' AND w.visibility = 'public'
                  AND wt.node_id IN (
                      SELECT json_array_elements_text(tp.signals::json)
@@ -698,7 +717,9 @@ pub async fn personalized_recommendations(
                      SELECT id FROM pseuds WHERE account_id = ?::uuid
                  )
                  {filter_clause}
-                 ORDER BY w.updated_at DESC
+                 GROUP BY w.id, m.kudos, m.views, w.updated_at
+                 ORDER BY COALESCE(m.kudos, 0) DESC, COALESCE(m.views, 0) DESC,
+                          w.updated_at DESC, w.id
                  LIMIT ?",
                 filter_clause = filter.clause()
             );

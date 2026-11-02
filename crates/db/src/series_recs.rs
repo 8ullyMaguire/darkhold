@@ -460,7 +460,35 @@ pub async fn next_in_series(db: &Database, work_id: &str) -> Result<Vec<RelatedW
 /// **The author's public face, never the account.** The name on a byline is
 /// what a reader knows the author by, and the account behind it is not
 /// something this surface may publish (spec §7).
-pub async fn same_author_works(db: &Database, work_id: &str) -> Result<Vec<RelatedWork>> {
+///
+/// **Unread first, then recency** (spec §11.5 rung 2). The affinity *number* that orders works
+/// against other authors’ works is not used here, and cannot be: within one author the ratio
+/// `read ÷ published` is constant. What a reader can act on is which of this author's works they
+/// have not opened, so those lead; an anonymous viewer has no history, gets `1` for every row, and
+/// therefore keeps the `published_at DESC` order this surface served before (a stable sort leaves it
+/// in charge).
+///
+/// `reading` counts as read as well as `finished`: the reader started it. `want-to-read` does not —
+/// intent is not evidence, and counting it would let a reader raise an author's affinity without
+/// opening anything.
+///
+/// **Both status subjects count.** A reader can set a status on the work page
+/// (`subject_type = 'work'`, keyed by the work) or on their library item
+/// (`subject_type = 'library_item'`, keyed by the item) and both routes write the same table. A
+/// query that read only `'work'` would demote half the readers who finished something, and the
+/// symptom would be a recommendation that looks slightly wrong rather than a failure.
+pub async fn same_author_works(
+    db: &Database,
+    work_id: &str,
+    viewer: Option<&str>,
+) -> Result<Vec<RelatedWork>> {
+    // Bind order is positional and unchecked: the two `work_id` binds sit in the WHERE ahead of the
+    // viewer bind in the ORDER BY, in the order the text uses them.
+    //
+    // There is no `viewer IS NULL` branch, and none is needed: a NULL account matches no
+    // `reading_status` row (`account_id = NULL` is never true), so an anonymous viewer gets 0 for
+    // every work and the stable sort leaves `published_at DESC` in charge. A branch that cannot be
+    // observed is a branch that cannot be verified.
     let sql = db.sql(
         "SELECT w.id, COALESCE(p.display_name, p.handle)
            FROM works w
@@ -470,22 +498,47 @@ pub async fn same_author_works(db: &Database, work_id: &str) -> Result<Vec<Relat
             AND w.lifecycle = 'published'
             AND w.visibility = 'public'
             AND w.deleted_at IS NULL
-          ORDER BY w.published_at DESC, w.id",
+          ORDER BY CASE
+                     WHEN EXISTS (SELECT 1 FROM reading_status rs
+                                   WHERE rs.account_id = ?
+                                     AND rs.status IN ('reading', 'finished')
+                                     AND ((rs.subject_type = 'work' AND rs.subject_id = w.id)
+                                       OR (rs.subject_type = 'library_item'
+                                           AND rs.subject_id IN (
+                                               SELECT li.id FROM library_items li
+                                                WHERE li.account_id = rs.account_id
+                                                  AND li.work_id = w.id)))) THEN 1
+                     ELSE 0
+                   END,
+                   w.published_at DESC, w.id",
         "SELECT w.id::text, COALESCE(p.display_name, p.handle)
            FROM works w
            JOIN pseuds p ON p.id = w.owner_pseud_id
           WHERE w.owner_pseud_id = (SELECT owner_pseud_id FROM works WHERE id = $1::uuid)
-            AND w.id <> $1::uuid
+            AND w.id <> $2::uuid
             AND w.lifecycle = 'published'
             AND w.visibility = 'public'
             AND w.deleted_at IS NULL
-          ORDER BY w.published_at DESC, w.id::text",
+          ORDER BY CASE
+                     WHEN EXISTS (SELECT 1 FROM reading_status rs
+                                   WHERE rs.account_id = $3::uuid
+                                     AND rs.status IN ('reading', 'finished')
+                                     AND ((rs.subject_type = 'work' AND rs.subject_id = w.id)
+                                       OR (rs.subject_type = 'library_item'
+                                           AND rs.subject_id IN (
+                                               SELECT li.id FROM library_items li
+                                                WHERE li.account_id = rs.account_id
+                                                  AND li.work_id = w.id)))) THEN 1
+                     ELSE 0
+                   END,
+                   w.published_at DESC, w.id::text",
     );
     let rows: Vec<(String, String)> = match db.backend() {
         Backend::Sqlite => {
             sqlx::query_as(&sql)
                 .bind(work_id)
                 .bind(work_id)
+                .bind(viewer)
                 .fetch_all(db.sqlite_pool().expect("sqlite handle"))
                 .await?
         }
@@ -493,6 +546,7 @@ pub async fn same_author_works(db: &Database, work_id: &str) -> Result<Vec<Relat
             sqlx::query_as(&sql)
                 .bind(work_id)
                 .bind(work_id)
+                .bind(viewer)
                 .fetch_all(db.postgres_pool().expect("postgres handle"))
                 .await?
         }

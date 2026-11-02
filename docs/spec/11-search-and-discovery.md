@@ -71,6 +71,16 @@ Each row carries its reason. **A recommendation without a reason is an advertise
 - **The series' order is the author's and there is no other order.** A "smart" ordering
   would have to be derived from a signal, and no signal here could support one and
   inventing an order would silently contradict the author.
+- **Rung 2's order is the reader's history, and it was built on `2026-11-02`.** The rung had ordered
+  by `published_at DESC` alone, so an author's newest work led the list even when the reader had just
+  finished it. It now orders **unread first** — `reading_status` in `('reading','finished')`, counting
+  *both* subjects the app writes (`'work'` from the work page, `'library_item'` from the library) —
+  then `published_at`, then id. `want-to-read` is intent and does not count. An anonymous viewer keeps
+  the old order for a structural reason rather than a branch: a NULL account matches no status row.
+  The **affinity ratio** (`works of that author read ÷ works by that author`) is deliberately *not*
+  built: within one author it is a constant, and no surface in this build makes two authors compete, so
+  the ordering it would express has no consumer yet. `crates/db/tests/same_author_unread_first.rs` and
+  `crates/app/tests/more_like_this.rs` assert the ordering, on both engines and through the route.
 
 ## 11.6 Trending and half-life
 

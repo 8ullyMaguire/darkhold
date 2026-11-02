@@ -1,3 +1,201 @@
+## 2026-11-02 — §11.5 rung 2: "more by this author" offered back what you had just finished
+
+**Spec:** §11.5 rung 2 · **Requirement:** `M64-05` · **Plan:**
+`docs/plans/m64-05-author-affinity-and-unread-first.md` · **Tests:**
+`crates/db/tests/same_author_unread_first.rs` (4, green on SQLite **and** PostgreSQL),
+`crates/app/tests/more_like_this.rs` (4, one new)
+
+### The defect
+
+`same_author_works` ordered by `published_at DESC` alone. §11.5 rung 2 says *unread-first, then
+affinity, then recency*, so a reader who had finished an author's newest work was offered **that work
+first** — above the ones they had never opened — on the page whose whole purpose is "more by this
+author".
+
+Within one author the affinity ratio `read ÷ published` is constant, so unread-first is the half of
+the rule that has a definition here. The affinity number itself is **not built**: no surface in this
+build makes two authors compete, and an unconsumed helper is dead code whose only test calls it
+directly.
+
+### The change
+
+```sql
+ORDER BY CASE WHEN EXISTS (SELECT 1 FROM reading_status rs
+                            WHERE rs.account_id = ?
+                              AND rs.status IN ('reading', 'finished')
+                              AND ((rs.subject_type = 'work' AND rs.subject_id = w.id)
+                                OR (rs.subject_type = 'library_item'
+                                    AND rs.subject_id IN (
+                                        SELECT li.id FROM library_items li
+                                         WHERE li.account_id = rs.account_id
+                                           AND li.work_id = w.id)))) THEN 1
+              ELSE 0 END,
+         w.published_at DESC, w.id
+```
+
+- **`reading` counts as read, `want-to-read` does not.** Intent is not evidence; counting it would
+  let a reader raise an affinity without opening anything.
+- **Both status subjects count.** `PUT /api/v1/works/{id}/reading-status` writes
+  `subject_type='work'`; `PUT /api/v1/library/items/{id}/status` writes `'library_item'`. A query that
+  read one would demote some readers and not others — silently, as a list that looks slightly wrong.
+- **No `viewer IS NULL` branch**, deliberately: a NULL account matches no `reading_status` row, so an
+  anonymous viewer gets `0` everywhere and `published_at DESC` stands. The first draft carried an
+  `IS NULL` branch; a mutation showed **no test could observe it**, and a guard nobody can test is a
+  guard nobody should trust. It was deleted rather than kept as decoration.
+- The route now passes the session's account (`session.as_ref().map(|s| s.account_id.to_string())`).
+  The reason string is unchanged — `more by {author}` — because the ordering key is not something the
+  row says.
+
+### Evidence
+
+```
+$ cargo test -p darkhold-db --test same_author_unread_first
+test an_unread_work_comes_before_a_read_one_even_when_older ... ok
+test an_anonymous_viewer_keeps_published_at_order ... ok
+test want_to_read_is_not_read ... ok
+test a_library_item_status_counts_as_read ... ok
+test result: ok. 4 passed; 0 failed
+
+$ DARKHOLD_TEST_PG_URL=… cargo test -p darkhold-db --test same_author_unread_first
+test result: ok. 4 passed; 0 failed
+
+$ cargo test -p darkhold-app --test more_like_this
+test a_signed_in_reader_is_offered_the_unread_work_first ... ok
+test result: ok. 4 passed; 0 failed
+```
+
+The fixture is **three** works by one author — a two-work fixture leaves one candidate, because the
+rung excludes its own subject, and any assertion about order would then be vacuous.
+
+### Mutations, run
+
+| mutated | failed | rest |
+|---|---|---|
+| `ELSE 0` → `ELSE 1` (every work demoted) | `an_unread_work_comes_before_a_read_one_even_when_older` | 3 pass |
+| `THEN 1` → `THEN 0` (nothing demoted) | the same test | 3 pass |
+| the `library_item` arm replaced with `1 = 0` | `a_library_item_status_counts_as_read`, **and only it** | 3 pass |
+
+### Fixture defects the second engine and the route found
+
+1. **`work_tags.weight` does not exist** — `0126` renamed it `prominence` (`role` took the
+   categorical column). Failed only against a schema built by `migrate()`.
+2. **`library_items` needs `source_url`, and its `status` is a CHECK** over
+   `('ongoing','complete','hiatus','cancelled','unknown')` — `'published'` is a *work's* status, not an
+   item's.
+3. **Two works published in the same second give recency no order.** The route test passed alone and
+   failed in the file; `published_at` is now pinned with an `UPDATE` before the ladder is asked. A
+   fixture whose premise is a timestamp it does not control is a flaky test with a good excuse.
+
+### What this does NOT prove
+
+- **That the order is *better*.** This is spec conformance; the measurement is `M64-16`'s ladder, and
+  no reader on this instance has a profile dense enough to score yet.
+- **Any ordering *between* authors.** `author_affinity_for` is specified in the plan and deliberately
+  not written: nothing consumes it until a rung or surface compares two authors.
+- **That `reading_status` is densely populated.** The 2026-11-01 census counted **1** row in
+  `reading_progress` and no `reading_status` census at all; if readers do not record statuses, this
+  ordering will look like `published_at DESC` and that is the honest reading of an empty table.
+- **That the crate gates are green.** `cargo clippy -p darkhold-db --lib` is clean after three
+  pre-existing warnings were fixed in `work_ratings.rs`; `cargo clippy -p darkhold-app --lib` still
+  reports **20 pre-existing warnings** in `routes/welcome.rs`, `routes/translation.rs` and
+  `routes/supply.rs`. `routes/works.rs` is clean — none of the 20 come from this change.
+
+---
+
+## 2026-11-02 — §12.7a in the code: the personalised engine ranked by recency
+
+**Spec:** §12.7a rules 1 and 2 · **Requirement:** `M11-01` · **Tests:**
+`crates/db/tests/personalized_order.rs` (3, green on SQLite **and** PostgreSQL)
+
+### The defect
+
+`personalized_recommendations` read the reader's taste profile as a **filter** and then ordered the
+survivors `ORDER BY w.updated_at DESC`:
+
+```sql
+SELECT DISTINCT w.id FROM works w
+JOIN work_tags wt ON wt.work_id = w.id
+WHERE … wt.node_id IN (SELECT json_each.value FROM taste_profiles …) …
+ORDER BY w.updated_at DESC
+```
+
+A tag filter wired to a recency sort. §12.7a rule 1 says recency is a legitimate *browse* order and
+a measured-bad *recommendation* (the vendored study has newest-first **below random**); rule 2 says
+tag similarity is a candidate generator and never the ranker (its pure tag-profile scorer was the
+worst result it measured, 0.0016 f1@20 against popularity's 0.0364). This engine was both at once,
+and it fed the route's `tags` engine, whose list position becomes that engine's score — so the
+recency order propagated into the blend.
+
+### The change
+
+The profile still chooses the candidates; **aggregate kudos order them**, then views, then recency as
+a tie-break, then the work id so two calls on the same state agree (§47.9):
+
+```sql
+SELECT w.id FROM works w
+JOIN work_tags wt ON wt.work_id = w.id
+LEFT JOIN work_metric_aggregates m ON m.work_id = w.id
+…
+GROUP BY w.id
+ORDER BY COALESCE(m.kudos, 0) DESC, COALESCE(m.views, 0) DESC, w.updated_at DESC, w.id
+LIMIT ?
+```
+
+`DISTINCT` became `GROUP BY w.id` (the join still fans out over `work_tags`, and PostgreSQL needs the
+`m.kudos`/`m.views`/`w.updated_at` columns in the grouping because functional dependency on a
+cross-table column is not inferred). `public_recommendations` keeps its recency order and its doc
+comment now says so: it is the §11.7 `new` browse order, not a ranking — it previously claimed
+"popular recent works" while never reading a popularity column.
+
+### Evidence
+
+```
+$ cargo test -p darkhold-db --test personalized_order
+test the_personalised_engine_orders_by_popularity_and_not_by_recency ... ok
+test with_no_kudos_the_tie_breaks_on_recency_and_stays_deterministic ... ok
+test a_profile_that_matches_no_work_returns_nothing_rather_than_padding ... ok
+test result: ok. 3 passed; 0 failed
+
+$ DARKHOLD_TEST_PG_URL=… cargo test -p darkhold-db --test personalized_order
+test result: ok. 3 passed; 0 failed
+
+$ cargo test -p darkhold-db --lib
+test result: ok. 159 passed; 0 failed
+```
+
+The fixture is anti-correlated on purpose — the oldest work has 50 kudos, the newest has 1 — so
+recency and popularity cannot both be right about the order.
+
+**Mutation, because a green test is not evidence:** reverting the `ORDER BY` to
+`w.updated_at DESC` made `the_personalised_engine_orders_by_popularity_and_not_by_recency` fail with
+`got [NewestQuiet, Middle, OldestPopular]`; restoring it passed. The two OTHER tests stayed green
+under that mutation, which is the point of asserting the premise (`assert_eq!(served.first(),
+Some(oldest))`) rather than only the list.
+
+### Three fixture defects the second dialect found
+
+1. **`work_tags.weight` does not exist.** Migration `0126` renamed it to `prominence` and the
+   categorical column to `role`; the insert failed with *"table work_tags has no column named
+   weight"* only after the schema was built by `migrate()` rather than read from `data/lorehaven.sqlite`.
+2. **Publishing as the reader.** The query excludes the reader's own works, so the first fixture
+   served an empty list and looked like a broken join. The works now belong to a second account.
+3. **`views`/`kudos` are integer columns.** Bound as text, SQLite accepts and PostgreSQL rejects with
+   `42804` — the fixture's helper needed an `i64` branch. A suite that only ever ran on SQLite would
+   have shipped that.
+
+### What this does NOT prove
+
+- **Not measured on the corpus.** No reader on this instance has a profile dense enough to say the
+  new order is *better*; that is the ladder's job (`M64-16`), and this change is spec conformance,
+  not a lift.
+- **Popularity is the rung, not a fitted ranker.** §12.7a sets popularity as the bar a personalised
+  engine must clear at 1.25×; this engine now *is* popularity over a tag-filtered pool, so it can
+  clear or fail that bar, which is exactly the thing that could not previously be measured.
+- **Two `welcome_rota.rs` clippy warnings remain** (`too_many_arguments`, `unnecessary_unwrap`), both
+  pre-existing and in an unrelated test; `cargo clippy -p darkhold-db --lib` is clean.
+
+---
+
 ## 2026-11-02 — M64-16: the baseline ladder, and the four rungs that refuse
 
 **Milestone:** M64 · **Requirements:** `M64-16` · **Plan:**

@@ -388,6 +388,14 @@ Every figure is the study's validation result at its own cut of k = 20.
 1. **Recency is never the fallback ranker.** *New* is a legitimate browse order (§11.7) and a
    measured-bad recommendation. §12.6 rule 1's T0 floor is the house taste and §12.8's fallback
    chain ends in popularity — never in `new`, never in `updated`.
+   **As built (`2026-11-02`):** `personalized_recommendations` in `crates/db/src/discovery.rs` had
+   this rule precisely backwards — the taste profile *filtered* and `updated_at DESC` *ordered*, so a
+   tag filter was wired to a recency sort. It now orders its tag-matched candidates by aggregate
+   kudos, then views, leaving `updated_at` as the tie-break and the work id as the final one (§47.9
+   needs two calls on the same state to agree). `public_recommendations` keeps the `new` order and its
+   doc comment now says it is the browse order rather than "popular recent works", which it never
+   computed. `crates/db/tests/personalized_order.rs` asserts the popularity order against a fixture
+   whose kudos and recency are anti-correlated, and the assertion fails if the `ORDER BY` is reverted.
 2. **Tag similarity is a candidate generator, never the ranker.** The study's pure tag-profile
    scorer is the single worst thing it measured; the same tags used item→item are fine. This is why
    §12.7's `tag_overlap` is one term of 0.22 among nine, and why §11.5's rung 3 is *themes*, not
