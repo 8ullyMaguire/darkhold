@@ -70,6 +70,7 @@ pub mod moderation;
 pub mod monetization;
 pub mod narration;
 pub mod north_star;
+pub mod note_links;
 pub mod notifications;
 pub mod outbox;
 pub mod payout_store;

@@ -31,6 +31,7 @@ pub mod longevity;
 pub mod media_fetch;
 pub mod media_job;
 pub mod narration;
+pub mod note_link_job;
 pub mod payout_recalc;
 pub mod preservation_recheck;
 pub mod source_sync;

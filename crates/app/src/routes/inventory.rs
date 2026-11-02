@@ -2242,6 +2242,23 @@ pub const ROUTE_TABLE: &[RouteEntry] = &[
         path: "/works/{id}/more-like-this",
         audience: Audience::Public,
     },
+    // M45-38 / §32.7.4a: the note links a work's live revisions carry. Public, because the reader
+    // about to click a link is the person who needs to know it is dead.
+    RouteEntry {
+        file: "works.rs",
+        handler: "note_links_for_work",
+        method: "GET",
+        path: "/works/{id}/note-links",
+        audience: Audience::Public,
+    },
+    // …and the author's re-check. Bounded by the twenty-links-per-note cap, so it runs inline.
+    RouteEntry {
+        file: "works.rs",
+        handler: "recheck_note_links",
+        method: "POST",
+        path: "/works/{id}/note-links/check",
+        audience: Audience::Authenticated,
+    },
     // The author's explicit relations (spec §6.2).
     RouteEntry {
         file: "works.rs",

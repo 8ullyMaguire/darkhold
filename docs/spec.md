@@ -6226,6 +6226,28 @@ Body: { url: string } OR { image: base64 } OR { hash: string, algorithm: string 
 Returns: { references: [MediaReference], works: [Work] }
 ```
 
+### 32.7.4a Notes are links too (M45-38)
+
+An author's note is prose, and the links in it rot exactly like an availability link: a Tumblr meta
+post, a soundtrack, a reference thread. So a note's links are extracted **when the revision is saved**
+and then monitored by the same pipeline, with the same status vocabulary (§32.7.4) and the same
+three-strike rule. There is no second idea of what "dead" means.
+
+- **Extraction is a write, not a read.** Re-scanning every revision on every request would make the
+  reader pay for the monitor, and a link discovered on read could never have been checked.
+- **A link belongs to the revision that carried it.** A corrected note is a new claim; the earlier
+  row survives as evidence and stops being reported, which is what §58.3 does for routing rows and for
+  the same reason.
+- **`http` and `https` only, and trailing prose punctuation is not part of the URL.** `mailto:` cannot
+  rot this way, `javascript:` is an attack, and `(see https://x.test/meta).` must register
+  `https://x.test/meta` — a monitor that stores the `).` reports a working link dead.
+- **At most twenty links per note.** A note is not a sitemap, and the cap bounds what one save can
+  enqueue.
+
+**This is not a quality signal.** A dead note link is reported to the author and to a reader who is
+about to click it; it is not a ranking input, not a warning, and not a reason to hide a work (§57.4's
+rule: a published verdict on an author's care is a judgement the instance does not make).
+
 ### 32.7.4 Link Health Monitoring
 
 A background job continuously checks the health of every AvailabilityLink.

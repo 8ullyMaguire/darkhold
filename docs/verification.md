@@ -1,3 +1,53 @@
+## 2026-11-02 — M45-38: author-note links go through the monitor (§32.7.4a, gaps review D3)
+
+**Requirement:** `M45-38` · **Tests:** 8 domain, 6 store × 2 engines, 5 HTTP × 2 engines
+
+A note is prose, and the links in it rot like any availability link. The pipeline is the existing one —
+the same `LinkStatus` vocabulary, the same three-strike rule — and the part specific to notes is
+*extraction* and *ownership*.
+
+**Extraction is a write, not a read.** A link discovered while rendering a page could never have been
+checked, and re-scanning every revision per request makes the reader pay for the monitor. So the
+extraction runs when the revision is saved, and an `ON CONFLICT DO NOTHING` on `(revision_id, url)`
+keeps a retried save from resetting a dead link's health — the failure that would make the whole
+monitor decorative.
+
+**The three decisions in extraction, each with a test that fails when it is removed:** only `http`/
+`https` (a `mailto:` cannot rot this way, a `javascript:` URL is an attack, a bare host is a guess);
+trailing prose punctuation is stripped, because `(see https://x.test/meta).` must register the URL and
+not `…/meta).`; and a cap of twenty per note, because a note is not a sitemap.
+
+**`media_fetch::classify_with_length` is deliberately not reused.** It classifies *media*, so an HTML
+response is a refusal to it — and a note link to a Tumblr post is HTML and perfectly healthy. The note
+check runs through the same SSRF guard (`plan_fetch_allowing`, every resolved address checked,
+redirects disabled) but applies its own verdict: 2xx/3xx answers, 404/410 gone now, everything else may
+recover over three strikes.
+
+**A refused URL is recorded dead immediately**, not escalated over three sweeps. Retrying a decision
+does not change it, and the honest report of a note pointing at `127.0.0.1` is "this link is dead",
+not "degraded, check again tomorrow". That refusal is also what makes the HTTP test deterministic: it
+needs no network.
+
+```
+cargo test -p darkhold-domain --lib note_links             -> 8 passed
+cargo test -p darkhold-db  --test note_links                -> 6 passed, SQLite and PostgreSQL
+cargo test -p darkhold-app --test m45_38_note_links         -> 5 passed, both engines
+cargo test -p darkhold-app --test route_inventory           -> 5 passed
+```
+
+**Red by removal (both measured):** disabling extraction fails `saving_a_note_registers_its_links…`
+with `{"count":0}`; reporting every stored row instead of only live revisions fails
+`a_corrected_note_replaces_what_the_work_reports` with `left: Some(2), right: Some(1)`.
+
+Two things the second engine caught, recorded rather than tidied: PostgreSQL refuses `TEXT` into
+`TIMESTAMPTZ` (columns are RFC 3339 text on both engines, as 0144 set) and refuses to decode `INT4` into
+`i64` (`BIGINT`, ADR 0004). A third: the SQLite text names the work twice in two queries while
+PostgreSQL names it once, so the bind count differs by dialect — the comment in the store says so,
+because one bind fails with "column index out of bounds".
+
+**Not done, and tracked:** `M45-38b` — the reader UI does not show the dead count yet. The pipeline and
+the API are live; the page is next.
+
 ## 2026-11-02 — M65-08: an idea row becomes a module when it is built (§59.7/§59.8)
 
 **Requirement:** `M65-08` · **Tests:** 3 in `crates/domain/tests/ideas_match_requirements.rs`

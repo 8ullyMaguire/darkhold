@@ -41,6 +41,7 @@ use darkhold_db::content::{
 };
 use darkhold_db::identity;
 use darkhold_db::library;
+use darkhold_db::note_links;
 use darkhold_db::permission;
 use darkhold_db::reading;
 use darkhold_db::taxonomy;
@@ -87,6 +88,11 @@ pub fn router() -> Router<AppState> {
                 .put(set_work_status)
                 .delete(clear_work_status),
         )
+        // M45-38: the note links a work's live revisions carry, and a re-check the author can ask
+        // for. Public read, because a reader who is about to click a link is the person who needs to
+        // know it is dead.
+        .route("/works/{id}/note-links", get(note_links_for_work))
+        .route("/works/{id}/note-links/check", post(recheck_note_links))
         .route("/works/{id}/publish", post(publish_work))
         // The "more like this" ladder (spec §11.5).
         .route("/works/{id}/more-like-this", get(more_like_this))
@@ -723,6 +729,90 @@ async fn publish_work(
 /// asks for one by name gets a **404 naming the module**, not a
 /// `NOT_IMPLEMENTED`: the thing is not here *yet*, and 501 would be a claim
 /// about the instance rather than about the build.
+/// The note links a work's live revisions carry (M45-38, §32.7, gaps review D3).
+///
+/// Public, and only the **live** revisions: a reader clicking a link needs to know it is dead, and a
+/// link the author already fixed in chapter 4 should not still be reported because the superseded
+/// revision 3 said it. The stored row survives (see the store's module doc); the *report* is about
+/// what the work says now.
+async fn note_links_for_work(
+    State(state): State<AppState>,
+    MaybeSession(session): MaybeSession,
+    Path(id): Path<String>,
+) -> ApiResult<Json<Value>> {
+    let work_id = parse_work_id(&id)?;
+    let work = content::find_work(state.db(), work_id)
+        .await?
+        .ok_or(ApiError(AppError::NotFound { resource: "work" }))?;
+    // The same reading decision every other work surface makes: a note's links are part of what the
+    // work says, so a work a reader may not read is a work whose notes they may not enumerate. The
+    // answer is 404 rather than 403 for the §19 reason — the existence is the disclosure.
+    let contributors = collaboration::contributors_for_work(state.db(), work_id).await?;
+    let actor = actor_for(session.as_ref());
+    match reading_decision(&state, actor.as_ref(), &work, &contributors).await {
+        Reading::Contributor | Reading::Public => {}
+        Reading::MetadataOnly | Reading::Denied(_) => {
+            return Err(ApiError(AppError::NotFound { resource: "work" }))
+        }
+    }
+
+    let links = note_links::list_for_live_revisions(state.db(), &work_id.to_string()).await?;
+    let dead = links.iter().filter(|link| link.is_dead()).count();
+    Ok(Json(json!({
+        "links": links.iter().map(|link| json!({
+            "id": link.id,
+            "url": link.url,
+            "host": link.host,
+            "provider": link.provider,
+            "status": link.status,
+            "last_checked_at": link.last_checked_at,
+            "last_healthy_at": link.last_healthy_at,
+            "failure_reason": link.failure_reason,
+        })).collect::<Vec<_>>(),
+        "count": links.len(),
+        "dead": dead,
+    })))
+}
+
+/// Check a work's live note links now, at the author's request.
+///
+/// Author-only (or operator). Bounded by `MAX_LINKS_PER_NOTE` per revision, so this is a handful of
+/// requests rather than a crawl — which is why it can run inline instead of on a job queue: an author
+/// pressing "re-check" wants the answer, not a job id.
+async fn recheck_note_links(
+    State(state): State<AppState>,
+    RequireSession(user): RequireSession,
+    Path(id): Path<String>,
+) -> ApiResult<Json<Value>> {
+    let work_id = parse_work_id(&id)?;
+    let (work, contributors) = author_work(&state, &user, &id).await?;
+    let _ = work;
+    if let Decision::Deny(reason) = can_edit(&user, &contributors) {
+        return Err(refusal(reason));
+    }
+
+    let links = note_links::list_for_live_revisions(state.db(), &work_id.to_string()).await?;
+    let mut checked = 0usize;
+    let mut dead = 0usize;
+    for link in &links {
+        match crate::note_link_job::check_note_link(&state, &link.id, None).await {
+            Ok(status) => {
+                checked += 1;
+                if status == darkhold_domain::media_resilience::LinkStatus::Dead {
+                    dead += 1;
+                }
+            }
+            // A storage failure mid-sweep stops the sweep but reports what was done: the author can
+            // press again, and the rows already checked stay checked.
+            Err(error) => {
+                tracing::warn!(%error, link = %link.id, "note link check failed");
+                break;
+            }
+        }
+    }
+    Ok(Json(json!({ "checked": checked, "dead": dead })))
+}
+
 async fn more_like_this(
     State(state): State<AppState>,
     MaybeSession(session): MaybeSession,
@@ -1269,7 +1359,7 @@ async fn update_unit(
             .filter(|n| !n.is_empty());
         let input = RevisionInput::from_document(&parsed, note.map(str::to_owned));
 
-        content::append_revision(
+        let revision = content::append_revision(
             state.db(),
             unit.id,
             unit.work_id,
@@ -1280,6 +1370,27 @@ async fn update_unit(
         )
         .await
         .map_err(from_content)?;
+
+        // §32.7 / gaps review D3: a link in an author's note rots like any other. The extraction
+        // happens here, with the revision, because a note is prose — nobody will re-scan every
+        // revision on every read, and a link discovered on read could never have been checked.
+        //
+        // A failure to record is logged rather than returned: the save itself succeeded, and losing
+        // the save because a monitor could not enqueue work is the wrong trade. The next save with a
+        // link retries, and `record_for_revision` is idempotent per (revision, url).
+        match note_links::record_for_revision(
+            state.db(),
+            &unit.work_id.to_string(),
+            &unit.id.to_string(),
+            &revision.id.to_string(),
+            input.note.as_deref(),
+        )
+        .await
+        {
+            Ok(0) => {}
+            Ok(count) => tracing::debug!(count, "author-note links registered for monitoring"),
+            Err(error) => tracing::warn!(%error, "could not register author-note links"),
+        }
     }
 
     if request.title.is_some() {
