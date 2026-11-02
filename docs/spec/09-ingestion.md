@@ -173,7 +173,7 @@ criterion is a measurement rather than an opinion:
 
 The imported works are submitted to the instance as **metadata exchange signals** — the spec's
 §15.2 mechanism, using the existing tooling
-(`~/code-local/ao3/baseline/build_lorehaven_signals.py`, which reads the contract from
+(`~/code-local/ao3/baseline/build_darkhold_signals.py`, which reads the contract from
 `lore-metadata` rather than assuming it, and asserts its payload against the allowed field set).
 This is the first end-to-end exercise of the exchange in the estate, and it needs no AO3 request.
 
@@ -271,7 +271,7 @@ seeds  →  frontier  →  expansion  →  metadata extraction  →  catalogue
 
 **The relationship to Darkhold.** The expansion's output lands in the archive through the
 **metadata exchange** (§15.2) — the same mechanism the launch corpus uses, and the same
-`build_lorehaven_signals.py` builder, which **reads the contract from the `metadata` crate rather
+`build_darkhold_signals.py` builder, which **reads the contract from the `metadata` crate rather
 than assuming it**. So an expansion is:
 
 - a **bulk job** against the exchange, in batches of ≤ 200 signals;

@@ -37,7 +37,7 @@ web server.
 
 **The measurement that decides it.** kindred's `ingest` peaks at 181.6 MB and its `embed` at
 203.2 MB against a 220 MiB cap. In one process the peak is the *sum* of the phases, not the max —
-the sum does not fit. lorehaven's ADR 0001 rejected a two-process deployment for the opposite
+the sum does not fit. darkhold's ADR 0001 rejected a two-process deployment for the opposite
 reason: the whole platform fit in one process, so a second process doubled the operational surface
 for no benefit. **Both rejections were correct for their own context.** The archive is the case
 where neither holds, so the split is **configurable** and the domain is shared regardless:
@@ -112,7 +112,7 @@ Porting Go line-by-line would import Go's allocation model and lose the represen
 
 - **Svelte 5 + TypeScript + Vite, built to static assets and embedded in the binary.** One
   artefact to deploy, back up and version.
-- **Plain Vite, not SvelteKit** — lorehaven ADR 0001. Routing, data loading and forms are
+- **Plain Vite, not SvelteKit** — darkhold ADR 0001. Routing, data loading and forms are
   hand-written. This buys the single-binary deployment and the Pi target.
 - **The reader is server-rendered HTML** — no JavaScript required to read.
 - **The theme is reworked around the new identity** (§21). The *architecture* of the token system

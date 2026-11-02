@@ -41,7 +41,7 @@ means six properties, each falsifiable:
 
 | project | the failure | the cost | the antidote |
 |---|---|---|---|
-| lorehaven | a 10,734-line spec monolith with 703 rows where **360 have never been held to the full-stack bar** | "built" and "works" diverged; 5 open defects shipped as features | §23 makes the ledger re-derivable and holds every row to one bar |
+| darkhold | a 10,734-line spec monolith with 703 rows where **360 have never been held to the full-stack bar** | "built" and "works" diverged; 5 open defects shipped as features | §23 makes the ledger re-derivable and holds every row to one bar |
 | ficnexus | 8 parallel authority columns on `users` and 3 separate XP ledgers, on top of 18 failing DB-gated suites | authority was ambiguous; a never-green suite was reported as a feature | §6.1 defines one ladder; §23 forbids "the suite is red" as a deliverable |
 | kindred | the tag arena was **inert in production and silent about it** | the feature looked healthy and was dead | §12.7 makes degradation explicit and machine-readable |
 
@@ -64,7 +64,7 @@ They are the product.
    the corpus is small.
 3. **A published instance theme** (§12.1). Not a hidden operator preference — a *stated editorial
    policy*, chosen from works and authors, that pulls every reader's recommendations and is
-   visible on the front page. This resolves the conflict that lorehaven and kindred could not
+   visible on the front page. This resolves the conflict that darkhold and kindred could not
    both hold.
 4. **Moods the reader names and the system learns** (§12.3). A mood is a user-created, named,
    online-trained weighting vector. It is not a filter, not a preset, and not a shipped model.

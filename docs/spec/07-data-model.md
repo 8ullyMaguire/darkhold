@@ -11,7 +11,7 @@
    optimistic-concurrency counter; a mismatched `expected_version` returns `409 REVISION_CONFLICT`.
 3. **Timestamps are RFC 3339 UTC `TEXT` in both engines.** `TIMESTAMPTZ` was rejected because it
    forces a per-dialect decode on *every* query touching a timestamp.
-4. **Every PostgreSQL column read as `i64` is `BIGINT`.** 38 columns were fixed in lorehaven after
+4. **Every PostgreSQL column read as `i64` is `BIGINT`.** 38 columns were fixed in darkhold after
    the first live PG run found 8 defects.
 5. **`ON CONFLICT` targets name the index and repeat its predicate.**
 6. **Repository statements come in pairs**: `db.sql(sqlite_sql, postgres_sql)`.

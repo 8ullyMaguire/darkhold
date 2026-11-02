@@ -16,7 +16,7 @@ master/slave 8, ai-generated text 8, sexual slavery 7, femdom 6, master/pet 6, i
 Top authors: CambrianBeckett 4, then five at 2, then 31 at 1. The QQ archive of 10,266 EPUBs:
 villain/evil 1,104, gamer/system 997, power/progression 994, femdom/power 926, isekai 352.
 
-**lorehaven** (2026-10-05): 703 ledger rows across 48 areas; 312 fully tested, 240 locally tested,
+**darkhold** (2026-10-05): 703 ledger rows across 48 areas; 312 fully tested, 240 locally tested,
 120 verified e2e, 26 planned, 4 unsupported, 1 rejected. 112 migrations per dialect, identical
 filenames. 75 route modules. 12 source adapters. SQLite workspace 4160 pass / 0 fail across 210
 suites; PostgreSQL 4126 pass / 3 fail at the earlier commit, fixed at the later one; clippy 0
@@ -42,7 +42,7 @@ is 14 MB; 24 templates; zero JavaScript.
 
 1. kindred's tag graph was 3.0 GB as a Python dict-of-dicts and **124 MB as a CSR array in Go** — a
    24× cut from the representation alone, with no algorithm change. *→ §8.2's budget discipline.*
-2. lorehaven's SQLite password-update no-op was **silent** and every test passed. *→ N-8, and
+2. darkhold's SQLite password-update no-op was **silent** and every test passed. *→ N-8, and
    §23.3's "the second engine is the cheapest available check on the first one".*
 3. kindred's arena was **inert in production and silent about it**. *→ §12.7's degradation
    honesty.*

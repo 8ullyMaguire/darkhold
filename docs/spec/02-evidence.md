@@ -114,7 +114,7 @@ directions:
 any theme is a work in no theme — which is a legitimate state, and the reason 13 of the 54 are
 outside the six (see §2.2's coverage note).
 
-## 2.3 lorehaven — `~/code-local/rust/lorehaven` @ `b40d92b`
+## 2.3 darkhold — `~/code-local/rust/darkhold` @ `b40d92b`
 
 | | measured |
 |---|---|
@@ -136,7 +136,7 @@ outside the six (see §2.2's coverage note).
 | schema | 45 migration files; `001_initial.sql` alone carries **138 tables** |
 | ingestion | **107 FanFicFare-parity sites** across 56 adapter modules (config-driven families: 19 eFiction + 26 eFiction-variant + 8 XenForo + 3 StoriesOnline + OTW siblings + bespoke) |
 | stack | Rust / Axum 0.8 / SQLx 0.9 / PostgreSQL 16 + pgvector / Redis (Lua token bucket) / Ollama / SvelteKit 5 SPA / 11 binaries |
-| what lorehaven lacks | 107-site FFF parity; body full-text quote search with `<mark>` snippets; `main_char_attr`; OPDS catalog; 7+ export formats; the 10-strategy recommender registry with RRF fusion; the `qa/api-walk.js` router-parsing audit |
+| what darkhold lacks | 107-site FFF parity; body full-text quote search with `<mark>` snippets; `main_char_attr`; OPDS catalog; 7+ export formats; the 10-strategy recommender registry with RRF fusion; the `qa/api-walk.js` router-parsing audit |
 | test state | unit 935 pass / 0 fail · **DB-gated: 39 of 57 suites pass, 18 fail** |
 | weaknesses | 8 parallel authority columns on `users` + 3 XP ledgers; `tag_types` and `locales` shipped empty on every migration-built DB; the host cannot reach AO3 (404 + challenge) or FFN (403 Cloudflare); `works` dedupes on title+author only; a doc claims 15 languages, the code has 6 |
 
@@ -155,7 +155,7 @@ outside the six (see §2.2's coverage note).
 
 | source | trusted for | **not** trusted for |
 |---|---|---|
-| lorehaven | the ledger discipline, the domain model, the governance design, the reading experience, the config contract, the 404-not-403 doctrine, the two-engine gate | its completeness claims (360 rows below the bar); its spec as a structure to copy (it is a monolith) |
+| darkhold | the ledger discipline, the domain model, the governance design, the reading experience, the config contract, the 404-not-403 doctrine, the two-engine gate | its completeness claims (360 rows below the bar); its spec as a structure to copy (it is a monolith) |
 | ficnexus | the adapter architecture and the 107-site list; the works↔sources split; body full-text search; `main_char_attr`; the RRF registry pattern; the router-parsing QA audit | its data model; its trust/progression split (it documents the mess itself); its test state |
 | kindred | the memory discipline; the recommender and arena algorithms; the snapshot privacy model; the degradation-honesty rule; the "measure, don't estimate" rule | its Go implementation — a reference implementation, not a port target (§8.3) |
 

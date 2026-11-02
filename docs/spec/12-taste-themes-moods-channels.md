@@ -124,7 +124,7 @@ is still explainable against the theme that produced it.
 | **a reader's moods** | **no** — the names may be private; the vectors are always private | the reader |
 | **a channel's seed** | **yes** — a channel is a public object with a public seed | the channel's owner |
 
-The lorehaven rule (N-2) protects the second row. It says nothing about the first, and the first is
+The darkhold rule (N-2) protects the second row. It says nothing about the first, and the first is
 what makes a stranger's first five minutes useful.
 
 ## 12.2 The house taste and the reader's taste
@@ -357,6 +357,70 @@ must change what is *ranked*, not just what is *displayed*.
 **Diversity is MMR** (λ = 0.75, k = 500) applied after ranking, with optional per-group caps. The
 group detector is **measured, not assumed** — kindred's fandom detector uses the name's *shape*,
 because the corpus's `tag_type` column says "freeforms" for 3,890,504 of 3,891,300 rows.
+
+## 12.7a The measured ladder — what the inherited weights are judged against
+
+**Where these numbers come from, and what they are not.** A published AO3 recommendation study
+(`mmarcet/AO3_recommender_system`, vendored at `docs/wiki/` on 2026-11-02) measured every family of
+recommender this section names, on 9,998 readers and 121,367 Marvel works, with kudos as
+positive-only implicit feedback. It is **a different corpus** and its figures are **not this
+instance's targets**: different domain, a 2020 snapshot, no timestamps (so its own split is a random
+mask, not a holdout), and no house theme. What transfers is the **ladder** — which family of
+algorithm buys how much, and which two things that look like recommendations buy nothing at all.
+Every figure is the study's validation result at its own cut of k = 20.
+
+| what it computes | f1@20 | MAP@20 | reading |
+|---|---:|---:|---|
+| most recently published | **below random** | — | recency is not a recommendation |
+| longest works | **below random** | — | length is not a recommendation |
+| most kudos (popularity) | 0.0364 | 0.0090 | **the bar every personalised engine must clear** |
+| most bookmarks | 0.0334 | ~0.0085 | the same family, slightly weaker (the source prints 0.085, inconsistent with its own scale) |
+| tags → reader profile → cosine, TF-IDF over all tag classes | 0.0016 | 0.0002 | **≈23× below popularity — the worst result in the study** |
+| …the relationship tags only | 0.0033 | 0.0014 | the strongest single tag family, still below popularity |
+| item→item tag cosine, aggregated over the works the reader liked | 0.0351 | 0.0097 | **≈ popularity, and the only content-based variant that reached it** |
+| user-based CF, cosine, 500 neighbours | 0.0933 | 0.0245 | 2.6× popularity, for the price of a neighbourhood walk |
+| ALS matrix factorisation, 676 factors, α = 96, 90 iterations | **0.2025** | 0.0815 | 5.6× popularity; held-out test 0.2032 / 0.0819 |
+| BPR, tuned on ALS's grid | 0.0859 | 0.0232 | undertuned, not a verdict on BPR |
+| LMF, tuned on ALS's grid | 0.0045 | — | **≈ random: the grid failed, not the model** |
+
+**The five rules this yields, and where each one already binds:**
+
+1. **Recency is never the fallback ranker.** *New* is a legitimate browse order (§11.7) and a
+   measured-bad recommendation. §12.6 rule 1's T0 floor is the house taste and §12.8's fallback
+   chain ends in popularity — never in `new`, never in `updated`.
+2. **Tag similarity is a candidate generator, never the ranker.** The study's pure tag-profile
+   scorer is the single worst thing it measured; the same tags used item→item are fine. This is why
+   §12.7's `tag_overlap` is one term of 0.22 among nine, and why §11.5's rung 3 is *themes*, not
+   cosine over all tags.
+3. **Tag kind carries weight.** Relationship-only similarity was 2× the all-tags version, and
+   additional/freeform tags made it worse. A content similarity must weight by tag kind — which
+   `kind_weight()` already encodes (relationship 3, character 2, tag 1) — and never flatten the
+   freeform namespace into the same bag.
+4. **Item→item beats profile→item when the profile is thin.** The study's own cold-start test found
+   the stated-preference scorer did no better for users with little history; the item→item variant
+   is the one that reached the popularity line. So the first session (§12.6, §16.1's "first session
+   ends with a work being opened") seeds from **one work the reader liked**, not from stated tag
+   filters, whenever the profile is empty.
+5. **A score without a coverage number is a headline, not a measurement.** The winning ALS run named
+   41,537 of 121,367 works (34 %); its author-level companion model recommended **116 of 8,272
+   authors (1.4 %)** while scoring well. M15's harness therefore prints, beside every metric:
+   **distinct works recommended, share of the catalogue reached, the top-decile share of
+   impressions, and the largest single-fandom share of a page.** §47.6's MMR and the per-fandom cap
+   are the mitigations; those four numbers are how anyone knows they work.
+
+**A graded signal that costs two counts.** The study's largest single win over a weak model came
+from turning implicit feedback into *graded* feedback: a reader's affinity for an author is
+`works of that author read ÷ works by that author`, scaled to 1–5, which lifted its target from
+0.0039 to 0.1358 f1@20. It needs no model and no new table. **§11.5's rung 2 ("same author, other
+works") specifies no order today — author affinity is the order**, computed from the reader's own
+library and never published as a number (§0.3).
+
+**What deliberately does not transfer.** The corpus, the cut of k, the positive-only signal and the
+absence of a house theme. The study's own conclusion — that its readers' taste was too unstable for
+tags to explain — is a finding about a kudos-only mirror, not about this instance, whose readers
+have progress, completion, ratings, arena ballots and shelves. The ladder's *order* and its
+*refusal of recency* are what this spec adopts; M15 measures this instance's own ladder before any
+of the inherited weights in §12.7 is called fitted.
 
 ## 12.8 The strategy registry and RRF
 

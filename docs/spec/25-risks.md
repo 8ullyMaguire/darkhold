@@ -6,7 +6,7 @@
 
 | # | risk | likelihood | impact | mitigation |
 |---|---|---|---|---|
-| **R-1** | **The spec/ledger rot.** The archive's own status claims drift from the code, and the next reader trusts them | **high** — five times in lorehaven, once in kindred | high | re-derive the ledger; put the command in every status document; `verified_at` is the only authority (§23.1) |
+| **R-1** | **The spec/ledger rot.** The archive's own status claims drift from the code, and the next reader trusts them | **high** — five times in darkhold, once in kindred | high | re-derive the ledger; put the command in every status document; `verified_at` is the only authority (§23.1) |
 | **R-2** | **The three-way vocabulary mismatch leaks into the code** | high | medium | §5 is normative and the mapping is published; a migration that introduces an unmapped name is a review failure |
 | **R-3** | **The 107-site adapter port takes longer than everything else combined** | high | medium | M8 ships 12 first; the families make the long tail cheap; each adapter is independently shippable and independently valuable |
 | **R-4** | **Reachability.** AO3 and FFN are blocked from the estate's build host | **certain today** | high | the honest answer is in the UI; **the launch corpus does not need AO3 at all** (§9.8) because the local mirror carries the metadata |
@@ -22,7 +22,7 @@
 | **R-14** | **The theme rework weakens the 543 frontend tests instead of re-deriving them** | **high** — this is the estate's most common pattern | medium | §21.2 constraint 4 is explicit; the rework's own gate requires the assertions to be re-derived, not relaxed, and a diff that only loosens an assertion is a review failure |
 | **R-15** | **The reader becomes unreadable in a dark theme** | medium | **high** | the reader surface's contrast ratio is a measured gate, not a judgement call; the reader scale stays independent of the site scale |
 | **R-16** | **Scope creep into an economy** that turns the archive into a shop | medium | high | §18 is deliberately one entitlement that grants compute; the core path works with no processor configured; no purchase touches rank, trust or moderation |
-| **R-17** | **The spec repeats lorehaven's structure** — a monolith, a ledger nobody reads | medium | high | §24.2's split, with the sections owned by milestones |
+| **R-17** | **The spec repeats darkhold's structure** — a monolith, a ledger nobody reads | medium | high | §24.2's split, with the sections owned by milestones |
 | **R-18** | **"The ultimate" becomes three projects in a trench coat** | medium | **high** | one workspace, one domain crate, one schema, one vocabulary, one binary by default; the taste split is a configuration (§8.2) |
 | **R-19** | **A feature ships whose machinery is unreachable** — nothing writes the table, nothing enqueues the job | **high** — the estate's most common defect | medium | the reachability probe, the bidirectional route guard, the table-writer audit (§23.5) |
 | **R-22** | **The import is 111,686 works, 634,231 tags and 3,891,300 tag assertions**, and the catalogue export, the taxonomy canonicalisation and the taste service's index build all scale with it | **certain** — the numbers are measured | medium | the import is a bulk job with a resumable cursor (§9.8.3); the catalogue export is versioned and content-addressed; and the taste service's ingest was **already measured at this exact scale** — 181.6 MB, 1 m 31 s, on the same 112,935 works. The risk is not the size; it is the taxonomy |

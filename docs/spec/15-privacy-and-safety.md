@@ -46,7 +46,7 @@ source credentials, session identifiers, IP addresses, file paths.
   the count of submitters is never a count of readers.
 
 **The launch corpus (§9.8) uses exactly this mechanism**, with the existing
-`build_lorehaven_signals.py` builder, which reads the contract from `lore-metadata` and asserts
+`build_darkhold_signals.py` builder, which reads the contract from `lore-metadata` and asserts
 its payload against the allowed field set rather than assuming it.
 
 ## 15.3 The snapshot — anonymised, signed, peer-to-peer

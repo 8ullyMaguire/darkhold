@@ -4,7 +4,7 @@
 **Milestone:** M1
 **Source:** the corresponding section of the Darkhold specification
 
-The self-hosting contract, inherited from lorehaven §38.
+The self-hosting contract, inherited from darkhold §38.
 
 1. **Every limit and toggle is a configuration value** with a documented default, rather than a
    number in the code.

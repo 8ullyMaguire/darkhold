@@ -37,13 +37,16 @@ Every canonical entity is browsable, queryable and linkable. `theme:` is a first
 theme is a search dimension as well as a browse dimension.
 
 **The closure table** makes `+children` expansion a single join, and every browse surface returns
-the **same** `MediaRecord` shape the API returns (lorehaven ADR 0019: "if the UI can show it, the
+the **same** `MediaRecord` shape the API returns (darkhold ADR 0019: "if the UI can show it, the
 API can return it").
 
 ## 11.5 The "more like this" ladder
 
 1. **Next in series** — the explicit relation.
-2. **Same author, other works.**
+2. **Same author, other works** — ordered by **author affinity**: the share of that author's
+   catalogue the reader has already read (§12.7a), so an author whose 6-of-7 works they read
+   comes before one they sampled once. Unread-first, then affinity, then recency *within the
+   author*; the affinity number itself is never displayed.
 3. **Theme neighbours** — the works sharing the most-weighted tags of this work's themes.
 4. **Readers also bookmarked** — item-item co-bookmark similarity.
 5. **Taste-matched** — the reader's own profile, where one exists.

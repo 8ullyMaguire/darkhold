@@ -6,7 +6,7 @@
 
 Normative. The mapping is what lets all three source projects remain readable.
 
-| canonical term | definition | lorehaven | ficnexus | kindred |
+| canonical term | definition | darkhold | ficnexus | kindred |
 |---|---|---|---|---|
 | **work** | a creative object, abstract, independent of any site | `works` | `works` | `ao3_work` entity |
 | **source** | one concrete copy of a work at one site | `story_identities` members / `external_records` | `fic_info` | (none — corpus rows are the source) |

@@ -97,7 +97,7 @@ a test that had never run. **Never pipe a gate through `grep -c` without `2>&1`.
 **"The second engine is not only a deployment target, it is the cheapest available check on the
 first one."**
 
-The proof: lorehaven's `set_password_hash` bound one parameter list for two statements with
+The proof: darkhold's `set_password_hash` bound one parameter list for two statements with
 different placeholder orders. On SQLite this was **silent** — the surplus parameter shifted every
 value, the `WHERE` compared an account id against a timestamp, no row matched, and the function
 returned `Ok(())`. **A password change did nothing, reported success, and every test passed.**
@@ -187,7 +187,7 @@ was shipped and mounted — five times.
 
 - **A route-inventory test must assert in both directions.** Server → table is the easy half. The
   hard half is: *every `pub fn …router()` in `routes/*.rs` must appear in the composition root.*
-  lorehaven's inventory test checked server → table and never the reverse, so a declared router was
+  darkhold's inventory test checked server → table and never the reverse, so a declared router was
   never merged and **five endpoints returned 404 for the lifetime of the feature**, with unit tests
   passing.
 - **Every table in the schema must have a writer.** A table something writes and nothing reads is
@@ -216,7 +216,7 @@ turns it red rather than passing silently.
   **The chain is client-side steps through several handlers and a template; no unit test covers it.**
 - The two kinds of failure a test cannot find: **"a button that looks enabled, is enabled, is wired
   to a real form, and does nothing"** (kindred's inert recommendation button — every one of ten was
-  a no-op, and it took a real click), and **"a page that is 200 with one byte"** (lorehaven's
+  a no-op, and it took a real click), and **"a page that is 200 with one byte"** (darkhold's
   template set collision).
 
 ## 23.9 The standing rules
@@ -252,7 +252,7 @@ old name, and the build was green.
 untracked since 2026-10-04**, because the *global* gitignore at `~/.config/git/gitignore` contains
 `*credentials*` and the repository's own `.gitignore` negated it only for
 `migrations/**/*credentials*.sql`. The file was never in a commit, so it was never rewritten, and
-the build died on `use of unresolved module or unlinked crate 'lorehaven_db'`.
+the build died on `use of unresolved module or unlinked crate 'darkhold_db'`.
 
 The consequences, in order:
 
@@ -300,7 +300,7 @@ rename is what broke it. The mechanism is not subtle: **rustfmt's line-wrapping 
 function of identifier length**, and a rename changes the length of every identifier it touches.
 
 ```
-lorehaven_db::identity::AccountStatus::Active   # one shape
+darkhold_db::identity::AccountStatus::Active   # one shape
 darkhold_db::identity::AccountStatus::Active    # a different shape, wrapped differently
 ```
 

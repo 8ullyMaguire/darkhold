@@ -23,7 +23,7 @@
 **The theme is reworked around the new name** — the owner's decision, and the one that costs the
 most to get right.
 
-**And it must be simpler.** The owner's ruling, 2026-10-19: *"turn lorehaven into simpler
+**And it must be simpler.** The owner's ruling, 2026-10-19: *"turn darkhold into simpler
 website look like https://novellunar.com/"*. Simplicity is the requirement; the Darkhold register
 is the subject matter. A dark, ornate interface is not simpler, and a simpler one is not
 therefore plain.
