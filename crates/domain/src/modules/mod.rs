@@ -411,6 +411,14 @@ mod tests {
     /// without this list, and the invariant below — which no targeted test run
     /// executes — went red at HEAD): counting how often a writer updates is a
     /// pressure device, and the gaps review's rule is positive framing only.
+    ///
+    /// `arena` was the one entry nobody could settle, because it is the only
+    /// surface here that ranks PEOPLE against each other. **Decided 2026-11-02:
+    /// it stays off until two things exist — a reader-facing explanation of what
+    /// the ranking measures and who can see it, and moderation that can act on
+    /// what the ranking produces.** Then it is switched on per person, by the
+    /// person, not by an instance default. Nothing about the code changes when
+    /// that happens except this list.
     const OPT_IN: &[&str] = &[
         "arena",
         "quiz",
