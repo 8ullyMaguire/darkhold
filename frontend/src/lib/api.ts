@@ -4060,6 +4060,46 @@ export function fetchWorkMediaReferences(workId: string): Promise<{ items: WorkM
   return apiFetch<{ items: WorkMediaReferenceView[] }>(`/works/${encodeURIComponent(workId)}/media`);
 }
 
+/**
+ * The links a work's author notes carry (M45-38, §32.7.4a).
+ *
+ * Public: a reader who is about to click a link is the person who needs to know it died. The server
+ * reports only the **live** revisions, so a link the author already corrected does not linger here.
+ */
+export interface WorkNoteLink {
+  id: string;
+  url: string;
+  host: string;
+  provider: string;
+  status: string;
+  last_checked_at: string | null;
+  last_healthy_at: string | null;
+  failure_reason: string | null;
+}
+
+export interface WorkNoteLinks {
+  links: WorkNoteLink[];
+  count: number;
+  dead: number;
+}
+
+export function fetchWorkNoteLinks(workId: string): Promise<WorkNoteLinks> {
+  return apiFetch<WorkNoteLinks>(`/works/${encodeURIComponent(workId)}/note-links`);
+}
+
+/**
+ * Ask the instance to re-check a work's note links now.
+ *
+ * Author-only on the server; a reader who calls it gets a 404, which is why the page only offers the
+ * button to a contributor.
+ */
+export function recheckWorkNoteLinks(workId: string): Promise<{ checked: number; dead: number }> {
+  return apiFetch<{ checked: number; dead: number }>(
+    `/works/${encodeURIComponent(workId)}/note-links/check`,
+    { method: 'POST', body: '{}' },
+  );
+}
+
 export function reportBrokenLink(referenceId: string, reason?: string): Promise<{ status: string }> {
   return apiFetch<{ status: string }>(
     `/media/references/${encodeURIComponent(referenceId)}/report-broken`,

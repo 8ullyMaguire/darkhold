@@ -6,8 +6,8 @@
         "implemented-verified-e2e": 129,
         "implemented-locally-tested": 246,
         "unsupported": 4,
-        "implemented-fully-tested": 405,
-        "planned": 71,
+        "implemented-fully-tested": 406,
+        "planned": 70,
         "evaluated-and-rejected": 1
       }
     },
@@ -442,17 +442,11 @@
       "milestone": "M44",
       "requirement": "44 roadmap consensus an elo ranked community voted board: a public board where the community ranks feature ideas by pairwise consensus, ported from FicHub's fichub-consensus Elo design",
       "notes": "Reserved section, specified in docs/spec/44-roadmap-consensus-an-elo-ranked-community-voted.md. Registered 2026-11-02 for the same reason as M29-08: an idea the coverage gate named with no home."
-    },
-    {
-      "id": "M45-38b",
-      "milestone": "M45",
-      "requirement": "author-note link rot in the reader UI: show the dead count on the work page and the chip on the chapter's note, so a reader sees the warning before clicking",
-      "notes": "Split out of M45-38, which shipped the pipeline (extraction on save, monitoring, GET/POST routes). The API answers today; the page renders nothing yet."
     }
   ],
   "open_by_milestone": {
     "M63": 25,
-    "M45": 22,
+    "M45": 21,
     "M64": 14,
     "M66": 6,
     "M65": 2,

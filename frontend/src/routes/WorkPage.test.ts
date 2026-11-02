@@ -18,10 +18,18 @@ vi.mock('../lib/api', async (importOriginal) => {
     getProgress: vi.fn().mockResolvedValue(null),
     upsertReview: vi.fn(),
     isAuthorWork: vi.fn().mockReturnValue(false),
+    fetchWorkNoteLinks: vi.fn().mockResolvedValue({ links: [], count: 0, dead: 0 }),
+    recheckWorkNoteLinks: vi.fn().mockResolvedValue({ checked: 0, dead: 0 }),
   };
 });
 
-import { fetchWork, fetchWorkPricing, fetchReviews } from '../lib/api';
+import {
+  fetchWork,
+  fetchWorkNoteLinks,
+  fetchWorkPricing,
+  fetchReviews,
+  recheckWorkNoteLinks,
+} from '../lib/api';
 
 describe('WorkPage paywall', () => {
   beforeEach(() => {
@@ -191,5 +199,92 @@ describe('WorkPage spoiler reveal', () => {
     // Should NOT be inside a <details> element
     const reviewText = screen.getByText('Loved this.');
     expect(reviewText.closest('details')).toBeNull();
+  });
+});
+/**
+ * Links in the author's notes (M45-38, §32.7.4a).
+ *
+ * The page's job is small and specific: a reader about to click a link should learn it is dead
+ * **before** clicking, and a note with no links should not grow a section. Both halves are asserted,
+ * because a test for the warning alone passes on a page that shows the section for every work, and a
+ * test for the absence alone passes on a page that never warns at all.
+ */
+describe('WorkPage note links', () => {
+  const dead = {
+    id: 'nl-1',
+    url: 'https://gone.test/meta',
+    host: 'gone.test',
+    provider: 'other',
+    status: 'dead',
+    last_checked_at: '2026-11-02T09:00:00Z',
+    last_healthy_at: '2026-10-01T09:00:00Z',
+    failure_reason: 'http 404',
+  };
+  const healthy = {
+    ...dead,
+    id: 'nl-2',
+    url: 'https://blog.tumblr.com/post/1',
+    host: 'blog.tumblr.com',
+    provider: 'tumblr',
+    status: 'healthy',
+    failure_reason: null,
+  };
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    session.status = 'anonymous';
+    session.me = null as any;
+    (fetchWork as any).mockResolvedValue(WORK);
+    (fetchReviews as any).mockResolvedValue({ items: [] });
+    (fetchWorkPricing as any).mockResolvedValue({ pricing: [] });
+    (fetchWorkNoteLinks as any).mockResolvedValue({ links: [], count: 0, dead: 0 });
+  });
+
+  it('warns before the click when a note link is dead', async () => {
+    (fetchWorkNoteLinks as any).mockResolvedValue({
+      links: [dead, healthy],
+      count: 2,
+      dead: 1,
+    });
+
+    render(WorkPage, { props: { workId: 'work-1' } });
+
+    await waitFor(() => {
+      expect(screen.getByTestId('note-links-warning')).toBeInTheDocument();
+    });
+    expect(screen.getByTestId('note-links-warning').textContent).toContain(
+      'One link has stopped answering.',
+    );
+    expect(screen.getByText('dead')).toBeInTheDocument();
+    // The link itself is still offered: the note is still worth reading, and the warning is what
+    // says the target moved.
+    const links = screen.getAllByTestId('note-link');
+    expect(links.map((anchor) => anchor.textContent)).toEqual(['gone.test', 'blog.tumblr.com']);
+  });
+
+  it('renders nothing when the notes carry no links', async () => {
+    render(WorkPage, { props: { workId: 'work-1' } });
+
+    await waitFor(() => {
+      expect(screen.getByText('The Salt Road')).toBeInTheDocument();
+    });
+    expect(screen.queryByTestId('note-links')).toBeNull();
+  });
+
+  it('offers the re-check to the author only', async () => {
+    const { isAuthorWork } = await import('../lib/api');
+    (isAuthorWork as any).mockReturnValue(true);
+    (fetchWork as any).mockResolvedValue({ ...WORK, lifecycle: 'published' });
+    (fetchWorkNoteLinks as any).mockResolvedValue({ links: [healthy], count: 1, dead: 0 });
+
+    render(WorkPage, { props: { workId: 'work-1' } });
+
+    const button = await screen.findByRole('button', { name: /check these links now/i });
+    await button.click();
+    await waitFor(() => {
+      expect(recheckWorkNoteLinks).toHaveBeenCalledWith('work-1');
+    });
+    // The page reloads the report after a check, so the statuses on screen are the new ones.
+    expect((fetchWorkNoteLinks as any).mock.calls.length).toBeGreaterThan(1);
   });
 });

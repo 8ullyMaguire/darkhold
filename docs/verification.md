@@ -1,3 +1,42 @@
+## 2026-11-02 — M45-38b: the note-link report, and a journey that proves the chain
+
+**Requirement:** `M45-38b` (closing the surface `M45-38` left) · **Tests:** 3 component, 2 browser
+
+The work page now lists the links a work's live notes carry, says which are dead **before** the click,
+and offers the author an inline re-check. The section is absent — not empty — when a note holds no
+links: a monitor that always shows a box is a box nobody reads.
+
+Component tests decide the render from a given report; they cannot prove the report exists. So the
+end-to-end journey types the note into the editor's revision field (no API shortcut — that would test
+the endpoint twice), saves, publishes, opens the work page, presses the author's button, and asserts
+the warning appears. Its links are loopback, which the fetch guard refuses unconditionally: the
+verdict is deterministic with no network, and it is the honest answer to an author pointing a note at
+their own machine.
+
+```
+node node_modules/vitest/vitest.mjs run src/routes/WorkPage.test.ts  -> 9 passed
+node node_modules/vitest/vitest.mjs run src/routes                   -> 321 passed (46 files)
+DARKHOLD_BIN=target/debug/darkhold npx playwright test e2e/note-links.spec.ts
+  -> 2 passed (chromium, real binary, 7.6s)
+node node_modules/vite/bin/vite.js build                            -> built in 8.10s
+```
+
+**Red by removal (both measured):** replacing the `dead > 0` branch with `false` fails *"warns before
+the click"*; dropping the `count > 0` guard fails *"renders nothing when the notes carry no links"*.
+
+Two things this pass corrected in my own work, recorded because both would have shipped green:
+
+1. `getByText('One link has stopped answering.')` fails even when the sentence is on screen — the
+   paragraph is one text node split by markup, so the assertion had to read the element's
+   `textContent`. The first version of the test was asserting the *node shape*, not the behaviour.
+2. The author branch of the page reads `lifecycle` off the work, so the author test's fixture needed
+   a published work rather than the anonymous one; without it the render threw inside the component
+   and the failure pointed at the assertion instead of the fixture.
+
+The binary embeds `frontend/dist` at compile time, so `vite build` **alone** changes nothing that is
+served — the e2e run needed `cargo build -p darkhold-app --bin darkhold` after it. That is the same
+trap `continue-reading.spec.ts` documents, hit again.
+
 ## 2026-11-02 — M45-38: author-note links go through the monitor (§32.7.4a, gaps review D3)
 
 **Requirement:** `M45-38` · **Tests:** 8 domain, 6 store × 2 engines, 5 HTTP × 2 engines

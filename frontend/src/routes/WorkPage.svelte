@@ -17,6 +17,8 @@
       fetchReviews,
       fetchWork,
     fetchWorkMediaReferences,
+    fetchWorkNoteLinks,
+    recheckWorkNoteLinks,
     fetchWorkPricing,
     getProgress,
     isAuthorWork,
@@ -30,6 +32,7 @@
     type PublicWork,
       type ReviewView,
       type WorkMediaReferenceView,
+    type WorkNoteLinks,
   } from '../lib/api';
   import { ApiError, fetchSimilarWorks, type SurfaceWork } from '../lib/api';
   import { describeCompletion, describeLifecycle, describeRating, describeVisibility } from '../lib/labels';
@@ -130,6 +133,7 @@
       }
       void loadGallery();
       void loadMediaRefs();
+      void loadNoteLinks();
       void loadSimilar();
     } catch (failure) {
       // Paywall: a priced work returns 403 CONTENT_RESTRICTED for non-buyers.
@@ -169,6 +173,34 @@
     }
   }
 
+  /** Load the links the author's notes carry, and their health (§32.7.4a). */
+  async function loadNoteLinks() {
+    try {
+      noteLinks = await fetchWorkNoteLinks(workId);
+    } catch {
+      // A monitor that cannot be read is not a reason to fail the page.
+      noteLinks = null;
+    }
+  }
+
+  /** Ask for a fresh check — the author's button, not the reader's. */
+  async function recheckNoteLinks() {
+    noteLinksBusy = true;
+    noteLinksReceipt = null;
+    try {
+      const result = await recheckWorkNoteLinks(workId);
+      noteLinksReceipt =
+        result.dead > 0
+          ? `Checked ${result.checked}, ${result.dead} no longer answering.`
+          : `Checked ${result.checked}, all answering.`;
+      await loadNoteLinks();
+    } catch {
+      noteLinksReceipt = 'That did not work. Try again in a moment.';
+    } finally {
+      noteLinksBusy = false;
+    }
+  }
+
   /** Report a broken link (§32.7.7) — one click, tracked per reference. */
   async function reportMediaBroken(referenceId: string) {
     brokenReportBusy = new Set([...brokenReportBusy, referenceId]);
@@ -184,6 +216,14 @@
       brokenReportBusy = next;
     }
   }
+
+  /**
+   * Links in the author's notes (§32.7.4a, M45-38). Fetched separately from the work so a work whose
+   * notes hold no links renders exactly as before — the section is absent, not empty.
+   */
+  let noteLinks = $state<WorkNoteLinks | null>(null);
+  let noteLinksBusy = $state(false);
+  let noteLinksReceipt = $state<string | null>(null);
 
   let gallery = $state<GalleryItem[] | null>(null);
   /** Media references from the media-resilience graph (§32.7.7). */
@@ -320,6 +360,59 @@
         </li>
       {/each}
     </ul>
+  {/if}
+
+  {#if noteLinks && noteLinks.count > 0}
+    <section class="note-links" data-testid="note-links">
+      <h2>Links in the author's notes</h2>
+      {#if noteLinks.dead > 0}
+        <p class="note-links-warning" role="status" data-testid="note-links-warning">
+          {noteLinks.dead === 1
+            ? 'One link has stopped answering.'
+            : `${noteLinks.dead} links have stopped answering.`}
+          The rest of the note is still here.
+        </p>
+      {/if}
+      <ul>
+        {#each noteLinks.links as link (link.id)}
+          <li class="note-link" class:dead={link.status === 'dead'}>
+            <a
+              href={link.url}
+              target="_blank"
+              rel="noopener noreferrer"
+              data-testid="note-link"
+            >{link.host}</a>
+            <span class="note-link-status" data-status={link.status}>
+              {#if link.status === 'healthy'}
+                answering
+              {:else if link.status === 'dead'}
+                dead
+              {:else if link.status === 'degraded'}
+                failing
+              {:else}
+                not yet checked
+              {/if}
+            </span>
+            {#if link.status === 'dead' && link.failure_reason}
+              <span class="note-link-reason">{link.failure_reason}</span>
+            {/if}
+          </li>
+        {/each}
+      </ul>
+      {#if authorView}
+        <button
+          type="button"
+          class="link-button"
+          disabled={noteLinksBusy}
+          onclick={() => void recheckNoteLinks()}
+        >
+          {noteLinksBusy ? 'checking…' : 'check these links now'}
+        </button>
+      {/if}
+      {#if noteLinksReceipt}
+        <p class="note" role="status">{noteLinksReceipt}</p>
+      {/if}
+    </section>
   {/if}
 
   {#if mediaRefs && mediaRefs.length > 0}
@@ -658,6 +751,48 @@
   .media-ref-reported,
   .media-ref-reporting {
     color: var(--color-muted);
+  }
+
+  /* Note links (M45-38). Deliberately quiet: a dead note link is a note the reader should read
+     anyway, so the warning names it without turning the page into an alert. */
+  .note-links ul {
+    list-style: none;
+    padding: 0;
+    margin: 0 0 0.5rem;
+  }
+
+  .note-link {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    align-items: baseline;
+    padding: 0.25rem 0;
+  }
+
+  .note-link-status {
+    font-size: 0.85em;
+    color: var(--color-muted);
+  }
+
+  .note-link-status[data-status='healthy'] {
+    color: var(--color-success);
+  }
+
+  .note-link-status[data-status='dead'] {
+    color: var(--color-danger);
+  }
+
+  .note-link.dead a {
+    text-decoration: line-through;
+  }
+
+  .note-link-reason {
+    font-size: 0.85em;
+    color: var(--color-muted);
+  }
+
+  .note-links-warning {
+    color: var(--color-warning);
   }
 
   .gallery img {
