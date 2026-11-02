@@ -644,6 +644,16 @@ pub fn build_router(state: AppState) -> Router {
             )),
             RouteClass::Default,
         ))
+        // The OpenSearch description document (M69-25). At the root, because the
+        // browser reads it as a URL it stores, not as an API call — and gated on
+        // the `search` extension, because a document advertising a search that
+        // this instance has switched off is an instruction to fail.
+        .merge(module_mount(
+            &state,
+            "search",
+            routes::opensearch::router(),
+            RouteClass::Default,
+        ))
         .nest("/api/v1", api)
         .fallback(assets::serve)
         .layer(RequestBodyLimitLayer::new(config.server.max_body_bytes))

@@ -1,3 +1,51 @@
+## 2026-11-02 — the Suki intake (M69), and the smallest row in it shipped
+
+**Requirement:** `M69-01..26` (new, planned) · `M69-25` (closed) · **Tests:** 6
+
+Suki's spec describes a self-hosted booru; this is a fiction site. The intake is the exercise of
+reading one against the other and keeping only what a fiction platform needs, in darkhold's own
+vocabulary — works and units rather than images, tropes rather than tags, warnings rather than ratings.
+
+**Twenty-six rows, `M69`.** The ones that are more than vocabulary:
+
+- **a shared taste crate and JSON schemas (M69-24)** — the row that keeps the other twenty-five honest.
+  Two products that each implement the blend disagree within a month, and a taste passport whose
+  semantics differ between sender and receiver is worse than no passport.
+- **instance DNA, auto-peering, a signed taste passport (M69-01..03)** — one wire format both products
+  read, so a suki instance and a darkhold instance can peer with each other rather than only with
+  their own kind.
+- **tombstones that survive re-import (M69-04)** — darkhold has DMCA intake planned (M45-52) and
+  nothing that stops the same work returning through the importer the next day, which is the failure a
+  takedown exists to prevent.
+- **Glicko-2 (M69-10) and pairing with a calibration window (M69-11)** — the arena is Elo at K=32
+  today (M45-02), where a work with two votes and a work with two hundred share one ladder.
+- **trust velocity (M69-13)** and **a live badge (M69-14)** — progression is flat today, and a one-time
+  award cannot express a relationship that changes.
+- **three-layer filtering (M69-16)** — darkhold's filters are all equally overridable, including the
+  illegal-content one that must not be.
+
+Everything else is lenses, queues, NPMI, trope clusters, OpenSearch, and the setting cascade. All
+twenty-six are `planned`; every one defaults off by construction, because a planned surface has no
+code. The registry invariant already enforces that (`OPT_IN` in `modules/mod.rs`), so nothing had to
+change for the "everything is an extension" rule to hold.
+
+**`M69-25` shipped the same day, because it is three lines and always loses the argument for a slot.**
+`/opensearch.xml` plus one `<link rel="search">` means a reader who searches one fandom here daily can
+type it into the address bar. The decisions are in the file: the template points at the HTML page and
+not `/api/v1/search` (the browser navigates — JSON would show a reader braces), the name is the
+instance's own, and it is escaped, because an operator who calls their site `Fic & Fandom` otherwise
+gets a document that does not parse and a browser that silently refuses the engine.
+
+```
+cargo test -p darkhold-app --lib opensearch    -> 4 passed
+cargo test -p darkhold-app --test opensearch   -> 2 passed
+```
+
+**Red by removal (both measured):** deleting the router mount fails the route test, deleting the
+`<link>` fails the shell test. The unit tests alone would not catch either — they prove the XML is
+right, not that anything serves it, which is the failure that survives review because the function is
+tested, documented and correct.
+
 ## 2026-11-02 — the two lineages meet, and the merge finds four things
 
 **Not a requirement — a merge:** `~/code/rust/darkhold` (the thinkcentre checkout, upstream

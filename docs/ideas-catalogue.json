@@ -1,7 +1,20 @@
 {
  "generated_by": "scripts/ideas_catalogue.py",
- "count": 162,
+ "count": 187,
  "ideas": [
+  {
+   "why_summary": "-- Suki spec \u00a78.2\u2013\u00a78.5; extends M63-06 (saved queries) and M63-09 (a query library on disk). The difference is that a Lens is a first-class object with a URL: shareable, subscribab",
+   "id": "M69-21",
+   "title": "the Lens",
+   "sources": [
+    "docs/requirements.csv"
+   ],
+   "milestone": "M69",
+   "relevance": 6,
+   "because": "a requirements row exists (+4); named in the spec (+2)",
+   "default_on": false,
+   "built": false
+  },
   {
    "why_summary": "",
    "id": "idea.ultimate-fanfiction-site",
@@ -783,6 +796,279 @@
    "built": false
   },
   {
+   "why_summary": "-- Suki spec \u00a716.1 (instance DNA). darkhold has no fingerprint of its own \u2014 M45-44 subscribes to a peer's picks, which is the consumption side only. The document is the shape suki ",
+   "id": "M69-01",
+   "title": "each instance publishes a taste fingerprint at /.well-known, in one shape both darkhold and suki read",
+   "sources": [
+    "docs/requirements.csv"
+   ],
+   "milestone": "M69",
+   "relevance": 4,
+   "because": "a requirements row exists (+4)",
+   "default_on": false,
+   "built": false
+  },
+  {
+   "why_summary": "-- Suki spec \u00a716.2. Two thresholds and one veto: similar enough to suggest, unrelated enough to ignore, and a hardcoded-filter collision is a block, not a warning. The veto is the ",
+   "id": "M69-02",
+   "title": "peering is suggested by cosine similarity over that fingerprint, and a colliding hardcoded filter blocks it outright",
+   "sources": [
+    "docs/requirements.csv"
+   ],
+   "milestone": "M69",
+   "relevance": 4,
+   "because": "a requirements row exists (+4)",
+   "default_on": false,
+   "built": false
+  },
+  {
+   "why_summary": "-- Suki spec \u00a75.5 and \u00a713.2 step 3. darkhold has DMCA intake planned (M45-52) and nothing that stops the same work returning through the pawchive importer the next day, which is th",
+   "id": "M69-04",
+   "title": "a takedown is a tombstone that survives re-import, and the importer refuses the work citing the original",
+   "sources": [
+    "docs/requirements.csv"
+   ],
+   "milestone": "M69",
+   "relevance": 4,
+   "because": "a requirements row exists (+4)",
+   "default_on": false,
+   "built": false
+  },
+  {
+   "why_summary": "-- Suki spec \u00a716.4 ('preserved by'). M45-39 covers instance-death protection as paperwork (mutual backup, dead-man's switch); this is the reader-visible half. Attribution is not de",
+   "id": "M69-05",
+   "title": "mirroring by taste similarity, with the mirror visible as attribution on the work page rather than as a silent copy",
+   "sources": [
+    "docs/requirements.csv"
+   ],
+   "milestone": "M69",
+   "relevance": 4,
+   "because": "a requirements row exists (+4)",
+   "default_on": false,
+   "built": false
+  },
+  {
+   "why_summary": "-- Suki spec \u00a716.4. darkhold already computes perceptual hashes for media (M32-07a/07b), so the join exists: (pHash, dimensions, duration) against a surviving peer. Recovery is pro",
+   "id": "M69-06",
+   "title": "a perceptual-hash rescue ring",
+   "sources": [
+    "docs/requirements.csv"
+   ],
+   "milestone": "M69",
+   "relevance": 4,
+   "because": "a requirements row exists (+4)",
+   "default_on": false,
+   "built": false
+  },
+  {
+   "why_summary": "-- Suki spec \u00a716.4. M45-39 has the switch; this has the recipient list and the receipt. The receipt matters when two peers both claim the same work \u2014 the author's page must not for",
+   "id": "M69-07",
+   "title": "an evacuation protocol",
+   "sources": [
+    "docs/requirements.csv"
+   ],
+   "milestone": "M69",
+   "relevance": 4,
+   "because": "a requirements row exists (+4)",
+   "default_on": false,
+   "built": false
+  },
+  {
+   "why_summary": "-- Suki spec \u00a73.1. darkhold blends engines (M11-01), applies operator affinity (M11-03) and theme gravity (M11-10), and each carries its own weighting; nothing states the mixture a",
+   "id": "M69-08",
+   "title": "one blend function with an interaction decay and a floor, used by every surface that ranks",
+   "sources": [
+    "docs/requirements.csv"
+   ],
+   "milestone": "M69",
+   "relevance": 4,
+   "because": "a requirements row exists (+4)",
+   "default_on": false,
+   "built": false
+  },
+  {
+   "why_summary": "-- Suki spec \u00a73.3. darkhold stores operator affinity per WORK (M11-03) and a resonance score (M45-51); neither answers how close a reader is to the operator, which is what gates tr",
+   "id": "M69-09",
+   "title": "affinity is a stored 0..1 score per reader, recomputed nightly, not a per-work multiplier",
+   "sources": [
+    "docs/requirements.csv"
+   ],
+   "milestone": "M69",
+   "relevance": 4,
+   "because": "a requirements row exists (+4)",
+   "default_on": false,
+   "built": false
+  },
+  {
+   "why_summary": "-- Suki spec \u00a710.2. darkhold's arena is Elo (M45-02) and the community board would inherit it (M44-02 planned). Elo has no notion of confidence: a work with two votes and one with ",
+   "id": "M69-10",
+   "title": "the arena ranks by Glicko-2 \u2014 deviation, volatility, a divergence flag \u2014 rather than Elo at K=32",
+   "sources": [
+    "docs/requirements.csv"
+   ],
+   "milestone": "M69",
+   "relevance": 4,
+   "because": "a requirements row exists (+4)",
+   "default_on": false,
+   "built": false
+  },
+  {
+   "why_summary": "-- Suki spec \u00a710.3 and \u00a710.4. Proximate pairing plus epsilon-greedy exploration, and a first-N-votes calibration window recorded but not applied to the global ladder. Without the c",
+   "id": "M69-11",
+   "title": "arena pairing prefers similar ratings with high deviation, explores occasionally, and calibrates new works without moving the global rank",
+   "sources": [
+    "docs/requirements.csv"
+   ],
+   "milestone": "M69",
+   "relevance": 4,
+   "because": "a requirements row exists (+4)",
+   "default_on": false,
+   "built": false
+  },
+  {
+   "why_summary": "-- Suki spec \u00a79.2. darkhold's explain surfaces are operator-facing (M63-01, DM3-02); the reader sees a ranked feed with no account of itself. The reason is generated from the same ",
+   "id": "M69-12",
+   "title": "every recommendation carries a match percentage and a reason sentence a reader can check",
+   "sources": [
+    "docs/requirements.csv"
+   ],
+   "milestone": "M69",
+   "relevance": 4,
+   "because": "a requirements row exists (+4)",
+   "default_on": false,
+   "built": false
+  },
+  {
+   "why_summary": "-- Suki spec \u00a74.2. darkhold has trust levels (M14-01) and a spam-report demotion (DM3-06), but progression is flat: every account earns at the same rate for the same acts. Clamped ",
+   "id": "M69-13",
+   "title": "trust velocity",
+   "sources": [
+    "docs/requirements.csv"
+   ],
+   "milestone": "M69",
+   "relevance": 4,
+   "because": "a requirements row exists (+4)",
+   "default_on": false,
+   "built": false
+  },
+  {
+   "why_summary": "-- Suki spec \u00a73.4 (Attuned). darkhold's badges are one-time facts (M47-14 'First Words'), and a one-time badge cannot express a relationship that changes. Recomputed with affinity,",
+   "id": "M69-14",
+   "title": "a live badge, gained and lost as taste drifts, unlike the episodic awards that already exist",
+   "sources": [
+    "docs/requirements.csv"
+   ],
+   "milestone": "M69",
+   "relevance": 4,
+   "because": "a requirements row exists (+4)",
+   "default_on": false,
+   "built": false
+  },
+  {
+   "why_summary": "-- Suki spec \u00a74.3. The row with the most ways to be cruel, so it is written with its exits: probation is time-bounded, the floor is configurable, existing readers are grandfathered",
+   "id": "M69-15",
+   "title": "taste-gated membership",
+   "sources": [
+    "docs/requirements.csv"
+   ],
+   "milestone": "M69",
+   "relevance": 4,
+   "because": "a requirements row exists (+4)",
+   "default_on": false,
+   "built": false
+  },
+  {
+   "why_summary": "-- Suki spec \u00a76.5. darkhold has tag families and a canonical taxonomy but no notion of coverage \u2014 the closest thing is a tag count, which says nothing about what is missing. Cluste",
+   "id": "M69-18",
+   "title": "trope clusters with a coverage checklist, so a work knows which trope families it never names",
+   "sources": [
+    "docs/requirements.csv"
+   ],
+   "milestone": "M69",
+   "relevance": 4,
+   "because": "a requirements row exists (+4)",
+   "default_on": false,
+   "built": false
+  },
+  {
+   "why_summary": "-- Suki spec \u00a76.6; extends M64-06, which computes jaccard and raw co-occurrence. Raw counts reward ubiquitous tags \u2014 'angst' co-occurs with everything and therefore relates to noth",
+   "id": "M69-19",
+   "title": "related tags ranked by NPMI rather than by raw co-occurrence",
+   "sources": [
+    "docs/requirements.csv"
+   ],
+   "milestone": "M69",
+   "relevance": 4,
+   "because": "a requirements row exists (+4)",
+   "default_on": false,
+   "built": false
+  },
+  {
+   "why_summary": "-- Suki spec \u00a715.2. darkhold has batch operations (M53-01) and a single-work editor; neither makes repeated judgement cheap. The script is visible in the header whenever it is arme",
+   "id": "M69-20",
+   "title": "a tag script",
+   "sources": [
+    "docs/requirements.csv"
+   ],
+   "milestone": "M69",
+   "relevance": 4,
+   "because": "a requirements row exists (+4)",
+   "default_on": false,
+   "built": false
+  },
+  {
+   "why_summary": "-- Suki spec \u00a714.6. darkhold has a Blind Date (M66-04) and hidden classics (M66-05); the morning queue is the missing half \u2014 a small, bounded, deliberately diverse set rather than ",
+   "id": "M69-22",
+   "title": "the morning queue and the daily surprise, expressed as lenses over surfaces that already exist",
+   "sources": [
+    "docs/requirements.csv"
+   ],
+   "milestone": "M69",
+   "relevance": 4,
+   "because": "a requirements row exists (+4)",
+   "default_on": false,
+   "built": false
+  },
+  {
+   "why_summary": "-- Suki spec \u00a78.4 (import filter) and \u00a711.4. darkhold's importers decide by host and rule (M67-03/04); a lens makes the policy a shareable object the operator can test by running i",
+   "id": "M69-23",
+   "title": "an import source can carry a lens as intake policy",
+   "sources": [
+    "docs/requirements.csv"
+   ],
+   "milestone": "M69",
+   "relevance": 4,
+   "because": "a requirements row exists (+4)",
+   "default_on": false,
+   "built": false
+  },
+  {
+   "why_summary": "-- The synergy row, and the one that keeps the others honest: two products that each implement the blend will disagree within a month, and a passport whose semantics differ between",
+   "id": "M69-24",
+   "title": "one shared taste crate and one JSON schema set, so darkhold and suki compute blend, affinity and the passport identically",
+   "sources": [
+    "docs/requirements.csv"
+   ],
+   "milestone": "M69",
+   "relevance": 4,
+   "because": "a requirements row exists (+4)",
+   "default_on": false,
+   "built": false
+  },
+  {
+   "why_summary": "-- Suki spec \u00a719.2. darkhold's settings are operator-owned with a few per-reader preferences beside them; the cascade is not a rule, so each new setting re-decides it. A shape rath",
+   "id": "M69-26",
+   "title": "every setting is platform default, operator override, reader personalisation \u2014 with the bounds stated once",
+   "sources": [
+    "docs/requirements.csv"
+   ],
+   "milestone": "M69",
+   "relevance": 4,
+   "because": "a requirements row exists (+4)",
+   "default_on": false,
+   "built": false
+  },
+  {
    "why_summary": "docs/ROADMAP-guest-trust-governance.md Firewall specific to this site: reader-visible data is the guest's most valuable and most private artifact, and nothing may be published abou",
    "id": "GS-2",
    "title": "the guest fold moves reading progress and bookmarks with the guest",
@@ -829,6 +1115,45 @@
     "docs/requirements.csv"
    ],
    "milestone": "M64",
+   "relevance": 3,
+   "because": "a requirements row exists (+4); needs a model or heavy compute (-1)",
+   "default_on": false,
+   "built": false
+  },
+  {
+   "why_summary": "-- Suki spec \u00a716.3. A reader leaving for a peer takes a signed document \u2014 taste vector, favourite source URLs, edit counts, affinity at origin. darkhold already recomputes from beh",
+   "id": "M69-03",
+   "title": "a signed taste passport moves a reader's taste and contribution history between instances, suki and darkhold alike",
+   "sources": [
+    "docs/requirements.csv"
+   ],
+   "milestone": "M69",
+   "relevance": 3,
+   "because": "a requirements row exists (+4); needs a model or heavy compute (-1)",
+   "default_on": false,
+   "built": false
+  },
+  {
+   "why_summary": "-- Suki spec \u00a711.1 and \u00a711.2. darkhold has per-reader content filters and reader-warning preferences but no layer model, so every filter is equally overridable and the one that mus",
+   "id": "M69-16",
+   "title": "content filtering in three layers \u2014 hardcoded, policy, taste \u2014 with overrides that carry a reason and an audit trail",
+   "sources": [
+    "docs/requirements.csv"
+   ],
+   "milestone": "M69",
+   "relevance": 3,
+   "because": "a requirements row exists (+4); needs a model or heavy compute (-1)",
+   "default_on": false,
+   "built": false
+  },
+  {
+   "why_summary": "-- Suki spec \u00a76.3 and \u00a76.4. darkhold's resolution hierarchy carries provenance for VALUES (M47-01) but a tag link does not say whether a person or an importer put it there, which i",
+   "id": "M69-17",
+   "title": "a tag assertion records who asserted it \u2014 human, source, model, community \u2014 and a model may only propose",
+   "sources": [
+    "docs/requirements.csv"
+   ],
+   "milestone": "M69",
    "relevance": 3,
    "because": "a requirements row exists (+4); needs a model or heavy compute (-1)",
    "default_on": false,
