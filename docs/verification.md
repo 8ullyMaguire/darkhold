@@ -1,3 +1,44 @@
+## 2026-11-02 — a second discovery shape, and a verdict that measurement overturned
+
+**Requirement:** `M67-04` · **Tests:** 13 in `scribblehub`, 9 in `sources`, 6 in `syndication_sync` ·
+**Docs:** `docs/config-reference.md`, `docs/plans/syndication-sync.md`
+
+### What was built
+
+`Discovery::Listing` — a listing page that needs no tag, walked once per pass. Scribble Hub's
+`/series-ranking/` is the first: 25 stories, numeric id plus slug, from a page captured today.
+
+The extractor requires **exactly** `/series/{id}/{slug}/`. Two traps it closes:
+
+| link | naive result | correct |
+|---|---|---|
+| `/series/123/chapter/9/` | id 123, slug "chapter" → a story page that 404s | rejected: three segments |
+| `/series/123` | accepted, then 404 — the site needs the slug | rejected: one segment |
+
+### The verdict that changed
+
+`royalroad.com` was recorded as `allowed` because its `robots.txt` `*` group permits `/fiction/` and
+chapters. Measurement: **every** listing and work page answers `403` from this host, with a browser user
+agent as well as this client's. The entry is now `blocked`, dated, with the reason, and **keeps its
+adapter** — the code is correct, the host is refusing, and an instance elsewhere may find the same pages
+readable.
+
+That forced a rule change. The validator used to refuse `blocked` + adapter; that rule was wrong (it
+conflated "code exists" with "we may fetch"). The invariant that matters is structural —
+`is_syncable()` asks `may_fetch_metadata()` first, so a blocked entry can never be walked — and the test
+now asserts *that* over the whole catalogue instead of a parse-time rule that could never fire.
+
+### Verification
+
+```
+cargo test -p darkhold-scrapers --lib            → 374 passed
+cargo test -p darkhold-scrapers --lib scribblehub → 13 passed (fixture: 25 real series)
+cargo test -p darkhold-app --test syndication_sync → 6 passed
+```
+
+Syncable sources went **3 → 4** (`squidgeworld`, `fanfictionlol`, `adastra`, `scribblehub`);
+`royalroad` left the set with a dated reason rather than silently failing every pass.
+
 ## 2026-11-02 — the scheduled walk over the sources, once per window and not once per sweep
 
 **Requirement:** `M67-03` · **Tests:** `crates/app/tests/syndication_sync.rs` (6) +

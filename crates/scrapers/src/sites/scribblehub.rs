@@ -173,6 +173,55 @@ impl ScribbleHub {
         (!id.is_empty()).then_some(id)
     }
 
+    /// Story URLs on a listing page (`/series-ranking/`, `/latest-series/`).
+    ///
+    /// Discovery, for the same reason the AO3 family needs it: an archive has no "all works" page a
+    /// crawler may walk, but it does have a listing that links its newest or best works, and that is
+    /// enough to keep a catalogue fresh.
+    ///
+    /// Shape: `/series/{id}/{slug}/`. The id is the only part the importer needs, but the slug is kept
+    /// so the URL is the one the site actually serves — Scribble Hub answers `404` to `/series/{id}`
+    /// without a slug.
+    #[must_use]
+    pub fn stories_from_listing(host: &str, html: &str) -> Vec<String> {
+        let doc = scraper::Html::parse_document(html);
+        let selector =
+            scraper::Selector::parse("a[href]").expect("a literal selector always compiles");
+        let mut seen = std::collections::HashSet::new();
+        let mut out = Vec::new();
+        for anchor in doc.select(&selector) {
+            let Some(href) = anchor.value().attr("href") else {
+                continue;
+            };
+            // Accept both the absolute form the site serves and a path-only form a mirror may emit.
+            let path = href
+                .strip_prefix("https://www.scribblehub.com")
+                .or_else(|| href.strip_prefix("https://scribblehub.com"))
+                .unwrap_or(href);
+            let Some(rest) = path.strip_prefix("/series/") else {
+                continue;
+            };
+            // Exactly `/series/{id}/{slug}/`: two segments and nothing after. A chapter URL
+            // (`/series/123/chapter/9/`) would otherwise read as id 123, slug "chapter" — and queue a
+            // story page that does not exist.
+            let mut parts = rest.split('/').filter(|part| !part.is_empty());
+            let (Some(id), Some(slug)) = (parts.next(), parts.next()) else {
+                continue;
+            };
+            if parts.next().is_some() {
+                continue;
+            }
+            if !id.bytes().all(|b| b.is_ascii_digit()) || slug.is_empty() {
+                continue;
+            }
+            let url = format!("https://{host}/series/{id}/{slug}/");
+            if seen.insert(url.clone()) {
+                out.push(url);
+            }
+        }
+        out
+    }
+
     /// The story's own address, which is what [`SourceWork::source_url`] holds.
     ///
     /// Public with the three below so a test can check that every address this
@@ -788,6 +837,48 @@ pub fn first_published(units: &[ApiChapter]) -> Option<time::OffsetDateTime> {
 
 #[cfg(test)]
 mod tests {
+    #[test]
+    fn a_listing_yields_story_urls_and_nothing_else() {
+        // A page captured from scribblehub.com on 2026-11-02: `/series-ranking/` lists 25 series, and
+        // the page also links to chapters, chapters-lists, reviews and user pages.
+        let html = include_str!("../../tests/fixtures/scribblehub/series-ranking.html");
+        let urls = ScribbleHub::stories_from_listing(HOST, html);
+        assert_eq!(urls.len(), 25, "the ranking lists 25 series: {urls:?}");
+        assert!(
+            urls.iter()
+                .all(|u| u.starts_with("https://scribblehub.com/series/") && u.ends_with('/')),
+            "every URL is absolute, on the source's host, and keeps its slug: {urls:?}"
+        );
+        assert!(
+            urls.iter().all(|u| {
+                let id = u
+                    .trim_start_matches("https://scribblehub.com/series/")
+                    .split('/')
+                    .next()
+                    .unwrap_or_default();
+                id.bytes().all(|b| b.is_ascii_digit())
+            }),
+            "the id segment is numeric"
+        );
+    }
+
+    #[test]
+    fn a_bare_series_link_without_a_slug_is_not_a_story_url() {
+        // `/series/123` answers 404 at the site, so queueing it would create a job that can only fail.
+        let html = r#"<a href="/series/123/some-title/">fine</a>
+                      <a href="/series/123">no slug</a>
+                      <a href="/series/123/chapter/9/">a chapter</a>
+                      <a href="https://www.scribblehub.com/series/456/other/">absolute</a>"#;
+        let urls = ScribbleHub::stories_from_listing(HOST, html);
+        assert_eq!(
+            urls,
+            vec![
+                "https://scribblehub.com/series/123/some-title/".to_owned(),
+                "https://scribblehub.com/series/456/other/".to_owned(),
+            ]
+        );
+    }
+
     use super::*;
     use time::macros::datetime;
 

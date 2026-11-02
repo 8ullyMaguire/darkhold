@@ -131,3 +131,15 @@ every run: a second account would split the syndicated corpus in two, silently. 
   so the gap is visible. Adding one is a fixture + an adapter, in that order.
 * **Comment/thread scraping from forums.** A XenForo thread is a work-in-progress with an index post;
   reading it as a work is a different parser and a different plan.
+
+## Update — a second discovery shape, and a verdict that changed
+
+* **`Discovery::Listing`** (`M67-04`) was added for sources that publish no tag browse a crawler may walk
+  but do publish "what is new". Scribble Hub's `/series-ranking/` is the first: 25 stories per pass,
+  numeric id plus slug, extracted from a page captured today. A `Listing` template carries no `{tag}` and
+  is walked once per pass, not once per configured tag.
+* **Royal Road's verdict changed to `blocked`** after measurement: `robots.txt` allows `/fiction/`, but
+  every listing and work page answers `403` from this host with a browser user agent as well as this
+  client's. The catalogue now says so, and the adapter stays — a blocked source may name an adapter,
+  because the code can be correct while the host refuses. The invariant that matters is structural: a
+  blocked entry is never `is_syncable`.

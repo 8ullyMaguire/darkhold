@@ -89,6 +89,15 @@ pub enum Discovery {
         /// A path template; `{tag}` is substituted and URL-escaped.
         template: String,
     },
+    /// A listing page that needs no tag: `/series-ranking/`, `/latest-series/`.
+    ///
+    /// Some sites publish no tag-indexed browse that a crawler may walk, but do publish "what is new"
+    /// — and that is enough to keep a catalogue fresh. The template carries no `{tag}`, so a sync walks
+    /// it once per pass rather than once per configured tag.
+    Listing {
+        /// A path template, substituted with nothing.
+        template: String,
+    },
     /// No unattended discovery. A reader may paste a URL; nothing walks the site.
     None,
 }
@@ -135,6 +144,15 @@ impl Entry {
         self.adapter.is_some()
             && self.bodies.may_fetch_metadata()
             && !matches!(self.discovery, Discovery::None)
+    }
+
+    /// The one listing URL, for a source whose discovery needs no tag.
+    #[must_use]
+    pub fn listing_url(&self) -> Option<String> {
+        match &self.discovery {
+            Discovery::Listing { template } => Some(format!("https://{}{}", self.host, template)),
+            _ => None,
+        }
     }
 
     /// The listing URL for a tag, when this source has a tag-page discovery shape.
@@ -228,11 +246,19 @@ impl Catalogue {
                     entry.id
                 )));
             }
-            if entry.bodies == Bodies::Blocked && entry.adapter.is_some() {
-                return Err(CatalogueError(format!(
-                    "entry `{}` is blocked but names an adapter — we may not fetch it at all",
-                    entry.id
-                )));
+            if let Discovery::Listing { template } = &entry.discovery {
+                if !template.starts_with('/') {
+                    return Err(CatalogueError(format!(
+                        "entry `{}` has a listing template that is not a path: `{template}`",
+                        entry.id
+                    )));
+                }
+                if template.contains("{tag}") {
+                    return Err(CatalogueError(format!(
+                        "entry `{}` lists a tag template as a tagless listing; one of the two is wrong",
+                        entry.id
+                    )));
+                }
             }
             if let Discovery::TagPage { template } = &entry.discovery {
                 if !template.contains("{tag}") {
@@ -302,13 +328,31 @@ mod tests {
     }
 
     #[test]
-    fn a_blocked_entry_may_not_name_an_adapter() {
-        let mut catalogue = Catalogue::bundled().expect("bundled");
-        catalogue.entries[0].bodies = Bodies::Blocked;
-        catalogue.entries[0].adapter = Some("ao3".to_owned());
-        let error = Catalogue::parse(&serde_json::to_string(&catalogue).expect("serialise"))
-            .expect_err("blocked + adapter is a contradiction");
-        assert!(error.to_string().contains("blocked"), "{error}");
+    fn a_blocked_entry_may_name_an_adapter_but_is_never_walked() {
+        // A blocked source may keep its adapter: the code can be right while the host refuses this
+        // instance (`royalroad.com` answers 403 to every listing and work page here, with any user
+        // agent). The invariant is not "no adapter" but "not walkable", and it holds structurally
+        // because `is_syncable` asks `may_fetch_metadata` first.
+        let catalogue = Catalogue::bundled().expect("bundled");
+        let mut blocked = 0;
+        for entry in &catalogue.entries {
+            if entry.bodies == Bodies::Blocked {
+                blocked += 1;
+                assert!(
+                    !entry.is_syncable(),
+                    "`{}` is blocked and walkable — the pass would fetch a source we may not touch",
+                    entry.id
+                );
+            }
+        }
+        assert!(blocked >= 4, "the catalogue has blocked entries to check");
+        assert!(
+            catalogue
+                .entries
+                .iter()
+                .any(|e| e.bodies == Bodies::Blocked && e.adapter.is_some()),
+            "and at least one of them keeps its adapter, which is legal"
+        );
     }
 
     #[test]
@@ -334,14 +378,32 @@ mod tests {
     #[test]
     fn a_syncable_entry_has_something_to_walk() {
         for entry in Catalogue::bundled().expect("bundled").syncable() {
-            let url = entry
-                .tag_page_url("Star Trek")
-                .unwrap_or_else(|| panic!("`{}` is syncable but has no listing URL", entry.id));
-            assert_eq!(
-                url,
-                format!("https://{}/tags/Star%20Trek/works", entry.host),
-                "the template puts the tag in a path segment, escaped"
-            );
+            match &entry.discovery {
+                Discovery::TagPage { .. } => {
+                    let url = entry
+                        .tag_page_url("Star Trek")
+                        .expect("a tag page resolves for a tag source");
+                    assert_eq!(
+                        url,
+                        format!("https://{}/tags/Star%20Trek/works", entry.host),
+                        "the template puts the tag in a path segment, escaped"
+                    );
+                }
+                Discovery::Listing { .. } => {
+                    let url = entry
+                        .listing_url()
+                        .expect("a listing source resolves without a tag");
+                    assert!(
+                        url.starts_with(&format!("https://{}/", entry.host)),
+                        "the listing is on the source's own host: {url}"
+                    );
+                    assert!(
+                        !url.contains("{tag}"),
+                        "a tagless listing carries no placeholder: {url}"
+                    );
+                }
+                Discovery::None => panic!("`{}` is syncable with nothing to walk", entry.id),
+            }
         }
     }
 

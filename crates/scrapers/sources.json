@@ -491,7 +491,7 @@
       "host": "royalroad.com",
       "family": "royalroad",
       "adapter": "royalroad",
-      "bodies": "allowed",
+      "bodies": "blocked",
       "robots": {
         "verdict": "*: /account/, /fiction/chapter/*/vote; named AI bots blocked from chapters",
         "checked": "2026-11-02"
@@ -499,7 +499,7 @@
       "discovery": {
         "kind": "none"
       },
-      "note": "* group allows chapters; the AI-bot list does not name this client — an operator may still choose metadata-only."
+      "note": "robots.txt's * group allows /fiction/ and chapters, but every listing and work page answers 403 to this host with any user agent (checked 2026-11-02). The adapter exists and stays; the source is listed as blocked so nothing walks it. An instance on another network may find the same pages readable — re-check before trusting this verdict."
     },
     {
       "id": "scribblehub",
@@ -513,9 +513,10 @@
         "checked": "2026-11-02"
       },
       "discovery": {
-        "kind": "none"
+        "kind": "listing",
+        "template": "/series-ranking/"
       },
-      "note": "WordPress front end."
+      "note": "WordPress front end; /series-ranking/ lists 25 stories with numeric ids and slugs (captured 2026-11-02). No tag browse a crawler may walk, so discovery is the ranking page."
     },
     {
       "id": "sufficientvelocity",

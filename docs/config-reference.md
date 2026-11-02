@@ -379,8 +379,15 @@ account_email = "syndication@darkhold.invalid"
 ```
 
 The pass reads the catalogue in `crates/scrapers/sources.json`: 33 platforms, each with a **dated
-`robots.txt` verdict** and a bodies policy. It walks only entries with an adapter *and* a discovery shape
-— today the three AO3-software archives (`/tags/{tag}/works`). Each discovered work becomes one `Import`
+`robots.txt` verdict** and a bodies policy. It walks only entries with an adapter *and* a discovery shape,
+and there are two shapes: a **tag listing** (`/tags/{tag}/works`, one page per configured tag — the three
+AO3-software archives) and a **tagless listing** (Scribble Hub's `/series-ranking/`, walked once per pass).
+Each discovered work becomes one `Import` job, keyed `syndication:{source}:{work_id}`, so a second pass
+over the same listing queues nothing.
+
+`royalroad.com` is listed as **blocked**: its `robots.txt` allows the pages, but the site answers `403` to
+every listing and work page from this host whatever the user agent, so nothing walks it. The adapter stays —
+the code is right, the host is refusing — and an instance on another network should re-check the verdict. Each discovered work becomes one `Import`
 job through the existing pipeline, keyed `syndication:{source}:{work_id}`, so a second pass over the same
 listing queues nothing.
 

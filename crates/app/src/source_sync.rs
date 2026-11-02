@@ -141,9 +141,23 @@ pub async fn run(state: &AppState) -> anyhow::Result<Summary> {
         // The instance account needs a pseud per source, created on first use and found afterwards.
         let pseud = syndication::ensure_pseud(state.db(), account, &entry.id, &entry.name).await?;
 
-        // Discovery shapes are per family; today only the AO3-software tag listing is implemented, and
-        // the catalogue says so per entry rather than the job guessing.
-        if !matches!(entry.discovery, Discovery::TagPage { .. }) {
+        // Discovery shapes are per family, and the catalogue says which one each entry has rather than
+        // the job guessing: a tag listing (`/tags/{tag}/works`, one per configured tag) or a tagless
+        // listing (`/series-ranking/`, walked once per pass).
+        let listings: Vec<(String, String)> = match &entry.discovery {
+            Discovery::TagPage { .. } => config
+                .tags
+                .iter()
+                .filter_map(|tag| entry.tag_page_url(tag).map(|url| (tag.clone(), url)))
+                .collect(),
+            Discovery::Listing { .. } => entry
+                .listing_url()
+                .map(|url| (String::new(), url))
+                .into_iter()
+                .collect(),
+            Discovery::None => Vec::new(),
+        };
+        if listings.is_empty() {
             report.skipped = Some("no discovery shape this build can walk".to_owned());
             summary.sources.push(report);
             continue;
@@ -152,10 +166,7 @@ pub async fn run(state: &AppState) -> anyhow::Result<Summary> {
         let policy = crate::imports::policy_for(adapter, state.config());
         let fetcher = SafeFetcher::new(vec![entry.host.clone()], policy);
 
-        for tag in &config.tags {
-            let Some(url) = entry.tag_page_url(tag) else {
-                continue;
-            };
+        for (tag, url) in listings {
             let fetched = match fetcher.get_declared(&url, FetchClass::Metadata).await {
                 Ok(fetched) => fetched,
                 Err(error) => {
@@ -170,7 +181,17 @@ pub async fn run(state: &AppState) -> anyhow::Result<Summary> {
                 }
             };
 
-            let urls = work_urls_from_tag_page(&entry.host, &fetched.body);
+            let urls = match &entry.discovery {
+                Discovery::Listing { .. } => {
+                    darkhold_scrapers::sites::scribblehub::ScribbleHub::stories_from_listing(
+                        &entry.host,
+                        &fetched.body,
+                    )
+                }
+                // The tag-page shape is the AO3-software family's, and `{tag}` in the template is the
+                // reason: a different family with a tag browse needs its own extractor, not this one.
+                _ => work_urls_from_tag_page(&entry.host, &fetched.body),
+            };
             report.discovered += urls.len();
 
             for url in urls.into_iter().take(config.max_works_per_listing) {
