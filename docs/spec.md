@@ -1543,6 +1543,28 @@ Seasonal events run for 4–8 weeks with boosted multipliers (1.5x completion cr
 
 - Appear on public profile if user chooses to display them.
 - Each badge shows icon, name, and **"Awarded ×N"** count.
+
+**As built (2026-11-02, `M47-14`).** One badge ships: **First Words** — publish your first work, 20
+credits — because it is the only milestone in the table whose condition this build can measure
+without inventing a signal first. It is awarded from `publish_work`, *after* the publication
+transaction commits: the bonus is an economy write of its own, and one inside the transaction would
+let a ledger failure roll back a publication the author had already been told succeeded.
+
+| property | how |
+|---|---|
+| one award per account | `UNIQUE (account_id, badge)` — a replay is `ON CONFLICT DO NOTHING` |
+| the bonus is paid once | `post_transaction`'s idempotency key is `badge:<slug>:<account>` |
+| the bonus is not recomputed | `badge_award.credits` records what was paid, not what the constant says now |
+| "new author" is not a column | derived from the published-work count on every read |
+
+**"If user chooses to display them" is not built.** There is no per-pseud preference to hold that
+choice, and a boolean nothing can set is a control with no reader; the profile's own
+`discoverability = hidden` already hides the page and everything on it. Recorded in
+`docs/known-gaps.md` as `M47-G03` rather than half-built.
+
+`Awarded ×N` applies to §9.7.6's *recurring* badges; the milestone badges on this list are one-time
+by definition, so a count is `×1` and the profile shows the name alone.
+
 - Global award count visible in the badge catalog ("Awarded 142 times across all users") to show rarity.
 - Users feature up to 6 badges on their profile.
 - Badge catalog at `/badges` with all available badges, conditions, and global counts.

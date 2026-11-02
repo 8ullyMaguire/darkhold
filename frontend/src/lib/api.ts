@@ -273,6 +273,15 @@ export interface OwnPseud extends Pseud {
   active: boolean;
 }
 
+/** One milestone badge on a public profile (§9.7.6). */
+export interface PublicBadge {
+  badge: string;
+  name: string;
+  /** The credits it paid when it was awarded. */
+  credits: number;
+  awarded_at: string;
+}
+
 /** A pseud as the public sees it: no owner, no version, no session. */
 export interface PublicPseud {
   id: string;
@@ -280,6 +289,9 @@ export interface PublicPseud {
   display_name: string;
   bio: string | null;
   created_at: string;
+  badges: PublicBadge[];
+  /** Whether this author has published exactly one work — derived, never stored. */
+  debut: boolean;
 }
 
 /** One signed-in device. */

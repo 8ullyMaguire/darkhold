@@ -1,3 +1,45 @@
+## 2026-11-02 — M47-14: First Words, the debut badge (audit item 75)
+
+**Requirement:** `M47-14` · **Tests:** 3 domain + 3 route (both engines) + 6 frontend
+
+No badges table existed. §9.7.6's fourteen milestone rows were specification only, so the audit's
+"one boolean + a badge" was a feature and the boolean was the part to reject: a stored
+`is_new_author` flag goes stale the instant a second work is published.
+
+```
+table:   badge_award (0144), UNIQUE (account_id, badge)
+rule:    First Words — publish your first work — 20 credits (§9.7.6's own row)
+trigger: content::publish_work → award_debut_badge, AFTER the commit
+surface: PublicPseudView.badges / .debut → PseudProfile.svelte
+```
+
+**Why after the commit.** `publish_work` is one transaction covering the state change, the
+publication event and two outbox rows, and the author is told it succeeded when that commits. The
+bonus is a second ledger write with its own idempotency key; inside the transaction, a ledger failure
+would roll back a publication already reported as done.
+
+**One-time-ness has three layers**, and it matters which one carries it: `UNIQUE (account_id, badge)`,
+the early return when the insert conflicted, and `post_transaction`'s key
+`badge:<slug>:<account>`. Mutating the publish hook's `if count != 1` guard away leaves every test
+green — so that guard is a fast path (it skips two reads per later publication), not the invariant.
+Recorded in `docs/plans/m47-14-debut-badge.md` so the next reader does not delete it expecting a
+failure and conclude the tests are asleep.
+
+**PostgreSQL, again, found what SQLite could not:** `owner_pseud_id::text = ?` (UUID vs TEXT bind),
+and `account_id::text` on the *select* as well (PostgreSQL refuses to decode a UUID column into a
+`String`, which surfaced as a 500 on the profile route rather than as a type error).
+
+```
+cargo test -p darkhold-domain --lib badges              -> 3 passed
+cargo test -p darkhold-app --test m47_14_debut_badge    -> 3 passed, SQLite and PostgreSQL
+cargo test -p darkhold-app --test route_inventory       -> 5 passed
+cargo test -p darkhold-db  --test migration_catalogue   -> 6 passed
+cd frontend && npx vitest run src/routes/PseudProfile.test.ts -> 6 passed
+```
+
+**Red by removal:** skipping the bonus (`if false`) fails the credit assertion; widening
+`published == 1` to `>= 1` fails the second-publication test.
+
 ## 2026-11-02 — M47-13: §9.7.9 reading goals (audit item 41)
 
 **Requirement:** `M47-13` · **Tests:** 7 domain + 5 db + 4 route (both engines) + 5 frontend

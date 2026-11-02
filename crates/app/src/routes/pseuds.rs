@@ -77,6 +77,31 @@ pub struct PublicPseudView {
     pub bio: Option<String>,
     /// Creation time, RFC 3339.
     pub created_at: String,
+    /// The milestone badges this account holds (§9.7.6).
+    ///
+    /// §9.7.6 says a badge appears "if the user chooses to display them". This build has no
+    /// per-pseud preference for that, and the profile's own `discoverability` setting already hides
+    /// the page and everything on it — so the display choice this build honours is the one that
+    /// exists. Recorded in `docs/known-gaps.md` rather than half-built with a flag nothing sets.
+    pub badges: Vec<BadgeView>,
+    /// Whether this author has published exactly one work — the debut signal, derived.
+    ///
+    /// Derived rather than stored: a `is_new_author` column would go stale the moment a second work
+    /// was published, and a stale flag is worse than no flag.
+    pub debut: bool,
+}
+
+/// One badge on a public profile.
+#[derive(Debug, Serialize)]
+pub struct BadgeView {
+    /// Stable slug.
+    pub badge: String,
+    /// Display name.
+    pub name: String,
+    /// The credits it paid when it was awarded.
+    pub credits: i64,
+    /// When, RFC 3339.
+    pub awarded_at: String,
 }
 
 #[derive(Debug, Deserialize)]
@@ -342,12 +367,40 @@ async fn public_profile(
         return Err(ApiError(AppError::NotFound { resource: "pseud" }));
     }
 
+    // Badges and the debut signal. Both are derived from the catalogue on every read rather than
+    // cached on the pseud, so a second publication removes "new author" without anyone remembering
+    // to clear a flag.
+    let account = darkhold_db::badges::account_for_pseud(state.db(), &pseud.id.to_string()).await?;
+    let (badges, debut) = match account {
+        Some(account) => {
+            let awards = darkhold_db::badges::for_account(state.db(), &account).await?;
+            let published =
+                darkhold_db::badges::published_work_count(state.db(), &pseud.id.to_string())
+                    .await?;
+            (
+                awards
+                    .into_iter()
+                    .map(|award| BadgeView {
+                        badge: award.badge,
+                        name: award.name,
+                        credits: award.credits,
+                        awarded_at: award.awarded_at,
+                    })
+                    .collect::<Vec<_>>(),
+                published == 1,
+            )
+        }
+        None => (Vec::new(), false),
+    };
+
     Ok(Json(PublicPseudView {
         id: pseud.id,
         handle: pseud.handle,
         display_name: pseud.display_name,
         bio: pseud.bio,
         created_at: pseud.created_at,
+        badges,
+        debut,
     }))
 }
 

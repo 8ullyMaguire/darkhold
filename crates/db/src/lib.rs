@@ -20,6 +20,7 @@ pub mod analytics;
 pub mod bounties;
 pub mod browse;
 pub mod canon_agnostic;
+pub mod badges;
 pub mod catalogue;
 pub mod catalogue_export;
 // M63-03: source-relative quality metrics.

@@ -58,9 +58,24 @@
 {:else if pseud}
   <article class="profile">
     <header>
-      <h1>{pseud.display_name}</h1>
+      <h1>
+        {pseud.display_name}
+        {#if pseud.debut}
+          <span class="debut">New author</span>
+        {/if}
+      </h1>
       <p class="handle">@{pseud.handle}</p>
     </header>
+
+    {#if pseud.badges.length > 0}
+      <ul class="badges" aria-label="Badges">
+        {#each pseud.badges as badge (badge.badge)}
+          <li class="badge">
+            <span class="badge-name">{badge.name}</span>
+          </li>
+        {/each}
+      </ul>
+    {/if}
 
     {#if pseud.bio}
       <p class="bio">{pseud.bio}</p>
@@ -88,6 +103,34 @@
   h1 {
     font-family: var(--font-heading);
     margin: 0;
+  }
+
+  .debut {
+    margin-left: var(--space-2);
+    font-family: var(--font-interface);
+    font-size: var(--text-sm);
+    font-weight: 600;
+    color: var(--color-accent);
+    border: 1px solid var(--color-accent);
+    border-radius: 999px;
+    padding: 0 var(--space-2);
+    vertical-align: middle;
+  }
+
+  .badges {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-2);
+    list-style: none;
+    padding: 0;
+    margin: 0 0 var(--space-4);
+  }
+
+  .badge {
+    border: 1px solid var(--color-border);
+    border-radius: 999px;
+    padding: 0 var(--space-3);
+    font-size: var(--text-sm);
   }
 
   .handle {

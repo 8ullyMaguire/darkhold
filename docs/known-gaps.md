@@ -356,6 +356,17 @@ Two things worth keeping from the original entry:
 - The convention it asked for is adopted: a "set this field once" write guards with
   `AND <field> IS NULL` or says in its docstring that the last write wins.
 
+### M47-G03 · §9.7.6's "display badges if the user chooses" has no preference to hold it
+
+Badges appear on a public profile unconditionally, and §9.7.6 says they appear "if user chooses to
+display them". The only display control this build has is the profile's own
+`discoverability = hidden`, which hides the badges with everything else — so a reader who wants the
+page but not the badge row has no way to say so.
+
+Left open rather than half-built: a `show_badges` column needs a settings surface to set it, and a
+boolean nothing can write is a control with no reader. The migration and the store are ready for it
+(the profile reads `badges` from `badge_award` on every request, so a filter is one `WHERE`).
+
 ### M47-G01 · `GET /jobs` cannot order two jobs enqueued in the same second
 
 `jobs` has no monotonic column, and every timestamp in this schema has one-second resolution
