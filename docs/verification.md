@@ -1,3 +1,65 @@
+## 2026-11-02 — three request paths, and none of them waited
+
+**Requirement:** `M63-20` · **Tests:** `crates/cli/tests/rate_limit.rs` (3) · **Code:**
+`crates/cli/src/http.rs` · **Doc:** `docs/cli-exit-codes.md`
+
+### The defect
+
+`dh rec`, `dh supply` and `dh module set` each built their own `reqwest` call. That is how they came
+to disagree about exit codes (`M63-16`, closed earlier today), and a rate limit was the next thing
+they would have disagreed about: none of them handled `429` at all. The first `429` became a general
+failure — the shell saw `1` and a message quoting `Retry-After` back at a person who now has to sleep
+in a loop they did not write. A batch that dies at row 400 because of a rate limit is a tooling bug.
+
+### The change
+
+`crates/cli/src/http.rs` is now the one request path:
+
+- **`429` is honoured from `Retry-After`**, capped at 60 s so a hostile or misconfigured header cannot
+  hang a terminal for an hour, and **jittered by up to 250 ms** so N scripts that hit the limit
+  together do not return together and hit it again together.
+- **The wait is printed on stderr** — `rate-limited: waiting 2s (attempt 2 of 3)` — because a command
+  that pauses for forty seconds with no output reads as a hang, and because a caller piping `--json`
+  to `jq` must not receive the line.
+- **Three attempts, then code `5`** with the window in the message (`M63-16`'s contract: `5` means
+  "come back later", not "fix your command").
+- **Only `429` is retried.** A `401` fails at once with `4`; three round trips and a pause to repeat
+  the same refusal is not kindness, and retrying `500` silently would turn a broken instance into a
+  slow one.
+
+`rec`, `supply` and `module`'s write now all call it, which removes the third per-verb request path
+and means the exit-code mapping and the rate-limit policy cannot drift apart again.
+
+### Verification
+
+```
+cargo test -p darkhold-cli --test rate_limit
+→ 3 passed in 0.41s
+```
+
+The tests drive the real binary against a server that answers a **script** of statuses, so they prove
+what a unit test cannot: the request is retried (`served == 2`), the caller's stdout stays parseable
+while the wait is announced on stderr, and giving up is `5` after exactly three requests with two
+announced waits.
+
+Mutations, each failing the named test: `MAX_ATTEMPTS = 1` (no retry), retrying every `>= 400`
+instead of `429` (the `401` test), printing the wait with `println!` instead of `eprintln!`, and
+giving up with code `1` instead of `5`.
+
+### The new policy broke an older test, and the older test was wrong in a way worth naming
+
+`exit_codes.rs`'s `a_rate_limit_is_five` answered one `429` with `Retry-After: 60` and closed its
+listener. With retries in place it slept **60 seconds**, then failed — 8 passed, 1 failed, 60.06 s.
+A test written before a policy existed encoded the old behaviour (one request, one answer) without
+saying so. It now serves three requests with `Retry-After: 0`, and the assertion is unchanged: after
+the attempts are spent, the code is `5`.
+
+The general shape: **making a failure retryable changes the timing contract of every test that
+provokes it.** Any fixture that answers once and closes will now measure the retry path instead of the
+first response, so its `Retry-After` must be near zero and its listener must survive the attempts.
+
+Open requirements go **76 → 75** (`M63` 29 → 28).
+
 ## 2026-11-02 — the CLI told scripts that a missing session was a typo
 
 **Requirements:** `M63-16` (exit codes as an API), `M63-28` (the crate may not depend on the server) ·

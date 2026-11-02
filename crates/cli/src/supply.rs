@@ -133,22 +133,18 @@ pub async fn run(cli: &Cli, args: &SupplyArgs) -> Result<(), Failure> {
         ),
     };
 
-    let mut request = client.request(method, &url).bearer_auth(token);
-    if let Some(b) = body {
-        request = request.json(&b);
-    }
-    let response = request.send().await.map_err(|e| match e.is_connect() {
-        true => environment(format!(
-            "nothing listening at {} — is the server running? (--base-url)",
-            cli.base_url
-        )),
-        false => environment(format!("request failed: {e}")),
-    })?;
-    let status = response.status().as_u16();
-    let bytes = response
-        .bytes()
-        .await
-        .map_err(|e| environment(format!("reading the response: {e}")))?;
+    // The same request path as `dh rec`, so a `429` is waited out here too (`crate::http`).
+    let (status, bytes) = crate::http::send(
+        || {
+            let mut request = client.request(method.clone(), &url).bearer_auth(token);
+            if let Some(b) = &body {
+                request = request.json(b);
+            }
+            request
+        },
+        &cli.base_url,
+    )
+    .await?;
     let body: Value = serde_json::from_slice(&bytes).unwrap_or(Value::Null);
     if !(200..300).contains(&status) {
         return Err(failure_for(status, &body, &cli.base_url));

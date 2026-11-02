@@ -35,6 +35,23 @@ Both now call `exit::for_status`, and the local refusals follow the same table: 
 request that is known to need a session (an engine, `--exclude-read`) exits **4**, because refusing
 locally must not change what the number means.
 
+## Code `5` means the wait was already tried
+
+`dh` does not report the first `429`. It honours `Retry-After` (capped at 60s), adds up to 250 ms of
+jitter so parallel scripts do not return in lockstep, and prints the wait on **stderr** — a command
+that pauses for forty seconds with no output reads as a hang, and a caller piping `--json` to `jq`
+must not receive the line:
+
+```text
+$ dh rec --fandom naruto
+rate-limited: waiting 2s (attempt 2 of 3)
+```
+
+Three attempts (`crates/cli/src/http.rs::MAX_ATTEMPTS`), then code `5` with the window in the
+message. So `5` from `dh` means *this client already waited and the instance is still refusing*:
+come back later, do not fix the command. Only `429` is retried — a `401` fails immediately with `4`,
+because three round trips and a pause to repeat the same refusal is not kindness.
+
 ## Adding a code
 
 Append, never renumber. A script written against the current table is a script with an assumption in

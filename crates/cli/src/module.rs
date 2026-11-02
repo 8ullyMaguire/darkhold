@@ -426,24 +426,18 @@ async fn override_one(cli: &Cli, id: &str, enabled: bool) -> Result<(), Failure>
         .build()
         .map_err(|error| environment(format!("http client: {error}")))?;
     let url = format!("{}/api/v1/modules/{id}", cli.base_url);
-    let response = client
-        .patch(&url)
-        .header(reqwest::header::COOKIE, cookie)
-        .json(&serde_json::json!({ "enabled": enabled }))
-        .send()
-        .await
-        .map_err(|error| match error.is_connect() {
-            true => environment(format!(
-                "nothing listening at {} — is the server running? (--base-url)",
-                cli.base_url
-            )),
-            false => environment(format!("request failed: {error}")),
-        })?;
-    let status = response.status().as_u16();
-    let bytes = response
-        .bytes()
-        .await
-        .map_err(|error| environment(format!("reading the response: {error}")))?;
+    // The shared request path: a rate-limited PATCH was not applied, so retrying it is safe, and a
+    // 429 that outlasts the attempts is code 5 rather than a generic failure.
+    let (status, bytes) = crate::http::send(
+        || {
+            client
+                .patch(&url)
+                .header(reqwest::header::COOKIE, cookie)
+                .json(&serde_json::json!({ "enabled": enabled }))
+        },
+        &cli.base_url,
+    )
+    .await?;
     let body: serde_json::Value = serde_json::from_slice(&bytes).unwrap_or(serde_json::Value::Null);
     if !(200..300).contains(&status) {
         // One mapping for every verb (`crate::exit::for_status`). This arm used to return

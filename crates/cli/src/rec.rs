@@ -609,26 +609,20 @@ pub async fn run(cli: &Cli, args: &RecArgs) -> Result<(), Failure> {
         .timeout(std::time::Duration::from_secs(60))
         .build()
         .map_err(|e| environment(format!("http client: {e}")))?;
-    let mut request = client.get(&url);
-    if let Some(token) = &cli.token {
-        request = request.bearer_auth(token);
-    }
-    let response = request.send().await.map_err(|e| {
-        // The most common failure by far is "nothing is listening", and the
-        // generic reqwest text for it names neither the address nor the fix.
-        match e.is_connect() {
-            true => environment(format!(
-                "nothing listening at {} — is the server running? (--base-url)",
-                cli.base_url
-            )),
-            false => environment(format!("request failed: {e}")),
-        }
-    })?;
-    let status = response.status().as_u16();
-    let bytes = response
-        .bytes()
-        .await
-        .map_err(|e| environment(format!("reading the response: {e}")))?;
+    // One request path for every verb (`crate::http`), so a rate limit is waited out the same way
+    // here as in `dh supply`, and a `429` that outlasts the attempts is code 5 everywhere.
+    let token = cli.token.clone();
+    let (status, bytes) = crate::http::send(
+        || {
+            let mut request = client.get(&url);
+            if let Some(token) = &token {
+                request = request.bearer_auth(token);
+            }
+            request
+        },
+        &cli.base_url,
+    )
+    .await?;
     let body: Value = serde_json::from_slice(&bytes).unwrap_or(Value::Null);
     if !(200..300).contains(&status) {
         return Err(failure_for(status, &body, &cli.base_url));

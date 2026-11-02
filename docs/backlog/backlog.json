@@ -6,8 +6,8 @@
         "implemented-verified-e2e": 129,
         "implemented-locally-tested": 246,
         "unsupported": 4,
-        "implemented-fully-tested": 378,
-        "planned": 76,
+        "implemented-fully-tested": 379,
+        "planned": 75,
         "evaluated-and-rejected": 1
       }
     },
@@ -232,12 +232,6 @@
       "milestone": "M63",
       "requirement": "Scoped tokens per command family, with the missing scope named on refusal",
       "notes": "Power-user sweep P19. dh never sends a request it knows will be refused, and the refusal says 'token lacks library:write' rather than 403. Extends the shipped scoped-token issuance UI."
-    },
-    {
-      "id": "M63-20",
-      "milestone": "M63",
-      "requirement": "Rate-limit awareness: back off with jitter on 429, print the retry window, never die silently mid-batch",
-      "notes": "Power-user sweep P20. A batch that fails at row 400 because of a 429 is a tooling bug, not a user error."
     },
     {
       "id": "M63-21",
@@ -481,7 +475,7 @@
     }
   ],
   "open_by_milestone": {
-    "M63": 29,
+    "M63": 28,
     "M45": 23,
     "M64": 14,
     "M66": 6,

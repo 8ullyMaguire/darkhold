@@ -17,6 +17,7 @@
 //! `docs/cli-exit-codes.md`, because a wrapper script decides what to do from that number alone.
 
 mod exit;
+mod http;
 mod module;
 mod rec;
 mod supply;

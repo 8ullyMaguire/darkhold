@@ -41,7 +41,34 @@ fn canned_server(status: u16, body: &'static str) -> u16 {
             };
             let response = format!(
                 "HTTP/1.1 {status} {reason}\r\nContent-Type: application/json\r\n\
-                 Content-Length: {}\r\nRetry-After: 60\r\nConnection: close\r\n\r\n{body}",
+                 Content-Length: {}\r\nRetry-After: 0\r\nConnection: close\r\n\r\n{body}",
+                body.len()
+            );
+            let mut stream = stream;
+            let _ = stream.write_all(response.as_bytes());
+        }
+    });
+    port
+}
+
+/// Like [`canned_server`] but answers `times` requests, for the retrying path (`M63-20`).
+fn canned_server_repeating(status: u16, body: &'static str, times: usize) -> u16 {
+    let listener = TcpListener::bind("127.0.0.1:0").expect("bind");
+    let port = listener.local_addr().expect("addr").port();
+    std::thread::spawn(move || {
+        for stream in listener.incoming().take(times) {
+            let Ok(stream) = stream else { break };
+            let mut reader = BufReader::new(stream.try_clone().expect("clone"));
+            let mut line = String::new();
+            while reader.read_line(&mut line).map(|n| n > 0).unwrap_or(false) {
+                if line == "\r\n" {
+                    break;
+                }
+                line.clear();
+            }
+            let response = format!(
+                "HTTP/1.1 {status} Status\r\nContent-Type: application/json\r\n\
+                 Content-Length: {}\r\nRetry-After: 0\r\nConnection: close\r\n\r\n{body}",
                 body.len()
             );
             let mut stream = stream;
@@ -111,7 +138,10 @@ fn a_server_refusal_of_a_session_is_four() {
 
 #[test]
 fn a_rate_limit_is_five() {
-    let port = canned_server(429, r#"{"error":{"message":"slow down"}}"#);
+    // `M63-20` made `429` retryable, so this test needs a server that answers three times and a
+    // `Retry-After: 0` so it does not spend a real minute asleep. The assertion is unchanged: after
+    // the attempts are spent, the code is 5.
+    let port = canned_server_repeating(429, r#"{"error":{"message":"slow down"}}"#, 3);
     assert_eq!(
         dh_against(port, &["rec", "--fandom", "naruto"]),
         5,
