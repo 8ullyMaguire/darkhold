@@ -44,6 +44,52 @@ use crate::{
     SourceWork, UnitRef, Wall, WorkStatus,
 };
 
+/// The work URLs on an AO3-software tag listing page (`/tags/{tag}/works`).
+///
+/// This is *discovery*, which no adapter method provides: an adapter reads one work, and the archive's
+/// own search page (`/works?…`) is disallowed to `*` by every member's `robots.txt` — the tag listing is
+/// the only listing this family exposes to a plain crawler. SquidgeWorld, Ad Astra and fanfiction.lol
+/// all serve the same markup, so one extractor covers all three.
+///
+/// The filter is narrow on purpose. A tag listing also links to bookmarks, series, user pages and to
+/// *chapters* of the works it lists (`/works/123/chapters/456`); importing those would enqueue the same
+/// work once per chapter and then once again as a work. Only a bare `/works/{digits}` is a work.
+///
+/// Order is document order (newest first, as the archive sorts it) with duplicates dropped: a listing
+/// can repeat a work across a series blurb and its own entry.
+#[must_use]
+pub fn work_ids_from_tag_page(html: &str) -> Vec<String> {
+    let doc = Html::parse_document(html);
+    let selector = scraper::Selector::parse("a[href]").expect("a literal selector always compiles");
+    let mut seen = std::collections::HashSet::new();
+    let mut out = Vec::new();
+    for anchor in doc.select(&selector) {
+        let Some(href) = anchor.value().attr("href") else {
+            continue;
+        };
+        let Some(rest) = href.strip_prefix("/works/") else {
+            continue;
+        };
+        // `{digits}` and nothing else: no `/chapters/`, no `?`, no trailing slash.
+        if rest.is_empty() || !rest.bytes().all(|b| b.is_ascii_digit()) {
+            continue;
+        }
+        if seen.insert(rest.to_owned()) {
+            out.push(rest.to_owned());
+        }
+    }
+    out
+}
+
+/// The absolute work URLs on a tag listing page, for one host.
+#[must_use]
+pub fn work_urls_from_tag_page(host: &str, html: &str) -> Vec<String> {
+    work_ids_from_tag_page(html)
+        .into_iter()
+        .map(|id| format!("https://{host}/works/{id}"))
+        .collect()
+}
+
 /// Hosts this adapter serves.
 const HOSTS: [&str; 3] = [
     "archiveofourown.org",
@@ -779,6 +825,41 @@ fn parse_number(raw: &str) -> Option<i64> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn a_tag_listing_yields_work_urls_and_nothing_else() {
+        // A page captured from squidgeworld.org on 2026-11-02 — the real markup, not a sample. 25 works
+        // are listed there, and the page also links to chapters, series, bookmarks and user pages; the
+        // extractor must return exactly the works, or the importer enqueues one job per chapter and one
+        // more per work.
+        let html = include_str!("../../tests/fixtures/squidgeworld/tag-naruto.html");
+        let ids = work_ids_from_tag_page(html);
+        assert_eq!(ids.len(), 25, "the listing carries 25 works: {ids:?}");
+        assert!(ids.iter().all(|id| id.bytes().all(|b| b.is_ascii_digit())));
+        assert!(
+            ids.windows(2).all(|w| w[0] != w[1]),
+            "duplicates are dropped, not repeated"
+        );
+
+        let urls = work_urls_from_tag_page("squidgeworld.org", html);
+        assert_eq!(urls.len(), 25);
+        assert!(
+            urls.iter()
+                .all(|u| u.starts_with("https://squidgeworld.org/works/")),
+            "every URL is absolute and on the source's own host: {urls:?}"
+        );
+    }
+
+    #[test]
+    fn chapter_links_are_not_mistaken_for_works() {
+        let html = r#"<a href="/works/123">the work</a>
+                      <a href="/works/123/chapters/456">chapter two</a>
+                      <a href="/works/123?view_full_work=true">full work</a>
+                      <a href="/works/123/">same work</a>
+                      <a href="/works/search?tag=Naruto">search</a>
+                      <a href="/bookmarks/9">a bookmark</a>"#;
+        assert_eq!(work_ids_from_tag_page(html), vec!["123".to_owned()]);
+    }
 
     fn adapter() -> ArchiveSoftware {
         ArchiveSoftware::new()

@@ -43,10 +43,13 @@ pub mod registry;
 pub mod robots;
 
 pub use robots::{FetchClass, RobotsPosture};
+pub use sources::{Bodies, Catalogue, Discovery, Entry as SourceEntry};
 pub mod safety;
 pub mod sanitize;
 pub mod sites;
+// M67-01 (§11.1): the source catalogue — every platform this build knows of, and what it may read.
 pub mod solver;
+pub mod sources;
 // M45-23 (§55.3): the declarative source-adapter manifest and adapter.
 pub mod declarative;
 pub mod declarative_check;

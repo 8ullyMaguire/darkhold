@@ -1,13 +1,13 @@
 {
   "sources": {
     "requirements.csv": {
-      "rows": 834,
+      "rows": 837,
       "by_status": {
         "implemented-verified-e2e": 129,
         "implemented-locally-tested": 246,
         "unsupported": 4,
-        "implemented-fully-tested": 382,
-        "planned": 72,
+        "implemented-fully-tested": 384,
+        "planned": 73,
         "evaluated-and-rejected": 1
       }
     },
@@ -454,6 +454,12 @@
       "milestone": "M45",
       "requirement": "`event_participation.account` and `events.created_by` hold pseud ids although the columns are named for accounts, so every \u00a718 query and the exchange matcher pair pseuds through an account-named column",
       "notes": "Found while wiring M45-27. post_event binds pseud_id into events.created_by and join_event binds it into event_participation.account; the schema says account and the CHECK-free TEXT column accepts either. The matcher was written to match the data (pseuds) rather than the name, and says so in its kinds. The fix is either a rename migration (and the \u00a751 erasure list gaining pseud treatment) or accepting the name and documenting it; the second is cheaper and the first is not this ticket's to decide."
+    },
+    {
+      "id": "M67-03",
+      "milestone": "M67",
+      "requirement": "A SourceSync background job that walks the catalogue, discovers works per configured tag, and enqueues one Import per work not yet seen \u2014 on an interval, honouring robots.txt for bodies.",
+      "notes": "Specified in docs/plans/syndication-sync.md. Steps 1-4 are unblocked; step 5 (enqueue) needs a decision on whose account owns a syndicated work \u2014 the plan recommends a dedicated instance account with one pseud per source, which needs a config field and a migration."
     }
   ],
   "open_by_milestone": {
@@ -461,7 +467,8 @@
     "M45": 23,
     "M64": 14,
     "M66": 6,
-    "M65": 4
+    "M65": 4,
+    "M67": 1
   },
   "unlinked_concord": [
     {

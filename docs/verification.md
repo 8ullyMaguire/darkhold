@@ -1,3 +1,54 @@
+## 2026-11-02 — the sources a fandom scatters to, and what each of them allows
+
+**Requirement:** `M67-01`, `M67-02` · **Tests:** 9 in `scrapers::sources`, 9 in `scrapers::sites::ao3`
+(+ the efiction table test repaired) · **Docs:** `docs/plans/syndication-sync.md`
+
+### What was built
+
+A **catalogue of 33 platforms** (`crates/scrapers/sources.json`, loaded and validated by
+`src/sources.rs`): host, software family, the adapter this build has, a **dated `robots.txt` verdict**, a
+bodies policy, and a discovery shape. All 33 verdicts were read from the live host today, not remembered.
+
+The bodies policy is the point, and it is per site because the sites disagree:
+
+| posture | count | examples |
+|---|---:|---|
+| `allowed` — listing and work pages readable | 23 | squidgeworld, adastra, royalroad, scribblehub, spacebattles, sufficientvelocity, whofic |
+| `metadata_only` — catalogue readable, prose is not | 5 | fanfiction.net (unreachable here), tthfanfic, animexx, audiofic |
+| `blocked` — nothing may be fetched | 5 | fanfiktion.de and honeyfeed.fm (`Disallow: /`), bulbagarden (403), cfaarchive and storiesofarda (unreachable) |
+
+**Discovery** (`work_ids_from_tag_page`): an AO3 archive disallows `/works?` to `*`, so the tag listing
+is the only listing a plain crawler may walk — and one extractor serves SquidgeWorld, Ad Astra and
+fanfiction.lol because they share the software. It accepts only a bare `/works/{digits}`, so chapters,
+`view_full_work` queries and search links are dropped.
+
+### Verification
+
+```
+cargo test -p darkhold-scrapers --lib sources    → 9 passed
+cargo test -p darkhold-scrapers --lib ao3::tests → 9 passed   (25 links on a real squidgeworld page)
+cargo test -p darkhold-scrapers --lib           → 372 passed
+```
+
+The fixture is a page captured from `squidgeworld.org/tags/Naruto/works` today, unmodified: the
+assertion is 25 works, and the page also links to chapters, series and bookmarks.
+
+Three mutations failed a named test: the chapter filter removed (chapters become works), discovery
+truncated to 10 (the count is load-bearing), and — live, while writing — the validator refusing
+`bulbagarden` for naming an adapter while `blocked` by its own `robots.txt`, plus a placeholder adapter
+key no registry entry has.
+
+Also repaired: `efiction`'s member test asserted a literal `18` distinct hosts and had been failing since
+a nineteenth member was added. It now derives the count from the table, which is the invariant
+(`sinfuldreams.com` legitimately hosts two archives).
+
+### Not done, and why
+
+`M67-03` — the periodic `SourceSync` job — is specified step by step in
+`docs/plans/syndication-sync.md` and **blocked on one decision**: a syndicated work has no local author,
+and `import_jobs` requires an `account_id` and a `pseud_id`. The plan recommends a dedicated instance
+account with one pseud per source; that needs a config field and a migration.
+
 ## 2026-11-02 — a `403` that names the scope, and a `403` that does not
 
 **Requirement:** `M63-19` · **Tests:** `crates/app/tests/api_token_scope.rs` (4) ·

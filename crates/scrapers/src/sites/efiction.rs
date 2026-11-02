@@ -1653,7 +1653,17 @@ mod tests {
     fn every_member_host_is_claimed_and_the_table_has_no_duplicate_pair() {
         let adapter = Efiction::new();
         let hosts = adapter.hosts();
-        assert_eq!(hosts.len(), 18, "eighteen distinct hosts: {hosts:?}");
+        // Derived from the table, not a literal: the count was hardcoded at 18 and went stale the day a
+        // nineteenth member was added, so the test failed for a correct table. `sinfuldreams.com` hosts
+        // two archives (`/unicornfic`, `/wickedtemptation`), which is exactly the duplicate the
+        // deduplication exists for — the invariant is "one entry per distinct host", not "eighteen".
+        let distinct: std::collections::BTreeSet<&str> =
+            MEMBERS.iter().map(|member| member.host).collect();
+        assert_eq!(
+            hosts.len(),
+            distinct.len(),
+            "one entry per distinct host: {hosts:?}"
+        );
         for member in MEMBERS {
             assert!(
                 hosts.contains(&member.host.to_owned()),

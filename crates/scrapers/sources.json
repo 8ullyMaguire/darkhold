@@ -1,0 +1,537 @@
+{
+  "version": 1,
+  "checked": "2026-11-02",
+  "entries": [
+    {
+      "id": "storysea",
+      "name": "Storysea",
+      "host": "storysea.io",
+      "family": "custom",
+      "adapter": null,
+      "bodies": "allowed",
+      "robots": {
+        "verdict": "allows / except /api /auth /devtools /platform",
+        "checked": "2026-11-02"
+      },
+      "discovery": {
+        "kind": "none"
+      },
+      "note": "Young platform; no adapter yet — discovery needs a bespoke parser."
+    },
+    {
+      "id": "squidgeworld",
+      "name": "SquidgeWorld Archive",
+      "host": "squidgeworld.org",
+      "family": "ao3",
+      "adapter": "ao3",
+      "bodies": "allowed",
+      "robots": {
+        "verdict": "*: /works? /downloads/ /autocomplete/ /external_works/ + search paths",
+        "checked": "2026-11-02"
+      },
+      "discovery": {
+        "kind": "tag_page",
+        "template": "/tags/{tag}/works"
+      },
+      "note": "AO3 software; body pages served to *."
+    },
+    {
+      "id": "ficbook",
+      "name": "Ficbook",
+      "host": "ficbook.net",
+      "family": "ficbook",
+      "adapter": "ficbook",
+      "bodies": "allowed",
+      "robots": {
+        "verdict": "*: many query/filter paths and *download*",
+        "checked": "2026-11-02"
+      },
+      "discovery": {
+        "kind": "none"
+      },
+      "note": "Russian; download path disallowed, work pages allowed."
+    },
+    {
+      "id": "fanfictionlol",
+      "name": "fanfiction.lol",
+      "host": "fanfiction.lol",
+      "family": "ao3",
+      "adapter": "ao3",
+      "bodies": "allowed",
+      "robots": {
+        "verdict": "no robots.txt (404) — nothing restricted",
+        "checked": "2026-11-02"
+      },
+      "discovery": {
+        "kind": "tag_page",
+        "template": "/tags/{tag}/works"
+      },
+      "note": "AO3 software, no robots.txt. The adapter claims the host; the listing and work page shapes match SquidgeWorld's."
+    },
+    {
+      "id": "adastra",
+      "name": "Ad Astra",
+      "host": "adastrafanfic.com",
+      "family": "ao3",
+      "adapter": "ao3",
+      "bodies": "allowed",
+      "robots": {
+        "verdict": "*: /works? /downloads/ /autocomplete/ /external_works/ + search paths",
+        "checked": "2026-11-02"
+      },
+      "discovery": {
+        "kind": "tag_page",
+        "template": "/tags/{tag}/works"
+      },
+      "note": "AO3 software; Star Trek only."
+    },
+    {
+      "id": "ffnet",
+      "name": "FanFiction.net",
+      "host": "fanfiction.net",
+      "family": "ffnet",
+      "adapter": "ffnet",
+      "bodies": "metadata_only",
+      "robots": {
+        "verdict": "unreachable from this host (DNS)",
+        "checked": "2026-11-02"
+      },
+      "discovery": {
+        "kind": "none"
+      },
+      "note": "Cloudflare wall; adapter exists, host unreachable here."
+    },
+    {
+      "id": "quotev",
+      "name": "Quotev",
+      "host": "quotev.com",
+      "family": "custom",
+      "adapter": null,
+      "bodies": "allowed",
+      "robots": {
+        "verdict": "*: /login, /user/*, /random*, sort/filter queries",
+        "checked": "2026-11-02"
+      },
+      "discovery": {
+        "kind": "none"
+      },
+      "note": "No adapter."
+    },
+    {
+      "id": "femslash",
+      "name": "Sunset (femslash.club)",
+      "host": "sunset.femslash.club",
+      "family": "custom",
+      "adapter": null,
+      "bodies": "allowed",
+      "robots": {
+        "verdict": "no rules for *",
+        "checked": "2026-11-02"
+      },
+      "discovery": {
+        "kind": "none"
+      },
+      "note": "No adapter."
+    },
+    {
+      "id": "asianfanfics",
+      "name": "AsianFanfics",
+      "host": "asianfanfics.com",
+      "family": "custom",
+      "adapter": null,
+      "bodies": "allowed",
+      "robots": {
+        "verdict": "no rules for *",
+        "checked": "2026-11-02"
+      },
+      "discovery": {
+        "kind": "none"
+      },
+      "note": "No adapter."
+    },
+    {
+      "id": "cfaarchive",
+      "name": "CFA Archive",
+      "host": "cfaarchive.org",
+      "family": "custom",
+      "adapter": null,
+      "bodies": "blocked",
+      "robots": {
+        "verdict": "robots.txt redirects in a loop; unreachable",
+        "checked": "2026-11-02"
+      },
+      "discovery": {
+        "kind": "none"
+      },
+      "note": "Fails closed until it is reachable."
+    },
+    {
+      "id": "bulbagarden",
+      "name": "Bulbagarden Library",
+      "host": "bulbagarden.net",
+      "family": "xenforo",
+      "adapter": null,
+      "bodies": "blocked",
+      "robots": {
+        "verdict": "robots.txt answers 403 to this client",
+        "checked": "2026-11-02"
+      },
+      "discovery": {
+        "kind": "none"
+      },
+      "note": "robots.txt answers 403 to this client, so nothing may be fetched; the XenForo adapter would read it if the host ever allowed us."
+    },
+    {
+      "id": "thousandroads",
+      "name": "Thousand Roads",
+      "host": "forums.thousandroads.net",
+      "family": "xenforo",
+      "adapter": null,
+      "bodies": "allowed",
+      "robots": {
+        "verdict": "*: 7 rules, none covering /threads/",
+        "checked": "2026-11-02"
+      },
+      "discovery": {
+        "kind": "none"
+      },
+      "note": "XenForo family, but this build instantiates only SpaceBattles, Sufficient Velocity and Questionable Questing; adding the forum is a one-line `Forum` variant once its markup is checked."
+    },
+    {
+      "id": "animexx",
+      "name": "Animexx",
+      "host": "animexx.de",
+      "family": "custom",
+      "adapter": null,
+      "bodies": "metadata_only",
+      "robots": {
+        "verdict": "*: 27 rules incl. /forum order/filter paths",
+        "checked": "2026-11-02"
+      },
+      "discovery": {
+        "kind": "none"
+      },
+      "note": "German; no adapter."
+    },
+    {
+      "id": "audiofic",
+      "name": "Audiofic Archive",
+      "host": "audiofic.jinjurly.com",
+      "family": "custom",
+      "adapter": null,
+      "bodies": "metadata_only",
+      "robots": {
+        "verdict": "*: 36 rules, Crawl-delay: 10",
+        "checked": "2026-11-02"
+      },
+      "discovery": {
+        "kind": "none"
+      },
+      "note": "Podfic; audio bytes are not bodies — media is out of scope."
+    },
+    {
+      "id": "efpfanfic",
+      "name": "EFP",
+      "host": "efpfanfic.net",
+      "family": "efiction",
+      "adapter": null,
+      "bodies": "allowed",
+      "robots": {
+        "verdict": "robots.txt is empty (0 rules)",
+        "checked": "2026-11-02"
+      },
+      "discovery": {
+        "kind": "none"
+      },
+      "note": "eFiction family, but not one of the members this build reads; adding it needs a fixture from the site."
+    },
+    {
+      "id": "fanfiktion",
+      "name": "fanfiktion.de",
+      "host": "fanfiktion.de",
+      "family": "custom",
+      "adapter": null,
+      "bodies": "blocked",
+      "robots": {
+        "verdict": "*: Disallow: / (site-wide)",
+        "checked": "2026-11-02"
+      },
+      "discovery": {
+        "kind": "none"
+      },
+      "note": "Nothing may be fetched."
+    },
+    {
+      "id": "fimfiction",
+      "name": "Fimfiction",
+      "host": "fimfiction.net",
+      "family": "custom",
+      "adapter": null,
+      "bodies": "allowed",
+      "robots": {
+        "verdict": "no rules for *",
+        "checked": "2026-11-02"
+      },
+      "discovery": {
+        "kind": "none"
+      },
+      "note": "Has a public API, but no adapter for it."
+    },
+    {
+      "id": "honeyfeed",
+      "name": "Honeyfeed",
+      "host": "honeyfeed.fm",
+      "family": "custom",
+      "adapter": null,
+      "bodies": "blocked",
+      "robots": {
+        "verdict": "*: Disallow: / (site-wide), Crawl-delay: 20",
+        "checked": "2026-11-02"
+      },
+      "discovery": {
+        "kind": "none"
+      },
+      "note": "Nothing may be fetched."
+    },
+    {
+      "id": "gateworld",
+      "name": "GateWorld Forum",
+      "host": "forum.gateworld.net",
+      "family": "xenforo",
+      "adapter": null,
+      "bodies": "allowed",
+      "robots": {
+        "verdict": "*: 1 rule, not covering /threads/",
+        "checked": "2026-11-02"
+      },
+      "discovery": {
+        "kind": "none"
+      },
+      "note": "Forum markup is not the XenForo shape; needs a check before an adapter is claimed."
+    },
+    {
+      "id": "theforce",
+      "name": "Jedi Council Forums",
+      "host": "boards.theforce.net",
+      "family": "xenforo",
+      "adapter": null,
+      "bodies": "allowed",
+      "robots": {
+        "verdict": "*: 19 rules, Crawl-delay: 10",
+        "checked": "2026-11-02"
+      },
+      "discovery": {
+        "kind": "none"
+      },
+      "note": "XenForo family; not instantiated in this build. Crawl-delay 10 governs the pace when it is."
+    },
+    {
+      "id": "lodginghouse",
+      "name": "The Lodging House",
+      "host": "scrapes-and-bruises.neocities.org",
+      "family": "static",
+      "adapter": null,
+      "bodies": "allowed",
+      "robots": {
+        "verdict": "no robots.txt (404)",
+        "checked": "2026-11-02"
+      },
+      "discovery": {
+        "kind": "none"
+      },
+      "note": "Single-author neocities site."
+    },
+    {
+      "id": "lcficmbs",
+      "name": "Lois & Clark Fanfic Boards",
+      "host": "lcficmbs.com",
+      "family": "custom",
+      "adapter": null,
+      "bodies": "allowed",
+      "robots": {
+        "verdict": "no robots.txt (404)",
+        "checked": "2026-11-02"
+      },
+      "discovery": {
+        "kind": "none"
+      },
+      "note": "No adapter."
+    },
+    {
+      "id": "mediaminer",
+      "name": "MediaMiner",
+      "host": "mediaminer.org",
+      "family": "efiction",
+      "adapter": null,
+      "bodies": "allowed",
+      "robots": {
+        "verdict": "robots.txt is empty (0 rules)",
+        "checked": "2026-11-02"
+      },
+      "discovery": {
+        "kind": "none"
+      },
+      "note": "eFiction-style, not a member this build reads."
+    },
+    {
+      "id": "spacebattles",
+      "name": "SpaceBattles",
+      "host": "forums.spacebattles.com",
+      "family": "xenforo",
+      "adapter": "spacebattles",
+      "bodies": "allowed",
+      "robots": {
+        "verdict": "*: account paths only; named AI bots disallowed",
+        "checked": "2026-11-02"
+      },
+      "discovery": {
+        "kind": "none"
+      },
+      "note": "XenForo; the site's AI-bot list does not name this client, so the `*` group applies."
+    },
+    {
+      "id": "storiesofarda",
+      "name": "Stories of Arda",
+      "host": "storiesofarda.com",
+      "family": "efiction",
+      "adapter": null,
+      "bodies": "blocked",
+      "robots": {
+        "verdict": "unreachable from this host (DNS)",
+        "checked": "2026-11-02"
+      },
+      "discovery": {
+        "kind": "none"
+      },
+      "note": "Fails closed until it is reachable."
+    },
+    {
+      "id": "whofic",
+      "name": "A Teaspoon and an Open Mind",
+      "host": "whofic.com",
+      "family": "efiction",
+      "adapter": null,
+      "bodies": "allowed",
+      "robots": {
+        "verdict": "no rules for *",
+        "checked": "2026-11-02"
+      },
+      "discovery": {
+        "kind": "none"
+      },
+      "note": "eFiction family, not a member this build reads."
+    },
+    {
+      "id": "tthfanfic",
+      "name": "Twisting the Hellmouth",
+      "host": "tthfanfic.org",
+      "family": "custom",
+      "adapter": null,
+      "bodies": "metadata_only",
+      "robots": {
+        "verdict": "*: 72 rules, Crawl-delay: 2",
+        "checked": "2026-11-02"
+      },
+      "discovery": {
+        "kind": "none"
+      },
+      "note": "No adapter; the rules are mostly per-bot blocks."
+    },
+    {
+      "id": "adultfanfiction",
+      "name": "Adult-FanFiction.org",
+      "host": "adult-fanfiction.org",
+      "family": "efiction",
+      "adapter": null,
+      "bodies": "allowed",
+      "robots": {
+        "verdict": "no robots.txt (404)",
+        "checked": "2026-11-02"
+      },
+      "discovery": {
+        "kind": "none"
+      },
+      "note": "eFiction family, not a member this build reads. Adult gating would also need a per-source decision."
+    },
+    {
+      "id": "ficwad",
+      "name": "FicWad",
+      "host": "ficwad.com",
+      "family": "custom",
+      "adapter": null,
+      "bodies": "allowed",
+      "robots": {
+        "verdict": "*: /account/ and /search only",
+        "checked": "2026-11-02"
+      },
+      "discovery": {
+        "kind": "none"
+      },
+      "note": "No adapter."
+    },
+    {
+      "id": "merengo",
+      "name": "Merengő",
+      "host": "merengo.hu",
+      "family": "custom",
+      "adapter": null,
+      "bodies": "allowed",
+      "robots": {
+        "verdict": "robots.txt is empty (0 rules)",
+        "checked": "2026-11-02"
+      },
+      "discovery": {
+        "kind": "none"
+      },
+      "note": "Hungarian; no adapter."
+    },
+    {
+      "id": "royalroad",
+      "name": "Royal Road",
+      "host": "royalroad.com",
+      "family": "royalroad",
+      "adapter": "royalroad",
+      "bodies": "allowed",
+      "robots": {
+        "verdict": "*: /account/, /fiction/chapter/*/vote; named AI bots blocked from chapters",
+        "checked": "2026-11-02"
+      },
+      "discovery": {
+        "kind": "none"
+      },
+      "note": "* group allows chapters; the AI-bot list does not name this client — an operator may still choose metadata-only."
+    },
+    {
+      "id": "scribblehub",
+      "name": "Scribble Hub",
+      "host": "scribblehub.com",
+      "family": "scribblehub",
+      "adapter": "scribblehub",
+      "bodies": "allowed",
+      "robots": {
+        "verdict": "*: /wp-admin/ only",
+        "checked": "2026-11-02"
+      },
+      "discovery": {
+        "kind": "none"
+      },
+      "note": "WordPress front end."
+    },
+    {
+      "id": "sufficientvelocity",
+      "name": "Sufficient Velocity",
+      "host": "forums.sufficientvelocity.com",
+      "family": "xenforo",
+      "adapter": "sufficientvelocity",
+      "bodies": "allowed",
+      "robots": {
+        "verdict": "*: account paths only; named AI bots disallowed",
+        "checked": "2026-11-02"
+      },
+      "discovery": {
+        "kind": "none"
+      },
+      "note": "XenForo; the site's AI-bot list does not name this client, so the `*` group applies."
+    }
+  ]
+}
