@@ -135,3 +135,38 @@ describe('Search page word-count range', () => {
     expect(searchWorks).toHaveBeenCalledTimes(1);
   });
 });
+
+describe('Search page presets', () => {
+  it('the short-and-complete preset sets both controls and runs, without a second click', async () => {
+    render(Search);
+    await fireEvent.click(screen.getByText('Complete, under 10k'));
+
+    // Both halves in one query: the bound the reader would have typed and the completion the
+    // dropdown would have meant. `searchWorks` is called once, because a preset that only fills
+    // the form leaves the reader pressing Search to find out what it did.
+    expect(searchWorks).toHaveBeenCalledTimes(1);
+    expect(searchWorks).toHaveBeenCalledWith('completion:"complete" AND words:<=10000', 20);
+  });
+
+  it('the preset speaks completion, not status', async () => {
+    render(Search);
+    await fireEvent.click(screen.getByText('Complete, under 10k'));
+
+    const query = searchWorks.mock.calls[0][0] as string;
+    // `status:` renders `works.lifecycle` server-side, where "Complete" is not a value: the page
+    // sent that until 2026-11-02 and every filter it offered matched nothing.
+    expect(query).not.toContain('status:');
+    expect(query).toContain('completion:"complete"');
+  });
+
+  it('applying the preset twice does not double the completion term', async () => {
+    render(Search);
+    const preset = screen.getByText('Complete, under 10k');
+    await fireEvent.click(preset);
+    await fireEvent.click(preset);
+
+    const last = searchWorks.mock.calls.at(-1)?.[0] as string;
+    expect(last.match(/completion:/g)?.length).toBe(1);
+    expect(last.match(/words:/g)?.length).toBe(1);
+  });
+});

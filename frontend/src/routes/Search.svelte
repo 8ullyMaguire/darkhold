@@ -7,6 +7,21 @@
 
   type FilterField = 'fandom' | 'tag' | 'mood' | 'rating' | 'language' | 'status';
 
+  /**
+   * What the status dropdown shows and what the query language accepts.
+   *
+   * `status:` in the query language renders `works.lifecycle` (`published`, `draft`, …) — a
+   * different column from `works.completion`, which is what "Complete / In-Progress / Hiatus"
+   * means. Until 2026-11-02 this page sent `status:"Complete"`, so its only three options matched
+   * no row at all and a reader refining by completion got an empty page that looked like a
+   * working filter.
+   */
+  const COMPLETION_VALUES: Record<string, string> = {
+    Complete: 'complete',
+    'In-Progress': 'in_progress',
+    Hiatus: 'hiatus',
+  };
+
   const FILTER_OPTIONS: Record<FilterField, string[]> = {
     fandom: ['Any fandom'],
     tag: ['Any tag'],
@@ -65,6 +80,25 @@
     void runSearch();
   }
 
+  /**
+   * "Complete, under 10k" — idea 22 of the reader audit, which asked for a named preset for two
+   * parameters the search already accepts rather than for a new filter.
+   *
+   * It rewrites the two controls a reader would otherwise set by hand and then runs, because a
+   * preset that only fills the form makes the reader press Search again to learn what it did.
+   * Re-applying is idempotent: the completion filter is replaced, not appended, so clicking twice
+   * cannot send `completion:"complete" AND completion:"complete"`.
+   */
+  function applyShortCompletePreset() {
+    minWords = '';
+    maxWords = 10_000;
+    selectedFilters = [
+      ...selectedFilters.filter((f) => f.field !== 'status'),
+      { field: 'status', value: 'Complete' },
+    ];
+    void runSearch();
+  }
+
   function removeFilter(index: number) {
     selectedFilters = selectedFilters.filter((_, i) => i !== index);
     void runSearch();
@@ -109,7 +143,13 @@
 
   function buildQuery(): string {
     const freeText = query.trim();
-    const filterParts = selectedFilters.map((f) => `${f.field}:"${f.value}"`);
+    const filterParts = selectedFilters.map((f) => {
+      // The one field whose name and value are not the ones on screen: see COMPLETION_VALUES.
+      if (f.field === 'status') {
+        return `completion:"${COMPLETION_VALUES[f.value] ?? f.value}"`;
+      }
+      return `${f.field}:"${f.value}"`;
+    });
     const range = wordRangeTerm();
     if (range) filterParts.push(range);
     if (freeText && filterParts.length > 0) {
@@ -172,6 +212,11 @@
 
   <fieldset class="filters">
     <legend>Refine by</legend>
+    <div class="presets">
+      <button type="button" class="preset" onclick={applyShortCompletePreset}>
+        Complete, under 10k
+      </button>
+    </div>
     <div class="filter-row">
       <div class="field">
         <label for="filter-field">Field</label>
@@ -349,6 +394,24 @@
     padding: 0 var(--space-1);
   }
 
+  .presets {
+    display: flex;
+    gap: 0.5rem;
+    margin-bottom: 0.75rem;
+    flex-wrap: wrap;
+  }
+  .preset {
+    background: var(--surface-2);
+    color: var(--text);
+    border: 1px solid var(--border);
+    border-radius: 999px;
+    padding: 0.35rem 0.9rem;
+    cursor: pointer;
+    font-size: 0.9rem;
+  }
+  .preset:hover {
+    border-color: var(--accent);
+  }
   .filter-row {
     display: flex;
     gap: var(--space-2);

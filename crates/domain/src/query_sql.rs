@@ -782,7 +782,16 @@ fn render_fielded(field: &QueryField, value: &str) -> Result<SqlFragment, QueryE
                 .with_bind(kind).with_bind(quality_threshold(threshold)?))
         }
         QueryField::Completion => {
-            if !matches!(value, "complete" | "in_progress" | "abandoned" | "on_hold") {
+            // `Completion`'s serde spelling is `hiatus`, and that is what `works.completion`
+            // holds; `on_hold` is the spelling this filter has always accepted. Accepting only
+            // `on_hold` meant `completion:hiatus` — the value the enum actually stores, and the
+            // one the search page's dropdown offers — came back as a 422 "unknown completion
+            // status". Both spellings are read and both are bound as stored, because a work
+            // written before this line exists cannot be re-spelled by a query.
+            if !matches!(
+                value,
+                "complete" | "in_progress" | "abandoned" | "on_hold" | "hiatus"
+            ) {
                 return Err(QueryError::new("unknown completion status", 0));
             }
             Ok(SqlFragment::new("works.completion = ?").with_bind(value))
@@ -999,6 +1008,23 @@ fn render_fielded(field: &QueryField, value: &str) -> Result<SqlFragment, QueryE
 mod tests {
     use super::*;
     use crate::query::parse_query;
+
+    /// **`completion:hiatus` is accepted, and binds the spelling the enum stores.**
+    ///
+    /// `Completion` serialises as `hiatus` and `works.completion` holds that; the filter accepted
+    /// only `on_hold`, so the one value the enum can actually write was a 422 while a spelling
+    /// nothing writes was fine.
+    #[test]
+    fn completion_accepts_the_spelling_the_enum_stores() {
+        let ast = parse_query("completion:hiatus").expect("parses");
+        let fragment = render_query(&ast).expect("renders");
+        assert!(
+            fragment.sql.contains("works.completion = ?"),
+            "{}",
+            fragment.sql
+        );
+        assert_eq!(fragment.binds, vec!["hiatus".to_owned()]);
+    }
 
     #[test]
     fn a_multi_word_tag_matches_either_stored_spelling() {
