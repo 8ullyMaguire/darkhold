@@ -3,7 +3,7 @@ title: "Handoff — M45-30 live, one requirement row measured false, and the ima
 date: 2026-11-02
 status: shipped-and-live
 branch: master
-commit: b643606a
+commit: eeccc436
 live: 0.1.0+ed9bc650
 ---
 
@@ -33,12 +33,12 @@ vertical slice. Both are argued in `~/secondbrain/10-Projects/darkhold/2026-11-0
 
 | thing | value |
 | --- | --- |
-| commits | `ed9bc650` (M45-30), `0582e272` (live record), `b643606a` (mutation-claim correction) |
-| remotes | `origin` and `github` both at `b643606a`; thinkcentre checkout fast-forwarded |
+| commits | `ed9bc650` (M45-30), `0582e272` (live record), `b643606a` (mutation-claim correction), `eeccc436` (OPT_IN fix) |
+| remotes | `origin` and `github` both at `eeccc436`; thinkcentre checkout fast-forwarded |
 | live | `0.1.0+ed9bc650`, environment `production`, 134 migrations |
 | catalogue | 101 modules, 175 ideas |
 | working tree | clean on all three checkouts (`/home/alvaro/code-local/rust/darkhold`, `code/rust/darkhold` mirror, thinkcentre `/personal/documents/code/rust/darkhold`) |
-| tests at HEAD | domain 236 + db 159 + app lib 819 green; `m65_user_overrides` 7/7 |
+| tests at HEAD | domain **846** + db 159 + app 236 green; `m65_user_overrides` 7/7, `m65_module_host` 8/8, cli 16/16 |
 
 ## 2 · What M45-30 shipped
 
@@ -101,6 +101,17 @@ connection error from a policy refusal, which is why nobody knows which of those
 renders on darkhold at all. Hosts across those 1,375 revisions: `cdn.discordapp.com` 297 (signed
 links, ~24h), googleusercontent 271, `i.pinimg.com` 67, `media.discordapp.net` 39,
 `cdn.fiction.live` 40, `cdn.donmai.us` 24, wixmp 21, `i.postimg.cc` 20.
+
+**M45-29 left a module invariant red, and no targeted test run can see it.** `finishers` shipped
+with `default_on: false` and never entered `OPT_IN`, so at HEAD
+`only_planned_and_opt_in_surfaces_default_off` and
+`a_valid_table_resolves_and_the_default_is_every_surface_but_the_opt_ins` failed — the row is built,
+off, and neither planned nor opt-in. The M45-29 session ran `cargo test … finishers` and its own
+store tests, all of which pass; the invariant lives in the crate's **lib** tests and only runs when
+the whole crate is tested. Fixed by adding the deliberate seventh entry to `OPT_IN` (`eeccc436`);
+domain lib went 846 passed, 0 failed. Nothing about the deployed binary changes — `OPT_IN` is a
+test-time constant — but this is the second time this session that a green targeted run hid a red
+crate.
 
 **`bounties.created_by` is written empty** by `create_bounty` (§20.3's own shape); the patron lives in
 `account`, so a public listing shows a blank funder.
