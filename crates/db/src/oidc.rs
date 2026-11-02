@@ -170,6 +170,33 @@ pub async fn link(
 /// The profile the provider vouches for, as last seen at sign-in.
 ///
 /// Returns `None` when the account has no Polaris link — a local account keeps its own name and picture.
+/// Does this account sign in through the identity provider?
+///
+/// The row in `oidc_links` is the flag (estate W2 §8): once an account has linked, its local password is
+/// retired and the login handler refuses it. Deliberately provider-agnostic — the question is "has this
+/// account ever linked to *any* provider", not "which one", because the second provider would otherwise
+/// silently re-open the password.
+pub async fn signs_in_through_provider(db: &Database, account_id: AccountId) -> Result<bool> {
+    let sql = db.sql(
+        "SELECT 1 FROM oidc_links WHERE account_id = ? LIMIT 1",
+        "SELECT 1 FROM oidc_links WHERE account_id = $1 LIMIT 1",
+    );
+    let account = account_id.to_string();
+    let row: Option<(i32,)> = match db.backend() {
+        crate::Backend::Sqlite => sqlx::query_as(&sql)
+            .bind(&account)
+            .fetch_optional(db.sqlite_pool().expect("sqlite handle"))
+            .await
+            .context("asking whether an account signs in through the estate")?,
+        crate::Backend::Postgres => sqlx::query_as(&sql)
+            .bind(&account)
+            .fetch_optional(db.postgres_pool().expect("postgres handle"))
+            .await
+            .context("asking whether an account signs in through the estate")?,
+    };
+    Ok(row.is_some())
+}
+
 pub async fn profile_for_account(
     db: &Database,
     provider: &str,

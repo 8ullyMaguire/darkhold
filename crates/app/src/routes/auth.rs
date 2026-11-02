@@ -295,6 +295,14 @@ async fn login(
         return Err(ApiError(AppError::AccessDenied));
     }
 
+    // An account with a Polaris link signs in through the provider (estate W2 §8): its local password is
+    // retired. The password is verified *first*, so a refusal cannot be used to ask "does this address
+    // exist?", and the check comes *before* a session is issued, so there is nothing to undo.
+    if darkhold_db::oidc::signs_in_through_provider(state.db(), account.id).await? {
+        tracing::info!(account = %account.id, "password login to an account that signs in through the estate");
+        return Err(ApiError(AppError::AccessDenied));
+    }
+
     // Sign in as the oldest pseud, so the session always has a face.
     let pseuds = identity::pseuds_for_account(state.db(), account.id).await?;
     let initial = pseuds.first().map(|pseud| pseud.id);
