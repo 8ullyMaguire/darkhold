@@ -1,3 +1,77 @@
+## 2026-11-02 — M64-16: the baseline ladder, and the four rungs that refuse
+
+**Milestone:** M64 · **Requirements:** `M64-16` · **Plan:**
+`docs/plans/m64-16-offline-pre-registration-harness.md` · **Spec:** §12.7a, §24.4
+
+### What was built
+
+| piece | what it does |
+|---|---|
+| `crates/taste/src/eval.rs` | `precision_at`, `f1_at`, `average_precision_at` beside the existing `ndcg_at`/`recall_at`/`overlap_at` — the four metrics the published study's table is in, so a rung here can be compared with a rung there |
+| `crates/taste/src/ladder.rs` | the ladder itself: `Rung`/`Case`/`Bar`/`RungScore`/`LadderReport::verdict`, coverage and group concentration, and the pre-registered conjunction |
+| `crates/taste/examples/ladder.rs` | the CLI: one JSON set in, the table and a JSON report out, three distinct exit codes |
+| `crates/taste/tests/fixtures/ladder-set.json` | the three-reader fixture the table above is asserted against |
+| `scripts/eval/01-engagement-census.sql` | which rungs the corpus can support at all |
+| `scripts/eval/02-export-set.{sh,sqlite.sql,postgres.sql}` + `pseudonymise.py` | the temporal split, the popularity rung, the refusals, and the one place an account id becomes a hash |
+
+### The numbers, from the commands
+
+```
+$ cargo test -p darkhold-taste --lib
+test result: ok. 36 passed; 0 failed        (9 eval tests + 4 new metric tests + 8 ladder tests
+                                             + the arena and health suites)
+
+$ cargo run -p darkhold-taste --example ladder -- --set crates/taste/tests/fixtures/ladder-set.json --challenger popularity
+k=20 · catalogue 100 · readers 3 (3 scored, 0 unjudged)
+popularity            0.0635   0.5000   0.5436         2    2.0%      50.0%  scored
+tag_i2i                    —        —        —         0    0.0%          —  REFUSED 0 of 1247 engaged rows carry a work_tag (M64-06)
+mf                         —        —        —         0    0.0%          —  REFUSED no offline matrix factorisation exists; see spec 12.7a
+random                0.0635   0.4444   0.5000         6    6.0%      50.0%  scored
+verdict: popularity NOT SHIPPED — f1@20 is 1.00× popularity, below the 1.25× bar
+exit=1
+```
+
+### The mutations, because a green suite is not evidence
+
+| mutated | test that caught it | message |
+|---|---|---|
+| `precision_at` divides by the ranking's length instead of `k` | `precision_divides_by_k_not_by_the_list` | `precision = 1` |
+| the refusal branch reports `Some(0.0)` instead of `None` | `a_refused_rung_is_not_a_zero` | `a refusal must not report 0.0` |
+| the coverage limb of the verdict deleted | `the_bar_is_a_conjunction` | ships a collapsed engine |
+
+### Both export dialects were executed, and three defects came out
+
+A scratch SQLite database and a scratch PostgreSQL 16 database, each with 30 works, 30 kudos (24
+before the cutoff, 6 after), one bookmark and two tag rows. Both dialects produced the same document:
+`catalogue 30 · cutoff 2026-01-25T00:00:00Z · readers 1 · work_ids 30 · groups {…: "Naruto"}`, six
+judged works, four rungs, one pseudonymised reader — and the ladder then scored it end to end.
+Two consecutive exports were byte-identical.
+
+What the execution found, and what a review would not have:
+
+1. **`works` has an `id` column, not `work_id`** — in both dialects. A plan that wrote `work_id`
+   because `work_kudos` has one produced a query that failed on the first run.
+2. **`json_group_array(r)` quotes a `json_object`** unless the value is wrapped in `json()`. The
+   export emitted a string where the harness expected an array, and the error surfaced in the
+   pseudonymiser, one process later.
+3. **`psql` exits `0` after a failed statement.** The wrapper therefore now passes
+   `-v ON_ERROR_STOP=1` and refuses to hand an empty or partial document to the pseudonymiser — a
+   partial set reads as a smaller population, which is the silent-no-op class this project keeps
+   finding.
+
+### What this does NOT prove
+
+- **No reader is scored on the deployed corpus.** The 2026-11-01 measurement is 1,247 engaged rows of
+  141,317, none of which carries a `work_tag`, and `work_ratings` is empty. The first real run is
+  expected to print four refusals and score nobody, which is a result and not a pass.
+- **The Postgres body ran against a scratch schema, not the deployed database.** The columns and
+  types match migrations `0068`/`0098`/`0129`, but the corpus is not exercised.
+- **The bar is a proposal.** `1.25×` popularity with a 5 % coverage floor and a 40 % group ceiling is
+  written in `Bar::proposed` so a run cannot choose it after seeing the numbers; the operator may
+  change the constant, and that change is a decision to record, not a tuning step.
+
+---
+
 ## 2026-10-22 — M6-04: the assertions carry their provenance
 
 **Milestone:** M6 · **Requirements:** `DM6-04`

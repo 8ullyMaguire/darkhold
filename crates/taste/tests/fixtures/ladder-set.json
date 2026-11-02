@@ -1,0 +1,59 @@
+{
+  "catalogue_size": 100,
+  "cutoff": "2026-08-01T00:00:00Z",
+  "groups": { "w1": "harry potter", "w2": "naruto" },
+  "work_ids": ["w1", "w2", "w3", "w4", "w5", "w6"],
+  "readers": [
+    {
+      "reader": "r-alpha",
+      "judged": [{ "work_id": "w1", "grade": 1 }],
+      "rungs": [
+        { "name": "popularity", "ranking": ["w1", "w2"] },
+        {
+          "name": "tag_i2i",
+          "ranking": [],
+          "refused": "0 of 1247 engaged rows carry a work_tag (M64-06)"
+        },
+        {
+          "name": "mf",
+          "ranking": [],
+          "refused": "no offline matrix factorisation exists; see spec 12.7a"
+        }
+      ]
+    },
+    {
+      "reader": "r-beta",
+      "judged": [{ "work_id": "w2", "grade": 1 }],
+      "rungs": [
+        { "name": "popularity", "ranking": ["w1", "w2"] },
+        {
+          "name": "tag_i2i",
+          "ranking": [],
+          "refused": "0 of 1247 engaged rows carry a work_tag (M64-06)"
+        },
+        {
+          "name": "mf",
+          "ranking": [],
+          "refused": "no offline matrix factorisation exists; see spec 12.7a"
+        }
+      ]
+    },
+    {
+      "reader": "r-gamma",
+      "judged": [{ "work_id": "w9", "grade": 1 }],
+      "rungs": [
+        { "name": "popularity", "ranking": ["w1", "w2"] },
+        {
+          "name": "tag_i2i",
+          "ranking": [],
+          "refused": "0 of 1247 engaged rows carry a work_tag (M64-06)"
+        },
+        {
+          "name": "mf",
+          "ranking": [],
+          "refused": "no offline matrix factorisation exists; see spec 12.7a"
+        }
+      ]
+    }
+  ]
+}

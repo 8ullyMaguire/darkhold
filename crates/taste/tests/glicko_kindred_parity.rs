@@ -83,11 +83,19 @@ impl OpponentJson {
         // The fixture carries the residual kindred used (1, 0.5, 0). Mapping it back to the
         // enum here rather than accepting a bare float keeps the port's type safety and still
         // compares against the oracle's numbers.
-        let outcome = match self.score {
-            s if s == 1.0 => Outcome::Win,
-            s if s == 0.5 => Outcome::Draw,
-            s if s == 0.0 => Outcome::Loss,
-            other => panic!("the fixture holds a residual that is not an outcome: {other}"),
+        let outcome = if self.score == 1.0 {
+            Outcome::Win
+        } else if self.score == 0.5 {
+            Outcome::Draw
+        } else if self.score == 0.0 {
+            Outcome::Loss
+        } else {
+            // Not a `match` on float literals: that is an illegal pattern, and clippy's
+            // suggestion to rewrite the guards is one that would stop the crate compiling.
+            panic!(
+                "the fixture holds a residual that is not an outcome: {}",
+                self.score
+            )
         };
         Opponent::weighted(self.mu, self.phi, outcome, self.weight)
     }

@@ -121,6 +121,86 @@ pub fn recall_at(ranking: &[String], judged: &[Judgement], k: usize) -> Option<f
     Some(found.len() as f64 / relevant.len() as f64)
 }
 
+/// `precision@k`: the share of the first `k` *slots* that hit a relevant work.
+///
+/// The denominator is `k`, never the number of works the ranking actually held. A four-item
+/// ranking with four hits is `4/20 = 0.2`, not `1.0`: it served a fifth of a page, and a caller
+/// reading `1.0` would believe it served the page. This is the same rule as [`overlap_at`], and
+/// for the same reason — a run that served a third of a page must not read as perfect agreement.
+#[must_use]
+pub fn precision_at(ranking: &[String], judged: &[Judgement], k: usize) -> f64 {
+    if k == 0 {
+        return 0.0;
+    }
+    let relevant: HashSet<&str> = judged
+        .iter()
+        .filter(|j| j.grade > 0)
+        .map(|j| j.work_id.as_str())
+        .collect();
+    let mut seen: HashSet<&str> = HashSet::new();
+    let mut hits = 0_usize;
+    for work in ranking.iter().take(k) {
+        if !seen.insert(work.as_str()) {
+            // A repeat occupies a slot and earns nothing: see [`ndcg_at`].
+            continue;
+        }
+        if relevant.contains(work.as_str()) {
+            hits += 1;
+        }
+    }
+    hits as f64 / k as f64
+}
+
+/// `F1@k` — the harmonic mean of [`precision_at`] and [`recall_at`], the headline the
+/// baseline ladder compares rungs on.
+///
+/// `None` when the reader has no relevant judgement, because a reader who judged nothing is not a
+/// reader who was served perfectly — the rule [`recall_at`] already follows, restated here so a
+/// caller cannot reach for `unwrap_or(0.0)` without noticing that it dropped somebody.
+#[must_use]
+pub fn f1_at(ranking: &[String], judged: &[Judgement], k: usize) -> Option<f64> {
+    let recall = recall_at(ranking, judged, k)?;
+    let precision = precision_at(ranking, judged, k);
+    if precision + recall == 0.0 {
+        return Some(0.0);
+    }
+    Some(2.0 * precision * recall / (precision + recall))
+}
+
+/// `AP@k` — average precision, the ordering term F1 cannot see.
+///
+/// F1 at a fixed `k` cannot distinguish "the hit was first" from "the hit was twentieth". AP
+/// accumulates precision at every rank where a relevant work appears, so a rung that ranks one hit
+/// above another scores accordingly, and `MAP@k` is its mean over readers.
+///
+/// The denominator is the number of relevant works, **never** `min(k, relevant)` and never the
+/// ranking's length: clamping it lets a three-item list score `1.0` against an eleven-work
+/// judgement set, which is the failure [`recall_at`] already refuses.
+#[must_use]
+pub fn average_precision_at(ranking: &[String], judged: &[Judgement], k: usize) -> Option<f64> {
+    let relevant: HashSet<&str> = judged
+        .iter()
+        .filter(|j| j.grade > 0)
+        .map(|j| j.work_id.as_str())
+        .collect();
+    if relevant.is_empty() || k == 0 {
+        return None;
+    }
+    let mut seen: HashSet<&str> = HashSet::new();
+    let mut hits = 0_usize;
+    let mut total = 0.0;
+    for (position, work) in ranking.iter().take(k).enumerate() {
+        if !seen.insert(work.as_str()) {
+            continue;
+        }
+        if relevant.contains(work.as_str()) {
+            hits += 1;
+            total += hits as f64 / (position + 1) as f64;
+        }
+    }
+    Some(total / relevant.len() as f64)
+}
+
 /// `overlap@k`: the share of the first `k` positions the two rankings agree on.
 ///
 /// This is the shadow comparison's question — "is this the same recommendation, or a
@@ -388,6 +468,53 @@ mod tests {
         let ranked = ranking(&["w0", "w1", "w2", "w3"]);
         let recall = recall_at(&ranked, &judged, 50).unwrap();
         assert!((recall - 0.4).abs() < 1e-12, "recall = {recall}");
+    }
+
+    #[test]
+    fn precision_divides_by_k_not_by_the_list() {
+        // A one-item ranking with a hit is 1/20, not 1.0: it served one slot of the page.
+        let judged = judged(&[("a", 1)]);
+        let ranked = ranking(&["a"]);
+        let precision = precision_at(&ranked, &judged, 20);
+        assert!((precision - 0.05).abs() < 1e-12, "precision = {precision}");
+        assert_eq!(precision_at(&ranked, &judged, 0), 0.0);
+    }
+
+    #[test]
+    fn a_repeat_earns_one_slot_and_no_second_hit() {
+        let judged = judged(&[("a", 1)]);
+        let ranked = ranking(&["a", "a"]);
+        // Two slots served, one hit: 1/20, and the recall is unaffected by the repeat.
+        let precision = precision_at(&ranked, &judged, 20);
+        assert!((precision - 0.05).abs() < 1e-12, "precision = {precision}");
+        assert!((recall_at(&ranked, &judged, 20).unwrap() - 1.0).abs() < 1e-12);
+    }
+
+    #[test]
+    fn f1_is_none_when_nothing_was_judged() {
+        let ranked = ranking(&["a"]);
+        assert_eq!(f1_at(&ranked, &[], 20), None);
+        // A judged-and-rejected set is also not a perfect score.
+        assert_eq!(f1_at(&ranked, &judged(&[("a", 0)]), 20), None);
+        // And a run with judgements but no hits is 0.0, not None: that reader was served.
+        assert_eq!(f1_at(&ranking(&["z"]), &judged(&[("a", 1)]), 20), Some(0.0));
+    }
+
+    #[test]
+    fn a_short_list_cannot_reach_a_perfect_map() {
+        // Three relevant works, one of them found at the top: AP@20 = 1/3, not 1.0, because the
+        // denominator is the number of relevant works rather than the list's length.
+        let judged = judged(&[("w0", 1), ("w1", 1), ("w2", 1)]);
+        let ranked = ranking(&["w0"]);
+        let ap = average_precision_at(&ranked, &judged, 20).unwrap();
+        assert!((ap - 1.0 / 3.0).abs() < 1e-12, "AP = {ap}");
+        // And the order matters to AP in a way it does not to F1 at a fixed k.
+        let high = average_precision_at(&ranking(&["w0", "z", "w1"]), &judged, 20).unwrap();
+        let low = average_precision_at(&ranking(&["z", "w1", "w0"]), &judged, 20).unwrap();
+        assert!(
+            low < high,
+            "AP must fall when the hits fall: {low} vs {high}"
+        );
     }
 
     #[test]

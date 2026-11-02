@@ -23,8 +23,8 @@
 //! looks measured and is not.
 //!
 //! Implemented so far: [`arena::glicko`] (Glicko-2 with draws, matched against kindred case by
-//! case) and [`eval`] (the ranking metrics the parity harness scores with). Everything else is
-//! still a declaration.
+//! case), [`eval`] (the ranking metrics the parity harness scores with) and [`ladder`] (the
+//! baseline ladder a challenger is measured against). Everything else is still a declaration.
 
 /// The catalogue: the instance's works, tags and entities, ingested into the on-disk
 /// index the engine reads (spec §8.2, §12.7).
@@ -54,9 +54,13 @@ pub mod diversify;
 /// (spec §12.4).
 pub mod arena;
 
-/// Ranking metrics: `nDCG@10`, `recall@50` and overlap, which is how "we match kindred"
-/// becomes a number instead of a claim (spec §8.3, R-6).
+/// Ranking metrics: `nDCG@10`, `recall@50`, `precision@k`, `F1@k`, `AP@k` and overlap, which is how
+/// "we match kindred" becomes a number instead of a claim (spec §8.3, R-6).
 pub mod eval;
+
+/// The baseline ladder: every rung a recommender is placed against on one split, and the
+/// pre-registered conjunction a challenger has to clear (spec §12.7a, §24.4; requirement M64-16).
+pub mod ladder;
 
 /// The ranker: the blend that turns a reader's profile and a candidate work into an
 /// order (spec §12.7, §19).

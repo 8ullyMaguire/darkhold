@@ -309,23 +309,32 @@ cargo test -p darkhold-taste --lib ladder
 Expected:
 
 ```
-test ladder::tests::a_refused_rung_is_not_a_zero ... ok
-test ladder::tests::the_bar_is_a_conjunction ... ok
-test ladder::tests::the_ratio_is_measured_against_popularity ... ok
-test ladder::tests::coverage_counts_distinct_works_not_slots ... ok
+test ladder::tests::a_group_collapse_is_a_guardrail_not_a_zero ... ok
 test ladder::tests::a_reader_without_judgements_is_counted_not_averaged ... ok
-test result: ok. 5 passed; 0 failed
+test ladder::tests::a_refused_rung_is_not_a_zero ... ok
+test ladder::tests::an_unknown_challenger_names_itself ... ok
+test ladder::tests::coverage_counts_distinct_works_not_slots ... ok
+test ladder::tests::the_bar_is_a_conjunction ... ok
+test ladder::tests::the_cut_and_the_metrics_are_pinned ... ok
+test ladder::tests::the_ratio_is_measured_against_popularity ... ok
+test result: ok. 8 passed; 0 failed
 ```
 
 - `a_refused_rung_is_not_a_zero` — a rung with `refused: Some("0 of 1,247…")` has
-  `f1_at_k == None` and prints the reason; mutate it to `Some(0.0)` and the test fails.
-- `the_bar_is_a_conjunction` — a challenger at 3× popularity with `catalogue_share = 0.01` is
-  **not** shipped, and `reason` names coverage. This is the test that stops a winning number from
-  hiding a collapsed engine.
-- `the_ratio_is_measured_against_popularity` — popularity 0.04, challenger 0.06 → ratio 1.5 →
-  shipped; challenger 0.045 → 1.125 → not shipped.
-- `coverage_counts_distinct_works_not_slots` — ten readers each served the *same* twenty works have
-  `distinct_works == 20`, not 200.
+  `f1_at_k == None` and prints the reason; mutate the refusal branch to report `0.0` and the test
+  fails with *"a refusal must not report 0.0"*.
+- `the_bar_is_a_conjunction` — a challenger at 2× popularity with 2 % coverage is **not** shipped and
+  `reason` names coverage; the same run on a 20-work catalogue ships. This is the test that stops a
+  winning number from hiding a collapsed engine; delete the coverage limb and it fails.
+- `the_ratio_is_measured_against_popularity` — a floor that found nothing yields *no ratio* rather
+  than a division; a floor at 1 hit and a challenger at 2 yields exactly `2.00×` and ships.
+- `coverage_counts_distinct_works_not_slots` — ten readers each served the *same* two works have
+  `distinct_works == 2`, not 20.
+- `a_group_collapse_is_a_guardrail_not_a_zero` — every served work in one fandom fails the ceiling,
+  and the same run with **no group map** reports `None` (never `0.0`) and ships.
+- `a_reader_without_judgements_is_counted_not_averaged` — the mean is the scored reader's, and the
+  header says `2 (1 scored, 1 unjudged)`.
+- `the_cut_and_the_metrics_are_pinned` — `K == 20` and the two hand-computable values.
 
 ### 3. `crates/taste/examples/ladder.rs` — the CLI
 
@@ -363,21 +372,26 @@ file is 3 MB of ids for a rung that only needs a sample.
 Output, printed to stdout and written to `--out`:
 
 ```
-cutoff 2026-08-01T00:00:00Z · k=20 · catalogue 141,317 · readers 3 (3 scored, 0 unjudged)
+cutoff 2026-08-01T00:00:00Z
+k=20 · catalogue 100 · readers 3 (3 scored, 0 unjudged)
 
-rung            f1@20    map@20   nDCG@10  distinct  share   max-group  status
-random           0.0000   0.0000   0.0000        3   0.0 %       —     scored
-popularity       0.0455   0.0227   0.0310        1   0.0 %    100.0 %  scored
-tag_i2i             —        —        —          —      —         —     REFUSED 0 of 1247 engaged rows carry a work_tag (M64-06)
-mf                  —        —        —          —      —         —     REFUSED no offline matrix factorisation exists; see §12.7a
+rung                    f1@k    map@k  nDCG@10  distinct   share  max-group  status
+popularity            0.0635   0.5000   0.5436         2    2.0%      50.0%  scored
+tag_i2i                    —        —        —         0    0.0%          —  REFUSED 0 of 1247 engaged rows carry a work_tag (M64-06)
+mf                         —        —        —         0    0.0%          —  REFUSED no offline matrix factorisation exists; see spec 12.7a
+random                0.0635   0.4444   0.5000         6    6.0%      50.0%  scored
 
-verdict: popularity NOT SHIPPED — coverage 0.0 % is below the 5.0 % floor
+verdict: popularity NOT SHIPPED — f1@20 is 1.00× popularity, below the 1.25× bar
+
+2 rung(s) refused: the ladder is incomplete and no claim can be made from it.
 ```
 
-(Those figures are a shape, from the fixture set below — not a measurement of this instance. Note
-that the rung `popularity` is challenged **against itself** here, and that is the point of the
-fixture: a ratio of 1.0 fails the 1.25× limb, so the run demonstrates the bar is computed against the
-bar and not against zero. A harness whose floor rung can pass its own gate has no gate.)
+(These are the fixture's real numbers, asserted rather than illustrated. Note that the rung
+`popularity` is challenged **against itself** here, and that is the point of the fixture: a ratio of
+1.0 fails the 1.25× limb, so the run demonstrates the bar is computed against the bar and not against
+zero. A harness whose floor rung can pass its own gate has no gate. `random` ties it on this fixture
+because six works and three readers is not a corpus — the tie is honest, and it is why the ladder is
+printed rather than a single number.)
 
 **Exit codes:** `0` when every requested rung was scored and the challenger cleared the bar; `1` when
 a rung refused or the bar failed (**a refusal is a non-zero exit**, because a run that could not
@@ -477,37 +491,68 @@ and computed once per run rather than stored per reader. `tag_i2i`, `user_neighb
 emitted as **refusals with their reason**, because the corpus cannot support them yet: a rung that
 silently vanished from the input would leave the table looking complete.
 
-**Verification:**
+**Verification. Three runs, because the export is the part that cannot be unit-tested:**
 
 ```bash
-sqlite3 -readonly data/lorehaven.sqlite < scripts/eval/01-engagement-census.sql   # the census decides which rungs can exist
-scripts/eval/02-export-set.sh sqlite data/lorehaven.sqlite | jq '.readers | length'
+# 1. The census: which rungs can exist at all. Exit 1 with `no such table: work_ratings` on a
+#    database older than 0129 — every row above that line is still a census.
+sqlite3 -readonly data/lorehaven.sqlite < scripts/eval/01-engagement-census.sql
+
+# 2. The export (pseudonymises, and creates eval/salt on first run).
+scripts/eval/02-export-set.sh sqlite data/lorehaven.sqlite --out eval/eval-set.json
+
+# 3. Determinism: two exports over the same database are byte-identical.
+scripts/eval/02-export-set.sh sqlite data/lorehaven.sqlite --out eval/a.json
+scripts/eval/02-export-set.sh sqlite data/lorehaven.sqlite --out eval/b.json
+cmp eval/a.json eval/b.json && echo "byte-identical"
 ```
 
-Expected on the 2026-11-01 measurement: `0` readers (`1,247` engaged rows, `reading_progress 1`,
-`work_ratings 0`) and the census printing:
+Expected on the **local dev shell** (`data/lorehaven.sqlite`, two accounts and no corpus): sixteen
+zero rows, the census exiting `1` on the absent `work_ratings`, and `0` readers exported:
 
 ```
-engagements            1247   <- needs >= 2000 for a split to score >= 5 readers
-kudos readers              ?   <- run it; do not copy a number from this file
-engaged rows with a tag    0   <- tag_i2i is refused, not zero-scored
-slots with propensity      0   <- online evaluation has no history either
+works|0
+library_items|0
+engaged_works|0
+work_kudos|0
+work_view_log|0
+reading_progress|0
+bookmarks|0
+recommendation_slots|0
+slots_with_a_propensity|0
+engaged_works_carrying_a_tag|0
+...
+Parse error near line 47: no such table: work_ratings
 ```
 
-A zero-reader export is the **expected** first result and the harness must still print a table of
-refusals. That is the honest state of the evidence, and it is what M64-06/-11/-12 exist to fix.
+Expected on the **deployed corpus** (2026-11-01 measurement, to be re-measured rather than copied):
+`library_items 141,317`, `engaged_works 1,247`, `engaged_works_carrying_a_tag 0`,
+`slots_with_a_propensity 0` — so the tag, neighbourhood and MF rungs are refused and the export
+yields **0 scored readers**. That is the honest state of the evidence, it is what M64-06/-11/-12
+exist to fix, and the ladder still prints its table of refusals rather than failing.
+
+**Both dialects were executed**, not just written: against a scratch SQLite database and a scratch
+PostgreSQL 16 database holding 30 works, 30 kudos, one bookmark and two tag rows. Both returned
+`catalogue 30 · cutoff 2026-01-25T00:00:00Z · readers 1 · work_ids 30 · groups {…: "Naruto"}` with the
+same six judged works and the same four rungs. Three defects came out of that run and are fixed here:
+`works` has an `id` column and not `work_id` (both dialects), `json_group_array(r)` quotes a
+`json_object` unless it is wrapped in `json()`, and **`psql` exits 0 after a failed statement** — the
+wrapper now passes `-v ON_ERROR_STOP=1`, because a partial document reads as a smaller population
+rather than as a failure.
 
 ---
 
 ## Build order
 
-| # | step | verification | expected |
-|---|---|---|---|
-| 1 | `precision_at`/`f1_at`/`average_precision_at` in `crates/taste/src/eval.rs` + 4 tests | `cargo test -p darkhold-taste --lib eval` | `14 passed` |
-| 2 | `crates/taste/src/ladder.rs` + 5 tests | `cargo test -p darkhold-taste --lib ladder` | `5 passed` |
-| 3 | `crates/taste/examples/ladder.rs` + the fixture set | the fixture run above | table, `exit=1` |
-| 4 | `scripts/eval/01-engagement-census.sql`, `02-export-set.{sh,sqlite.sql,postgres.sql}` | the census run above | the three blocker lines, `0` readers today |
-| 5 | `.gitignore` gains `eval/`; `docs/requirements.csv` row `M64-16` → `implemented-locally-tested` with the plan path | `git check-ignore eval/x` | `eval/x` |
+Built 2026-11-02 in one pass; the counts are the ones the runs printed, not estimates.
+
+| # | step | verification | printed | state |
+|---|---|---|---|---|
+| 1 | `precision_at`/`f1_at`/`average_precision_at` in `crates/taste/src/eval.rs` + 4 tests | `cargo test -p darkhold-taste --lib eval` | `13 passed` | done |
+| 2 | `crates/taste/src/ladder.rs` + 8 tests | `cargo test -p darkhold-taste --lib ladder` | `8 passed` | done |
+| 3 | `crates/taste/examples/ladder.rs` + `tests/fixtures/ladder-set.json` | the fixture run above | the table, `exit=1` | done |
+| 4 | `scripts/eval/01-engagement-census.sql`, `02-export-set.{sh,sqlite.sql,postgres.sql}`, `pseudonymise.py` | the three runs above, both dialects | `1` reader on scratch data, `0` today | done |
+| 5 | `.gitignore` gains `eval/`; `docs/requirements.csv` `M64-16` → `implemented-locally-tested`; `docs/verification.md` | `git check-ignore eval/x` | `eval/x` | done |
 
 Steps 1–3 are pure and can land before any data exists; steps 4–5 make the refusal visible from the
 operator's shell. **Do not mark the row `implemented-verified-e2e` on a zero-reader export** — the

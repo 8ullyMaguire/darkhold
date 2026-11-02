@@ -67,3 +67,8 @@ __pycache__/
 # contents. Prefer an explicit negation per file over loosening the global rule,
 # which exists to do its job for actual secrets.
 
+
+# The evaluation set names who read what (spec 0.3). It is produced locally by
+# scripts/eval/02-export-set.sh and never committed; the salt beside it is what makes two runs
+# over the same history comparable, and it must not be shared either.
+eval/
