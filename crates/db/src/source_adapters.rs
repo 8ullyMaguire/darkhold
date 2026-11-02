@@ -300,10 +300,14 @@ pub async fn record_review(
 
     let sql = sql_owned(
         db,
-        "INSERT INTO adapter_reviews (id, submission_id, reviewer_account, verdict, note, created_at)
-         VALUES (?1, ?2, ?3, ?4, ?5, ?6)
+        // `seq` is the reading order, not `created_at`: that has one-second resolution, so two
+        // reviews in the same second sorted by a random UUID (migration 0141).
+        "INSERT INTO adapter_reviews (id, submission_id, reviewer_account, verdict, note, created_at, seq)
+         VALUES (?1, ?2, ?3, ?4, ?5, ?6,
+                 (SELECT COALESCE(MAX(seq), 0) + 1 FROM adapter_reviews))
          ON CONFLICT (submission_id, reviewer_account) DO NOTHING"
             .to_string(),
+        // PostgreSQL takes `seq` from its sequence default.
         "INSERT INTO adapter_reviews (id, submission_id, reviewer_account, verdict, note, created_at)
          VALUES ($1::uuid, $2::uuid, $3::uuid, $4, $5, $6::timestamptz)
          ON CONFLICT (submission_id, reviewer_account) DO NOTHING"
@@ -452,11 +456,11 @@ pub async fn reviews_for(
     let sql = sql_owned(
         db,
         "SELECT id, submission_id, reviewer_account, verdict, note, created_at
-           FROM adapter_reviews WHERE submission_id = ?1 ORDER BY created_at, id"
+           FROM adapter_reviews WHERE submission_id = ?1 ORDER BY seq, created_at, id"
             .to_string(),
         "SELECT id::text, submission_id::text, reviewer_account::text, verdict, note,
                 created_at::text
-           FROM adapter_reviews WHERE submission_id = $1::uuid ORDER BY created_at, id"
+           FROM adapter_reviews WHERE submission_id = $1::uuid ORDER BY seq, created_at, id::text"
             .to_string(),
     );
     fetch_all!(db, &sql, [submission_id], ReviewRow).await

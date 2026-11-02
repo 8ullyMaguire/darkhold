@@ -133,9 +133,14 @@ pub async fn ensure_encryption_key(db: &Database, key_id: &str, algorithm: &str)
 /// key is for — so nothing is deleted here.
 pub async fn retire_encryption_key(db: &Database, key_id: &str) -> Result<()> {
     let now = crate::identity::now_rfc3339();
+    // `AND retired_at IS NULL` is the fix for `docs/known-gaps.md` M10-D01. Without it a second
+    // retirement overwrote the first timestamp, so "when was this key retired" answered with the
+    // time of the operator's last attempt rather than the retirement. A key is retired once;
+    // the second call is a no-op that reports success, like retiring a key that was never
+    // registered.
     let sql = db.sql(
-        "UPDATE encryption_keys SET retired_at = ? WHERE key_id = ?",
-        "UPDATE encryption_keys SET retired_at = ? WHERE key_id = ?",
+        "UPDATE encryption_keys SET retired_at = ? WHERE key_id = ? AND retired_at IS NULL",
+        "UPDATE encryption_keys SET retired_at = ? WHERE key_id = ? AND retired_at IS NULL",
     );
     match db.backend() {
         Backend::Sqlite => {

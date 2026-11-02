@@ -25,6 +25,16 @@ use test_support::{scratch_dir, TestClient, TestDb};
 fn router_for(tdb: &TestDb, dir: &std::path::Path) -> axum::Router {
     let mut config = Config::development_defaults();
     config.storage.root = dir.to_path_buf();
+    // The concierge is `default_on: false` in the registry ("opt-in by design"), and an instance
+    // that has not opted in answers every one of these routes with 404 — which is what turned this
+    // whole suite red: it was written against the routes before the module gate existed, and eleven
+    // tests read the gate as a missing router.
+    //
+    // It is set HERE rather than flipped in the registry because a suite about a surface must
+    // decide the instance it runs on, the way it already decides `storage.root`. Whether a fresh
+    // instance should ship the concierge switched on is a product question about the default, not
+    // something a test gets to answer by making itself green.
+    config.modules.enabled = vec!["concierge".to_string()];
     server::build_router(AppState::new(config, tdb.db().clone()))
 }
 

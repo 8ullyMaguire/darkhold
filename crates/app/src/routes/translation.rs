@@ -251,7 +251,8 @@ pub fn router() -> axum::Router<AppState> {
 /// stylometry (`grep -rln stylometr crates/` finds a catalogue string and nothing else), and
 /// `work_tags` is not backfilled (M63-32). A cross-language taste score over that would be a number
 /// with no signal behind it.
-pub async fn supply(State(state): State<AppState>) -> ApiResult<Json<Value>> {
+pub async fn supply(State(state): State<AppState>,
+    MaybeSession(_session): MaybeSession) -> ApiResult<Json<Value>> {
     let supply = darkhold_db::translation::language_supply(state.db())
         .await
         .map_err(|e| ApiError(darkhold_domain::AppError::Internal(e.into())))?;
@@ -274,6 +275,7 @@ pub async fn supply(State(state): State<AppState>) -> ApiResult<Json<Value>> {
 
 pub async fn list_translation_bounties(
     State(state): State<AppState>,
+    MaybeSession(_session): MaybeSession,
 ) -> ApiResult<Json<Value>> {
     let bounties = darkhold_db::translation::translation_bounties(state.db(), 50)
         .await

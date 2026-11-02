@@ -29,6 +29,12 @@ use test_support::{id, scratch_dir, TestClient, TestDb};
 fn config_for(dir: &std::path::Path) -> Config {
     let mut config = Config::development_defaults();
     config.storage.root = dir.to_path_buf();
+    // The `tasting` module is `default_on: false` in the registry, so an instance that has not
+    // opted in answers these routes with 404 — which is how this suite went red when the gate
+    // landed: every test read the gate as a missing router. Setting it here decides the instance
+    // the suite runs on (the way it already decides `storage.root`); whether a fresh instance
+    // ships it on is a product default, not something a test should settle by needing to pass.
+    config.modules.enabled = vec!["tasting".to_string()];
     // Honoured, so this file runs on whichever backend the selector names.
     config.database = match std::env::var("DARKHOLD_TEST_PG_URL") {
         Ok(url) => darkhold_db::DatabaseConfig::new(url),

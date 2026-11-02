@@ -33,6 +33,12 @@ fn scratch_dir(tag: &str) -> PathBuf {
 fn config_for(dir: &Path) -> Config {
     let mut config = Config::development_defaults();
     config.storage.root = dir.to_path_buf();
+    // The `vanguard` module is `default_on: false` in the registry, so an instance that has not
+    // opted in answers these routes with 404 — which is how this suite went red when the gate
+    // landed: every test read the gate as a missing router. Setting it here decides the instance
+    // the suite runs on (the way it already decides `storage.root`); whether a fresh instance
+    // ships it on is a product default, not something a test should settle by needing to pass.
+    config.modules.enabled = vec!["vanguard".to_string()];
     config.database = DatabaseConfig::new(format!(
         "sqlite://{}/darkhold.sqlite?mode=rwc",
         dir.display()

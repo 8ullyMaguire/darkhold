@@ -1,50 +1,51 @@
-## 2026-11-02 — M47-08: private search history (audit item 31)
+## 2026-11-02 — M47-09/10/11: thirteen red binaries, three root causes
 
-**Requirement:** `M47-08` · **Tests:** 7 db + 6 route (both engines) + 6 frontend
+A `cargo test -p darkhold-app -p darkhold-db --no-fail-fast` run reported **13 failing test
+binaries**, all of them red before this pass. They were three causes, not thirteen.
 
-The audit filed item 31 under "none needs a migration — all render work over columns that exist".
-`grep -rn "search_history\|SearchHistory" crates/` returned nothing and no table held a query
-string, so the one thing it needed was the one thing described as present.
+**One: the module gate landed under suites written against the routers.** 46 tests across
+`concierge_routes`, `milestone_26` (narration), `tasting_menu`, `taste_health` (quiz) and
+`vanguard` read the `404` of an un-opted-in module as a missing router. Each suite now enables its
+own module in the harness config — the way it already sets `storage.root` — because whether a fresh
+instance ships a surface on is a product default, not something a test should settle by needing to
+pass.
 
-```
-POST-free surface:  GET /api/v1/search           records, after the search succeeded
-                    GET /api/v1/search/history?limit=10   this pseud's last N
-                    DELETE /api/v1/search/history         clears, returns the count
-table:              search_history (0139, both dialects)
-setting:            search.record_history (default on)
-```
+**Two: ordering by a one-second timestamp with a random UUID as tiebreak.** `trust_events`,
+`adapter_reviews` and the `jobs` listing all do `ORDER BY created_at DESC, id DESC`. Two rows
+written in the same second — which is what a scripted grant or a fast fixture produces — have no
+defined order, and `id` is not a monotone tiebreak. Migrations `0140`/`0141` give the first two a
+`seq` (a sequence on PostgreSQL, `MAX + 1` under SQLite's write lock); their reads order by it. The
+append-only trigger on `trust_events` had to be dropped and recreated around the backfill, because
+the backfill *is* an UPDATE and the trigger exists to refuse those. `jobs` keeps its second-
+resolution ordering because its cursor is a public value; recorded as `M47-G01`.
 
-**Four decisions, each with the alternative it beat.** `query_key` is a stored column because
-SQLite's `lower()` folds ASCII only, so an expression index would make `Éowyn` one row on
-PostgreSQL and two on SQLite — the two engines disagreeing about the length of a history. No
-`account_id`, because §51 erases an account by rekeying its pseud and an account column would hand
-that history to the account that used to own it. A rejected query is not recorded, because the
-write sits after `map_err(search_failure)?`. And `search.record_history = false` stops the writing
-without hiding what is stored: the first version returned an empty list, which showed "no history"
-while the rows were still on disk.
+**Three: fixtures and expectations that contradicted the schema.** `milestone_31`'s fixtures wrote
+`+00:00` stamps that migration `0132`'s canonical trigger rejects (`created_at must be canonical
+UTC (…Z)`), and `milestone_5`'s sweep test asked a strict `updated_at < cutoff` to delete a job
+that finished at the cutoff — right behaviour, wrong assertion.
 
-**Two engine bugs the gates caught, not a reading.** PostgreSQL rejected `result_count INTEGER`
-read as `i64` ("mismatched types; Rust type `i64` (as SQL type `INT8`) is not compatible with SQL
-type `INT4`") — now `BIGINT`. And `clear` used a bare `?`, which PostgreSQL reads as a literal
-token and answers with "syntax error at end of input"; it goes through `db.sql` like its siblings.
-
-**A pre-existing red gate, partly repaired.** `route_inventory::every_route_has_correct_audience`
-was failing at HEAD on three routes nobody had tabled; the two finisher surfaces now declare
-`MaybeSession` and the check is green. Its table-completeness half still lists ~20 untabled routes
-in `translation`, `catalogue`, `supply`, `modules`, `welcome` and `rec_run` — deliberately not
-half-done here, and named so the next pass starts from a count rather than a hunch.
+Also closed on the way: the pre-existing red `route_inventory` (34 routes never tabled, three with
+no audience extractor) and `docs/known-gaps.md` **M10-D01** (`retire_encryption_key` re-stamped a
+retired key; now `AND retired_at IS NULL`).
 
 ```
-cargo test -p darkhold-db  --test search_history          -> 7 passed (SQLite)
-DARKHOLD_TEST_PG_URL=… cargo test -p darkhold-db --test search_history   -> 7 passed
-cargo test -p darkhold-app --test m47_08_search_history   -> 6 passed (SQLite and PostgreSQL)
-cd frontend && npx vitest run src/routes/Search.test.ts   -> 21 passed (6 new)
-cd frontend && npx vitest run                             -> 591 passed
-npx svelte-check --threshold error                        -> 0 errors
-cargo test -p darkhold-domain                             -> 913 passed
+cargo test -p darkhold-app --test route_inventory          -> 5 passed  (was 3)
+cargo test -p darkhold-app --test concierge_routes         -> 11 passed (was 0)
+cargo test -p darkhold-app --test milestone_26             -> 11 passed (was 2)
+cargo test -p darkhold-app --test tasting_menu             -> 14 passed (was 0)
+cargo test -p darkhold-app --test taste_health             -> 5 passed  (was 3)
+cargo test -p darkhold-app --test vanguard                 -> 5 passed  (was 0)
+cargo test -p darkhold-app --test milestone_31_work_discussion -> 34 passed (was 27)
+cargo test -p darkhold-app --test milestone_5              -> 25 passed (was 23)
+cargo test -p darkhold-app --test trust_events             -> 4 passed, SQLite and PostgreSQL
+cargo test -p darkhold-db  --test source_adapters          -> 11 passed, SQLite and PostgreSQL
+cargo test -p darkhold-db  --test migration_catalogue      -> 6 passed
 ```
 
-**Red by removal:** dropping the `worth_recording` guard fails the keystroke test; dropping the
-trim fails the cap test; dropping the route's recording gate fails the setting test; removing the
-post-search refresh and the paused note fail their two frontend tests.
+**Red by removal:** `ORDER BY seq ASC` on `trust_events` fails `every_trust_change_writes_a_row`
+with the same `left: 3, right: 5` the suite was already failing; dropping `seq` from
+`reviews_for` fails `reviews_are_returned_oldest_first`.
+
+**Not still red, and one thing that is:** the suite is green apart from `M47-G01` (the `jobs`
+cursor), which is written down rather than papered over.
 

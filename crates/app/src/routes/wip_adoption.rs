@@ -24,6 +24,7 @@
 //! reader nothing, so the door answers with the list it has — empty — and a reason. A client can
 //! render "lineage is unavailable here" without a special case for a server fault.
 
+use crate::auth::MaybeSession;
 use axum::extract::{Path, State};
 use axum::routing::{get, post};
 use axum::{Json, Router};
@@ -119,7 +120,8 @@ async fn withdraw_offer(
     }
 }
 
-async fn list_offers(State(state): State<AppState>) -> ApiResult<Json<serde_json::Value>> {
+async fn list_offers(State(state): State<AppState>,
+    MaybeSession(_session): MaybeSession) -> ApiResult<Json<serde_json::Value>> {
     let offers = wip_adoption::list_open(state.db(), 100)
         .await
         .map_err(|e| ApiError(AppError::Internal(e)))?;
@@ -177,6 +179,7 @@ async fn adopt_offer(
 
 async fn contributors(
     State(state): State<AppState>,
+    MaybeSession(_session): MaybeSession,
     Path(work_id): Path<String>,
 ) -> ApiResult<Json<Lineage>> {
     let lineage = wip_adoption::contributors(state.db(), &work_id)
@@ -219,6 +222,7 @@ async fn put_closure_note(
 
 async fn get_closure_note(
     State(state): State<AppState>,
+    MaybeSession(_session): MaybeSession,
     Path(work_id): Path<String>,
 ) -> ApiResult<Json<serde_json::Value>> {
     match wip_adoption::latest_closure_note(state.db(), &work_id)

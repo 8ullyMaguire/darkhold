@@ -574,7 +574,8 @@ async fn resolve_fandom(
 const FANDOM_LIST_LIMIT: i64 = 500;
 
 /// Every fandom the catalogue holds, largest first.
-async fn fandoms(State(state): State<AppState>) -> ApiResult<Json<Vec<FandomCount>>> {
+async fn fandoms(State(state): State<AppState>,
+    MaybeSession(_session): MaybeSession) -> ApiResult<Json<Vec<FandomCount>>> {
     Ok(Json(
         catalogue::fandoms(state.db(), FANDOM_LIST_LIMIT).await?,
     ))
@@ -638,7 +639,8 @@ fn edit_distance(a: &str, b: &str) -> usize {
 }
 
 /// The distinct source keys the catalogue holds, with how many rows each has.
-async fn sources(State(state): State<AppState>) -> ApiResult<Json<Vec<SourceCount>>> {
+async fn sources(State(state): State<AppState>,
+    MaybeSession(_session): MaybeSession) -> ApiResult<Json<Vec<SourceCount>>> {
     let rows = catalogue::sources(state.db()).await?;
     Ok(Json(rows))
 }
@@ -864,7 +866,8 @@ async fn prune_snapshots(newest: &std::path::Path) {
 }
 
 /// `GET /catalogue/export` — what the file is, before you download tens of MB.
-async fn export_manifest(State(state): State<AppState>) -> ApiResult<Json<ExportManifest>> {
+async fn export_manifest(State(state): State<AppState>,
+    MaybeSession(_session): MaybeSession) -> ApiResult<Json<ExportManifest>> {
     let (path, summary) = snapshot(&state).await?;
     let filename = path
         .file_name()
@@ -886,7 +889,8 @@ async fn export_manifest(State(state): State<AppState>) -> ApiResult<Json<Export
 /// a real catalogue, and a couple of simultaneous downloads should not be able to
 /// take the instance down. `ServeFile` also gives conditional requests and Range
 /// for free, which is what a resumable download needs.
-async fn export_sqlite(State(state): State<AppState>) -> ApiResult<axum::response::Response> {
+async fn export_sqlite(State(state): State<AppState>,
+    MaybeSession(_session): MaybeSession) -> ApiResult<axum::response::Response> {
     let (path, summary) = snapshot(&state).await?;
     let request = axum::http::Request::builder()
         .uri("/catalogue/export.sqlite")

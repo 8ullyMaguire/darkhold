@@ -149,10 +149,17 @@ pub async fn record(
 ) -> Result<String, sqlx::Error> {
     let id = uuid::Uuid::new_v4().to_string();
     let now = crate::identity::now_rfc3339();
+    // `seq` is assigned here, not by a clock. `created_at` has one-second resolution, so two
+    // events in the same second had no defined order and `id` — a random UUID — is not a tiebreak;
+    // "newest first" was a claim the storage could not keep. SQLite computes `MAX + 1` inside the
+    // statement, under that engine's single write lock; PostgreSQL's `seq` column carries a
+    // `nextval` default (migration 0140) and is left out of the column list, so the sequence
+    // assigns it atomically.
     let sql = db.sql(
         "INSERT INTO trust_events
-           (id, account_id, from_level, to_level, cause, evidence_ref, actor_account_id, created_at)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+           (id, account_id, from_level, to_level, cause, evidence_ref, actor_account_id, created_at, seq)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?,
+                 (SELECT COALESCE(MAX(seq), 0) + 1 FROM trust_events))",
         "INSERT INTO trust_events
            (id, account_id, from_level, to_level, cause, evidence_ref, actor_account_id, created_at)
          VALUES (?::uuid, ?::uuid, ?, ?, ?, ?, ?::uuid, ?)",
@@ -195,13 +202,15 @@ pub async fn list_for_account(
     limit: i64,
 ) -> Result<Vec<TrustEvent>, sqlx::Error> {
     let sql = db.sql(
+        // `seq DESC` first: it is the only monotonic column, so it is the only one that can order
+        // two events written in the same second. `created_at` stays as the human-facing stamp.
         "SELECT id, account_id, from_level, to_level, cause, evidence_ref, actor_account_id, created_at
            FROM trust_events WHERE account_id = ?
-          ORDER BY created_at DESC, id DESC LIMIT ?",
+          ORDER BY seq DESC, created_at DESC, id DESC LIMIT ?",
         "SELECT id::text, account_id::text, CAST(from_level AS BIGINT), CAST(to_level AS BIGINT),
                 cause, evidence_ref, actor_account_id::text, created_at
            FROM trust_events WHERE account_id = ?::uuid
-          ORDER BY created_at DESC, id DESC LIMIT ?",
+          ORDER BY seq DESC, created_at DESC, id::text DESC LIMIT ?",
     );
     let rows: Vec<EventRow> = match db.backend() {
         Backend::Sqlite => {

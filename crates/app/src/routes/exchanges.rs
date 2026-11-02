@@ -17,6 +17,7 @@
 //! own terms}` — the honest answer to "whom am I writing for", which is *you have not been
 //! told yet*. A `403` would say they did something wrong.
 
+use crate::auth::MaybeSession;
 use axum::extract::{Path, State};
 use axum::routing::{get, post, put};
 use axum::{Json, Router};
@@ -74,6 +75,7 @@ async fn is_organiser(state: &AppState, event_id: &str, pseud_id: &str) -> Resul
 
 async fn get_exchange(
     State(state): State<AppState>,
+    MaybeSession(_session): MaybeSession,
     Path(event_id): Path<String>,
 ) -> ApiResult<Json<Value>> {
     let event = darkhold_db::events::get_event(state.db(), &event_id)

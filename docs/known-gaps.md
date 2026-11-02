@@ -342,33 +342,39 @@ Options, none taken here because each is a product decision:
 
 Pinned by `a_malformed_edition_id_differs_between_backends`.
 
-### M10-D01 · A second `retire_encryption_key` overwrites the first
+### ~~M10-D01~~ · A second `retire_encryption_key` overwrites the first — CLOSED 2026-11-02
 
-`retire_encryption_key` runs an unconditional
-`UPDATE encryption_keys SET retired_at = ? WHERE key_id = ?` with no
-`AND retired_at IS NULL`, so retiring an already-retired key replaces the
-recorded time with the later one.
+The `UPDATE` guarded with `AND retired_at IS NULL` (M47-10). The second call is now a no-op that
+still reports success, like retiring a key that was never registered, and the recorded time is the
+moment the key stopped being used rather than the operator's last attempt.
 
-Lower stakes than `M09-D02` — a key has exactly one retirement, and the second
-call is most likely the same operator repeating themselves — but two things
-follow:
+Two things worth keeping from the original entry:
 
-- The stored time is the *last attempt*, not the moment the key actually stopped
-  being used. For a key-retention audit, that is the number you would want.
-- Nothing reports that the key was already retired, so a caller cannot tell a
-  fresh retirement from a repeat. A `Result<bool>` (or an error) would let
-  `seal_secret` skip work it has already done.
+- The pinning test used to assert the *defect* and compared two timestamps that could not differ —
+  `retired_at` has one-second resolution and the two calls happen in the same second. It failed for
+  a reason that had nothing to do with the gap it named. It now asserts stability.
+- The convention it asked for is adopted: a "set this field once" write guards with
+  `AND <field> IS NULL` or says in its docstring that the last write wins.
 
-Not fixed here: `retire_encryption_key` has one caller, in
-`crates/app/src/secrets.rs`, and changing the signature means changing it.
-Pinned by `retiring_twice_re_stamps_the_key`.
+### M47-G01 · `GET /jobs` cannot order two jobs enqueued in the same second
 
-Note this is the third unconditional-`UPDATE`-of-a-timestamp pattern found in
-two modules (`M09-D02`, `M10-D01`, and the `contested` flag is a fourth case
-where the same shape is *intended*). Worth a deliberate convention: every
-"set this field once" write in the data layer should either guard with
-`AND <field> IS NULL` or say in its docstring that the last write wins.
+`jobs` has no monotonic column, and every timestamp in this schema has one-second resolution
+(M63-31), so the listing's `ORDER BY created_at DESC, id DESC` uses a random UUID as its tiebreak
+and two jobs enqueued in the same second come back in an arbitrary order. The pagination cursor is
+built from the same pair, so the tie is in the cursor too.
 
+Two tables had the same defect and were fixed with a `seq` column (0140, 0141): `trust_events` and
+`adapter_reviews`, both of which are read as "in the order things happened". `jobs` was left out of
+that change because its cursor is a public value (`next_cursor`) built from `(created_at, id)`, and
+re-cutting it is a contract change rather than a column addition. `a_page_of_jobs_carries_a_cursor_
+that_resumes_it` now asserts the guarantee the storage can keep — every row once, pages consistent
+with `created_at DESC` — and the "last enqueued leads" claim is recorded here instead of pretended.
+
+### M47-G02 · `purge_terminal_jobs` keeps a row that finished exactly at the cutoff
+
+`updated_at < cutoff` with one-second stamps means a job finished this second is kept by a sweep
+run this second. That is correct for an "older than" comparison and wrong for an operator who
+expects "delete everything up to now"; the test passes `now + 1s` and says why.
 ### M09-D01 · Rating integrity is called by nothing
 
 `crates/db/src/rating_integrity.rs` has all seven `pub async fn` behind **zero

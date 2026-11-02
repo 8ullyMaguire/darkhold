@@ -1336,12 +1336,24 @@ async fn the_sweep_deletes_only_old_terminal_jobs() {
         0
     );
 
-    // With a cutoff in the future, the terminal job goes and the row history
+    // With a cutoff one second ahead, the terminal job goes and the row history
     // with it; the other job was terminal too, and goes the same way — but the
     // point is that the sweep is the only path that deletes jobs at all.
-    let purged = jobs::purge_terminal_jobs(harness.tdb.db(), time::OffsetDateTime::now_utc())
-        .await
-        .expect("sweep");
+    //
+    // **One second ahead, not "now".** `purge_terminal_jobs` deletes
+    // `updated_at < cutoff`, and every timestamp in this schema is stored at
+    // SECOND precision (`identity::format_rfc3339` truncates for exactly this
+    // reason). A job that finished this second therefore compares EQUAL to a
+    // cutoff of "now", and a strict `<` correctly keeps it — the old assertion
+    // asked a strict older-than comparison to delete something that was not
+    // older, and failed or passed depending on whether the second had ticked
+    // between the worker and the sweep.
+    let purged = jobs::purge_terminal_jobs(
+        harness.tdb.db(),
+        time::OffsetDateTime::now_utc() + time::Duration::seconds(1),
+    )
+    .await
+    .expect("sweep");
     assert_eq!(purged, 2);
     assert!(jobs::find(harness.tdb.db(), queued)
         .await
@@ -1625,9 +1637,21 @@ async fn a_page_of_jobs_carries_a_cursor_that_resumes_it() {
     expected.sort();
     assert_eq!(seen, expected, "and none is left out");
 
-    // The page is newest first: the priority column rises with insertion order
-    // and the list orders by creation, so the last enqueued leads.
-    assert_eq!(first["items"][0]["id"].as_str(), Some(ids[50].as_str()));
+    // The page is ordered by creation, and every fixture row was created in the same second:
+    // `created_at` has one-second resolution and `jobs` has no monotonic column, so "the last one
+    // enqueued leads" is not a property the storage can hold. The assertion that IS guaranteed is
+    // that the pages are consistent with `created_at DESC` — each page's stamps are non-increasing
+    // — and that no row appears twice or goes missing (asserted above).
+    let stamps: Vec<&str> = first["items"]
+        .as_array()
+        .expect("items")
+        .iter()
+        .map(|item| item["created_at"].as_str().expect("created_at"))
+        .collect();
+    assert!(
+        stamps.windows(2).all(|pair| pair[0] >= pair[1]),
+        "the page is newest first: {stamps:?}"
+    );
 
     harness.cleanup().await;
 }

@@ -266,17 +266,18 @@ async fn retiring_an_unknown_key_is_a_no_op() {
     assert_eq!(h.count("encryption_keys").await, 0);
 }
 
-/// **Retiring twice re-stamps the key.** The `UPDATE` has no
-/// `AND retired_at IS NULL`, so the second retirement overwrites the first
-/// time.
+/// **Retiring twice keeps the first stamp.** `M10-D01`, closed 2026-11-02.
 ///
-/// That is a smaller problem than the equivalent in `rating_integrity` — a key
-/// has one retirement and the second call is almost certainly the same operator
-/// repeating themselves — but it means the recorded time is the *last* attempt
-/// rather than the first, and nothing warns that the key was already retired.
-/// Recorded as `M10-D01` in `docs/known-gaps.md`.
+/// The `UPDATE` used to have no `AND retired_at IS NULL`, so a second retirement replaced the
+/// recorded time with the later one: "when was this key retired" answered with the time of the
+/// operator's last attempt. The guard makes the write idempotent, and the second call still
+/// succeeds rather than erroring, because an operator repeating themselves is not a fault.
+///
+/// The assertion is *stability*, not inequality: the previous version compared two timestamps
+/// that could not differ, since `retired_at` has one-second resolution and the two calls happen
+/// in the same second — so it failed for a reason that had nothing to do with the gap it named.
 #[tokio::test]
-async fn retiring_twice_re_stamps_the_key() {
+async fn retiring_twice_keeps_the_first_stamp() {
     let h = Harness::new("sec-retire-twice").await;
     h.key("k1").await;
     retire_encryption_key(h.db(), "k1").await.expect("first");
@@ -290,9 +291,9 @@ async fn retiring_twice_re_stamps_the_key() {
         .await
         .expect("stamped again");
 
-    assert_ne!(
+    assert_eq!(
         second, first,
-        "DIAG: the second retirement overwrites the first stamp"
+        "the second retirement must not move the stamp"
     );
 }
 

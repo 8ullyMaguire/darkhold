@@ -75,7 +75,7 @@ impl Db {
         let id = uuid::Uuid::new_v4().to_string();
         self.exec(&format!(
             "INSERT INTO accounts (id, email, created_at, updated_at) \
-             VALUES ('{id}', 'a{id}@example.test', '2026-01-01T00:00:00+00:00', '2026-01-01T00:00:00+00:00')"
+             VALUES ('{id}', 'a{id}@example.test', '2026-01-01T00:00:00Z', '2026-01-01T00:00:00Z')"
         ))
         .await;
         id
@@ -89,7 +89,7 @@ impl Db {
         let handle = format!("{handle}-{}", &id[..8]);
         self.exec(&format!(
             "INSERT INTO pseuds (id, account_id, handle, display_name, created_at, updated_at) \
-             VALUES ('{id}', '{}', '{handle}', '{handle} d', '2026-01-01T00:00:00+00:00', '2026-01-01T00:00:00+00:00')",
+             VALUES ('{id}', '{}', '{handle}', '{handle} d', '2026-01-01T00:00:00Z', '2026-01-01T00:00:00Z')",
             self.account().await
         ))
         .await;
@@ -100,7 +100,7 @@ impl Db {
         let id = uuid::Uuid::new_v4().to_string();
         self.exec(&format!(
             "INSERT INTO works (id, owner_pseud_id, title, created_at, updated_at) \
-             VALUES ('{id}', '{}', 'A Work', '2026-01-01T00:00:00+00:00', '2026-01-01T00:00:00+00:00')",
+             VALUES ('{id}', '{}', 'A Work', '2026-01-01T00:00:00Z', '2026-01-01T00:00:00Z')",
             self.pseud("work-owner").await
         ))
         .await;
@@ -292,7 +292,7 @@ async fn a_soft_deleted_work_is_not_readable_and_not_writable() {
         .await
         .unwrap();
     h.exec(&format!(
-        "UPDATE works SET deleted_at = '2026-02-01T00:00:00+00:00' WHERE id = '{work}'"
+        "UPDATE works SET deleted_at = '2026-02-01T00:00:00Z' WHERE id = '{work}'"
     ))
     .await;
 
@@ -396,7 +396,7 @@ async fn a_second_link_keeps_the_original_unit_and_title() {
     let unit = uuid::Uuid::new_v4().to_string();
     h.exec(&format!(
         "INSERT INTO units (id, work_id, title, order_key, created_at, updated_at) \
-         VALUES ('{unit}', '{work}', 'One', 1, '2026-01-01T00:00:00+00:00', '2026-01-01T00:00:00+00:00')"
+         VALUES ('{unit}', '{work}', 'One', 1, '2026-01-01T00:00:00Z', '2026-01-01T00:00:00Z')"
     ))
     .await;
 
@@ -423,7 +423,7 @@ async fn a_unit_scoped_link_records_the_unit() {
     let unit = uuid::Uuid::new_v4().to_string();
     h.exec(&format!(
         "INSERT INTO units (id, work_id, title, order_key, created_at, updated_at) \
-         VALUES ('{unit}', '{work}', 'One', 1, '2026-01-01T00:00:00+00:00', '2026-01-01T00:00:00+00:00')"
+         VALUES ('{unit}', '{work}', 'One', 1, '2026-01-01T00:00:00Z', '2026-01-01T00:00:00Z')"
     ))
     .await;
 
@@ -788,14 +788,14 @@ async fn each_comment_becomes_a_post_with_its_text() {
         &work,
         &h.pseud("c1").await,
         "first",
-        "2026-01-01T00:00:00+00:00",
+        "2026-01-01T00:00:00Z",
     )
     .await;
     h.comment(
         &work,
         &h.pseud("c2").await,
         "second",
-        "2026-01-02T00:00:00+00:00",
+        "2026-01-02T00:00:00Z",
     )
     .await;
 
@@ -822,7 +822,7 @@ async fn a_moved_comment_is_soft_deleted_with_a_tombstone_pointing_at_the_topic(
             &work,
             &h.pseud("c1").await,
             "goodbye",
-            "2026-01-01T00:00:00+00:00",
+            "2026-01-01T00:00:00Z",
         )
         .await;
 
@@ -847,7 +847,7 @@ async fn a_post_keeps_the_comment_s_author_and_timestamp() {
     let category = h.category().await;
     let author = h.pseud("mover").await;
     let speaker = h.pseud("speaker").await;
-    h.comment(&work, &speaker, "mine", "2026-03-04T05:06:07+00:00")
+    h.comment(&work, &speaker, "mine", "2026-03-04T05:06:07Z")
         .await;
 
     let report = wd::migrate_comments_to_topic(h.db(), &work, &category, &author, "Thread")
@@ -870,7 +870,7 @@ async fn a_post_keeps_the_comment_s_author_and_timestamp() {
     };
     assert_eq!(who, speaker, "the post is still the commenter's");
     assert_eq!(
-        when, "2026-03-04T05:06:07+00:00",
+        when, "2026-03-04T05:06:07Z",
         "and still at the same time"
     );
 }
@@ -885,7 +885,7 @@ async fn migrating_twice_moves_nothing_the_second_time() {
         &work,
         &h.pseud("c1").await,
         "one",
-        "2026-01-01T00:00:00+00:00",
+        "2026-01-01T00:00:00Z",
     )
     .await;
 
@@ -919,18 +919,18 @@ async fn a_deleted_comment_is_not_migrated() {
             &work,
             &h.pseud("c1").await,
             "gone",
-            "2026-01-01T00:00:00+00:00",
+            "2026-01-01T00:00:00Z",
         )
         .await;
     h.comment(
         &work,
         &h.pseud("c2").await,
         "stays",
-        "2026-01-02T00:00:00+00:00",
+        "2026-01-02T00:00:00Z",
     )
     .await;
     h.exec(&format!(
-        "UPDATE comments SET deleted_at = '2026-01-05T00:00:00+00:00' WHERE id = '{gone}'"
+        "UPDATE comments SET deleted_at = '2026-01-05T00:00:00Z' WHERE id = '{gone}'"
     ))
     .await;
 
@@ -954,7 +954,7 @@ async fn comments_on_something_else_are_not_migrated() {
         &work,
         &h.pseud("c1").await,
         "mine",
-        "2026-01-01T00:00:00+00:00",
+        "2026-01-01T00:00:00Z",
     )
     .await;
 
@@ -964,13 +964,13 @@ async fn comments_on_something_else_are_not_migrated() {
         &other,
         &h.pseud("c2").await,
         "theirs",
-        "2026-01-02T00:00:00+00:00",
+        "2026-01-02T00:00:00Z",
     )
     .await;
     let series_id = uuid::Uuid::new_v4().to_string();
     h.exec(&format!(
         "INSERT INTO comments (id, subject_type, subject_id, author_pseud, body, body_version, created_at) \
-         VALUES ('{}', 'series', '{series_id}', '{}', 'on a series', '1', '2026-01-03T00:00:00+00:00')",
+         VALUES ('{}', 'series', '{series_id}', '{}', 'on a series', '1', '2026-01-03T00:00:00Z')",
         uuid::Uuid::new_v4(),
         h.pseud("c3").await
     ))
@@ -1001,7 +1001,7 @@ async fn a_work_with_comments_can_still_have_its_topic_created_once() {
         &work,
         &h.pseud("c1").await,
         "hello",
-        "2026-01-01T00:00:00+00:00",
+        "2026-01-01T00:00:00Z",
     )
     .await;
 
