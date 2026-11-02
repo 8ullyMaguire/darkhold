@@ -413,7 +413,6 @@ fn render_min_match(needed: usize, terms: &[QueryAst]) -> Result<SqlFragment, Qu
     Ok(SqlFragment { sql, binds })
 }
 
-
 /// The three spellings a taxonomy name is stored under, and a predicate that
 /// accepts any of them.
 ///
@@ -434,12 +433,7 @@ fn render_min_match(needed: usize, terms: &[QueryAst]) -> Result<SqlFragment, Qu
 /// Three binds rather than one, because the fix has to accept a row whichever
 /// writer made it, and because a query that silently matches nothing is a worse
 /// failure than three indexed comparisons.
-fn taxonomy_predicate(
-    relation: &str,
-    node_column: &str,
-    kind: &str,
-    value: &str,
-) -> SqlFragment {
+fn taxonomy_predicate(relation: &str, node_column: &str, kind: &str, value: &str) -> SqlFragment {
     // `kind` is a literal from this module, never reader input, so interpolating
     // it cannot inject; the value is always bound.
     let sql = format!(
@@ -628,10 +622,10 @@ fn render_comparison(
     // `render_query` to validate a query, so that one mismatch turned a 200
     // into a 422 for a reader who had typed a perfectly good date filter.
     if let Some(column) = date_column(field) {
-        let date = parse_query_date(value).ok_or_else(|| {
+        let date = parse_date_bound(value).ok_or_else(|| {
             QueryError::new(
                 format!(
-                    "{} {} takes a YYYY-MM-DD date, got {:?}",
+                    "{} {} takes a YYYY-MM-DD date or an age like -7d, got {:?}",
                     field.as_str(),
                     op.as_str(),
                     value
@@ -691,6 +685,36 @@ fn parse_query_date(value: &str) -> Option<String> {
     )
     .ok()?;
     Some(date.to_string())
+}
+
+/// A date comparison's right-hand side: a `YYYY-MM-DD`, **or an age the window grammar already
+/// knows** (`-7d`, `30d`, `36h`), resolved against the clock and rendered as the day it lands on.
+///
+/// Why an age is allowed at all: "updated in the last week" is `-7d` on every other surface this
+/// product has — the catalogue's `--updated`, the feeds, the saved filters — and a query language
+/// that answers *"takes a YYYY-MM-DD date"* for the one spelling a reader already knows is a
+/// second grammar pretending there is only one. The parsing is not repeated here: `window::instant`
+/// resolves the age, so `updated>=-7d` and `--updated -7d..` land on the same instant by
+/// construction rather than by two implementations agreeing today.
+///
+/// The comparison is by day (`SUBSTR(column, 1, 10)`), so the resolved instant is truncated to its
+/// UTC date: a reader who meant "the last seven days" is asking about days, and a timestamp bound
+/// would make the same query mean something different at 00:01 and 23:59.
+fn parse_date_bound(value: &str) -> Option<String> {
+    parse_date_bound_at(value, time::OffsetDateTime::now_utc())
+}
+
+/// [`parse_date_bound`] against a given clock.
+///
+/// The clock is a parameter here rather than threaded through the six render functions above:
+/// this is the only arm that reads it, and a test that wants a fixed day can call this directly
+/// instead of pinning the process's clock.
+fn parse_date_bound_at(value: &str, now: time::OffsetDateTime) -> Option<String> {
+    if let Some(date) = parse_query_date(value) {
+        return Some(date);
+    }
+    let at = crate::window::instant(value, now).ok()?;
+    Some(at.date().to_string())
 }
 
 /// The SQL expression for a works-surface numeric field.
@@ -882,9 +906,12 @@ fn render_fielded(field: &QueryField, value: &str) -> Result<SqlFragment, QueryE
         // `norm = ?` against `canonical_entities` inside the subquery keeps the parser
         // pure — §15.4 requires "the same typed AST as the visual filter builder",
         // and a parser that had to look ids up would need I/O.
-        QueryField::Character => {
-            Ok(taxonomy_predicate("work_characters", "character_node_id", "character", value))
-        }
+        QueryField::Character => Ok(taxonomy_predicate(
+            "work_characters",
+            "character_node_id",
+            "character",
+            value,
+        )),
         // `relationship:` names a pairing, and a pairing IS its participant set
         // (0103's `relationship_participants`, ordered so A/B and B/A are one node). So the
         // reader's `relationship:"Alice/Bob"` matches when some ship the work claims
@@ -1039,9 +1066,9 @@ mod tests {
         assert_eq!(
             fragment.binds,
             vec![
-                "2 broke girls".to_owned(),   // domain normalise: collapsed, spaced
-                "2brokegirls".to_owned(),     // importer slug: alphanumerics only
-                "2 broke girls".to_owned(),   // canonical, case-insensitive
+                "2 broke girls".to_owned(), // domain normalise: collapsed, spaced
+                "2brokegirls".to_owned(),   // importer slug: alphanumerics only
+                "2 broke girls".to_owned(), // canonical, case-insensitive
             ],
             "all three stored spellings must be reachable: {}",
             fragment.sql
@@ -1062,8 +1089,7 @@ mod tests {
             .expect("query parses");
         let fragment = render_query(&ast).expect("query renders");
         assert_eq!(
-            fragment.binds[1],
-            "asongoficeandfiregeorgerrmartin",
+            fragment.binds[1], "asongoficeandfiregeorgerrmartin",
             "the slug bind must be alphanumeric-only: {:?}",
             fragment.binds
         );
@@ -1432,5 +1458,60 @@ mod tests {
         let frag = render_query(&ast).unwrap();
         assert!(frag.sql.contains("= CAST(? AS BIGINT)"), "{}", frag.sql);
         assert!(!frag.sql.contains(">="), "{}", frag.sql);
+    }
+
+    #[test]
+    fn a_date_comparison_accepts_an_age_the_window_grammar_owns() {
+        // `updated>=-7d` is how every other surface spells "the last week" (the catalogue's
+        // `--updated`, the feeds, the saved filters). Before this, the renderer refused it with
+        // "takes a YYYY-MM-DD date" — a second grammar answering a question the window grammar
+        // had already answered.
+        let ast = parse_query("updated:>=-7d").expect("the parser accepts the value");
+        let frag = render_query(&ast).expect("an age must render");
+        assert!(frag.sql.contains("SUBSTR("), "{}", frag.sql);
+        assert!(frag.sql.contains("updated_at"), "{}", frag.sql);
+        assert_eq!(frag.binds.len(), 1, "binds: {:?}", frag.binds);
+        let bound = frag.binds[0].clone();
+        assert!(
+            bound.len() == 10 && bound.as_bytes()[4] == b'-' && bound.as_bytes()[7] == b'-',
+            "the bind must be a day, got {bound:?}"
+        );
+    }
+
+    #[test]
+    fn an_age_bound_lands_on_the_day_seven_days_before_the_clock() {
+        // A fixed clock, so the assertion is exact rather than "within a day of now".
+        let now = time::macros::datetime!(2026-11-02 12:00:00 UTC);
+        for (raw, expected) in [
+            ("-7d", "2026-10-26"),
+            ("7d", "2026-10-26"),
+            ("-2w", "2026-10-19"),
+            ("-36h", "2026-11-01"),
+            // An absolute date is still a date, and is not shifted by the clock.
+            ("2026-08-01", "2026-08-01"),
+        ] {
+            assert_eq!(
+                parse_date_bound_at(raw, now).as_deref(),
+                Some(expected),
+                "{raw} should resolve to {expected}"
+            );
+        }
+        assert_eq!(parse_date_bound_at("sometime", now), None);
+    }
+
+    #[test]
+    fn the_age_form_and_the_window_form_land_on_the_same_day() {
+        // The rule this depends on: one grammar for "when". `updated>=-7d` and
+        // `--updated -7d..` must resolve through the same function, so this asserts the two
+        // surfaces agree rather than each being individually plausible.
+        let now = time::macros::datetime!(2026-11-02 12:00:00 UTC);
+        let from_range = crate::window::parse("-7d..", now)
+            .expect("a range renders")
+            .from
+            .expect("a lower bound");
+        assert_eq!(
+            parse_date_bound_at("-7d", now).as_deref(),
+            Some(from_range.date().to_string().as_str())
+        );
     }
 }

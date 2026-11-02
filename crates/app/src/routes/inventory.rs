@@ -4847,7 +4847,7 @@ pub const ROUTE_TABLE: &[RouteEntry] = &[
         audience: Audience::Operator,
     },
     // ------------------------------------------------------------------
-    // Routes that existed before this table knew about them (M47-09).
+    // Routes that existed before this table knew about them (M47-09b).
     //
     // `registered_routes_are_tabled` had been failing at HEAD on these: a route that is not in
     // the table is a route nothing audits for its audience, and the gate that would have caught

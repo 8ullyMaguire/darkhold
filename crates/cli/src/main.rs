@@ -21,6 +21,7 @@ mod gen;
 mod http;
 mod module;
 mod output;
+mod q;
 mod rec;
 mod redact;
 mod safety;
@@ -101,6 +102,20 @@ pub enum Command {
     ///   2026-01-01..2026-10-15    between two days
     /// ```
     Rec(Box<rec::RecArgs>),
+    /// Search with the shared query language: `tag:naruto AND kudos:>=100`.
+    ///
+    /// The same parser the site's search box uses, at `/api/v1/search`: one expression, the same
+    /// meaning in a terminal as in a URL. The grammar is the server's —
+    ///
+    /// ```text
+    ///   tag:naruto AND NOT tag:gore        fields, AND / OR / NOT, parentheses
+    ///   kudos:>=100   words:>10000         numeric comparisons
+    ///   updated>=-7d  published:>=2026-08-01   dates, absolute or as an age
+    ///   completion:complete  status:published  the stored vocabulary
+    /// ```
+    ///
+    /// A query the parser rejects is the server's `422` and exit code 2, naming the token.
+    Q(Box<q::QArgs>),
     /// §58 supply: keystone authors, droughts, and the routing you opt into.
     ///
     /// The operator doors (`keystones`, `droughts`, `recompute`) read a role the
@@ -144,6 +159,13 @@ async fn main() -> std::process::ExitCode {
     let cli = Cli::parse();
     match &cli.command {
         Command::Rec(args) => match rec::run(&cli, args).await {
+            Ok(()) => std::process::ExitCode::SUCCESS,
+            Err(error) => {
+                eprintln!("{error}");
+                std::process::ExitCode::from(error.code)
+            }
+        },
+        Command::Q(args) => match q::run(&cli, args).await {
             Ok(()) => std::process::ExitCode::SUCCESS,
             Err(error) => {
                 eprintln!("{error}");

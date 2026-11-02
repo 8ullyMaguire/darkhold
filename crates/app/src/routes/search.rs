@@ -8,7 +8,9 @@ use crate::state::AppState;
 use axum::extract::{Path, Query, State};
 use axum::routing::get;
 use axum::{Json, Router};
-use darkhold_db::search::{search_in_work, search_works_ast_scoped, InWorkMatch, SearchError, SearchFilters};
+use darkhold_db::search::{
+    search_in_work, search_works_ast_scoped, InWorkMatch, SearchError, SearchFilters,
+};
 use darkhold_db::search_history as db_history;
 use darkhold_db::settings as db_settings;
 use darkhold_domain::ids::WorkId;
@@ -17,12 +19,9 @@ use serde::Deserialize;
 pub fn router() -> Router<AppState> {
     Router::new()
         .route("/search", get(search))
-        // §9.6 / M47-08. Declared before `/search/in-work/{id}` for readability; axum matches
+        // §9.6 / M47-08b. Declared before `/search/in-work/{id}` for readability; axum matches
         // `/search/history` exactly, so the `{id}` route below cannot swallow it.
-        .route(
-            "/search/history",
-            get(list_history).delete(clear_history),
-        )
+        .route("/search/history", get(list_history).delete(clear_history))
         .route("/search/in-work/{id}", get(in_work))
         .route("/users/search", get(users_search))
 }
@@ -210,7 +209,9 @@ async fn list_history(
     let items = db_history::recent(state.db(), pseud_id, params.limit.clamp(1, HISTORY_CAP))
         .await
         .map_err(|e| ApiError(darkhold_domain::AppError::Internal(e)))?;
-    Ok(Json(serde_json::json!({ "items": items, "recording": recording })))
+    Ok(Json(
+        serde_json::json!({ "items": items, "recording": recording }),
+    ))
 }
 
 /// Forget every recorded search (spec §9.6: cleared history is a cleared review).
@@ -253,7 +254,7 @@ async fn search(
 
     // M47-05: resolve search defaults (explicit params override stored).
     //
-    // M47-06: an anonymous caller's explicit parameters used to be thrown away here — the whole
+    // M47-06b: an anonymous caller's explicit parameters used to be thrown away here — the whole
     // tuple was `(None, None, None, None)` unless there was a session, so `?max_words=` on a
     // signed-out search was resolved to nothing and then echoed back as `null`. Explicit
     // parameters are the caller's own request and apply with or without a session; only the
@@ -268,7 +269,7 @@ async fn search(
         ),
     };
 
-    // …and they reach the statement. Before M47-06 the four values above existed only to be
+    // …and they reach the statement. Before M47-06b the four values above existed only to be
     // returned in the response's `filters` object, which made the endpoint report a ceiling it
     // had never applied: the reader sets "maximum rating: general", reads `"max_rating":
     // "general"` in the reply, and gets explicit works back.
@@ -279,11 +280,18 @@ async fn search(
         sort: sort.clone(),
     };
 
-    let results = search_works_ast_scoped(state.db(), &params.q, viewer_id.as_deref(), params.limit, &filters, &scope)
-        .await
-        .map_err(search_failure)?;
+    let results = search_works_ast_scoped(
+        state.db(),
+        &params.q,
+        viewer_id.as_deref(),
+        params.limit,
+        &filters,
+        &scope,
+    )
+    .await
+    .map_err(search_failure)?;
 
-    // §9.6 / M47-08: record the search — AFTER it succeeded, so a 422 from the query language
+    // §9.6 / M47-08b: record the search — AFTER it succeeded, so a 422 from the query language
     // leaves no entry (a query the parser rejected is not one the reader would want offered
     // back), and with the count the reader is about to see rather than a later recount.
     //
@@ -293,12 +301,16 @@ async fn search(
     if let Some(ref session) = session {
         let pseud_id = viewer_pseud(session);
         if db_history::worth_recording(&params.q) && recording_enabled(&state, pseud_id).await {
-            let now = chrono::Utc::now()
-                .format("%Y-%m-%dT%H:%M:%SZ")
-                .to_string();
-            if let Err(error) =
-                db_history::record(state.db(), pseud_id, &params.q, results.len() as i64, &now, HISTORY_CAP)
-                    .await
+            let now = chrono::Utc::now().format("%Y-%m-%dT%H:%M:%SZ").to_string();
+            if let Err(error) = db_history::record(
+                state.db(),
+                pseud_id,
+                &params.q,
+                results.len() as i64,
+                &now,
+                HISTORY_CAP,
+            )
+            .await
             {
                 tracing::warn!(
                     error = %error,

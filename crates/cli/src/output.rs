@@ -67,6 +67,21 @@ pub const TABLE_COLUMNS: [Column; 9] = [
     Column::Source,
 ];
 
+/// The columns `dh q` can print, and why there are only five.
+///
+/// `/api/v1/search` answers with a hit, not a catalogue row: `work_id`, `title`, `author_handle`,
+/// `word_count`, `score`. It has no likes, no lifecycle, no dates and no source key, so a `q`
+/// table that offered those columns would print four blanks that read as "this work has no
+/// likes" — the lie the renderer's own `score` rule refuses. A reader who wants the catalogue's
+/// row for a title uses `dh rec --q`, which is the surface that has one.
+pub const SEARCH_COLUMNS: [Column; 5] = [
+    Column::Rank,
+    Column::Score,
+    Column::Words,
+    Column::Title,
+    Column::Author,
+];
+
 /// The JSONL columns, in the order this file promises.
 ///
 /// `rank` first and `title` second because that is what a person reads in `jq`
@@ -184,9 +199,11 @@ impl LinkKind {
             // this instance has no download route, so a link would be a 404 with
             // a file extension. Refusing with the reason is better than shipping
             // a link that is wrong, and better than pretending the flag works.
-            "epub" => Err("`--link epub` needs a download route this instance does not have yet \
+            "epub" => Err(
+                "`--link epub` needs a download route this instance does not have yet \
                            (tracked as M63-05b); `md` and `url` work today"
-                .to_owned()),
+                    .to_owned(),
+            ),
             other => Err(format!(
                 "unknown link kind `{other}`; the vocabulary is: md, url"
             )),
@@ -211,10 +228,17 @@ pub struct Shape {
 /// this instance gets this instance's reader page, because a local copy can be
 /// read without leaving.
 fn row_link(item: &Value, base_url: &str) -> Option<String> {
-    let text = |key: &str| item.get(key).and_then(Value::as_str).filter(|v| !v.is_empty());
+    let text = |key: &str| {
+        item.get(key)
+            .and_then(Value::as_str)
+            .filter(|v| !v.is_empty())
+    };
     if let Some(work_key) = text("work_key") {
         if item.get("on_darkhold").and_then(Value::as_bool) == Some(true) {
-            return Some(format!("{}/works/{work_key}", base_url.trim_end_matches('/')));
+            return Some(format!(
+                "{}/works/{work_key}",
+                base_url.trim_end_matches('/')
+            ));
         }
     }
     text("source_url").map(str::to_owned)
@@ -289,9 +313,7 @@ fn json_value(column: Column, row: &Row, item: &Value, index: usize, out: &mut S
                 Column::Source => &row.source,
                 _ => unreachable!("the arm above covers the string columns"),
             };
-            out.push_str(
-                &serde_json::to_string(value).unwrap_or_else(|_| "\"\"".to_owned()),
-            );
+            out.push_str(&serde_json::to_string(value).unwrap_or_else(|_| "\"\"".to_owned()));
         }
     }
     // `item` is read for one thing only: a row whose title the server omitted
@@ -393,19 +415,77 @@ fn spec_for(column: Column) -> Spec {
     match column {
         // The rank marker (`~`, unmeasured) is printed inside the rank cell, so
         // the score column can stay a plain right-aligned number.
-        Column::Rank => Spec { width: 3, align: Align::Right, prefix: "", suffix: "", numeric: false },
-        Column::Score => Spec { width: 6, align: Align::Right, prefix: "", suffix: "", numeric: true },
-        Column::Likes => Spec { width: 6, align: Align::Right, prefix: "", suffix: " likes", numeric: true },
-        Column::Words => Spec { width: 9, align: Align::Right, prefix: "", suffix: " words", numeric: true },
-        Column::Status => Spec { width: 8, align: Align::Left, prefix: "", suffix: "", numeric: false },
-        Column::Updated => Spec { width: 0, align: Align::Left, prefix: "", suffix: "", numeric: false },
-        Column::Title => Spec { width: 44, align: Align::Left, prefix: "", suffix: "", numeric: false },
-        Column::Author => Spec { width: 18, align: Align::Left, prefix: " by ", suffix: "", numeric: false },
-        Column::Source => Spec { width: 0, align: Align::Left, prefix: "[", suffix: "]", numeric: false },
+        Column::Rank => Spec {
+            width: 3,
+            align: Align::Right,
+            prefix: "",
+            suffix: "",
+            numeric: false,
+        },
+        Column::Score => Spec {
+            width: 6,
+            align: Align::Right,
+            prefix: "",
+            suffix: "",
+            numeric: true,
+        },
+        Column::Likes => Spec {
+            width: 6,
+            align: Align::Right,
+            prefix: "",
+            suffix: " likes",
+            numeric: true,
+        },
+        Column::Words => Spec {
+            width: 9,
+            align: Align::Right,
+            prefix: "",
+            suffix: " words",
+            numeric: true,
+        },
+        Column::Status => Spec {
+            width: 8,
+            align: Align::Left,
+            prefix: "",
+            suffix: "",
+            numeric: false,
+        },
+        Column::Updated => Spec {
+            width: 0,
+            align: Align::Left,
+            prefix: "",
+            suffix: "",
+            numeric: false,
+        },
+        Column::Title => Spec {
+            width: 44,
+            align: Align::Left,
+            prefix: "",
+            suffix: "",
+            numeric: false,
+        },
+        Column::Author => Spec {
+            width: 18,
+            align: Align::Left,
+            prefix: " by ",
+            suffix: "",
+            numeric: false,
+        },
+        Column::Source => Spec {
+            width: 0,
+            align: Align::Left,
+            prefix: "[",
+            suffix: "]",
+            numeric: false,
+        },
         // Not table columns; refused by `parse_projection` before reaching here.
-        Column::Measured | Column::Shared => {
-            Spec { width: 0, align: Align::Left, prefix: "", suffix: "", numeric: false }
-        }
+        Column::Measured | Column::Shared => Spec {
+            width: 0,
+            align: Align::Left,
+            prefix: "",
+            suffix: "",
+            numeric: false,
+        },
     }
 }
 
@@ -445,7 +525,10 @@ pub fn table(page: &Value, cols: &[Column], wide: bool) -> String {
                     .map(format_score)
                     .unwrap_or_else(|| "—".to_owned()),
                 Column::Likes => rec::compact(row.likes),
-                Column::Words => row.words.map(rec::compact).unwrap_or_else(|| "—".to_owned()),
+                Column::Words => row
+                    .words
+                    .map(rec::compact)
+                    .unwrap_or_else(|| "—".to_owned()),
                 Column::Status => row.status.clone(),
                 Column::Updated => row.updated.clone(),
                 Column::Title => row.title.clone(),
@@ -530,7 +613,6 @@ mod tests {
         })
     }
 
-
     #[test]
     fn the_default_projection_is_the_layout_scripts_already_parse() {
         // Two renderers is one too many, so this test says they agree.
@@ -560,8 +642,17 @@ mod tests {
             assert_eq!(
                 keys,
                 vec![
-                    "\"rank\"", "\"title\"", "\"author\"", "\"source\"", "\"likes\"", "\"words\"",
-                    "\"status\"", "\"updated\"", "\"score\"", "\"measured\"", "\"shared\""
+                    "\"rank\"",
+                    "\"title\"",
+                    "\"author\"",
+                    "\"source\"",
+                    "\"likes\"",
+                    "\"words\"",
+                    "\"status\"",
+                    "\"updated\"",
+                    "\"score\"",
+                    "\"measured\"",
+                    "\"shared\""
                 ],
                 "{line}"
             );
@@ -574,7 +665,11 @@ mod tests {
         assert!(out.contains(r#""title":"A & B""#), "{out}");
         let broken = json!({"items": [{"title": "quote \" and \n newline"}]});
         let line = jsonl(&broken, None);
-        assert_eq!(line.lines().count(), 1, "a newline in a title must not split the record");
+        assert_eq!(
+            line.lines().count(),
+            1,
+            "a newline in a title must not split the record"
+        );
         assert!(line.contains(r#"\n"#), "{line}");
         // And it is still parseable JSON, which is the whole contract.
         serde_json::from_str::<Value>(line.trim()).expect("a JSONL line is JSON");
@@ -591,7 +686,10 @@ mod tests {
     fn an_unknown_column_names_the_vocabulary() {
         let err = parse_projection("titel", &TABLE_COLUMNS).expect_err("refused");
         assert!(err.contains("unknown column `titel`"), "{err}");
-        assert!(err.contains("title"), "the vocabulary is in the message: {err}");
+        assert!(
+            err.contains("title"),
+            "the vocabulary is in the message: {err}"
+        );
     }
 
     #[test]
@@ -634,8 +732,14 @@ mod tests {
             {"title": "Local", "work_key": "w-1", "on_darkhold": true, "source_url": "https://elsewhere.test/2"}
         ]});
         let md = links(&page, LinkKind::Md, "https://darkhold.test");
-        assert!(md.contains("- [A \\[bracket\\] title](https://example.test/works/1)"), "{md}");
-        assert!(md.contains("(https://darkhold.test/works/w-1)"), "a local copy is readable here: {md}");
+        assert!(
+            md.contains("- [A \\[bracket\\] title](https://example.test/works/1)"),
+            "{md}"
+        );
+        assert!(
+            md.contains("(https://darkhold.test/works/w-1)"),
+            "a local copy is readable here: {md}"
+        );
         let url = links(&page, LinkKind::Url, "https://darkhold.test");
         assert_eq!(
             url,

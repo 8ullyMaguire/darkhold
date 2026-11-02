@@ -1757,7 +1757,7 @@ export function searchWorks(
   return apiFetch<SearchResultList>(`/search?${params}`, { signal });
 }
 
-/** One recorded search, newest first, as its owner sees it (spec §9.6 / M47-08). */
+/** One recorded search, newest first, as its owner sees it (spec §9.6 / M47-08b). */
 export interface SearchHistoryEntry {
   query: string;
   /** How many works it returned when it was run — a fact about that search, not a recount. */

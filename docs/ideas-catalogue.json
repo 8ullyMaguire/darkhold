@@ -1,6 +1,6 @@
 {
  "generated_by": "scripts/ideas_catalogue.py",
- "count": 188,
+ "count": 186,
  "ideas": [
   {
    "why_summary": "",
@@ -344,19 +344,6 @@
    "why_summary": "docs/ideas/2026-11-01-idea-sweep-power-users.md Power-user sweep P6. Builds on the saved-query shelf work already in discussion; --digest-diff is the actual recurring need behind a",
    "id": "M63-06",
    "title": "Saved queries",
-   "sources": [
-    "docs/requirements.csv"
-   ],
-   "milestone": "M63",
-   "relevance": 4,
-   "because": "a requirements row exists (+4)",
-   "default_on": false,
-   "built": false
-  },
-  {
-   "why_summary": "docs/ideas/2026-11-01-idea-sweep-power-users.md Power-user sweep P7. One parser for terminal, saved queries, watch filters, feeds and the web search box, so an expression is the sa",
-   "id": "M63-07",
-   "title": "dh q '<expr>' with a real grammar (tag",
    "sources": [
     "docs/requirements.csv"
    ],
@@ -1091,19 +1078,6 @@
    "milestone": "M45",
    "relevance": 3,
    "because": "a requirements row exists (+4); needs a model or heavy compute (-1)",
-   "default_on": false,
-   "built": false
-  },
-  {
-   "why_summary": "-- Found 2026-11-02 while putting `scripts/ledger_test.py` into `gate.sh repo`: the gate has been red on this for four ids, so `gate.sh repo` has not been green and nobody noticed ",
-   "id": "M47-15",
-   "title": "four requirement ids name two rows each (M47-06 \u2026 M47-09), and `scripts/check-requirement-ids.py` fails on the ledger until they are one row each",
-   "sources": [
-    "docs/requirements.csv"
-   ],
-   "milestone": "M47",
-   "relevance": 3,
-   "because": "a requirements row exists (+4); the source hedges (-1)",
    "default_on": false,
    "built": false
   },

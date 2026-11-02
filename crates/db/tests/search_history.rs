@@ -1,4 +1,4 @@
-//! M47-08 §9.6: a reader's private search history, on both engines.
+//! M47-08b §9.6: a reader's private search history, on both engines.
 //!
 //! Six properties, each one a way a history table goes wrong:
 //!
@@ -54,7 +54,9 @@ async fn connect(tag: &str) -> Database {
                 .await
                 .expect("create a scratch database");
             admin_db.close().await;
-            let (prefix, _) = admin.rsplit_once('/').expect("admin URL ends in a database");
+            let (prefix, _) = admin
+                .rsplit_once('/')
+                .expect("admin URL ends in a database");
             format!("{prefix}/{name}")
         }
         Err(_) => format!("sqlite://{}/darkhold.sqlite?mode=rwc", dir.display()),
@@ -77,7 +79,9 @@ async fn a_recorded_search_comes_back_with_its_count() {
         .await
         .expect("record");
 
-    let entries = search_history::recent(&db, pseud, 10).await.expect("recent");
+    let entries = search_history::recent(&db, pseud, 10)
+        .await
+        .expect("recent");
     assert_eq!(entries.len(), 1);
     assert_eq!(entries[0].query, "time travel");
     assert_eq!(entries[0].result_count, 12);
@@ -100,8 +104,14 @@ async fn a_repeated_query_is_one_row_moved_to_the_front() {
         .await
         .expect("record");
 
-    let entries = search_history::recent(&db, pseud, 10).await.expect("recent");
-    assert_eq!(entries.len(), 2, "the repeat did not add a row: {entries:?}");
+    let entries = search_history::recent(&db, pseud, 10)
+        .await
+        .expect("recent");
+    assert_eq!(
+        entries.len(),
+        2,
+        "the repeat did not add a row: {entries:?}"
+    );
     assert_eq!(entries[0].query, "time TRAVEL");
     assert_eq!(entries[0].result_count, 9, "the newer count wins");
     assert_eq!(entries[0].searched_at, t(3), "the newer search is first");
@@ -119,7 +129,9 @@ async fn the_cap_holds_and_the_oldest_entry_is_the_one_dropped() {
             .expect("record");
     }
 
-    let entries = search_history::recent(&db, pseud, 50).await.expect("recent");
+    let entries = search_history::recent(&db, pseud, 50)
+        .await
+        .expect("recent");
     assert_eq!(entries.len(), 20, "the cap is twenty rows, not twenty-one");
     assert_eq!(entries[0].query, "query 20", "newest first");
     assert!(
@@ -144,7 +156,9 @@ async fn a_keystroke_is_not_a_history_entry() {
         .await
         .expect("record");
 
-    let entries = search_history::recent(&db, pseud, 10).await.expect("recent");
+    let entries = search_history::recent(&db, pseud, 10)
+        .await
+        .expect("recent");
     assert_eq!(entries.len(), 1, "{entries:?}");
     assert_eq!(entries[0].query, "ab");
 }

@@ -1,6 +1,10 @@
 # M47-05 (again): search applies the filters it reports
 
-**Ledger row:** new, `M47-06`. **Milestone:** M47. **Status:** implemented 2026-11-02 (`implemented-fully-tested`, both engines).
+**Ledger row:** new, `M47-06b`.
+**Renumbered 2026-11-02 (M47-15):** this row's id is `M47-06b`, not `M47-06` — the id named two rows
+(this one, and the §46 per-event notification routing row that held it first), so the later row moved
+and the settings row kept the id.
+ **Milestone:** M47. **Status:** implemented 2026-11-02 (`implemented-fully-tested`, both engines).
 
 ## The defect, measured
 

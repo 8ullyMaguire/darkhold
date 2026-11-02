@@ -1,4 +1,4 @@
-//! M47-06 — the search endpoint honours the filters it reports.
+//! M47-06b — the search endpoint honours the filters it reports.
 //!
 //! `GET /api/v1/search` resolves `min_words`, `max_words`, `sort` and `max_rating` from the query
 //! string or the reader's stored `search_settings`, returns them in the response's `filters`
@@ -156,6 +156,30 @@ impl Harness {
         work
     }
 
+    /// `GET /api/v1/search?q={expression}`, with the expression percent-encoded by the caller,
+    /// returning `(status, body)`.
+    ///
+    /// Separate from [`Harness::search`] because a query-language expression is not a filter
+    /// parameter: the `q` value *is* the query here, and appending it to `FINDABLE` would test the
+    /// old path instead of this one.
+    async fn search_q(&self, expression: &str) -> (StatusCode, Value) {
+        let resp = self
+            .router()
+            .oneshot(
+                Request::builder()
+                    .uri(format!("/api/v1/search?q={expression}"))
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        let status = resp.status();
+        let body = axum::body::to_bytes(resp.into_body(), 10_000_000)
+            .await
+            .unwrap();
+        (status, serde_json::from_slice(&body).unwrap_or(Value::Null))
+    }
+
     /// `GET /api/v1/search?{query}`, returning `(status, body)`.
     async fn search(&self, query: &str) -> (StatusCode, Value) {
         let resp = self
@@ -174,6 +198,54 @@ impl Harness {
             .unwrap();
         (status, serde_json::from_slice(&body).unwrap_or(Value::Null))
     }
+}
+
+/// **A relative date bound reaches the statement, and a missing colon is named.**
+///
+/// `updated>=-7d` is the spelling the idea sweep that asked for this feature wrote, and it used to
+/// be refused outright ("takes a YYYY-MM-DD date"). Now the window grammar resolves the age, and
+/// the colon-less spelling is diagnosed instead of silently becoming free text that matches
+/// nothing — the failure mode where a reader sees an empty page and concludes there is no work.
+///
+/// The fixtures are dated March 2026; the bounds are ten years, so the assertions stay true for a
+/// decade rather than depending on the day the suite runs.
+#[tokio::test]
+async fn a_relative_date_bound_reaches_the_statement() {
+    let h = Harness::new("relative-date").await;
+    three_works(&h).await;
+
+    // Ten years back includes every fixture...
+    let (status, body) = h.search_q("updated%3A%3E%3D-3650d").await;
+    assert_eq!(status, StatusCode::OK, "body: {body}");
+    assert_eq!(
+        titles(&body).len(),
+        3,
+        "a ten-year age bound must include the March fixtures: {body}"
+    );
+
+    // ...and "ten years ago or earlier" includes none of them, so the bound is doing work rather
+    // than matching everything.
+    let (status, body) = h.search_q("updated%3A%3C%3D-3650d").await;
+    assert_eq!(status, StatusCode::OK, "body: {body}");
+    assert!(
+        titles(&body).is_empty(),
+        "a ten-year-old ceiling must exclude the March fixtures: {body}"
+    );
+}
+
+/// The colon-less spelling is a `422` that names the colon form, not an empty page.
+#[tokio::test]
+async fn a_comparison_without_its_colon_is_refused_with_the_fix() {
+    let h = Harness::new("no-colon").await;
+    three_works(&h).await;
+
+    let (status, body) = h.search_q("updated%3E%3D-3650d").await;
+    assert_eq!(status, StatusCode::UNPROCESSABLE_ENTITY, "body: {body}");
+    let message = body["error"]["message"].as_str().unwrap_or_default();
+    assert!(
+        message.contains("updated:>=-3650d"),
+        "the refusal must name the colon form, got: {message}"
+    );
 }
 
 /// The titles the response returned, in the order it returned them.
@@ -203,21 +275,14 @@ async fn three_works(h: &Harness) -> (WorkId, WorkId, WorkId) {
         .work(owner, "Long", "mature", 40_000, "2026-03-03T00:00:00Z", 1)
         .await;
     let mid = h
-        .work(
-            owner,
-            "Mid",
-            "explicit",
-            8_000,
-            "2026-03-02T00:00:00Z",
-            2,
-        )
+        .work(owner, "Mid", "explicit", 8_000, "2026-03-02T00:00:00Z", 2)
         .await;
     (short, long, mid)
 }
 
 /// **`max_words` is absent from the response's items, not just from its `filters`.**
 ///
-/// Before M47-06 this returned all three: the value was resolved, echoed back as
+/// Before M47-06b this returned all three: the value was resolved, echoed back as
 /// `"max_words": 10000`, and never reached the statement.
 #[tokio::test]
 async fn max_words_is_not_a_lie() {
@@ -226,7 +291,10 @@ async fn max_words_is_not_a_lie() {
 
     let (status, body) = h.search("max_words=10000").await;
     assert_eq!(status, StatusCode::OK, "body: {body}");
-    assert_eq!(body["filters"]["max_words"], 10_000, "the echo is unchanged");
+    assert_eq!(
+        body["filters"]["max_words"], 10_000,
+        "the echo is unchanged"
+    );
 
     let found = titles(&body);
     assert!(

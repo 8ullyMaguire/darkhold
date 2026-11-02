@@ -1,4 +1,4 @@
-//! M47-08 — §9.6 private search history over HTTP.
+//! M47-08b — §9.6 private search history over HTTP.
 //!
 //! The store's own properties are proved in `crates/db/tests/search_history.rs`. This file proves
 //! the three things only the route can get wrong:
@@ -95,7 +95,12 @@ impl Client {
         }
     }
 
-    async fn request(&mut self, method: &str, uri: &str, body: Option<Value>) -> (StatusCode, Value) {
+    async fn request(
+        &mut self,
+        method: &str,
+        uri: &str,
+        body: Option<Value>,
+    ) -> (StatusCode, Value) {
         let mut builder = Request::builder()
             .method(method)
             .uri(uri)
@@ -239,7 +244,9 @@ async fn a_search_is_recorded_with_the_count_it_returned() {
     assert_eq!(queries(&body), vec!["anything".to_owned()]);
     assert_eq!(body["items"][0]["result_count"].as_i64(), Some(returned));
     assert!(
-        body["items"][0]["searched_at"].as_str().is_some_and(|s| s.ends_with('Z')),
+        body["items"][0]["searched_at"]
+            .as_str()
+            .is_some_and(|s| s.ends_with('Z')),
         "the timestamp is canonical UTC: {body}"
     );
 }

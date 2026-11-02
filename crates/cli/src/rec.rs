@@ -196,7 +196,7 @@ impl Target {
 /// sends are a name, a window, a metric, a source key and free text, and an
 /// encoder that mishandles `&` in a title search is the only thing that could go
 /// wrong with it.
-fn encode(value: &str) -> String {
+pub(crate) fn encode(value: &str) -> String {
     let mut out = String::with_capacity(value.len());
     for byte in value.bytes() {
         match byte {
@@ -299,7 +299,17 @@ pub fn rows(page: &Value) -> Vec<Row> {
                 .iter()
                 .map(|item| Row {
                     title: text(item, "title"),
-                    author: text(item, "author_text"),
+                    author: {
+                        // `/rec/run` and `/catalogue` call it `author_text`; a search hit calls it
+                        // `author_handle`. One reader for every page shape (its doc says so), so
+                        // the fallback lives here rather than in a second reader in `q.rs` that
+                        // would drift the day one of the two fields is renamed.
+                        let named = text(item, "author_text");
+                        match named.is_empty() {
+                            true => text(item, "author_handle"),
+                            false => named,
+                        }
+                    },
                     source: text(item, "source_key"),
                     likes: number(item, "likes").unwrap_or(0),
                     words: number(item, "word_count"),
@@ -582,10 +592,14 @@ fn shape(args: &RecArgs, json: bool) -> Result<crate::output::Shape, Failure> {
         return Ok(shape);
     }
     if args.jsonl && args.table {
-        return Err(bad_request("--jsonl and --table print different shapes; pick one"));
+        return Err(bad_request(
+            "--jsonl and --table print different shapes; pick one",
+        ));
     }
     if args.jsonl && args.link.is_some() {
-        return Err(bad_request("--jsonl and --link print different shapes; pick one"));
+        return Err(bad_request(
+            "--jsonl and --link print different shapes; pick one",
+        ));
     }
     if args.link.is_some() && args.cols.is_some() {
         return Err(bad_request(
@@ -602,12 +616,14 @@ fn shape(args: &RecArgs, json: bool) -> Result<crate::output::Shape, Failure> {
     shape.jsonl = args.jsonl;
     if let Some(raw) = args.fields.as_deref() {
         shape.fields = Some(
-            parse_projection(raw, &JSON_COLUMNS).map_err(|e| bad_request(format!("--fields: {e}")))?,
+            parse_projection(raw, &JSON_COLUMNS)
+                .map_err(|e| bad_request(format!("--fields: {e}")))?,
         );
     }
     if let Some(raw) = args.cols.as_deref() {
         shape.cols = Some(
-            parse_projection(raw, &TABLE_COLUMNS).map_err(|e| bad_request(format!("--cols: {e}")))?,
+            parse_projection(raw, &TABLE_COLUMNS)
+                .map_err(|e| bad_request(format!("--cols: {e}")))?,
         );
         // `--cols score` on a page with no scores prints an empty table, and an
         // empty table reads as "nothing matched".
@@ -722,7 +738,10 @@ pub async fn run(cli: &Cli, args: &RecArgs) -> Result<(), Failure> {
         }
         None => {}
     }
-    let cols = shape.cols.clone().unwrap_or_else(|| crate::output::TABLE_COLUMNS.to_vec());
+    let cols = shape
+        .cols
+        .clone()
+        .unwrap_or_else(|| crate::output::TABLE_COLUMNS.to_vec());
     let printed = match shape.cols.is_some() || shape.wide {
         true => crate::output::table(&body, &cols, shape.wide),
         // The default path keeps the historical renderer: a script that parses
@@ -794,7 +813,10 @@ mod tests {
         let (cli, rec) = args(&["dh", "--json", "rec", "--jsonl"]);
         assert!(cli.json, "the global flag is what this test is about");
         let err = shape(&rec, cli.json).expect_err("refused");
-        assert_eq!(err.code, 2, "a wrong request is code 2, not an environment fault");
+        assert_eq!(
+            err.code, 2,
+            "a wrong request is code 2, not an environment fault"
+        );
         assert!(err.message.contains("--json"), "{}", err.message);
         // And a clean ask is accepted.
         assert!(shape(&rec, false).expect("accepted").jsonl);

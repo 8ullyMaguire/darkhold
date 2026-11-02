@@ -66,7 +66,7 @@
     return value === null || value === undefined ? '' : String(value).trim();
   }
 
-  // §9.6 / M47-08: this pseud's own last searches. Empty for a signed-out reader, and for one
+  // §9.6 / M47-08b: this pseud's own last searches. Empty for a signed-out reader, and for one
   // who has never searched, and in both cases the row is not rendered at all — which is why the
   // 401 from `fetchSearchHistory` is swallowed into "none" rather than shown as an error.
   let history = $state<SearchHistoryEntry[]>([]);

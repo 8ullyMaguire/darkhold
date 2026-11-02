@@ -1,4 +1,4 @@
-//! §9.6 / M47-08: a reader's private search history.
+//! §9.6 / M47-08b: a reader's private search history.
 //!
 //! Three operations and no more: record one successful search, read the newest few, clear them
 //! all. Everything the surface needs is here, and nothing reads this table for anything except
@@ -193,20 +193,16 @@ pub async fn clear(db: &Database, pseud_id: Uuid) -> Result<u64> {
         "DELETE FROM search_history WHERE pseud_id = ?",
     );
     let affected = match db.backend() {
-        Backend::Sqlite => {
-            sqlx::query(&sql)
-                .bind(pseud_id.to_string())
-                .execute(db.sqlite_pool().expect("sqlite handle"))
-                .await?
-                .rows_affected()
-        }
-        Backend::Postgres => {
-            sqlx::query(&sql)
-                .bind(pseud_id.to_string())
-                .execute(db.postgres_pool().expect("postgres handle"))
-                .await?
-                .rows_affected()
-        }
+        Backend::Sqlite => sqlx::query(&sql)
+            .bind(pseud_id.to_string())
+            .execute(db.sqlite_pool().expect("sqlite handle"))
+            .await?
+            .rows_affected(),
+        Backend::Postgres => sqlx::query(&sql)
+            .bind(pseud_id.to_string())
+            .execute(db.postgres_pool().expect("postgres handle"))
+            .await?
+            .rows_affected(),
     };
 
     Ok(affected)

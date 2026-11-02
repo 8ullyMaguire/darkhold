@@ -253,6 +253,45 @@ def test_a_corrupt_row_is_refused(tmp):
     check(raised, "a row with too many fields is refused")
 
 
+def test_rename_moves_the_later_duplicate_and_leaves_the_first(tmp):
+    """A duplicate id is repaired by moving the row the sweep appended, not the original."""
+    path = os.path.join(tmp, "requirements.csv")
+    ledger.write_rows(path, [row("M0-06", requirement="the original"), row("M0-06", requirement="the sweep")])
+    moved = ledger.rename_row(path, "M0-06", "M0-06b")
+    check(moved["requirement"] == "the sweep", "the later row is the one that moved")
+    rows = ledger.read_rows(path)
+    check([r["id"] for r in rows] == ["M0-06", "M0-06b"], "the order is unchanged (got %r)" % [r["id"] for r in rows])
+    check(rows[0]["requirement"] == "the original", "the first row kept its id and its text")
+
+
+def test_rename_refuses_a_taken_id_missing_id_or_itself(tmp):
+    path = os.path.join(tmp, "requirements.csv")
+    ledger.write_rows(path, [row("M0-01"), row("M0-02")])
+    for old, new, why in (
+        ("M0-01", "M0-02", "a taken id"),
+        ("M0-99", "M0-03", "a missing id"),
+        ("M0-01", "M0-01", "the same id"),
+    ):
+        raised = False
+        try:
+            ledger.rename_row(path, old, new)
+        except ValueError:
+            raised = True
+        check(raised, "rename refuses %s" % why)
+    check([r["id"] for r in ledger.read_rows(path)] == ["M0-01", "M0-02"], "a refused rename changed nothing")
+
+
+def test_rename_keeps_the_crlf_and_the_row_count(tmp):
+    path = os.path.join(tmp, "requirements.csv")
+    ledger.write_rows(path, [row("M0-01"), row("M0-01")])
+    before = len(ledger.read_rows(path))
+    ledger.rename_row(path, "M0-01", "M0-01b")
+    raw = open(path, "rb").read()
+    lone = raw.count(b"\n") - raw.count(b"\r\n")
+    check(lone == 0, "a rename writes CRLF only (got %d lone LF)" % lone)
+    check(len(ledger.read_rows(path)) == before, "a rename adds and drops no row")
+
+
 def test_the_real_ledger_is_crlf():
     """The real file, if it is there. This is the trap the module exists for."""
     path = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))),

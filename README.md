@@ -190,6 +190,21 @@ different from the same window in a URL: `7d`, `>30d`, `@2026-10-27`,
 needs `DARKHOLD_TOKEN`, because the engines rank against what the calling account
 has already read; a plain catalogue query does not.
 
+`dh rec` searches a title and sorts a catalogue page. `dh q` is the other half: one expression in
+the full query language, sent to the same `/api/v1/search` endpoint the site's search box posts to,
+so an expression cannot mean one thing in a terminal and another in a URL:
+
+```
+dh q 'tag:naruto AND kudos:>=100'
+dh q '(tag:romance OR tag:angst) AND updated>=-7d' --jsonl --fields title,author,words
+```
+
+The grammar is the server's: `tag:`, `fandom:`, `AND`/`OR`/`NOT`, parentheses, `kudos:>=`,
+`words:>`, `completion:`, `status:`, and `updated:`/`published:` as either a date
+(`published:>=2026-08-01`) or an age (`updated>=-7d` — the same age spelling the catalogue's
+`--updated` takes). A query the parser rejects is a `422` and exit code 2, naming the token; there
+is no second parser here to disagree with it.
+
 `--explain` prints each strategy's production and its match inside the filtered
 set, which is how a strategy that contributes nothing becomes visible.
 

@@ -1,6 +1,10 @@
 # M47-08: private search history (audit item 31)
 
-**Ledger row:** new, `M47-08`. **Milestone:** M47. **Status:** implemented 2026-11-02 (`6d14648d`); see `docs/verification.md` for the two engine bugs the gates caught.
+**Ledger row:** new, `M47-08b`.
+**Renumbered 2026-11-02 (M47-15):** this row's id is `M47-08b`, not `M47-08` — the id named two rows
+(this one, and the §46 settings export/import row that held it first), so the later row moved and the
+settings row kept the id. The test file is `crates/app/tests/m47_08b_search_history.rs`.
+ **Milestone:** M47. **Status:** implemented 2026-11-02 (`6d14648d`); see `docs/verification.md` for the two engine bugs the gates caught.
 **Source:** `docs/audit-100-reader-ideas-2026-10-04.md` item 31, and
 `docs/plans/100-ideas-remaining.md` §2, which names item 31 as "next in queue".
 
@@ -106,7 +110,7 @@ signed-out case and the `record_history = false` case without a second request.
 
 ```bash
 cargo test -p darkhold-db --test search_history            # both engines via DARKHOLD_TEST_PG_URL
-cargo test -p darkhold-app --test m47_08_search_history    # routes
+cargo test -p darkhold-app --test m47_08b_search_history    # routes
 cd frontend && npx vitest run src/routes/Search.test.ts
 cd frontend && npx svelte-check --threshold error
 ```

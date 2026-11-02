@@ -237,12 +237,32 @@ fn within(age: Duration, now: OffsetDateTime) -> Result<Bounds, WindowError> {
 
 /// One side of a range: a relative age (`-30d` or `30d`) or an absolute date.
 fn boundary(raw: &str, now: OffsetDateTime) -> Result<OffsetDateTime, WindowError> {
-    let text = raw.strip_prefix('-').unwrap_or(raw);
-    // A bare `YYYY-MM-DD` is an absolute instant; anything with a unit is an age.
+    instant(raw, now)
+}
+
+/// Resolve **one instant**, the way a window boundary resolves it: an age (`-7d`, `30d`, `36h`)
+/// or an absolute `YYYY-MM-DD` read as that day's UTC midnight.
+///
+/// Public because the query language's date comparisons are points rather than ranges, and a
+/// point has to mean the same thing on both surfaces: `updated>=-7d` in a query and
+/// `--updated -7d..` in the catalogue must land on the same instant, or the same reader gets two
+/// answers to the same question and neither error is visible. This is the function that keeps
+/// `window` the one grammar for "when" instead of the one grammar for ranges.
+///
+/// The leading `-` is optional and means the same thing in both spellings (`-7d` and `7d` are an
+/// age of seven days), because a range writes its left side with one and a comparison reads more
+/// naturally with one.
+pub fn instant(raw: &str, now: OffsetDateTime) -> Result<OffsetDateTime, WindowError> {
+    let text = raw.trim();
+    if text.is_empty() {
+        return Err(WindowError::Empty);
+    }
+    let text = text.strip_prefix('-').unwrap_or(text);
+    // A bare `YYYY-MM-DD` is an absolute instant; anything else must carry a unit.
     if text.contains('-') {
         return Ok(date(text)?.midnight().assume_utc());
     }
-    Ok(now - duration(text)?)
+    Ok(now.to_offset(UtcOffset::UTC) - duration(text)?)
 }
 
 fn duration(raw: &str) -> Result<Duration, WindowError> {
@@ -269,7 +289,8 @@ fn duration(raw: &str) -> Result<Duration, WindowError> {
 
 fn date(raw: &str) -> Result<Date, WindowError> {
     let mut parts = raw.split('-');
-    let (Some(y), Some(m), Some(d), None) = (parts.next(), parts.next(), parts.next(), parts.next())
+    let (Some(y), Some(m), Some(d), None) =
+        (parts.next(), parts.next(), parts.next(), parts.next())
     else {
         return Err(WindowError::BadDate);
     };
@@ -352,11 +373,8 @@ mod tests {
     use time::Weekday;
 
     fn at(text: &str) -> OffsetDateTime {
-        OffsetDateTime::parse(
-            text,
-            &time::format_description::well_known::Rfc3339,
-        )
-        .expect("test instant")
+        OffsetDateTime::parse(text, &time::format_description::well_known::Rfc3339)
+            .expect("test instant")
     }
 
     const NOW: fn() -> OffsetDateTime = || datetime!(2026-11-01 12:00:00 UTC);
@@ -383,7 +401,10 @@ mod tests {
         // The partition property, stated as the reason the bounds are half-open.
         let boundary = within.from.expect("from");
         assert!(within.contains(boundary), "7d includes its own boundary");
-        assert!(!older.contains(boundary), ">7d excludes it, so the two tile");
+        assert!(
+            !older.contains(boundary),
+            ">7d excludes it, so the two tile"
+        );
     }
 
     #[test]
@@ -437,7 +458,10 @@ mod tests {
     #[test]
     fn any_and_star_are_unbounded() {
         for raw in ["any", "ALL", "*", " any "] {
-            assert!(parse(raw, NOW()).expect("unbounded").is_unbounded(), "{raw}");
+            assert!(
+                parse(raw, NOW()).expect("unbounded").is_unbounded(),
+                "{raw}"
+            );
         }
     }
 
@@ -446,7 +470,10 @@ mod tests {
         assert_eq!(parse("", NOW()).err(), Some(WindowError::Empty));
         assert_eq!(parse("7q", NOW()).err(), Some(WindowError::UnknownUnit));
         assert_eq!(parse("d", NOW()).err(), Some(WindowError::BadNumber));
-        assert_eq!(parse("@2026-02-30", NOW()).err(), Some(WindowError::BadDate));
+        assert_eq!(
+            parse("@2026-02-30", NOW()).err(),
+            Some(WindowError::BadDate)
+        );
         // No digits at all is a number error; a wrong letter after a number is a
         // unit error. The two are different mistakes and say so.
         assert_eq!(parse("soon", NOW()).err(), Some(WindowError::BadNumber));

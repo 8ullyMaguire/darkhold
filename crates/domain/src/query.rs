@@ -276,6 +276,45 @@ pub enum ValueKind {
     Text,
 }
 
+/// The diagnosis for a term that names a known field and an operator but has no colon.
+///
+/// Returns the message, or `None` when the term is ordinary free text. The vocabulary is what
+/// decides: `updated>=-7d` names a field, `banana>3` does not, and only the first is a mistake a
+/// reader needs told about. `tagged` is not a mistake either — the field name is a *prefix* only
+/// when an operator follows it immediately.
+///
+/// Longest operator first, so `kudos>=100` is not read as `>` with `=100` glued to the value — the
+/// same ordering rule the colon form uses one screen up.
+fn unsplit_comparison(term: &str) -> Option<String> {
+    for op in [">=", "<=", ">", "<", "="] {
+        let Some(at) = term.find(op) else { continue };
+        let field = &term[..at];
+        let Some(field) = QueryField::parse(field) else {
+            continue;
+        };
+        let value = &term[at + op.len()..];
+        let name = field.as_str();
+        let colon = format!("{name}:{op}{value}");
+        return Some(if value.is_empty() {
+            format!("`{term}` needs a value: the comparison form is `{name}:{op}1000`")
+        } else if field.comparison_value() == ValueKind::Text {
+            // `tag>=romance` is a different mistake than a missing colon: the field has no order.
+            // Saying so here saves the reader from "write `tag:>=romance`" and then a second error
+            // about the very thing the first message suggested.
+            format!(
+                "{name} has no ordering, so {op} cannot be compared -- it is a single-value field"
+            )
+        } else if field.comparison_value() == ValueKind::Date {
+            // The term is quoted so the reader can see exactly which word was read as free text —
+            // the whole defect is that it looked like a filter and was not one.
+            format!("`{term}` is free text: comparisons go after a colon, so write `{colon}`, whose right side may be a day or an age like -7d")
+        } else {
+            format!("`{term}` is free text: comparisons go after a colon, so write `{colon}`")
+        });
+    }
+    None
+}
+
 /// The noun a field's value kind takes in an error message.
 fn describe_kind(kind: ValueKind) -> &'static str {
     match kind {
@@ -1187,6 +1226,19 @@ impl<'a> Parser<'a> {
             }
         }
 
+        // A field name, an operator and **no colon**: `updated>=-7d`, `kudos>=100`, `words>1000`.
+        //
+        // The grammar's rule is that only `:`-introduced values may compare, so these arrive here
+        // as free text — and free text becomes a LIKE against the title that matches nothing,
+        // which a reader reads as "no such work". The spelling is not obscure: the idea sweep that
+        // asked for `dh q` wrote it this way, so it is the first thing a reader tries. A category
+        // error gets named rather than returning an empty page — the rule this file already
+        // follows for `replies:>50` and `words:>"many"` — and it stays keyed on the vocabulary, so
+        // a word that is not a field name (`banana>3`) is still text.
+        if let Some(message) = unsplit_comparison(term) {
+            return Err(QueryError::new(message, start));
+        }
+
         Ok(QueryAst::Text(term.to_owned()))
     }
 
@@ -1832,6 +1884,48 @@ mod tests {
         // No field name, so this is free text -- not a comparison.
         let ast = parse_query(">100").unwrap();
         assert_eq!(ast, QueryAst::Text(">100".to_owned()));
+    }
+
+    #[test]
+    fn a_field_name_without_its_colon_is_told_the_colon_form() {
+        // `updated>=-7d` used to be free text: a LIKE against the title that matched nothing, so
+        // the reader saw an empty page and read it as "no such work". The vocabulary is what makes
+        // this a category error rather than a guess.
+        for (raw, expected) in [
+            ("updated>=-7d", "updated:>=-7d"),
+            ("kudos>=100", "kudos:>=100"),
+            ("words>10000", "words:>10000"),
+            ("published<=2026-08-01", "published:<=2026-08-01"),
+        ] {
+            let error = parse_query(raw).expect_err("a missing colon must be refused");
+            assert!(
+                error.message.contains(&format!("`{expected}`")),
+                "{raw} should name {expected}, got: {}",
+                error.message
+            );
+        }
+    }
+
+    #[test]
+    fn a_word_that_is_not_a_field_name_stays_free_text() {
+        // The diagnostic is keyed on the vocabulary, not on punctuation: `banana>3` is a search
+        // for those characters, and `tagged` is not `tag` with an operator after it.
+        for raw in ["banana>3", "tagged", "wordcount>3", ">100"] {
+            let ast = parse_query(raw).unwrap_or_else(|e| panic!("{raw}: {}", e.message));
+            assert_eq!(ast, QueryAst::Text(raw.to_owned()), "{raw} is free text");
+        }
+    }
+
+    #[test]
+    fn a_comparison_on_a_single_value_field_says_it_has_no_ordering() {
+        // Not the colon message: `tag>=romance` would earn a second, different error after the
+        // reader takes the first message's advice, so the first message is the right one.
+        let error = parse_query("tag>=romance").expect_err("a tag has no ordering");
+        assert!(
+            error.message.contains("no ordering"),
+            "got: {}",
+            error.message
+        );
     }
 
     #[test]

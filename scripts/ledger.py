@@ -181,6 +181,47 @@ def upsert_row(path: str, row: Dict[str, str]) -> bool:
     return False
 
 
+def rename_row(path: str, old_id: str, new_id: str) -> Dict[str, str]:
+    """Renumber the **last** row carrying `old_id` to `new_id`, in place, and return it.
+
+    Why a verb and not a hand edit: renumbering is how a duplicate id is repaired, and it is the
+    one edit that cannot be expressed as an upsert — the old key has to stop existing, and a
+    writer with no way to do that invites somebody to `sed` the CSV instead.
+
+    Three rules, each because its absence is the ambiguity being repaired:
+
+    1. **The later row moves, not the earlier one.** A duplicate exists because a sweep appended
+       a row onto an id its section had already spent. The first row is the one the section
+       number belongs to, so it keeps the id and the later row takes the suffix. This is why the
+       verb reads every match and renames the last, rather than refusing on a duplicate.
+    2. **The row keeps its position.** A renumber that also reordered the file would turn a
+       one-column change into a 900-line diff, which is the trap the whole module exists for.
+    3. **A taken `new_id` is refused**, as is a missing `old_id`, and `old_id == new_id`. A
+       rename that created the ambiguity it was meant to remove is not a repair.
+
+    The caller writes the sentence saying who moved and why into both rows' `notes`: this verb
+    records nothing, and a renumber nobody explained is a mystery the next session re-litigates.
+    """
+    if not old_id or not new_id:
+        raise ValueError("rename needs two non-empty ids")
+    if old_id == new_id:
+        raise ValueError("renaming %r to itself changes nothing" % old_id)
+    header = _header_for(path)
+    rows = read_rows(path)
+    if any(row.get("id") == new_id for row in rows):
+        raise ValueError("id %r is already used by a row; pick an unused suffix" % new_id)
+    target = None
+    for index, existing in enumerate(rows):
+        if existing.get("id") == old_id:
+            # Deliberately the last match: see rule 1 above.
+            target = index
+    if target is None:
+        raise ValueError("no row with id %r" % old_id)
+    rows[target]["id"] = new_id
+    write_rows(path, rows, header)
+    return rows[target]
+
+
 def add_columns(path: str, columns: Sequence[str]) -> bool:
     """Add `columns` to the ledger's header, and to every row, empty.
 
@@ -244,6 +285,12 @@ def main(argv: Sequence[str] = None) -> int:
     p = sub.add_parser("show", help="print one row as JSON")
     p.add_argument("id")
 
+    p = sub.add_parser(
+        "rename", help="renumber the later row carrying an id, so the id names one row"
+    )
+    p.add_argument("old_id")
+    p.add_argument("new_id")
+
     sub.add_parser("count", help="print the data-row count")
 
     args = parser.parse_args(argv)
@@ -263,6 +310,23 @@ def main(argv: Sequence[str] = None) -> int:
     if args.command == "show":
         json.dump(show_row(args.ledger, args.id), sys.stdout, indent=2, sort_keys=True)
         sys.stdout.write("\n")
+        return 0
+
+    if args.command == "rename":
+        moved = rename_row(args.ledger, args.old_id, args.new_id)
+        # Re-read it: a rename that misses leaves the id where it was with no error, which is the
+        # failure the skill's "re-read a row you updated by script" rule names.
+        after = show_row(args.ledger, args.new_id)
+        if after["id"] != args.new_id:
+            raise SystemExit("rename did not land: %r still absent" % args.new_id)
+        print(
+            "%s -> %s: %s"
+            % (
+                args.old_id,
+                args.new_id,
+                (moved.get("requirement") or "")[:100],
+            )
+        )
         return 0
 
     if args.command == "count":

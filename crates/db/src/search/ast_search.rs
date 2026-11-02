@@ -11,7 +11,7 @@ use darkhold_domain::query_sql::render_query;
 
 /// What the reader asked the search to leave out, and in what order it wants what remains.
 ///
-/// Every field is optional because every caller before M47-06 passed none of them, and an empty
+/// Every field is optional because every caller before M47-06b passed none of them, and an empty
 /// value has to mean exactly the behaviour those callers had — the default ordering and no bound.
 ///
 /// These are the same four values `GET /api/v1/search` reports in its `filters` object. Before
@@ -332,7 +332,7 @@ fn render_statement(
 /// `NULL` parameter compared against an integer needs a cast to keep PostgreSQL from reporting
 /// "could not determine data type of parameter", and an absent bound is better expressed by not
 /// writing the predicate at all — the statement then reads exactly as the one every caller had
-/// before M47-06.
+/// before M47-06b.
 #[derive(Debug, Clone)]
 struct BoundScope {
     /// Empty, or one `AND …` per active bound, starting with a newline.
