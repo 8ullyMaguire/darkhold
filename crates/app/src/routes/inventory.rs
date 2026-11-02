@@ -335,6 +335,27 @@ pub const ROUTE_TABLE: &[RouteEntry] = &[
     },
     RouteEntry {
         file: "reading.rs",
+        handler: "get_reading_goal",
+        method: "GET",
+        path: "/reading-goal",
+        audience: Audience::Pseudonymous,
+    },
+    RouteEntry {
+        file: "reading.rs",
+        handler: "put_reading_goal",
+        method: "PUT",
+        path: "/reading-goal",
+        audience: Audience::Pseudonymous,
+    },
+    RouteEntry {
+        file: "reading.rs",
+        handler: "delete_reading_goal",
+        method: "DELETE",
+        path: "/reading-goal",
+        audience: Audience::Pseudonymous,
+    },
+    RouteEntry {
+        file: "reading.rs",
         handler: "get_typography",
         method: "GET",
         path: "/settings/typography",

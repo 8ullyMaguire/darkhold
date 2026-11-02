@@ -1766,6 +1766,45 @@ export function clearSearchHistory(): Promise<{ cleared: number }> {
   return apiFetch<{ cleared: number }>('/search/history', { method: 'DELETE' });
 }
 
+/** The reader's own reading goal and its progress in the current window (§9.7.9). */
+export interface ReadingGoal {
+  period: 'daily' | 'weekly';
+  metric: 'chapters' | 'words' | 'works';
+  target: number;
+  /** `pseud` for chapters and words, `account` for works (§9.6 keeps one shelf per account). */
+  scope: 'pseud' | 'account';
+}
+
+export interface ReadingGoalProgress {
+  goal: ReadingGoal | null;
+  progress?: {
+    current: number;
+    remaining: number;
+    met: boolean;
+    window_start: string;
+    window_end: string;
+  };
+}
+
+export function fetchReadingGoal(signal?: AbortSignal): Promise<ReadingGoalProgress> {
+  return apiFetch<ReadingGoalProgress>('/reading-goal', { signal });
+}
+
+export function saveReadingGoal(goal: {
+  period: ReadingGoal['period'];
+  metric: ReadingGoal['metric'];
+  target: number;
+}): Promise<ReadingGoalProgress> {
+  return apiFetch<ReadingGoalProgress>('/reading-goal', {
+    method: 'PUT',
+    body: JSON.stringify(goal),
+  });
+}
+
+export function clearReadingGoal(): Promise<{ removed: boolean }> {
+  return apiFetch('/reading-goal', { method: 'DELETE' });
+}
+
 /** One labelled reaction and how many readers have it (§9.4). */
 export interface QuickReactionTally {
   label: string;

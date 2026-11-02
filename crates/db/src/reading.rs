@@ -176,6 +176,34 @@ pub async fn save_progress(db: &Database, input: ProgressInput<'_>) -> Result<()
                 .execute(&mut *tx)
                 .await
                 .context("upserting reading progress")?;
+            // The chapter record the `chapters` and `words` reading goals count (§9.7.9, M47-13).
+            // Written in the same transaction as the position, because a progress row that landed
+            // while its chapter record did not is a goal that silently under-counts.
+            if let (Some(pseud_id), Some(unit)) = (pseud, unit_id) {
+                // `db.sql` because the two engines place their parameters differently: PostgreSQL
+                // rejects SQLite's `?` placeholders, which surfaces as an INTERNAL rather than as a
+                // bind error.
+                let chapter_sql = db.sql(
+                    "INSERT INTO reading_unit_read
+                         (id, pseud_id, work_id, unit_id, first_read_at, last_read_at)
+                     VALUES (?, ?, ?, ?, ?, ?)
+                     ON CONFLICT (pseud_id, unit_id) DO UPDATE SET last_read_at = excluded.last_read_at",
+                    "INSERT INTO reading_unit_read
+                         (id, pseud_id, work_id, unit_id, first_read_at, last_read_at)
+                     VALUES ($1, $2, $3, $4, $5, $6)
+                     ON CONFLICT (pseud_id, unit_id) DO UPDATE SET last_read_at = excluded.last_read_at",
+                );
+                sqlx::query(&chapter_sql)
+                    .bind(uuid::Uuid::new_v4().to_string())
+                    .bind(pseud_id.to_string())
+                    .bind(subject_id)
+                    .bind(unit)
+                    .bind(&now)
+                    .bind(&now)
+                    .execute(&mut *tx)
+                    .await
+                    .context("recording the chapter read")?;
+            }
             tx.commit().await?;
         }
         Backend::Postgres => {
@@ -197,6 +225,34 @@ pub async fn save_progress(db: &Database, input: ProgressInput<'_>) -> Result<()
                 .execute(&mut *tx)
                 .await
                 .context("upserting reading progress")?;
+            // The chapter record the `chapters` and `words` reading goals count (§9.7.9, M47-13).
+            // Written in the same transaction as the position, because a progress row that landed
+            // while its chapter record did not is a goal that silently under-counts.
+            if let (Some(pseud_id), Some(unit)) = (pseud, unit_id) {
+                // `db.sql` because the two engines place their parameters differently: PostgreSQL
+                // rejects SQLite's `?` placeholders, which surfaces as an INTERNAL rather than as a
+                // bind error.
+                let chapter_sql = db.sql(
+                    "INSERT INTO reading_unit_read
+                         (id, pseud_id, work_id, unit_id, first_read_at, last_read_at)
+                     VALUES (?, ?, ?, ?, ?, ?)
+                     ON CONFLICT (pseud_id, unit_id) DO UPDATE SET last_read_at = excluded.last_read_at",
+                    "INSERT INTO reading_unit_read
+                         (id, pseud_id, work_id, unit_id, first_read_at, last_read_at)
+                     VALUES ($1, $2, $3, $4, $5, $6)
+                     ON CONFLICT (pseud_id, unit_id) DO UPDATE SET last_read_at = excluded.last_read_at",
+                );
+                sqlx::query(&chapter_sql)
+                    .bind(uuid::Uuid::new_v4().to_string())
+                    .bind(pseud_id.to_string())
+                    .bind(subject_id)
+                    .bind(unit)
+                    .bind(&now)
+                    .bind(&now)
+                    .execute(&mut *tx)
+                    .await
+                    .context("recording the chapter read")?;
+            }
             tx.commit().await?;
         }
     }

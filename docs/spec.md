@@ -1597,6 +1597,32 @@ is no leaderboard for it (§9.7.5) and no credit attaches to it. Sprints
 
 **Writing goals** work the same way for authors: a daily or weekly word-count or drafting target, progress on the author dashboard, private by default, and granting nothing. Words outlined, drafted, or revised all count toward it, because the goal serves the author's own pacing and not a volume metric; there is no leaderboard for it (§9.7.5) and no credit attaches to it. Sprints (§18.4) remain the social form of the same need; the goal is the private one.
 
+**As built (2026-11-02, `M47-13`).** `reading_goal` is keyed on the **pseud** and has no row until
+the reader sets one, which is what "opt-in" can mean without a second opt-in flag: the absence of a
+row is the absence of a goal. `PUT /api/v1/reading-goal` writes it, `DELETE` removes it, and `GET`
+answers the goal with its progress in the current window.
+
+| metric | counted from | window |
+|---|---|---|
+| `chapters` | `reading_progress.chapter_id`, distinct, `updated_at` in window | today / this ISO week |
+| `words` | `chapter_revisions.word_count` of those distinct chapters | today / this ISO week |
+| `works` | `reading_status.finished_at` in window | today / this ISO week |
+
+Three decisions the shape forced:
+
+- **The window is computed, never stored.** A goal does not carry a "current period" row: a stored
+  one would need a sweep to roll it over, and a goal whose counter rolls over at midnight UTC is a
+  goal that resets at the wrong hour for most readers. The window boundaries are returned with the
+  progress so a client can say "this week" from the server's own answer rather than its clock.
+- **The answer is a count, a target and a window — never a verdict.** There is no `failed`, no
+  `missed`, no `streak` field and no negative word in the payload; a reader at 2 of 10 sees `2` of
+  `10`, which is neutral information by construction rather than by careful wording.
+- **`works` is account-scoped, and says so.** `reading_status` is keyed on the account (one shelf
+  per account, §9.6), so two pseuds of one account share that number even though the goal is per
+  pseud. The progress carries `scope: "account"` for that metric and `"pseud"` for the other two,
+  because a per-pseud goal whose third metric silently reads another pseud's shelf would be a
+  privacy bug with a tidy interface.
+
 **Acceptance**
 
 - Daily login credits award once per calendar day.

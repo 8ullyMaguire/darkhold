@@ -48,7 +48,7 @@ about a term; the *wired/unwired* column is the finding.
 | **shipped AND wired** | **8** | items 1, 4, 7, 9, 11, 14, 27, 33 |
 | built by an earlier pass | 2 | items 8, 22 — the probe was wrong, not the code |
 | **shipped from `requirements.csv`** | **2** | M45-51 subject access + erasure (`9f9995f`), M45-53 import visibility (`da3dfe2`, `ded795a`) |
-| **open, Tier 1 remainder** | **2** | items 41, 75 (31, 43 and 22-preset closed 2026-11-02) |
+| **open, Tier 1 remainder** | **1** | item 75 (31, 41, 43 and 22-preset closed 2026-11-02) |
 | next in queue | — | item 41 (reading-goal ring — needs a `reading_goals` table, so *not* a render job), or M45-39 |
 | deliberately refused | 3 | item 2 (archive scrape), the streak trio — argued in `100-ideas-scope.md` §1 |
 | not yet assessed | ~72 | see "what I did not touch" at the foot |
@@ -187,7 +187,8 @@ already found seven instances of.
 | 6 | ~~**22-preset**~~ | DONE — `0e9ae8bc` |
 | 7 | ~~**31 — search history**~~ | DONE — `6d14648d`; and it needed a migration, which the audit denied |
 | 8 | ~~**43 — quick reactions**~~ | DONE — `M47-12`; a separate table from section 35.1's votes, not a validation rule |
-| 9 | 41, 75 | the Tier 1 remainder — 41 needs a table the audit said it did not |
+| 9 | ~~**41 — reading goals**~~ | DONE — `M47-13`; it needed TWO tables, not a ring component |
+| 10 | 75 | the last Tier 1 item — a boolean, a badge, and the debut window |
 
 **Two fixes to this table, both from `REMAINING-2026-10-05.md` §7.**
 

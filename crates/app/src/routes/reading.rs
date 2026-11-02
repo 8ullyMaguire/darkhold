@@ -70,10 +70,17 @@ pub fn router() -> Router<AppState> {
 
 /// Routes a signed-in reader may reach.
 pub fn authed_router() -> Router<AppState> {
-    Router::new().route(
-        "/settings/typography",
-        get(get_typography).patch(save_typography),
-    )
+    Router::new()
+        .route(
+            "/settings/typography",
+            get(get_typography).patch(save_typography),
+        )
+        // §9.7.9 reading goals (M47-13). Pseud-scoped and private: the goal is one reader's own
+        // pacing, and no other reader — nor another pseud of the same account — can read it.
+        .route(
+            "/reading-goal",
+            get(get_reading_goal).put(put_reading_goal).delete(delete_reading_goal),
+        )
 }
 
 // ---------------------------------------------------------------------------
@@ -313,6 +320,115 @@ struct TypographyView {
     reader_theme: String,
     distraction_free: bool,
     version: i64,
+}
+
+
+// ---------------------------------------------------------------------------
+// §9.7.9 reading goals (M47-13)
+// ---------------------------------------------------------------------------
+
+/// A storage failure, masked as the 500 it is.
+///
+/// Every route file in this crate carries its own copy — `analytics.rs`, `spoilers.rs`,
+/// `moderation.rs` — so this module follows the established shape rather than reaching into
+/// another module's private helper.
+fn internal(e: impl Into<anyhow::Error>) -> ApiError {
+    let error: anyhow::Error = e.into();
+    ApiError(darkhold_domain::AppError::Internal(error))
+}
+
+#[derive(Debug, Deserialize)]
+struct GoalRequest {
+    period: String,
+    metric: String,
+    target: i64,
+}
+
+/// The reader's goal and its progress in the current window, or `goal: null`.
+///
+/// `null` rather than `404`: no goal is the ordinary state of most readers, and a 404 would make
+/// every dashboard render an error before the reader has done anything wrong.
+async fn get_reading_goal(
+    State(state): State<AppState>,
+    RequirePseud { user, pseud_id }: RequirePseud,
+) -> ApiResult<Json<serde_json::Value>> {
+    let goal = darkhold_db::reading_goal::get(state.db(), &pseud_id.to_string())
+        .await
+        .map_err(internal)?;
+    let Some(goal) = goal else {
+        return Ok(Json(serde_json::json!({ "goal": null })));
+    };
+    let progress = darkhold_db::reading_goal::progress(
+        state.db(),
+        goal,
+        &pseud_id.to_string(),
+        &user.account_id.to_string(),
+        time::OffsetDateTime::now_utc(),
+    )
+    .await
+    .map_err(internal)?;
+    Ok(Json(goal_payload(&progress)))
+}
+
+/// The shape both reads and writes answer with.
+///
+/// No `failed`, no `missed`, no `streak`: §9.7.1 forbids loss-framed language, and a payload with no
+/// word for it cannot grow one in a later template.
+fn goal_payload(progress: &darkhold_domain::reading_goal::Progress) -> serde_json::Value {
+    serde_json::json!({
+        "goal": {
+            "period": progress.goal.period.as_str(),
+            "metric": progress.goal.metric.as_str(),
+            "target": progress.goal.target,
+            "scope": progress.goal.metric.scope(),
+        },
+        "progress": {
+            "current": progress.current,
+            "remaining": progress.remaining(),
+            "met": progress.met(),
+            "window_start": progress.window_start,
+            "window_end": progress.window_end,
+        },
+    })
+}
+
+/// Set or replace the goal, answering the same shape as the read so a client needs one renderer.
+async fn put_reading_goal(
+    State(state): State<AppState>,
+    RequirePseud { user, pseud_id }: RequirePseud,
+    Json(request): Json<GoalRequest>,
+) -> ApiResult<Json<serde_json::Value>> {
+    let goal = darkhold_domain::reading_goal::Goal::check(&request.period, &request.metric, request.target)
+        .map_err(|(field, message)| ApiError(darkhold_domain::AppError::field(field, message)))?;
+    darkhold_db::reading_goal::set(
+        state.db(),
+        &pseud_id.to_string(),
+        goal,
+        &darkhold_db::identity::now_rfc3339(),
+    )
+    .await
+    .map_err(internal)?;
+    let progress = darkhold_db::reading_goal::progress(
+        state.db(),
+        goal,
+        &pseud_id.to_string(),
+        &user.account_id.to_string(),
+        time::OffsetDateTime::now_utc(),
+    )
+    .await
+    .map_err(internal)?;
+    Ok(Json(goal_payload(&progress)))
+}
+
+/// Remove the goal. Idempotent, and reports whether there was one.
+async fn delete_reading_goal(
+    State(state): State<AppState>,
+    RequirePseud { pseud_id, .. }: RequirePseud,
+) -> ApiResult<Json<serde_json::Value>> {
+    let removed = darkhold_db::reading_goal::clear(state.db(), &pseud_id.to_string())
+        .await
+        .map_err(internal)?;
+    Ok(Json(serde_json::json!({ "removed": removed })))
 }
 
 // ---------------------------------------------------------------------------

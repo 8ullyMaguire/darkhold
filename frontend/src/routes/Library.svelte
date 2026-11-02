@@ -51,6 +51,7 @@
   import EmptyState from '../lib/components/EmptyState.svelte';
   import ErrorSummary from '../lib/components/ErrorSummary.svelte';
   import Skeleton from '../lib/components/Skeleton.svelte';
+  import ReadingGoalRing from '../lib/components/ReadingGoalRing.svelte';
 
   /** An item, with the three fields the server adds to a library listing. */
   type Item = LibraryItem & {
@@ -403,6 +404,7 @@
 </script>
 
 <h1>Library</h1>
+  <ReadingGoalRing />
 
 {#if !session.isSignedIn}
   <p class="note">
