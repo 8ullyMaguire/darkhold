@@ -49,7 +49,7 @@ about a term; the *wired/unwired* column is the finding.
 | built by an earlier pass | 2 | items 8, 22 — the probe was wrong, not the code |
 | **shipped from `requirements.csv`** | **2** | M45-51 subject access + erasure (`9f9995f`), M45-53 import visibility (`da3dfe2`, `ded795a`) |
 | **open, Tier 1 remainder** | **0** | all of Tier 1 closed 2026-11-02 (31, 41, 43, 75, 22-preset) |
-| next in queue | — | item 41 (reading-goal ring — needs a `reading_goals` table, so *not* a render job), or M45-39 |
+| next in queue | — | `M45-39` phase 2 (the account archive an `export_url` points at), then its phase 3 (mutual backup, ActivityPub `Move`) |
 | deliberately refused | 3 | item 2 (archive scrape), the streak trio — argued in `100-ideas-scope.md` §1 |
 | not yet assessed | ~72 | see "what I did not touch" at the foot |
 

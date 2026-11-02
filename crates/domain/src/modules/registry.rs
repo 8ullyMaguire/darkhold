@@ -749,6 +749,23 @@ pub const MODULES: &[Module] = &[
         source: "crates/app/src/routes/rating_integrity.rs",
     },
     Module {
+        id: "succession",
+        name: "Succession",
+        summary: "§11.11a: the plan an instance publishes for its own death, and the redirect \
+                  registry that answers where a dead link went (M45-39).",
+        // On by default: a reader with a dead link is the one person who cannot be asked to
+        // enable anything, and the document is empty until an operator sets a plan anyway.
+        default_on: true,
+        stability: Stability::Stable,
+        toggle: Toggle::Operator,
+        requires: &[],
+        milestone: "M45",
+        spec: "§11.11a",
+        nav: &[],
+        relevance: 10,
+        source: "crates/app/src/routes/succession.rs",
+    },
+    Module {
         id: "reader_body_copies",
         name: "Reader Body Copies",
         summary: "A reader's own copy of an external body (spec §11.15b, amendment §6.2–6.4).",

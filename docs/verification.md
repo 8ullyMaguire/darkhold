@@ -1,3 +1,47 @@
+## 2026-11-02 — M45-39a: the succession document and the redirect registry (§11.11a)
+
+**Requirement:** `M45-39a` · **Tests:** 8 domain + 6 route (both engines)
+
+`M45-39` sat at the front of the queue for a month because it was filed as "needs external
+dependencies", which is true of one of its three parts: ActivityPub `Move`. The document and the
+registry need a table and two routes. They ship as `M45-39a`; the row keeps the halves that really do
+need a peer protocol.
+
+The refusal this section exists for is **an export URL is mandatory**: a destination without one is a
+forwarding address where the destination holds the only copy, and a reader who follows it is trusting
+it with their archive.
+
+Two properties worth naming:
+
+- **Staleness is computed at read time** (`confirmed_at + review_days`), because a stored `is_stale`
+  flag needs something to flip it and the case it exists for is the case where nothing is running. An
+  unreadable `confirmed_at` reads as **stale**, not as fresh — a parse failure is not evidence of
+  liveness.
+- **A stale plan is served, marked** rather than withheld. `stale: true` plus `confirmed_at`
+  distinguishes "had a plan, stopped confirming" from "never had one", and the first is the fact
+  worth knowing.
+
+Resolution is by **longest matching path prefix**, applied in Rust rather than SQL because the two
+engines sort prefixes differently and a tie in the database would be decided by row order — which is
+not a rule. A prefix matches at a segment boundary, so `/works` does not claim `/workshop`.
+
+**PostgreSQL rejected the first schema**, and for the reason ADR 0004 already names: `review_days`
+must be `BIGINT` because the value travels as `i64`, and PostgreSQL will not store an INT8 bind in an
+INTEGER column. SQLite was green throughout; the route returned 500 on the second engine only.
+
+```
+cargo test -p darkhold-domain --lib succession          -> 11 passed (8 new)
+cargo test -p darkhold-app --test m45_39_succession     -> 6 passed, SQLite and PostgreSQL
+cargo test -p darkhold-app --test route_inventory       -> 5 passed
+cargo test -p darkhold-db  --test migration_catalogue   -> 6 passed
+cargo test -p darkhold-domain --lib modules             -> 16 passed
+```
+
+**Red by removal:** shortest-prefix resolution fails the registry test; widening the review window by
+100,000 days fails the staleness test. **Green when removed, and recorded:** the empty-`export_url`
+branch, because `!is_https("")` already refuses it — that branch buys a better message, not the
+guarantee.
+
 ## 2026-11-02 — M47-14: First Words, the debut badge (audit item 75)
 
 **Requirement:** `M47-14` · **Tests:** 3 domain + 3 route (both engines) + 6 frontend

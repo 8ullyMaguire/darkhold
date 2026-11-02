@@ -1984,6 +1984,47 @@ A preservation batch captures text and metadata. Media bytes are captured only w
 
 Where the instance retains work bodies as references rather than copies (§11.15), a preservation batch is refused rather than run in a reduced form. Capturing text is what such an instance has decided not to do, and a batch that ran anyway as metadata-only would be the same request answered two ways depending on who asked.
 
+## 11.11a Succession: what happens to the estate when the instance dies
+
+An instance dying is not an edge case for a platform whose value is a body of fiction that readers
+cannot replace. §11.11 covers an archive migration an operator *chooses* to run; this section covers
+the one nobody chooses. It ships as `M45-39`, in phases: this clause governs the registry and the
+public succession document, and names the two halves that are not built rather than implying them.
+
+**The succession document is public, unauthenticated and cacheable.** `GET /api/v1/succession`
+answers with the instance's plan: where readers should go, where a full export can be fetched, how
+to reach the operator, when the plan was last confirmed, and whether it is **stale**. A document
+that requires a login cannot be read by the person who needs it — someone holding a dead link,
+possibly on another instance.
+
+**Staleness is computed, never stored.** A plan carries `review_days` (30–365, default 90); the
+document is stale when `now − confirmed_at` exceeds it. A stored `is_stale` flag is a fact that
+becomes a lie the moment the clock moves, and nothing in a dead instance will ever move it.
+
+**A stale plan says so.** The document reports `confirmed_at` and `stale: true` rather than
+withholding itself. A reader who lands on an unverified pointer deserves to know it is unverified;
+silence would be indistinguishable from an instance that never had a plan.
+
+**An export is required for a plan to be usable.** A destination without an export URL is a
+forwarding address with no way to leave — the readers who take it are trusting the destination with
+the only copy. `export_url` is therefore mandatory whenever a plan is set, and its absence is a
+field error rather than a default.
+
+**Redirects are a registry, not a guess.** `succession_redirect` maps `(from_host, from_path)` to a
+successor URL, so a reader or a federation peer can ask "where did this go?" and be answered, rather
+than being asked to trust a heuristic on a hostname. Resolution is exact on host *and* path prefix;
+no wildcard matching, because a wildcard across hosts is a redirect any operator can aim at any other
+instance.
+
+**Set and confirm are operator actions.** Both answer 404 to a non-operator, per the rule that
+repeats across this tree: an endpoint whose existence is a disclosure must not answer 403.
+
+**Not built in this phase, and named rather than implied:** *mutual backup* (two instances holding
+each other's archive requires a peer protocol and a trust relationship this tree does not have) and
+*ActivityPub `Move`* (an account moving between instances requires the sender's actor to sign the
+announcement; `routes/federation.rs` has no actor-keyed write today). Both are recorded as open in
+`docs/plans/m45-39-succession.md` with what each still needs.
+
 ## 11.12 Cross-posting to external sites
 
 Support publishing local Darkhold works to external sites through adapters that provide cross-posting capability.

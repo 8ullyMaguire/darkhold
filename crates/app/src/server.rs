@@ -324,6 +324,9 @@ pub fn build_router(state: AppState) -> Router {
         .merge(module_mount(&state, "auth", routes::auth::router(), RouteClass::Auth))
         .merge(module_mount(&state, "pseuds", routes::pseuds::router(), RouteClass::Write))
         .merge(module_mount(&state, "settings", routes::settings::router(), RouteClass::Write))
+        // §11.11a succession. Its two read doors are public on purpose: the reader who needs the
+        // document may be holding a dead link from another instance and cannot log in here.
+        .merge(module_mount(&state, "succession", routes::succession::router(), RouteClass::Default))
         .merge(module_mount(&state, "works", routes::works::router(), RouteClass::Write))
         .merge(module_mount(&state, "collaborators", routes::collaborators::router(), RouteClass::Write))
         .layer(middleware::from_fn_with_state(

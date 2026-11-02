@@ -2,6 +2,7 @@
 
 pub mod actor;
 pub mod badges;
+pub mod succession;
 pub mod ai;
 pub mod analytics;
 pub mod anchor;

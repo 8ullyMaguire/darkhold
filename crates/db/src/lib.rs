@@ -97,6 +97,7 @@ pub mod search_history;
 pub mod secrets;
 pub mod series_recs;
 pub mod sessions;
+pub mod succession;
 pub mod settings;
 pub mod source_adapters;
 // M67-03: the instance account that owns syndicated works.
