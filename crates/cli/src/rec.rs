@@ -46,6 +46,33 @@ pub struct RecArgs {
     #[arg(long, value_name = "N")]
     pub min_likes: Option<i64>,
 
+    /// One JSON object per row, for a pipeline: keys never disappear, order is
+    /// fixed, nothing wraps. Conflicting shapes are refused rather than merged.
+    #[arg(long)]
+    pub jsonl: bool,
+
+    /// With `--jsonl`: print only these fields, in this order.
+    /// `dh rec --jsonl --fields title,likes | jq -r '.<title>'`.
+    #[arg(long, value_name = "FIELDS")]
+    pub fields: Option<String>,
+
+    /// The table. This is the default; naming it is how a script says so.
+    #[arg(long)]
+    pub table: bool,
+
+    /// With the table: print only these columns, in this order.
+    #[arg(long, value_name = "COLS")]
+    pub cols: Option<String>,
+
+    /// Do not truncate long titles and authors.
+    #[arg(long)]
+    pub wide: bool,
+
+    /// One link per row instead of a table: `md` (a markdown list) or `url`
+    /// (bare URLs). `epub` is refused until this instance has a download route.
+    #[arg(long, value_name = "KIND")]
+    pub link: Option<String>,
+
     /// Substring over title and author.
     #[arg(long, value_name = "TEXT")]
     pub q: Option<String>,
@@ -312,7 +339,7 @@ pub fn rows(page: &Value) -> Vec<Row> {
 }
 
 /// `21.0k`, `1.2M`, or the plain number.
-fn compact(value: i64) -> String {
+pub fn compact(value: i64) -> String {
     match value {
         v if v >= 1_000_000 => format!("{:.1}M", v as f64 / 1_000_000.0),
         v if v >= 1_000 => format!("{:.1}k", v as f64 / 1_000.0),
@@ -531,6 +558,72 @@ pub fn failure_for(status: u16, body: &Value, base_url: &str) -> Failure {
     crate::http::refusal(status, body, base_url)
 }
 
+/// Decide the output shape from the flags, refusing combinations rather than
+/// picking a winner.
+///
+/// A program that silently prefers one of two contradicting flags is a program
+/// whose output depends on argument order — and the failure it produces is a
+/// script that reads a table where it asked for JSON.
+fn shape(args: &RecArgs, json: bool) -> Result<crate::output::Shape, Failure> {
+    use crate::output::{parse_projection, Column, JSON_COLUMNS, TABLE_COLUMNS};
+    let mut shape = crate::output::Shape::default();
+
+    if json && args.jsonl {
+        return Err(bad_request(
+            "--json prints the whole page; --jsonl prints one row per line. Pick one.",
+        ));
+    }
+    if json && (args.fields.is_some() || args.link.is_some() || args.cols.is_some()) {
+        return Err(bad_request(
+            "--json prints the server's page unchanged, so a projection on it means nothing",
+        ));
+    }
+    if json {
+        return Ok(shape);
+    }
+    if args.jsonl && args.table {
+        return Err(bad_request("--jsonl and --table print different shapes; pick one"));
+    }
+    if args.jsonl && args.link.is_some() {
+        return Err(bad_request("--jsonl and --link print different shapes; pick one"));
+    }
+    if args.link.is_some() && args.cols.is_some() {
+        return Err(bad_request(
+            "--link prints links; --cols chooses table columns. Pick one.",
+        ));
+    }
+    if args.fields.is_some() && !args.jsonl {
+        return Err(bad_request(
+            "--fields selects JSON fields; add --jsonl. The table's projection is --cols.",
+        ));
+    }
+
+    shape.wide = args.wide;
+    shape.jsonl = args.jsonl;
+    if let Some(raw) = args.fields.as_deref() {
+        shape.fields = Some(
+            parse_projection(raw, &JSON_COLUMNS).map_err(|e| bad_request(format!("--fields: {e}")))?,
+        );
+    }
+    if let Some(raw) = args.cols.as_deref() {
+        shape.cols = Some(
+            parse_projection(raw, &TABLE_COLUMNS).map_err(|e| bad_request(format!("--cols: {e}")))?,
+        );
+        // `--cols score` on a page with no scores prints an empty table, and an
+        // empty table reads as "nothing matched".
+        let cols = shape.cols.as_deref().unwrap_or_default();
+        if !cols.iter().any(|column| *column != Column::Score) {
+            return Err(bad_request(
+                "--cols needs at least one column beside `score`: a page with no scores would print nothing at all",
+            ));
+        }
+    }
+    if let Some(raw) = args.link.as_deref() {
+        shape.link = Some(crate::output::LinkKind::parse(raw).map_err(bad_request)?);
+    }
+    Ok(shape)
+}
+
 /// Run `dh rec`.
 pub async fn run(cli: &Cli, args: &RecArgs) -> Result<(), Failure> {
     if args.list_metrics {
@@ -614,7 +707,28 @@ pub async fn run(cli: &Cli, args: &RecArgs) -> Result<(), Failure> {
         return Ok(());
     }
 
-    let printed = table(&body);
+    let shape = shape(args, cli.json)?;
+    match shape.link {
+        Some(kind) => {
+            // Links replace the table *and* the summary lines: a caller piping
+            // this wants URLs, and a trailing "ranked 12 of 900" would become a
+            // broken link on the next line.
+            print!("{}", crate::output::links(&body, kind, &cli.base_url));
+            return Ok(());
+        }
+        None if shape.jsonl => {
+            print!("{}", crate::output::jsonl(&body, shape.fields.as_deref()));
+            return Ok(());
+        }
+        None => {}
+    }
+    let cols = shape.cols.clone().unwrap_or_else(|| crate::output::TABLE_COLUMNS.to_vec());
+    let printed = match shape.cols.is_some() || shape.wide {
+        true => crate::output::table(&body, &cols, shape.wide),
+        // The default path keeps the historical renderer: a script that parses
+        // the table today must keep parsing it after this feature landed.
+        false => table(&body),
+    };
     if printed.is_empty() {
         eprintln!("no rows matched");
     } else {
@@ -671,6 +785,50 @@ mod tests {
         assert!(rec.explain);
         assert_eq!(cli.base_url, "http://127.0.0.1:8081");
         assert_eq!(rec.limit, 20);
+    }
+
+    // --- output shape (M63-05) -------------------------------------------------
+
+    #[test]
+    fn jsonl_and_the_pretty_page_are_refused_together() {
+        let (cli, rec) = args(&["dh", "--json", "rec", "--jsonl"]);
+        assert!(cli.json, "the global flag is what this test is about");
+        let err = shape(&rec, cli.json).expect_err("refused");
+        assert_eq!(err.code, 2, "a wrong request is code 2, not an environment fault");
+        assert!(err.message.contains("--json"), "{}", err.message);
+        // And a clean ask is accepted.
+        assert!(shape(&rec, false).expect("accepted").jsonl);
+    }
+
+    #[test]
+    fn fields_without_jsonl_says_which_flag_is_missing() {
+        let (cli, rec) = args(&["dh", "rec", "--fields", "title,likes"]);
+        let err = shape(&rec, cli.json).expect_err("refused");
+        assert!(err.message.contains("--jsonl"), "{}", err.message);
+        let (_, ok) = args(&["dh", "rec", "--jsonl", "--fields", "title,likes"]);
+        let shape = shape(&ok, false).expect("accepted");
+        assert_eq!(shape.fields.expect("fields").len(), 2);
+    }
+
+    #[test]
+    fn a_cols_projection_of_only_score_is_refused() {
+        // On a page with no scores this prints nothing at all, which reads as
+        // "nothing matched" rather than "you asked for an empty table".
+        let (cli, rec) = args(&["dh", "rec", "--cols", "score"]);
+        let err = shape(&rec, cli.json).expect_err("refused");
+        assert!(err.message.contains("beside `score`"), "{}", err.message);
+    }
+
+    #[test]
+    fn link_epub_is_refused_with_the_missing_route_named() {
+        let (cli, rec) = args(&["dh", "rec", "--link", "epub"]);
+        let err = shape(&rec, cli.json).expect_err("refused");
+        assert!(err.message.contains("M63-05b"), "{}", err.message);
+        let (_, ok) = args(&["dh", "rec", "--link", "md"]);
+        assert_eq!(
+            shape(&ok, false).expect("accepted").link,
+            Some(crate::output::LinkKind::Md)
+        );
     }
 
     #[test]

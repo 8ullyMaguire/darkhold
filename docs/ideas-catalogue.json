@@ -354,9 +354,9 @@
    "built": false
   },
   {
-   "why_summary": "docs/ideas/2026-11-01-idea-sweep-power-users.md Power-user sweep P5. Field projection for jq pipelines; stable ordering; nothing wraps without --wrap. Scripts must not break when a",
-   "id": "M63-05",
-   "title": "dh rec --jsonl --fields, --table/--wide/--cols, --link md|epub|url",
+   "why_summary": "-- Split out of M63-05 on 2026-11-02: that row asked for `--link md|epub|url` and there is no export route to point at, so the flag refuses with its reason rather than printing a 4",
+   "id": "M63-05b",
+   "title": "`dh rec --link epub`",
    "sources": [
     "docs/requirements.csv"
    ],

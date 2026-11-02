@@ -20,6 +20,7 @@ mod exit;
 mod gen;
 mod http;
 mod module;
+mod output;
 mod rec;
 mod redact;
 mod safety;

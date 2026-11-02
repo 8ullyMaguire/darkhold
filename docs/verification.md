@@ -1,3 +1,52 @@
+## 2026-11-02 — `dh rec` output shape is a contract (M63-05)
+
+**Requirement:** `M63-05` (closed) · `M63-05b` (split out, planned) · **Tests:** 21
+
+Three shapes, and each is asked for explicitly: the table (a person at a terminal), `--jsonl` (a
+pipeline), `--link md|url` (pasting). `--cols` and `--fields` are the same idea on two shapes — an
+explicit projection — and the default table is byte-for-byte what this program printed before, held by
+a golden test that compares the new renderer against `rec::table`.
+
+**What JSONL promises**, because a pipeline's trust is bought with these two rules:
+
+- *Every key, every row.* A row with no word count prints `"words":null`, never a missing key — a
+  pipeline that counts keys must not see two shapes for one record.
+- *Order is written here.* This workspace has no `serde_json/preserve_order`, so object keys would sort
+  alphabetically and put `author` before `title`; the line is built from `output.rs`'s column order
+  instead, so two runs diff cleanly.
+
+**Two defects the work surfaced, both real and both invisible to the unit tests as first written:**
+
+1. The column boundary was written *after* the cell instead of before it — every cell shifted one place
+   and every row ended with a trailing space. The golden test against `rec::table` caught it.
+2. `fit()` truncated numbers along with text, so `602.2k` printed as `602.2…` — a wrong number rather
+   than a short one. Numbers now widen and only text truncates.
+
+A third was found in the ledger rather than the code: the new row was appended as a hand-written CSV
+line, and its commas split it into the wrong columns. Rewritten through `csv.writer`.
+
+```
+cargo test -p darkhold-cli        -> 49 + 4 + 7 + 9 + 2 + 3, all ok
+cargo test -p darkhold-domain --test ideas_match_requirements -> 3 ok
+```
+
+**Live, against `https://darkhold.polarisocial.xyz`** (not a fixture):
+
+```
+dh rec --limit 2                                   -> the unchanged table
+dh rec --limit 2 --cols title,likes,updated         -> 602.2k likes, no trailing space
+dh rec --limit 3 --jsonl | jq -r '[.rank,.likes,.title]|@tsv'  -> three rows, tab clean
+dh rec --limit 2 --link url                        -> the two source threads
+dh rec --link epub                                 -> refused, exit 2, names M63-05b
+dh rec --fields title                               -> refused, exit 2, says to add --jsonl
+```
+
+**Red by mutation (both measured):** omitting a null key fails the key-order test; collapsing the
+updated→title boundary fails the golden test.
+
+**Split out:** `--link epub` refuses with its reason and is tracked as **M63-05b** — this instance has
+no download route, so the link would be a 404 with a file extension.
+
 ## 2026-11-02 — the Suki intake (M69), and the smallest row in it shipped
 
 **Requirement:** `M69-01..26` (new, planned) · `M69-25` (closed) · **Tests:** 6

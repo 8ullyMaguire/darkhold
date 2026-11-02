@@ -1,12 +1,12 @@
 {
   "sources": {
     "requirements.csv": {
-      "rows": 883,
+      "rows": 884,
       "by_status": {
         "implemented-verified-e2e": 129,
         "implemented-locally-tested": 247,
         "unsupported": 4,
-        "implemented-fully-tested": 409,
+        "implemented-fully-tested": 410,
         "planned": 93,
         "evaluated-and-rejected": 1
       }
@@ -138,10 +138,10 @@
       "notes": "Weights: quality = 0.40 source_pct + 0.25 consensus + 0.15 engagement_density + 0.10 crosspost + 0.10 confidence, renormalised over the signals a row has. source_pct is a RAW percentile among engaged rows with both ends anchored (0 = bottom, 1 = best of its own archive) because two earlier guardrails each made the achievable maximum depend on n and put 34 of the top 40 rows in the largest archive; evidence is the separate `confidence` signal instead. Gate: `ranked N of M`, and `measured: false` on rows the metric could not score. velocity, hidden_gem, likes_per_view and wilson are refused by name with the work item that unblocks them (M63-32)."
     },
     {
-      "id": "M63-05",
+      "id": "M63-05b",
       "milestone": "M63",
-      "requirement": "dh rec --jsonl --fields, --table/--wide/--cols, --link md|epub|url: output shape is a contract",
-      "notes": "Power-user sweep P5. Field projection for jq pipelines; stable ordering; nothing wraps without --wrap. Scripts must not break when a column is added."
+      "requirement": "`dh rec --link epub`: a link a reader can actually download from, once this instance has a download route",
+      "notes": "Split out of M63-05 on 2026-11-02: that row asked for `--link md|epub|url` and there is no export route to point at, so the flag refuses with its reason rather than printing a 404 with a file extension. The link shape is already decided by `output.rs` \u2014 one line per row, absolute URL, no table \u2014 so what is missing is the endpoint, not the format. Planned rather than unsupported because the reader has no download route yet, not because the idea is wrong. Default off: a download link is a promise the binary can serve the file."
     },
     {
       "id": "M63-06",
