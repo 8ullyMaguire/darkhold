@@ -1,12 +1,12 @@
 {
   "sources": {
     "requirements.csv": {
-      "rows": 843,
+      "rows": 844,
       "by_status": {
         "implemented-verified-e2e": 129,
         "implemented-locally-tested": 246,
         "unsupported": 4,
-        "implemented-fully-tested": 394,
+        "implemented-fully-tested": 395,
         "planned": 69,
         "evaluated-and-rejected": 1
       }

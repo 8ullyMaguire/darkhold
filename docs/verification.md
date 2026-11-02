@@ -1,3 +1,38 @@
+## 2026-11-02 — M47-07: the status filter meant lifecycle, and idea 22's preset
+
+**Requirement:** `M47-07` · **Tests:** 3 frontend + 1 domain · **Source:** audit-100-reader-ideas item 22
+
+The audit said item 22 needed only a preset button because `search.rs` already accepted the
+parameters. It accepted `max_words` (until `M47-06` it resolved but never applied it) and it had no
+`completion` parameter at all — the *column* exists, the *filter* did not. Probing that claim found
+two defects behind one chip.
+
+**First: the filter was wired to the wrong column.** `Search.svelte` built `status:"Complete"`, and
+`status:` renders `works.lifecycle` — `published`, `draft` — which is not what Complete /
+In-Progress / Hiatus describe. Every value the dropdown offered matched no row, so the filter
+looked like it worked and returned nothing. It now emits `completion:"complete"` through a single
+`COMPLETION_VALUES` map.
+
+**Second: the third option was a 422.** `works.completion` stores `hiatus` — the `Completion`
+enum's serde name — while the filter accepted only `on_hold`, a spelling nothing writes. Both are
+accepted now; the enum's own spelling is what the page sends.
+
+**And the preset**, which is what the idea asked for: one chip that sets the 10k ceiling and the
+completion filter and runs immediately. A preset that only fills the form makes the reader press
+Search to learn what it did, and re-applying replaces the completion filter rather than appending,
+so two clicks cannot send `completion:"complete" AND completion:"complete"`.
+
+```
+cd frontend && npx vitest run src/routes/Search.test.ts   -> 15 passed (3 new)
+cd frontend && npx vitest run                             -> 585 passed
+npx svelte-check --threshold error                        -> 0 errors
+cargo test -p darkhold-domain                             -> 913 passed
+```
+
+**Red by removal:** with the mapping reverted to `status:"…"` the three new frontend tests fail;
+with `hiatus` dropped from the accepted values the domain test fails with the exact 422 the reader
+was getting.
+
 ## 2026-11-02 — M65-12: a module's own tests run the module
 
 **Requirement:** `M65-12` · **Tests:** `arena_routes` 4/4
