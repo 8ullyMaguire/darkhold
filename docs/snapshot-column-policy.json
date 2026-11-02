@@ -492,6 +492,16 @@
       "why": "A credential. Anonymising a hash is meaningless and it has no research value.",
       "reviewed_by": "alvaro, 2026-09-29, against spec 11.16"
     },
+    "oidc_links.account_id": {
+      "treatment": "rekey_account",
+      "why": "The local account an estate subject signs in as. TEXT, like every table younger than 0135, so it is re-keyed on the same mapping as `accounts.id` (11.16.3b): a snapshot keeps \"this subject is some pseudonymised account\" and cannot be joined back to the person. Live erasure DELETEs the link row (crates/db/src/erasure.rs), because a link to a deleted account would re-open the way in.",
+      "reviewed_by": "alvaro, 2026-11-02, against spec 11.16"
+    },
+    "oidc_links.email": {
+      "treatment": "replace",
+      "why": "The address the provider vouched for when the link was made. It is the one column here that names a person in the clear, and it is a CACHE — `oidc_links` is keyed on (provider, subject) and every sign-in refreshes it — so a snapshot does not need it to keep the link meaningful. Replaced rather than dropped so the column keeps its shape across both engines.",
+      "reviewed_by": "alvaro, 2026-11-02, against spec 11.16"
+    },
     "payment_events.account_id": {
       "treatment": "rekey_account",
       "why": "A UUID foreign key to accounts.id, so it must be re-keyed with snapshot_account -- the SAME derivation accounts.id uses, on the account salt, so the join survives. 11.16.3b, and this is the failure the requirement is 'most likely to be implemented backwards': rekey_text emits a `snp_` TEXT hash, which cannot be compared with a uuid, so the relationship to accounts is destroyed while every behavioural column still reads as pseudonymous. The snapshot LOOKS de-identified and is not.",

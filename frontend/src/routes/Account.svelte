@@ -424,7 +424,7 @@
 
   .avatar {
     border-radius: 50%;
-    border: 1px solid var(--border-1);
+    border: 1px solid var(--border);
     object-fit: cover;
     background: var(--surface-2);
   }

@@ -237,6 +237,8 @@ pub const FK_FREE_ACCOUNT_COLUMNS: &[UnlinkedColumn] = &[
         why: "§58.3 keeps the routing row forever: an abandoned routing is the evidence the reader was asked, and deleting it would hide that. §51 still requires the person to leave, so the link becomes a per-row key — 'erased:<row id>' — unlinkable to the reader and to their other rows, and the column stays NOT NULL so nothing had to be rebuilt" },
     UnlinkedColumn { table: "badge_award", column: "account_id", kind: ColumnKind::Text,
         treatment: Treatment::Delete, why: "§9.7.1 makes recognition episodic and personal; a badge held by an erased account is not an audit record of anything, and M47-14's table was the leak this list found" },
+    UnlinkedColumn { table: "oidc_links", column: "account_id", kind: ColumnKind::Text,
+        treatment: Treatment::Delete, why: "§18/W2: the row says 'this estate subject is this account'. Erasing the account and keeping the link would leave a way back in that no session, password or erase ever removed — the identity the person erased from is still claimed by a subject the estate still vouches for" },
     UnlinkedColumn { table: "module_user_state", column: "account_id", kind: ColumnKind::Text,
         treatment: Treatment::Delete, why: "M65-10: a module preference belongs to the person; the snapshot policy's `rekey_account` is a SNAPSHOT treatment (11.16.3b), not this one — live erasure deletes the account, so there is nothing to rekey to and a preference must not survive" },
 ];

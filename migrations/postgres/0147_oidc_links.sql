@@ -4,8 +4,6 @@
 -- `oidc_links` is the durable fact (subject -> account). `oidc_pending` is one in-flight login, deleted
 -- on redemption so a replayed callback finds nothing rather than a second session. No foreign key:
 -- accounts.id is UUID while the newer tables keep TEXT ids, and erasure rekeys rather than deletes.
--- local account. `oidc_pending` is one in-flight login, deleted the moment it is redeemed, so a replayed
--- callback finds nothing rather than a second session.
 --
 -- No foreign key on account_id: `accounts.id` is UUID on PostgreSQL and every id in the newer tables is
 -- TEXT (0135/0137 convention), and erasure rekeys rather than deletes, so a key would fire never and

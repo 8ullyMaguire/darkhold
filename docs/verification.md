@@ -1,3 +1,50 @@
+## 2026-11-02 — the two lineages meet, and the merge finds four things
+
+**Not a requirement — a merge:** `~/code/rust/darkhold` (the thinkcentre checkout, upstream
+`lorehaven`) and `~/code-local/rust/darkhold` (this tree, upstream `darkhold`) had a common ancestor at
+`4b731acc` and then diverged: this tree 44 commits ahead, that one three, and its three were the
+Polestar/Polaris sign-in work (W2: one account, verified-email linking, the password retiring once an
+estate sign-in exists). Tags `pre-merge-20261102` and `pre-merge-code-20261102` mark both tips.
+
+Git merged it with **no conflicts at all**, which is the finding: four defects survived a clean merge and
+each was caught by a gate that already existed.
+
+1. **Migration numbers collided.** Both lineages had reached 0138/0139 — this tree with
+   `0138_comments_timestamp_canonical` + `0139_search_history`, that one with the two OIDC migrations.
+   Different filenames, so git kept both, and a migration is keyed on `version_name`: a fresh database
+   would apply two 0138s in filename order and `apply_to`'s "up to and including this version" would be a
+   prefix over an ambiguous list. Renumbered 0147/0148 in both engines, after this tree's 0146.
+2. **Two undecided identity columns**, caught by the §11.16 gate wired into CI **earlier today**:
+   `oidc_links.account_id` (`rekey_account`) and `oidc_links.email` (`replace` — it is a cache the
+   provider refreshes on every sign-in, and the one column here that names a person in the clear).
+3. **An unclassified account column**, caught by the erasure invariant: `oidc_links.account_id` had no
+   treatment, so `DELETE FROM accounts` would leave a link claiming a subject still signs in as the
+   person who erased themselves. Treatment: `Delete`.
+4. **Two design tokens that did not exist**: `--border-1` in `Account.svelte` and `--color-surface-2` in
+   `SignIn.svelte`. The token gate is the one this tree has and that one does not — an undefined custom
+   property falls back to its literal, which is a light-theme colour, so the sign-in page's panel and the
+   account border would have been invisible in every dark theme with nothing failing. Fixed in the
+   components to `var(--border)` and `var(--color-surface-raised)`, not by growing the alias table.
+
+Also repaired: the merged `migrations/postgres/0147_oidc_links.sql` header arrived with a paragraph
+spliced from the SQLite file (a pre-existing defect in the other tree, now that the file is about to be
+published).
+
+```
+python3 scripts/check-snapshot-pii.py       -> OK: 2426 columns across 331 tables   (was 2414/329)
+cargo test -p darkhold-db --test erasure_covers_fk_free_accounts -> 4 passed
+cargo test -p darkhold-db --test migration_catalogue             -> 6 passed
+cargo test -p darkhold-app --lib                                 -> 240 passed
+cargo test -p darkhold-domain                                    -> 16 suites ok
+node node_modules/vitest/vitest.mjs run (frontend)                -> 610 passed, 81 files
+python3 scripts/check-sqlite-migration-syntax.py                  -> OK
+```
+
+**What is NOT verified:** the OIDC code arrived with no tests of its own — 345 lines of route and 229 of
+db module, unmigrated migrations until now, and `cargo check` is the only thing that has read it here. It
+compiles, its migrations apply, and its columns are now decided; nobody has signed in through Polaris
+from this tree. That is the next thing to do with it, and it needs a real estate account to do.
+
 ## 2026-11-02 — M45-62: the gate that ran for nobody, and the 37 columns it cannot see
 
 **Requirement:** `M45-62` (closed) → `M45-65` (opened, measured) · **Tests:** gate + 4 erasure invariants

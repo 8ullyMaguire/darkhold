@@ -120,7 +120,7 @@
     border: 1px solid var(--color-border);
     border-radius: var(--radius-md);
     font-weight: 600;
-    background: var(--color-surface-2);
+    background: var(--color-surface-raised);
   }
 
   .note {
