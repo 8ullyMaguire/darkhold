@@ -1,13 +1,13 @@
 {
   "sources": {
     "requirements.csv": {
-      "rows": 838,
+      "rows": 839,
       "by_status": {
         "implemented-verified-e2e": 129,
         "implemented-locally-tested": 246,
         "unsupported": 4,
-        "implemented-fully-tested": 386,
-        "planned": 72,
+        "implemented-fully-tested": 388,
+        "planned": 71,
         "evaluated-and-rejected": 1
       }
     },
@@ -444,12 +444,6 @@
       "notes": "The first milestone is deliberately smaller and shippable: serve local files to another person on the LAN or by a direct link, with no relay, no DHT, no node discovery and no global namespace; the user's own files stay their own files. Items 50, 51, 61, 69 and 96 belong to it (drag-drop import, local full-text search, offline queue, Calibre metadata.db ingestion, a local engine over local edges). The seeding network (81, 93, 98, 99) is a later spec that needs a threat model first \u2014 a document, not a weekend."
     },
     {
-      "id": "M45-61",
-      "milestone": "M45",
-      "requirement": "`comments.created_at` is not constrained to the canonical shape, so the welcome rota's 72-hour window compares text against text and a non-canonical writer would silently match nothing",
-      "notes": "Found while making the PostgreSQL arm pass: the fixture wrote $4::timestamptz, PostgreSQL stored '2026-11-02 02:13:48+00', and created_at >= '2026-11-02T02:13:48Z' compared a space against 'T' and matched nothing \u2014 a refusal with no error. The real writer (community::insert_comment) uses now_rfc3339, so live rows are canonical; the gap is that nothing stops the next writer. M63-31 added the CHECK to library_items only."
-    },
-    {
       "id": "M45-62",
       "milestone": "M45",
       "requirement": "`event_participation.account` and `events.created_by` hold pseud ids although the columns are named for accounts, so every \u00a718 query and the exchange matcher pair pseuds through an account-named column",
@@ -458,7 +452,7 @@
   ],
   "open_by_milestone": {
     "M63": 25,
-    "M45": 23,
+    "M45": 22,
     "M64": 14,
     "M66": 6,
     "M65": 4

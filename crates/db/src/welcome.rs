@@ -141,7 +141,22 @@ macro_rules! assignment_of {
     }};
 }
 
-const SELECT_ASSIGNMENT: &str = "SELECT r.id, r.work_id, li.title, li.source_key, r.author_key,
+/// The assignment query, and why the two columns are `COALESCE`d.
+///
+/// `work_id` names a `works.id` that the rota row was claimed from someone else's
+/// `library_items` entry — so the title and source key are read back through that entry rather
+/// than from `works` (which may hold an empty title for an import). The entry can disappear
+/// afterwards: `library_items.work_id` is `ON DELETE SET NULL`, and a reader unshelving a work
+/// takes the row with it.
+///
+/// Without the `COALESCE` that turns into a **decode error on PostgreSQL only**:
+/// `get::<String, _>("title")` on a NULL raises `UnexpectedNullError` and the route answers 500,
+/// while SQLite hands back an empty string and the page renders. Measured, not assumed — the first
+/// PostgreSQL run of `comments_timestamp_canonical` found it. An assignment whose work is gone is
+/// still an assignment the reader was asked to welcome; an empty title says "we can no longer name
+/// it" and is a better answer than a 500.
+const SELECT_ASSIGNMENT: &str = "SELECT r.id, r.work_id, COALESCE(li.title, '') AS title,
+        COALESCE(li.source_key, '') AS source_key, r.author_key,
         r.assigned_at, r.due_at, r.completed_at
    FROM welcome_rota r
    LEFT JOIN library_items li ON CAST(li.work_id AS TEXT) = r.work_id";

@@ -1,3 +1,16 @@
+## `comments.edited_at` and `deleted_at` are not constrained to the canonical shape
+
+**Found:** 2026-11-02, while adding the `created_at` constraint (`M45-61`, migration `0138`).
+
+`comments.created_at` is now `YYYY-MM-DDTHH:MM:SSZ` or the row is refused. The other two timestamp
+columns on the table are not, deliberately: both are nullable and **no query compares them**, so a
+constraint there would be a rule with no reader — and the failure it would prevent (a mis-shaped edit
+time) has no window to be silently wrong against.
+
+When a query starts comparing `edited_at` or `deleted_at`, it takes its own constraint in its own
+migration, with the same backfill-then-constrain shape. Until then this is a gap and not a decision:
+the columns accept any text, and a future writer can put a space-and-offset value in them.
+
 # Known gaps
 
 Defects and open questions found by tests, recorded rather than papered over.

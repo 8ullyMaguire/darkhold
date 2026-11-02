@@ -1,3 +1,51 @@
+## 2026-11-02 — M45-61: `comments.created_at` is a shape the database keeps (and M45-63, found doing it)
+
+**Requirement:** `M45-61`, plus `M45-63` (discovered by the same run) · **Migration:** `0138` on both
+engines · **Tests:** 5, on SQLite and on PostgreSQL.
+
+### The defect, as the wrong answer it is
+
+The welcome rota compares `created_at >= assigned_at` in **TEXT**. A row stored
+`2026-11-02 02:13:48+00` is never `>=` a bound written `2026-11-02T02:13:48Z` — a space is not a
+`T` — so the query matches nothing and raises nothing. The reader who commented nine minutes after
+being asked is told they have not commented at all.
+
+Live rows are canonical (`insert_comment` writes `now_rfc3339`); the gap was that nothing stopped
+the next writer. A test fixture had already produced the bad shape.
+
+### What was built
+
+`0138` backfills then constrains: a `CHECK` added `NOT VALID` and `VALIDATE`d on PostgreSQL,
+`BEFORE INSERT` + `BEFORE UPDATE OF created_at` `GLOB` triggers on SQLite — the same construction
+`M63-31` used for `library_items`.
+
+### Proof it is load-bearing
+
+With `0138` removed and nothing else changed, **the insert and the update are both accepted** and
+two tests fail:
+
+```
+---- a_non_canonical_created_at_is_refused_by_the_database stdout ----
+a space-and-offset timestamp must be refused: ()
+---- an_update_to_a_non_canonical_value_is_refused stdout ----
+an UPDATE to a non-canonical shape must be refused: ()
+test result: FAILED. 2 passed; 2 failed
+```
+
+Restoring it: `test result: ok. 5 passed` on SQLite, and `5 passed` against PostgreSQL on
+127.0.0.1:55433.
+
+### The second defect the PostgreSQL run found (`M45-63`)
+
+`welcome::open_for` decoded `li.title` through a `LEFT JOIN` to `library_items`. A rota row whose
+library entry is gone (`work_id` is `ON DELETE SET NULL`) yields NULL, and `get::<String, _>` on
+NULL is a **decode error on PostgreSQL** — a 500 — while SQLite returns `""` and renders. Fixed with
+`COALESCE(li.title, '')` and `COALESCE(li.source_key, '')`, with a test that inserts an assignment
+and no library row.
+
+This is the same shape as `M45-61`: a green SQLite run hides an engine-specific failure. Found by
+running, not by reading.
+
 ## 2026-11-02 — the split spec now covers the whole document, and the gate bites
 
 **Roadmap:** `REMAINING-2026-10-03.md` row 5 (the last open item that was a *spec* gap rather
