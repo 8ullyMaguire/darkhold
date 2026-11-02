@@ -1,3 +1,64 @@
+## 2026-11-02 — M47-06: search applies the filters it reports
+
+**Requirement:** `M47-06` · **Tests:** 5 new, both engines · **Plan:** `docs/plans/m47-06-search-applies-its-filters.md`
+
+### The defect, reproduced before anything was changed
+
+```
+GET /api/v1/search?q=commonword&max_words=10000
+  -> 200 {"items": [{"title": "Long", "word_count": 40000}, ...],
+          "filters": {"max_words": 10000, ...}}
+```
+
+The endpoint resolved the reader's stored search defaults, echoed all four back in `filters`, and
+passed `q`, the viewer, the limit and the content filters to the query. `min_words`, `max_words`,
+`sort` and `max_rating` never reached the statement, so a reader who set "maximum rating: general"
+got a `200` claiming the ceiling and explicit works in the same body. `M47-05` was closed on a test
+that asserted the echo.
+
+### What was built
+
+`SearchFilters` in `crates/db/src/search/ast_search.rs`, and `search_works_ast_scoped` — the one
+door that takes content filters *and* the reader's bounds. `search_works_ast` and
+`search_works_ast_filtered` keep their signatures and pass `SearchFilters::default()`, so no
+existing caller changed behaviour and the paths cannot drift.
+
+Three decisions:
+
+* **The bounds live outside the grouped statement**, and `ORDER BY`/`LIMIT` move out with them.
+  `word_count` is a correlated subquery in the select list and neither dialect lets a `WHERE` or a
+  portable `HAVING` reference a select alias; repeating the subquery in the predicate would put a
+  second copy of the word-count expression one edit away from drifting from the one the response
+  reports. Taking the limit outside is also what stops a bound shortening a page the limit already
+  cut — the defect `content_filter_sql` was written for.
+* **An unrecognised `max_rating` is the strictest ceiling**, because a stored typo must not leak
+  what the reader meant to hide. An unrecognised `sort` falls back to `score` instead of `422`,
+  because a value written by an older build must not break search.
+* **An anonymous caller's explicit parameters now apply.** The old resolution was
+  `None => (None, None, None, None)`: `?max_words=` on a signed-out search was resolved to nothing
+  and echoed as `null`. Only the *stored* defaults need a session.
+
+### Verification
+
+```
+cargo test -p darkhold-app --test m47_06_search_applies_filters            -> 5 passed (SQLite)
+DARKHOLD_TEST_PG_URL=… same                                                -> 5 passed (PostgreSQL)
+milestone_15_search 42 · search_comparisons 26 · forum_search_ast 11
+forum_search_route 8 · m47_05_search_defaults 4                            -> all green, both engines
+```
+
+**Red first:** before the change, three of the five failed with the offending titles listed
+(`["Long", "Mid", "Short"]` under `max_words=10000`). **Red by mutation:** with the `newest` arm
+swapped back to the default ordering, `sort_newest_orders_by_update` fails — the first version of
+that test could not fail, because its fixture let `score DESC` and `updated_at DESC` agree.
+
+### Found on the way
+
+`scripts/pg-test-db.sh` printed a URL for user `darkhold` against a running `lh-pg-test` container
+that had been created (by an older revision of the script) with `lorehaven/lorehaven`, so every
+PostgreSQL run failed `password authentication failed` until `--recreate`. The script reuses a
+running container by name and never checks whose credentials it holds.
+
 ## 2026-11-02 — M65-11: the frontend type gate is green again
 
 **Requirement:** `M65-11` · **Gate:** `npx svelte-check` (11 errors → 0)

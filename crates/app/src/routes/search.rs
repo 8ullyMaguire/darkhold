@@ -8,7 +8,7 @@ use crate::state::AppState;
 use axum::extract::{Path, Query, State};
 use axum::routing::get;
 use axum::{Json, Router};
-use darkhold_db::search::{search_in_work, search_works_ast_filtered, InWorkMatch, SearchError};
+use darkhold_db::search::{search_in_work, search_works_ast_scoped, InWorkMatch, SearchError, SearchFilters};
 use darkhold_db::settings as db_settings;
 use darkhold_domain::ids::WorkId;
 use serde::Deserialize;
@@ -155,20 +155,36 @@ async fn search(
     };
 
     // M47-05: resolve search defaults (explicit params override stored).
+    //
+    // M47-06: an anonymous caller's explicit parameters used to be thrown away here — the whole
+    // tuple was `(None, None, None, None)` unless there was a session, so `?max_words=` on a
+    // signed-out search was resolved to nothing and then echoed back as `null`. Explicit
+    // parameters are the caller's own request and apply with or without a session; only the
+    // *stored* defaults need somebody to store them.
     let (min_words, max_words, sort, max_rating) = match session.as_ref() {
         Some(s) => resolve_search_defaults(&state, s, &params).await,
-        None => (None, None, None, None),
+        None => (
+            params.min_words,
+            params.max_words,
+            params.sort.clone(),
+            params.max_rating.clone(),
+        ),
     };
 
-    let results = search_works_ast_filtered(
-        state.db(),
-        &params.q,
-        viewer_id.as_deref(),
-        params.limit,
-        &filters,
-    )
-    .await
-    .map_err(search_failure)?;
+    // …and they reach the statement. Before M47-06 the four values above existed only to be
+    // returned in the response's `filters` object, which made the endpoint report a ceiling it
+    // had never applied: the reader sets "maximum rating: general", reads `"max_rating":
+    // "general"` in the reply, and gets explicit works back.
+    let scope = SearchFilters {
+        min_words,
+        max_words,
+        max_rating: max_rating.clone(),
+        sort: sort.clone(),
+    };
+
+    let results = search_works_ast_scoped(state.db(), &params.q, viewer_id.as_deref(), params.limit, &filters, &scope)
+        .await
+        .map_err(search_failure)?;
 
     Ok(Json(serde_json::json!({
         "items": results,
