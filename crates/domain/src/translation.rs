@@ -309,11 +309,13 @@ use crate::permission::Permission;
 /// tags rather than about readers.
 #[must_use]
 pub fn normalise_language(tag: &str) -> Option<String> {
-    let primary = tag.trim().split(['-', '_']).next()?.trim().to_ascii_lowercase();
-    if primary.len() < 2
-        || primary.len() > 3
-        || !primary.chars().all(|c| c.is_ascii_alphabetic())
-    {
+    let primary = tag
+        .trim()
+        .split(['-', '_'])
+        .next()?
+        .trim()
+        .to_ascii_lowercase();
+    if primary.len() < 2 || primary.len() > 3 || !primary.chars().all(|c| c.is_ascii_alphabetic()) {
         return None;
     }
     Some(primary)
@@ -383,7 +385,9 @@ pub fn unrepresented(supply: &Supply, wanted: &[&str]) -> Vec<String> {
 pub enum Transfer {
     Available,
     /// Never returned without a reason: `missing` names what the instance would need first.
-    Unavailable { missing: Vec<&'static str> },
+    Unavailable {
+        missing: Vec<&'static str>,
+    },
 }
 
 /// The two things this tree lacks, measured 2026-11-02 rather than assumed.

@@ -68,7 +68,12 @@ struct Client {
 }
 
 impl Client {
-    async fn request(&mut self, method: &str, uri: &str, body: Option<Value>) -> (StatusCode, Value) {
+    async fn request(
+        &mut self,
+        method: &str,
+        uri: &str,
+        body: Option<Value>,
+    ) -> (StatusCode, Value) {
         let mut builder = Request::builder().method(method).uri(uri);
         let cookies = self
             .cookies
@@ -206,13 +211,13 @@ async fn reader(harness: &Harness, handle: &str) -> (Client, String) {
         .await;
     assert!(status.is_success(), "register {handle}: {status} {body}");
     let account = match harness.db.backend() {
-        darkhold_db::Backend::Postgres => sqlx::query_scalar::<_, String>(
-            "SELECT id::text FROM accounts WHERE email = $1",
-        )
-        .bind(format!("{handle}@example.com"))
-        .fetch_one(harness.db.postgres_pool().expect("postgres"))
-        .await
-        .expect("account id"),
+        darkhold_db::Backend::Postgres => {
+            sqlx::query_scalar::<_, String>("SELECT id::text FROM accounts WHERE email = $1")
+                .bind(format!("{handle}@example.com"))
+                .fetch_one(harness.db.postgres_pool().expect("postgres"))
+                .await
+                .expect("account id")
+        }
         darkhold_db::Backend::Sqlite => {
             sqlx::query_scalar::<_, String>("SELECT id FROM accounts WHERE email = ?")
                 .bind(format!("{handle}@example.com"))
@@ -230,7 +235,9 @@ async fn a_metric_page_carries_scores_the_gate_and_a_marked_unmeasured_block() {
     let (mut client, account) = reader(&harness, "m6303page").await;
     seed(&harness.db, &account).await;
 
-    let (status, body) = client.get("/api/v1/catalogue?sort=source_pct&limit=20").await;
+    let (status, body) = client
+        .get("/api/v1/catalogue?sort=source_pct&limit=20")
+        .await;
     assert_eq!(status, StatusCode::OK, "body: {body}");
     assert_eq!(body["metric"], "source_pct");
     assert_eq!(body["sort"], "source_pct");
@@ -275,7 +282,10 @@ async fn a_metric_page_carries_scores_the_gate_and_a_marked_unmeasured_block() {
         (sb_score - qq_score).abs() < 0.25,
         "archive size must not decide the ranking: sb {sb_score}, qq {qq_score}"
     );
-    assert!(sb_score > 0.7 && qq_score > 0.7, "both lead their own archive: {sb_score} / {qq_score}");
+    assert!(
+        sb_score > 0.7 && qq_score > 0.7,
+        "both lead their own archive: {sb_score} / {qq_score}"
+    );
 }
 
 #[tokio::test]

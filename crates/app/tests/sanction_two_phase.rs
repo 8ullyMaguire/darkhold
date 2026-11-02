@@ -92,7 +92,12 @@ impl Client {
             }
         }
     }
-    async fn request(&mut self, method: &str, uri: &str, body: Option<Value>) -> (StatusCode, Value) {
+    async fn request(
+        &mut self,
+        method: &str,
+        uri: &str,
+        body: Option<Value>,
+    ) -> (StatusCode, Value) {
         let mut builder = Request::builder().method(method).uri(uri);
         if !self.cookies.is_empty() {
             builder = builder.header(
@@ -269,7 +274,9 @@ async fn executing_the_file_makes_it_bite() {
         .await;
     let id = body["id"].as_str().expect("id").to_owned();
 
-    let (status, body) = gov.post(&format!("/api/v1/sanctions/{id}/execute"), json!({})).await;
+    let (status, body) = gov
+        .post(&format!("/api/v1/sanctions/{id}/execute"), json!({}))
+        .await;
     assert_eq!(status, StatusCode::OK, "{body}");
     assert_eq!(body["state"], "active", "{body}");
 
@@ -299,17 +306,25 @@ async fn executing_the_same_case_twice_is_refused() {
         .await;
     let id = body["id"].as_str().expect("id").to_owned();
 
-    let (first, _) = gov.post(&format!("/api/v1/sanctions/{id}/execute"), json!({})).await;
+    let (first, _) = gov
+        .post(&format!("/api/v1/sanctions/{id}/execute"), json!({}))
+        .await;
     assert_eq!(first, StatusCode::OK);
 
-    let (second, body) = gov.post(&format!("/api/v1/sanctions/{id}/execute"), json!({})).await;
+    let (second, body) = gov
+        .post(&format!("/api/v1/sanctions/{id}/execute"), json!({}))
+        .await;
     assert_eq!(second, StatusCode::UNPROCESSABLE_ENTITY, "{body}");
     let message = body.to_string();
     assert!(
         message.contains("not pending"),
         "the refusal must say the case is past the point of execution: {message}"
     );
-    assert_eq!(active_count(&harness, &target_account).await, 1, "and must not double-apply");
+    assert_eq!(
+        active_count(&harness, &target_account).await,
+        1,
+        "and must not double-apply"
+    );
 
     harness.cleanup().await;
 }
@@ -336,7 +351,11 @@ async fn a_permanent_sanction_cannot_be_issued_in_one_call() {
         message.contains("/sanctions/file"),
         "the refusal must name the two-phase route: {message}"
     );
-    assert_eq!(active_count(&harness, &target_account).await, 0, "and must apply nothing");
+    assert_eq!(
+        active_count(&harness, &target_account).await,
+        0,
+        "and must apply nothing"
+    );
 
     harness.cleanup().await;
 }

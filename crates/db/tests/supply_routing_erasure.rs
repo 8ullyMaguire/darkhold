@@ -52,7 +52,9 @@ async fn connect(tag: &str) -> Database {
                 .await
                 .expect("create a scratch database");
             admin_db.close().await;
-            let (prefix, _) = admin.rsplit_once('/').expect("admin URL ends in a database");
+            let (prefix, _) = admin
+                .rsplit_once('/')
+                .expect("admin URL ends in a database");
             format!("{prefix}/{name}")
         }
         Err(_) => format!("sqlite://{}/darkhold.sqlite?mode=rwc", dir.display()),

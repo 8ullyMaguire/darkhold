@@ -94,7 +94,10 @@ async fn withdraw_offer(
     Path(work_id): Path<String>,
 ) -> ApiResult<Json<serde_json::Value>> {
     let pseud = user.pseud_id.ok_or_else(|| {
-        ApiError(AppError::field("pseud", "withdrawing an offer needs a pseud"))
+        ApiError(AppError::field(
+            "pseud",
+            "withdrawing an offer needs a pseud",
+        ))
     })?;
     let pseud = pseud.to_string();
     let Some(offer) = wip_adoption::open_offer_for(state.db(), &work_id)
@@ -120,8 +123,10 @@ async fn withdraw_offer(
     }
 }
 
-async fn list_offers(State(state): State<AppState>,
-    MaybeSession(_session): MaybeSession) -> ApiResult<Json<serde_json::Value>> {
+async fn list_offers(
+    State(state): State<AppState>,
+    MaybeSession(_session): MaybeSession,
+) -> ApiResult<Json<serde_json::Value>> {
     let offers = wip_adoption::list_open(state.db(), 100)
         .await
         .map_err(|e| ApiError(AppError::Internal(e)))?;
@@ -147,15 +152,9 @@ async fn adopt_offer(
         .await
         .map_err(|e| ApiError(AppError::Internal(e.into())))?;
 
-    match wip_adoption::adopt(
-        state.db(),
-        &offer_id,
-        &pseud.to_string(),
-        bar,
-        caller_trust,
-    )
-    .await
-    .map_err(|e| ApiError(AppError::Internal(e)))?
+    match wip_adoption::adopt(state.db(), &offer_id, &pseud.to_string(), bar, caller_trust)
+        .await
+        .map_err(|e| ApiError(AppError::Internal(e)))?
     {
         Ok(offer) => Ok(Json(OfferResponse { offer })),
         Err(AdoptionRefusal::NotOpen) => Err(ApiError(AppError::NotFound {

@@ -58,7 +58,9 @@ async fn connect(tag: &str) -> Database {
                 .await
                 .expect("create a scratch database");
             admin_db.close().await;
-            let (prefix, _) = admin.rsplit_once('/').expect("admin URL ends in a database");
+            let (prefix, _) = admin
+                .rsplit_once('/')
+                .expect("admin URL ends in a database");
             format!("{prefix}/{name}")
         }
         Err(_) => format!("sqlite://{}/darkhold.sqlite?mode=rwc", dir.display()),
@@ -253,9 +255,18 @@ async fn the_same_story_scores_close_in_two_archives_of_different_size() {
         .await
         .expect("ranked");
     let order = keys(&raw);
-    assert_eq!(order[0], "sb-first", "raw likes lead with the largest archive");
-    let sb_at = order.iter().position(|k| k == "sb-marvel").expect("present");
-    let qq_at = order.iter().position(|k| k == "qq-marvel").expect("present");
+    assert_eq!(
+        order[0], "sb-first",
+        "raw likes lead with the largest archive"
+    );
+    let sb_at = order
+        .iter()
+        .position(|k| k == "sb-marvel")
+        .expect("present");
+    let qq_at = order
+        .iter()
+        .position(|k| k == "qq-marvel")
+        .expect("present");
     assert!(
         qq_at > sb_at + 15,
         "raw likes bury the qq copy at {qq_at} against sb's {sb_at}"
@@ -283,7 +294,11 @@ async fn the_gate_counts_the_filter_not_the_page() {
         .await
         .expect("ranked");
     assert_eq!(one.items.len(), 1);
-    assert_eq!((one.ranked, one.total), (full.ranked, full.total), "the gate is page-independent");
+    assert_eq!(
+        (one.ranked, one.total),
+        (full.ranked, full.total),
+        "the gate is page-independent"
+    );
 }
 
 /// An unmeasured row is last and says so; it is never interleaved with rows the
@@ -300,7 +315,10 @@ async fn an_unmeasured_row_sits_last_and_is_marked() {
     assert_eq!(last.row.source_work_key, "sb-silent");
     assert!(!last.measured, "a zero-like row is unmeasured, not bad");
     assert!(
-        page.items.iter().take(page.items.len() - 1).all(|item| item.measured),
+        page.items
+            .iter()
+            .take(page.items.len() - 1)
+            .all(|item| item.measured),
         "every measured row precedes the unmeasured block"
     );
 }

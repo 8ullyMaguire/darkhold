@@ -52,7 +52,9 @@ async fn connect(tag: &str) -> Database {
                 .await
                 .expect("create a scratch database");
             admin_db.close().await;
-            let (prefix, _) = admin.rsplit_once('/').expect("admin URL ends in a database");
+            let (prefix, _) = admin
+                .rsplit_once('/')
+                .expect("admin URL ends in a database");
             format!("{prefix}/{name}")
         }
         Err(_) => format!("sqlite://{}/darkhold.sqlite?mode=rwc", dir.display()),
@@ -169,7 +171,9 @@ async fn one_reader_may_hold_several_labels_on_the_same_work() {
 
     // The order is the vocabulary's, not the table's.
     assert_eq!(
-        quick_reactions::mine(&db, &work, &alice).await.expect("mine"),
+        quick_reactions::mine(&db, &work, &alice)
+            .await
+            .expect("mine"),
         vec![
             "made_me_cry".to_owned(),
             "comforting".to_owned(),
@@ -201,7 +205,10 @@ async fn the_tally_counts_readers_and_orders_most_reacted_first() {
         vec![("banter".to_owned(), 3), ("worldbuilding".to_owned(), 1)]
     );
     // Two reads agree, so the ordering is a property of the query and not of row luck.
-    assert_eq!(tally, quick_reactions::tally(&db, &work).await.expect("tally"));
+    assert_eq!(
+        tally,
+        quick_reactions::tally(&db, &work).await.expect("tally")
+    );
 }
 
 #[tokio::test]
@@ -236,7 +243,9 @@ async fn the_authors_feedback_preference_gates_the_bar() {
     let work = work(&db, &author).await;
 
     assert!(
-        quick_reactions::enabled_for(&db, &work).await.expect("enabled"),
+        quick_reactions::enabled_for(&db, &work)
+            .await
+            .expect("enabled"),
         "a work with no preference row is enabled"
     );
 
@@ -252,7 +261,9 @@ async fn the_authors_feedback_preference_gates_the_bar() {
     )
     .await;
     assert!(
-        !quick_reactions::enabled_for(&db, &work).await.expect("enabled"),
+        !quick_reactions::enabled_for(&db, &work)
+            .await
+            .expect("enabled"),
         "the owner's account default applies"
     );
 
@@ -268,7 +279,9 @@ async fn the_authors_feedback_preference_gates_the_bar() {
     )
     .await;
     assert!(
-        quick_reactions::enabled_for(&db, &work).await.expect("enabled"),
+        quick_reactions::enabled_for(&db, &work)
+            .await
+            .expect("enabled"),
         "the work override is checked before the account default"
     );
 }
@@ -276,7 +289,9 @@ async fn the_authors_feedback_preference_gates_the_bar() {
 #[tokio::test]
 async fn an_unknown_work_is_not_enabled() {
     let db = connect("missing").await;
-    assert!(!quick_reactions::enabled_for(&db, &uuid::Uuid::new_v4().to_string())
-        .await
-        .expect("enabled"));
+    assert!(
+        !quick_reactions::enabled_for(&db, &uuid::Uuid::new_v4().to_string())
+            .await
+            .expect("enabled")
+    );
 }

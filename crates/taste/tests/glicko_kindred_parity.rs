@@ -130,11 +130,17 @@ fn the_oracle_is_the_reference_implementation() {
     );
     assert!(!fixture.dormant.is_empty(), "no inactivity cases recorded");
     assert!(
-        fixture.cases.iter().any(|case| case.name == "paper-example"),
+        fixture
+            .cases
+            .iter()
+            .any(|case| case.name == "paper-example"),
         "the paper's worked example must be in the oracle"
     );
     assert!(
-        fixture.cases.iter().any(|case| case.name == "inverted-bracket-upset"),
+        fixture
+            .cases
+            .iter()
+            .any(|case| case.name == "inverted-bracket-upset"),
         "the inverted-bracket case must be in the oracle"
     );
 }
@@ -146,7 +152,11 @@ fn every_update_case_matches_kindred() {
 
     for case in &fixture.cases {
         let before = case.before.to_rating();
-        let opponents: Vec<Opponent> = case.opponents.iter().map(OpponentJson::to_opponent).collect();
+        let opponents: Vec<Opponent> = case
+            .opponents
+            .iter()
+            .map(OpponentJson::to_opponent)
+            .collect();
         let after = before.update(&opponents);
 
         for (label, actual, expected) in [

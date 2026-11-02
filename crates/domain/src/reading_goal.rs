@@ -157,7 +157,10 @@ pub fn accepted_metrics() -> String {
 /// setting in the reader's preferences that only this feature reads. The boundaries go back with the
 /// payload so a client can label them instead of guessing.
 #[must_use]
-pub fn window(period: Period, now: time::OffsetDateTime) -> (time::OffsetDateTime, time::OffsetDateTime) {
+pub fn window(
+    period: Period,
+    now: time::OffsetDateTime,
+) -> (time::OffsetDateTime, time::OffsetDateTime) {
     let now = now.to_offset(time::UtcOffset::UTC);
     // Infallible: replacing the time of day cannot move the offset, and the caller is already in
     // UTC, so there is no daylight-saving gap to land in.

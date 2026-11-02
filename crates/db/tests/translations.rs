@@ -16,7 +16,9 @@
 
 use std::time::Duration;
 
-use darkhold_db::translation::{fund_translation, language_supply, translation_bounties, FundOutcome};
+use darkhold_db::translation::{
+    fund_translation, language_supply, translation_bounties, FundOutcome,
+};
 use darkhold_db::{Backend, Database};
 use darkhold_domain::permission::{Permission, PermissionStatement};
 
@@ -55,7 +57,9 @@ async fn connect(tag: &str) -> Database {
                 .await
                 .expect("create a scratch database");
             admin_db.close().await;
-            let (prefix, _) = admin.rsplit_once('/').expect("admin URL ends in a database");
+            let (prefix, _) = admin
+                .rsplit_once('/')
+                .expect("admin URL ends in a database");
             format!("{prefix}/{name}")
         }
         Err(_) => format!("sqlite://{}/darkhold.sqlite?mode=rwc", dir.display()),
@@ -70,14 +74,16 @@ async fn who(db: &Database, tag: &str) -> (String, String) {
     let pseud = uuid::Uuid::new_v4().to_string();
     match db.backend() {
         Backend::Sqlite => {
-            sqlx::query("INSERT INTO accounts (id, email, created_at, updated_at) VALUES (?, ?, ?, ?)")
-                .bind(&account)
-                .bind(format!("{tag}@example.invalid"))
-                .bind(T0)
-                .bind(T0)
-                .execute(db.sqlite_pool().expect("sqlite"))
-                .await
-                .expect("account");
+            sqlx::query(
+                "INSERT INTO accounts (id, email, created_at, updated_at) VALUES (?, ?, ?, ?)",
+            )
+            .bind(&account)
+            .bind(format!("{tag}@example.invalid"))
+            .bind(T0)
+            .bind(T0)
+            .execute(db.sqlite_pool().expect("sqlite"))
+            .await
+            .expect("account");
             sqlx::query(
                 "INSERT INTO pseuds (id, account_id, handle, display_name, created_at, updated_at)
                  VALUES (?, ?, ?, ?, ?, ?)",
@@ -229,7 +235,11 @@ async fn supply_counts_by_primary_subtag_and_totals_every_work() {
 
     let supply = language_supply(&db).await.expect("supply");
     assert_eq!(supply.total, 5, "every work is counted once");
-    assert_eq!(supply.by_language.get("pt"), Some(&2), "pt-BR and pt are one bucket");
+    assert_eq!(
+        supply.by_language.get("pt"),
+        Some(&2),
+        "pt-BR and pt are one bucket"
+    );
     assert_eq!(supply.by_language.get("es"), Some(&1));
     assert_eq!(supply.by_language.get("en"), Some(&2));
 }
@@ -282,7 +292,10 @@ async fn ask_refuses_because_funding_it_would_spend_the_authors_silence() {
             .expect("fund"),
         FundOutcome::MustAsk
     );
-    assert!(translation_bounties(&db, 10).await.expect("list").is_empty());
+    assert!(translation_bounties(&db, 10)
+        .await
+        .expect("list")
+        .is_empty());
 }
 
 #[tokio::test]
@@ -291,22 +304,24 @@ async fn no_and_unstated_refuse_and_name_the_statement() {
     let (patron, pseud) = who(&db, "patron").await;
     credit(&db, &patron, 50_000).await;
 
-    for (permission, expected) in [
-        (Permission::No, "no"),
-        (Permission::Unstated, "unstated"),
-    ] {
+    for (permission, expected) in [(Permission::No, "no"), (Permission::Unstated, "unstated")] {
         let work_id = work(&db, &pseud, "en").await;
         set_translation(&db, &work_id, permission).await;
         assert_eq!(
             fund_translation(&db, &work_id, "pt", &patron, 1_000)
                 .await
                 .expect("fund"),
-            FundOutcome::Forbidden { statement: expected },
+            FundOutcome::Forbidden {
+                statement: expected
+            },
             "{permission:?} must refuse and name the statement"
         );
     }
     assert!(
-        translation_bounties(&db, 10).await.expect("list").is_empty(),
+        translation_bounties(&db, 10)
+            .await
+            .expect("list")
+            .is_empty(),
         "a refused funding wrote a bounty"
     );
 }
@@ -328,7 +343,10 @@ async fn an_account_without_the_balance_is_refused_and_writes_nothing() {
             required: 10_000
         }
     );
-    assert!(translation_bounties(&db, 10).await.expect("list").is_empty());
+    assert!(translation_bounties(&db, 10)
+        .await
+        .expect("list")
+        .is_empty());
 }
 
 #[tokio::test]
@@ -347,7 +365,10 @@ async fn permission_is_read_before_the_balance() {
             .expect("fund"),
         FundOutcome::Forbidden { statement: "no" }
     );
-    assert!(translation_bounties(&db, 10).await.expect("list").is_empty());
+    assert!(translation_bounties(&db, 10)
+        .await
+        .expect("list")
+        .is_empty());
 }
 
 #[tokio::test]
@@ -395,5 +416,9 @@ async fn the_listing_is_open_translation_bounties_only() {
     }
 
     let listed = translation_bounties(&db, 50).await.expect("list");
-    assert_eq!(listed.len(), 1, "only the open translation bounty: {listed:?}");
+    assert_eq!(
+        listed.len(),
+        1,
+        "only the open translation bounty: {listed:?}"
+    );
 }

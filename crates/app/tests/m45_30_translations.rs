@@ -68,7 +68,12 @@ impl Client {
         }
     }
 
-    async fn request(&mut self, method: &str, uri: &str, body: Option<Value>) -> (StatusCode, Value) {
+    async fn request(
+        &mut self,
+        method: &str,
+        uri: &str,
+        body: Option<Value>,
+    ) -> (StatusCode, Value) {
         let mut builder = Request::builder()
             .method(method)
             .uri(uri)
@@ -268,7 +273,11 @@ async fn creating_a_translation_is_refused_unless_the_author_said_yes() {
                 json!({ "source_lang": "en", "target_lang": "pt", "provider": "human" }),
             )
             .await;
-        assert_eq!(status, StatusCode::UNPROCESSABLE_ENTITY, "{permission:?}: {body}");
+        assert_eq!(
+            status,
+            StatusCode::UNPROCESSABLE_ENTITY,
+            "{permission:?}: {body}"
+        );
         let reason = body["error"]["field_errors"]["translation"]
             .as_str()
             .expect("refusal on the field `translation`");
@@ -302,7 +311,10 @@ async fn funding_needs_a_session_and_a_target_language() {
         )
         .await;
     assert_eq!(status, StatusCode::UNPROCESSABLE_ENTITY, "{body}");
-    assert!(body["error"]["field_errors"]["session"].is_string(), "{body}");
+    assert!(
+        body["error"]["field_errors"]["session"].is_string(),
+        "{body}"
+    );
 
     let mut patron = h.client();
     let (_a, p) = patron.register("patron0@example.invalid", "patron0").await;
@@ -444,7 +456,11 @@ async fn a_funded_translation_appears_in_the_listing_with_its_terms() {
     assert_eq!(listing["count"], json!(1), "{listing}");
     let terms = listing["bounties"][0]["terms"].as_str().expect("terms");
     let terms: Value = serde_json::from_str(terms).expect("json");
-    assert_eq!(terms["source_language"], json!("es"), "the work's own language");
+    assert_eq!(
+        terms["source_language"],
+        json!("es"),
+        "the work's own language"
+    );
     assert_eq!(terms["target_language"], json!("pt"));
 }
 

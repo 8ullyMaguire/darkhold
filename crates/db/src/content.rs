@@ -1798,7 +1798,7 @@ pub async fn publish_work(
         }
     }
 
-        // §9.7.6 + audit item 75: a first publication earns First Words, once.
+    // §9.7.6 + audit item 75: a first publication earns First Words, once.
     //
     // AFTER the commit, deliberately. The award posts a credit transaction of its own, and an
     // economy write inside the publication transaction would let a ledger failure roll back a

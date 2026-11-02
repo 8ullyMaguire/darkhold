@@ -58,7 +58,9 @@ async fn connect(tag: &str) -> Database {
                 .await
                 .expect("create a scratch database");
             admin_db.close().await;
-            let (prefix, _) = admin.rsplit_once('/').expect("admin URL ends in a database");
+            let (prefix, _) = admin
+                .rsplit_once('/')
+                .expect("admin URL ends in a database");
             format!("{prefix}/{name}")
         }
         Err(_) => format!("sqlite://{}/darkhold.sqlite?mode=rwc", dir.display()),
@@ -74,14 +76,16 @@ async fn who(db: &Database, tag: &str) -> String {
     let handle = format!("{tag}-{}", &account[..8]);
     match db.backend() {
         Backend::Sqlite => {
-            sqlx::query("INSERT INTO accounts (id, email, created_at, updated_at) VALUES (?, ?, ?, ?)")
-                .bind(&account)
-                .bind(format!("{tag}@example.invalid"))
-                .bind(T0)
-                .bind(T0)
-                .execute(db.sqlite_pool().expect("sqlite"))
-                .await
-                .expect("account");
+            sqlx::query(
+                "INSERT INTO accounts (id, email, created_at, updated_at) VALUES (?, ?, ?, ?)",
+            )
+            .bind(&account)
+            .bind(format!("{tag}@example.invalid"))
+            .bind(T0)
+            .bind(T0)
+            .execute(db.sqlite_pool().expect("sqlite"))
+            .await
+            .expect("account");
             sqlx::query(
                 "INSERT INTO pseuds (id, account_id, handle, display_name, created_at, updated_at)
                  VALUES (?, ?, ?, ?, ?, ?)",
@@ -235,7 +239,10 @@ async fn only_complete_is_finished_and_only_conclusions_are_counted() {
 
     let h = author_history(&db, &author).await.expect("history");
     assert_eq!(h.finished, 2, "in_progress and hiatus are not finished");
-    assert_eq!(h.concluded, 3, "in_progress and hiatus are not concluded either");
+    assert_eq!(
+        h.concluded, 3,
+        "in_progress and hiatus are not concluded either"
+    );
     assert_eq!(summary(&h), "finished 2 of 3 concluded works");
 }
 
@@ -289,7 +296,13 @@ async fn one_day_of_revisions_is_unmeasured_and_says_so() {
     let author = who(&db, "author").await;
     let work_id = work(&db, &author, "in_progress").await;
     // The import shape: every revision written on the day the import ran.
-    revisions_on(&db, &work_id, &author, &["2026-10-27T15:05:58Z", "2026-10-27T15:06:01Z"]).await;
+    revisions_on(
+        &db,
+        &work_id,
+        &author,
+        &["2026-10-27T15:05:58Z", "2026-10-27T15:06:01Z"],
+    )
+    .await;
 
     match work_cadence(&db, &work_id).await.expect("cadence") {
         Cadence::Unmeasured { reason } => {
@@ -308,7 +321,13 @@ async fn a_work_with_two_days_has_that_gap_as_its_cadence() {
     let db = connect("twoday").await;
     let author = who(&db, "author").await;
     let work_id = work(&db, &author, "in_progress").await;
-    revisions_on(&db, &work_id, &author, &["2026-01-01T10:00:00Z", "2026-01-15T10:00:00Z"]).await;
+    revisions_on(
+        &db,
+        &work_id,
+        &author,
+        &["2026-01-01T10:00:00Z", "2026-01-15T10:00:00Z"],
+    )
+    .await;
 
     assert_eq!(
         work_cadence(&db, &work_id).await.expect("cadence"),
@@ -336,7 +355,11 @@ async fn an_author_cadence_pools_their_works_and_is_unmeasured_without_any() {
         &db,
         &first,
         &author,
-        &["2026-01-01T10:00:00Z", "2026-01-11T10:00:00Z", "2026-01-15T10:00:00Z"],
+        &[
+            "2026-01-01T10:00:00Z",
+            "2026-01-11T10:00:00Z",
+            "2026-01-15T10:00:00Z",
+        ],
     )
     .await;
     // A second work on one day adds nothing measurable.
@@ -378,9 +401,15 @@ async fn a_schema_without_revisions_answers_unmeasured_not_an_error() {
     }
 
     assert!(!has_revisions(&db).await.expect("catalog"));
-    match work_cadence(&db, &work_id).await.expect("no database error") {
+    match work_cadence(&db, &work_id)
+        .await
+        .expect("no database error")
+    {
         Cadence::Unmeasured { reason } => assert!(reason.contains("revisions"), "{reason:?}"),
         other => panic!("a schema without revisions cannot measure: {other:?}"),
     }
-    assert!(!author_cadence(&db, &author).await.expect("cadence").is_measurable());
+    assert!(!author_cadence(&db, &author)
+        .await
+        .expect("cadence")
+        .is_measurable());
 }

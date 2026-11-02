@@ -77,7 +77,12 @@ impl Client {
         }
     }
 
-    async fn request(&mut self, method: &str, uri: &str, body: Option<Value>) -> (StatusCode, Value) {
+    async fn request(
+        &mut self,
+        method: &str,
+        uri: &str,
+        body: Option<Value>,
+    ) -> (StatusCode, Value) {
         let mut builder = Request::builder()
             .method(method)
             .uri(uri)
@@ -163,13 +168,18 @@ impl Harness {
         let tdb = TestDb::connect_with_dir(tag, &dir).await;
         let db = tdb.db().clone();
 
-        let mut bootstrap = Client::new(server::build_router(AppState::new(config.clone(), db.clone())));
+        let mut bootstrap = Client::new(server::build_router(AppState::new(
+            config.clone(),
+            db.clone(),
+        )));
         bootstrap.register("operator").await;
         let account = account_of(&db, "operator").await;
         config.administration.operator_account_id = Some(account.into());
 
-        let mut reader_client =
-            Client::new(server::build_router(AppState::new(config.clone(), db.clone())));
+        let mut reader_client = Client::new(server::build_router(AppState::new(
+            config.clone(),
+            db.clone(),
+        )));
         reader_client.register("reader").await;
 
         Self {
@@ -244,7 +254,9 @@ async fn the_document_is_public_and_answers_null_before_a_plan_exists() {
     assert_eq!(body["plan"], Value::Null, "no plan yet: {body}");
     let not_built = body["not_built"].as_array().expect("not_built");
     assert!(
-        not_built.iter().any(|item| item.as_str().unwrap_or_default().contains("mutual backup")),
+        not_built
+            .iter()
+            .any(|item| item.as_str().unwrap_or_default().contains("mutual backup")),
         "the document says which halves are missing: {body}"
     );
 }
@@ -258,9 +270,16 @@ async fn an_operator_publishes_a_plan_and_a_stranger_can_read_it() {
         .send("PUT", "/api/v1/succession", plan_body())
         .await;
     assert_eq!(status, StatusCode::OK, "set the plan: {body}");
-    assert_eq!(body["plan"]["destination"], json!("https://successor.example"));
+    assert_eq!(
+        body["plan"]["destination"],
+        json!("https://successor.example")
+    );
     assert_eq!(body["plan"]["review_days"], json!(60));
-    assert_eq!(body["plan"]["stale"], json!(false), "just confirmed: {body}");
+    assert_eq!(
+        body["plan"]["stale"],
+        json!(false),
+        "just confirmed: {body}"
+    );
     assert!(
         body["plan"]["review_due"].as_str().is_some(),
         "the window has a due date: {body}"
@@ -290,9 +309,7 @@ async fn a_plan_without_an_export_is_refused() {
         "an export is mandatory: {body}"
     );
     assert!(
-        body["error"]["field_errors"]
-            .get("export_url")
-            .is_some(),
+        body["error"]["field_errors"].get("export_url").is_some(),
         "the error names the field: {body}"
     );
 }
@@ -401,7 +418,11 @@ async fn confirming_nothing_is_a_404_and_withdrawing_empties_the_document() {
     assert_eq!(status, StatusCode::OK);
 
     let (status, body) = operator
-        .send("POST", "/api/v1/succession/confirm", json!({ "review_days": 3650 }))
+        .send(
+            "POST",
+            "/api/v1/succession/confirm",
+            json!({ "review_days": 3650 }),
+        )
         .await;
     assert_eq!(status, StatusCode::OK, "{body}");
     assert_eq!(

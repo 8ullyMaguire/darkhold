@@ -1316,7 +1316,10 @@ pub async fn execute_sanction(
 }
 
 /// The state of one sanction, for the execute path to report what it found.
-pub async fn sanction_state(db: &Database, sanction_id: &str) -> Result<Option<String>, sqlx::Error> {
+pub async fn sanction_state(
+    db: &Database,
+    sanction_id: &str,
+) -> Result<Option<String>, sqlx::Error> {
     let row: Option<(String,)> = match db.backend() {
         Backend::Sqlite => {
             sqlx::query_as("SELECT state FROM sanctions WHERE id = ?")

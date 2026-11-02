@@ -81,14 +81,16 @@ async fn who(db: &Database, tag: &str) -> (String, String) {
     let handle = format!("{tag}-{}", &account[..8]);
     match db.backend() {
         Backend::Sqlite => {
-            sqlx::query("INSERT INTO accounts (id, email, created_at, updated_at) VALUES (?, ?, ?, ?)")
-                .bind(&account)
-                .bind(format!("{tag}@example.invalid"))
-                .bind(T0)
-                .bind(T0)
-                .execute(db.sqlite_pool().expect("sqlite"))
-                .await
-                .expect("account");
+            sqlx::query(
+                "INSERT INTO accounts (id, email, created_at, updated_at) VALUES (?, ?, ?, ?)",
+            )
+            .bind(&account)
+            .bind(format!("{tag}@example.invalid"))
+            .bind(T0)
+            .bind(T0)
+            .execute(db.sqlite_pool().expect("sqlite"))
+            .await
+            .expect("account");
             sqlx::query(
                 "INSERT INTO pseuds (id, account_id, handle, display_name, created_at, updated_at)
                  VALUES (?, ?, ?, ?, ?, ?)",
@@ -181,11 +183,12 @@ async fn owner_of(db: &Database, work_id: &str) -> String {
             row.get::<String, _>("owner_pseud_id")
         }
         Backend::Postgres => {
-            let row = sqlx::query("SELECT owner_pseud_id::text AS owner FROM works WHERE id::text = $1")
-                .bind(work_id)
-                .fetch_one(db.postgres_pool().expect("postgres"))
-                .await
-                .expect("owner");
+            let row =
+                sqlx::query("SELECT owner_pseud_id::text AS owner FROM works WHERE id::text = $1")
+                    .bind(work_id)
+                    .fetch_one(db.postgres_pool().expect("postgres"))
+                    .await
+                    .expect("owner");
             use sqlx::Row;
             row.get::<String, _>("owner")
         }
@@ -243,7 +246,10 @@ async fn only_abandoned_is_offerable_in_progress_and_hiatus_are_not() {
 
     let abandoned = work(&db, &author, "abandoned").await;
     assert!(
-        open_offer(&db, &abandoned, &author).await.expect("read").is_ok(),
+        open_offer(&db, &abandoned, &author)
+            .await
+            .expect("read")
+            .is_ok(),
         "abandoned must be offerable"
     );
 }
@@ -331,9 +337,15 @@ async fn adoption_does_not_move_the_work_to_a_new_owner() {
         .expect("adopted");
     let after = owner_of(&db, &work_id).await;
 
-    assert_eq!(before, author, "the fixture started with the author as owner");
+    assert_eq!(
+        before, author,
+        "the fixture started with the author as owner"
+    );
     assert_eq!(after, before, "adoption moved owner_pseud_id — §56.1");
-    assert_eq!(adopted.adopted_by_pseud_id.as_deref(), Some(adopter.as_str()));
+    assert_eq!(
+        adopted.adopted_by_pseud_id.as_deref(),
+        Some(adopter.as_str())
+    );
 }
 
 #[tokio::test]
@@ -409,7 +421,9 @@ async fn lineage_is_unavailable_in_words_when_the_table_is_absent() {
         }
     }
 
-    let lineage = contributors(&db, &work_id).await.expect("no database error");
+    let lineage = contributors(&db, &work_id)
+        .await
+        .expect("no database error");
     assert!(lineage.contributors.is_empty());
     assert!(!lineage.available, "claimed lineage it could not read");
     let reason = lineage.reason.expect("a reason");
@@ -514,12 +528,20 @@ async fn closure_notes_version_upward_and_the_latest_is_the_highest() {
     let work_id = work(&db, &author, "abandoned").await;
 
     assert!(
-        latest_closure_note(&db, &work_id).await.expect("read").is_none(),
+        latest_closure_note(&db, &work_id)
+            .await
+            .expect("read")
+            .is_none(),
         "a work with no note is None, not an error"
     );
 
-    for (n, body) in ["first: it ends here", "second: on reflection, here instead"].iter().enumerate() {
-        let note = put_closure_note(&db, &work_id, &author, body).await.expect("write");
+    for (n, body) in ["first: it ends here", "second: on reflection, here instead"]
+        .iter()
+        .enumerate()
+    {
+        let note = put_closure_note(&db, &work_id, &author, body)
+            .await
+            .expect("write");
         assert_eq!(note.revision_number, n as i64 + 1);
         assert_eq!(&note.body, body);
     }

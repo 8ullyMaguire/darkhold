@@ -93,7 +93,12 @@ impl Client {
         }
     }
 
-    async fn request(&mut self, method: &str, uri: &str, body: Option<Value>) -> (StatusCode, Value) {
+    async fn request(
+        &mut self,
+        method: &str,
+        uri: &str,
+        body: Option<Value>,
+    ) -> (StatusCode, Value) {
         let mut builder = Request::builder()
             .method(method)
             .uri(uri)
@@ -238,18 +243,14 @@ impl Harness {
             sql
         };
         match self.tdb.db().backend() {
-            darkhold_db::Backend::Sqlite => {
-                sqlx::query_scalar(&sql)
-                    .fetch_one(self.tdb.db().sqlite_pool().expect("sqlite"))
-                    .await
-                    .expect("the account")
-            }
-            darkhold_db::Backend::Postgres => {
-                sqlx::query_scalar(&sql)
-                    .fetch_one(self.tdb.db().postgres_pool().expect("pg"))
-                    .await
-                    .expect("the account")
-            }
+            darkhold_db::Backend::Sqlite => sqlx::query_scalar(&sql)
+                .fetch_one(self.tdb.db().sqlite_pool().expect("sqlite"))
+                .await
+                .expect("the account"),
+            darkhold_db::Backend::Postgres => sqlx::query_scalar(&sql)
+                .fetch_one(self.tdb.db().postgres_pool().expect("pg"))
+                .await
+                .expect("the account"),
         }
     }
 }
@@ -272,9 +273,15 @@ async fn a_first_publication_awards_first_words_with_its_bonus() {
     let handle = author.register("author").await;
     author.publish_a_work("First Work").await;
 
-    let (status, body) = author.get(&format!("/api/v1/pseuds/{handle}/profile")).await;
+    let (status, body) = author
+        .get(&format!("/api/v1/pseuds/{handle}/profile"))
+        .await;
     assert_eq!(status, StatusCode::OK, "{body}");
-    assert_eq!(body["debut"], json!(true), "one published work is a debut: {body}");
+    assert_eq!(
+        body["debut"],
+        json!(true),
+        "one published work is a debut: {body}"
+    );
     let badges = body["badges"].as_array().expect("badges");
     assert_eq!(badges.len(), 1, "exactly one badge: {body}");
     assert_eq!(badges[0]["badge"], json!("first_words"));
@@ -299,7 +306,9 @@ async fn a_second_publication_awards_nothing_and_ends_the_debut() {
     author.publish_a_work("First Work").await;
     author.publish_a_work("Second Work").await;
 
-    let (status, body) = author.get(&format!("/api/v1/pseuds/{handle}/profile")).await;
+    let (status, body) = author
+        .get(&format!("/api/v1/pseuds/{handle}/profile"))
+        .await;
     assert_eq!(status, StatusCode::OK, "{body}");
     assert_eq!(
         body["debut"],
@@ -326,7 +335,9 @@ async fn an_author_who_has_not_published_has_no_badge_and_is_not_a_debut() {
     let mut reader = h.client();
     let handle = reader.register("reader").await;
 
-    let (status, body) = reader.get(&format!("/api/v1/pseuds/{handle}/profile")).await;
+    let (status, body) = reader
+        .get(&format!("/api/v1/pseuds/{handle}/profile"))
+        .await;
     assert_eq!(status, StatusCode::OK, "{body}");
     assert_eq!(body["debut"], json!(false));
     assert!(

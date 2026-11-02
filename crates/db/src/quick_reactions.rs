@@ -54,7 +54,13 @@ pub async fn enabled_for(db: &Database, work_id: &str) -> Result<bool> {
 }
 
 /// Record one reaction. Idempotent: a double-tap is one reaction, not an error.
-pub async fn add(db: &Database, work_id: &str, pseud_id: &str, label: &str, now: &str) -> Result<()> {
+pub async fn add(
+    db: &Database,
+    work_id: &str,
+    pseud_id: &str,
+    label: &str,
+    now: &str,
+) -> Result<()> {
     let sql = db.sql(
         "INSERT INTO quick_reaction (id, work_id, pseud_id, label, created_at)
          VALUES (?, ?, ?, ?, ?)
@@ -97,24 +103,20 @@ pub async fn remove(db: &Database, work_id: &str, pseud_id: &str, label: &str) -
         "DELETE FROM quick_reaction WHERE work_id = ? AND pseud_id = ? AND label = ?",
     );
     let affected = match db.backend() {
-        Backend::Sqlite => {
-            sqlx::query(&sql)
-                .bind(work_id)
-                .bind(pseud_id)
-                .bind(label)
-                .execute(db.sqlite_pool().expect("sqlite handle"))
-                .await?
-                .rows_affected()
-        }
-        Backend::Postgres => {
-            sqlx::query(&sql)
-                .bind(work_id)
-                .bind(pseud_id)
-                .bind(label)
-                .execute(db.postgres_pool().expect("postgres handle"))
-                .await?
-                .rows_affected()
-        }
+        Backend::Sqlite => sqlx::query(&sql)
+            .bind(work_id)
+            .bind(pseud_id)
+            .bind(label)
+            .execute(db.sqlite_pool().expect("sqlite handle"))
+            .await?
+            .rows_affected(),
+        Backend::Postgres => sqlx::query(&sql)
+            .bind(work_id)
+            .bind(pseud_id)
+            .bind(label)
+            .execute(db.postgres_pool().expect("postgres handle"))
+            .await?
+            .rows_affected(),
     };
     Ok(affected > 0)
 }

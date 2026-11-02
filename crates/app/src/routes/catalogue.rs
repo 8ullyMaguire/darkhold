@@ -251,10 +251,10 @@ async fn search(
         .filter(|s| !s.is_empty())
         .map(str::to_owned);
     if let Some(spec) = seed_spec {
-        return Ok(Json(
-            similar_page(state, params, session.map(|s| s.account_id), &spec).await?,
-        )
-        .into_response());
+        return Ok(
+            Json(similar_page(state, params, session.map(|s| s.account_id), &spec).await?)
+                .into_response(),
+        );
     }
     let exclude_read = match params.exclude_read.as_deref() {
         Some(raw) => flag(raw)?,
@@ -298,8 +298,11 @@ async fn search(
                     offset as usize,
                 )
                 .await?;
-                let mut sources: Vec<String> =
-                    page.items.iter().map(|i| i.row.source_key.clone()).collect();
+                let mut sources: Vec<String> = page
+                    .items
+                    .iter()
+                    .map(|i| i.row.source_key.clone())
+                    .collect();
                 sources.sort();
                 sources.dedup();
                 return Ok(Json(MetricPage {
@@ -332,14 +335,12 @@ async fn search(
 }
 
 /// The catalogue as a plain `ORDER BY` page — every sort the store can do in SQL.
-async fn search_raw(
-    state: AppState,
-    params: CatalogueParams,
-) -> ApiResult<CataloguePage> {
+async fn search_raw(state: AppState, params: CatalogueParams) -> ApiResult<CataloguePage> {
     let sort = match params.sort.as_deref() {
         None => CatalogueSort::Likes,
-        Some(raw) => CatalogueSort::parse(raw)
-            .ok_or_else(|| invalid(format!("unknown sort: {raw}")))?,
+        Some(raw) => {
+            CatalogueSort::parse(raw).ok_or_else(|| invalid(format!("unknown sort: {raw}")))?
+        }
     };
     let limit = params.limit.unwrap_or(20);
     if !(1..=100).contains(&limit) {
@@ -463,16 +464,15 @@ async fn similar_page(
         Some(raw) => flag(raw)?,
         None => false,
     };
-    let exclude_account = match (exclude_read, account) {
-        (false, _) => None,
-        (true, Some(account)) => Some(account.to_string()),
-        (true, None) => {
-            return Err(invalid(
+    let exclude_account =
+        match (exclude_read, account) {
+            (false, _) => None,
+            (true, Some(account)) => Some(account.to_string()),
+            (true, None) => return Err(invalid(
                 "exclude_read: reading history belongs to a session, and this request has none \
                  (send a token or a session cookie)",
-            ))
-        }
-    };
+            )),
+        };
     let limit = params.limit.unwrap_or(20);
     if !(1..=100).contains(&limit) {
         return Err(invalid("limit must be between 1 and 100"));
@@ -493,7 +493,12 @@ async fn similar_page(
             let named: Vec<String> = rows
                 .iter()
                 .take(6)
-                .map(|row| format!("{} [{}] {}L ({})", row.title, row.source_key, row.likes, row.id))
+                .map(|row| {
+                    format!(
+                        "{} [{}] {}L ({})",
+                        row.title, row.source_key, row.likes, row.id
+                    )
+                })
                 .collect();
             return Err(invalid(format!(
                 "seed: {} rows match \"{spec}\" and none is dominant — pick one by id: {}",
@@ -545,10 +550,7 @@ async fn similar_page(
 /// An unknown name is a `422` that suggests the nearest known one: falling
 /// through to the store would answer 200 with an empty list, which reads as
 /// "this fandom has nothing" rather than "you spelled it differently".
-async fn resolve_fandom(
-    state: &AppState,
-    raw: Option<&str>,
-) -> ApiResult<Option<String>> {
+async fn resolve_fandom(state: &AppState, raw: Option<&str>) -> ApiResult<Option<String>> {
     let Some(raw) = raw.map(str::trim).filter(|s| !s.is_empty()) else {
         return Ok(None);
     };
@@ -574,8 +576,10 @@ async fn resolve_fandom(
 const FANDOM_LIST_LIMIT: i64 = 500;
 
 /// Every fandom the catalogue holds, largest first.
-async fn fandoms(State(state): State<AppState>,
-    MaybeSession(_session): MaybeSession) -> ApiResult<Json<Vec<FandomCount>>> {
+async fn fandoms(
+    State(state): State<AppState>,
+    MaybeSession(_session): MaybeSession,
+) -> ApiResult<Json<Vec<FandomCount>>> {
     Ok(Json(
         catalogue::fandoms(state.db(), FANDOM_LIST_LIMIT).await?,
     ))
@@ -639,8 +643,10 @@ fn edit_distance(a: &str, b: &str) -> usize {
 }
 
 /// The distinct source keys the catalogue holds, with how many rows each has.
-async fn sources(State(state): State<AppState>,
-    MaybeSession(_session): MaybeSession) -> ApiResult<Json<Vec<SourceCount>>> {
+async fn sources(
+    State(state): State<AppState>,
+    MaybeSession(_session): MaybeSession,
+) -> ApiResult<Json<Vec<SourceCount>>> {
     let rows = catalogue::sources(state.db()).await?;
     Ok(Json(rows))
 }
@@ -799,7 +805,10 @@ fn sidecar_path(snapshot: &std::path::Path) -> std::path::PathBuf {
 /// this fingerprint has never been built.
 async fn snapshot(
     state: &AppState,
-) -> ApiResult<(std::path::PathBuf, darkhold_db::catalogue_export::ExportSummary)> {
+) -> ApiResult<(
+    std::path::PathBuf,
+    darkhold_db::catalogue_export::ExportSummary,
+)> {
     let fingerprint = darkhold_db::catalogue_export::fingerprint(state.db()).await?;
     let path = snapshot_path(state, &fingerprint);
     if let Some(summary) = read_sidecar(&path).await {
@@ -866,8 +875,10 @@ async fn prune_snapshots(newest: &std::path::Path) {
 }
 
 /// `GET /catalogue/export` — what the file is, before you download tens of MB.
-async fn export_manifest(State(state): State<AppState>,
-    MaybeSession(_session): MaybeSession) -> ApiResult<Json<ExportManifest>> {
+async fn export_manifest(
+    State(state): State<AppState>,
+    MaybeSession(_session): MaybeSession,
+) -> ApiResult<Json<ExportManifest>> {
     let (path, summary) = snapshot(&state).await?;
     let filename = path
         .file_name()
@@ -889,8 +900,10 @@ async fn export_manifest(State(state): State<AppState>,
 /// a real catalogue, and a couple of simultaneous downloads should not be able to
 /// take the instance down. `ServeFile` also gives conditional requests and Range
 /// for free, which is what a resumable download needs.
-async fn export_sqlite(State(state): State<AppState>,
-    MaybeSession(_session): MaybeSession) -> ApiResult<axum::response::Response> {
+async fn export_sqlite(
+    State(state): State<AppState>,
+    MaybeSession(_session): MaybeSession,
+) -> ApiResult<axum::response::Response> {
     let (path, summary) = snapshot(&state).await?;
     let request = axum::http::Request::builder()
         .uri("/catalogue/export.sqlite")

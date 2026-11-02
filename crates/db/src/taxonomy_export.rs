@@ -58,7 +58,8 @@ fn row_to_entity(row: RawRow) -> EntityRow {
 
 /// SQLite hands back whatever it stored; PostgreSQL is strict about INT4 vs INT8, and `work_count` is INT4.
 /// The cast is in the statement rather than in a second column list so the two dialects stay one line apart.
-const COLUMNS: &str = "id, kind, canonical, canonical_name, norm, slug, parent_id, status, node_state, work_count";
+const COLUMNS: &str =
+    "id, kind, canonical, canonical_name, norm, slug, parent_id, status, node_state, work_count";
 const COLUMNS_PG: &str = "id, kind, canonical, canonical_name, norm, slug, parent_id, status, node_state, CAST(work_count AS BIGINT)";
 
 /// One page of the vocabulary, plus the total so a caller knows when to stop.
@@ -106,8 +107,17 @@ pub async fn page(
         crate::Backend::Sqlite => {
             let pool = db.sqlite_pool().expect("sqlite handle");
             let total = match kind {
-                Some(kind) => sqlx::query_scalar::<_, i64>(&count_sql).bind(kind).fetch_one(pool).await?,
-                None => sqlx::query_scalar::<_, i64>(&count_sql).fetch_one(pool).await?,
+                Some(kind) => {
+                    sqlx::query_scalar::<_, i64>(&count_sql)
+                        .bind(kind)
+                        .fetch_one(pool)
+                        .await?
+                }
+                None => {
+                    sqlx::query_scalar::<_, i64>(&count_sql)
+                        .fetch_one(pool)
+                        .await?
+                }
             };
             let rows = match kind {
                 Some(kind) => {
@@ -131,8 +141,17 @@ pub async fn page(
         crate::Backend::Postgres => {
             let pool = db.postgres_pool().expect("postgres handle");
             let total = match kind {
-                Some(kind) => sqlx::query_scalar::<_, i64>(&count_sql).bind(kind).fetch_one(pool).await?,
-                None => sqlx::query_scalar::<_, i64>(&count_sql).fetch_one(pool).await?,
+                Some(kind) => {
+                    sqlx::query_scalar::<_, i64>(&count_sql)
+                        .bind(kind)
+                        .fetch_one(pool)
+                        .await?
+                }
+                None => {
+                    sqlx::query_scalar::<_, i64>(&count_sql)
+                        .fetch_one(pool)
+                        .await?
+                }
             };
             let rows = match kind {
                 Some(kind) => {
@@ -168,7 +187,11 @@ pub async fn version(db: &Database) -> Result<String, sqlx::Error> {
         "SELECT COUNT(*)::bigint, MAX(updated_at) FROM canonical_entities",
     );
     let (count, newest): (i64, Option<String>) = match db.backend() {
-        crate::Backend::Sqlite => sqlx::query_as(&sql).fetch_one(db.sqlite_pool().expect("sqlite handle")).await?,
+        crate::Backend::Sqlite => {
+            sqlx::query_as(&sql)
+                .fetch_one(db.sqlite_pool().expect("sqlite handle"))
+                .await?
+        }
         crate::Backend::Postgres => {
             sqlx::query_as(&sql)
                 .fetch_one(db.postgres_pool().expect("postgres handle"))
@@ -189,7 +212,11 @@ pub async fn aliases(db: &Database) -> Result<Vec<(String, String, Option<String
         "SELECT node_id, alias, norm FROM entity_aliases ORDER BY alias",
     );
     match db.backend() {
-        crate::Backend::Sqlite => sqlx::query_as(&sql).fetch_all(db.sqlite_pool().expect("sqlite handle")).await,
+        crate::Backend::Sqlite => {
+            sqlx::query_as(&sql)
+                .fetch_all(db.sqlite_pool().expect("sqlite handle"))
+                .await
+        }
         crate::Backend::Postgres => {
             sqlx::query_as(&sql)
                 .fetch_all(db.postgres_pool().expect("postgres handle"))

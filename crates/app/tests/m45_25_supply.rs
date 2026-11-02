@@ -80,7 +80,12 @@ impl Client {
         }
     }
 
-    async fn request(&mut self, method: &str, uri: &str, body: Option<Value>) -> (StatusCode, Value) {
+    async fn request(
+        &mut self,
+        method: &str,
+        uri: &str,
+        body: Option<Value>,
+    ) -> (StatusCode, Value) {
         let mut builder = Request::builder()
             .method(method)
             .uri(uri)
@@ -146,10 +151,7 @@ impl Client {
         assert_eq!(status, StatusCode::CREATED, "register {handle}: {body}");
         let (status, me) = self.get("/api/v1/auth/me").await;
         assert_eq!(status, StatusCode::OK, "{me}");
-        me["account"]["id"]
-            .as_str()
-            .expect("account id")
-            .to_owned()
+        me["account"]["id"].as_str().expect("account id").to_owned()
     }
 }
 
@@ -329,7 +331,10 @@ async fn the_operator_recomputes_and_reads_the_keystones() {
     assert_eq!(status, StatusCode::OK, "{body}");
     assert_eq!(body["engaged_rows"], 4);
     assert_eq!(body["keystones"], 1, "ada clears 0.5, bea does not: {body}");
-    assert_eq!(body["taste_profile_rows"], 0, "no operator weights exist yet");
+    assert_eq!(
+        body["taste_profile_rows"], 0,
+        "no operator weights exist yet"
+    );
 
     let (status, body) = operator.get("/api/v1/supply/keystones?limit=5").await;
     assert_eq!(status, StatusCode::OK, "{body}");
@@ -383,13 +388,19 @@ async fn a_reader_is_routed_and_completing_pays_once() {
     let (status, body) = client.post("/api/v1/supply/route", json!({})).await;
     assert_eq!(status, StatusCode::OK, "{body}");
     let second = body["route"].clone();
-    assert_ne!(first["work_id"], second["work_id"], "the exclusion moved on");
+    assert_ne!(
+        first["work_id"], second["work_id"],
+        "the exclusion moved on"
+    );
 
     // ada's two works are now both offered, so the next ask is a result, not an error.
     let (status, body) = client.post("/api/v1/supply/route", json!({})).await;
     assert_eq!(status, StatusCode::OK, "{body}");
     assert!(body["route"].is_null(), "{body}");
-    assert!(body["reason"].as_str().unwrap_or("").contains("already been offered"));
+    assert!(body["reason"]
+        .as_str()
+        .unwrap_or("")
+        .contains("already been offered"));
 
     let (status, body) = client
         .post(&format!("/api/v1/supply/routing/{id}/complete"), json!({}))

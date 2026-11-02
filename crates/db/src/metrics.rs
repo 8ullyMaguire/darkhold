@@ -184,8 +184,7 @@ pub async fn candidates(db: &Database, query: &CatalogueQuery) -> Result<Vec<Can
             for value in &windows {
                 q = q.bind(value.clone());
             }
-            Ok(q
-                .bind(CANDIDATE_CAP)
+            Ok(q.bind(CANDIDATE_CAP)
                 .fetch_all(db.sqlite_pool().expect("sqlite handle"))
                 .await?)
         }
@@ -200,8 +199,7 @@ pub async fn candidates(db: &Database, query: &CatalogueQuery) -> Result<Vec<Can
             for value in &windows {
                 q = q.bind(value.clone());
             }
-            Ok(q
-                .bind(CANDIDATE_CAP)
+            Ok(q.bind(CANDIDATE_CAP)
                 .fetch_all(db.postgres_pool().expect("postgres handle"))
                 .await?)
         }
@@ -245,7 +243,8 @@ pub async fn counts(db: &Database, query: &CatalogueQuery) -> Result<(i64, i64)>
             for value in &windows {
                 q = q.bind(value.clone());
             }
-            Ok(q.fetch_one(db.sqlite_pool().expect("sqlite handle")).await?)
+            Ok(q.fetch_one(db.sqlite_pool().expect("sqlite handle"))
+                .await?)
         }
         Backend::Postgres => {
             let mut q = sqlx::query_as::<_, (i64, i64)>(&sql)
@@ -258,8 +257,7 @@ pub async fn counts(db: &Database, query: &CatalogueQuery) -> Result<(i64, i64)>
             for value in &windows {
                 q = q.bind(value.clone());
             }
-            Ok(q
-                .fetch_one(db.postgres_pool().expect("postgres handle"))
+            Ok(q.fetch_one(db.postgres_pool().expect("postgres handle"))
                 .await?)
         }
     }
@@ -342,7 +340,8 @@ async fn rows_by_ids(db: &Database, ids: &[String]) -> Result<Vec<(CatalogueRow,
     // Through `sql_owned`, which is what rewrites `?` into `$n` for PostgreSQL.
     // Building the string directly leaves MySQL-style placeholders in a
     // PostgreSQL statement, which the server rejects.
-    let statement = format!("SELECT {columns} FROM library_items WHERE {id_column} IN ({placeholders})");
+    let statement =
+        format!("SELECT {columns} FROM library_items WHERE {id_column} IN ({placeholders})");
     let sql = crate::sql_owned(db, statement.clone(), statement);
     match db.backend() {
         Backend::Sqlite => {
@@ -350,7 +349,9 @@ async fn rows_by_ids(db: &Database, ids: &[String]) -> Result<Vec<(CatalogueRow,
             for id in ids {
                 q = q.bind(id.clone());
             }
-            let rows: Vec<FullRow> = q.fetch_all(db.sqlite_pool().expect("sqlite handle")).await?;
+            let rows: Vec<FullRow> = q
+                .fetch_all(db.sqlite_pool().expect("sqlite handle"))
+                .await?;
             Ok(rows.into_iter().map(Into::into).collect())
         }
         Backend::Postgres => {
@@ -551,14 +552,16 @@ async fn seed_rows(
             Ok(q.fetch_all(db.sqlite_pool().expect("sqlite handle"))
                 .await?
                 .into_iter()
-                .map(|(id, title, author, summary, source_key, likes)| SeedLookup {
-                    id,
-                    title,
-                    author,
-                    summary,
-                    source_key,
-                    likes,
-                })
+                .map(
+                    |(id, title, author, summary, source_key, likes)| SeedLookup {
+                        id,
+                        title,
+                        author,
+                        summary,
+                        source_key,
+                        likes,
+                    },
+                )
                 .collect())
         }
         Backend::Postgres => {
@@ -569,14 +572,16 @@ async fn seed_rows(
             Ok(q.fetch_all(db.postgres_pool().expect("postgres handle"))
                 .await?
                 .into_iter()
-                .map(|(id, title, author, summary, source_key, likes)| SeedLookup {
-                    id,
-                    title,
-                    author,
-                    summary,
-                    source_key,
-                    likes,
-                })
+                .map(
+                    |(id, title, author, summary, source_key, likes)| SeedLookup {
+                        id,
+                        title,
+                        author,
+                        summary,
+                        source_key,
+                        likes,
+                    },
+                )
                 .collect())
         }
     }
@@ -654,11 +659,14 @@ pub async fn resolve_seed(db: &Database, spec: &str) -> Result<SeedMatch> {
         row.title.trim().eq_ignore_ascii_case(top.title.trim())
             && row.author.trim().eq_ignore_ascii_case(top.author.trim())
     });
-    let dominant = top.likes > 0 && (second.likes == 0 || top.likes >= second.likes.saturating_mul(10));
+    let dominant =
+        top.likes > 0 && (second.likes == 0 || top.likes >= second.likes.saturating_mul(10));
     if same_story || dominant {
         return Ok(SeedMatch::One(top.clone()));
     }
-    Ok(SeedMatch::Many(rows.iter().map(SeedCandidate::from).collect()))
+    Ok(SeedMatch::Many(
+        rows.iter().map(SeedCandidate::from).collect(),
+    ))
 }
 
 /// Rank the filtered catalogue by similarity to `seed_row` (M63-04).

@@ -54,7 +54,9 @@ pub fn links_in(note: Option<&str>) -> Vec<String> {
         // A URL ends at whitespace, at a quote, or at an angle bracket — none of which can appear
         // inside one. Everything else is carried and trimmed below.
         let end = rest
-            .find(|ch: char| ch.is_whitespace() || ch == '"' || ch == '\'' || ch == '<' || ch == '>')
+            .find(|ch: char| {
+                ch.is_whitespace() || ch == '"' || ch == '\'' || ch == '<' || ch == '>'
+            })
             .unwrap_or(rest.len());
         let candidate = trim_junk(&rest[..end]);
         if is_navigable(candidate) && !found.iter().any(|seen| seen == candidate) {
@@ -88,10 +90,7 @@ fn trim_junk(url: &str) -> &str {
 /// it here means the note registers no link and the author's text is untouched.
 #[must_use]
 pub fn is_navigable(url: &str) -> bool {
-    let Some(after) = SCHEMES
-        .iter()
-        .find_map(|scheme| url.strip_prefix(scheme))
-    else {
+    let Some(after) = SCHEMES.iter().find_map(|scheme| url.strip_prefix(scheme)) else {
         return false;
     };
     let host = after.split(['/', '?', '#']).next().unwrap_or_default();
@@ -101,9 +100,7 @@ pub fn is_navigable(url: &str) -> bool {
 /// The host of a link, without the scheme, port or path. `None` when there is no host.
 #[must_use]
 pub fn host_of(url: &str) -> Option<&str> {
-    let after = SCHEMES
-        .iter()
-        .find_map(|scheme| url.strip_prefix(scheme))?;
+    let after = SCHEMES.iter().find_map(|scheme| url.strip_prefix(scheme))?;
     let authority = after.split(['/', '?', '#']).next()?;
     if authority.is_empty() {
         return None;
@@ -152,7 +149,9 @@ mod tests {
     #[test]
     fn a_plain_link_is_found() {
         assert_eq!(
-            links_in(Some("Thanks to https://example.test/meta for the beta read.")),
+            links_in(Some(
+                "Thanks to https://example.test/meta for the beta read."
+            )),
             vec!["https://example.test/meta"]
         );
     }

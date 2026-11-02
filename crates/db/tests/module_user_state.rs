@@ -57,7 +57,9 @@ async fn connect(tag: &str) -> Database {
                 .await
                 .expect("create a scratch database");
             admin_db.close().await;
-            let (prefix, _) = admin.rsplit_once('/').expect("admin URL ends in a database");
+            let (prefix, _) = admin
+                .rsplit_once('/')
+                .expect("admin URL ends in a database");
             format!("{prefix}/{name}")
         }
         Err(_) => format!("sqlite://{}/darkhold.sqlite?mode=rwc", dir.display()),
@@ -130,7 +132,9 @@ async fn narrowing_is_idempotent_and_listed_once() {
         .await
         .expect("second write");
 
-    assert!(module_state::is_off(&db, &who, "arena").await.expect("read"));
+    assert!(module_state::is_off(&db, &who, "arena")
+        .await
+        .expect("read"));
     assert_eq!(
         module_state::overrides_for(&db, &who).await.expect("list"),
         vec!["arena".to_owned()],
@@ -169,9 +173,13 @@ async fn one_accounts_narrowing_is_not_anothers() {
         .await
         .expect("write");
 
-    assert!(module_state::is_off(&db, &alice, "arena").await.expect("read"));
+    assert!(module_state::is_off(&db, &alice, "arena")
+        .await
+        .expect("read"));
     assert!(
-        !module_state::is_off(&db, &bob, "arena").await.expect("read"),
+        !module_state::is_off(&db, &bob, "arena")
+            .await
+            .expect("read"),
         "bob never wrote a row; a per-account table that answers for him is not per-account"
     );
     // And the count is over accounts, not over people who agree with each other.

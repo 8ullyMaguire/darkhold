@@ -94,7 +94,12 @@ impl Client {
         }
     }
 
-    async fn request(&mut self, method: &str, uri: &str, body: Option<Value>) -> (StatusCode, Value) {
+    async fn request(
+        &mut self,
+        method: &str,
+        uri: &str,
+        body: Option<Value>,
+    ) -> (StatusCode, Value) {
         let mut builder = Request::builder()
             .method(method)
             .uri(uri)
@@ -170,9 +175,7 @@ impl Client {
 
     /// Create a work and return its id.
     async fn work(&mut self, title: &str) -> String {
-        let (status, body) = self
-            .post("/api/v1/works", json!({ "title": title }))
-            .await;
+        let (status, body) = self.post("/api/v1/works", json!({ "title": title })).await;
         assert_eq!(status, StatusCode::CREATED, "create the work: {body}");
         body["id"].as_str().expect("the work's id").to_owned()
     }
@@ -231,7 +234,9 @@ async fn the_bar_is_public_and_ships_its_vocabulary() {
     let work = author.work("A Work").await;
 
     let mut anon = author.signed_out();
-    let (status, body) = anon.get(&format!("/api/v1/works/{work}/quick-reactions")).await;
+    let (status, body) = anon
+        .get(&format!("/api/v1/works/{work}/quick-reactions"))
+        .await;
     assert_eq!(status, StatusCode::OK, "{body}");
     assert_eq!(body["enabled"], json!(true));
     assert!(body["items"].as_array().expect("items").is_empty());
@@ -259,14 +264,18 @@ async fn reacting_counts_once_and_shows_only_to_its_owner() {
     let (status, body) = reader.put(&uri).await;
     assert_eq!(status, StatusCode::OK, "a double-tap is idempotent: {body}");
 
-    let (_, body) = reader.get(&format!("/api/v1/works/{work}/quick-reactions")).await;
+    let (_, body) = reader
+        .get(&format!("/api/v1/works/{work}/quick-reactions"))
+        .await;
     assert_eq!(body["items"][0]["label"], json!("made_me_cry"));
     assert_eq!(body["items"][0]["count"], json!(1));
     assert_eq!(body["mine"], json!(["made_me_cry"]));
 
     // The tally is public; `mine` is not.
     let mut anon = reader.signed_out();
-    let (_, body) = anon.get(&format!("/api/v1/works/{work}/quick-reactions")).await;
+    let (_, body) = anon
+        .get(&format!("/api/v1/works/{work}/quick-reactions"))
+        .await;
     assert_eq!(body["items"][0]["count"], json!(1));
     assert!(body["mine"].as_array().expect("mine").is_empty());
 }
@@ -282,7 +291,10 @@ async fn an_unknown_label_is_refused_with_the_vocabulary_named() {
         .put(&format!("/api/v1/works/{work}/quick-reactions/insightful"))
         .await;
     assert_eq!(status, StatusCode::UNPROCESSABLE_ENTITY, "{body}");
-    let errors = body["error"]["field_errors"].as_object().cloned().unwrap_or_default();
+    let errors = body["error"]["field_errors"]
+        .as_object()
+        .cloned()
+        .unwrap_or_default();
     let message = errors
         .get("label")
         .and_then(|v| v.as_str())
@@ -309,7 +321,11 @@ async fn withdrawing_reports_whether_there_was_anything_to_withdraw() {
     assert_eq!(body["removed"], json!(true));
 
     let (status, body) = author.delete(&uri).await;
-    assert_eq!(status, StatusCode::OK, "withdrawing twice is not an error: {body}");
+    assert_eq!(
+        status,
+        StatusCode::OK,
+        "withdrawing twice is not an error: {body}"
+    );
     assert_eq!(body["removed"], json!(false));
 }
 
@@ -334,7 +350,9 @@ async fn the_authors_preference_closes_the_bar_without_hiding_the_page() {
     ))
     .await;
 
-    let (status, body) = author.get(&format!("/api/v1/works/{work}/quick-reactions")).await;
+    let (status, body) = author
+        .get(&format!("/api/v1/works/{work}/quick-reactions"))
+        .await;
     assert_eq!(status, StatusCode::OK, "the read still answers: {body}");
     assert_eq!(body["enabled"], json!(false));
     assert!(body["items"].as_array().expect("items").is_empty());

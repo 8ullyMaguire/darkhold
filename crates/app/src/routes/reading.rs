@@ -79,7 +79,9 @@ pub fn authed_router() -> Router<AppState> {
         // pacing, and no other reader — nor another pseud of the same account — can read it.
         .route(
             "/reading-goal",
-            get(get_reading_goal).put(put_reading_goal).delete(delete_reading_goal),
+            get(get_reading_goal)
+                .put(put_reading_goal)
+                .delete(delete_reading_goal),
         )
 }
 
@@ -322,7 +324,6 @@ struct TypographyView {
     version: i64,
 }
 
-
 // ---------------------------------------------------------------------------
 // §9.7.9 reading goals (M47-13)
 // ---------------------------------------------------------------------------
@@ -398,8 +399,12 @@ async fn put_reading_goal(
     RequirePseud { user, pseud_id }: RequirePseud,
     Json(request): Json<GoalRequest>,
 ) -> ApiResult<Json<serde_json::Value>> {
-    let goal = darkhold_domain::reading_goal::Goal::check(&request.period, &request.metric, request.target)
-        .map_err(|(field, message)| ApiError(darkhold_domain::AppError::field(field, message)))?;
+    let goal = darkhold_domain::reading_goal::Goal::check(
+        &request.period,
+        &request.metric,
+        request.target,
+    )
+    .map_err(|(field, message)| ApiError(darkhold_domain::AppError::field(field, message)))?;
     darkhold_db::reading_goal::set(
         state.db(),
         &pseud_id.to_string(),

@@ -67,5 +67,8 @@ async fn a_page_decodes_on_postgres() {
     let aliases = darkhold_db::taxonomy_export::aliases(&db)
         .await
         .expect("aliases on postgres");
-    eprintln!("postgres: {total} entities, {} aliases, version {version}", aliases.len());
+    eprintln!(
+        "postgres: {total} entities, {} aliases, version {version}",
+        aliases.len()
+    );
 }

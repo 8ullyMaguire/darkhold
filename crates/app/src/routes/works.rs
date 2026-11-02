@@ -1464,9 +1464,7 @@ async fn read_unit(
             // A published record does not publish the text: the same answer a
             // reader outside the audience gets, and the same answer an absent
             // work gets.
-            Reading::MetadataOnly => {
-                return Err(ApiError(AppError::NotFound { resource: "work" }))
-            }
+            Reading::MetadataOnly => return Err(ApiError(AppError::NotFound { resource: "work" })),
             Reading::Denied(error) => return Err(ApiError(error)),
         };
     let _ = is_public;
@@ -1865,34 +1863,34 @@ fn denial(reason: DenyReason, metadata_public: bool, publish_gated: bool) -> Rea
         return Reading::MetadataOnly;
     }
     Reading::Denied(match reason {
-            // Absence is reported as absence: a draft, a withheld work or a
-            // work belonging to someone the actor is blocked by all look the
-            // same from outside (spec §3.3).
-            //
-            // `BodyNotInAudience` joins them for the same reason. A reader
-            // refused by the audience gate learns from a 403 that the work
-            // exists, and learns that the obstacle is audience-shaped rather
-            // than a rating ceiling, a sign-in requirement or a paywall — either
-            // fact is an existence oracle for a body the operator chose to
-            // withhold (spec §7.7.3). The status code is the one thing a client
-            // branches on, so a 403/404 split is a leak with no header
-            // required.
-            //
-            // The `DenyReason` itself is unchanged, so the domain still records
-            // exactly why: the *decision* keeps the reason, the *rendering*
-            // collapses it. `body_audience_indistinguishability.rs` is the test.
-            DenyReason::NotPublished
-            | DenyReason::BlockedByAuthor
-            | DenyReason::BodyNotInAudience => AppError::NotFound { resource: "work" },
-            DenyReason::SignInRequired => AppError::AuthRequired,
-            DenyReason::NotAuthenticated
-            | DenyReason::AnonymousReadingDisabled
-            | DenyReason::RatingExceedsPolicy
-            | DenyReason::NotAContributor
-            | DenyReason::InsufficientRole => AppError::ContentRestricted,
-            // `DenyReason` is non-exhaustive: a reason added later must not
-            // silently become "allow", so the default is refusal.
-            _ => AppError::ContentRestricted,
+        // Absence is reported as absence: a draft, a withheld work or a
+        // work belonging to someone the actor is blocked by all look the
+        // same from outside (spec §3.3).
+        //
+        // `BodyNotInAudience` joins them for the same reason. A reader
+        // refused by the audience gate learns from a 403 that the work
+        // exists, and learns that the obstacle is audience-shaped rather
+        // than a rating ceiling, a sign-in requirement or a paywall — either
+        // fact is an existence oracle for a body the operator chose to
+        // withhold (spec §7.7.3). The status code is the one thing a client
+        // branches on, so a 403/404 split is a leak with no header
+        // required.
+        //
+        // The `DenyReason` itself is unchanged, so the domain still records
+        // exactly why: the *decision* keeps the reason, the *rendering*
+        // collapses it. `body_audience_indistinguishability.rs` is the test.
+        DenyReason::NotPublished | DenyReason::BlockedByAuthor | DenyReason::BodyNotInAudience => {
+            AppError::NotFound { resource: "work" }
+        }
+        DenyReason::SignInRequired => AppError::AuthRequired,
+        DenyReason::NotAuthenticated
+        | DenyReason::AnonymousReadingDisabled
+        | DenyReason::RatingExceedsPolicy
+        | DenyReason::NotAContributor
+        | DenyReason::InsufficientRole => AppError::ContentRestricted,
+        // `DenyReason` is non-exhaustive: a reason added later must not
+        // silently become "allow", so the default is refusal.
+        _ => AppError::ContentRestricted,
     })
 }
 

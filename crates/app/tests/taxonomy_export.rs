@@ -45,7 +45,9 @@ impl Harness {
     async fn new(tag: &str) -> Self {
         let dir = scratch_dir(tag);
         let config = config_for(&dir);
-        let db = Database::connect(&config.database).await.expect("db connect");
+        let db = Database::connect(&config.database)
+            .await
+            .expect("db connect");
         db.migrate().await.expect("migrations");
         Self {
             _dir: dir,
@@ -69,7 +71,10 @@ impl Harness {
         let bytes = axum::body::to_bytes(resp.into_body(), 10_000_000)
             .await
             .unwrap();
-        (status, serde_json::from_slice(&bytes).unwrap_or(Value::Null))
+        (
+            status,
+            serde_json::from_slice(&bytes).unwrap_or(Value::Null),
+        )
     }
 
     /// One entity, written directly: the export reads rows, it does not create them.
@@ -92,14 +97,26 @@ impl Harness {
 #[tokio::test]
 async fn the_export_is_a_document_another_site_can_import() {
     let h = Harness::new("shape").await;
-    h.entity("e-1", "tag", "Regression System", "regression system", "Regression System").await;
-    h.entity("e-2", "character", "Ash Step", "ash step", "Ash Step").await;
+    h.entity(
+        "e-1",
+        "tag",
+        "Regression System",
+        "regression system",
+        "Regression System",
+    )
+    .await;
+    h.entity("e-2", "character", "Ash Step", "ash step", "Ash Step")
+        .await;
 
     let (status, body) = h.get("/api/v1/taxonomy/export").await;
     assert_eq!(status, StatusCode::OK, "{body}");
     assert_eq!(body["total"], 2);
     assert_eq!(body["items"].as_array().map(|v| v.len()), Some(2));
-    assert!(body["version"].as_str().unwrap_or("").contains('@'), "version: {}", body["version"]);
+    assert!(
+        body["version"].as_str().unwrap_or("").contains('@'),
+        "version: {}",
+        body["version"]
+    );
 
     // Ordered by `canonical`, so the test looks the row up rather than assuming a position.
     let first = body["items"]
@@ -138,7 +155,10 @@ async fn the_version_changes_when_the_vocabulary_does() {
     let (_, after) = h.get("/api/v1/taxonomy/export").await;
     let v2 = after["version"].as_str().unwrap().to_string();
 
-    assert_ne!(v1, v2, "an importer must be able to see that the document changed");
+    assert_ne!(
+        v1, v2,
+        "an importer must be able to see that the document changed"
+    );
     assert!(v2.starts_with('2'), "the version carries the count: {v2}");
 }
 

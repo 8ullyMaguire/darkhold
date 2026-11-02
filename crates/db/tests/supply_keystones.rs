@@ -58,7 +58,9 @@ async fn connect(tag: &str) -> Database {
                 .await
                 .expect("create a scratch database");
             admin_db.close().await;
-            let (prefix, _) = admin.rsplit_once('/').expect("admin URL ends in a database");
+            let (prefix, _) = admin
+                .rsplit_once('/')
+                .expect("admin URL ends in a database");
             format!("{prefix}/{name}")
         }
         Err(_) => format!("sqlite://{}/darkhold.sqlite?mode=rwc", dir.display()),
@@ -295,9 +297,16 @@ async fn an_empty_corpus_refuses_instead_of_listing_everything() {
     flip_fixture(&db, &account).await;
     supply::recompute(&db, 2, 5_000).await.expect("recompute");
     let report = supply::drought(&db, 10).await.expect("drought");
-    assert!(!report.measured, "zero comments and zero ratings is unmeasured");
     assert!(
-        report.reason.as_deref().unwrap_or("").contains("cannot be told"),
+        !report.measured,
+        "zero comments and zero ratings is unmeasured"
+    );
+    assert!(
+        report
+            .reason
+            .as_deref()
+            .unwrap_or("")
+            .contains("cannot be told"),
         "the reason names the ambiguity: {:?}",
         report.reason
     );
@@ -350,7 +359,10 @@ async fn conversation_turns_the_report_on() {
         .expect("ada is a keystone");
     assert_eq!(ada.works_with_conversation, 1);
     assert_eq!(ada.comments, 1);
-    assert_eq!(ada.engaged_works, 3, "two from the fixture plus the commented one");
+    assert_eq!(
+        ada.engaged_works, 3,
+        "two from the fixture plus the commented one"
+    );
 }
 
 #[tokio::test]
@@ -373,7 +385,10 @@ async fn a_reader_is_not_routed_the_same_work_twice() {
         first.work_id, second.work_id,
         "the exclusion is what makes the second routing useful"
     );
-    assert_eq!(second.author_key, "ada", "the highest-scoring keystone leads");
+    assert_eq!(
+        second.author_key, "ada",
+        "the highest-scoring keystone leads"
+    );
     assert!(
         second.reason.contains("offered 0 time(s)"),
         "a work nobody has been routed says so: {}",
@@ -401,7 +416,10 @@ async fn a_reader_is_not_routed_the_same_work_twice() {
     let now_none = supply::route(&db, &reader, Some("ada"))
         .await
         .expect("route");
-    assert!(now_none.is_none(), "ada's two works are both offered to this reader");
+    assert!(
+        now_none.is_none(),
+        "ada's two works are both offered to this reader"
+    );
 }
 
 #[tokio::test]
@@ -430,26 +448,25 @@ async fn completing_twice_pays_once() {
     assert_eq!(again.credit_bp, Some(PATRONAGE_BP));
 
     let entries = match db.backend() {
-        darkhold_db::Backend::Postgres => {
-            sqlx::query_scalar::<_, i64>(
-                "SELECT CAST(COUNT(*) AS BIGINT) FROM credit_entries WHERE account = $1",
-            )
-            .bind(&reader)
-            .fetch_one(db.postgres_pool().expect("postgres"))
-            .await
-            .expect("count")
-        }
-        darkhold_db::Backend::Sqlite => {
-            sqlx::query_scalar::<_, i64>(
-                "SELECT CAST(COUNT(*) AS BIGINT) FROM credit_entries WHERE account = ?",
-            )
-            .bind(&reader)
-            .fetch_one(db.sqlite_pool().expect("sqlite"))
-            .await
-            .expect("count")
-        }
+        darkhold_db::Backend::Postgres => sqlx::query_scalar::<_, i64>(
+            "SELECT CAST(COUNT(*) AS BIGINT) FROM credit_entries WHERE account = $1",
+        )
+        .bind(&reader)
+        .fetch_one(db.postgres_pool().expect("postgres"))
+        .await
+        .expect("count"),
+        darkhold_db::Backend::Sqlite => sqlx::query_scalar::<_, i64>(
+            "SELECT CAST(COUNT(*) AS BIGINT) FROM credit_entries WHERE account = ?",
+        )
+        .bind(&reader)
+        .fetch_one(db.sqlite_pool().expect("sqlite"))
+        .await
+        .expect("count"),
     };
-    assert_eq!(entries, 1, "the second completion is a read, not a second grant");
+    assert_eq!(
+        entries, 1,
+        "the second completion is a read, not a second grant"
+    );
 
     // Somebody else's id is nobody else's routing.
     let stranger = uuid::Uuid::new_v4().to_string();

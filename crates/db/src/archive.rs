@@ -74,9 +74,18 @@ pub async fn build(db: &Database, account_id: &str) -> Result<Vec<Section>> {
     sections.push(Section::new("works", works(db, account_id).await?));
     sections.push(Section::new("bookmarks", bookmarks(db, account_id).await?));
     sections.push(Section::new("library", library(db, account_id).await?));
-    sections.push(Section::new("reading_status", reading_status(db, account_id).await?));
-    sections.push(Section::new("reading_progress", reading_progress(db, account_id).await?));
-    sections.push(Section::new("reading_history", reading_history(db, account_id).await?));
+    sections.push(Section::new(
+        "reading_status",
+        reading_status(db, account_id).await?,
+    ));
+    sections.push(Section::new(
+        "reading_progress",
+        reading_progress(db, account_id).await?,
+    ));
+    sections.push(Section::new(
+        "reading_history",
+        reading_history(db, account_id).await?,
+    ));
     sections.push(Section::new("ratings", ratings(db, account_id).await?));
     sections.push(Section::new("reviews", reviews(db, account_id).await?));
     sections.push(Section::new("credits", credits(db, account_id).await?));
@@ -139,16 +148,18 @@ async fn pseuds(db: &Database, account_id: &str) -> Result<Vec<Value>> {
     );
     Ok(rows
         .into_iter()
-        .map(|(id, handle, display_name, bio, discoverability, created_at)| {
-            json!({
-                "id": id,
-                "handle": handle,
-                "display_name": display_name,
-                "bio": bio,
-                "discoverability": discoverability,
-                "created_at": created_at,
-            })
-        })
+        .map(
+            |(id, handle, display_name, bio, discoverability, created_at)| {
+                json!({
+                    "id": id,
+                    "handle": handle,
+                    "display_name": display_name,
+                    "bio": bio,
+                    "discoverability": discoverability,
+                    "created_at": created_at,
+                })
+            },
+        )
         .collect())
 }
 
@@ -170,17 +181,19 @@ async fn works(db: &Database, account_id: &str) -> Result<Vec<Value>> {
     );
     Ok(rows
         .into_iter()
-        .map(|(id, title, language, lifecycle, visibility, published_at, created_at)| {
-            json!({
-                "id": id,
-                "title": title,
-                "language": language,
-                "lifecycle": lifecycle,
-                "visibility": visibility,
-                "published_at": published_at,
-                "created_at": created_at,
-            })
-        })
+        .map(
+            |(id, title, language, lifecycle, visibility, published_at, created_at)| {
+                json!({
+                    "id": id,
+                    "title": title,
+                    "language": language,
+                    "lifecycle": lifecycle,
+                    "visibility": visibility,
+                    "published_at": published_at,
+                    "created_at": created_at,
+                })
+            },
+        )
         .collect())
 }
 
@@ -212,16 +225,18 @@ async fn bookmarks(db: &Database, account_id: &str) -> Result<Vec<Value>> {
     };
     Ok(rows
         .into_iter()
-        .map(|(subject_type, subject_id, unit_id, note, is_public, created_at)| {
-            json!({
-                "subject_type": subject_type,
-                "subject_id": subject_id,
-                "unit_id": unit_id,
-                "note": note,
-                "is_public": is_public != 0,
-                "created_at": created_at,
-            })
-        })
+        .map(
+            |(subject_type, subject_id, unit_id, note, is_public, created_at)| {
+                json!({
+                    "subject_type": subject_type,
+                    "subject_id": subject_id,
+                    "unit_id": unit_id,
+                    "note": note,
+                    "is_public": is_public != 0,
+                    "created_at": created_at,
+                })
+            },
+        )
         .collect())
 }
 
@@ -239,21 +254,30 @@ async fn library(db: &Database, account_id: &str) -> Result<Vec<Value>> {
     );
     Ok(rows
         .into_iter()
-        .map(|(title, author_text, source_key, source_work_key, work_id, created_at)| {
-            json!({
-                "title": title,
-                "author_text": author_text,
-                "source_key": source_key,
-                "source_work_key": source_work_key,
-                "work_id": work_id,
-                "created_at": created_at,
-            })
-        })
+        .map(
+            |(title, author_text, source_key, source_work_key, work_id, created_at)| {
+                json!({
+                    "title": title,
+                    "author_text": author_text,
+                    "source_key": source_key,
+                    "source_work_key": source_work_key,
+                    "work_id": work_id,
+                    "created_at": created_at,
+                })
+            },
+        )
         .collect())
 }
 
 async fn reading_status(db: &Database, account_id: &str) -> Result<Vec<Value>> {
-    let rows: Vec<(String, String, String, Option<String>, Option<String>, String)> = fetch!(
+    let rows: Vec<(
+        String,
+        String,
+        String,
+        Option<String>,
+        Option<String>,
+        String,
+    )> = fetch!(
         db,
         "SELECT subject_type, subject_id, status, started_at, finished_at, updated_at
            FROM reading_status WHERE account_id = ?
@@ -262,20 +286,29 @@ async fn reading_status(db: &Database, account_id: &str) -> Result<Vec<Value>> {
            FROM reading_status WHERE account_id::text = ?
           ORDER BY updated_at ASC, id ASC",
         account_id,
-        (String, String, String, Option<String>, Option<String>, String)
+        (
+            String,
+            String,
+            String,
+            Option<String>,
+            Option<String>,
+            String
+        )
     );
     Ok(rows
         .into_iter()
-        .map(|(subject_type, subject_id, status, started_at, finished_at, updated_at)| {
-            json!({
-                "subject_type": subject_type,
-                "subject_id": subject_id,
-                "status": status,
-                "started_at": started_at,
-                "finished_at": finished_at,
-                "updated_at": updated_at,
-            })
-        })
+        .map(
+            |(subject_type, subject_id, status, started_at, finished_at, updated_at)| {
+                json!({
+                    "subject_type": subject_type,
+                    "subject_id": subject_id,
+                    "status": status,
+                    "started_at": started_at,
+                    "finished_at": finished_at,
+                    "updated_at": updated_at,
+                })
+            },
+        )
         .collect())
 }
 
@@ -293,15 +326,17 @@ async fn reading_progress(db: &Database, account_id: &str) -> Result<Vec<Value>>
     );
     Ok(rows
         .into_iter()
-        .map(|(subject_type, subject_id, unit_id, position_permille, updated_at)| {
-            json!({
-                "subject_type": subject_type,
-                "subject_id": subject_id,
-                "unit_id": unit_id,
-                "position_permille": position_permille,
-                "updated_at": updated_at,
-            })
-        })
+        .map(
+            |(subject_type, subject_id, unit_id, position_permille, updated_at)| {
+                json!({
+                    "subject_type": subject_type,
+                    "subject_id": subject_id,
+                    "unit_id": unit_id,
+                    "position_permille": position_permille,
+                    "updated_at": updated_at,
+                })
+            },
+        )
         .collect())
 }
 
@@ -393,15 +428,17 @@ async fn reviews(db: &Database, account_id: &str) -> Result<Vec<Value>> {
     };
     Ok(rows
         .into_iter()
-        .map(|(work_id, body, contains_spoilers, is_public, created_at)| {
-            json!({
-                "work_id": work_id,
-                "body": body,
-                "contains_spoilers": contains_spoilers != 0,
-                "is_public": is_public != 0,
-                "created_at": created_at,
-            })
-        })
+        .map(
+            |(work_id, body, contains_spoilers, is_public, created_at)| {
+                json!({
+                    "work_id": work_id,
+                    "body": body,
+                    "contains_spoilers": contains_spoilers != 0,
+                    "is_public": is_public != 0,
+                    "created_at": created_at,
+                })
+            },
+        )
         .collect())
 }
 

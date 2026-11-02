@@ -74,10 +74,7 @@ impl Harness {
         });
         let dir = scratch_dir(tag);
         let tdb = test_support::TestDb::connect_with_dir(tag, &dir).await;
-        let app = server::build_router(AppState::new(
-            config_for(&dir),
-            tdb.db().clone(),
-        ));
+        let app = server::build_router(AppState::new(config_for(&dir), tdb.db().clone()));
         Self { dir, tdb, app }
     }
 
@@ -157,7 +154,10 @@ async fn the_manifest_describes_the_file_before_anyone_downloads_it() {
     assert_eq!(body["url"], "/api/v1/catalogue/export.sqlite");
     assert_eq!(body["tables"][0]["name"], "works");
     assert!(
-        body["privacy"].as_str().unwrap_or_default().contains("No account"),
+        body["privacy"]
+            .as_str()
+            .unwrap_or_default()
+            .contains("No account"),
         "the manifest states the boundary: {}",
         body["privacy"]
     );
@@ -180,13 +180,18 @@ async fn the_download_is_a_cached_sqlite_file_that_carries_no_account() {
     let account = seed(&h.tdb).await;
 
     let (_, manifest) = h.json("/api/v1/catalogue/export").await;
-    let fingerprint = manifest["fingerprint"].as_str().expect("fingerprint").to_owned();
+    let fingerprint = manifest["fingerprint"]
+        .as_str()
+        .expect("fingerprint")
+        .to_owned();
 
     let response = h.raw("/api/v1/catalogue/export.sqlite").await;
     assert_eq!(response.status(), StatusCode::OK);
     let headers = response.headers().clone();
     assert_eq!(
-        headers.get(header::CONTENT_TYPE).and_then(|v| v.to_str().ok()),
+        headers
+            .get(header::CONTENT_TYPE)
+            .and_then(|v| v.to_str().ok()),
         Some("application/vnd.sqlite3"),
         "a download manager must see a database, not octet-stream"
     );
@@ -205,7 +210,9 @@ async fn the_download_is_a_cached_sqlite_file_that_carries_no_account() {
         "the ETag is the catalogue fingerprint the manifest reported"
     );
     assert_eq!(
-        headers.get("x-catalogue-rows").and_then(|v| v.to_str().ok()),
+        headers
+            .get("x-catalogue-rows")
+            .and_then(|v| v.to_str().ok()),
         Some("3")
     );
 
@@ -233,9 +240,7 @@ async fn the_download_is_a_cached_sqlite_file_that_carries_no_account() {
             .map(|entries| {
                 entries
                     .flatten()
-                    .filter(|e| {
-                        e.path().extension().and_then(|x| x.to_str()) == Some("sqlite")
-                    })
+                    .filter(|e| e.path().extension().and_then(|x| x.to_str()) == Some("sqlite"))
                     .count()
             })
             .unwrap_or(0)

@@ -55,7 +55,9 @@ async fn connect(tag: &str) -> Database {
                 .await
                 .expect("create a scratch database");
             admin_db.close().await;
-            let (prefix, _) = admin.rsplit_once('/').expect("admin URL ends in a database");
+            let (prefix, _) = admin
+                .rsplit_once('/')
+                .expect("admin URL ends in a database");
             format!("{prefix}/{name}")
         }
         Err(_) => format!("sqlite://{}/darkhold.sqlite?mode=rwc", dir.display()),
@@ -154,7 +156,10 @@ async fn a_note_without_links_records_nothing() {
             .await
             .expect("record");
     assert_eq!(created, 0);
-    assert!(store::list_for_work(&db, &work).await.expect("list").is_empty());
+    assert!(store::list_for_work(&db, &work)
+        .await
+        .expect("list")
+        .is_empty());
 }
 
 #[tokio::test]
@@ -206,9 +211,10 @@ async fn recording_the_same_revision_twice_does_not_reset_a_dead_link() {
         .await
         .expect("check");
 
-    let created = store::record_for_revision(&db, &work, &unit, &revision, Some("https://gone.test/x"))
-        .await
-        .expect("re-record");
+    let created =
+        store::record_for_revision(&db, &work, &unit, &revision, Some("https://gone.test/x"))
+            .await
+            .expect("re-record");
     assert_eq!(created, 0, "the row already exists");
 
     let after = store::list_for_work(&db, &work).await.expect("list");
@@ -248,7 +254,11 @@ async fn a_superseded_revision_stops_being_live_but_is_still_recorded() {
     let live = store::list_for_live_revisions(&db, &work)
         .await
         .expect("live");
-    assert_eq!(live.len(), 1, "but only the new revision's link is what the work says");
+    assert_eq!(
+        live.len(),
+        1,
+        "but only the new revision's link is what the work says"
+    );
     assert_eq!(live[0].url, "https://new.test/x");
 }
 
@@ -271,7 +281,10 @@ async fn a_failed_check_keeps_the_last_time_the_link_answered() {
         .await
         .expect("list")
         .remove(0);
-    assert!(healthy.last_healthy_at.is_some(), "the healthy check stamped it");
+    assert!(
+        healthy.last_healthy_at.is_some(),
+        "the healthy check stamped it"
+    );
     assert_eq!(healthy.consecutive_failures, 0);
 
     store::mark_checked(&db, &link.id, LinkStatus::Dead, 3, Some("timeout"))

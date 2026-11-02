@@ -320,7 +320,9 @@ pub fn delta(mu: f64, opponents: &[Opponent]) -> f64 {
 fn residual_sum(mu: f64, opponents: &[Opponent]) -> f64 {
     let mut sum = 0.0;
     for op in opponents {
-        sum += op.influence() * g(reduce_phi(op.phi)) * (op.outcome.residual() - expected(mu, op.mu, op.phi));
+        sum += op.influence()
+            * g(reduce_phi(op.phi))
+            * (op.outcome.residual() - expected(mu, op.mu, op.phi));
     }
     sum
 }
@@ -474,14 +476,20 @@ mod tests {
                     .map(|o| g(reduce_phi(o.phi)).powi(2))
                     .sum::<f64>());
         assert!((draft - 0.2921).abs() < 0.001, "draft = {draft:.4}");
-        assert!((v - draft).abs() > 1.0, "the two forms must not be near each other");
+        assert!(
+            (v - draft).abs() > 1.0,
+            "the two forms must not be near each other"
+        );
     }
 
     #[test]
     fn step_four_delta_matches_the_paper() {
         let (rating, opponents) = reference();
         let d = delta(rating.mu, &opponents);
-        assert!((d - -0.4834).abs() < 0.001, "delta = {d:.4}, paper says -0.4834");
+        assert!(
+            (d - -0.4834).abs() < 0.001,
+            "delta = {d:.4}, paper says -0.4834"
+        );
     }
 
     #[test]
@@ -557,7 +565,10 @@ mod tests {
         // The right answer is the paper's 0.639 for the first opponent; the wrong constant
         // is both wrong AND far away, so this cannot pass by luck.
         let right = expected(1500.0, 1400.0, 30.0);
-        assert!((right - 0.639).abs() < 0.001, "E = {right:.4}, paper says 0.639");
+        assert!(
+            (right - 0.639).abs() < 0.001,
+            "E = {right:.4}, paper says 0.639"
+        );
 
         let wrong = expected_with_legacy_divisor(1500.0, 1400.0, 30.0);
         assert!(
@@ -592,7 +603,10 @@ mod tests {
         let drawn = rating.update(&[Opponent::new(1500.0, 350.0, Outcome::Draw)]);
         // Between an equal opponent, a draw must barely move the rating — but it must still
         // shrink the RD, because the comparison happened and it told us *something*.
-        assert!((drawn.mu - rating.mu).abs() < 1e-6, "a draw against an equal moved the rating");
+        assert!(
+            (drawn.mu - rating.mu).abs() < 1e-6,
+            "a draw against an equal moved the rating"
+        );
         assert!(
             drawn.phi < rating.phi,
             "a draw must reduce uncertainty: {:?}",
@@ -616,7 +630,10 @@ mod tests {
         let fresh = Rating::initial();
         let dormant = fresh.inactivity();
         assert_eq!(dormant.mu, fresh.mu, "inactivity must not move the rating");
-        assert_eq!(dormant.sigma, fresh.sigma, "inactivity must not move volatility");
+        assert_eq!(
+            dormant.sigma, fresh.sigma,
+            "inactivity must not move volatility"
+        );
         assert!(dormant.phi > fresh.phi, "inactivity must widen uncertainty");
         // And the widened RD makes a comparison move the rating further.
         let opponent = [Opponent::new(1600.0, 50.0, Outcome::Win)];
@@ -670,9 +687,21 @@ mod tests {
     #[test]
     fn a_damaged_rating_never_poisons_the_ladder() {
         let broken = [
-            Rating { mu: f64::NAN, phi: 200.0, sigma: 0.06 },
-            Rating { mu: 1500.0, phi: f64::INFINITY, sigma: 0.06 },
-            Rating { mu: 1500.0, phi: 200.0, sigma: 0.0 },
+            Rating {
+                mu: f64::NAN,
+                phi: 200.0,
+                sigma: 0.06,
+            },
+            Rating {
+                mu: 1500.0,
+                phi: f64::INFINITY,
+                sigma: 0.06,
+            },
+            Rating {
+                mu: 1500.0,
+                phi: 200.0,
+                sigma: 0.0,
+            },
         ];
         for rating in broken {
             let updated = rating.update(&[Opponent::new(1500.0, 200.0, Outcome::Win)]);

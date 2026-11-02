@@ -48,30 +48,26 @@ pub async fn award(
          ON CONFLICT (account_id, badge) DO NOTHING",
     );
     let affected = match db.backend() {
-        Backend::Sqlite => {
-            sqlx::query(&sql)
-                .bind(uuid::Uuid::new_v4().to_string())
-                .bind(account_id)
-                .bind(badge.slug)
-                .bind(context)
-                .bind(badge.credits)
-                .bind(&now)
-                .execute(db.sqlite_pool().expect("sqlite handle"))
-                .await?
-                .rows_affected()
-        }
-        Backend::Postgres => {
-            sqlx::query(&sql)
-                .bind(uuid::Uuid::new_v4().to_string())
-                .bind(account_id)
-                .bind(badge.slug)
-                .bind(context)
-                .bind(badge.credits)
-                .bind(&now)
-                .execute(db.postgres_pool().expect("postgres handle"))
-                .await?
-                .rows_affected()
-        }
+        Backend::Sqlite => sqlx::query(&sql)
+            .bind(uuid::Uuid::new_v4().to_string())
+            .bind(account_id)
+            .bind(badge.slug)
+            .bind(context)
+            .bind(badge.credits)
+            .bind(&now)
+            .execute(db.sqlite_pool().expect("sqlite handle"))
+            .await?
+            .rows_affected(),
+        Backend::Postgres => sqlx::query(&sql)
+            .bind(uuid::Uuid::new_v4().to_string())
+            .bind(account_id)
+            .bind(badge.slug)
+            .bind(context)
+            .bind(badge.credits)
+            .bind(&now)
+            .execute(db.postgres_pool().expect("postgres handle"))
+            .await?
+            .rows_affected(),
     };
     if affected == 0 {
         return Ok(false);

@@ -114,7 +114,12 @@ async fn seed(tdb: &test_support::TestDb) {
              VALUES (?1#u, ?2#u, 'sb', ?3, ?3, 'A', '', 1000, 'ongoing', \
                      'https://example.invalid/x', ?4, '2026-10-30T00:00:00Z', \
                      '2026-10-30T00:00:00Z', '2026-10-30T00:00:00Z', 5)",
-            &[&uuid::Uuid::new_v4().to_string(), &account, key, source_updated],
+            &[
+                &uuid::Uuid::new_v4().to_string(),
+                &account,
+                key,
+                source_updated,
+            ],
         )
         .await;
     }
@@ -146,7 +151,9 @@ async fn the_window_parameter_actually_filters() {
     assert_eq!(keys(&all).await, vec!["new-story", "old-story"]);
 
     // An absolute range selects the 2020 row alone.
-    let (status, old) = h.get("/api/v1/catalogue?updated=2020-01-01..2021-01-01").await;
+    let (status, old) = h
+        .get("/api/v1/catalogue?updated=2020-01-01..2021-01-01")
+        .await;
     assert_eq!(status, StatusCode::OK);
     assert_eq!(keys(&old).await, vec!["old-story"], "{old}");
 

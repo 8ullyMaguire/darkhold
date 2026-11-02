@@ -86,7 +86,11 @@ mod tests {
     #[test]
     fn one_badge_is_awarded_once_per_account_by_its_key() {
         let a = credit_key("first_words", "acct-1");
-        assert_eq!(a, credit_key("first_words", "acct-1"), "stable, so a replay reuses it");
+        assert_eq!(
+            a,
+            credit_key("first_words", "acct-1"),
+            "stable, so a replay reuses it"
+        );
         assert_ne!(a, credit_key("first_words", "acct-2"));
         assert_ne!(a, credit_key("first_words_v2", "acct-1"));
     }

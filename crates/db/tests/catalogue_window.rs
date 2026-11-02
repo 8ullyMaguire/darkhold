@@ -64,7 +64,9 @@ async fn connect(tag: &str) -> Database {
                 .await
                 .expect("create a scratch database");
             admin_db.close().await;
-            let (prefix, _) = admin.rsplit_once('/').expect("admin URL ends in a database");
+            let (prefix, _) = admin
+                .rsplit_once('/')
+                .expect("admin URL ends in a database");
             format!("{prefix}/{name}")
         }
         Err(_) => format!("sqlite://{}/darkhold.sqlite?mode=rwc", dir.display()),
@@ -156,43 +158,67 @@ async fn seed(db: &Database) {
     // `library_items.id` is a UUID on PostgreSQL, so the fixture's own labels go
     // in `source_work_key` and the id is generated. The assertions read the key.
     for (key, source_updated, synced) in [
-        ("bare-date", Some("2026-10-13T00:00:00Z"), "2026-03-01T00:00:00Z"),
+        (
+            "bare-date",
+            Some("2026-10-13T00:00:00Z"),
+            "2026-03-01T00:00:00Z",
+        ),
         // Updated three days ago, last rechecked in September: the pair that
         // makes a crossed column visible.
-        ("offset", Some("2026-10-30T10:00:00Z"), "2026-09-01T00:00:00Z"),
-        ("boundary", Some("2026-10-25T12:00:00Z"), "2026-10-25T12:00:00Z"),
+        (
+            "offset",
+            Some("2026-10-30T10:00:00Z"),
+            "2026-09-01T00:00:00Z",
+        ),
+        (
+            "boundary",
+            Some("2026-10-25T12:00:00Z"),
+            "2026-10-25T12:00:00Z",
+        ),
         ("unknown", None, "2026-10-31T00:00:00Z"),
         // The 27th, 41 minutes after midnight. Paired with the row below it, this
         // is what exposes a window shifted by the session timezone.
-        ("naive", Some("2026-10-27T00:41:28Z"), "2026-10-27T00:41:28Z"),
+        (
+            "naive",
+            Some("2026-10-27T00:41:28Z"),
+            "2026-10-27T00:41:28Z",
+        ),
         // An instant late on the 26th: a Madrid `@2026-10-27` starts at 23:00 on the
         // 26th and would swallow it.
-        ("z-shape", Some("2026-10-26T23:30:00Z"), "2026-10-26T23:30:00Z"),
+        (
+            "z-shape",
+            Some("2026-10-26T23:30:00Z"),
+            "2026-10-26T23:30:00Z",
+        ),
     ] {
         let id = uuid::Uuid::new_v4().to_string();
         match source_updated {
-            Some(source) => exec_with(
-                db,
-                "INSERT INTO library_items \
+            Some(source) => {
+                exec_with(
+                    db,
+                    "INSERT INTO library_items \
                  (id, account_id, source_key, source_work_key, title, author_text, summary, \
                   word_count, status, source_url, source_updated_at, last_synced_at, created_at, \
                   updated_at, likes) \
                  VALUES (?1#u, ?5#u, 'sb', ?2, ?2, 'A', '', 1000, \
                          'ongoing', 'https://example.invalid/x', ?3, ?4, ?4, ?4, 5)",
-                &[id.as_str(), key, source, synced, account.as_str()],
-            )
-            .await,
-            None => exec_with(
-                db,
-                "INSERT INTO library_items \
+                    &[id.as_str(), key, source, synced, account.as_str()],
+                )
+                .await
+            }
+            None => {
+                exec_with(
+                    db,
+                    "INSERT INTO library_items \
                  (id, account_id, source_key, source_work_key, title, author_text, summary, \
                   word_count, status, source_url, source_updated_at, last_synced_at, created_at, \
                   updated_at, likes) \
                  VALUES (?1#u, ?4#u, 'sb', ?2, ?2, 'A', '', 1000, \
                          'ongoing', 'https://example.invalid/x', NULL, ?3, ?3, ?3, 5)",
-                &[id.as_str(), key, synced, account.as_str()],
-            )
-            .await,
+                    &[id.as_str(), key, synced, account.as_str()],
+                )
+                .await
+            }
         }
     }
 }
@@ -322,7 +348,11 @@ async fn a_source_date_with_no_time_is_that_whole_day() {
     seed(&db).await;
 
     let day = keys(&db, Some("@2026-10-13"), None).await;
-    assert_eq!(day, vec!["bare-date"], "a date-only source date is that day");
+    assert_eq!(
+        day,
+        vec!["bare-date"],
+        "a date-only source date is that day"
+    );
 
     // The instant exactly on the week's start belongs to the window that starts there.
     let boundary_day = keys(&db, Some("@2026-10-25"), None).await;
@@ -367,9 +397,13 @@ async fn a_legacy_timestamp_shape_cannot_be_stored() {
         ("the +00:00 spelling", "2026-10-27T00:41:28+00:00"),
     ] {
         let id = uuid::Uuid::new_v4().to_string();
-        let err = try_exec_with(&db, insert, &[id.as_str(), label, shape, shape, account.as_str()])
-            .await
-            .expect_err(&format!("{label} must be refused"));
+        let err = try_exec_with(
+            &db,
+            insert,
+            &[id.as_str(), label, shape, shape, account.as_str()],
+        )
+        .await
+        .expect_err(&format!("{label} must be refused"));
         assert!(
             err.to_lowercase().contains("canonical"),
             "{label}: the refusal must name the rule, got {err}"

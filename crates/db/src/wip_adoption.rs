@@ -92,10 +92,12 @@ const OFFER_COLUMNS: &str =
 pub async fn has_table(db: &Database, table: &str) -> Result<bool> {
     match db.backend() {
         Backend::Sqlite => {
-            let row = sqlx::query("SELECT COUNT(*) AS n FROM sqlite_master WHERE type = 'table' AND name = ?")
-                .bind(table)
-                .fetch_one(db.sqlite_pool().expect("sqlite"))
-                .await?;
+            let row = sqlx::query(
+                "SELECT COUNT(*) AS n FROM sqlite_master WHERE type = 'table' AND name = ?",
+            )
+            .bind(table)
+            .fetch_one(db.sqlite_pool().expect("sqlite"))
+            .await?;
             Ok(row.get::<i64, _>("n") > 0)
         }
         Backend::Postgres => {
@@ -142,8 +144,12 @@ async fn work_facts(db: &Database, work_id: &str) -> Result<Option<(String, Stri
 pub async fn open_offer_for(db: &Database, work_id: &str) -> Result<Option<Offer>> {
     let sql = sql_owned(
         db,
-        format!("SELECT {OFFER_COLUMNS} FROM adoption_offers WHERE work_id = ? AND status = 'open'"),
-        format!("SELECT {OFFER_COLUMNS} FROM adoption_offers WHERE work_id = $1 AND status = 'open'"),
+        format!(
+            "SELECT {OFFER_COLUMNS} FROM adoption_offers WHERE work_id = ? AND status = 'open'"
+        ),
+        format!(
+            "SELECT {OFFER_COLUMNS} FROM adoption_offers WHERE work_id = $1 AND status = 'open'"
+        ),
     );
     Ok(match db.backend() {
         Backend::Sqlite => sqlx::query(&sql)
@@ -299,24 +305,20 @@ pub async fn list_open(db: &Database, limit: i64) -> Result<Vec<Offer>> {
         ),
     );
     let rows: Vec<Offer> = match db.backend() {
-        Backend::Sqlite => {
-            sqlx::query(&sql)
-                .bind(limit)
-                .fetch_all(db.sqlite_pool().expect("sqlite"))
-                .await?
-                .iter()
-                .map(|r| offer_of!(r))
-                .collect()
-        }
-        Backend::Postgres => {
-            sqlx::query(&sql)
-                .bind(limit)
-                .fetch_all(db.postgres_pool().expect("postgres"))
-                .await?
-                .iter()
-                .map(|r| offer_of!(r))
-                .collect()
-        }
+        Backend::Sqlite => sqlx::query(&sql)
+            .bind(limit)
+            .fetch_all(db.sqlite_pool().expect("sqlite"))
+            .await?
+            .iter()
+            .map(|r| offer_of!(r))
+            .collect(),
+        Backend::Postgres => sqlx::query(&sql)
+            .bind(limit)
+            .fetch_all(db.postgres_pool().expect("postgres"))
+            .await?
+            .iter()
+            .map(|r| offer_of!(r))
+            .collect(),
     };
     Ok(rows)
 }
@@ -429,34 +431,30 @@ pub async fn contributors(db: &Database, work_id: &str) -> Result<Lineage> {
           GROUP BY r.created_by_pseud_id, p.handle",
     );
     let rows: Vec<Contributor> = match db.backend() {
-        Backend::Sqlite => {
-            sqlx::query(&sql)
-                .bind(work_id)
-                .fetch_all(db.sqlite_pool().expect("sqlite"))
-                .await?
-                .iter()
-                .map(|r| Contributor {
-                    pseud_id: r.get::<String, _>("pseud_id"),
-                    handle: r.get::<Option<String>, _>("handle").unwrap_or_default(),
-                    first_revision_at: r.get::<String, _>("first_revision_at"),
-                    revisions: r.get::<i64, _>("revisions"),
-                })
-                .collect()
-        }
-        Backend::Postgres => {
-            sqlx::query(&sql)
-                .bind(work_id)
-                .fetch_all(db.postgres_pool().expect("postgres"))
-                .await?
-                .iter()
-                .map(|r| Contributor {
-                    pseud_id: r.get::<String, _>("pseud_id"),
-                    handle: r.get::<Option<String>, _>("handle").unwrap_or_default(),
-                    first_revision_at: r.get::<String, _>("first_revision_at"),
-                    revisions: r.get::<i64, _>("revisions"),
-                })
-                .collect()
-        }
+        Backend::Sqlite => sqlx::query(&sql)
+            .bind(work_id)
+            .fetch_all(db.sqlite_pool().expect("sqlite"))
+            .await?
+            .iter()
+            .map(|r| Contributor {
+                pseud_id: r.get::<String, _>("pseud_id"),
+                handle: r.get::<Option<String>, _>("handle").unwrap_or_default(),
+                first_revision_at: r.get::<String, _>("first_revision_at"),
+                revisions: r.get::<i64, _>("revisions"),
+            })
+            .collect(),
+        Backend::Postgres => sqlx::query(&sql)
+            .bind(work_id)
+            .fetch_all(db.postgres_pool().expect("postgres"))
+            .await?
+            .iter()
+            .map(|r| Contributor {
+                pseud_id: r.get::<String, _>("pseud_id"),
+                handle: r.get::<Option<String>, _>("handle").unwrap_or_default(),
+                first_revision_at: r.get::<String, _>("first_revision_at"),
+                revisions: r.get::<i64, _>("revisions"),
+            })
+            .collect(),
     };
 
     Ok(Lineage {

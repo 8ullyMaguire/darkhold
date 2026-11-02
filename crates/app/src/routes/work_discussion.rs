@@ -170,7 +170,6 @@ async fn post_reaction(
     Ok(Json(json!({ "outcome": outcome_str })))
 }
 
-
 // ---------------------------------------------------------------------------
 // §9.4 quick reactions (M47-12)
 // ---------------------------------------------------------------------------
@@ -204,9 +203,11 @@ async fn get_quick_reactions(
         .await
         .map_err(internal)?;
     let mine = match session.as_ref().and_then(|s| s.pseud_id.as_ref()) {
-        Some(pseud) => darkhold_db::quick_reactions::mine(state.db(), &id, &pseud.as_uuid().to_string())
-            .await
-            .map_err(internal)?,
+        Some(pseud) => {
+            darkhold_db::quick_reactions::mine(state.db(), &id, &pseud.as_uuid().to_string())
+                .await
+                .map_err(internal)?
+        }
         None => Vec::new(),
     };
 
@@ -248,9 +249,15 @@ async fn put_quick_reaction(
     {
         return Err(ApiError(darkhold_domain::AppError::AccessDenied));
     }
-    darkhold_db::quick_reactions::add(state.db(), &id, &pseud_id.to_string(), label, &now_rfc3339())
-        .await
-        .map_err(internal)?;
+    darkhold_db::quick_reactions::add(
+        state.db(),
+        &id,
+        &pseud_id.to_string(),
+        label,
+        &now_rfc3339(),
+    )
+    .await
+    .map_err(internal)?;
     Ok(Json(json!({ "label": label, "reacted": true })))
 }
 
@@ -261,9 +268,10 @@ async fn delete_quick_reaction(
     Path((id, label)): Path<(String, String)>,
 ) -> ApiResult<Json<serde_json::Value>> {
     let label = known_label(&label)?;
-    let removed = darkhold_db::quick_reactions::remove(state.db(), &id, &pseud_id.to_string(), label)
-        .await
-        .map_err(internal)?;
+    let removed =
+        darkhold_db::quick_reactions::remove(state.db(), &id, &pseud_id.to_string(), label)
+            .await
+            .map_err(internal)?;
     Ok(Json(json!({ "label": label, "removed": removed })))
 }
 

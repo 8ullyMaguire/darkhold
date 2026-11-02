@@ -53,7 +53,9 @@ async fn connect(tag: &str) -> Database {
                 .await
                 .expect("create a scratch database");
             admin_db.close().await;
-            let (prefix, _) = admin.rsplit_once('/').expect("admin URL ends in a database");
+            let (prefix, _) = admin
+                .rsplit_once('/')
+                .expect("admin URL ends in a database");
             format!("{prefix}/{name}")
         }
         Err(_) => format!("sqlite://{}/darkhold.sqlite?mode=rwc", dir.display()),
@@ -237,7 +239,10 @@ async fn the_chapters_metric_counts_distinct_chapters_in_the_window() {
     .await
     .expect("progress");
 
-    assert_eq!(progress.current, 2, "one chapter counted once, yesterday excluded");
+    assert_eq!(
+        progress.current, 2,
+        "one chapter counted once, yesterday excluded"
+    );
     assert_eq!(progress.window_start, "2026-11-02T00:00:00Z");
     assert_eq!(progress.window_end, "2026-11-03T00:00:00Z");
     assert!(!progress.met());
@@ -264,7 +269,10 @@ async fn the_words_metric_sums_the_chapters_actually_read() {
     .await
     .expect("progress");
 
-    assert_eq!(progress.current, 2400, "two of three chapters, 1200 words each");
+    assert_eq!(
+        progress.current, 2400,
+        "two of three chapters, 1200 words each"
+    );
     assert_eq!(progress.remaining(), 7600);
 }
 
@@ -277,7 +285,10 @@ async fn the_works_metric_reads_the_account_shelf_and_its_window() {
     let (work_b, _) = work(&db, &author.pseud, 1, 10).await;
 
     // One finished today, one finished yesterday.
-    for (work, finished) in [(&work_a, "2026-11-02T08:00:00Z"), (&work_b, "2026-11-01T08:00:00Z")] {
+    for (work, finished) in [
+        (&work_a, "2026-11-02T08:00:00Z"),
+        (&work_b, "2026-11-01T08:00:00Z"),
+    ] {
         exec(
             &db,
             &format!(

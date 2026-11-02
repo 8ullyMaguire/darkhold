@@ -173,11 +173,12 @@ async fn connect(tag: &str) -> (Database, Option<String>) {
                 .await
                 .expect("connect to the admin database");
             let pool = admin_db.postgres_pool().expect("postgres pool");
-            let exists: Option<i32> = sqlx::query_scalar("SELECT 1 FROM pg_database WHERE datname = $1")
-                .bind(SCHEMA_DB)
-                .fetch_one(pool)
-                .await
-                .unwrap_or(None);
+            let exists: Option<i32> =
+                sqlx::query_scalar("SELECT 1 FROM pg_database WHERE datname = $1")
+                    .bind(SCHEMA_DB)
+                    .fetch_one(pool)
+                    .await
+                    .unwrap_or(None);
             if exists.is_none() {
                 // Two test binaries can both see "absent"; the loser's error is the outcome, not a
                 // fault.
@@ -187,12 +188,18 @@ async fn connect(tag: &str) -> (Database, Option<String>) {
             }
             admin_db.close().await;
 
-            let (prefix, _) = admin.rsplit_once('/').expect("the admin URL ends in a database");
+            let (prefix, _) = admin
+                .rsplit_once('/')
+                .expect("the admin URL ends in a database");
             let scratch = format!("{prefix}/{SCHEMA_DB}");
             let scratch_db = Database::connect(&make_config(scratch.clone()))
                 .await
                 .expect("connect to the scratch database");
-            let s = format!("rs_{}_{}", std::process::id(), uuid::Uuid::new_v4().simple());
+            let s = format!(
+                "rs_{}_{}",
+                std::process::id(),
+                uuid::Uuid::new_v4().simple()
+            );
             sqlx::query(&format!("CREATE SCHEMA {s}"))
                 .execute(scratch_db.postgres_pool().expect("postgres pool"))
                 .await
@@ -218,7 +225,9 @@ async fn drop_schema(schema: &str) {
     let Ok(admin) = std::env::var("DARKHOLD_TEST_PG_URL") else {
         return;
     };
-    let (prefix, _) = admin.rsplit_once('/').expect("the admin URL ends in a database");
+    let (prefix, _) = admin
+        .rsplit_once('/')
+        .expect("the admin URL ends in a database");
     let Ok(db) = Database::connect(&make_config(format!("{prefix}/{SCHEMA_DB}"))).await else {
         return;
     };
@@ -276,7 +285,8 @@ struct Seeded {
 }
 
 async fn seed(db: &Database) -> Seeded {
-    let account = |tag: &str, curator: bool| (uuid::Uuid::new_v4().to_string(), tag.to_string(), curator);
+    let account =
+        |tag: &str, curator: bool| (uuid::Uuid::new_v4().to_string(), tag.to_string(), curator);
     let reader = account("reader", false).0;
     let other = account("other", false).0;
     let curator = account("curator", true).0;
@@ -317,7 +327,10 @@ async fn seed(db: &Database) -> Seeded {
         .await;
         pseuds.insert(account_id.clone(), pseud);
     }
-    let other_pseud = pseuds.get(&other).expect("the other reader's pseud").clone();
+    let other_pseud = pseuds
+        .get(&other)
+        .expect("the other reader's pseud")
+        .clone();
     let reader_pseud = pseuds.get(&reader).expect("the reader's pseud").clone();
     let curator_pseud = pseuds.get(&curator).expect("the curator's pseud").clone();
 
@@ -325,9 +338,21 @@ async fn seed(db: &Database) -> Seeded {
     // curator; W4 is in progress on the reader's history; W5 has aggregate views.
     let works = [
         (uuid::Uuid::new_v4().to_string(), "W1 shared", "complete"),
-        (uuid::Uuid::new_v4().to_string(), "W2 co-bookmarked", "complete"),
-        (uuid::Uuid::new_v4().to_string(), "W3 curator public", "complete"),
-        (uuid::Uuid::new_v4().to_string(), "W4 in progress", "in_progress"),
+        (
+            uuid::Uuid::new_v4().to_string(),
+            "W2 co-bookmarked",
+            "complete",
+        ),
+        (
+            uuid::Uuid::new_v4().to_string(),
+            "W3 curator public",
+            "complete",
+        ),
+        (
+            uuid::Uuid::new_v4().to_string(),
+            "W4 in progress",
+            "in_progress",
+        ),
         (uuid::Uuid::new_v4().to_string(), "W5 viewed", "complete"),
     ];
     let owners = [
@@ -366,7 +391,13 @@ async fn seed(db: &Database) -> Seeded {
             "INSERT INTO bookmarks (id, account_id, subject_type, subject_id, note, is_public,
                                     created_at, updated_at, version)
              VALUES (?1#u, ?2#u, 'work', ?3#u, '', ?4#b, ?5, ?5, 1)",
-            &[&uuid::Uuid::new_v4().to_string(), bookmarker, work, public, NOW],
+            &[
+                &uuid::Uuid::new_v4().to_string(),
+                bookmarker,
+                work,
+                public,
+                NOW,
+            ],
         )
         .await;
     }

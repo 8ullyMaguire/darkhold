@@ -203,11 +203,7 @@ async fn publishing_the_record_does_not_publish_the_text() {
     let (status, body) = guest
         .get(format!("/api/v1/works/{work}/chapters/{unit}"))
         .await;
-    assert_eq!(
-        status,
-        StatusCode::NOT_FOUND,
-        "the text stays held: {body}"
-    );
+    assert_eq!(status, StatusCode::NOT_FOUND, "the text stays held: {body}");
 
     // The public API's work endpoint says the body is withheld rather than
     // handing out a work that looks empty.

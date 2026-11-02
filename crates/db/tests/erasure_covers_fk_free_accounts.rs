@@ -52,7 +52,9 @@ fn unlinked_account_columns() -> BTreeSet<(String, String)> {
         while let Some(start) = rest.find("CREATE TABLE") {
             let after = &rest[start..];
             let Some(open) = after.find('(') else { break };
-            let Some(close) = after[open..].find("\n);") else { break };
+            let Some(close) = after[open..].find("\n);") else {
+                break;
+            };
             let block = &after[..open + close];
             // `CREATE TABLE [IF NOT EXISTS] <name> (` — the `IF NOT EXISTS` form is the common one
             // in this tree, and taking the third word blindly names every such table `IF`.
@@ -185,14 +187,18 @@ async fn count(tdb: &TestDb, table: &str, account_id: &str) -> i64 {
     let postgres = format!("SELECT COUNT(*) FROM {table} WHERE account_id::text = $1");
     let sql = tdb.db().sql(&sqlite, &postgres);
     match tdb.db().backend() {
-        Backend::Sqlite => sqlx::query_scalar::<_, i64>(&sql)
-            .bind(account_id)
-            .fetch_one(tdb.db().sqlite_pool().expect("sqlite handle"))
-            .await,
-        Backend::Postgres => sqlx::query_scalar::<_, i64>(&sql)
-            .bind(account_id)
-            .fetch_one(tdb.db().postgres_pool().expect("postgres handle"))
-            .await,
+        Backend::Sqlite => {
+            sqlx::query_scalar::<_, i64>(&sql)
+                .bind(account_id)
+                .fetch_one(tdb.db().sqlite_pool().expect("sqlite handle"))
+                .await
+        }
+        Backend::Postgres => {
+            sqlx::query_scalar::<_, i64>(&sql)
+                .bind(account_id)
+                .fetch_one(tdb.db().postgres_pool().expect("postgres handle"))
+                .await
+        }
     }
     .expect("count")
 }
@@ -219,8 +225,9 @@ async fn insert_account(tdb: &TestDb, account_id: &str) {
 
 #[tokio::test]
 async fn a_row_about_the_person_is_deleted() {
-    let tdb = TestDb::connect_with_dir("m45_64_delete", &test_support::scratch_dir("m45_64_delete"))
-        .await;
+    let tdb =
+        TestDb::connect_with_dir("m45_64_delete", &test_support::scratch_dir("m45_64_delete"))
+            .await;
     let account = "11111111-1111-1111-1111-111111111111";
     insert_account(&tdb, account).await;
 
@@ -271,8 +278,8 @@ async fn a_row_about_the_person_is_deleted() {
 
 #[tokio::test]
 async fn a_row_that_must_survive_loses_its_account_link() {
-    let tdb = TestDb::connect_with_dir("m45_64_sever", &test_support::scratch_dir("m45_64_sever"))
-        .await;
+    let tdb =
+        TestDb::connect_with_dir("m45_64_sever", &test_support::scratch_dir("m45_64_sever")).await;
     let account = "22222222-2222-2222-2222-222222222222";
     insert_account(&tdb, account).await;
 
@@ -307,12 +314,16 @@ async fn a_row_that_must_survive_loses_its_account_link() {
                WHERE CAST(id AS TEXT) = '33333333-3333-3333-3333-333333333333' \
                  AND account_id IS NULL";
     let surviving: i64 = match tdb.db().backend() {
-        Backend::Sqlite => sqlx::query_scalar::<_, i64>(sql)
-            .fetch_one(tdb.db().sqlite_pool().expect("sqlite handle"))
-            .await,
-        Backend::Postgres => sqlx::query_scalar::<_, i64>(sql)
-            .fetch_one(tdb.db().postgres_pool().expect("postgres handle"))
-            .await,
+        Backend::Sqlite => {
+            sqlx::query_scalar::<_, i64>(sql)
+                .fetch_one(tdb.db().sqlite_pool().expect("sqlite handle"))
+                .await
+        }
+        Backend::Postgres => {
+            sqlx::query_scalar::<_, i64>(sql)
+                .fetch_one(tdb.db().postgres_pool().expect("postgres handle"))
+                .await
+        }
     }
     .expect("count survivors");
     assert_eq!(

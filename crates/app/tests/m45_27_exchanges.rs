@@ -73,7 +73,12 @@ impl Client {
         }
     }
 
-    async fn request(&mut self, method: &str, uri: &str, body: Option<Value>) -> (StatusCode, Value) {
+    async fn request(
+        &mut self,
+        method: &str,
+        uri: &str,
+        body: Option<Value>,
+    ) -> (StatusCode, Value) {
         let mut builder = Request::builder()
             .method(method)
             .uri(uri)
@@ -187,7 +192,6 @@ impl Harness {
     }
 }
 
-
 /// An event created by `client`, which must hold an activated pseud.
 async fn make_event(client: &mut Client, name: &str) -> String {
     let (status, body) = client
@@ -248,10 +252,14 @@ async fn joining_twice_is_the_same_participation() {
     let mut organiser = participant(&h, "org@example.invalid", "org").await;
     let event = make_event(&mut organiser, "Yuletide").await;
 
-    let (status, first) = organiser.post(&format!("/api/v1/exchanges/{event}/join"), json!({})).await;
+    let (status, first) = organiser
+        .post(&format!("/api/v1/exchanges/{event}/join"), json!({}))
+        .await;
     assert_eq!(status, StatusCode::OK, "{first}");
     assert_eq!(first["new"], json!(true));
-    let (status, second) = organiser.post(&format!("/api/v1/exchanges/{event}/join"), json!({})).await;
+    let (status, second) = organiser
+        .post(&format!("/api/v1/exchanges/{event}/join"), json!({}))
+        .await;
     assert_eq!(status, StatusCode::OK, "{second}");
     assert_eq!(second["new"], json!(false), "the second join is not new");
 
@@ -284,7 +292,9 @@ async fn a_self_exclusion_is_refused_on_the_field() {
     let h = Harness::new("selfex").await;
     let mut organiser = participant(&h, "org3@example.invalid", "org3").await;
     let event = make_event(&mut organiser, "Yuletide").await;
-    organiser.post(&format!("/api/v1/exchanges/{event}/join"), json!({})).await;
+    organiser
+        .post(&format!("/api/v1/exchanges/{event}/join"), json!({}))
+        .await;
     let (_status, me) = organiser.get("/api/v1/auth/me").await;
     let pseud = me["active_pseud_id"]
         .as_str()
@@ -310,15 +320,27 @@ async fn only_the_organiser_matches_and_a_second_match_names_the_first() {
     let h = Harness::new("match").await;
     let mut organiser = participant(&h, "host@example.invalid", "host").await;
     let event = make_event(&mut organiser, "Yuletide").await;
-    organiser.post(&format!("/api/v1/exchanges/{event}/join"), json!({})).await;
+    organiser
+        .post(&format!("/api/v1/exchanges/{event}/join"), json!({}))
+        .await;
 
     let mut other = participant(&h, "guest@example.invalid", "guest").await;
-    other.post(&format!("/api/v1/exchanges/{event}/join"), json!({})).await;
+    other
+        .post(&format!("/api/v1/exchanges/{event}/join"), json!({}))
+        .await;
 
-    let (status, body) = other.post(&format!("/api/v1/exchanges/{event}/match"), json!({})).await;
-    assert_eq!(status, StatusCode::FORBIDDEN, "a guest cannot match: {body}");
+    let (status, body) = other
+        .post(&format!("/api/v1/exchanges/{event}/match"), json!({}))
+        .await;
+    assert_eq!(
+        status,
+        StatusCode::FORBIDDEN,
+        "a guest cannot match: {body}"
+    );
 
-    let (status, body) = organiser.post(&format!("/api/v1/exchanges/{event}/match"), json!({})).await;
+    let (status, body) = organiser
+        .post(&format!("/api/v1/exchanges/{event}/match"), json!({}))
+        .await;
     assert_eq!(status, StatusCode::OK, "{body}");
     assert_eq!(body["matched"], json!(2), "{body}");
     let assigned_at = body["assignments"][0]["assigned_at"]
@@ -326,12 +348,17 @@ async fn only_the_organiser_matches_and_a_second_match_names_the_first() {
         .expect("assigned_at")
         .to_owned();
 
-    let (status, body) = organiser.post(&format!("/api/v1/exchanges/{event}/match"), json!({})).await;
+    let (status, body) = organiser
+        .post(&format!("/api/v1/exchanges/{event}/match"), json!({}))
+        .await;
     assert_eq!(status, StatusCode::UNPROCESSABLE_ENTITY, "{body}");
     let reason = body["error"]["field_errors"]["event_id"]
         .as_str()
         .expect("field error");
-    assert!(reason.contains(&assigned_at), "the refusal names the first: {reason}");
+    assert!(
+        reason.contains(&assigned_at),
+        "the refusal names the first: {reason}"
+    );
 }
 
 #[tokio::test]
@@ -339,21 +366,41 @@ async fn the_recipient_is_secret_until_the_organiser_reveals() {
     let h = Harness::new("reveal").await;
     let mut organiser = participant(&h, "host2@example.invalid", "host2").await;
     let event = make_event(&mut organiser, "Yuletide").await;
-    organiser.post(&format!("/api/v1/exchanges/{event}/join"), json!({})).await;
+    organiser
+        .post(&format!("/api/v1/exchanges/{event}/join"), json!({}))
+        .await;
     let mut guest = participant(&h, "guest2@example.invalid", "guest2").await;
-    guest.post(&format!("/api/v1/exchanges/{event}/join"), json!({})).await;
-    organiser.post(&format!("/api/v1/exchanges/{event}/match"), json!({})).await;
+    guest
+        .post(&format!("/api/v1/exchanges/{event}/join"), json!({}))
+        .await;
+    organiser
+        .post(&format!("/api/v1/exchanges/{event}/match"), json!({}))
+        .await;
 
     let (status, body) = guest.get(&format!("/api/v1/exchanges/{event}/mine")).await;
     assert_eq!(status, StatusCode::OK, "{body}");
-    assert_eq!(body["recipient"], Value::Null, "secret before reveal: {body}");
+    assert_eq!(
+        body["recipient"],
+        Value::Null,
+        "secret before reveal: {body}"
+    );
     assert_eq!(body["revealed"], json!(false));
-    assert!(body["reason"].as_str().is_some_and(|r| r.contains("secret")));
+    assert!(body["reason"]
+        .as_str()
+        .is_some_and(|r| r.contains("secret")));
 
-    let (status, body) = guest.post(&format!("/api/v1/exchanges/{event}/reveal"), json!({})).await;
-    assert_eq!(status, StatusCode::FORBIDDEN, "only the organiser reveals: {body}");
+    let (status, body) = guest
+        .post(&format!("/api/v1/exchanges/{event}/reveal"), json!({}))
+        .await;
+    assert_eq!(
+        status,
+        StatusCode::FORBIDDEN,
+        "only the organiser reveals: {body}"
+    );
 
-    let (status, body) = organiser.post(&format!("/api/v1/exchanges/{event}/reveal"), json!({})).await;
+    let (status, body) = organiser
+        .post(&format!("/api/v1/exchanges/{event}/reveal"), json!({}))
+        .await;
     assert_eq!(status, StatusCode::OK, "{body}");
     assert_eq!(body["revealed"], json!(true));
 
@@ -371,9 +418,13 @@ async fn an_impossible_pairing_answers_422_naming_the_participants() {
     let h = Harness::new("impossible").await;
     let mut organiser = participant(&h, "host3@example.invalid", "host3").await;
     let event = make_event(&mut organiser, "Yuletide").await;
-    organiser.post(&format!("/api/v1/exchanges/{event}/join"), json!({})).await;
+    organiser
+        .post(&format!("/api/v1/exchanges/{event}/join"), json!({}))
+        .await;
     let mut guest = participant(&h, "guest3@example.invalid", "guest3").await;
-    guest.post(&format!("/api/v1/exchanges/{event}/join"), json!({})).await;
+    guest
+        .post(&format!("/api/v1/exchanges/{event}/join"), json!({}))
+        .await;
 
     // The guest refuses the organiser, and with two participants that leaves no pairing.
     let (_status, me) = organiser.get("/api/v1/auth/me").await;
@@ -390,7 +441,9 @@ async fn an_impossible_pairing_answers_422_naming_the_participants() {
         .await;
     assert_eq!(status, StatusCode::OK, "{body}");
 
-    let (status, body) = organiser.post(&format!("/api/v1/exchanges/{event}/match"), json!({})).await;
+    let (status, body) = organiser
+        .post(&format!("/api/v1/exchanges/{event}/match"), json!({}))
+        .await;
     assert_eq!(status, StatusCode::UNPROCESSABLE_ENTITY, "{body}");
     let reason = body["error"]["field_errors"]["participants"]
         .as_str()
@@ -416,5 +469,9 @@ async fn the_module_is_registered_without_a_nav_entry() {
         .unwrap_or_else(|| panic!("exchanges is not in the registry payload"));
     assert_eq!(row["enabled"], json!(true));
     assert_eq!(row["toggle"], json!("operator"));
-    assert_eq!(row["nav"], json!([]), "a seasonal surface has no sidebar entry");
+    assert_eq!(
+        row["nav"],
+        json!([]),
+        "a seasonal surface has no sidebar entry"
+    );
 }

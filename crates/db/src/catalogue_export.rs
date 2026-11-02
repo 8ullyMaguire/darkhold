@@ -73,7 +73,8 @@ pub struct ExportSummary {
 }
 
 /// The privacy statement the file carries in its own `meta` table.
-const PRIVACY: &str = "Story metadata only: titles, bylines, summaries, word counts, addresses and \
+const PRIVACY: &str =
+    "Story metadata only: titles, bylines, summaries, word counts, addresses and \
      the endorsement counts each source publishes. No account, pseudonym, email, import record or \
      reading history is present, and no column on this file identifies a reader of this instance. \
      Exact counts are exported because nothing here describes a person.";
@@ -245,13 +246,19 @@ pub async fn build_sqlite(db: &Database, path: &Path) -> Result<ExportSummary> {
 
     let meta: [(&str, String); 9] = [
         ("schema_version", SCHEMA_VERSION.to_string()),
-        ("generator", format!("darkhold catalogue export v{SCHEMA_VERSION}")),
+        (
+            "generator",
+            format!("darkhold catalogue export v{SCHEMA_VERSION}"),
+        ),
         ("built_at", built_at.clone()),
         ("fingerprint", fingerprint.clone()),
         ("rows", written.to_string()),
         ("works", distinct.0.to_string()),
         ("sources", sources.0.to_string()),
-        ("backend", format!("{:?}", db.backend()).to_ascii_lowercase()),
+        (
+            "backend",
+            format!("{:?}", db.backend()).to_ascii_lowercase(),
+        ),
         ("privacy", PRIVACY.to_owned()),
     ];
     for (k, v) in meta {

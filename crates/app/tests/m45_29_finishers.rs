@@ -67,10 +67,7 @@ impl Harness {
             .header(header::CONTENT_TYPE, "application/json")
             .body(Body::empty())
             .expect("request");
-        let app = server::build_router(AppState::new(
-            self.config.clone(),
-            self.tdb.db().clone(),
-        ));
+        let app = server::build_router(AppState::new(self.config.clone(), self.tdb.db().clone()));
         let response = app.oneshot(request).await.expect("response");
         let status = response.status();
         let bytes = axum::body::to_bytes(response.into_body(), 1024 * 1024)
@@ -94,14 +91,16 @@ async fn author_with_works(h: &Harness, completion_counts: &[(i64, &str)]) -> St
     use darkhold_db::Backend;
     match db.backend() {
         Backend::Sqlite => {
-            sqlx::query("INSERT INTO accounts (id, email, created_at, updated_at) VALUES (?, ?, ?, ?)")
-                .bind(&account)
-                .bind(format!("{account}@example.invalid"))
-                .bind(t0)
-                .bind(t0)
-                .execute(db.sqlite_pool().expect("sqlite"))
-                .await
-                .expect("account");
+            sqlx::query(
+                "INSERT INTO accounts (id, email, created_at, updated_at) VALUES (?, ?, ?, ?)",
+            )
+            .bind(&account)
+            .bind(format!("{account}@example.invalid"))
+            .bind(t0)
+            .bind(t0)
+            .execute(db.sqlite_pool().expect("sqlite"))
+            .await
+            .expect("account");
             sqlx::query(
                 "INSERT INTO pseuds (id, account_id, handle, display_name, created_at, updated_at)
                  VALUES (?, ?, ?, ?, ?, ?)",
@@ -195,7 +194,11 @@ async fn the_module_ships_off_and_an_operator_enables_it() {
     let (status, body) = on
         .get(&format!("/api/v1/works/{}/cadence", uuid::Uuid::new_v4()))
         .await;
-    assert_eq!(status, StatusCode::OK, "enabled, both doors are public: {body}");
+    assert_eq!(
+        status,
+        StatusCode::OK,
+        "enabled, both doors are public: {body}"
+    );
 }
 
 #[tokio::test]
@@ -209,7 +212,11 @@ async fn the_registry_row_is_present_off_by_default_and_carries_no_nav() {
         .iter()
         .find(|m| m["id"] == json!("finishers"))
         .unwrap_or_else(|| panic!("finishers is not registered"));
-    assert_eq!(row["enabled"], json!(false), "the review says off by default");
+    assert_eq!(
+        row["enabled"],
+        json!(false),
+        "the review says off by default"
+    );
     assert_eq!(row["nav"], json!([]));
 }
 
@@ -217,7 +224,10 @@ async fn the_registry_row_is_present_off_by_default_and_carries_no_nav() {
 async fn an_unknown_author_is_404_and_an_author_with_nothing_is_zeroes() {
     let h = Harness::new("author", true).await;
     let (status, body) = h
-        .get(&format!("/api/v1/authors/{}/finisher-signals", uuid::Uuid::new_v4()))
+        .get(&format!(
+            "/api/v1/authors/{}/finisher-signals",
+            uuid::Uuid::new_v4()
+        ))
         .await;
     assert_eq!(status, StatusCode::NOT_FOUND, "{body}");
 
@@ -234,7 +244,8 @@ async fn an_unknown_author_is_404_and_an_author_with_nothing_is_zeroes() {
 #[tokio::test]
 async fn the_payload_carries_counts_but_never_a_label() {
     let h = Harness::new("framing", true).await;
-    let pseud = author_with_works(&h, &[(9, "complete"), (1, "abandoned"), (4, "in_progress")]).await;
+    let pseud =
+        author_with_works(&h, &[(9, "complete"), (1, "abandoned"), (4, "in_progress")]).await;
     let (status, body) = h
         .get(&format!("/api/v1/authors/{pseud}/finisher-signals"))
         .await;

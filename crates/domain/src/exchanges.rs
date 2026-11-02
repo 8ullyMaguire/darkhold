@@ -389,7 +389,11 @@ mod tests {
         };
         let first = match_participants(&build(&[0, 1, 2, 3])).expect("pairing");
         let second = match_participants(&build(&[3, 2, 1, 0])).expect("pairing");
-        assert_eq!(pairs_of(&first), pairs_of(&second), "order changed the pairing");
+        assert_eq!(
+            pairs_of(&first),
+            pairs_of(&second),
+            "order changed the pairing"
+        );
     }
 
     #[test]
@@ -426,7 +430,10 @@ mod tests {
 
     #[test]
     fn the_recipient_is_secret_until_reveal() {
-        assert!(!may_see_recipient(false, true), "before reveal, even a giver");
+        assert!(
+            !may_see_recipient(false, true),
+            "before reveal, even a giver"
+        );
         assert!(!may_see_recipient(true, false), "after reveal, a non-giver");
         assert!(may_see_recipient(true, true), "after reveal, the giver");
     }

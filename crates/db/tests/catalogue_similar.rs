@@ -56,7 +56,9 @@ async fn connect(tag: &str) -> Database {
                 .await
                 .expect("create a scratch database");
             admin_db.close().await;
-            let (prefix, _) = admin.rsplit_once('/').expect("admin URL ends in a database");
+            let (prefix, _) = admin
+                .rsplit_once('/')
+                .expect("admin URL ends in a database");
             format!("{prefix}/{name}")
         }
         Err(_) => format!("sqlite://{}/darkhold.sqlite?mode=rwc", dir.display()),
@@ -323,13 +325,18 @@ async fn seeded(db: &Database) -> metrics::SimilarPage {
     for row in ROWS {
         insert(db, &account, *row, None).await;
     }
-    let lookup = match metrics::resolve_seed(db, "Ghost in the City").await.expect("resolve") {
+    let lookup = match metrics::resolve_seed(db, "Ghost in the City")
+        .await
+        .expect("resolve")
+    {
         metrics::SeedMatch::One(row) => row,
         other => panic!("expected one row, got {other:?}"),
     };
     let mut q = query();
     q.tokens = darkhold_domain::similar::tokens(&lookup.title);
-    metrics::similar(db, &q, &lookup, 20, 0).await.expect("similar")
+    metrics::similar(db, &q, &lookup, 20, 0)
+        .await
+        .expect("similar")
 }
 
 #[tokio::test]
@@ -343,7 +350,11 @@ async fn the_neighbours_are_the_rows_that_share_the_seeds_words() {
     // whole neighbourhood is.
     let mut top: Vec<&str> = order.iter().take(2).map(String::as_str).collect();
     top.sort_unstable();
-    assert_eq!(top, vec!["ghost-alt", "neon"], "the neighbourhood, was {order:?}");
+    assert_eq!(
+        top,
+        vec!["ghost-alt", "neon"],
+        "the neighbourhood, was {order:?}"
+    );
     assert!(
         !order.contains(&"mech".to_owned()),
         "a mechwarrior story is not a neighbour: {order:?}"
@@ -352,13 +363,25 @@ async fn the_neighbours_are_the_rows_that_share_the_seeds_words() {
         !order.contains(&"osh".to_owned()),
         "an unrelated cyberpunk story is not a neighbour either: {order:?}"
     );
-    assert_eq!(page.ranked, order.len() as i64, "ranked must count the neighbours");
+    assert_eq!(
+        page.ranked,
+        order.len() as i64,
+        "ranked must count the neighbours"
+    );
     // `total` is the *filter's* count, and the token preselection is one of the
     // filters: three of the five rows carry "ghost" or "city", so three is the
     // whole universe this page was drawn from. `ranked` is how many of them are
     // neighbours, which is why the gate prints both.
-    assert_eq!(page.total, 3, "the preselection's own count, was {}", page.total);
-    assert_eq!(page.scanned, 3, "the ranker saw the preselection, was {}", page.scanned);
+    assert_eq!(
+        page.total, 3,
+        "the preselection's own count, was {}",
+        page.total
+    );
+    assert_eq!(
+        page.scanned, 3,
+        "the ranker saw the preselection, was {}",
+        page.scanned
+    );
 }
 
 #[tokio::test]
@@ -368,7 +391,9 @@ async fn the_score_and_the_shared_tokens_are_reported() {
     let top = page.items.first().expect("a neighbour");
     assert!(top.score > 0.0 && top.score <= 1.0, "score {top:?}");
     assert!(
-        top.shared.iter().any(|token| token == "ghost" || token == "city"),
+        top.shared
+            .iter()
+            .any(|token| token == "ghost" || token == "city"),
         "the explanation names the shared title token, was {:?}",
         top.shared
     );
@@ -385,7 +410,9 @@ async fn the_author_filter_is_case_insensitive() {
     // filter matching both case-insensitively is the property under test.
     let mut q = query();
     q.author = Some("zfighter18".to_owned());
-    let rows = darkhold_db::catalogue::search(&db, &q).await.expect("search");
+    let rows = darkhold_db::catalogue::search(&db, &q)
+        .await
+        .expect("search");
     let mut authors: Vec<&str> = rows.iter().map(|row| row.author_text.as_str()).collect();
     authors.sort_unstable();
     assert_eq!(
@@ -396,8 +423,14 @@ async fn the_author_filter_is_case_insensitive() {
     // And it is exact: a prefix matches nothing.
     let mut prefix = query();
     prefix.author = Some("ZFight".to_owned());
-    let rows = darkhold_db::catalogue::search(&db, &prefix).await.expect("search");
-    assert!(rows.is_empty(), "a prefix is not the pseud, got {} rows", rows.len());
+    let rows = darkhold_db::catalogue::search(&db, &prefix)
+        .await
+        .expect("search");
+    assert!(
+        rows.is_empty(),
+        "a prefix is not the pseud, got {} rows",
+        rows.len()
+    );
 }
 
 #[tokio::test]
@@ -409,7 +442,9 @@ async fn the_author_filter_does_not_match_a_substring() {
     }
     let mut q = query();
     q.author = Some("Osh".to_owned());
-    let rows = darkhold_db::catalogue::search(&db, &q).await.expect("search");
+    let rows = darkhold_db::catalogue::search(&db, &q)
+        .await
+        .expect("search");
     let authors: Vec<&str> = rows.iter().map(|row| row.author_text.as_str()).collect();
     assert_eq!(
         authors,
@@ -427,14 +462,20 @@ async fn an_accounts_reading_is_excluded_and_nobody_elses_is() {
     // `ghost` is the only row linked to a work, so it is the only one a reading
     // record can point at.
     for (index, row) in ROWS.iter().enumerate() {
-        let work_id = if index == 0 { Some(linked.as_str()) } else { None };
+        let work_id = if index == 0 {
+            Some(linked.as_str())
+        } else {
+            None
+        };
         insert(&db, &owner, *row, work_id).await;
     }
     reading(&db, &reader, &linked).await;
 
     let mut plain = query();
     plain.limit = Some(50);
-    let all = darkhold_db::catalogue::search(&db, &plain).await.expect("search");
+    let all = darkhold_db::catalogue::search(&db, &plain)
+        .await
+        .expect("search");
     assert!(
         all.iter().any(|row| row.source_work_key == "ghost"),
         "the row is present before the exclusion"
@@ -460,7 +501,9 @@ async fn an_accounts_reading_is_excluded_and_nobody_elses_is() {
     let mut other = query();
     other.limit = Some(50);
     other.exclude_account = Some(bystander);
-    let page = darkhold_db::catalogue::search(&db, &other).await.expect("search");
+    let page = darkhold_db::catalogue::search(&db, &other)
+        .await
+        .expect("search");
     assert!(
         page.iter().any(|row| row.source_work_key == "ghost"),
         "another account's reading must not hide the row from this one"
@@ -474,16 +517,23 @@ async fn a_seed_spec_resolves_by_id_url_title_and_refuses_an_ambiguous_title() {
     for row in ROWS {
         insert(&db, &account, *row, None).await;
     }
-    let by_title = metrics::resolve_seed(&db, "ghost in the city").await.expect("title");
+    let by_title = metrics::resolve_seed(&db, "ghost in the city")
+        .await
+        .expect("title");
     let metrics::SeedMatch::One(found) = by_title else {
         panic!("an exact title must resolve, got {by_title:?}")
     };
     assert_eq!(found.title, "Ghost in the City");
 
     let by_id = metrics::resolve_seed(&db, &found.id).await.expect("id");
-    assert!(matches!(by_id, metrics::SeedMatch::One(_)), "an id must resolve");
+    assert!(
+        matches!(by_id, metrics::SeedMatch::One(_)),
+        "an id must resolve"
+    );
 
-    let missing = metrics::resolve_seed(&db, "nothing called this").await.expect("missing");
+    let missing = metrics::resolve_seed(&db, "nothing called this")
+        .await
+        .expect("missing");
     assert_eq!(missing, metrics::SeedMatch::None);
 
     // Three rows carry the word "Ghost" (the two titles and `Neon Ghost
@@ -497,7 +547,9 @@ async fn a_seed_spec_resolves_by_id_url_title_and_refuses_an_ambiguous_title() {
 
     // Two rows, same title, same likes: nothing can choose, so the caller is
     // given both with the archive and the count.
-    let ambiguous = metrics::resolve_seed(&db, "Twin Story").await.expect("twin");
+    let ambiguous = metrics::resolve_seed(&db, "Twin Story")
+        .await
+        .expect("twin");
     match ambiguous {
         metrics::SeedMatch::Many(rows) => {
             assert_eq!(rows.len(), 2, "both twins, got {rows:?}");

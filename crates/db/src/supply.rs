@@ -541,7 +541,8 @@ pub async fn drought(db: &Database, limit: i64) -> Result<DroughtReport> {
         "SELECT CAST(COUNT(*) AS BIGINT) FROM comments WHERE subject_type = 'work'",
     )
     .await?;
-    let ratings_total = scalar_count(db, "SELECT CAST(COUNT(*) AS BIGINT) FROM work_ratings").await?;
+    let ratings_total =
+        scalar_count(db, "SELECT CAST(COUNT(*) AS BIGINT) FROM work_ratings").await?;
     let computed_at = crate::identity::now_rfc3339();
 
     if comments_total == 0 && ratings_total == 0 {
@@ -663,7 +664,11 @@ pub async fn drought(db: &Database, limit: i64) -> Result<DroughtReport> {
 /// work this reader has not seen. Either way the work with the fewest routings
 /// comes first, then the most endorsed — so the supply is spread rather than
 /// concentrated on whichever row ranks highest.
-pub async fn route(db: &Database, account: &str, author_key: Option<&str>) -> Result<Option<Route>> {
+pub async fn route(
+    db: &Database,
+    account: &str,
+    author_key: Option<&str>,
+) -> Result<Option<Route>> {
     let (filter_sqlite, filter_pg) = if author_key.is_some() {
         ("AND k.author_key = ?", "AND k.author_key = $2")
     } else {
@@ -907,11 +912,7 @@ pub async fn complete(db: &Database, account: &str, route_id: &str) -> Result<Op
         darkhold_domain::economy::TxnType::Grant,
         &format!("supply-route:{route_id}"),
         &format!("supply:{}", existing.work_id),
-        &[(
-            account.to_string(),
-            "credit".to_string(),
-            PATRONAGE_BP,
-        )],
+        &[(account.to_string(), "credit".to_string(), PATRONAGE_BP)],
     )
     .await?;
 

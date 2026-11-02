@@ -86,7 +86,11 @@ pub async fn take_pending(db: &Database, state: &str, now: &str) -> Result<Optio
             .await
             .context("redeeming the pending OIDC login")?,
     };
-    Ok(row.map(|(verifier, nonce, next)| PendingLogin { verifier, nonce, next }))
+    Ok(row.map(|(verifier, nonce, next)| PendingLogin {
+        verifier,
+        nonce,
+        next,
+    }))
 }
 
 /// The account a subject is already linked to, if any.
@@ -208,22 +212,18 @@ pub async fn profile_for_account(
     );
     let account = account_id.to_string();
     let row = match db.backend() {
-        crate::Backend::Sqlite => {
-            sqlx::query_as::<_, (Option<String>, Option<String>)>(&sql)
-                .bind(provider)
-                .bind(&account)
-                .fetch_optional(db.sqlite_pool().expect("sqlite handle"))
-                .await
-                .context("reading an OIDC profile")?
-        }
-        crate::Backend::Postgres => {
-            sqlx::query_as::<_, (Option<String>, Option<String>)>(&sql)
-                .bind(provider)
-                .bind(&account)
-                .fetch_optional(db.postgres_pool().expect("postgres handle"))
-                .await
-                .context("reading an OIDC profile")?
-        }
+        crate::Backend::Sqlite => sqlx::query_as::<_, (Option<String>, Option<String>)>(&sql)
+            .bind(provider)
+            .bind(&account)
+            .fetch_optional(db.sqlite_pool().expect("sqlite handle"))
+            .await
+            .context("reading an OIDC profile")?,
+        crate::Backend::Postgres => sqlx::query_as::<_, (Option<String>, Option<String>)>(&sql)
+            .bind(provider)
+            .bind(&account)
+            .fetch_optional(db.postgres_pool().expect("postgres handle"))
+            .await
+            .context("reading an OIDC profile")?,
     };
     Ok(row)
 }

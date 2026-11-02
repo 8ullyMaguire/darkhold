@@ -46,7 +46,9 @@ async fn connect(tag: &str) -> Database {
                 .await
                 .expect("create a scratch database");
             admin_db.close().await;
-            let (prefix, _) = admin.rsplit_once('/').expect("admin URL ends in a database");
+            let (prefix, _) = admin
+                .rsplit_once('/')
+                .expect("admin URL ends in a database");
             format!("{prefix}/{name}")
         }
         Err(_) => format!("sqlite://{}/darkhold.sqlite?mode=rwc", dir.display()),
@@ -189,7 +191,10 @@ async fn every_section_reads_without_a_sql_error_and_only_this_account() {
         "reviews",
         "credits",
     ] {
-        assert!(names.contains(&required), "missing section {required}: {names:?}");
+        assert!(
+            names.contains(&required),
+            "missing section {required}: {names:?}"
+        );
     }
 
     assert_eq!(section(&sections, "account").count, 1);
@@ -201,7 +206,9 @@ async fn every_section_reads_without_a_sql_error_and_only_this_account() {
     assert_eq!(section(&sections, "reading_status").count, 1);
 
     // And the other account's archive is its own.
-    let theirs = archive::build(&db, &seeded.other).await.expect("build theirs");
+    let theirs = archive::build(&db, &seeded.other)
+        .await
+        .expect("build theirs");
     assert_eq!(section(&theirs, "bookmarks").count, 1);
     assert_ne!(
         section(&sections, "account").rows[0]["id"],
@@ -234,7 +241,9 @@ async fn a_checksum_changes_when_the_rows_do() {
     )
     .await;
 
-    let after = archive::build(&db, &seeded.account).await.expect("build again");
+    let after = archive::build(&db, &seeded.account)
+        .await
+        .expect("build again");
     assert_eq!(section(&after, "bookmarks").count, 2);
     assert_ne!(
         section(&after, "bookmarks").sha256,
@@ -256,17 +265,26 @@ async fn an_erased_account_has_an_archive_of_nothing() {
     // Soft-delete everything this account owns, the way §58's erasure does.
     exec(
         &db,
-        &format!("UPDATE pseuds SET deleted_at = '{NOW_STAMP}' WHERE account_id = '{}'", seeded.account),
+        &format!(
+            "UPDATE pseuds SET deleted_at = '{NOW_STAMP}' WHERE account_id = '{}'",
+            seeded.account
+        ),
     )
     .await;
     exec(
         &db,
-        &format!("UPDATE rating SET deleted_at = '{NOW_STAMP}' WHERE account_id = '{}'", seeded.account),
+        &format!(
+            "UPDATE rating SET deleted_at = '{NOW_STAMP}' WHERE account_id = '{}'",
+            seeded.account
+        ),
     )
     .await;
     exec(
         &db,
-        &format!("UPDATE review SET deleted_at = '{NOW_STAMP}' WHERE account_id = '{}'", seeded.account),
+        &format!(
+            "UPDATE review SET deleted_at = '{NOW_STAMP}' WHERE account_id = '{}'",
+            seeded.account
+        ),
     )
     .await;
 

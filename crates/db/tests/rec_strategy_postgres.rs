@@ -46,18 +46,14 @@ async fn account_with_history(db: &Database) -> String {
         "SELECT account_id::text FROM bookmarks GROUP BY account_id ORDER BY COUNT(*) DESC LIMIT 1",
     );
     let row: Option<(String,)> = match db.backend() {
-        darkhold_db::Backend::Sqlite => {
-            sqlx::query_as(&sql)
-                .fetch_optional(db.sqlite_pool().expect("sqlite"))
-                .await
-                .expect("the bookmarks table must be readable")
-        }
-        darkhold_db::Backend::Postgres => {
-            sqlx::query_as(&sql)
-                .fetch_optional(db.postgres_pool().expect("postgres"))
-                .await
-                .expect("the bookmarks table must be readable")
-        }
+        darkhold_db::Backend::Sqlite => sqlx::query_as(&sql)
+            .fetch_optional(db.sqlite_pool().expect("sqlite"))
+            .await
+            .expect("the bookmarks table must be readable"),
+        darkhold_db::Backend::Postgres => sqlx::query_as(&sql)
+            .fetch_optional(db.postgres_pool().expect("postgres"))
+            .await
+            .expect("the bookmarks table must be readable"),
     };
     if let Some((account,)) = row {
         return account;
@@ -68,18 +64,14 @@ async fn account_with_history(db: &Database) -> String {
         "SELECT id::text FROM accounts ORDER BY created_at LIMIT 1",
     );
     let row: Option<(String,)> = match db.backend() {
-        darkhold_db::Backend::Sqlite => {
-            sqlx::query_as(&fallback)
-                .fetch_optional(db.sqlite_pool().expect("sqlite"))
-                .await
-                .expect("the accounts table must be readable")
-        }
-        darkhold_db::Backend::Postgres => {
-            sqlx::query_as(&fallback)
-                .fetch_optional(db.postgres_pool().expect("postgres"))
-                .await
-                .expect("the accounts table must be readable")
-        }
+        darkhold_db::Backend::Sqlite => sqlx::query_as(&fallback)
+            .fetch_optional(db.sqlite_pool().expect("sqlite"))
+            .await
+            .expect("the accounts table must be readable"),
+        darkhold_db::Backend::Postgres => sqlx::query_as(&fallback)
+            .fetch_optional(db.postgres_pool().expect("postgres"))
+            .await
+            .expect("the accounts table must be readable"),
     };
     row.expect("the catalogue has no accounts at all").0
 }

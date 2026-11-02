@@ -196,7 +196,9 @@ fn excluding_a_participant_stays_inside_one_relationship() {
         "one relationship EXISTS. Got:\n{sql}"
     );
     assert!(
-        sql.contains(&norm("not exists(select 1 from relationship_participants sx")),
+        sql.contains(&norm(
+            "not exists(select 1 from relationship_participants sx"
+        )),
         "the exclusion must be a NOT EXISTS over participants. Got:\n{sql}"
     );
     // The participant test is likewise inside the relationship.

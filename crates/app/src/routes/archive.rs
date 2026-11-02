@@ -58,10 +58,7 @@ async fn download(
 
     let mut body = serde_json::Map::new();
     body.insert("schema".to_owned(), json!(darkhold_db::archive::SCHEMA));
-    body.insert(
-        "generated_at".to_owned(),
-        json!(now_rfc3339()),
-    );
+    body.insert("generated_at".to_owned(), json!(now_rfc3339()));
     for section in &sections {
         body.insert(section.name.to_owned(), json!(section.rows));
     }

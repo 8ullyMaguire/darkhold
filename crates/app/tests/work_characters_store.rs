@@ -238,7 +238,7 @@ async fn characters_persist_and_read_back() {
             prominence: "protagonist".into(),
             is_pov: true,
             added_at: "2026-01-01T00:00:00Z".into(),
-        
+
             roles: Vec::new(),
         },
     )
@@ -252,7 +252,7 @@ async fn characters_persist_and_read_back() {
             prominence: "cameo".into(),
             is_pov: false,
             added_at: "2026-01-01T00:00:00Z".into(),
-        
+
             roles: Vec::new(),
         },
     )
@@ -309,9 +309,9 @@ async fn prominence_orders_by_rank_not_alphabetically() {
                 prominence: prominence.into(),
                 is_pov: false,
                 added_at: "2026-01-01T00:00:00Z".into(),
-            
-            roles: Vec::new(),
-        },
+
+                roles: Vec::new(),
+            },
         )
         .await
         .expect("upsert");
@@ -358,9 +358,9 @@ async fn one_character_does_not_satisfy_another_characters_attributes() {
                 prominence: prominence.into(),
                 is_pov: false,
                 added_at: "2026-01-01T00:00:00Z".into(),
-            
-            roles: Vec::new(),
-        },
+
+                roles: Vec::new(),
+            },
         )
         .await
         .expect("upsert");
@@ -462,7 +462,7 @@ async fn an_attribute_needs_its_character_present() {
             prominence: "protagonist".into(),
             is_pov: true,
             added_at: "2026-01-01T00:00:00Z".into(),
-        
+
             roles: Vec::new(),
         },
     )
@@ -534,7 +534,13 @@ async fn a_ship_is_a_set_so_ab_and_ba_are_one() {
             .expect("re-add alice"),
         "adding an existing participant must report no change"
     );
-    assert_eq!(wc::relationship_participants(db.db(), ship).await.unwrap().len(), 2);
+    assert_eq!(
+        wc::relationship_participants(db.db(), ship)
+            .await
+            .unwrap()
+            .len(),
+        2
+    );
 
     db.cleanup().await;
 }
@@ -703,9 +709,9 @@ async fn journey_twelve_excludes_only_matching_relationships() {
                 prominence: "supporting".into(),
                 is_pov: false,
                 added_at: "2026-01-01T00:00:00Z".into(),
-            
-            roles: Vec::new(),
-        },
+
+                roles: Vec::new(),
+            },
         )
         .await
         .unwrap();
@@ -798,7 +804,7 @@ async fn invalid_values_are_refused_before_the_database() {
             prominence: "main".into(),
             is_pov: false,
             added_at: "2026-01-01T00:00:00Z".into(),
-        
+
             roles: Vec::new(),
         },
     )
@@ -873,7 +879,7 @@ async fn both_engines_report_the_same_substrate() {
             prominence: "protagonist".into(),
             is_pov: true,
             added_at: "2026-01-01T00:00:00Z".into(),
-        
+
             roles: Vec::new(),
         },
     )
@@ -950,9 +956,9 @@ async fn the_query_language_finds_characters_and_pairings() {
                 prominence: prominence.into(),
                 is_pov: false,
                 added_at: "2026-01-01T00:00:00Z".into(),
-            
-            roles: Vec::new(),
-        },
+
+                roles: Vec::new(),
+            },
         )
         .await
         .expect("upsert character");
@@ -965,7 +971,9 @@ async fn the_query_language_finds_characters_and_pairings() {
         (&poly_ship, "bob"),
         (&poly_ship, "carol"),
     ] {
-        wc::add_relationship_participant(db.db(), ship, node).await.unwrap();
+        wc::add_relationship_participant(db.db(), ship, node)
+            .await
+            .unwrap();
     }
 
     for (work, ship, kind) in [
@@ -1205,13 +1213,14 @@ async fn roles_are_a_set_that_rides_with_the_character() {
         .iter()
         .find(|c| c.character_node_id == "bob")
         .expect("bob");
-    assert!(bob.roles.is_empty(), "roles are per character, not per work");
-
     assert!(
-        wc::remove_character_role(db.db(), &work, "alice", "rival")
-            .await
-            .expect("remove rival")
+        bob.roles.is_empty(),
+        "roles are per character, not per work"
     );
+
+    assert!(wc::remove_character_role(db.db(), &work, "alice", "rival")
+        .await
+        .expect("remove rival"));
     assert!(
         !wc::remove_character_role(db.db(), &work, "alice", "rival")
             .await
@@ -1236,8 +1245,8 @@ async fn a_role_needs_its_character_in_the_work() {
     seed_character(&db, &work, "alice", "protagonist").await;
 
     // carol is a character node, but she is not in this work.
-    let refused = wc::add_character_role(db.db(), &work, "carol", "mentor", "2026-01-01T00:00:00Z")
-        .await;
+    let refused =
+        wc::add_character_role(db.db(), &work, "carol", "mentor", "2026-01-01T00:00:00Z").await;
     assert!(
         refused.is_err(),
         "the composite foreign key must refuse a role for a character who is not in the work"
@@ -1305,8 +1314,14 @@ async fn two_claims_about_one_pairing_keep_their_own_dynamics() {
     let claims = wc::relationships_for_work(db.db(), &work)
         .await
         .expect("claims");
-    let romantic_row = claims.iter().find(|c| c.id == "claim-romantic").expect("romantic");
-    let platonic_row = claims.iter().find(|c| c.id == "claim-platonic").expect("platonic");
+    let romantic_row = claims
+        .iter()
+        .find(|c| c.id == "claim-romantic")
+        .expect("romantic");
+    let platonic_row = claims
+        .iter()
+        .find(|c| c.id == "claim-platonic")
+        .expect("platonic");
     assert_eq!(romantic_row.dynamics, vec!["slow_burn".to_string()]);
     assert_eq!(platonic_row.dynamics, vec!["enemies_to_lovers".to_string()]);
 }

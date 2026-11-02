@@ -633,10 +633,7 @@ mod tests {
         );
         // Last in `all()`, so a work matched by tags *and* rated highly leads with the personal
         // reason: `normalized` orders by this list.
-        assert_eq!(
-            SlotReason::all().last(),
-            Some(&SlotReason::RatedByReaders)
-        );
+        assert_eq!(SlotReason::all().last(), Some(&SlotReason::RatedByReaders));
     }
 
     #[test]

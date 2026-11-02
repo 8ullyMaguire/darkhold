@@ -97,16 +97,34 @@ async fn terms_are_replaced_wholesale() {
     let event = event_with(&db, &pseud("org"), &[&pseud("a")]).await;
     let a = pseud("a");
 
-    save_terms(&db, &event, &a, &strings(&["dragon"]), &strings(&["space"]), &[])
-        .await
-        .expect("save");
-    save_terms(&db, &event, &a, &strings(&["noir"]), &strings(&["space"]), &[])
-        .await
-        .expect("save again");
+    save_terms(
+        &db,
+        &event,
+        &a,
+        &strings(&["dragon"]),
+        &strings(&["space"]),
+        &[],
+    )
+    .await
+    .expect("save");
+    save_terms(
+        &db,
+        &event,
+        &a,
+        &strings(&["noir"]),
+        &strings(&["space"]),
+        &[],
+    )
+    .await
+    .expect("save again");
 
     let stored = terms(&db, &event).await.expect("terms");
     let mine = stored.iter().find(|t| t.account == a).expect("one row set");
-    assert_eq!(mine.offers, vec!["noir".to_string()], "removed fandom came back");
+    assert_eq!(
+        mine.offers,
+        vec!["noir".to_string()],
+        "removed fandom came back"
+    );
     assert_eq!(mine.wants, vec!["space".to_string()]);
 }
 
@@ -240,7 +258,10 @@ async fn an_impossible_pairing_writes_nothing_naming_the_unmatched() {
     };
     assert!(unmatched.contains(&c), "{unmatched:?}");
     assert!(
-        assignments(&db, &event).await.expect("assignments").is_empty(),
+        assignments(&db, &event)
+            .await
+            .expect("assignments")
+            .is_empty(),
         "a refusal stores no rows, not even the pairs it could have made"
     );
 }
@@ -250,7 +271,10 @@ async fn a_second_match_is_refused_and_names_the_first() {
     let db = connect("once").await;
     let event = event_with(&db, &pseud("org"), &[&pseud("a"), &pseud("b")]).await;
     let first = run_match(&db, &event).await.expect("match");
-    let MatchOutcome::Matched { assignments: rows, .. } = first else {
+    let MatchOutcome::Matched {
+        assignments: rows, ..
+    } = first
+    else {
         panic!("two people can be paired");
     };
     let assigned_at = rows[0].assigned_at.clone();
@@ -302,13 +326,22 @@ async fn reveal_before_matching_is_refused_and_the_summary_counts() {
     let db = connect("summary").await;
     let event = event_with(&db, &pseud("org"), &[&pseud("a"), &pseud("b"), &pseud("c")]).await;
 
-    assert_eq!(reveal(&db, &event).await.expect("reveal"), Reveal::NotMatched);
+    assert_eq!(
+        reveal(&db, &event).await.expect("reveal"),
+        Reveal::NotMatched
+    );
     let before = summary(&db, &event).await.expect("summary");
-    assert_eq!((before.participants, before.matched, before.revealed), (3, 0, false));
+    assert_eq!(
+        (before.participants, before.matched, before.revealed),
+        (3, 0, false)
+    );
 
     run_match(&db, &event).await.expect("match");
     let after = summary(&db, &event).await.expect("summary");
-    assert_eq!((after.participants, after.matched, after.revealed), (3, 3, false));
+    assert_eq!(
+        (after.participants, after.matched, after.revealed),
+        (3, 3, false)
+    );
 }
 
 #[tokio::test]
@@ -320,4 +353,3 @@ async fn one_participant_is_too_few() {
         MatchOutcome::TooFew { participants: 1 }
     );
 }
-

@@ -85,7 +85,11 @@ async fn connect(tag: &str) -> (Database, Option<String>) {
             let scratch_db = Database::connect(&config(scratch.clone()))
                 .await
                 .expect("connect to the scratch database");
-            let s = format!("wr_{}_{}", std::process::id(), uuid::Uuid::new_v4().simple());
+            let s = format!(
+                "wr_{}_{}",
+                std::process::id(),
+                uuid::Uuid::new_v4().simple()
+            );
             sqlx::query(&format!("CREATE SCHEMA {s}"))
                 .execute(scratch_db.postgres_pool().expect("postgres pool"))
                 .await
@@ -239,10 +243,22 @@ async fn the_works_ladder_records_one_period_per_work_on_both_engines() {
     let middle2 = matches_for(&db, &works[2]).await;
     let worst = matches_for(&db, &works[3]).await;
 
-    assert_eq!(best.matches, 3, "engine {engine}: best was compared three times");
-    assert_eq!(middle1.matches, 2, "engine {engine}: a middle was compared twice");
-    assert_eq!(middle2.matches, 2, "engine {engine}: a middle was compared twice");
-    assert_eq!(worst.matches, 3, "engine {engine}: worst was compared three times");
+    assert_eq!(
+        best.matches, 3,
+        "engine {engine}: best was compared three times"
+    );
+    assert_eq!(
+        middle1.matches, 2,
+        "engine {engine}: a middle was compared twice"
+    );
+    assert_eq!(
+        middle2.matches, 2,
+        "engine {engine}: a middle was compared twice"
+    );
+    assert_eq!(
+        worst.matches, 3,
+        "engine {engine}: worst was compared three times"
+    );
 
     assert!(
         best.mu > middle1.mu && middle1.mu > worst.mu,
@@ -298,15 +314,29 @@ async fn the_works_ladder_records_one_period_per_work_on_both_engines() {
     let pair = work_ratings::record_ballot(&db, &two[0], &two[1], &[], 1.0)
         .await
         .expect("record a two-card ballot");
-    assert_eq!(pair.works, 2, "engine {engine}: only the cards named are rated");
-    assert_eq!(pair.comparisons, 2, "engine {engine}: one comparison, both sides");
-    assert_eq!(matches_for(&db, &two[2]).await.matches, 0, "engine {engine}: an unshown work is untouched");
+    assert_eq!(
+        pair.works, 2,
+        "engine {engine}: only the cards named are rated"
+    );
+    assert_eq!(
+        pair.comparisons, 2,
+        "engine {engine}: one comparison, both sides"
+    );
+    assert_eq!(
+        matches_for(&db, &two[2]).await.matches,
+        0,
+        "engine {engine}: an unshown work is untouched"
+    );
 
     // 6. A ballot that ranks a work above itself does nothing, and does not error.
     let nothing = work_ratings::record_ballot(&db, &two[0], &two[0], &[], 1.0)
         .await
         .expect("a degenerate ballot is not an error");
-    assert_eq!((nothing.works, nothing.comparisons), (0, 0), "engine {engine}");
+    assert_eq!(
+        (nothing.works, nothing.comparisons),
+        (0, 0),
+        "engine {engine}"
+    );
 
     // 7. The leaderboard is ordered, and carries what was written.
     let board = work_ratings::top_rated(&db, 10)
@@ -317,7 +347,11 @@ async fn the_works_ladder_records_one_period_per_work_on_both_engines() {
         board.windows(2).all(|pair| pair[0].1.mu >= pair[1].1.mu),
         "engine {engine}: the leaderboard is not descending"
     );
-    assert_eq!(board[0].0, works[0].to_string(), "engine {engine}: the best work must lead");
+    assert_eq!(
+        board[0].0,
+        works[0].to_string(),
+        "engine {engine}: the best work must lead"
+    );
 
     // 8. The engine the feed reads: the floor is `matches`, and the ordering is the ladder's.
     //
@@ -333,7 +367,10 @@ async fn the_works_ladder_records_one_period_per_work_on_both_engines() {
         vec![works[0].as_str(), works[3].as_str()],
         "engine {engine}: a floor of five comparisons must return the best and the worst, best first"
     );
-    assert_eq!(eligible[0].matches, 6, "engine {engine}: two ballots are six comparisons for the best");
+    assert_eq!(
+        eligible[0].matches, 6,
+        "engine {engine}: two ballots are six comparisons for the best"
+    );
     assert!(
         eligible[0].mu > eligible[1].mu,
         "engine {engine}: the ladder must lead with the higher rating"
@@ -343,7 +380,11 @@ async fn the_works_ladder_records_one_period_per_work_on_both_engines() {
     let looser = work_ratings::top_rated_for(&db, None, None, 10, 4)
         .await
         .expect("read the ladder with a lower floor");
-    assert_eq!(looser.len(), 4, "engine {engine}: a floor of four must admit the middles");
+    assert_eq!(
+        looser.len(),
+        4,
+        "engine {engine}: a floor of four must admit the middles"
+    );
     assert_eq!(looser[0].work_id, works[0].to_string(), "engine {engine}");
 
     // 9. A work the reader has already compared is not offered back.
@@ -372,7 +413,11 @@ async fn the_works_ladder_records_one_period_per_work_on_both_engines() {
             .all(|r| r.work_id != works[0] && r.work_id != works[3]),
         "engine {engine}: a work the reader just judged must not be recommended back"
     );
-    assert_eq!(after_vote.len(), 2, "engine {engine}: the unjudged middles remain");
+    assert_eq!(
+        after_vote.len(),
+        2,
+        "engine {engine}: the unjudged middles remain"
+    );
 
     // 10. A private work is not a candidate, however well it is rated.
     exec(

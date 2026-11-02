@@ -226,11 +226,17 @@ async fn the_archive_is_a_file_with_real_checksums() {
         disposition.contains("darkhold-archive-"),
         "and says what it is: {disposition}"
     );
-    assert!(!disposition.contains("reader"), "the filename never names the account");
+    assert!(
+        !disposition.contains("reader"),
+        "the filename never names the account"
+    );
 
     // Every declared section is present, and each manifest hash is the hash of its own rows.
     let manifest = body["manifest"].as_array().expect("manifest");
-    assert!(manifest.len() >= 10, "the archive is not one table: {manifest:?}");
+    assert!(
+        manifest.len() >= 10,
+        "the archive is not one table: {manifest:?}"
+    );
     for entry in manifest {
         let name = entry["name"].as_str().expect("section name");
         let rows = &body[name];
@@ -269,7 +275,9 @@ async fn the_archive_holds_this_accounts_rows_and_no_others() {
     alice.register("alice").await;
 
     // Alice writes something and saves a work to her shelf.
-    let (status, body) = alice.send("POST", "/api/v1/works", json!({ "title": "Alice's Work" })).await;
+    let (status, body) = alice
+        .send("POST", "/api/v1/works", json!({ "title": "Alice's Work" }))
+        .await;
     assert_eq!(status, StatusCode::CREATED, "{body}");
     let work_id = body["id"].as_str().expect("work id").to_owned();
 
@@ -312,6 +320,10 @@ async fn the_archive_holds_this_accounts_rows_and_no_others() {
         "bob's archive holds no works: {bob_archive}"
     );
     let bob_bookmarks = bob_archive["bookmarks"].as_array().unwrap();
-    assert_eq!(bob_bookmarks.len(), 1, "his own bookmark is his: {bob_archive}");
+    assert_eq!(
+        bob_bookmarks.len(),
+        1,
+        "his own bookmark is his: {bob_archive}"
+    );
     assert_eq!(bob_bookmarks[0]["note"], json!("bob was here"));
 }

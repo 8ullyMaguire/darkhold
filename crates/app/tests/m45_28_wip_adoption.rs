@@ -73,7 +73,12 @@ impl Client {
         }
     }
 
-    async fn request(&mut self, method: &str, uri: &str, body: Option<Value>) -> (StatusCode, Value) {
+    async fn request(
+        &mut self,
+        method: &str,
+        uri: &str,
+        body: Option<Value>,
+    ) -> (StatusCode, Value) {
         let mut builder = Request::builder()
             .method(method)
             .uri(uri)
@@ -247,11 +252,12 @@ async fn owner_of(h: &Harness, work_id: &str) -> String {
             row.get::<String, _>("owner_pseud_id")
         }
         Backend::Postgres => {
-            let row = sqlx::query("SELECT owner_pseud_id::text AS owner FROM works WHERE id::text = $1")
-                .bind(work_id)
-                .fetch_one(db.postgres_pool().expect("postgres"))
-                .await
-                .expect("owner");
+            let row =
+                sqlx::query("SELECT owner_pseud_id::text AS owner FROM works WHERE id::text = $1")
+                    .bind(work_id)
+                    .fetch_one(db.postgres_pool().expect("postgres"))
+                    .await
+                    .expect("owner");
             row.get::<String, _>("owner")
         }
     }
@@ -290,7 +296,11 @@ async fn the_module_is_registered_enabled_and_has_no_nav_entry() {
         .iter()
         .find(|m| m["id"] == json!("wip_adoption"))
         .unwrap_or_else(|| panic!("wip_adoption is not registered"));
-    assert_eq!(row["enabled"], json!(true), "default_on must hold on a default config");
+    assert_eq!(
+        row["enabled"],
+        json!(true),
+        "default_on must hold on a default config"
+    );
     assert_eq!(
         row["nav"],
         json!([]),
@@ -308,18 +318,26 @@ async fn an_offer_on_somebody_elses_work_is_404_and_on_a_complete_work_names_the
     let complete = seed_work(&h, &author_pseud, "complete").await;
 
     let mut stranger = h.client();
-    let (_s, stranger_pseud) = stranger.register("stranger@example.invalid", "stranger").await;
+    let (_s, stranger_pseud) = stranger
+        .register("stranger@example.invalid", "stranger")
+        .await;
     stranger.activate(&stranger_pseud).await;
 
     // Not the owner: the same answer as a work that does not exist.
     let (status, body) = stranger
-        .post(&format!("/api/v1/works/{abandoned}/adoption-offer"), json!({}))
+        .post(
+            &format!("/api/v1/works/{abandoned}/adoption-offer"),
+            json!({}),
+        )
         .await;
     assert_eq!(status, StatusCode::NOT_FOUND, "{body}");
 
     // The owner, on a work that is not abandoned.
     let (status, body) = author
-        .post(&format!("/api/v1/works/{complete}/adoption-offer"), json!({}))
+        .post(
+            &format!("/api/v1/works/{complete}/adoption-offer"),
+            json!({}),
+        )
         .await;
     assert_eq!(status, StatusCode::UNPROCESSABLE_ENTITY, "{body}");
     assert_eq!(body["error"]["code"], json!("VALIDATION_FAILED"));
@@ -330,7 +348,10 @@ async fn an_offer_on_somebody_elses_work_is_404_and_on_a_complete_work_names_the
 
     // And the abandoned one opens.
     let (status, body) = author
-        .post(&format!("/api/v1/works/{abandoned}/adoption-offer"), json!({}))
+        .post(
+            &format!("/api/v1/works/{abandoned}/adoption-offer"),
+            json!({}),
+        )
         .await;
     assert_eq!(status, StatusCode::OK, "{body}");
     assert_eq!(body["offer"]["status"], json!("open"));
@@ -347,7 +368,10 @@ async fn adopting_leaves_the_owner_alone_and_empties_the_list() {
     let work_id = seed_work(&h, &author_pseud, "abandoned").await;
 
     let (status, body) = author
-        .post(&format!("/api/v1/works/{work_id}/adoption-offer"), json!({}))
+        .post(
+            &format!("/api/v1/works/{work_id}/adoption-offer"),
+            json!({}),
+        )
         .await;
     assert_eq!(status, StatusCode::OK, "{body}");
     let offer_id = body["offer"]["id"].as_str().expect("offer id").to_owned();
@@ -362,7 +386,10 @@ async fn adopting_leaves_the_owner_alone_and_empties_the_list() {
 
     let before = owner_of(&h, &work_id).await;
     let (status, body) = adopter
-        .post(&format!("/api/v1/adoption-offers/{offer_id}/adopt"), json!({}))
+        .post(
+            &format!("/api/v1/adoption-offers/{offer_id}/adopt"),
+            json!({}),
+        )
         .await;
     assert_eq!(status, StatusCode::OK, "{body}");
     assert_eq!(body["offer"]["status"], json!("adopted"));
@@ -378,7 +405,11 @@ async fn adopting_leaves_the_owner_alone_and_empties_the_list() {
         "adoption moved works.owner_pseud_id — §56.1 says it does not"
     );
     let (_, listing) = author.get("/api/v1/adoption-offers").await;
-    assert_eq!(listing["count"], json!(0), "an adopted offer stayed on the list");
+    assert_eq!(
+        listing["count"],
+        json!(0),
+        "an adopted offer stayed on the list"
+    );
 }
 
 #[tokio::test]
@@ -411,7 +442,11 @@ async fn a_closure_note_is_404_then_one_then_two() {
         )
         .await;
     assert_eq!(status, StatusCode::OK, "{body}");
-    assert_eq!(body["revision_number"], json!(2), "the second note must not overwrite the first");
+    assert_eq!(
+        body["revision_number"],
+        json!(2),
+        "the second note must not overwrite the first"
+    );
 
     let (status, body) = author
         .get(&format!("/api/v1/works/{work_id}/closure-note"))
@@ -446,7 +481,10 @@ async fn a_fresh_account_is_below_the_shipped_bar_and_the_refusal_names_both_num
     author.activate(&author_pseud).await;
     let work_id = seed_work(&h, &author_pseud, "abandoned").await;
     let (status, body) = author
-        .post(&format!("/api/v1/works/{work_id}/adoption-offer"), json!({}))
+        .post(
+            &format!("/api/v1/works/{work_id}/adoption-offer"),
+            json!({}),
+        )
         .await;
     assert_eq!(status, StatusCode::OK, "{body}");
     let offer_id = body["offer"]["id"].as_str().expect("offer id").to_owned();
@@ -456,7 +494,10 @@ async fn a_fresh_account_is_below_the_shipped_bar_and_the_refusal_names_both_num
     fresh.activate(&fresh_pseud).await;
 
     let (status, body) = fresh
-        .post(&format!("/api/v1/adoption-offers/{offer_id}/adopt"), json!({}))
+        .post(
+            &format!("/api/v1/adoption-offers/{offer_id}/adopt"),
+            json!({}),
+        )
         .await;
     assert_eq!(status, StatusCode::UNPROCESSABLE_ENTITY, "{body}");
     let reason = body["error"]["field_errors"]["trust"]
@@ -481,7 +522,10 @@ async fn the_author_withdraws_and_can_offer_again() {
     let work_id = seed_work(&h, &author_pseud, "abandoned").await;
 
     let (status, _) = author
-        .post(&format!("/api/v1/works/{work_id}/adoption-offer"), json!({}))
+        .post(
+            &format!("/api/v1/works/{work_id}/adoption-offer"),
+            json!({}),
+        )
         .await;
     assert_eq!(status, StatusCode::OK);
 
@@ -499,9 +543,16 @@ async fn the_author_withdraws_and_can_offer_again() {
 
     // And the partial index lets the author think again.
     let (status, body) = author
-        .post(&format!("/api/v1/works/{work_id}/adoption-offer"), json!({}))
+        .post(
+            &format!("/api/v1/works/{work_id}/adoption-offer"),
+            json!({}),
+        )
         .await;
-    assert_eq!(status, StatusCode::OK, "a second offer after a withdrawal: {body}");
+    assert_eq!(
+        status,
+        StatusCode::OK,
+        "a second offer after a withdrawal: {body}"
+    );
 }
 
 #[tokio::test]
@@ -512,6 +563,10 @@ async fn lineage_is_readable_and_never_a_server_error() {
     let (status, body) = anon.get("/api/v1/works/anything/contributors").await;
     assert_eq!(status, StatusCode::OK, "{body}");
     assert_eq!(body["available"], json!(true), "{body}");
-    assert_eq!(body["contributors"], json!([]), "a work with no revisions has no contributors");
+    assert_eq!(
+        body["contributors"],
+        json!([]),
+        "a work with no revisions has no contributors"
+    );
     assert_eq!(body["reason"], json!(null));
 }

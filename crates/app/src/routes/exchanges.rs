@@ -82,9 +82,7 @@ async fn get_exchange(
         .await
         .map_err(|e| ApiError(AppError::Internal(e)))?;
     if event.is_none() {
-        return Err(ApiError(AppError::NotFound {
-            resource: "event",
-        }));
+        return Err(ApiError(AppError::NotFound { resource: "event" }));
     }
     let summary = darkhold_db::exchanges::summary(state.db(), &event_id)
         .await
@@ -108,9 +106,7 @@ async fn post_join(
         .await
         .map_err(|e| ApiError(AppError::Internal(e)))?;
     if event.is_none() {
-        return Err(ApiError(AppError::NotFound {
-            resource: "event",
-        }));
+        return Err(ApiError(AppError::NotFound { resource: "event" }));
     }
     let me = pseud_id.to_string();
     let joined = darkhold_db::events::join_event(state.db(), &event_id, &me)
@@ -194,7 +190,9 @@ async fn post_match(
             // neighbour rather than inventing a code.
             Err(ApiError(AppError::field(
                 "event_id",
-                format!("this exchange was already matched at {assigned_at}; the pairing is the record"),
+                format!(
+                    "this exchange was already matched at {assigned_at}; the pairing is the record"
+                ),
             )))
         }
         darkhold_db::exchanges::MatchOutcome::Impossible { unmatched } => {
@@ -208,15 +206,15 @@ async fn post_match(
                 ),
             )))
         }
-        darkhold_db::exchanges::MatchOutcome::TooFew { participants } => Err(ApiError(
-            AppError::field(
+        darkhold_db::exchanges::MatchOutcome::TooFew { participants } => {
+            Err(ApiError(AppError::field(
                 "participants",
                 format!("an exchange needs at least two participants, this one has {participants}"),
-            ),
-        )),
-        darkhold_db::exchanges::MatchOutcome::NoEvent => Err(ApiError(AppError::NotFound {
-            resource: "event",
-        })),
+            )))
+        }
+        darkhold_db::exchanges::MatchOutcome::NoEvent => {
+            Err(ApiError(AppError::NotFound { resource: "event" }))
+        }
     }
 }
 
@@ -233,16 +231,16 @@ async fn post_reveal(
         .await
         .map_err(|e| ApiError(AppError::Internal(e)))?
     {
-        darkhold_db::exchanges::Reveal::Revealed { revealed_at } => {
-            Ok(Json(json!({ "revealed": true, "revealed_at": revealed_at })))
-        }
+        darkhold_db::exchanges::Reveal::Revealed { revealed_at } => Ok(Json(
+            json!({ "revealed": true, "revealed_at": revealed_at }),
+        )),
         darkhold_db::exchanges::Reveal::NotMatched => Err(ApiError(AppError::field(
             "event_id",
             "there is nothing to reveal: the matching has not been run",
         ))),
-        darkhold_db::exchanges::Reveal::NoEvent => Err(ApiError(AppError::NotFound {
-            resource: "event",
-        })),
+        darkhold_db::exchanges::Reveal::NoEvent => {
+            Err(ApiError(AppError::NotFound { resource: "event" }))
+        }
     }
 }
 

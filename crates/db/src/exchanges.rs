@@ -27,7 +27,7 @@
 use anyhow::Result;
 use sqlx::Row;
 
-use darkhold_domain::exchanges::{match_participants, MatchFailure, Method, Participant, Pairs};
+use darkhold_domain::exchanges::{match_participants, MatchFailure, Method, Pairs, Participant};
 
 use crate::{identity::now_rfc3339, Backend, Database};
 
@@ -45,7 +45,6 @@ macro_rules! assignment_of {
         }
     };
 }
-
 
 /// One participant's declared terms, values already normalised.
 #[derive(Debug, Clone, PartialEq, Eq, Default)]
@@ -347,7 +346,9 @@ pub async fn participants(db: &Database, event_id: &str) -> Result<Vec<Participa
                 offers: t
                     .map(|t| t.offers.iter().cloned().collect())
                     .unwrap_or_default(),
-                wants: t.map(|t| t.wants.iter().cloned().collect()).unwrap_or_default(),
+                wants: t
+                    .map(|t| t.wants.iter().cloned().collect())
+                    .unwrap_or_default(),
                 excludes: t
                     .map(|t| t.excludes.iter().cloned().collect())
                     .unwrap_or_default(),
@@ -366,24 +367,20 @@ pub async fn assignments(db: &Database, event_id: &str) -> Result<Vec<Assignment
     );
     // The two drivers have different row types, so the mapping happens inside each arm.
     let rows: Vec<Assignment> = match db.backend() {
-        Backend::Sqlite => {
-            sqlx::query(&sql)
-                .bind(event_id)
-                .fetch_all(db.sqlite_pool().expect("sqlite"))
-                .await?
-                .iter()
-                .map(|r| assignment_of!(r))
-                .collect()
-        }
-        Backend::Postgres => {
-            sqlx::query(&sql)
-                .bind(event_id)
-                .fetch_all(db.postgres_pool().expect("postgres"))
-                .await?
-                .iter()
-                .map(|r| assignment_of!(r))
-                .collect()
-        }
+        Backend::Sqlite => sqlx::query(&sql)
+            .bind(event_id)
+            .fetch_all(db.sqlite_pool().expect("sqlite"))
+            .await?
+            .iter()
+            .map(|r| assignment_of!(r))
+            .collect(),
+        Backend::Postgres => sqlx::query(&sql)
+            .bind(event_id)
+            .fetch_all(db.postgres_pool().expect("postgres"))
+            .await?
+            .iter()
+            .map(|r| assignment_of!(r))
+            .collect(),
     };
     Ok(rows)
 }

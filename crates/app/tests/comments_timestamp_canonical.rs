@@ -84,9 +84,11 @@ async fn insert_assignment(tdb: &TestDb, id: &str, pseud_id: &str, assigned_at: 
 
 #[tokio::test]
 async fn a_non_canonical_created_at_is_refused_by_the_database() {
-    let tdb =
-        TestDb::connect_with_dir("m45_61_refused", &test_support::scratch_dir("m45_61_refused"))
-            .await;
+    let tdb = TestDb::connect_with_dir(
+        "m45_61_refused",
+        &test_support::scratch_dir("m45_61_refused"),
+    )
+    .await;
 
     // The exact shape a `::timestamptz` bind produced. On the unfixed tree this INSERT succeeds,
     // which is the whole bug: the row is stored, lookupable, and invisible to every window.
@@ -104,9 +106,11 @@ async fn a_non_canonical_created_at_is_refused_by_the_database() {
 
 #[tokio::test]
 async fn the_canonical_shape_is_accepted() {
-    let tdb =
-        TestDb::connect_with_dir("m45_61_accepted", &test_support::scratch_dir("m45_61_accepted"))
-            .await;
+    let tdb = TestDb::connect_with_dir(
+        "m45_61_accepted",
+        &test_support::scratch_dir("m45_61_accepted"),
+    )
+    .await;
 
     // `now_rfc3339`'s shape. A constraint the real writer trips over would be a worse bug than the
     // one it fixes, so this is the test that keeps 0138 honest.
@@ -129,10 +133,10 @@ async fn an_update_to_a_non_canonical_value_is_refused() {
 
     // A trigger on INSERT alone leaves the same hole one statement later: a backfill or an admin
     // fix that writes the old shape would be accepted and the window would go silent again.
-    let sql = tdb
-        .db()
-        .sql("UPDATE comments SET created_at = ? WHERE id = ?",
-             "UPDATE comments SET created_at = $1 WHERE id = $2");
+    let sql = tdb.db().sql(
+        "UPDATE comments SET created_at = ? WHERE id = ?",
+        "UPDATE comments SET created_at = $1 WHERE id = $2",
+    );
     let outcome = match tdb.db().backend() {
         Backend::Sqlite => sqlx::query(&sql)
             .bind("2026-11-02 02:13:48+00")
@@ -158,8 +162,8 @@ async fn an_update_to_a_non_canonical_value_is_refused() {
 
 #[tokio::test]
 async fn the_rota_finds_a_comment_written_after_the_assignment() {
-    let tdb = TestDb::connect_with_dir("m45_61_rota", &test_support::scratch_dir("m45_61_rota"))
-        .await;
+    let tdb =
+        TestDb::connect_with_dir("m45_61_rota", &test_support::scratch_dir("m45_61_rota")).await;
 
     // The good path, through the real function: an assignment at 02:00 and a comment nine minutes
     // later is evidence. This is the behaviour the constraint must not break, and the behaviour
@@ -213,7 +217,8 @@ async fn the_rota_finds_a_comment_written_after_the_assignment() {
 #[tokio::test]
 async fn an_assignment_whose_library_row_is_gone_still_decodes() {
     let tdb =
-        TestDb::connect_with_dir("m45_61_decode", &test_support::scratch_dir("m45_61_decode")).await;
+        TestDb::connect_with_dir("m45_61_decode", &test_support::scratch_dir("m45_61_decode"))
+            .await;
 
     // Found by the first PostgreSQL run of this suite, not by reading: the assignment query read
     // `li.title` through a LEFT JOIN to `library_items`, and a rota row whose library entry is gone

@@ -119,7 +119,11 @@ async fn disabling_one_surface_leaves_its_neighbours_answering() {
     let (draw, _) = get(&state, "/api/v1/discovery/draw").await;
     let (catalogue, _) = get(&state, "/api/v1/catalogue?limit=1").await;
     assert_ne!(draw, StatusCode::NOT_FOUND, "draw must still answer");
-    assert_ne!(catalogue, StatusCode::NOT_FOUND, "catalogue must still answer");
+    assert_ne!(
+        catalogue,
+        StatusCode::NOT_FOUND,
+        "catalogue must still answer"
+    );
 }
 
 #[tokio::test]
@@ -154,7 +158,10 @@ async fn the_catalogue_is_core_and_lists_every_registered_surface() {
         .iter()
         .find(|row| row["id"] == "works")
         .expect("works is registered");
-    assert_eq!(works["enabled"], true, "untouched surfaces keep their default");
+    assert_eq!(
+        works["enabled"], true,
+        "untouched surfaces keep their default"
+    );
 
     // The core is named so a client can tell "no row" from "not on".
     let core = body["core"].as_array().expect("core list");
@@ -209,7 +216,9 @@ async fn every_mounted_module_is_core_or_registered() {
 
     let mut unknown: Vec<String> = mounted
         .into_iter()
-        .filter(|id| darkhold_domain::modules::find(id).is_none() && !darkhold_domain::modules::is_core(id))
+        .filter(|id| {
+            darkhold_domain::modules::find(id).is_none() && !darkhold_domain::modules::is_core(id)
+        })
         .collect();
     unknown.sort();
     unknown.dedup();
@@ -231,14 +240,19 @@ async fn a_config_that_names_a_fixed_surface_does_not_load() {
     let error = result.expect_err("a fixed surface must not be switchable");
     let text = format!("{error:#}");
     assert!(text.contains("moderation"), "{text}");
-    assert!(text.contains("§59.4"), "the refusal quotes the rule: {text}");
+    assert!(
+        text.contains("§59.4"),
+        "the refusal quotes the rule: {text}"
+    );
 }
 
 #[tokio::test]
 async fn a_typo_in_the_extension_table_does_not_load() {
     let dir = scratch_dir("typo");
     let config = config_with(&dir, &["quizz"]);
-    let error = config.validate().expect_err("a typo must not start an instance");
+    let error = config
+        .validate()
+        .expect_err("a typo must not start an instance");
     let text = format!("{error:#}");
     assert!(text.contains("quizz"), "{text}");
     assert!(text.contains("`quiz`"), "the nearest id is offered: {text}");

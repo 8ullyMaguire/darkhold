@@ -930,9 +930,7 @@ fn library_input(work: &SourceWork, row: &imports::ImportJob) -> imports::Librar
         source_url: work.source_url.clone(),
         // Through the shared formatter, not `Rfc3339` directly: a scraper's date can carry
         // nanoseconds, and the column only accepts second precision (migration 0132).
-        source_updated_at: work
-            .updated_at
-            .map(darkhold_db::identity::format_rfc3339),
+        source_updated_at: work.updated_at.map(darkhold_db::identity::format_rfc3339),
         provenance_json: json!({
             "source": row.source_key,
             "source_url": row.source_url,

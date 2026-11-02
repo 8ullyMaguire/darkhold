@@ -48,10 +48,10 @@
 //! instead of the ladder's.
 
 use crate::{Backend, Database};
-use anyhow::{Result, anyhow};
+use anyhow::{anyhow, Result};
 use darkhold_taste::arena::glicko::{Opponent, Outcome, Rating};
-use time::OffsetDateTime;
 use time::format_description::well_known::Rfc3339;
+use time::OffsetDateTime;
 
 /// A work's stored rating, on the Glicko scale.
 #[derive(Debug, Clone, Copy, PartialEq)]

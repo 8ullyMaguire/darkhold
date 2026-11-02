@@ -112,7 +112,15 @@ async fn start(
         time::OffsetDateTime::now_utc() + time::Duration::seconds(PENDING_TTL_SECONDS),
     );
 
-    if let Err(error) = oidc::create_pending(state.db(), &attempt_state, &verifier, &nonce, &next, &expires).await
+    if let Err(error) = oidc::create_pending(
+        state.db(),
+        &attempt_state,
+        &verifier,
+        &nonce,
+        &next,
+        &expires,
+    )
+    .await
     {
         tracing::error!(%error, "could not park the OIDC attempt");
         return unavailable();
@@ -235,12 +243,17 @@ async fn callback(
         }
     };
 
-    let subject = profile.get("sub").and_then(|v| v.as_str()).unwrap_or_default();
-    let handle = profile.get("handle").and_then(|v| v.as_str());
-    let email = profile
-        .get("email")
+    let subject = profile
+        .get("sub")
         .and_then(|v| v.as_str())
-        .filter(|_| profile.get("email_verified").and_then(|v| v.as_bool()).unwrap_or(false));
+        .unwrap_or_default();
+    let handle = profile.get("handle").and_then(|v| v.as_str());
+    let email = profile.get("email").and_then(|v| v.as_str()).filter(|_| {
+        profile
+            .get("email_verified")
+            .and_then(|v| v.as_bool())
+            .unwrap_or(false)
+    });
     // Kept beside the link so a page render never has to call the provider: see migration 0148.
     let picture = profile.get("picture").and_then(|v| v.as_str());
     let display_name = profile.get("name").and_then(|v| v.as_str());
@@ -256,7 +269,17 @@ async fn callback(
             // An established link still refreshes the cached profile: a rename at the provider reaches this
             // site on the next sign-in rather than never.
             if let Ok(Some(found)) = identity::find_account(state.db(), id).await {
-                let _ = oidc::link(state.db(), PROVIDER, subject, found.id, email, picture, display_name, &now).await;
+                let _ = oidc::link(
+                    state.db(),
+                    PROVIDER,
+                    subject,
+                    found.id,
+                    email,
+                    picture,
+                    display_name,
+                    &now,
+                )
+                .await;
                 Some(found)
             } else {
                 None
@@ -270,9 +293,18 @@ async fn callback(
     if account.is_none() {
         if let Some(email) = email {
             if let Ok(Some(found)) = identity::find_account_by_email(state.db(), email).await {
-                if oidc::link(state.db(), PROVIDER, subject, found.id, Some(email), picture, display_name, &now)
-                    .await
-                    .is_ok()
+                if oidc::link(
+                    state.db(),
+                    PROVIDER,
+                    subject,
+                    found.id,
+                    Some(email),
+                    picture,
+                    display_name,
+                    &now,
+                )
+                .await
+                .is_ok()
                 {
                     linked_now = true;
                 }
@@ -282,7 +314,10 @@ async fn callback(
     }
 
     let Some(account) = account else {
-        tracing::info!(handle = handle.unwrap_or(""), "Polaris sign-in for an account this site does not have");
+        tracing::info!(
+            handle = handle.unwrap_or(""),
+            "Polaris sign-in for an account this site does not have"
+        );
         return Redirect::to(&format!(
             "/login?oidc=no_account&handle={}",
             urlencode(handle.unwrap_or(""))
@@ -309,7 +344,9 @@ async fn callback(
             return Redirect::to("/login?oidc=error").into_response();
         }
     };
-    if let Err(error) = darkhold_db::engagement::record_login(state.db(), &account.id.to_string()).await {
+    if let Err(error) =
+        darkhold_db::engagement::record_login(state.db(), &account.id.to_string()).await
+    {
         tracing::warn!(account = %account.id, %error, "failed to record login streak");
     }
     tracing::info!(
@@ -337,7 +374,9 @@ fn urlencode(input: &str) -> String {
     let mut out = String::new();
     for byte in input.bytes() {
         match byte {
-            b'A'..=b'Z' | b'a'..=b'z' | b'0'..=b'9' | b'-' | b'_' | b'.' | b'~' => out.push(byte as char),
+            b'A'..=b'Z' | b'a'..=b'z' | b'0'..=b'9' | b'-' | b'_' | b'.' | b'~' => {
+                out.push(byte as char)
+            }
             _ => out.push_str(&format!("%{byte:02X}")),
         }
     }

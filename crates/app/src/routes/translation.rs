@@ -36,10 +36,9 @@ pub async fn create_translation(
     // §40.2: "the translation pipeline (M17) checks `translation` before a request is created".
     // Measured 2026-11-02: this door created a job without ever reading the statement, so the
     // enforcement sentence was a spec claim with nothing behind it (M45-30).
-    let permission =
-        darkhold_db::permission::get_work_permission_statement(state.db(), &work_id)
-            .await
-            .map_err(|e| ApiError(darkhold_domain::AppError::Internal(e)))?;
+    let permission = darkhold_db::permission::get_work_permission_statement(state.db(), &work_id)
+        .await
+        .map_err(|e| ApiError(darkhold_domain::AppError::Internal(e)))?;
     match darkhold_domain::translation::funding_gate(permission.translation) {
         darkhold_domain::translation::Funding::Fundable => {}
         darkhold_domain::translation::Funding::MustAsk => {
@@ -251,8 +250,10 @@ pub fn router() -> axum::Router<AppState> {
 /// stylometry (`grep -rln stylometr crates/` finds a catalogue string and nothing else), and
 /// `work_tags` is not backfilled (M63-32). A cross-language taste score over that would be a number
 /// with no signal behind it.
-pub async fn supply(State(state): State<AppState>,
-    MaybeSession(_session): MaybeSession) -> ApiResult<Json<Value>> {
+pub async fn supply(
+    State(state): State<AppState>,
+    MaybeSession(_session): MaybeSession,
+) -> ApiResult<Json<Value>> {
     let supply = darkhold_db::translation::language_supply(state.db())
         .await
         .map_err(|e| ApiError(darkhold_domain::AppError::Internal(e.into())))?;
@@ -280,7 +281,9 @@ pub async fn list_translation_bounties(
     let bounties = darkhold_db::translation::translation_bounties(state.db(), 50)
         .await
         .map_err(|e| ApiError(darkhold_domain::AppError::Internal(e.into())))?;
-    Ok(Json(json!({ "bounties": bounties, "count": bounties.len() })))
+    Ok(Json(
+        json!({ "bounties": bounties, "count": bounties.len() }),
+    ))
 }
 
 #[derive(Debug, Deserialize)]
@@ -355,14 +358,15 @@ pub async fn fund_translation(
                 ),
             )))
         }
-        darkhold_db::translation::FundOutcome::InsufficientBalance { available, required } => {
-            Err(ApiError(darkhold_domain::AppError::field(
-                "amount",
-                format!(
-                    "the bounty promises {required} and this account holds {available}: a bounty \
+        darkhold_db::translation::FundOutcome::InsufficientBalance {
+            available,
+            required,
+        } => Err(ApiError(darkhold_domain::AppError::field(
+            "amount",
+            format!(
+                "the bounty promises {required} and this account holds {available}: a bounty \
                      the account cannot pay is a promise the archive would have to break"
-                ),
-            )))
-        }
+            ),
+        ))),
     }
 }

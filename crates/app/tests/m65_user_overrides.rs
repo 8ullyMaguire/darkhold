@@ -86,7 +86,12 @@ impl Client {
         }
     }
 
-    async fn request(&mut self, method: &str, uri: &str, body: Option<Value>) -> (StatusCode, Value) {
+    async fn request(
+        &mut self,
+        method: &str,
+        uri: &str,
+        body: Option<Value>,
+    ) -> (StatusCode, Value) {
         let mut builder = Request::builder()
             .method(method)
             .uri(uri)
@@ -216,7 +221,10 @@ async fn a_reader_who_switched_it_off_gets_404_and_their_neighbour_does_not() {
         .await;
     assert_eq!(status, StatusCode::OK, "body: {body}");
     assert_eq!(body["id"], "quiz");
-    assert_eq!(body["instance_enabled"], true, "the instance did not change");
+    assert_eq!(
+        body["instance_enabled"], true,
+        "the instance did not change"
+    );
     assert_eq!(body["enabled_for_caller"], false);
     assert_eq!(body["overridden"], true);
 

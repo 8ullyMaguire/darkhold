@@ -110,7 +110,12 @@ impl Client {
         }
     }
 
-    async fn request(&mut self, method: &str, uri: &str, body: Option<Value>) -> (StatusCode, Value) {
+    async fn request(
+        &mut self,
+        method: &str,
+        uri: &str,
+        body: Option<Value>,
+    ) -> (StatusCode, Value) {
         let mut builder = Request::builder()
             .method(method)
             .uri(uri)
@@ -247,7 +252,6 @@ impl Harness {
             self.tdb.db().clone(),
         )))
     }
-
 }
 
 #[tokio::test]
@@ -257,7 +261,9 @@ async fn saving_a_note_registers_its_links_and_the_report_lists_them() {
     author.register("nl-author").await;
     let work = author.publish_a_work("Note Links").await;
 
-    let (status, body) = author.get(&format!("/api/v1/works/{work}/note-links")).await;
+    let (status, body) = author
+        .get(&format!("/api/v1/works/{work}/note-links"))
+        .await;
     assert_eq!(status, StatusCode::OK, "{body}");
     assert_eq!(
         body["count"].as_u64(),
@@ -289,7 +295,9 @@ async fn a_note_without_links_reports_nothing() {
     let mut author = harness.client();
     author.register("nl-quiet").await;
 
-    let (status, body) = author.post("/api/v1/works", json!({ "title": "No Links" })).await;
+    let (status, body) = author
+        .post("/api/v1/works", json!({ "title": "No Links" }))
+        .await;
     assert_eq!(status, StatusCode::CREATED, "{body}");
     let work = body["id"].as_str().expect("work").to_owned();
     let work_version = body["version"].as_i64().expect("version");
@@ -320,7 +328,9 @@ async fn a_note_without_links_reports_nothing() {
         .await;
     assert_eq!(status, StatusCode::OK, "{body}");
 
-    let (status, body) = author.get(&format!("/api/v1/works/{work}/note-links")).await;
+    let (status, body) = author
+        .get(&format!("/api/v1/works/{work}/note-links"))
+        .await;
     assert_eq!(status, StatusCode::OK, "{body}");
     assert_eq!(body["count"].as_u64(), Some(0), "no links, no rows: {body}");
 }
@@ -375,7 +385,9 @@ async fn a_corrected_note_replaces_what_the_work_reports() {
         .await;
     assert_eq!(status, StatusCode::OK, "{body}");
 
-    let (status, body) = author.get(&format!("/api/v1/works/{work}/note-links")).await;
+    let (status, body) = author
+        .get(&format!("/api/v1/works/{work}/note-links"))
+        .await;
     assert_eq!(status, StatusCode::OK, "{body}");
     assert_eq!(
         body["count"].as_u64(),
@@ -388,7 +400,11 @@ async fn a_corrected_note_replaces_what_the_work_reports() {
     let stored = darkhold_db::note_links::list_for_work(harness.tdb.db(), &work)
         .await
         .expect("store");
-    assert_eq!(stored.len(), 2, "the superseded revision's link is still stored");
+    assert_eq!(
+        stored.len(),
+        2,
+        "the superseded revision's link is still stored"
+    );
 }
 
 #[tokio::test]
@@ -400,7 +416,9 @@ async fn a_stranger_can_read_the_report_but_only_the_author_can_trigger_a_check(
     let mut stranger = harness.client();
     stranger.register("nl-stranger").await;
 
-    let (status, body) = stranger.get(&format!("/api/v1/works/{work}/note-links")).await;
+    let (status, body) = stranger
+        .get(&format!("/api/v1/works/{work}/note-links"))
+        .await;
     assert_eq!(status, StatusCode::OK, "the report is public: {body}");
     assert_eq!(body["count"].as_u64(), Some(2));
 
@@ -465,7 +483,9 @@ async fn a_refused_url_is_recorded_dead_rather_than_left_pending() {
     assert_eq!(status, StatusCode::OK, "{body}");
     assert_eq!(body["dead"].as_u64(), Some(1), "{body}");
 
-    let (status, body) = author.get(&format!("/api/v1/works/{work}/note-links")).await;
+    let (status, body) = author
+        .get(&format!("/api/v1/works/{work}/note-links"))
+        .await;
     assert_eq!(status, StatusCode::OK, "{body}");
     assert_eq!(
         body["links"][0]["status"].as_str(),

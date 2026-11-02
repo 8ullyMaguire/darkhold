@@ -864,10 +864,7 @@ pub async fn set_relationship_dynamics(
 }
 
 /// A claim's dynamics, sorted.
-pub async fn dynamics_of_relationship(
-    db: &Database,
-    relationship_id: &str,
-) -> Result<Vec<String>> {
+pub async fn dynamics_of_relationship(db: &Database, relationship_id: &str) -> Result<Vec<String>> {
     let sql = db.sql(
         "SELECT dynamic_node_id FROM work_relationship_dynamics
          WHERE relationship_id = ?1 ORDER BY dynamic_node_id",
@@ -1042,10 +1039,7 @@ pub async fn relationships_involving(
 /// answers all of them. The alternative — a `LEFT JOIN` onto the set — would return
 /// one row per dynamic and force the caller to regroup, which is how a claim
 /// silently multiplies.
-async fn attach_dynamics(
-    db: &Database,
-    relationships: &mut [WorkRelationship],
-) -> Result<()> {
+async fn attach_dynamics(db: &Database, relationships: &mut [WorkRelationship]) -> Result<()> {
     if relationships.is_empty() {
         return Ok(());
     }
@@ -1073,7 +1067,8 @@ async fn attach_dynamics(
             for id in &ids {
                 q = q.bind(*id);
             }
-            q.fetch_all(db.sqlite_pool().expect("sqlite handle")).await?
+            q.fetch_all(db.sqlite_pool().expect("sqlite handle"))
+                .await?
         }
         Backend::Postgres => {
             let mut q = sqlx::query_as(&sql);

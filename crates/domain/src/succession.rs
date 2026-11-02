@@ -60,9 +60,7 @@ impl Plan {
     #[must_use]
     pub fn is_stale(&self, now: OffsetDateTime) -> bool {
         match parse_time(&self.confirmed_at) {
-            Some(confirmed) => {
-                now - confirmed > time::Duration::days(self.review_days)
-            }
+            Some(confirmed) => now - confirmed > time::Duration::days(self.review_days),
             // An unreadable timestamp is not evidence of liveness. Treat it as stale: the document
             // then reports itself as unverified rather than as fresh because the parse failed.
             None => true,
@@ -72,12 +70,11 @@ impl Plan {
     /// The instant the plan stops being current, RFC 3339.
     #[must_use]
     pub fn review_due(&self) -> Option<String> {
-        parse_time(&self.confirmed_at)
-            .and_then(|confirmed| {
-                (confirmed + time::Duration::days(self.review_days))
-                    .format(&Rfc3339)
-                    .ok()
-            })
+        parse_time(&self.confirmed_at).and_then(|confirmed| {
+            (confirmed + time::Duration::days(self.review_days))
+                .format(&Rfc3339)
+                .ok()
+        })
     }
 }
 
@@ -257,12 +254,19 @@ mod tests {
     fn the_review_window_is_clamped_rather_than_refused() {
         let mut draft = draft();
         draft.review_days = 1;
-        assert_eq!(validate(draft.clone()).unwrap().review_days, MIN_REVIEW_DAYS);
+        assert_eq!(
+            validate(draft.clone()).unwrap().review_days,
+            MIN_REVIEW_DAYS
+        );
         draft.review_days = 5000;
         assert_eq!(validate(draft).unwrap().review_days, MAX_REVIEW_DAYS);
         let mut d = super::tests::draft();
         d.review_days = 120;
-        assert_eq!(validate(d).unwrap().review_days, 120, "inside the bounds, unchanged");
+        assert_eq!(
+            validate(d).unwrap().review_days,
+            120,
+            "inside the bounds, unchanged"
+        );
     }
 
     #[test]
@@ -314,7 +318,10 @@ mod tests {
                 "{raw} should normalise to example.org"
             );
         }
-        assert!(normalise_host("localhost").is_none(), "not a host this registry keys on");
+        assert!(
+            normalise_host("localhost").is_none(),
+            "not a host this registry keys on"
+        );
         assert!(normalise_host("   ").is_none());
         assert!(normalise_host("exa mple.org").is_none());
     }

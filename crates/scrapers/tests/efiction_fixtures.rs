@@ -40,10 +40,8 @@ const GW_CHAPTER_2: &str =
     "https://www.giantessworld.net/viewstory.php?sid=11369&textsize=0&chapter=2";
 
 const PSY_WORK: &str = "https://www.psychfic.com/viewstory.php?sid=4376&index=1";
-const PSY_CHAPTER_1: &str =
-    "https://www.psychfic.com/viewstory.php?sid=4376&textsize=0&chapter=1";
-const PSY_CHAPTER_2: &str =
-    "https://www.psychfic.com/viewstory.php?sid=4376&textsize=0&chapter=2";
+const PSY_CHAPTER_1: &str = "https://www.psychfic.com/viewstory.php?sid=4376&textsize=0&chapter=1";
+const PSY_CHAPTER_2: &str = "https://www.psychfic.com/viewstory.php?sid=4376&textsize=0&chapter=2";
 
 /// Read a recorded page.
 ///
@@ -858,7 +856,9 @@ async fn the_new_member_reads_its_chapters_and_not_its_neighbours() {
     assert_eq!(first.ordinal, 1);
     assert_eq!(second.ordinal, 2);
     assert!(
-        first.content_html.contains("Gus walked into the Psych office"),
+        first
+            .content_html
+            .contains("Gus walked into the Psych office"),
         "chapter 1's prose is the prose on chapter 1's page"
     );
     assert_ne!(

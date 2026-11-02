@@ -82,7 +82,9 @@ pub enum Claim {
 pub enum Complete {
     Done(Assignment),
     /// The work has no comment by this pseud since the assignment. Nothing was written.
-    NoCommentYet { work_id: String },
+    NoCommentYet {
+        work_id: String,
+    },
     /// The assignment exists and belongs to someone else.
     NotYours,
     NoSuchAssignment,

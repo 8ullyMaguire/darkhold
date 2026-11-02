@@ -221,22 +221,16 @@ async fn write_redirect(
         )));
     }
     let path = request.path.as_deref().unwrap_or("/");
-    let registered = darkhold_db::succession::add_redirect(
-        state.db(),
-        &request.host,
-        path,
-        &request.to_url,
-    )
-    .await?;
+    let registered =
+        darkhold_db::succession::add_redirect(state.db(), &request.host, path, &request.to_url)
+            .await?;
     if !registered {
         return Err(ApiError(AppError::field(
             "host",
             "That host is not a host this registry can key on.",
         )));
     }
-    Ok(Json(ResolveView {
-        to: request.to_url,
-    }))
+    Ok(Json(ResolveView { to: request.to_url }))
 }
 
 /// Refuse a caller who is not this instance's operator, without confirming that the endpoint exists.

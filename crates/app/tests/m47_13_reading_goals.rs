@@ -93,7 +93,12 @@ impl Client {
         }
     }
 
-    async fn request(&mut self, method: &str, uri: &str, body: Option<Value>) -> (StatusCode, Value) {
+    async fn request(
+        &mut self,
+        method: &str,
+        uri: &str,
+        body: Option<Value>,
+    ) -> (StatusCode, Value) {
         let mut builder = Request::builder()
             .method(method)
             .uri(uri)
@@ -206,7 +211,11 @@ async fn no_goal_is_null_rather_than_an_error() {
 
     let (status, body) = reader.get("/api/v1/reading-goal").await;
     assert_eq!(status, StatusCode::OK, "{body}");
-    assert_eq!(body["goal"], Value::Null, "opt-in means absent, not an error");
+    assert_eq!(
+        body["goal"],
+        Value::Null,
+        "opt-in means absent, not an error"
+    );
 
     // And anonymously it is a 401, not a null: the goal is a pseud's.
     let mut anon = reader.signed_out();
@@ -346,7 +355,8 @@ async fn reading_a_chapter_through_the_reader_route_moves_the_goal() {
 
     let (_, body) = reader.get("/api/v1/reading-goal").await;
     assert_eq!(
-        body["progress"]["current"], json!(1),
+        body["progress"]["current"],
+        json!(1),
         "the reader's own progress route is what records the chapter: {body}"
     );
     assert_eq!(body["progress"]["remaining"], json!(1));

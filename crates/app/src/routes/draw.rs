@@ -248,10 +248,14 @@ async fn post_draw_pick(
         return Err(ApiError(AppError::NotFound { resource: "draw" }));
     }
 
-    let chosen =
-        darkhold_db::recommendation_slots::mark_chosen(state.db(), viewer, &body.request_id, &body.work_id)
-            .await
-            .map_err(|e| ApiError(AppError::Internal(e)))?;
+    let chosen = darkhold_db::recommendation_slots::mark_chosen(
+        state.db(),
+        viewer,
+        &body.request_id,
+        &body.work_id,
+    )
+    .await
+    .map_err(|e| ApiError(AppError::Internal(e)))?;
 
     // The response names the card the HAND recorded, not the one that was posted:
     // a second tap on another card is a no-op, and answering with the posted id

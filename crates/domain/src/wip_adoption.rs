@@ -63,7 +63,10 @@ pub enum AdoptionRefusal {
     NotAbandoned,
     /// §56.1: adoption is a publishing act and is gated like one. Both numbers are reported so
     /// the refusal can name the bar rather than say "forbidden".
-    BelowBar { bar: i64, caller: i64 },
+    BelowBar {
+        bar: i64,
+        caller: i64,
+    },
 }
 
 /// Why a withdrawal could not happen.

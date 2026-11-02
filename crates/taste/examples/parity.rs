@@ -225,8 +225,7 @@ fn main() -> ExitCode {
         eprintln!(
             "\nno reader could be scored: {} judged, {} ranked on both sides. \
              This run proves nothing and is not a pass.",
-            report.readers,
-            report.scored
+            report.readers, report.scored
         );
         return ExitCode::from(1);
     }

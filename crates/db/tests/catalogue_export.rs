@@ -91,9 +91,36 @@ async fn seed(db: &Database) {
     .expect("account");
 
     for (id, source, key, title, author, likes, views, updated) in [
-        ("li-1", "sb", "t-1", "Winter's Wake", "Vesna", 3_i64, Some(900_i64), "2026-10-30T10:00:00Z"),
-        ("li-2", "sv", "t-2", "Winter's Wake", "Vesna", 40_i64, None, "2026-10-29T10:00:00Z"),
-        ("li-3", "sb", "t-3", "The Long Road", "Orrin", 120_i64, Some(5000_i64), "2026-10-01T10:00:00Z"),
+        (
+            "li-1",
+            "sb",
+            "t-1",
+            "Winter's Wake",
+            "Vesna",
+            3_i64,
+            Some(900_i64),
+            "2026-10-30T10:00:00Z",
+        ),
+        (
+            "li-2",
+            "sv",
+            "t-2",
+            "Winter's Wake",
+            "Vesna",
+            40_i64,
+            None,
+            "2026-10-29T10:00:00Z",
+        ),
+        (
+            "li-3",
+            "sb",
+            "t-3",
+            "The Long Road",
+            "Orrin",
+            120_i64,
+            Some(5000_i64),
+            "2026-10-01T10:00:00Z",
+        ),
     ] {
         sqlx::query(
             "INSERT INTO library_items \
@@ -132,7 +159,10 @@ async fn the_snapshot_is_a_sqlite_file_with_exact_counts_and_no_readers_in_it() 
     let magic = std::fs::read(&path).expect("read");
     assert_eq!(&magic[..16], b"SQLite format 3\0", "not a sqlite file");
 
-    assert_eq!(summary.schema_version, darkhold_db::catalogue_export::SCHEMA_VERSION);
+    assert_eq!(
+        summary.schema_version,
+        darkhold_db::catalogue_export::SCHEMA_VERSION
+    );
     assert_eq!(summary.rows, 3, "one row per catalogue entry");
     assert_eq!(summary.works, 2, "two distinct stories");
     assert_eq!(summary.sources, 2, "sb and sv");
@@ -151,21 +181,24 @@ async fn the_snapshot_is_a_sqlite_file_with_exact_counts_and_no_readers_in_it() 
     assert_eq!(rows, 3);
 
     // Exact, unsuppressed. 3 likes stays 3: nothing here is about a person.
-    let (likes,): (i64,) =
-        sqlx::query_as("SELECT likes FROM works WHERE source_key = 'sb' AND source_work_key = 't-1'")
-            .fetch_one(&reader)
-            .await
-            .expect("likes");
-    assert_eq!(likes, 3, "a like count must not be rounded or floor-suppressed");
-
-    // The cross-source aggregate the API computes is materialised in the file,
-    // because doing it client-side needs the normalisation rule.
-    let (total, count): (i64, i64) = sqlx::query_as(
-        "SELECT total_likes, source_count FROM works WHERE source_work_key = 't-1'",
+    let (likes,): (i64,) = sqlx::query_as(
+        "SELECT likes FROM works WHERE source_key = 'sb' AND source_work_key = 't-1'",
     )
     .fetch_one(&reader)
     .await
-    .expect("aggregate");
+    .expect("likes");
+    assert_eq!(
+        likes, 3,
+        "a like count must not be rounded or floor-suppressed"
+    );
+
+    // The cross-source aggregate the API computes is materialised in the file,
+    // because doing it client-side needs the normalisation rule.
+    let (total, count): (i64, i64) =
+        sqlx::query_as("SELECT total_likes, source_count FROM works WHERE source_work_key = 't-1'")
+            .fetch_one(&reader)
+            .await
+            .expect("aggregate");
     assert_eq!((total, count), (43, 2), "3 + 40 across two sources");
 
     // The meta table says what the file is, so a downloaded file explains itself.
@@ -181,7 +214,10 @@ async fn the_snapshot_is_a_sqlite_file_with_exact_counts_and_no_readers_in_it() 
     };
     assert_eq!(get("schema_version"), "1");
     assert_eq!(get("rows"), "3");
-    assert!(get("built_at").ends_with('Z'), "built_at is an RFC3339 instant");
+    assert!(
+        get("built_at").ends_with('Z'),
+        "built_at is an RFC3339 instant"
+    );
     assert!(
         get("privacy").to_lowercase().contains("no account"),
         "the file must state its own privacy boundary: {}",
@@ -222,10 +258,11 @@ async fn the_snapshot_is_a_sqlite_file_with_exact_counts_and_no_readers_in_it() 
     .await
     .expect("tables");
     for table in tables {
-        let cols: Vec<String> = sqlx::query_scalar(&format!("SELECT name FROM pragma_table_info('{table}')"))
-            .fetch_all(&reader)
-            .await
-            .expect("columns");
+        let cols: Vec<String> =
+            sqlx::query_scalar(&format!("SELECT name FROM pragma_table_info('{table}')"))
+                .fetch_all(&reader)
+                .await
+                .expect("columns");
         for col in cols {
             let lower = col.to_ascii_lowercase();
             for bad in forbidden {
@@ -245,7 +282,10 @@ async fn the_snapshot_is_a_sqlite_file_with_exact_counts_and_no_readers_in_it() 
     .fetch_one(&reader)
     .await
     .expect("scan");
-    assert_eq!(hits, 0, "no personal data from provenance_json may reach the file");
+    assert_eq!(
+        hits, 0,
+        "no personal data from provenance_json may reach the file"
+    );
 
     reader.close().await;
 }
@@ -266,7 +306,10 @@ async fn rebuilding_is_deterministic_and_atomic() {
     let again = darkhold_db::catalogue_export::fingerprint(&db)
         .await
         .expect("fingerprint");
-    assert_eq!(again, first.fingerprint, "an unchanged catalogue has a stable fingerprint");
+    assert_eq!(
+        again, first.fingerprint,
+        "an unchanged catalogue has a stable fingerprint"
+    );
     assert_eq!(again.len(), 64, "hex sha256");
 
     // No stray temp file: the write is a rename, so a half-written snapshot is
@@ -278,7 +321,10 @@ async fn rebuilding_is_deterministic_and_atomic() {
         .map(|e| e.file_name().to_string_lossy().to_string())
         .filter(|n| n.contains(".tmp"))
         .collect();
-    assert!(leftovers.is_empty(), "temp files left behind: {leftovers:?}");
+    assert!(
+        leftovers.is_empty(),
+        "temp files left behind: {leftovers:?}"
+    );
     assert!(bytes_first.len() > 1024, "the file has content");
 
     let second = darkhold_db::catalogue_export::build_sqlite(&db, &path)

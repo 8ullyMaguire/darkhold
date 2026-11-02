@@ -342,15 +342,15 @@ async fn require_scoped_bans(state: &AppState, issuer: &str) -> ApiResult<()> {
     // (spec §14.4): on an instance with no senior reviewer the requirement falls to the level that
     // actually has somebody in it, and it returns to 5 on the next evaluation once a senior
     // reviewer appears.
-    let (level, required) = crate::auth::privilege_check(
-        state,
-        issuer,
-        darkhold_domain::trust::Privilege::ScopedBans,
-    )
-    .await
-    .map_err(|e| ApiError(AppError::Internal(e.into())))?;
+    let (level, required) =
+        crate::auth::privilege_check(state, issuer, darkhold_domain::trust::Privilege::ScopedBans)
+            .await
+            .map_err(|e| ApiError(AppError::Internal(e.into())))?;
     if level < required {
-        return Err(ApiError(AppError::TrustLevelInsufficient { level, required }));
+        return Err(ApiError(AppError::TrustLevelInsufficient {
+            level,
+            required,
+        }));
     }
     Ok(())
 }

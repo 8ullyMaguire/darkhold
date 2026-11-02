@@ -176,7 +176,9 @@ fn the_document_is_served_at_the_path_the_table_names() {
 fn every_operation_states_its_audience() {
     let doc = darkhold_app::routes::openapi::document();
     let paths = doc["paths"].as_object().expect("paths");
-    let methods = ["get", "put", "post", "delete", "options", "head", "patch", "trace"];
+    let methods = [
+        "get", "put", "post", "delete", "options", "head", "patch", "trace",
+    ];
     let mut ops = 0usize;
     let mut missing: Vec<String> = Vec::new();
 
@@ -211,7 +213,10 @@ fn the_audience_in_the_document_is_the_tables_word() {
     // `RequireSession`, so asserting against `as_str()` lets a document claim two different doors
     // are one — which is what the first version did (158 operations, all "MaybeSession").
     let allowed: Vec<&str> = ROUTE_TABLE.iter().map(|e| e.audience.label()).collect();
-    assert!(allowed.contains(&"public"), "the vocabulary must include the public door");
+    assert!(
+        allowed.contains(&"public"),
+        "the vocabulary must include the public door"
+    );
 
     for (path, item) in paths {
         for (method, op) in item.as_object().expect("path item") {

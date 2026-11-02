@@ -72,7 +72,11 @@ fn character_reads_work_characters_not_work_tags() {
     // reader typing `character:Alice` must find the row whichever importer wrote it.
     assert_eq!(
         binds,
-        vec!["alice".to_string(), "alice".to_string(), "alice".to_string()],
+        vec![
+            "alice".to_string(),
+            "alice".to_string(),
+            "alice".to_string()
+        ],
         "one bind per normal form: exchange, stripped slug, case-folded canonical"
     );
 

@@ -602,13 +602,20 @@ pub async fn language_supply(
 /// What happened when a patron tried to fund a translation.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum FundOutcome {
-    Funded { bounty_id: String },
+    Funded {
+        bounty_id: String,
+    },
     /// `translation: ask` — the author must answer first.
     MustAsk,
     /// `translation: no` or `unstated`, with the statement named for the refusal.
-    Forbidden { statement: &'static str },
+    Forbidden {
+        statement: &'static str,
+    },
     /// The account cannot cover the amount it is promising.
-    InsufficientBalance { available: i64, required: i64 },
+    InsufficientBalance {
+        available: i64,
+        required: i64,
+    },
 }
 
 /// Fund a translation of `work_id` into `target_lang`, on the existing `bounties` table.
@@ -652,20 +659,16 @@ pub async fn fund_translation(
 
     // The source language is the work's own, so a translator is never told to guess it.
     let source_lang: String = match db.backend() {
-        Backend::Sqlite => {
-            sqlx::query("SELECT language FROM works WHERE id = ?")
-                .bind(work_id)
-                .fetch_one(db.sqlite_pool().expect("sqlite"))
-                .await?
-                .get(0)
-        }
-        Backend::Postgres => {
-            sqlx::query("SELECT language FROM works WHERE id::text = $1")
-                .bind(work_id)
-                .fetch_one(db.postgres_pool().expect("postgres"))
-                .await?
-                .get(0)
-        }
+        Backend::Sqlite => sqlx::query("SELECT language FROM works WHERE id = ?")
+            .bind(work_id)
+            .fetch_one(db.sqlite_pool().expect("sqlite"))
+            .await?
+            .get(0),
+        Backend::Postgres => sqlx::query("SELECT language FROM works WHERE id::text = $1")
+            .bind(work_id)
+            .fetch_one(db.postgres_pool().expect("postgres"))
+            .await?
+            .get(0),
     };
 
     let terms = serde_json::json!({

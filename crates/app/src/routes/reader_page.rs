@@ -240,9 +240,7 @@ async fn read_unit_page(
         Reading::Contributor | Reading::Public => {}
         // This page renders a unit's text. A published record is not a
         // published body, and the page is the body.
-        Reading::MetadataOnly => {
-            return Err(ApiError(AppError::NotFound { resource: "work" }))
-        }
+        Reading::MetadataOnly => return Err(ApiError(AppError::NotFound { resource: "work" })),
         Reading::Denied(error) => return Err(ApiError(error)),
     }
 

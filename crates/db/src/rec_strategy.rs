@@ -383,11 +383,12 @@ pub fn time_decay_strategy() -> RecStrategyFn {
             // as `f64`, so the query failed with "Rust type `f64` (as SQL type `FLOAT8`) is not
             // compatible with SQL type `NUMERIC`". SQLite has no such distinction, which is why
             // only the PostgreSQL run of the new test could find it.
-            let score = db.sql(
-                "SUM(1.0 / (1.0 + {age_days}))",
-                "SUM(1.0 / (1.0 + {age_days}))::double precision",
-            )
-            .replace("{age_days}", &age_days);
+            let score = db
+                .sql(
+                    "SUM(1.0 / (1.0 + {age_days}))",
+                    "SUM(1.0 / (1.0 + {age_days}))::double precision",
+                )
+                .replace("{age_days}", &age_days);
             // Named format arguments throughout, for the reason `hidden_classics` gives below: a
             // positional list with four holes and two repeats of one value is where an argument
             // goes into the wrong hole and the query is still valid.

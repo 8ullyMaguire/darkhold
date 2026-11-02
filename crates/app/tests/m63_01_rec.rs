@@ -342,20 +342,16 @@ async fn account_of(db: &Database, handle: &str) -> String {
         "SELECT id::text FROM accounts WHERE email = $1",
     );
     let row: (String,) = match db.backend() {
-        darkhold_db::Backend::Sqlite => {
-            sqlx::query_as(&sql)
-                .bind(&email)
-                .fetch_one(db.sqlite_pool().expect("sqlite"))
-                .await
-                .expect("account")
-        }
-        darkhold_db::Backend::Postgres => {
-            sqlx::query_as(&sql)
-                .bind(&email)
-                .fetch_one(db.postgres_pool().expect("postgres"))
-                .await
-                .expect("account")
-        }
+        darkhold_db::Backend::Sqlite => sqlx::query_as(&sql)
+            .bind(&email)
+            .fetch_one(db.sqlite_pool().expect("sqlite"))
+            .await
+            .expect("account"),
+        darkhold_db::Backend::Postgres => sqlx::query_as(&sql)
+            .bind(&email)
+            .fetch_one(db.postgres_pool().expect("postgres"))
+            .await
+            .expect("account"),
     };
     row.0
 }
@@ -548,9 +544,7 @@ async fn an_engine_that_is_not_enabled_is_refused_by_name() {
     let harness = Harness::new("engine").await;
     let mut reader = harness.reader("m6301engine").await;
 
-    let (status, body) = reader
-        .get("/api/v1/rec/run?engine=not_a_strategy")
-        .await;
+    let (status, body) = reader.get("/api/v1/rec/run?engine=not_a_strategy").await;
     assert_eq!(status, StatusCode::UNPROCESSABLE_ENTITY, "body: {body}");
     let message = body["error"]["message"].as_str().unwrap_or_default();
     assert!(

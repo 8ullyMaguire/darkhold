@@ -111,7 +111,8 @@ impl Seed {
 
     /// Every token this row carries, with its field weight.
     fn weighted(&self) -> Vec<(&str, f64)> {
-        let mut out: Vec<(&str, f64)> = Vec::with_capacity(self.title_tokens.len() + self.body_tokens.len());
+        let mut out: Vec<(&str, f64)> =
+            Vec::with_capacity(self.title_tokens.len() + self.body_tokens.len());
         for token in &self.title_tokens {
             out.push((token.as_str(), TITLE_WEIGHT));
         }
@@ -368,7 +369,14 @@ mod tests {
         let generic = seed("b", "Another Gamer", "just a gamer", "bob");
         let rare = seed("c", "Christchurch Gamer", "a gamer", "carl");
         let filler: Vec<Seed> = (0..40)
-            .map(|i| seed(&format!("f{i}"), &format!("Gamer {i}"), "a gamer system", "x"))
+            .map(|i| {
+                seed(
+                    &format!("f{i}"),
+                    &format!("Gamer {i}"),
+                    "a gamer system",
+                    "x",
+                )
+            })
             .collect();
         let mut population = vec![target.clone(), generic.clone(), rare.clone()];
         population.extend(filler);
@@ -401,11 +409,16 @@ mod tests {
         let population = vec![target.clone(), near.clone(), far.clone()];
         let idf = Idf::build(&population);
         let hits = rank(&target, &population, &idf);
-        assert!(hits.iter().all(|h| h.id != "a"), "the seed must not rank itself");
+        assert!(
+            hits.iter().all(|h| h.id != "a"),
+            "the seed must not rank itself"
+        );
         assert_eq!(hits[0].id, "b");
         // Determinism: the same call twice.
         assert_eq!(
-            hits.iter().map(|h| (h.id.clone(), h.score)).collect::<Vec<_>>(),
+            hits.iter()
+                .map(|h| (h.id.clone(), h.score))
+                .collect::<Vec<_>>(),
             rank(&target, &population, &idf)
                 .iter()
                 .map(|h| (h.id.clone(), h.score))

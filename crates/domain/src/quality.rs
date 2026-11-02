@@ -446,12 +446,7 @@ fn logistic(z: f64) -> f64 {
 /// module exists to avoid, so the page is two blocks and [`Hit::measured`] says
 /// which block a row is in.
 #[must_use]
-pub fn rank(
-    metric: Metric,
-    candidates: &[Candidate],
-    limit: usize,
-    offset: usize,
-) -> Ranking {
+pub fn rank(metric: Metric, candidates: &[Candidate], limit: usize, offset: usize) -> Ranking {
     let total = candidates.len();
     let engaged: Vec<&Candidate> = candidates.iter().filter(|c| c.likes > 0).collect();
     let ranked = engaged.len();
@@ -477,14 +472,19 @@ pub fn rank(
         }
     }
     for s in stats.values_mut() {
-        s.density.sort_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal));
+        s.density
+            .sort_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal));
     }
 
     let signals_of = |candidate: &Candidate| -> Signals {
         let s = stats.get(candidate.source_key.as_str());
         let coverage = (candidate.source_count.clamp(0, 5) as f64) / 5.0;
         let maturity = words_maturity(candidate.word_count);
-        let crosspost = if candidate.source_count >= 2 { 1.0 } else { 0.0 };
+        let crosspost = if candidate.source_count >= 2 {
+            1.0
+        } else {
+            0.0
+        };
         let recency = candidate
             .freshness_days
             .map(|days| (-days / RECENCY_HALF_LIFE_DAYS).exp());
@@ -529,11 +529,17 @@ pub fn rank(
                 } else {
                     0.0
                 };
-            signals.consensus = signals.source_pct.map(|p| (p + cross_bonus).clamp(0.0, 1.0));
+            signals.consensus = signals
+                .source_pct
+                .map(|p| (p + cross_bonus).clamp(0.0, 1.0));
         } else {
             // No endorsement data: nothing about quality is known, so only the
             // metadata signals are filled and the triage score decides the order.
-            signals.triage = Some(0.4 * coverage + 0.3 * maturity.unwrap_or(0.0) + 0.3 * (candidate.source_count.clamp(0, 3) as f64) / 3.0);
+            signals.triage = Some(
+                0.4 * coverage
+                    + 0.3 * maturity.unwrap_or(0.0)
+                    + 0.3 * (candidate.source_count.clamp(0, 3) as f64) / 3.0,
+            );
         }
         signals
     };
@@ -677,26 +683,47 @@ mod tests {
         let mut candidates = Vec::new();
         // 884 engaged rows on sb, the story third from the top.
         for i in 0..881 {
-            candidates.push(candidate(&format!("sb{i}"), "sb", 10 + i as i64 * 20, Some(50_000)));
+            candidates.push(candidate(
+                &format!("sb{i}"),
+                "sb",
+                10 + i as i64 * 20,
+                Some(50_000),
+            ));
         }
         candidates.push(candidate("sb-second", "sb", 40_000, Some(200_000)));
         candidates.push(candidate("sb-first", "sb", 45_000, Some(200_000)));
         candidates.push(candidate("sb-marvel", "sb", 33_107, Some(200_000)));
         // 209 engaged rows on qq, the story at the top.
         for i in 0..208 {
-            candidates.push(candidate(&format!("qq{i}"), "qq", 5 + i as i64 * 10, Some(50_000)));
+            candidates.push(candidate(
+                &format!("qq{i}"),
+                "qq",
+                5 + i as i64 * 10,
+                Some(50_000),
+            ));
         }
         candidates.push(candidate("qq-marvel", "qq", 4_179, Some(200_000)));
 
         let ranked = rank(Metric::SourcePct, &candidates, 2_000, 0);
-        let sb = ranked.hits.iter().find(|h| h.id == "sb-marvel").expect("sb copy ranked");
-        let qq = ranked.hits.iter().find(|h| h.id == "qq-marvel").expect("qq copy ranked");
+        let sb = ranked
+            .hits
+            .iter()
+            .find(|h| h.id == "sb-marvel")
+            .expect("sb copy ranked");
+        let qq = ranked
+            .hits
+            .iter()
+            .find(|h| h.id == "qq-marvel")
+            .expect("qq copy ranked");
         let gap = (sb.score - qq.score).abs();
         assert!(
             gap < 0.10,
             "percentile gap {gap} should be small; raw likes are 8x apart"
         );
-        assert!(sb.score > 0.85 && qq.score > 0.85, "both are top-of-archive stories");
+        assert!(
+            sb.score > 0.85 && qq.score > 0.85,
+            "both are top-of-archive stories"
+        );
     }
 
     /// A single like in a large archive is a weak story, not a strong one — the
@@ -705,7 +732,12 @@ mod tests {
     fn one_like_in_a_big_archive_scores_near_the_floor() {
         let mut candidates = vec![candidate("weak", "sb", 1, Some(5_000))];
         for i in 0..499 {
-            candidates.push(candidate(&format!("s{i}"), "sb", 100 + i as i64, Some(5_000)));
+            candidates.push(candidate(
+                &format!("s{i}"),
+                "sb",
+                100 + i as i64,
+                Some(5_000),
+            ));
         }
         let ranked = rank(Metric::SourcePct, &candidates, 1_000, 0);
         let weak = ranked.hits.iter().find(|h| h.id == "weak").expect("ranked");
@@ -728,7 +760,12 @@ mod tests {
             candidates.push(candidate(&format!("tiny-{i}"), "qq", 1, Some(20_000)));
         }
         for i in 0..400 {
-            candidates.push(candidate(&format!("big{i}"), "sb", 10 + i as i64, Some(20_000)));
+            candidates.push(candidate(
+                &format!("big{i}"),
+                "sb",
+                10 + i as i64,
+                Some(20_000),
+            ));
         }
         candidates.push(candidate("big-top", "sb", 4_000, Some(20_000)));
 
@@ -741,8 +778,14 @@ mod tests {
                 .unwrap_or_else(|| panic!("{id} ranked"))
                 .score
         };
-        assert!((score("tiny-top") - 1.0).abs() < 1e-9, "best of its own archive");
-        assert!((score("big-top") - 1.0).abs() < 1e-9, "best of its own archive");
+        assert!(
+            (score("tiny-top") - 1.0).abs() < 1e-9,
+            "best of its own archive"
+        );
+        assert!(
+            (score("big-top") - 1.0).abs() < 1e-9,
+            "best of its own archive"
+        );
     }
 
     /// Evidence is its own signal, and it is what discounts a small population —
@@ -754,20 +797,48 @@ mod tests {
             candidates.push(candidate(&format!("tiny-{i}"), "qq", 1, Some(20_000)));
         }
         for i in 0..400 {
-            candidates.push(candidate(&format!("big{i}"), "sb", 10 + i as i64, Some(20_000)));
+            candidates.push(candidate(
+                &format!("big{i}"),
+                "sb",
+                10 + i as i64,
+                Some(20_000),
+            ));
         }
         candidates.push(candidate("big-top", "sb", 4_000, Some(20_000)));
 
         let ranked = rank(Metric::Confidence, &candidates, 500, 0);
-        let tiny = ranked.hits.iter().find(|h| h.id == "tiny-top").expect("ranked");
-        let big = ranked.hits.iter().find(|h| h.id == "big-top").expect("ranked");
-        assert!(tiny.score < 0.3, "four rows are worth little: {}", tiny.score);
-        assert!(big.score > 0.9, "four hundred are worth a lot: {}", big.score);
+        let tiny = ranked
+            .hits
+            .iter()
+            .find(|h| h.id == "tiny-top")
+            .expect("ranked");
+        let big = ranked
+            .hits
+            .iter()
+            .find(|h| h.id == "big-top")
+            .expect("ranked");
+        assert!(
+            tiny.score < 0.3,
+            "four rows are worth little: {}",
+            tiny.score
+        );
+        assert!(
+            big.score > 0.9,
+            "four hundred are worth a lot: {}",
+            big.score
+        );
 
         // And the composite, which weighs it, prefers the better-evidenced row
         // even though both lead their own archive.
         let quality = rank(Metric::Quality, &candidates, 500, 0);
-        let q = |id: &str| quality.hits.iter().find(|h| h.id == id).expect("ranked").score;
+        let q = |id: &str| {
+            quality
+                .hits
+                .iter()
+                .find(|h| h.id == id)
+                .expect("ranked")
+                .score
+        };
         assert!(
             q("big-top") > q("tiny-top"),
             "quality must prefer evidence: {} vs {}",
@@ -813,7 +884,10 @@ mod tests {
         let without = candidate("without", "sb", 500, None);
         let ranked = rank(Metric::Quality, &[with_words, without], 5, 0);
         for hit in &ranked.hits {
-            assert!(hit.score > 0.0, "a missing word count must not zero the composite");
+            assert!(
+                hit.score > 0.0,
+                "a missing word count must not zero the composite"
+            );
         }
     }
 
@@ -861,7 +935,10 @@ mod tests {
             .collect();
         let mut sorted = ids.clone();
         sorted.sort_unstable();
-        assert_eq!(ids, sorted, "a second page must continue the first, not repeat it");
+        assert_eq!(
+            ids, sorted,
+            "a second page must continue the first, not repeat it"
+        );
     }
 
     #[test]

@@ -132,7 +132,10 @@ struct Counts {
 }
 
 /// `GET /api/v1/modules`.
-async fn list(State(state): State<AppState>, MaybeSession(session): MaybeSession) -> ApiResult<Json<Catalogue>> {
+async fn list(
+    State(state): State<AppState>,
+    MaybeSession(session): MaybeSession,
+) -> ApiResult<Json<Catalogue>> {
     let modules = state.modules();
     // One query for the whole page rather than one per row: the caller's changes are
     // a short list, and an empty list is the common case.

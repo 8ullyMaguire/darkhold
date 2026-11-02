@@ -64,9 +64,15 @@ pub async fn check_note_link(
             // is a dead link as far as a reader is concerned, and saying so is more useful than
             // leaving it "pending" forever.
             let reason = format!("the url cannot be parsed: {error}");
-            note_links::mark_checked(state.db(), link_id, LinkStatus::Dead, failures, Some(&reason))
-                .await
-                .map_err(|error| HandlerError::Transient(format!("recording the check: {error}")))?;
+            note_links::mark_checked(
+                state.db(),
+                link_id,
+                LinkStatus::Dead,
+                failures,
+                Some(&reason),
+            )
+            .await
+            .map_err(|error| HandlerError::Transient(format!("recording the check: {error}")))?;
             return Ok(LinkStatus::Dead);
         }
     };
@@ -77,22 +83,33 @@ pub async fn check_note_link(
             // A refusal here is permanent for this URL (a scheme, a host, a port this instance will
             // not talk to), so it is recorded as dead immediately rather than escalating over three
             // checks. Retrying a decision does not change it.
-            note_links::mark_checked(state.db(), link_id, LinkStatus::Dead, failures, Some(&reason))
-                .await
-                .map_err(|error| HandlerError::Transient(format!("recording the check: {error}")))?;
+            note_links::mark_checked(
+                state.db(),
+                link_id,
+                LinkStatus::Dead,
+                failures,
+                Some(&reason),
+            )
+            .await
+            .map_err(|error| HandlerError::Transient(format!("recording the check: {error}")))?;
             return Ok(LinkStatus::Dead);
         }
     };
 
     if allow.is_empty() {
-        let resolved = darkhold_scrapers::safety::resolve_public(&plan.host, NOTE_LINK_TIMEOUT).await;
+        let resolved =
+            darkhold_scrapers::safety::resolve_public(&plan.host, NOTE_LINK_TIMEOUT).await;
         match resolved {
             Ok(addrs) => {
                 if let Some(bad) = addrs
                     .iter()
                     .find(|addr| darkhold_scrapers::safety::is_forbidden_ip(addr.ip()))
                 {
-                    let reason = format!("{} resolves to a non-public address ({})", plan.host, bad.ip());
+                    let reason = format!(
+                        "{} resolves to a non-public address ({})",
+                        plan.host,
+                        bad.ip()
+                    );
                     note_links::mark_checked(
                         state.db(),
                         link_id,
@@ -101,7 +118,9 @@ pub async fn check_note_link(
                         Some(&reason),
                     )
                     .await
-                    .map_err(|error| HandlerError::Transient(format!("recording the check: {error}")))?;
+                    .map_err(|error| {
+                        HandlerError::Transient(format!("recording the check: {error}"))
+                    })?;
                     return Ok(LinkStatus::Dead);
                 }
             }
@@ -137,7 +156,9 @@ pub async fn check_note_link(
         Verdict::Answers => {
             note_links::mark_checked(state.db(), link_id, LinkStatus::Healthy, 0, None)
                 .await
-                .map_err(|error| HandlerError::Transient(format!("recording the check: {error}")))?;
+                .map_err(|error| {
+                    HandlerError::Transient(format!("recording the check: {error}"))
+                })?;
             Ok(LinkStatus::Healthy)
         }
         Verdict::MayRecover => {

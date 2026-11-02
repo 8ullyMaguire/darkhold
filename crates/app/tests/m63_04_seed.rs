@@ -218,9 +218,15 @@ async fn a_seed_page_answers_similarity_with_all_three_counts() {
     // The preselection matched the seed and the rewrite; the seed never ranks
     // itself, so one neighbour. `limit=2` asks for up to two.
     assert_eq!(items.len(), 1, "one neighbour exists: {body}");
-    assert_eq!(items[0]["source_work_key"], "rewrite", "the rewrite leads: {body}");
+    assert_eq!(
+        items[0]["source_work_key"], "rewrite",
+        "the rewrite leads: {body}"
+    );
     assert_eq!(body["ranked"], 1, "ranked counts neighbours: {body}");
-    assert_eq!(body["total"], 2, "total counts what the preselection matched: {body}");
+    assert_eq!(
+        body["total"], 2,
+        "total counts what the preselection matched: {body}"
+    );
     assert!(
         !items[0]["shared"].as_array().expect("shared").is_empty(),
         "a similarity page explains itself: {body}"
@@ -234,7 +240,9 @@ async fn a_seed_page_answers_similarity_with_all_three_counts() {
 #[tokio::test]
 async fn an_unknown_seed_is_a_404_not_an_empty_page() {
     let harness = Harness::new("missing").await;
-    let (status, body) = harness.get("/api/v1/catalogue?seed=nothing%20called%20this").await;
+    let (status, body) = harness
+        .get("/api/v1/catalogue?seed=nothing%20called%20this")
+        .await;
     assert_eq!(status, StatusCode::NOT_FOUND, "unknown seed: {body}");
 }
 
@@ -242,7 +250,11 @@ async fn an_unknown_seed_is_a_404_not_an_empty_page() {
 async fn an_ambiguous_seed_names_the_candidates() {
     let harness = Harness::new("ambiguous").await;
     let (status, body) = harness.get("/api/v1/catalogue?seed=Twin%20Story").await;
-    assert_eq!(status, StatusCode::UNPROCESSABLE_ENTITY, "ambiguous seed: {body}");
+    assert_eq!(
+        status,
+        StatusCode::UNPROCESSABLE_ENTITY,
+        "ambiguous seed: {body}"
+    );
     let message = body["error"]["message"].as_str().unwrap_or_default();
     assert!(
         message.contains("rows match")
@@ -268,7 +280,11 @@ async fn a_seed_refuses_a_second_ordering() {
     let (status, body) = harness
         .get("/api/v1/catalogue?seed=Ghost%20in%20the%20City&sort=source_pct")
         .await;
-    assert_eq!(status, StatusCode::UNPROCESSABLE_ENTITY, "seed + sort: {body}");
+    assert_eq!(
+        status,
+        StatusCode::UNPROCESSABLE_ENTITY,
+        "seed + sort: {body}"
+    );
 }
 
 #[tokio::test]

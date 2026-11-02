@@ -89,10 +89,7 @@ pub fn summary(h: &History) -> String {
     if h.concluded == 0 {
         return "no concluded works yet".to_string();
     }
-    format!(
-        "finished {} of {} concluded works",
-        h.finished, h.concluded
-    )
+    format!("finished {} of {} concluded works", h.finished, h.concluded)
 }
 
 /// Words that turn a count into a mark against somebody. [`summary`]'s output must contain none of
@@ -237,7 +234,13 @@ mod tests {
         let b = cadence(&[10, 10, 4, 0, 4]);
         assert_eq!(a, b, "order and duplicates must not change the answer");
         // Days {0, 4, 10} -> gaps {4, 6} -> median (4 + 6) / 2 = 5.
-        assert_eq!(a, Cadence::Measurable { median_days: 5, samples: 2 });
+        assert_eq!(
+            a,
+            Cadence::Measurable {
+                median_days: 5,
+                samples: 2
+            }
+        );
     }
 
     #[test]
@@ -269,7 +272,10 @@ mod tests {
         let single = cadence(&[7]);
         match single {
             Cadence::Unmeasured { reason } => {
-                assert!(reason.contains("one day"), "the reason must say what is wrong: {reason:?}");
+                assert!(
+                    reason.contains("one day"),
+                    "the reason must say what is wrong: {reason:?}"
+                );
                 assert!(is_positive(&reason), "even a refusal is phrased positively");
             }
             other => panic!("one day is not a cadence: {other:?}"),

@@ -79,7 +79,12 @@ impl Client {
         }
     }
 
-    async fn request(&mut self, method: &str, uri: &str, body: Option<Value>) -> (StatusCode, Value) {
+    async fn request(
+        &mut self,
+        method: &str,
+        uri: &str,
+        body: Option<Value>,
+    ) -> (StatusCode, Value) {
         let mut builder = Request::builder()
             .method(method)
             .uri(uri)
@@ -372,7 +377,11 @@ async fn every_reader_door_needs_a_session() {
         ("POST", "/api/v1/welcome/rota/whatever/complete"),
     ] {
         let (status, _) = anon.request(method, uri, Some(json!({}))).await;
-        assert_eq!(status, StatusCode::UNAUTHORIZED, "{method} {uri} anonymously");
+        assert_eq!(
+            status,
+            StatusCode::UNAUTHORIZED,
+            "{method} {uri} anonymously"
+        );
     }
 }
 
@@ -393,7 +402,11 @@ async fn the_report_is_operator_only() {
     let (status, body) = op.get("/api/v1/welcome/report").await;
     assert_eq!(status, StatusCode::OK, "{body}");
     assert_eq!(body["measured"], json!(true));
-    assert_eq!(body["eligible"], json!(1), "one endorsed work needs a welcome");
+    assert_eq!(
+        body["eligible"],
+        json!(1),
+        "one endorsed work needs a welcome"
+    );
 }
 
 #[tokio::test]

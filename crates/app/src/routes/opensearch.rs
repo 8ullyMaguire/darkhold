@@ -110,10 +110,16 @@ mod tests {
     #[test]
     fn a_name_with_xml_characters_still_parses() {
         let document = describe("Fic & Fandom <beta>", "https://example.test");
-        assert!(document.contains("Fic &amp; Fandom &lt;beta&gt;"), "{document}");
+        assert!(
+            document.contains("Fic &amp; Fandom &lt;beta&gt;"),
+            "{document}"
+        );
         // The only raw ampersands in a valid document are the ones introducing
         // entities.
-        let raw = document.replace("&amp;", "").replace("&lt;", "").replace("&gt;", "");
+        let raw = document
+            .replace("&amp;", "")
+            .replace("&lt;", "")
+            .replace("&gt;", "");
         assert!(!raw.contains('&'), "{document}");
         assert!(!document.contains("<beta>"), "{document}");
     }
@@ -121,7 +127,10 @@ mod tests {
     #[test]
     fn a_trailing_slash_does_not_double() {
         let document = describe("Darkhold", "https://darkhold.example/");
-        assert!(document.contains("https://darkhold.example/search"), "{document}");
+        assert!(
+            document.contains("https://darkhold.example/search"),
+            "{document}"
+        );
         assert!(!document.contains("example//search"), "{document}");
     }
 }

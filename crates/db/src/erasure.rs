@@ -554,8 +554,14 @@ fn apply_unlinked_sql(db: &Database, column: &UnlinkedColumn) -> Option<String> 
         // value unlinkable while keeping it unique — which `UNIQUE (account_id, work_id)` requires.
         Treatment::Rekey => Some(sql_owned(
             db,
-            format!("UPDATE {table} SET {col} = 'erased:' || id WHERE {}", predicate("?")),
-            format!("UPDATE {table} SET {col} = 'erased:' || id WHERE {}", predicate("$1")),
+            format!(
+                "UPDATE {table} SET {col} = 'erased:' || id WHERE {}",
+                predicate("?")
+            ),
+            format!(
+                "UPDATE {table} SET {col} = 'erased:' || id WHERE {}",
+                predicate("$1")
+            ),
         )),
         Treatment::DeferredTo(_) => None,
     }

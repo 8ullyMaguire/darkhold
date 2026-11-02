@@ -95,36 +95,32 @@ pub async fn record_for_revision(
         };
         let provider = note_links::provider_of(host).as_str();
         let affected = match db.backend() {
-            Backend::Sqlite => {
-                sqlx::query(&sql)
-                    .bind(uuid::Uuid::new_v4().to_string())
-                    .bind(work_id)
-                    .bind(unit_id)
-                    .bind(revision_id)
-                    .bind(&url)
-                    .bind(host)
-                    .bind(provider)
-                    .bind(&now)
-                    .bind(&now)
-                    .execute(db.sqlite_pool().expect("sqlite handle"))
-                    .await?
-                    .rows_affected()
-            }
-            Backend::Postgres => {
-                sqlx::query(&sql)
-                    .bind(uuid::Uuid::new_v4().to_string())
-                    .bind(work_id)
-                    .bind(unit_id)
-                    .bind(revision_id)
-                    .bind(&url)
-                    .bind(host)
-                    .bind(provider)
-                    .bind(&now)
-                    .bind(&now)
-                    .execute(db.postgres_pool().expect("postgres handle"))
-                    .await?
-                    .rows_affected()
-            }
+            Backend::Sqlite => sqlx::query(&sql)
+                .bind(uuid::Uuid::new_v4().to_string())
+                .bind(work_id)
+                .bind(unit_id)
+                .bind(revision_id)
+                .bind(&url)
+                .bind(host)
+                .bind(provider)
+                .bind(&now)
+                .bind(&now)
+                .execute(db.sqlite_pool().expect("sqlite handle"))
+                .await?
+                .rows_affected(),
+            Backend::Postgres => sqlx::query(&sql)
+                .bind(uuid::Uuid::new_v4().to_string())
+                .bind(work_id)
+                .bind(unit_id)
+                .bind(revision_id)
+                .bind(&url)
+                .bind(host)
+                .bind(provider)
+                .bind(&now)
+                .bind(&now)
+                .execute(db.postgres_pool().expect("postgres handle"))
+                .await?
+                .rows_affected(),
         };
         created += usize::try_from(affected).unwrap_or(0);
     }

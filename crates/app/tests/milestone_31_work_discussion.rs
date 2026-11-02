@@ -784,13 +784,8 @@ async fn each_comment_becomes_a_post_with_its_text() {
     let work = h.work().await;
     let category = h.category().await;
     let author = h.pseud("mover").await;
-    h.comment(
-        &work,
-        &h.pseud("c1").await,
-        "first",
-        "2026-01-01T00:00:00Z",
-    )
-    .await;
+    h.comment(&work, &h.pseud("c1").await, "first", "2026-01-01T00:00:00Z")
+        .await;
     h.comment(
         &work,
         &h.pseud("c2").await,
@@ -869,10 +864,7 @@ async fn a_post_keeps_the_comment_s_author_and_timestamp() {
             .expect("post"),
     };
     assert_eq!(who, speaker, "the post is still the commenter's");
-    assert_eq!(
-        when, "2026-03-04T05:06:07Z",
-        "and still at the same time"
-    );
+    assert_eq!(when, "2026-03-04T05:06:07Z", "and still at the same time");
 }
 
 #[tokio::test]
@@ -881,13 +873,8 @@ async fn migrating_twice_moves_nothing_the_second_time() {
     let work = h.work().await;
     let category = h.category().await;
     let author = h.pseud("mover").await;
-    h.comment(
-        &work,
-        &h.pseud("c1").await,
-        "one",
-        "2026-01-01T00:00:00Z",
-    )
-    .await;
+    h.comment(&work, &h.pseud("c1").await, "one", "2026-01-01T00:00:00Z")
+        .await;
 
     let first = wd::migrate_comments_to_topic(h.db(), &work, &category, &author, "Thread")
         .await
@@ -915,20 +902,10 @@ async fn a_deleted_comment_is_not_migrated() {
     let category = h.category().await;
     let author = h.pseud("mover").await;
     let gone = h
-        .comment(
-            &work,
-            &h.pseud("c1").await,
-            "gone",
-            "2026-01-01T00:00:00Z",
-        )
+        .comment(&work, &h.pseud("c1").await, "gone", "2026-01-01T00:00:00Z")
         .await;
-    h.comment(
-        &work,
-        &h.pseud("c2").await,
-        "stays",
-        "2026-01-02T00:00:00Z",
-    )
-    .await;
+    h.comment(&work, &h.pseud("c2").await, "stays", "2026-01-02T00:00:00Z")
+        .await;
     h.exec(&format!(
         "UPDATE comments SET deleted_at = '2026-01-05T00:00:00Z' WHERE id = '{gone}'"
     ))
@@ -950,13 +927,8 @@ async fn comments_on_something_else_are_not_migrated() {
     let work = h.work().await;
     let category = h.category().await;
     let author = h.pseud("mover").await;
-    h.comment(
-        &work,
-        &h.pseud("c1").await,
-        "mine",
-        "2026-01-01T00:00:00Z",
-    )
-    .await;
+    h.comment(&work, &h.pseud("c1").await, "mine", "2026-01-01T00:00:00Z")
+        .await;
 
     // A comment on a different work, and one on a series rather than a work.
     let other = h.work().await;
@@ -997,13 +969,8 @@ async fn a_work_with_comments_can_still_have_its_topic_created_once() {
     let existing = wd::link_topic(h.db(), &work, None, &category, &author, "Already here")
         .await
         .unwrap();
-    h.comment(
-        &work,
-        &h.pseud("c1").await,
-        "hello",
-        "2026-01-01T00:00:00Z",
-    )
-    .await;
+    h.comment(&work, &h.pseud("c1").await, "hello", "2026-01-01T00:00:00Z")
+        .await;
 
     let report = wd::migrate_comments_to_topic(h.db(), &work, &category, &author, "Thread")
         .await

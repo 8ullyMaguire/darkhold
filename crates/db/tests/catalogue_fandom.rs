@@ -63,7 +63,9 @@ async fn connect(tag: &str) -> Database {
                 .await
                 .expect("create a scratch database");
             admin_db.close().await;
-            let (prefix, _) = admin.rsplit_once('/').expect("admin URL ends in a database");
+            let (prefix, _) = admin
+                .rsplit_once('/')
+                .expect("admin URL ends in a database");
             format!("{prefix}/{name}")
         }
         Err(_) => format!("sqlite://{}/darkhold.sqlite?mode=rwc", dir.display()),
@@ -146,7 +148,11 @@ async fn seed(db: &Database) -> Seed {
             .await
             .expect("pseud");
 
-            for (id, name) in [(&naruto, "Naruto"), (&worm, "Worm"), (&potter, "Harry Potter")] {
+            for (id, name) in [
+                (&naruto, "Naruto"),
+                (&worm, "Worm"),
+                (&potter, "Harry Potter"),
+            ] {
                 sqlx::query(
                     "INSERT INTO canonical_entities (id, kind, canonical, norm, created_at, review_status, signal_count)
                      VALUES ($1::uuid, 'fandom', $2, $3, $4, 'confirmed', 0)",
@@ -242,7 +248,11 @@ async fn seed(db: &Database) -> Seed {
             .await
             .expect("pseud");
 
-            for (id, name) in [(&naruto, "Naruto"), (&worm, "Worm"), (&potter, "Harry Potter")] {
+            for (id, name) in [
+                (&naruto, "Naruto"),
+                (&worm, "Worm"),
+                (&potter, "Harry Potter"),
+            ] {
                 sqlx::query(
                     "INSERT INTO canonical_entities (id, kind, canonical, norm, created_at, review_status, signal_count)
                      VALUES (?, 'fandom', ?, ?, ?, 'confirmed', 0)",
@@ -343,12 +353,20 @@ async fn one_matching_work_is_one_row() {
     seed(&db).await;
 
     let once = keys(&db, Some("Worm")).await;
-    assert_eq!(once, vec!["two-fandoms"], "Worm must match the shared work once");
+    assert_eq!(
+        once,
+        vec!["two-fandoms"],
+        "Worm must match the shared work once"
+    );
 
     let mut limited = query(Some("Naruto"));
     limited.limit = Some(1);
     let page = catalogue::search(&db, &limited).await.expect("page of one");
-    assert_eq!(page.len(), 1, "limit=1 must return one row, not one row twice");
+    assert_eq!(
+        page.len(),
+        1,
+        "limit=1 must return one row, not one row twice"
+    );
 
     // And the same row is not repeated across the whole set either.
     let all = keys(&db, Some("Naruto")).await;
@@ -388,7 +406,11 @@ async fn the_filter_is_case_insensitive_and_ignores_a_null_work() {
     // matches one either — both are absent from every fandom page but still
     // present when no filter is applied.
     let unfiltered = keys(&db, None).await;
-    assert_eq!(unfiltered.len(), 4, "no filter returns every row, orphan included");
+    assert_eq!(
+        unfiltered.len(),
+        4,
+        "no filter returns every row, orphan included"
+    );
 }
 
 #[tokio::test]

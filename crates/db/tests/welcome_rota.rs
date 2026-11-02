@@ -274,7 +274,17 @@ async fn a_work_without_a_comment_is_offered() {
     let db = connect("offered").await;
     let r = reader(&db, "offered").await;
     let w = uuid();
-    item(&db, &r.account, &r.pseud, "a", "author-a", "ongoing", 10, Some(&w)).await;
+    item(
+        &db,
+        &r.account,
+        &r.pseud,
+        "a",
+        "author-a",
+        "ongoing",
+        10,
+        Some(&w),
+    )
+    .await;
 
     match welcome::claim(&db, &r.pseud).await.expect("claim") {
         Claim::Assigned(a) => {
@@ -319,7 +329,17 @@ async fn a_deleted_comment_is_not_a_conversation() {
     let db = connect("deleted").await;
     let r = reader(&db, "deleted").await;
     let w = uuid();
-    item(&db, &r.account, &r.pseud, "a", "author-a", "ongoing", 10, Some(&w)).await;
+    item(
+        &db,
+        &r.account,
+        &r.pseud,
+        "a",
+        "author-a",
+        "ongoing",
+        10,
+        Some(&w),
+    )
+    .await;
 
     comment(&db, &w, &r.pseud, T0).await;
     match welcome::claim(&db, &r.pseud).await.expect("claim") {
@@ -340,15 +360,34 @@ async fn a_deleted_comment_does_not_close_the_rota() {
     let db = connect("deleted-close").await;
     let r = reader(&db, "deleted-close").await;
     let w = uuid();
-    item(&db, &r.account, &r.pseud, "a", "author-a", "ongoing", 10, Some(&w)).await;
+    item(
+        &db,
+        &r.account,
+        &r.pseud,
+        "a",
+        "author-a",
+        "ongoing",
+        10,
+        Some(&w),
+    )
+    .await;
     let a = match welcome::claim(&db, &r.pseud).await.expect("claim") {
         Claim::Assigned(a) => a,
         other => panic!("expected an assignment: {other:?}"),
     };
-    comment(&db, &w, &r.pseud, darkhold_db::identity::now_rfc3339().as_str()).await;
+    comment(
+        &db,
+        &w,
+        &r.pseud,
+        darkhold_db::identity::now_rfc3339().as_str(),
+    )
+    .await;
     delete_comments(&db, &w).await;
 
-    match welcome::complete(&db, &r.pseud, &a.id).await.expect("complete") {
+    match welcome::complete(&db, &r.pseud, &a.id)
+        .await
+        .expect("complete")
+    {
         Complete::NoCommentYet { .. } => {}
         other => panic!("a deleted comment is not evidence: {other:?}"),
     }
@@ -362,8 +401,28 @@ async fn a_commented_work_is_never_offered() {
     let open = uuid();
     // The commented work would win on endorsement, so if the exclusion is dropped
     // this test fails by *which* work came back, not merely by whether one did.
-    item(&db, &r.account, &r.pseud, "a", "author-a", "ongoing", 99, Some(&commented)).await;
-    item(&db, &r.account, &r.pseud, "b", "author-b", "ongoing", 1, Some(&open)).await;
+    item(
+        &db,
+        &r.account,
+        &r.pseud,
+        "a",
+        "author-a",
+        "ongoing",
+        99,
+        Some(&commented),
+    )
+    .await;
+    item(
+        &db,
+        &r.account,
+        &r.pseud,
+        "b",
+        "author-b",
+        "ongoing",
+        1,
+        Some(&open),
+    )
+    .await;
     comment(&db, &commented, &r.pseud, T0).await;
 
     match welcome::claim(&db, &r.pseud).await.expect("claim") {
@@ -384,7 +443,17 @@ async fn a_work_with_an_open_welcome_is_not_offered_to_anybody_else() {
     // author key the author rule exempts (empty) is therefore the only fixture that
     // isolates "this work is already promised to someone", which is what the clause is
     // for: two readers on one work is two promises for one comment.
-    item(&db, &first.account, &first.pseud, "a", "", "ongoing", 10, Some(&w)).await;
+    item(
+        &db,
+        &first.account,
+        &first.pseud,
+        "a",
+        "",
+        "ongoing",
+        10,
+        Some(&w),
+    )
+    .await;
 
     assert!(matches!(
         welcome::claim(&db, &first.pseud).await.expect("claim"),
@@ -405,8 +474,28 @@ async fn one_author_gets_one_welcome() {
     let b = uuid();
     // Two works, one author. The author is welcomed once, so the second reader finds
     // nothing even though a second work is uncommented and untaken.
-    item(&db, &first.account, &first.pseud, "a", "Same Author", "ongoing", 10, Some(&a)).await;
-    item(&db, &first.account, &first.pseud, "b", "Same Author", "ongoing", 5, Some(&b)).await;
+    item(
+        &db,
+        &first.account,
+        &first.pseud,
+        "a",
+        "Same Author",
+        "ongoing",
+        10,
+        Some(&a),
+    )
+    .await;
+    item(
+        &db,
+        &first.account,
+        &first.pseud,
+        "b",
+        "Same Author",
+        "ongoing",
+        5,
+        Some(&b),
+    )
+    .await;
 
     assert!(matches!(
         welcome::claim(&db, &first.pseud).await.expect("claim"),
@@ -422,8 +511,28 @@ async fn one_author_gets_one_welcome() {
 async fn a_reader_holds_one_open_welcome_at_a_time() {
     let db = connect("oneopen").await;
     let r = reader(&db, "oneopen").await;
-    item(&db, &r.account, &r.pseud, "a", "author-a", "ongoing", 10, Some(&uuid())).await;
-    item(&db, &r.account, &r.pseud, "b", "author-b", "ongoing", 5, Some(&uuid())).await;
+    item(
+        &db,
+        &r.account,
+        &r.pseud,
+        "a",
+        "author-a",
+        "ongoing",
+        10,
+        Some(&uuid()),
+    )
+    .await;
+    item(
+        &db,
+        &r.account,
+        &r.pseud,
+        "b",
+        "author-b",
+        "ongoing",
+        5,
+        Some(&uuid()),
+    )
+    .await;
 
     let first = match welcome::claim(&db, &r.pseud).await.expect("claim") {
         Claim::Assigned(a) => a,
@@ -431,7 +540,10 @@ async fn a_reader_holds_one_open_welcome_at_a_time() {
     };
     match welcome::claim(&db, &r.pseud).await.expect("claim again") {
         Claim::AlreadyOpen(a) => {
-            assert_eq!(a.id, first.id, "the open welcome is returned, not a second one")
+            assert_eq!(
+                a.id, first.id,
+                "the open welcome is returned, not a second one"
+            )
         }
         other => panic!("a second claim must not take another work: {other:?}"),
     }
@@ -443,13 +555,26 @@ async fn complete_refuses_without_a_comment() {
     let db = connect("nocomment").await;
     let r = reader(&db, "nocomment").await;
     let w = uuid();
-    item(&db, &r.account, &r.pseud, "a", "author-a", "ongoing", 10, Some(&w)).await;
+    item(
+        &db,
+        &r.account,
+        &r.pseud,
+        "a",
+        "author-a",
+        "ongoing",
+        10,
+        Some(&w),
+    )
+    .await;
     let a = match welcome::claim(&db, &r.pseud).await.expect("claim") {
         Claim::Assigned(a) => a,
         other => panic!("expected an assignment: {other:?}"),
     };
 
-    match welcome::complete(&db, &r.pseud, &a.id).await.expect("complete") {
+    match welcome::complete(&db, &r.pseud, &a.id)
+        .await
+        .expect("complete")
+    {
         Complete::NoCommentYet { work_id } => assert_eq!(work_id, w),
         other => panic!("the rota must not close without the comment: {other:?}"),
     }
@@ -467,7 +592,17 @@ async fn complete_accepts_the_comment_that_evidences_it() {
     let db = connect("evidence").await;
     let r = reader(&db, "evidence").await;
     let w = uuid();
-    item(&db, &r.account, &r.pseud, "a", "author-a", "ongoing", 10, Some(&w)).await;
+    item(
+        &db,
+        &r.account,
+        &r.pseud,
+        "a",
+        "author-a",
+        "ongoing",
+        10,
+        Some(&w),
+    )
+    .await;
     let a = match welcome::claim(&db, &r.pseud).await.expect("claim") {
         Claim::Assigned(a) => a,
         other => panic!("expected an assignment: {other:?}"),
@@ -475,7 +610,10 @@ async fn complete_accepts_the_comment_that_evidences_it() {
     // After the assignment, in the same canonical shape the column accepts.
     comment(&db, &w, &r.pseud, &darkhold_db::identity::now_rfc3339()).await;
 
-    match welcome::complete(&db, &r.pseud, &a.id).await.expect("complete") {
+    match welcome::complete(&db, &r.pseud, &a.id)
+        .await
+        .expect("complete")
+    {
         Complete::Done(done) => {
             assert!(done.completed_at.is_some());
             assert!(!done.overdue, "a closed welcome is never overdue");
@@ -483,7 +621,10 @@ async fn complete_accepts_the_comment_that_evidences_it() {
         other => panic!("the comment evidences the welcome: {other:?}"),
     }
     assert!(
-        welcome::open_for(&db, &r.pseud).await.expect("open").is_none(),
+        welcome::open_for(&db, &r.pseud)
+            .await
+            .expect("open")
+            .is_none(),
         "a closed welcome is not the reader's open one"
     );
 }
@@ -493,7 +634,17 @@ async fn a_comment_from_before_the_assignment_does_not_close_it() {
     let db = connect("stale").await;
     let r = reader(&db, "stale").await;
     let w = uuid();
-    item(&db, &r.account, &r.pseud, "a", "author-a", "ongoing", 10, Some(&w)).await;
+    item(
+        &db,
+        &r.account,
+        &r.pseud,
+        "a",
+        "author-a",
+        "ongoing",
+        10,
+        Some(&w),
+    )
+    .await;
     let a = match welcome::claim(&db, &r.pseud).await.expect("claim") {
         Claim::Assigned(a) => a,
         other => panic!("expected an assignment: {other:?}"),
@@ -503,7 +654,10 @@ async fn a_comment_from_before_the_assignment_does_not_close_it() {
     // the whole of the evidence rule, so this must not close the rota.
     comment(&db, &w, &r.pseud, T0).await;
 
-    match welcome::complete(&db, &r.pseud, &a.id).await.expect("complete") {
+    match welcome::complete(&db, &r.pseud, &a.id)
+        .await
+        .expect("complete")
+    {
         Complete::NoCommentYet { .. } => {}
         other => panic!("a comment older than the assignment is not evidence: {other:?}"),
     }
@@ -516,7 +670,17 @@ async fn the_due_date_is_seventy_two_hours_out() {
 
     let db = connect("due").await;
     let r = reader(&db, "due").await;
-    item(&db, &r.account, &r.pseud, "a", "author-a", "ongoing", 10, Some(&uuid())).await;
+    item(
+        &db,
+        &r.account,
+        &r.pseud,
+        "a",
+        "author-a",
+        "ongoing",
+        10,
+        Some(&uuid()),
+    )
+    .await;
     let a = match welcome::claim(&db, &r.pseud).await.expect("claim") {
         Claim::Assigned(a) => a,
         other => panic!("expected an assignment: {other:?}"),
@@ -535,7 +699,17 @@ async fn an_unfinished_unendorsed_work_is_never_offered() {
     let db = connect("ineligible").await;
     let r = reader(&db, "ineligible").await;
     // No likes, not finished: nothing a reader could be asked to welcome yet.
-    item(&db, &r.account, &r.pseud, "a", "author-a", "ongoing", 0, Some(&uuid())).await;
+    item(
+        &db,
+        &r.account,
+        &r.pseud,
+        "a",
+        "author-a",
+        "ongoing",
+        0,
+        Some(&uuid()),
+    )
+    .await;
     match welcome::claim(&db, &r.pseud).await.expect("claim") {
         Claim::NothingToWelcome { eligible } => assert_eq!(eligible, 0),
         other => panic!("an unread, unfinished work is not a welcome: {other:?}"),
@@ -549,7 +723,17 @@ async fn a_finished_work_is_offered_even_with_no_endorsement() {
     let w = uuid();
     // The live catalogue's shape, measured 2026-11-02: 397 rows are `complete` with no
     // likes, and 0 rows are both. A rule of "complete AND endorsed" routes nothing.
-    item(&db, &r.account, &r.pseud, "a", "author-a", "complete", 0, Some(&w)).await;
+    item(
+        &db,
+        &r.account,
+        &r.pseud,
+        "a",
+        "author-a",
+        "complete",
+        0,
+        Some(&w),
+    )
+    .await;
     match welcome::claim(&db, &r.pseud).await.expect("claim") {
         Claim::Assigned(a) => assert_eq!(a.work_id, w),
         other => panic!("a finished work is welcomable: {other:?}"),
@@ -562,7 +746,10 @@ async fn a_library_row_with_no_work_id_is_never_offered() {
     let r = reader(&db, "nowork").await;
     // Endorsed, unfinished, uncommented — but no work id, so no comment could ever
     // attach to it and offering it would be a promise nobody could keep.
-    item(&db, &r.account, &r.pseud, "a", "author-a", "ongoing", 500, None).await;
+    item(
+        &db, &r.account, &r.pseud, "a", "author-a", "ongoing", 500, None,
+    )
+    .await;
     match welcome::claim(&db, &r.pseud).await.expect("claim") {
         Claim::NothingToWelcome { eligible } => assert_eq!(eligible, 0),
         other => panic!("a row with no work id cannot be welcomed: {other:?}"),
@@ -576,8 +763,28 @@ async fn the_report_counts_need_and_keeping() {
     let two = reader(&db, "report-two").await;
     let w1 = uuid();
     let w2 = uuid();
-    item(&db, &one.account, &one.pseud, "a", "author-a", "ongoing", 10, Some(&w1)).await;
-    item(&db, &one.account, &one.pseud, "b", "author-b", "ongoing", 5, Some(&w2)).await;
+    item(
+        &db,
+        &one.account,
+        &one.pseud,
+        "a",
+        "author-a",
+        "ongoing",
+        10,
+        Some(&w1),
+    )
+    .await;
+    item(
+        &db,
+        &one.account,
+        &one.pseud,
+        "b",
+        "author-b",
+        "ongoing",
+        5,
+        Some(&w2),
+    )
+    .await;
 
     let empty = welcome::report(&db).await.expect("report");
     assert!(empty.measured);
@@ -588,9 +795,17 @@ async fn the_report_counts_need_and_keeping() {
         Claim::Assigned(a) => a,
         other => panic!("expected an assignment: {other:?}"),
     };
-    comment(&db, &a.work_id, &one.pseud, &darkhold_db::identity::now_rfc3339()).await;
+    comment(
+        &db,
+        &a.work_id,
+        &one.pseud,
+        &darkhold_db::identity::now_rfc3339(),
+    )
+    .await;
     assert!(matches!(
-        welcome::complete(&db, &one.pseud, &a.id).await.expect("complete"),
+        welcome::complete(&db, &one.pseud, &a.id)
+            .await
+            .expect("complete"),
         Complete::Done(_)
     ));
     assert!(matches!(

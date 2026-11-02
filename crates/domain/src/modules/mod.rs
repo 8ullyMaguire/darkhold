@@ -216,7 +216,11 @@ pub struct ModuleState {
 impl ModuleState {
     /// Resolve the instance's decision from its validated config.
     #[must_use]
-    pub fn resolve(disabled: &[String], enabled_list: &[String], allow_user_overrides: bool) -> Self {
+    pub fn resolve(
+        disabled: &[String],
+        enabled_list: &[String],
+        allow_user_overrides: bool,
+    ) -> Self {
         let mut enabled: BTreeSet<&'static str> = registry::MODULES
             .iter()
             .filter(|ext| ext.default_on)
@@ -323,9 +327,7 @@ pub fn validate(disabled: &[String], enabled_list: &[String]) -> Result<(), Stri
     for id in enabled_list {
         let Some(ext) = find(id) else { continue };
         for dep in ext.requires {
-            if !enabled_list.iter().any(|e| e == dep)
-                && !find(dep).is_some_and(|d| d.default_on)
-            {
+            if !enabled_list.iter().any(|e| e == dep) && !find(dep).is_some_and(|d| d.default_on) {
                 problems.push(format!(
                     "[modules] enabling `{}` requires `{dep}`, which this table disables or \
                      does not enable.",
@@ -452,7 +454,11 @@ mod tests {
         let mut seen = BTreeSet::new();
         for ext in all() {
             assert!(seen.insert(ext.id), "duplicate module id: {}", ext.id);
-            assert!(!is_core(ext.id), "{} is core and must not have a row", ext.id);
+            assert!(
+                !is_core(ext.id),
+                "{} is core and must not have a row",
+                ext.id
+            );
         }
     }
 
@@ -481,7 +487,10 @@ mod tests {
     fn a_typo_names_the_nearest_id() {
         let err = v(&["quizz"], &[]).expect_err("must refuse");
         assert!(err.contains("quizz"), "{err}");
-        assert!(err.contains("`quiz`"), "the suggestion must name the real id: {err}");
+        assert!(
+            err.contains("`quiz`"),
+            "the suggestion must name the real id: {err}"
+        );
     }
 
     #[test]
@@ -494,7 +503,10 @@ mod tests {
     #[test]
     fn a_planned_surface_cannot_be_enabled() {
         let err = v(&[], &["home.hidden_gems"]).expect_err("must refuse");
-        assert!(err.contains("M64-12"), "the refusal names the milestone: {err}");
+        assert!(
+            err.contains("M64-12"),
+            "the refusal names the milestone: {err}"
+        );
         assert!(err.contains("planned"), "{err}");
     }
 
@@ -548,7 +560,11 @@ mod tests {
         for idea in ideas() {
             assert!(idea.is_planned(), "{} must be planned", idea.id);
             assert!(!idea.default_on, "{} must default off", idea.id);
-            assert!(seen.insert(idea.id), "duplicate id across modules and ideas: {}", idea.id);
+            assert!(
+                seen.insert(idea.id),
+                "duplicate id across modules and ideas: {}",
+                idea.id
+            );
             assert!(!idea.source.is_empty(), "{} must name its source", idea.id);
             assert!(idea.relevance <= 10, "{} relevance out of range", idea.id);
         }
@@ -560,11 +576,25 @@ mod tests {
     #[test]
     fn the_load_bearing_surfaces_are_on_by_default() {
         let state = state_of(&[], &[]);
-        for id in ["works", "search", "catalogue", "library", "reading", "browse"] {
+        for id in [
+            "works",
+            "search",
+            "catalogue",
+            "library",
+            "reading",
+            "browse",
+        ] {
             assert!(state.enabled(id), "{id} must be on for a fresh instance");
         }
         // ...and the opt-in ones are off, each for a stated reason (§59.10).
-        for id in ["arena", "quiz", "tasting", "concierge", "narration", "vanguard"] {
+        for id in [
+            "arena",
+            "quiz",
+            "tasting",
+            "concierge",
+            "narration",
+            "vanguard",
+        ] {
             assert!(!state.enabled(id), "{id} must be off for a fresh instance");
         }
     }
@@ -586,7 +616,9 @@ mod tests {
 
         // An operator surface: allowed for the instance, not for a reader.
         let catalogue = find("catalogue").expect("catalogue is registered");
-        let error = catalogue.may_user_toggle().expect_err("not a reader's switch");
+        let error = catalogue
+            .may_user_toggle()
+            .expect_err("not a reader's switch");
         assert_eq!(error.status_code(), 403, "a refusal, not a 404: {error}");
         assert!(error.to_string().contains("operator"), "{error}");
 
