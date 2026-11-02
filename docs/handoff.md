@@ -3601,7 +3601,10 @@ unused under `-D warnings`), so both were re-cut. Re-cut **C survived**: the tes
 credits, so the balance check passed and the answer did not change. The premise was false, not the
 code. The proof now lives in two places — a store test that reads the two statements with an account
 holding **nothing**, and a route test whose amount is larger than any balance the account could hold
-— and re-cut C is caught.. Two PG-only defects were found and fixed on the way: `bounties.amount`
+— and re-cut C is caught. Re-cut **G kept the binding alive** (`let _ = permission;`) so it would
+compile, and `creating_a_translation_is_refused_unless_the_author_said_yes` caught it on the
+`unstated` work. Both re-cuts are therefore real verdicts, and the two compile errors above are not
+counted as anything. Two PG-only defects were found and fixed on the way: `bounties.amount`
 is INT4 on PostgreSQL (`CAST(amount AS BIGINT)`) — the same trap `likes` set — and the first generic
 row-mapper did not compile for two drivers, so mapping happens inside each arm.
 
