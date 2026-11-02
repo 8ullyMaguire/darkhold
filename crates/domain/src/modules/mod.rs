@@ -406,7 +406,20 @@ mod tests {
     /// defaults off only when it is opt-in by design, and that list is short
     /// enough to name here — the test is the list, so adding a seventh needs a
     /// deliberate edit rather than a quiet default.
-    const OPT_IN: &[&str] = &["arena", "quiz", "tasting", "concierge", "narration", "vanguard"];
+    ///
+    /// `finishers` joined on 2026-11-02 (M45-29 shipped it `default_on: false`
+    /// without this list, and the invariant below — which no targeted test run
+    /// executes — went red at HEAD): counting how often a writer updates is a
+    /// pressure device, and the gaps review's rule is positive framing only.
+    const OPT_IN: &[&str] = &[
+        "arena",
+        "quiz",
+        "tasting",
+        "concierge",
+        "narration",
+        "vanguard",
+        "finishers",
+    ];
 
     #[test]
     fn only_planned_and_opt_in_surfaces_default_off() {
