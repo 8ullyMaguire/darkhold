@@ -29,6 +29,13 @@ use test_support::{scratch_dir, TestClient, TestDb};
 fn router_for(tdb: &TestDb, dir: &std::path::Path) -> axum::Router {
     let mut config = Config::development_defaults();
     config.storage.root = dir.to_path_buf();
+    // `arena` is registered `default_on: false, toggle: per_user` — opt-in by design, so that an
+    // archive that has not decided to run a calibration surface does not serve one. This file
+    // tests the surface, so the instance it builds runs it: without this line every request here
+    // answers `404 MODULE_UNAVAILABLE` and the four tests below assert against a module the
+    // instance never mounted. That is what they did from the day the gate landed until
+    // 2026-11-02, and the failure read as "the arena route is broken".
+    config.modules.enabled.push("arena".to_string());
     server::build_router(AppState::new(config, tdb.db().clone()))
 }
 
