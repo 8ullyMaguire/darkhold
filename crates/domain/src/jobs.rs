@@ -134,6 +134,8 @@ job_kinds! {
     Reindex => "reindex",
     #[doc = "Deliver an outbox event (a notification, a webhook)."]
     Notify => "notify",
+    #[doc = "Walk the source catalogue and enqueue imports for works not yet seen (M67-03)."]
+    SourceSync => "source_sync",
     #[doc = "Render a thumbnail for a cover or avatar."]
     Thumbnail => "thumbnail",
     #[doc = "Retention and collection: purge old jobs, collect unreferenced blobs."]
@@ -261,6 +263,9 @@ impl JobKind {
             // import. See the variant's doc comment.
             Self::PayoutRecalc => ResourceClass::Bulk,
             Self::BodyFetch => ResourceClass::Bulk,
+            // Bulk for the same reason as `PreservationRecheck`: outbound network work against
+            // third-party archives, and nothing a reader is waiting for.
+            Self::SourceSync => ResourceClass::Bulk,
         }
     }
 
@@ -305,6 +310,9 @@ impl JobKind {
             // rows, so inserting a kind in the middle silently re-labels every
             // queued job of a later kind. See `db-migration-integrity`.
             Self::BodyFetch => 13,
+            // 15, appended rather than renumbered: `kind_index` places a kind in a fixed array, and
+            // existing indices are load-bearing. A new kind takes the next free slot.
+            Self::SourceSync => 15,
         }
     }
 }

@@ -1,7 +1,7 @@
 # Syndication: a periodic sync over external sources
 
 **Requirement:** `M67-01` (catalogue, landed), `M67-02` (discovery, landed), `M67-03` (the job — this plan)
-**Status:** `M67-01` and `M67-02` are implemented and tested. `M67-03` is specified here and not yet built.
+**Status:** all three implemented. `M67-01`/`M67-02` are the catalogue and discovery; `M67-03` is the job, wired and tested.
 
 ## The ask, in one sentence
 
@@ -94,7 +94,7 @@ which enqueues `SourceSync` when `syndication.enabled` and either no `SourceSync
 terminal one is older than `interval_hours`. The idempotency key is `"source_sync:{unix_hour}"`, so two
 workers cannot both enqueue the same hour.
 
-### 5. The open question this design must settle before step 5 ships
+### 5. The decision this design needed — **settled**
 
 **Whose account owns an imported work?** `import_jobs` requires an `account_id` and a `pseud_id`, and a
 syndicated work has no local author. Three options:
@@ -105,7 +105,10 @@ syndicated work has no local author. Three options:
 | a dedicated instance account (`syndication@…`) with one pseud per source | honest attribution ("imported from SquidgeWorld"), needs a migration and a config field |
 | a pseud named after the source's author, created on demand | best attribution, but it claims an identity on someone else's behalf — this needs a spec decision, not a coding one |
 
-The plan recommends the second, and **step 5 is blocked on the user's choice**. Steps 1–4 are not.
+**Chosen: the second.** `crates/db/src/syndication.rs` finds-or-creates one instance account (by
+email) and one pseud per source (`src-<id>`, displayed as the archive's name). Finds, not creates, on
+every run: a second account would split the syndicated corpus in two, silently. And the feature ships
+**off**: `syndication.enabled = false`, so no instance starts talking to eight archives on boot.
 
 ## Verification, per step
 

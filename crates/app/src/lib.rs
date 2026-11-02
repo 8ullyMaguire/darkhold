@@ -33,6 +33,7 @@ pub mod media_job;
 pub mod narration;
 pub mod payout_recalc;
 pub mod preservation_recheck;
+pub mod source_sync;
 pub mod privacy;
 pub mod rec_engine;
 pub mod rec_preference;

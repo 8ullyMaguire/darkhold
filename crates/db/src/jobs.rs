@@ -132,6 +132,34 @@ fn jitter_seed(job: JobId) -> u64 {
 
 /// Queue a job. Replaying one idempotency key enqueues one job and returns its
 /// id: the second call finds the first job rather than adding a second.
+/// Whether a job with this idempotency key is already queued, running or finished.
+///
+/// `enqueue` treats a taken key as a no-op and returns the existing job id (`M67-03` relies on that for
+/// per-work dedupe). That is the right behaviour for the queue and the wrong one for a report: a sync
+/// that counted "enqueued" would claim 25 new works on every run over the same tag. This asks the
+/// question first, so the summary can say *queued* and *already known* and mean both.
+pub async fn exists_by_idempotency_key(db: &Database, key: &str) -> anyhow::Result<bool> {
+    let sql = db.sql(
+        "SELECT id FROM jobs WHERE idempotency_key = ?",
+        "SELECT id::text AS id FROM jobs WHERE idempotency_key = ?",
+    );
+    // Each arm reduces to `bool` before it leaves the match: `QueryResult` is parameterised by the
+    // dialect, so the two arms have different row types and cannot be unified.
+    let exists = match db.backend() {
+        crate::Backend::Sqlite => sqlx::query(&sql)
+            .bind(key)
+            .fetch_optional(db.sqlite_pool().expect("sqlite handle"))
+            .await?
+            .is_some(),
+        crate::Backend::Postgres => sqlx::query(&sql)
+            .bind(key)
+            .fetch_optional(db.postgres_pool().expect("postgres handle"))
+            .await?
+            .is_some(),
+    };
+    Ok(exists)
+}
+
 pub async fn enqueue(
     db: &Database,
     kind: JobKind,

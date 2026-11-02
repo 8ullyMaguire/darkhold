@@ -1,3 +1,53 @@
+## 2026-11-02 — the scheduled walk over the sources, once per window and not once per sweep
+
+**Requirement:** `M67-03` · **Tests:** `crates/app/tests/syndication_sync.rs` (6) +
+`source_sync` unit tests (4) · **Docs:** `docs/config-reference.md`, `docs/plans/syndication-sync.md`
+
+### What was built
+
+`JobKind::SourceSync`, queued from `Worker::maintenance_pass`, running a **discovery pass**: it walks the
+catalogue's syncable entries, reads one `/tags/{tag}/works` listing per configured tag, and enqueues one
+`Import` per work the queue has not seen. The import pipeline keeps owning robots, credentials, body
+ceilings and dedupe — a sync that fetched and stored works itself would duplicate all of it and drift.
+
+Ownership, as decided: **one instance account with a pseud per source** (`src-squidgeworld`, displayed as
+"SquidgeWorld"), found-or-created on every run. A reader sees the archive as the author; the operator's own
+profile is not borrowed to stand in for one.
+
+Configuration ships **off** (`syndication.enabled = false`) with no tags, so a fresh instance queues
+nothing whatever — the two tests below pin that.
+
+### The failure this design exists to prevent
+
+The sweep runs every few seconds. An implementation keyed on `now()` would queue a job per tick and turn
+a background sync into a crawler. The key is the **interval bucket** (`source_sync:{now / interval}`), and
+the test runs eleven sweeps and asserts exactly one job.
+
+### Verification
+
+```
+cargo test -p darkhold-app --test syndication_sync  → 6 passed
+cargo test -p darkhold-app --lib source_sync        → 4 passed
+cargo test -p darkhold-domain --lib jobs            → 8 passed
+```
+
+Mutations, each failing a named test:
+
+| mutation | test that failed |
+|---|---|
+| job key uses `now()` instead of the interval bucket | `one_interval_queues_one_pass_no_matter_how_often_the_sweep_runs` |
+| the `enabled` gate removed | `a_disabled_instance_queues_nothing` |
+| CLI-style truncation of discovery (earlier commit) | `a_tag_listing_yields_work_urls_and_nothing_else` |
+
+`enabled = true` with an empty `tags` queues nothing either — separate test, because "on but
+unconfigured" is the state an operator reaches by copying half the example.
+
+### Still open, honestly
+
+Discovery is implemented for the AO3-software family only (three of the 33 catalogue entries). The other
+five adapter families — Royal Road, Scribble Hub, ficbook, ffnet, XenForo — have adapters but no listing
+walker, so the catalogue marks them non-syncable rather than letting the job guess at their search pages.
+
 ## 2026-11-02 — the sources a fandom scatters to, and what each of them allows
 
 **Requirement:** `M67-01`, `M67-02` · **Tests:** 9 in `scrapers::sources`, 9 in `scrapers::sites::ao3`

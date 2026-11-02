@@ -302,6 +302,22 @@ impl Worker {
                 "terminal jobs past their retention window were deleted"
             );
         }
+
+        // M67-03: the syndication pass, enqueued from the sweep rather than from a timer of its own.
+        // The sweep already runs on the worker's cadence, and `enqueue_if_due` decides by interval
+        // bucket — so a second worker sweeping the same second does not create a second pass.
+        match crate::source_sync::enqueue_if_due(state).await {
+            Ok(true) => tracing::info!(
+                target: "darkhold::syndication",
+                "a source sync pass was queued"
+            ),
+            Ok(false) => {}
+            Err(error) => {
+                // A sweep that cannot queue is a warning, not a stopped worker: the next sweep tries
+                // again, and the rest of the maintenance pass has already run.
+                tracing::warn!(target: "darkhold::syndication", %error, "could not queue a source sync");
+            }
+        }
         // Loans: stamp the ones whose window has closed. Active-ness is derived
         // from `expires_at`, so this is not what frees a copy — it is what turns
         // "the clock passed it" into a recorded transition that a borrower's
@@ -617,6 +633,15 @@ impl Worker {
             }
             JobKind::PreservationRecheck => {
                 crate::preservation_recheck::handle_recheck(state).await
+            }
+            JobKind::SourceSync => {
+                // Transient on failure: one unreachable archive must not fail the pass for the others,
+                // and the job's own dedupe (a per-work idempotency key) makes a retry harmless.
+                let summary = crate::source_sync::run(state)
+                    .await
+                    .map_err(|error| HandlerError::Transient(error.to_string()))?;
+                tracing::info!(target: "darkhold::syndication", "{}", summary.describe());
+                Ok(())
             }
             JobKind::PayoutRecalc => {
                 // Transient, like `RetentionSettle`: the store's idempotency key

@@ -130,6 +130,8 @@ pub struct Config {
     pub rate_limits: crate::limiter::Limits,
     /// What the importer may do about a source that refuses a plain request.
     pub imports: ImportsConfig,
+    /// M67-03: the periodic walk over external sources. Off unless an operator says otherwise.
+    pub syndication: SyndicationConfig,
     pub retention: RetentionConfig,
     /// The taxonomy's floors (spec §6.4, R-23).
     pub taxonomy: TaxonomyConfig,
@@ -1718,6 +1720,77 @@ impl Default for ExportsConfig {
 /// instance is willing to run; the adapter supplies the need. Neither can grant
 /// the other's half, which is why the two are merged in
 /// [`ImportsConfig::unblock_for`] rather than either being the whole answer.
+/// M67-03: the periodic sync over external sources.
+///
+/// **Off by default.** A fresh instance that starts fetching eight archives on boot is a surprise, and
+/// outbound traffic is the one kind of default that is visible to somebody else. An operator turns it
+/// on, names the tags this instance cares about, and from then on the queue does the work.
+///
+/// The tags are the instance's own interests — a fandom list, not a crawl frontier. A sync walks one
+/// listing page per (source, tag, run), which is why `max_works_per_listing` exists: a thousand-work
+/// tag must not become a thousand jobs on the first tick.
+#[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct SyndicationConfig {
+    /// Whether the periodic sync runs at all.
+    #[serde(default)]
+    pub enabled: bool,
+    /// How often, in hours. Zero or absent means the default of 12.
+    #[serde(default = "SyndicationConfig::default_interval_hours")]
+    pub interval_hours: u64,
+    /// Tag names to walk, one listing page each, per source.
+    #[serde(default)]
+    pub tags: Vec<String>,
+    /// The ceiling on works queued per (source, tag, run).
+    #[serde(default = "SyndicationConfig::default_max_works")]
+    pub max_works_per_listing: usize,
+    /// The handle of the instance account that owns syndicated works.
+    ///
+    /// A syndicated work has no local author, so it needs an owner that is not a person: this account,
+    /// with one pseud per source, so a reader sees "SquidgeWorld" rather than the operator's name.
+    #[serde(default = "SyndicationConfig::default_account_handle")]
+    pub account_handle: String,
+    /// That account's email. Only used the first time the account is created.
+    #[serde(default = "SyndicationConfig::default_account_email")]
+    pub account_email: String,
+}
+
+impl SyndicationConfig {
+    fn default_interval_hours() -> u64 {
+        12
+    }
+    fn default_max_works() -> usize {
+        25
+    }
+    fn default_account_handle() -> String {
+        "Syndication".to_owned()
+    }
+    fn default_account_email() -> String {
+        // `.invalid` is reserved by RFC 2606, so this address can never receive mail and can never
+        // collide with a real person's.
+        "syndication@darkhold.invalid".to_owned()
+    }
+
+    /// The interval as a duration, with a floor of one hour so a zero cannot spin the queue.
+    #[must_use]
+    pub fn interval(&self) -> std::time::Duration {
+        std::time::Duration::from_secs(self.interval_hours.max(1) * 60 * 60)
+    }
+}
+
+impl Default for SyndicationConfig {
+    fn default() -> Self {
+        Self {
+            enabled: false,
+            interval_hours: Self::default_interval_hours(),
+            tags: Vec::new(),
+            max_works_per_listing: Self::default_max_works(),
+            account_handle: Self::default_account_handle(),
+            account_email: Self::default_account_email(),
+        }
+    }
+}
+
 #[derive(Debug, Clone)]
 pub struct ImportsConfig {
     /// A FlareSolverr-compatible service this instance may drive.
@@ -2548,6 +2621,20 @@ impl Config {
             }
         };
 
+        let syndication = {
+            let raw = file.syndication.unwrap_or_default();
+            let defaults = SyndicationConfig::default();
+            SyndicationConfig {
+                enabled: raw.enabled.unwrap_or(defaults.enabled),
+                interval_hours: raw.interval_hours.unwrap_or(defaults.interval_hours),
+                tags: raw.tags.unwrap_or(defaults.tags),
+                max_works_per_listing: raw
+                    .max_works_per_listing
+                    .unwrap_or(defaults.max_works_per_listing),
+                account_handle: raw.account_handle.unwrap_or(defaults.account_handle),
+                account_email: raw.account_email.unwrap_or(defaults.account_email),
+            }
+        };
         let imports_file = file.imports.unwrap_or_default();
         let imports = ImportsConfig {
             // An empty string in a config file means "unset", not "the solver is
@@ -2764,6 +2851,7 @@ impl Config {
             age,
             rate_limits,
             imports,
+            syndication,
             // Present on the struct and reachable from the file, or neither. The
             // `retention:` line below documents this exact trap having happened once
             // already, in the other direction.
@@ -3364,6 +3452,7 @@ impl Config {
             // drove a solver by default would make every test that fetches a page
             // depend on which escalations happened to be configured.
             imports: ImportsConfig::default(),
+            syndication: SyndicationConfig::default(),
             taxonomy: TaxonomyConfig::default(),
             retention: RetentionConfig::default(),
             decisions: DecisionsConfig::default(),
@@ -3728,7 +3817,8 @@ impl Config {
     /// Environment-specific rules (a production instance must not run with
     /// development settings) live in [`crate::safety`].
     pub fn validate(&self) -> Result<()> {
-        darkhold_domain::modules::validate(&self.modules.disabled, &self.modules.enabled).map_err(|message| anyhow::anyhow!(message))?;
+        darkhold_domain::modules::validate(&self.modules.disabled, &self.modules.enabled)
+            .map_err(|message| anyhow::anyhow!(message))?;
         if self.server.port == 0 {
             anyhow::bail!("server.port must not be 0");
         }
@@ -3897,6 +3987,19 @@ impl Config {
 // File representation
 // ---------------------------------------------------------------------------
 
+/// The `[syndication]` table (M67-03). Every field optional, so a config file written before this
+/// section existed still parses — and so an operator can set one field without restating the rest.
+#[derive(Debug, Default, Deserialize)]
+#[serde(deny_unknown_fields)]
+struct SyndicationSection {
+    enabled: Option<bool>,
+    interval_hours: Option<u64>,
+    tags: Option<Vec<String>>,
+    max_works_per_listing: Option<usize>,
+    account_handle: Option<String>,
+    account_email: Option<String>,
+}
+
 #[derive(Debug, Default, Deserialize)]
 #[serde(deny_unknown_fields)]
 struct FileConfig {
@@ -3914,6 +4017,8 @@ struct FileConfig {
     age: Option<AgeSection>,
     rate_limits: Option<RateLimitSection>,
     imports: Option<ImportsSection>,
+    /// M67-03: `[syndication]`.
+    syndication: Option<SyndicationSection>,
     tts: Option<TtsSection>,
     bulk_export: Option<BulkExportSection>,
     forum: Option<ForumSection>,

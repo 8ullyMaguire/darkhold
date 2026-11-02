@@ -362,3 +362,32 @@ A malformed value refuses to start with a clear error message. Examples:
 
 A configuration with all defaults omitted produces a working instance. The
 shipped `darkhold.toml.example` documents every setting with comments.
+
+## `[syndication]` — the periodic walk over external sources (`M67-03`)
+
+Off by default: a fresh instance that starts fetching eight archives on boot is a surprise, and
+outbound traffic is the one kind of default somebody else can see.
+
+```toml
+[syndication]
+enabled = false            # an operator turns it on
+interval_hours = 12        # one pass per window; 0 is floored to 1 so it cannot spin the queue
+tags = ["Naruto", "Mass Effect"]   # what this instance cares about — a fandom list, not a crawl frontier
+max_works_per_listing = 25         # per (source, tag, run); a 40,000-work tag is not 40,000 jobs
+account_handle = "Syndication"
+account_email = "syndication@darkhold.invalid"
+```
+
+The pass reads the catalogue in `crates/scrapers/sources.json`: 33 platforms, each with a **dated
+`robots.txt` verdict** and a bodies policy. It walks only entries with an adapter *and* a discovery shape
+— today the three AO3-software archives (`/tags/{tag}/works`). Each discovered work becomes one `Import`
+job through the existing pipeline, keyed `syndication:{source}:{work_id}`, so a second pass over the same
+listing queues nothing.
+
+Bodies are governed by the source's own `robots.txt`, re-read at run time: `metadata_only` sources are
+read for their catalogue and the reader is sent to the source for the prose, and `blocked` sources are not
+fetched at all.
+
+Imported works are owned by the **instance account**, with one pseud per source (`src-<source_id>`,
+displayed as the archive's name) — a reader sees "SquidgeWorld" as the author of a work that came from
+SquidgeWorld, and the operator's own profile is not borrowed to stand in for an archive.
