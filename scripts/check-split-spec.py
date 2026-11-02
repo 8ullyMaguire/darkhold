@@ -8,9 +8,11 @@ without anybody noticing:
      `12-taste-themes-moods-channels.md` whose heading says `# 11.` is a
      citation trap: everything that points at §12 lands on §11's text, and
      nothing fails.
-  2. **The split is in step with the master.** The split is a copy, and a copy
+  2. **The split is in step with both masters.** The split is a copy, and a copy
      that is done by hand is a copy that is done once. `scripts/split-spec.py`
-     re-derives it; this asserts the result is current.
+     re-derives it from the vault file (§1–27) and `docs/spec.md` (§28–61); this
+     asserts the result is current, so a section edited past §27 — as §53.5 was —
+     is now behind a gate instead of behind nothing.
   3. **The number space is exactly what it claims to be** — the slots the plan
      names, and nothing else.
 
@@ -27,9 +29,9 @@ import sys
 
 TARGET = pathlib.Path("docs/spec")
 
-#: The slots the plan names: 00 is the index, 01-27 hold the specification's
-#: sections, and 28-40 are reserved and unallocated.
-EXPECTED = {0} | set(range(1, 41))
+#: The slots the plan names: 00 is the index, 01-27 hold the vault master's
+#: sections, 28-61 the sections of `docs/spec.md`, and 62-70 are reserved.
+EXPECTED = {0} | set(range(1, 71))
 
 
 def main() -> int:
@@ -69,7 +71,7 @@ def main() -> int:
     missing = sorted(EXPECTED - set(numbers))
     if missing:
         failures.append(
-            "the reserved number space is incomplete; missing: "
+            "the number space is incomplete; missing: "
             + ", ".join(f"{slot:02d}" for slot in missing)
         )
     extra = sorted(set(numbers) - EXPECTED)
@@ -86,7 +88,7 @@ def main() -> int:
         text=True,
     )
     if check.returncode != 0:
-        failures.append("the split is not in step with the master:")
+        failures.append("the split is not in step with its masters:")
         for line in check.stderr.strip().splitlines():
             failures.append(f"  {line}")
 
@@ -96,7 +98,7 @@ def main() -> int:
             print(f"  {failure}", file=sys.stderr)
         return 1
 
-    print(f"the split specification is sound: {len(files)} files, slots 00-40")
+    print(f"the split specification is sound: {len(files)} files, slots 00-70")
     return 0
 
 

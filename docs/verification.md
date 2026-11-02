@@ -1,3 +1,49 @@
+## 2026-11-02 — the split spec now covers the whole document, and the gate bites
+
+**Roadmap:** `REMAINING-2026-10-03.md` row 5 (the last open item that was a *spec* gap rather
+than a feature) · **Scripts:** `scripts/split-spec.py`, `scripts/check-split-spec.py`
+
+### What the note got wrong
+
+The row said "§28–61 live in `docs/spec.md` and the `--check` gate never reads them". The second
+half was right. The first half hid the actual reason: those sections are written in **two heading
+shapes** — `# N. Title` for §28–49, `## N Title` (no dot) for §50–61 — so a parser looking for one
+shape sees a document that stops at §27. The first measurement I ran agreed with the note ("no
+sections past 27") and was wrong for the same reason a grep of 0 is not a 0.
+
+### What was built
+
+* `split-spec.py` reads **both masters**: the vault file for §1–27, `docs/spec.md` for §28–61.
+  The numbers stay contiguous because a citation is a number — §53.5 now resolves to
+  `docs/spec/53-faucets-and-sinks-the-economy-as-an-operator.md`.
+* Heading depth is carried per section: a `# 28.` section nests subsections at `##` already, a
+  `## 50` section nests them at `###` and they move up one. Nothing is ever pushed to `#`.
+* Slugs come from titles, de-duplicated by error rather than by overwrite.
+* Slots **62–70** are reserved; the index states which master governs which range.
+* The writer **deletes** a `NN-reserved.md` that a real section replaced, and the checker reports
+  one if it survives — two files claiming slot 28 is the same trap one level down.
+
+### Verification
+
+```
+python3 scripts/check-split-spec.py   → the split specification is sound: 71 files, slots 00-70
+```
+
+**The gate now bites on an edit that was invisible before**, which is the whole point:
+
+```
+$ sed -i 's/read, not chased./read, not chased — DRIFT PROBE./' docs/spec.md && python3 scripts/check-split-spec.py
+the split specification is not sound:
+  the split is not in step with its masters:
+    53-faucets-and-sinks-the-economy-as-an-operator.md differs from its master
+$ echo $?   → 1     (restored: → 0)
+```
+
+`docs/requirements.csv` row `DM0-07` claimed `docs/spec.md` was "kept as the historical record and
+superseded by the split". That claim is now corrected in the row itself: the file is the master for
+§28–61, and the reason it drifted is that the document declared historical was the one people were
+editing.
+
 ## 2026-11-02 — a second discovery shape, and a verdict that measurement overturned
 
 **Requirement:** `M67-04` · **Tests:** 13 in `scribblehub`, 9 in `sources`, 6 in `syndication_sync` ·
