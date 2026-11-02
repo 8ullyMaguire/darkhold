@@ -19,7 +19,7 @@
       "unlinked": 58
     },
     "roadmap": {
-      "items": 15
+      "items": 17
     }
   },
   "open_requirements": [
@@ -800,8 +800,10 @@
   "roadmap": [
     "`spec.md` \u00a754 \u2192 implementation note",
     "The pre-existing CI reds",
-    "The 27 `planned` + 6 `specified` tracker rows",
+    "The `planned` tracker rows",
     "Path B (WASM), \u00a755.4",
+    "The split spec covers \u00a71\u201327 only",
+    "`docs/backlog/` is generated and gated",
     "`if not CLAUSE_END.match(after)`",
     "added `AS\\b` to fix #1",
     "`EXTRACT(EPOCH FROM (...))`",
