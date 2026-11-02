@@ -63,6 +63,12 @@
   import RoadmapCard from './routes/RoadmapCard.svelte';
   import Directory from './routes/Directory.svelte';
   import { handleLinkClick, matchRoute } from './lib/router';
+  import {
+    fetchModules,
+    moduleNavEntries,
+    visibleNav,
+    type ModuleCatalogue,
+  } from './lib/modules';
   import { session } from './lib/session.svelte';
   import {
     THEME_LABELS,
@@ -107,13 +113,13 @@
    */
   const NAV_GROUPS = [
     { label: 'Read', items: [
-      { href: '/discover', label: 'Discover' },
-      { href: '/search', label: 'Search' },
-      { href: '/media', label: 'Media' },
+      { href: '/discover', label: 'Discover', module: 'discovery' },
+      { href: '/search', label: 'Search', module: 'search' },
+      { href: '/media', label: 'Media', module: 'media' },
       { href: '/blind-date', label: 'Blind Date' },
       { href: '/surprise-me', label: 'Surprise Me' },
-      { href: '/draw', label: 'Draw' },
-      { href: '/arena', label: 'Arena' },
+      { href: '/draw', label: 'Draw', module: 'draw' },
+      { href: '/arena', label: 'Arena', module: 'arena' },
     ] },
     // The label is "Create", NOT "Publish". This is not a copy preference.
     //
@@ -126,24 +132,24 @@
     { label: 'Create', items: [
       // '/write' is deliberately NOT here: it is one of the four primary links, and
       // listing it under a group too printed the word "Write" twice in one row.
-      { href: '/import', label: 'Import a work' },
-      { href: '/exports', label: 'Export your library' },
+      { href: '/import', label: 'Import a work', module: 'imports' },
+      { href: '/exports', label: 'Export your library', module: 'exports' },
     ] },
     { label: 'Shelf', items: [
       // '/library' is a primary link; naming it here again would print "Library"
       // twice in one row. What a reader wants from a shelf is what is ON it, so
       // the group holds the parts of the library that are not the library.
       { href: '/library/history', label: 'Reading history' },
-      { href: '/concierge', label: 'Your queue' },
-      { href: '/analytics', label: 'Your analytics' },
+      { href: '/concierge', label: 'Your queue', module: 'concierge' },
+      { href: '/analytics', label: 'Your analytics', module: 'analytics' },
     ] },
     { label: 'Forum', items: [
-      { href: '/community', label: 'Forum' },
-      { href: '/directory', label: 'Directory' },
-      { href: '/roadmap', label: 'Roadmap' },
+      { href: '/community', label: 'Forum', module: 'community' },
+      { href: '/directory', label: 'Directory', module: 'directory' },
+      { href: '/roadmap', label: 'Roadmap', module: 'roadmap' },
     ] },
     { label: 'More', items: [
-      { href: '/notifications', label: 'Notifications' },
+      { href: '/notifications', label: 'Notifications', module: 'notifications' },
       { href: '/pseud', label: 'Your pseuds' },
       { href: '/docs', label: 'Help' },
     ] },
@@ -151,9 +157,9 @@
 
   /** The four destinations a person arrives to do. */
   const PRIMARY = [
-    { href: '/discover', label: 'Discover' },
-    { href: '/library', label: 'Library' },
-    { href: '/search', label: 'Search' },
+    { href: '/discover', label: 'Discover', module: 'discovery' },
+    { href: '/library', label: 'Library', module: 'library' },
+    { href: '/search', label: 'Search', module: 'search' },
     { href: '/write', label: 'Write' },
   ];
 
@@ -185,6 +191,36 @@
   }
 
   let path = $state(window.location.pathname);
+  /**
+   * What this instance actually runs (M65-06).
+   *
+   * `null` means "not known yet", and `visibleNav` renders everything in that case — the nav must
+   * not lose destinations because one request is slow or the API is down. A link to a disabled
+   * module is a 404 for its readers; a missing core link is a broken site for everyone.
+   */
+  let catalogue = $state<ModuleCatalogue | null>(null);
+
+  /**
+   * The nav as this instance serves it (M65-06): an entry whose module is off is dropped, and a
+   * group left with nothing does not render an empty disclosure.
+   *
+   * Both layouts read these rather than the raw constants, so the desktop menus and the mobile
+   * drawer cannot disagree about what exists.
+   */
+  let primaryNav = $derived(visibleNav(PRIMARY, catalogue));
+
+  /** Destinations the enabled modules declare (§6.3's `nav` slot contract). */
+  let moduleLinks = $derived(moduleNavEntries(catalogue));
+
+  let navGroups = $derived([
+    ...NAV_GROUPS.map((group) => ({
+      label: group.label,
+      items: visibleNav(group.items, catalogue),
+    })).filter((group) => group.items.length > 0),
+    // A module's own entries get a group of their own rather than being mixed into a hand-made
+    // one: the module decided where its surface belongs, and this is the slot it declared.
+    ...(moduleLinks.length > 0 ? [{ label: 'Modules', items: moduleLinks }] : []),
+  ]);
   let moreOpen = $state(false);
   let docsSearchOpen = $state(false);
   let route = $derived(matchRoute(path));
@@ -195,6 +231,23 @@
   // no reactive state here keeps this effect from re-running on its own writes.
   $effect(() => {
     void session.refresh();
+  });
+
+  // Ask once what this instance runs, so the header does not offer a destination that answers 404.
+  // `session.refresh` above is the same idiom: one request at boot, no reactive reads inside, so
+  // the effect cannot re-run on its own result.
+  $effect(() => {
+    const controller = new AbortController();
+    void fetchModules(controller.signal)
+      .then((payload) => {
+        catalogue = payload;
+      })
+      .catch(() => {
+        // Fail open, deliberately — see `modules.ts`. The nav renders unfiltered rather than
+        // disappearing because `/api/v1/modules` was unavailable.
+        catalogue = null;
+      });
+    return () => controller.abort();
   });
 
   /** Apply a choice and remember it. */
@@ -313,7 +366,7 @@
       fold were invisible rather than merely cramped.
     -->
     <nav class="desktop" aria-label="Main">
-      {#each PRIMARY as item (item.href)}
+      {#each primaryNav as item (item.href)}
         <a
           href={item.href}
           aria-current={isCurrent(item.href) ? 'page' : undefined}
@@ -322,7 +375,7 @@
           {item.label}
         </a>
       {/each}
-      {#each NAV_GROUPS as group (group.label)}
+      {#each navGroups as group (group.label)}
         <NavMenu
           label={group.label}
           items={group.items}
@@ -565,7 +618,7 @@
     are looking for.
   -->
   <nav class="drawer-nav" aria-label="More destinations">
-    {#each NAV_GROUPS as group (group.label)}
+    {#each navGroups as group (group.label)}
       <h3 class="drawer-group">{group.label}</h3>
       {#each group.items as item (item.href)}
         <a

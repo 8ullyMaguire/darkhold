@@ -1,3 +1,53 @@
+## 2026-11-02 — M65-06: the header renders what the instance runs
+
+**Requirement:** `M65-06` · **Tests:** 9 new, plus the whole frontend suite (582)
+
+### The defect
+
+`/api/v1/modules` has served `enabled`, `enabled_for_caller`, `nav[]` and `core` since M65's phase 1.
+The shell never read it: `PRIMARY` and `NAV_GROUPS` were constants, so an instance that disabled a
+module still rendered a link to it and the reader got a 404. Nothing counted that as a failure,
+because the nav never asked what the instance runs.
+
+### What was built
+
+`frontend/src/lib/modules.ts` — `visibleNav(items, catalogue)` and `moduleNavEntries(catalogue)`. A
+nav entry may name its module (`{ href: '/arena', label: 'Arena', module: 'arena' }`); the id is the
+registry's, and 16 entries now carry one. An entry with no module is core navigation and always
+renders. `App.svelte` fetches the catalogue once at boot and renders the primary links and every
+group through the filter; a group the filter empties does not render.
+
+### Two decisions, both from a failure
+
+* **Fail open.** With the catalogue missing — or shaped like something else — the nav renders
+  unfiltered. A hidden destination breaks the site for every reader because one request failed; a
+  404 only affects readers of a module the operator switched off. The first full-suite run failed
+  exactly here: `App.test.ts`'s mock answers `/modules` with instance meta, `catalogue.modules` was
+  `undefined`, `.find` threw inside the render and the page went blank. The fix was to treat a
+  non-array `modules` as no catalogue, not to teach the test about the new endpoint.
+* **An id the catalogue does not list hides the entry**, which is the same 404 as a disabled module
+  and is what makes the mapping safe to write before the module exists.
+
+### Verification
+
+```
+npx vitest run src/lib/modules.test.ts     -> 9 passed
+npx vitest run                             -> 79 files, 582 tests, 0 failed
+node node_modules/vite/bin/vite.js build   -> built in 3.03s
+npx svelte-check --threshold error         -> 0 errors in src/App.svelte (11 pre-existing elsewhere)
+```
+
+**Red, by removal:** with the filter replaced by `return [...items]` — the behaviour before this
+commit — 4 of the 9 tests fail.
+
+### Found while doing it
+
+`svelte-check` is red: 11 errors in 6 files (`Roadmap.svelte` has the same use-before-declaration
+bug I introduced and fixed in `App.svelte`; `WorkPage.svelte` reads `content_withheld` off a union
+that lacks it; `Arena.svelte` dereferences a possibly-null `round`; `tokens.test.ts` has no
+`@types/node`). The 2026-10-03 pass recorded 0 errors, so the gate has regressed since. Recorded as
+`M65-11` rather than fixed in passing.
+
 ## 2026-11-02 — M45-64: erasure reaches the account columns no foreign key reaches
 
 **Requirement:** `M45-64` (new), closing `M65-10` with it · **Tests:** 4 new, on SQLite and PostgreSQL
