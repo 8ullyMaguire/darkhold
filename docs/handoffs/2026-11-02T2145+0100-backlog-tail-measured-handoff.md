@@ -110,7 +110,7 @@ shape), and a leaked `isAuthorWork` mock made a feature look missing rather than
   the LIKE over 141k rows before shipping it**), `M63-37` (per-source engagement as the source reports
   it), `M63-38` (quality weights per operator and per surface, not compiled in).
 - **community, 3** — `M45-33` (beta/specialist matchmaking), `M45-34` (Fic Finder bounties),
-  `M45-40` (curator lenses).
+  `M45-40` (curator views — renamed from 'lens' on 2026-11-02).
 - **preservation, 3** — `M45-39` (instance-death mutual backup, dead-man's switch, redirect registry),
   `M45-58` (erasure reaches the supply routing record), `M66-08` (P2P local file sharing).
 - **growth, 3** — `M45-41` (rec-post attribution), `M45-42` (claim your works), `M45-43` (Discord bot).

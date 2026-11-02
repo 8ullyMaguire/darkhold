@@ -73,7 +73,7 @@ vocabulary — works and units rather than images, tropes rather than tags, warn
 - **three-layer filtering (M69-16)** — darkhold's filters are all equally overridable, including the
   illegal-content one that must not be.
 
-Everything else is lenses, queues, NPMI, trope clusters, OpenSearch, and the setting cascade. All
+Everything else is Saved Filters (named on 2026-11-02; the row called them lenses), queues, NPMI, trope clusters, OpenSearch, and the setting cascade. All
 twenty-six are `planned`; every one defaults off by construction, because a planned surface has no
 code. The registry invariant already enforces that (`OPT_IN` in `modules/mod.rs`), so nothing had to
 change for the "everything is an extension" rule to hold.

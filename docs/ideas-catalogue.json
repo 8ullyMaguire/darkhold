@@ -1,20 +1,7 @@
 {
  "generated_by": "scripts/ideas_catalogue.py",
- "count": 187,
+ "count": 188,
  "ideas": [
-  {
-   "why_summary": "-- Suki spec \u00a78.2\u2013\u00a78.5; extends M63-06 (saved queries) and M63-09 (a query library on disk). The difference is that a Lens is a first-class object with a URL: shareable, subscribab",
-   "id": "M69-21",
-   "title": "the Lens",
-   "sources": [
-    "docs/requirements.csv"
-   ],
-   "milestone": "M69",
-   "relevance": 6,
-   "because": "a requirements row exists (+4); named in the spec (+2)",
-   "default_on": false,
-   "built": false
-  },
   {
    "why_summary": "",
    "id": "idea.ultimate-fanfiction-site",
@@ -162,19 +149,6 @@
    "why_summary": "-- Gaps review D4. Persistent work IDs; ActivityPub Move for accounts.",
    "id": "M45-39",
    "title": "Instance-death protection",
-   "sources": [
-    "docs/requirements.csv"
-   ],
-   "milestone": "M45",
-   "relevance": 4,
-   "because": "a requirements row exists (+4)",
-   "default_on": false,
-   "built": false
-  },
-  {
-   "why_summary": "-- Gaps review E2. Browse archive through X's eyes; operator's own lens stays invisible.",
-   "id": "M45-40",
-   "title": "Curator lenses",
    "sources": [
     "docs/requirements.csv"
    ],
@@ -1017,9 +991,9 @@
    "built": false
   },
   {
-   "why_summary": "-- Suki spec \u00a714.6. darkhold has a Blind Date (M66-04) and hidden classics (M66-05); the morning queue is the missing half \u2014 a small, bounded, deliberately diverse set rather than ",
-   "id": "M69-22",
-   "title": "the morning queue and the daily surprise, expressed as lenses over surfaces that already exist",
+   "why_summary": "-- Suki spec \u00a78.2\u2013\u00a78.5, renamed on 2026-11-02. The mechanism already exists in this archive's own vocabulary: a saved view (\u00a714.2 'Saved searches and named views'), a versioned JSO",
+   "id": "M69-21",
+   "title": "Saved Filters",
    "sources": [
     "docs/requirements.csv"
    ],
@@ -1030,9 +1004,22 @@
    "built": false
   },
   {
-   "why_summary": "-- Suki spec \u00a78.4 (import filter) and \u00a711.4. darkhold's importers decide by host and rule (M67-03/04); a lens makes the policy a shareable object the operator can test by running i",
+   "why_summary": "-- Suki spec \u00a714.6, renamed 2026-11-02 (was 'lenses'). darkhold has a Blind Date (M66-04) and hidden classics (M66-05); the morning queue is the missing half \u2014 a small, bounded, de",
+   "id": "M69-22",
+   "title": "the morning queue and the daily surprise, expressed as Saved Filters over surfaces that already exist",
+   "sources": [
+    "docs/requirements.csv"
+   ],
+   "milestone": "M69",
+   "relevance": 4,
+   "because": "a requirements row exists (+4)",
+   "default_on": false,
+   "built": false
+  },
+  {
+   "why_summary": "-- Suki spec \u00a78.4 (import filter) and \u00a711.4, renamed 2026-11-02 (was 'lens'). darkhold's importers decide by host and by rule (M67-03/04); a Saved Filter makes the policy a shareab",
    "id": "M69-23",
-   "title": "an import source can carry a lens as intake policy",
+   "title": "an import source can carry a Saved Filter as intake policy",
    "sources": [
     "docs/requirements.csv"
    ],
@@ -1082,6 +1069,19 @@
    "built": false
   },
   {
+   "why_summary": "-- Gaps review E2. Browse archive through X's eyes; operator's own lens stays invisible. Renamed 2026-11-02: 'curator lenses' borrowed the same word as the saved-filter feature, wh",
+   "id": "M45-40",
+   "title": "Curator views",
+   "sources": [
+    "docs/requirements.csv"
+   ],
+   "milestone": "M45",
+   "relevance": 3,
+   "because": "a requirements row exists (+4); needs a model or heavy compute (-1)",
+   "default_on": false,
+   "built": false
+  },
+  {
    "why_summary": "-- Gaps review F4. SQLite weekly batches/no embeddings \u2192 Postgres+Redis incremental.",
    "id": "M45-48",
    "title": "Hardware-aware presets with graceful degradation tiers",
@@ -1091,6 +1091,19 @@
    "milestone": "M45",
    "relevance": 3,
    "because": "a requirements row exists (+4); needs a model or heavy compute (-1)",
+   "default_on": false,
+   "built": false
+  },
+  {
+   "why_summary": "-- Found 2026-11-02 while putting `scripts/ledger_test.py` into `gate.sh repo`: the gate has been red on this for four ids, so `gate.sh repo` has not been green and nobody noticed ",
+   "id": "M47-15",
+   "title": "four requirement ids name two rows each (M47-06 \u2026 M47-09), and `scripts/check-requirement-ids.py` fails on the ledger until they are one row each",
+   "sources": [
+    "docs/requirements.csv"
+   ],
+   "milestone": "M47",
+   "relevance": 3,
+   "because": "a requirements row exists (+4); the source hedges (-1)",
    "default_on": false,
    "built": false
   },

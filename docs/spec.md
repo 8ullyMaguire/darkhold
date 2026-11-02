@@ -2467,6 +2467,24 @@ the author of a matched work, is told that a view matched.
 
 **Pinned searches.** A saved view may be pinned to the dashboard or sidebar, where it renders as a live widget — the first page of current results, not a link — with its own default sort. Sorts are per saved query: last updated, date published, completion date, word count, appreciation count, public bookmark count, title, author, or random; the view states its sort like any other filter.
 
+**What a reader calls it.** The mechanism is a saved view; on screen it is a **Saved Filter**, and
+the stream it produces is a **feed**. *Filter* because that is the thing the reader made — a
+condition they chose and named — and *feed* because that is what it becomes: a permanent, clickable
+stream they return to instead of re-typing the same search. The same object answers at four doors:
+the search bar ("save this"), the sidebar and a pinned tab, the terminal (`dh rec --save <name>`),
+and an RSS URL — one object, four doors, never four features.
+
+Sharing follows the same word: a **shared Saved Filter** is a Saved Filter whose visibility is not
+private, and a reader who returns to someone else's is subscribing to it, not copying it. A filter
+that is shared carries its owner's name and the reason it exists, because a stream of results with
+no author is a stream nobody can judge.
+
+Vocabulary this specification does **not** use for this object: *lens* (booru jargon, adopted from a
+sibling project and never used on this archive), and *recipe* (which here means the ephemeral
+per-session condition in §14.2's last paragraph, and never a saved one). "Saved search", "saved
+query" and "named view" all appear above and all mean the same object as Saved Filter; the
+reader-facing name is the one to use in new surfaces.
+
 ## 14.3 Batch outcomes
 
 ```json

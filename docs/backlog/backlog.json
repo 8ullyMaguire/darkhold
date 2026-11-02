@@ -56,8 +56,8 @@
     {
       "id": "M45-40",
       "milestone": "M45",
-      "requirement": "Curator lenses: invited rec-bloggers publish opt-in taste-profile views",
-      "notes": "Gaps review E2. Browse archive through X's eyes; operator's own lens stays invisible."
+      "requirement": "Curator views: invited rec-bloggers publish opt-in taste-profile views",
+      "notes": "Gaps review E2. Browse archive through X's eyes; operator's own lens stays invisible. Renamed 2026-11-02: 'curator lenses' borrowed the same word as the saved-filter feature, which is now called a Saved Filter, so this is a *view* \u2014 a published projection of someone's taste profile, with the operator's own profile still invisible (\u00a752). The word 'lens' survives only inside the leakage model, where it means the hidden taste model a public artefact must not reveal."
     },
     {
       "id": "M45-41",
@@ -147,7 +147,7 @@
       "id": "M63-06",
       "milestone": "M63",
       "requirement": "Saved queries: dh rec --save <name>, shareable URL, schedulable, with --digest-diff printing only rows new since that query last ran",
-      "notes": "Power-user sweep P6. Builds on the saved-query shelf work already in discussion; --digest-diff is the actual recurring need behind a weekly ritual."
+      "notes": "Power-user sweep P6. Builds on the saved-query shelf work already in discussion; --digest-diff is the actual recurring need behind a weekly ritual. Vocabulary, decided 2026-11-02: these are **Saved Filters** (the spec's saved views), and the stream one produces is a **feed**; \"lens\" is retired. M69-21 is the same object's public half, so implement the storage once \u2014 a `--save` here writes the view M69-21 can share."
     },
     {
       "id": "M63-07",
@@ -536,20 +536,20 @@
     {
       "id": "M69-21",
       "milestone": "M69",
-      "requirement": "the Lens: one saved, shareable filter+sort+blend with a slug, subscriptions, keybinds and a pinned tab",
-      "notes": "Suki spec \u00a78.2\u2013\u00a78.5; extends M63-06 (saved queries) and M63-09 (a query library on disk). The difference is that a Lens is a first-class object with a URL: shareable, subscribable, pinnable, bindable to a number key. It compiles to the same query the search bar produces \u2014 a Lens may not be a second engine. Default off: it changes what a stranger sees or what the instance claims about itself, so it waits for a decision rather than a default."
+      "requirement": "Saved Filters: one saved view \u2014 filter, sort and blend \u2014 with a slug, subscriptions, keybind and a pinned feed",
+      "notes": "Suki spec \u00a78.2\u2013\u00a78.5, renamed on 2026-11-02. The mechanism already exists in this archive's own vocabulary: a saved view (\u00a714.2 'Saved searches and named views'), a versioned JSON AST (M8) rendered by the query language (M10-04, implemented), pinnable to the sidebar with its own sort, and already able to produce an RSS feed. What this row adds is the object's public life: a slug URL, sharing, subscribing, a number-key binding, and a pinned blend \u2014 not a second query engine, and not a second storage shape. Naming, decided and written into \u00a714.2: the reader-facing term is **Saved Filter**, and the stream it produces is a **feed**; \"lens\" is retired (booru jargon from a sibling project) and \"recipe\" stays reserved for the ephemeral per-session condition. `extends M63-06` (the terminal's save) and `M63-09` (the query library on disk) supply the two non-web doors. Default off: it changes what a stranger sees or what the instance claims about itself, so it waits for a decision rather than a default."
     },
     {
       "id": "M69-22",
       "milestone": "M69",
-      "requirement": "the morning queue and the daily surprise, expressed as lenses over surfaces that already exist",
-      "notes": "Suki spec \u00a714.6. darkhold has a Blind Date (M66-04) and hidden classics (M66-05); the morning queue is the missing half \u2014 a small, bounded, deliberately diverse set rather than one pick. Written as a lens, not a surface, so the operator can retune it without a deploy. Default off: it changes what a stranger sees or what the instance claims about itself, so it waits for a decision rather than a default."
+      "requirement": "the morning queue and the daily surprise, expressed as Saved Filters over surfaces that already exist",
+      "notes": "Suki spec \u00a714.6, renamed 2026-11-02 (was 'lenses'). darkhold has a Blind Date (M66-04) and hidden classics (M66-05); the morning queue is the missing half \u2014 a small, bounded, deliberately diverse set rather than one pick. Written as a Saved Filter, not a surface, so the operator can retune it without a deploy, and so a reader can see the filter behind what they were shown. Default off: it changes what a stranger sees or what the instance claims about itself, so it waits for a decision rather than a default."
     },
     {
       "id": "M69-23",
       "milestone": "M69",
-      "requirement": "an import source can carry a lens as intake policy: what this source may bring in, and what it queues",
-      "notes": "Suki spec \u00a78.4 (import filter) and \u00a711.4. darkhold's importers decide by host and rule (M67-03/04); a lens makes the policy a shareable object the operator can test by running it. Default off: it changes what a stranger sees or what the instance claims about itself, so it waits for a decision rather than a default."
+      "requirement": "an import source can carry a Saved Filter as intake policy: what this source may bring in, and what it queues",
+      "notes": "Suki spec \u00a78.4 (import filter) and \u00a711.4, renamed 2026-11-02 (was 'lens'). darkhold's importers decide by host and by rule (M67-03/04); a Saved Filter makes the policy a shareable object the operator can test by running it, which is the difference between a policy an operator can inspect and one they have to trust. Default off: it changes what a stranger sees or what the instance claims about itself, so it waits for a decision rather than a default."
     },
     {
       "id": "M69-24",
