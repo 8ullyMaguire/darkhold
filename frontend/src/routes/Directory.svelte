@@ -10,7 +10,7 @@
     type DirectoryCategory,
   } from '../lib/api';
     import { session } from '../lib/session.svelte.ts';
-  import Button from '../lib/components/Button.svelte';
+import { Button } from '@polaris/ui';
   import ErrorSummary from '../lib/components/ErrorSummary.svelte';
   import Skeleton from '../lib/components/Skeleton.svelte';
   import DirectoryGovernance from '../lib/components/DirectoryGovernance.svelte';

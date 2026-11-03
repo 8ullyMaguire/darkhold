@@ -3,7 +3,7 @@
   import { AGE_BANDS } from '../lib/labels';
   import { handleLinkClick, navigate } from '../lib/router';
   import { session } from '../lib/session.svelte.ts';
-  import Button from '../lib/components/Button.svelte';
+import { Button } from '@polaris/ui';
   import ErrorSummary from '../lib/components/ErrorSummary.svelte';
   import Select from '../lib/components/Select.svelte';
   import TextField from '../lib/components/TextField.svelte';

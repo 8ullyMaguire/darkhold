@@ -11,7 +11,7 @@
    * The URL is unchanged (`/works/{id}/units/{unitId}`), and the server
    * answers it before the SPA shell ever sees it.
    */
-  import Button from './lib/components/Button.svelte';
+import { Button } from '@polaris/ui';
   import { clearCopies, copiesUsage } from './lib/offline';
   import Drawer from './lib/components/Drawer.svelte';
   import NavMenu from './lib/components/NavMenu.svelte';

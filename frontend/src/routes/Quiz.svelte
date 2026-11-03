@@ -1,7 +1,7 @@
 <script lang="ts">
   import { skipQuiz, saveQuizAnswers, fetchQuizWorks, type DiscoveryItem } from '../lib/api';
   import { session } from '../lib/session.svelte.ts';
-  import Button from '../lib/components/Button.svelte';
+import { Button } from '@polaris/ui';
   import ErrorSummary from '../lib/components/ErrorSummary.svelte';
   import SignInGate from '../lib/components/SignInGate.svelte';
   import Skeleton from '../lib/components/Skeleton.svelte';

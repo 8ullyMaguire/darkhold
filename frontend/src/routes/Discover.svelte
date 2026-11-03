@@ -21,7 +21,7 @@
   import { handleLinkClick } from '../lib/router';
   import { session } from '../lib/session.svelte.ts';
   import WhyRecommended from '../lib/components/WhyRecommended.svelte';
-  import Button from '../lib/components/Button.svelte';
+import { Button } from '@polaris/ui';
   import ErrorSummary from '../lib/components/ErrorSummary.svelte';
   import MostBookmarkedThisWeek from '../lib/components/MostBookmarkedThisWeek.svelte';
   import NewInYourFandoms from '../lib/components/NewInYourFandoms.svelte';

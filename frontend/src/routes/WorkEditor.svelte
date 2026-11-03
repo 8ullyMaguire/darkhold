@@ -40,7 +40,7 @@
   } from '../lib/labels';
   import { deleteWorkPricing, fetchWorkPricing, setWorkPricing } from '../lib/api';
   import { handleLinkClick } from '../lib/router';
-  import Button from '../lib/components/Button.svelte';
+import { Button } from '@polaris/ui';
   import ErrorSummary from '../lib/components/ErrorSummary.svelte';
   import PreReadPanel from '../lib/components/PreReadPanel.svelte';
   import Select from '../lib/components/Select.svelte';

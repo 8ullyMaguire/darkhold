@@ -40,7 +40,7 @@
   import { session } from '../lib/session.svelte.ts';
   import { formatBytes } from '../lib/labels';
   import { formatTimestamp } from '../lib/time';
-  import Button from '../lib/components/Button.svelte';
+import { Button } from '@polaris/ui';
   import EmptyState from '../lib/components/EmptyState.svelte';
   import ErrorSummary from '../lib/components/ErrorSummary.svelte';
   import Select from '../lib/components/Select.svelte';

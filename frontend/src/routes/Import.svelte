@@ -34,7 +34,7 @@
   } from '../lib/api';
   import { handleLinkClick } from '../lib/router';
   import { session } from '../lib/session.svelte.ts';
-  import Button from '../lib/components/Button.svelte';
+import { Button } from '@polaris/ui';
   import ClampedText from '../lib/components/ClampedText.svelte';
   import ErrorSummary from '../lib/components/ErrorSummary.svelte';
   import Select from '../lib/components/Select.svelte';

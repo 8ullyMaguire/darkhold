@@ -18,7 +18,7 @@
   import { describeLifecycle, describeVisibility } from '../lib/labels';
   import { handleLinkClick } from '../lib/router';
   import { session } from '../lib/session.svelte.ts';
-  import Button from '../lib/components/Button.svelte';
+import { Button } from '@polaris/ui';
   import EmptyState from '../lib/components/EmptyState.svelte';
   import ErrorSummary from '../lib/components/ErrorSummary.svelte';
   import Skeleton from '../lib/components/Skeleton.svelte';

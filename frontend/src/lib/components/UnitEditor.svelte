@@ -31,7 +31,7 @@
     type RevisionEntry,
   } from '../api';
   import { UnitAutosave, type SaveState } from '../autosave';
-  import Button from './Button.svelte';
+  import { Button } from '@polaris/ui';
   import TextField from './TextField.svelte';
 
   interface Props {

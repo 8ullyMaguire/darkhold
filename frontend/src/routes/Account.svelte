@@ -23,7 +23,7 @@
   import { handleLinkClick } from '../lib/router';
   import { session } from '../lib/session.svelte.ts';
   import { formatTimestamp } from '../lib/time';
-  import Button from '../lib/components/Button.svelte';
+import { Button } from '@polaris/ui';
   import ContentPreferences from '../lib/components/ContentPreferences.svelte';
   import EmptyState from '../lib/components/EmptyState.svelte';
   import ErrorSummary from '../lib/components/ErrorSummary.svelte';

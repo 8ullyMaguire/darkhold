@@ -1,6 +1,6 @@
 <script lang="ts">
   import { ApiError } from '../api';
-  import Button from './Button.svelte';
+  import { Button } from '@polaris/ui';
 
   interface Props {
     error: unknown;

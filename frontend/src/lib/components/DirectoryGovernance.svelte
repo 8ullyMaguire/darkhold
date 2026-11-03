@@ -12,7 +12,7 @@
     type DirectoryEntry,
   } from '../api';
   import { session } from '../session.svelte.ts';
-  import Button from './Button.svelte';
+  import { Button } from '@polaris/ui';
   import Dialog from './Dialog.svelte';
   import ErrorSummary from './ErrorSummary.svelte';
   import Skeleton from './Skeleton.svelte';

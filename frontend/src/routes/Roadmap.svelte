@@ -11,7 +11,7 @@
   } from '../lib/api';
   import { handleLinkClick } from '../lib/router.ts';
   import { session } from '../lib/session.svelte.ts';
-  import Button from '../lib/components/Button.svelte';
+import { Button } from '@polaris/ui';
   import ErrorSummary from '../lib/components/ErrorSummary.svelte';
   import Skeleton from '../lib/components/Skeleton.svelte';
 

@@ -1,7 +1,7 @@
 <script lang="ts">
   import type { PrivacyKeyDescription } from '../api';
   import { describeValue } from '../labels';
-  import Button from './Button.svelte';
+  import { Button } from '@polaris/ui';
   import ErrorSummary from './ErrorSummary.svelte';
   import Select from './Select.svelte';
 
