@@ -1,13 +1,13 @@
 {
   "sources": {
     "requirements.csv": {
-      "rows": 885,
+      "rows": 886,
       "by_status": {
         "implemented-verified-e2e": 129,
         "implemented-locally-tested": 247,
         "unsupported": 4,
         "implemented-fully-tested": 412,
-        "planned": 92,
+        "planned": 93,
         "evaluated-and-rejected": 1
       }
     },
@@ -574,6 +574,12 @@
       "milestone": "M44",
       "requirement": "44 roadmap consensus an elo ranked community voted board: a public board where the community ranks feature ideas by pairwise consensus, ported from FicHub's fichub-consensus Elo design",
       "notes": "Reserved section, specified in docs/spec/44-roadmap-consensus-an-elo-ranked-community-voted.md. Registered 2026-11-02 for the same reason as M29-08: an idea the coverage gate named with no home."
+    },
+    {
+      "id": "M47-16",
+      "milestone": "M47",
+      "requirement": "four app suites fail at HEAD \u2014 the OIDC router is declared but never merged, the opensearch router walk collects nothing, and the module index's counts (97 mount sites, 79 stable rows) are three and two behind the tree \u2014 so `cargo test --workspace` cannot be green",
+      "notes": "Found by running the gate the loop never ran: `cargo test --workspace`. Four targets fail, and they are four different jobs, so this row is filed as one discovery and should be split when it is worked. (1) OIDC: `crates/app/src/routes/oidc.rs` has a `router()` and `server.rs` never merges it, so the sign-in door the migrations (0147/0148) and the \u00a711.16 column decisions exist for answers 404 \u2014 the 'open with no owner' note in the standing prompt understated it: it is not untested, it is unmounted. Mounting it needs a registry row, a `module_mount` call, and two ROUTE_TABLE entries with audiences read off the handlers. (2) `opensearch.rs`: the route_inventory walk collects no routes from a file that clearly declares some, and the test says so in its own message ('the walk is broken, not the module') \u2014 the parser is the defect, and a gate that matches nothing is exactly what \u00a79 warns passes. (3) `module_registry`'s two counts are constants that were not moved when three mounts and two stable rows were added. Moving them requires naming the three and two, not just pasting the new number: the assertion exists so a surface cannot be added without a decision. (4) `m65_module_host` fails with the same shape and is almost certainly the same three modules. What it would be wrong to assume: that any of these is a regression from this branch \u2014 measured at 5c397f3a first."
     }
   ],
   "open_by_milestone": {
@@ -584,7 +590,8 @@
     "M66": 6,
     "M65": 1,
     "M29": 1,
-    "M44": 1
+    "M44": 1,
+    "M47": 1
   },
   "unlinked_concord": [
     {

@@ -1,6 +1,6 @@
 {
  "generated_by": "scripts/ideas_catalogue.py",
- "count": 186,
+ "count": 187,
  "ideas": [
   {
    "why_summary": "",
@@ -309,6 +309,19 @@
     "docs/requirements.csv"
    ],
    "milestone": "M45",
+   "relevance": 4,
+   "because": "a requirements row exists (+4)",
+   "default_on": false,
+   "built": false
+  },
+  {
+   "why_summary": "measured 2026-11-02 at 5c397f3a (before this session's commits), by running each target: `cargo test -p darkhold-app --test route_inventory` -> 3 passed, 2 FAILED (`oidc.rs declare",
+   "id": "M47-16",
+   "title": "four app suites fail at HEAD \u2014 the OIDC router is declared but never merged, the opensearch router walk collects nothing, and the module index's counts (97 mount sites, 79 stable rows) are three and two behind the tree \u2014 so `cargo test --workspace` cannot be green",
+   "sources": [
+    "docs/requirements.csv"
+   ],
+   "milestone": "M47",
    "relevance": 4,
    "because": "a requirements row exists (+4)",
    "default_on": false,
