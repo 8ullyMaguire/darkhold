@@ -26,10 +26,18 @@ use tower::ServiceExt;
 fn config_for(dir: &Path) -> Config {
     let mut config = Config::development_defaults();
     config.storage.root = dir.to_path_buf();
-    config.database = DatabaseConfig::new(format!(
-        "sqlite://{}/darkhold.sqlite?mode=rwc",
-        dir.display()
-    ));
+    // The pool the router queries comes from `TestDb` below, so this value is never
+    // connected to — but it must not name the wrong engine. A suite that runs on
+    // PostgreSQL while its config says `sqlite://` is exactly what the dialect gate
+    // reports, and the gate is right: it cannot tell a dead field from a live one.
+    // The selector is read here so the config and the run agree.
+    config.database = match std::env::var("DARKHOLD_TEST_PG_URL") {
+        Ok(url) if !url.is_empty() => DatabaseConfig::new(url),
+        _ => DatabaseConfig::new(format!(
+            "sqlite://{}/darkhold.sqlite?mode=rwc",
+            dir.display()
+        )),
+    };
     config.rate_limits.auth = darkhold_app::limiter::Quota {
         burst: 1000,
         per_minute: 6000,
