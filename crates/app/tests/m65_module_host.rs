@@ -202,11 +202,22 @@ async fn every_mounted_module_is_core_or_registered() {
     // would be a surface nothing can switch off, and its absence would never be
     // tested. Reads `server.rs` because that is where mounting happens.
     let source = include_str!("../src/server.rs");
+    // Read `module_mount(` and then the first quoted string after it, rather than
+    // matching the call shape `module_mount(&state, "`. That shape is what rustfmt
+    // produces only while the call fits on one line: `cargo fmt --all` wrapped
+    // server.rs's mount chain, at which point the needle matched zero call sites and
+    // this test failed with "the sweep mounts every module; found 0 module_mount call
+    // sites" — a walk that matches nothing, which is the failure its own message
+    // exists to name. Wrapping is not a change to what is mounted.
     let mut mounted: Vec<String> = Vec::new();
-    for (idx, _) in source.match_indices("module_mount(&state, \"") {
-        let rest = &source[idx + "module_mount(&state, \"".len()..];
-        let Some(end) = rest.find('"') else { continue };
-        mounted.push(rest[..end].to_owned());
+    let mut rest = source;
+    while let Some(at) = rest.find("module_mount(") {
+        rest = &rest[at + "module_mount(".len()..];
+        let Some(q1) = rest.find('"') else { break };
+        let after = &rest[q1 + 1..];
+        let Some(q2) = after.find('"') else { break };
+        mounted.push(after[..q2].to_owned());
+        rest = &after[q2..];
     }
     assert!(
         mounted.len() > 80,

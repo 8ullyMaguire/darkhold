@@ -325,16 +325,19 @@ fn collect_registered(module: &str) -> Vec<(String, String, String, String)> {
         // reported "declares a router function but the walk collected no routes",
         // which is the test correctly reporting its own blindness.
         let call = call.trim();
-        // .route("path", handler) or .route("path", get(handler).post(other))
-        let Some(path_end) = call.find('"') else {
+        // .route("path", handler) or .route("path", get(handler).post(other)) —
+        // and `.route(PATH, get(document))`, where the path is a `const` in the same
+        // file. `opensearch.rs` spells it that way on purpose: the shell's
+        // `<link rel="search">` and the route have to agree, and one spelling in Rust
+        // is one place for them to agree with. This walk read the first quoted string
+        // in the call, found none, and skipped — so the module reported "declares a
+        // router function but the walk collected no routes", which the test's own
+        // message calls a broken walk. It was.
+        let Some((path, after_path)) = route_path(call, &src) else {
             continue;
         };
-        let rest = &call[path_end + 1..];
-        let Some(path_close) = rest.find('"') else {
-            continue;
-        };
-        let path = &rest[..path_close];
-        let after_path = &rest[path_close + 1..];
+        let path = &path[..];
+        let after_path = &after_path[..];
 
         // Every `(method, handler)` in the rest: `get(h)`, `post(h)`, and any
         // method chain of them, across however many lines the call spans.
@@ -353,6 +356,41 @@ fn collect_registered(module: &str) -> Vec<(String, String, String, String)> {
     }
 
     routes
+}
+
+/// The path of one `.route(…)` call, and the text after it where the handlers live.
+///
+/// A literal is read as-is. An identifier is resolved against a
+/// `[pub] const NAME: &str = "…";` in the same file, which is how `opensearch.rs`
+/// spells its path. A path this cannot resolve returns `None` and the caller skips
+/// the call — the same blindness as before for anything genuinely unreadable, but no
+/// longer for the const form the workspace actually uses.
+fn route_path(call: &str, src: &str) -> Option<(String, String)> {
+    let call = call.trim_start();
+    if let Some(rest) = call.strip_prefix('"') {
+        let end = rest.find('"')?;
+        return Some((rest[..end].to_owned(), rest[end + 1..].to_owned()));
+    }
+    let comma = call.find(',')?;
+    let name = call[..comma].trim();
+    if name.is_empty() || !name.chars().all(|c| c.is_alphanumeric() || c == '_') {
+        return None;
+    }
+    let value = const_string(src, name)?;
+    Some((value, call[comma + 1..].to_owned()))
+}
+
+/// The value of `[pub] const NAME: &str = "…";` declared in this file.
+fn const_string(src: &str, name: &str) -> Option<String> {
+    let needle = format!("const {name}:");
+    let at = src.find(&needle)?;
+    let decl = &src[at..];
+    let end = decl.find(';')?;
+    let decl = &decl[..end];
+    let open = decl.find('"')?;
+    let value = &decl[open + 1..];
+    let close = value.find('"')?;
+    Some(value[..close].to_owned())
 }
 
 /// Find the `.nest("prefix", func_name())` call that nests this module's
@@ -802,6 +840,9 @@ fn registered_routes_are_tabled() {
 fn unmounted_routers(modules: &[(String, String, String)], server: &str) -> (Vec<String>, usize) {
     let mut failures: Vec<String> = Vec::new();
     let mut checked = 0usize;
+    // Declared builders per module, in file order, so reachability can be computed
+    // across modules rather than one file at a time.
+    let mut declared: Vec<(String, String, Vec<String>)> = Vec::new();
     for (module, file_name, src) in modules {
         // `pub fn NAME(` on a line that also mentions `Router<` — a router
         // builder, as opposed to a helper that happens to be named `routerize`.
@@ -810,7 +851,7 @@ fn unmounted_routers(modules: &[(String, String, String)], server: &str) -> (Vec
         // `pub fn router() -> axum::Router<AppState> {` differently from
         // `pub fn router() -> Router<AppState> {` only in length, but a builder
         // whose return type wrapped onto the next line is still a builder.
-        let mut declared: Vec<String> = Vec::new();
+        let mut names: Vec<String> = Vec::new();
         let lines: Vec<&str> = src.lines().collect();
         for (n, line) in lines.iter().enumerate() {
             let t = line.trim();
@@ -840,22 +881,68 @@ fn unmounted_routers(modules: &[(String, String, String)], server: &str) -> (Vec
             // A builder named `router` in a module that ALSO has a private
             // `fn routes()` is registered under whichever name `server.rs`
             // calls — so check every declared name, not only the first.
-            if !declared.contains(&name) {
-                declared.push(name);
+            if !names.contains(&name) {
+                names.push(name);
             }
         }
 
-        for name in &declared {
-            checked += 1;
-            let needle = format!("routes::{module}::{name}");
-            if !server.contains(&needle) {
-                failures.push(format!(
-                    "{file_name} declares `{name}()` but `{needle}` is never merged in \
-                     src/server.rs — every route in it answers 404"
-                ));
+        checked += names.len();
+        declared.push((module.clone(), file_name.clone(), names));
+    }
+
+    // A builder is reachable when `src/server.rs` names it, or when a builder that is
+    // itself reachable merges it. The second half matters: `routes/auth.rs` does
+    // `.merge(super::oidc::router())`, so the OIDC sign-in routes are served — and a
+    // check that called them unmounted would be a false positive on the one thing it
+    // exists to catch. Iterated to a fixpoint because a merge can nest more than one
+    // level deep.
+    let source_of = |module: &str| -> &str {
+        modules
+            .iter()
+            .find(|(m, _, _)| m == module)
+            .map(|(_, _, s)| s.as_str())
+            .unwrap_or("")
+    };
+    let mut reachable: Vec<(String, String)> = Vec::new();
+    loop {
+        let mut moved = false;
+        for (module, _, names) in &declared {
+            for name in names {
+                if reachable.iter().any(|(m, n)| m == module && n == name) {
+                    continue;
+                }
+                let direct = server.contains(&format!("routes::{module}::{name}"));
+                let nested = declared.iter().any(|(host, _, host_names)| {
+                    host_names
+                        .iter()
+                        .any(|hn| reachable.iter().any(|(m, n)| m == host && n == hn))
+                        && (source_of(host).contains(&format!("super::{module}::{name}"))
+                            || source_of(host).contains(&format!("{module}::{name}")))
+                });
+                if direct || nested {
+                    reachable.push((module.clone(), name.clone()));
+                    moved = true;
+                }
             }
         }
+        if !moved {
+            break;
+        }
     }
+
+    for (module, file_name, names) in &declared {
+        for name in names {
+            if reachable.iter().any(|(m, n)| m == module && n == name) {
+                continue;
+            }
+            let needle = format!("routes::{module}::{name}");
+            failures.push(format!(
+                "{file_name} declares `{name}()` but `{needle}` is never merged in \
+                 src/server.rs — every route in it answers 404"
+            ));
+        }
+    }
+
     (failures, checked)
 }
 

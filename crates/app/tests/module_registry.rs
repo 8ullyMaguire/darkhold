@@ -44,10 +44,19 @@ use darkhold_domain::modules::{Stability, Toggle};
 ///
 /// Pinned so a parse that matches nothing fails instead of passing vacuously. Bumping it is part of
 /// adding a surface, and the failure message says so.
-const MOUNT_SITES: usize = 97;
+///
+/// 100, not 97: `search`, `archive` and `succession` gained mounts after the last bump and the
+/// number was never moved, so this test had been failing since those three landed — measured at
+/// `5c397f3a`, so it is not a wrap-up of the `cargo fmt` that rewrote the calls onto their own
+/// lines (`mounted()` parses `module_mount(` then the next quoted string, so wrapping is invisible
+/// to it; the sibling walk in `m65_module_host.rs` was not, and did fail on the wrapping).
+const MOUNT_SITES: usize = 100;
 
 /// The number of rows in `MODULES` when this test was written, split by stability.
-const STABLE_ROWS: usize = 79;
+///
+/// 81 stable rows, not 79: `archive` and `succession` are registry rows now (§13's account archive
+/// and §11.11a), and the index above says so. `search` was already a row and gained only a mount.
+const STABLE_ROWS: usize = 81;
 const PLANNED_ROWS: usize = 23;
 
 fn server_source() -> String {

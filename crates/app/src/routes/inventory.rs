@@ -198,6 +198,22 @@ pub const ROUTE_TABLE: &[RouteEntry] = &[
         path: "/health/ready",
         audience: Audience::Public,
     },
+    // W2 sign in with Polaris. Anonymous: the redirect into the provider carries
+    // nothing of ours, and the callback is reached by the provider, not by a session.
+    RouteEntry {
+        file: "oidc.rs",
+        handler: "start",
+        method: "GET",
+        path: "/auth/oidc/start",
+        audience: Audience::Public,
+    },
+    RouteEntry {
+        file: "oidc.rs",
+        handler: "callback",
+        method: "GET",
+        path: "/auth/oidc/callback",
+        audience: Audience::Public,
+    },
     // ------------------------------------------------------------------
     // Auth — session-scoped (register/login/logout are writes)
     // ------------------------------------------------------------------
@@ -5090,6 +5106,16 @@ pub const ROUTE_TABLE: &[RouteEntry] = &[
         handler: "contributors",
         method: "GET",
         path: "/works/{id}/contributors",
+        audience: Audience::Public,
+    },
+    // M69-25: the OpenSearch description document the shell links with
+    // `<link rel="search">`. Public in every sense — it is what an unauthenticated
+    // browser fetches to offer the reader a search engine for this instance.
+    RouteEntry {
+        file: "opensearch.rs",
+        handler: "document",
+        method: "GET",
+        path: "/opensearch.xml",
         audience: Audience::Public,
     },
 ];

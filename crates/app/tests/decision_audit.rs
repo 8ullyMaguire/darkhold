@@ -345,9 +345,34 @@ async fn a_second_decision_about_one_subject_adds_a_row_rather_than_replacing_on
         "an upsert here would let a second decision erase the first, and the \
          record of WHY the answer changed would be the thing that changed"
     );
-    // Newest first, and the second write is the one that is newest.
-    assert_eq!(history[0].deterministic, "held");
-    assert_eq!(history[1].deterministic, "accepted");
+    // Both decisions are still there, each with its own answer. This is the half the
+    // test exists for: `record` has no `ON CONFLICT`, so the second write adds a row
+    // rather than replacing the first — an upsert would leave one row, and the record
+    // of WHY the answer changed would be the thing that changed.
+    let mut answers: Vec<&str> = history
+        .iter()
+        .map(|row| row.deterministic.as_str())
+        .collect();
+    answers.sort_unstable();
+    assert_eq!(answers, ["accepted", "held"]);
+    // And the order is the one `list` promises — `created_at DESC, id DESC`, newest
+    // first — not "the order they were written". Every timestamp in this schema is
+    // **second precision** on purpose (`identity::format_rfc3339` truncates, because a
+    // fractional value does not sort as text), so two decisions recorded in the same
+    // second tie on `created_at` and the tie-break is the row id: a UUID, which
+    // carries no order at all. The assertion below is therefore about the sort order
+    // the query guarantees and is stable between reads, not about which of two
+    // same-second writes came first — asserting that made this test fail about half
+    // the time, depending on where two random UUIDs happened to sort.
+    let newest_first = (history[0].created_at.as_str(), history[0].id.as_str())
+        >= (history[1].created_at.as_str(), history[1].id.as_str());
+    assert!(
+        newest_first,
+        "the page is not sorted by (created_at, id) descending: {:?} then {:?} — \
+         an audit that reorders itself between two reads is one nobody can page through",
+        (history[0].created_at.as_str(), history[0].id.as_str()),
+        (history[1].created_at.as_str(), history[1].id.as_str()),
+    );
 }
 
 /// The page is bounded, and a request for everything gets the bound instead.
@@ -516,7 +541,7 @@ async fn a_filter_narrows_and_a_filter_matching_nothing_returns_nothing() {
 #[tokio::test]
 async fn the_newest_decision_comes_first() {
     let tdb = harness("newest-first").await;
-    for (i, label) in ["first", "second", "third"].iter().enumerate() {
+    for label in ["first", "second", "third"] {
         decision_audit::record(
             tdb.db(),
             &entry(
@@ -529,10 +554,14 @@ async fn the_newest_decision_comes_first() {
         )
         .await
         .expect("a write lands");
-        // Distinct timestamps, because the ordering claim is about `created_at`
-        // and three rows written inside one millisecond would test the id
-        // tiebreak instead of the thing being claimed.
-        tokio::time::sleep(std::time::Duration::from_millis(10 * (i as u64 + 1))).await;
+        // Distinct **seconds**, not milliseconds. Every timestamp this schema stores
+        // is second precision on purpose (`identity::format_rfc3339` truncates it),
+        // so the 10–30 ms this test used to sleep put all three rows in one second;
+        // they tied on `created_at` and fell back to the id tiebreak, which is a
+        // random UUID — the ordering claim went untested and the test failed about
+        // five times in six. Crossing a second boundary is the only way to write two
+        // rows whose `created_at` really differs.
+        tokio::time::sleep(std::time::Duration::from_millis(1_100)).await;
     }
 
     let rows = all(&tdb).await;

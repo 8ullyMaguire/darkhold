@@ -33,7 +33,7 @@ use darkhold_db::oidc;
 use serde::Deserialize;
 use sha2::{Digest, Sha256};
 
-use crate::auth::{self, CookiePolicy, CSRF_COOKIE, SESSION_COOKIE};
+use crate::auth::{self, CookiePolicy, MaybeSession, CSRF_COOKIE, SESSION_COOKIE};
 use crate::state::AppState;
 
 const PROVIDER: &str = "polaris-id";
@@ -95,6 +95,10 @@ fn safe_next(raw: Option<&String>) -> String {
 /// `GET /api/v1/auth/oidc/start?next=/works/12&prompt=none`
 async fn start(
     State(state): State<AppState>,
+    // Anonymous on purpose, and declared so: a reader who is already signed in may
+    // also use this door to link a Polaris identity. The route table in `inventory.rs`
+    // reads this extractor, so the type named here is the audience.
+    MaybeSession(_session): MaybeSession,
     Query(params): Query<HashMap<String, String>>,
 ) -> Response {
     let Some(config) = ProviderConfig::from_env() else {
@@ -156,6 +160,10 @@ struct TokenReply {
 /// `GET /api/v1/auth/oidc/callback?code=…&state=…`
 async fn callback(
     State(state): State<AppState>,
+    // Reached by the provider's redirect, which carries no session of ours — but the
+    // account it lands on may be one this browser is already signed into, so the
+    // audience is public and the extractor says so.
+    MaybeSession(_session): MaybeSession,
     headers: HeaderMap,
     Query(params): Query<HashMap<String, String>>,
 ) -> Response {
