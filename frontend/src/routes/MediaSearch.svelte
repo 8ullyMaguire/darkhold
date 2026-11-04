@@ -16,7 +16,7 @@ import { Button } from '@polaris/ui';
   import EmptyState from '../lib/components/EmptyState.svelte';
   import ErrorSummary from '../lib/components/ErrorSummary.svelte';
   import Skeleton from '../lib/components/Skeleton.svelte';
-  import TextField from '../lib/components/TextField.svelte';
+  import { Field } from '@polaris/ui';
 
   let mode = $state<'hash' | 'url'>('hash');
   let hashInput = $state('');
@@ -80,13 +80,13 @@ import { Button } from '@polaris/ui';
 
   <form class="search-form" onsubmit={onSubmit}>
     {#if mode === 'hash'}
-      <TextField
+      <Field
         label="Perceptual hash"
         bind:value={hashInput}
         placeholder="e.g. 8f3a2b1c..."
       />
     {:else}
-      <TextField
+      <Field
         label="URL"
         bind:value={urlInput}
         placeholder="https://..."

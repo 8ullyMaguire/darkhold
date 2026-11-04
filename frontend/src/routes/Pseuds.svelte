@@ -17,7 +17,7 @@ import { Button } from '@polaris/ui';
   import ErrorSummary from '../lib/components/ErrorSummary.svelte';
   import PrivacySettings from '../lib/components/PrivacySettings.svelte';
   import Skeleton from '../lib/components/Skeleton.svelte';
-  import TextField from '../lib/components/TextField.svelte';
+  import { Field } from '@polaris/ui';
   import Textarea from '../lib/components/Textarea.svelte';
 
   /** Which pseud has its editor or settings open, and which of the two. */
@@ -243,7 +243,7 @@ import { Button } from '@polaris/ui';
                 {#if editError}
                   <ErrorSummary error={editError} onretry={() => openEditor(pseud)} />
                 {/if}
-                <TextField
+                <Field
                   id={`edit-name-${pseud.id}`}
                   label="Display name"
                   value={editDisplayName}
@@ -322,7 +322,7 @@ import { Button } from '@polaris/ui';
         {#if createError}
           <ErrorSummary error={createError} />
         {/if}
-        <TextField
+        <Field
           id="new-handle"
           label="Handle"
           required
@@ -330,7 +330,7 @@ import { Button } from '@polaris/ui';
           error={createFieldErrors.handle}
           oninput={(event) => (newHandle = event.currentTarget.value)}
         />
-        <TextField
+        <Field
           id="new-display-name"
           label="Display name"
           value={newDisplayName}

@@ -4,7 +4,7 @@
   import { session } from '../lib/session.svelte.ts';
 import { Button } from '@polaris/ui';
   import ErrorSummary from '../lib/components/ErrorSummary.svelte';
-  import TextField from '../lib/components/TextField.svelte';
+  import { Field } from '@polaris/ui';
 
   interface Props {
     /** Where to go after signing in. */
@@ -57,7 +57,7 @@ import { Button } from '@polaris/ui';
   </p>
 
   <form onsubmit={submit} novalidate>
-    <TextField
+    <Field
       id="sign-in-email"
       label="Email address"
       type="email"
@@ -68,7 +68,7 @@ import { Button } from '@polaris/ui';
       oninput={(event) => (email = event.currentTarget.value)}
     />
 
-    <TextField
+    <Field
       id="sign-in-password"
       label="Password"
       type="password"

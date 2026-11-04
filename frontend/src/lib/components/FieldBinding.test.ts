@@ -12,7 +12,7 @@ import Harness from './FieldBinding.test.svelte';
  */
 
 describe('field primitives and bind:value', () => {
-  it('propagates typing in a TextField to the bound value', async () => {
+  it('propagates typing in the shared Field to the bound value', async () => {
     const onvalues = vi.fn();
     render(Harness, { props: { onvalues } });
 

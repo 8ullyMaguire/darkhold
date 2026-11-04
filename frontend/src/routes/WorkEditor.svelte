@@ -45,7 +45,7 @@ import { Button } from '@polaris/ui';
   import PreReadPanel from '../lib/components/PreReadPanel.svelte';
   import Select from '../lib/components/Select.svelte';
   import Skeleton from '../lib/components/Skeleton.svelte';
-  import TextField from '../lib/components/TextField.svelte';
+  import { Field } from '@polaris/ui';
   import Textarea from '../lib/components/Textarea.svelte';
 
   interface Props {
@@ -435,9 +435,9 @@ import { Button } from '@polaris/ui';
   <section aria-labelledby="metadata-heading">
     <h2 id="metadata-heading">Details</h2>
     <form class="metadata" onsubmit={saveMetadata}>
-      <TextField label="Title" bind:value={title} disabled={!canEdit} />
+      <Field label="Title" bind:value={title} disabled={!canEdit} />
       <Textarea label="Summary" bind:value={summary} disabled={!canEdit} />
-      <TextField label="Language" bind:value={language} disabled={!canEdit} />
+      <Field label="Language" bind:value={language} disabled={!canEdit} />
       <Select
         label="Rating"
         value={rating}
@@ -506,8 +506,8 @@ import { Button } from '@polaris/ui';
         disabled={!canEdit}
       />
       {#if pricingModel === 'purchase'}
-        <TextField label="Price (minor units, 500 = 5.00)" bind:value={pricingPrice} disabled={!canEdit} />
-        <TextField label="Currency" bind:value={pricingCurrency} disabled={!canEdit} />
+        <Field label="Price (minor units, 500 = 5.00)" bind:value={pricingPrice} disabled={!canEdit} />
+        <Field label="Currency" bind:value={pricingCurrency} disabled={!canEdit} />
       {/if}
       <div class="actions">
         <Button type="submit" disabled={savingPricing || !canEdit}>Save pricing</Button>
@@ -550,7 +550,7 @@ import { Button } from '@polaris/ui';
     {#if unitError}<ErrorSummary error={unitError} />{/if}
 
     <form class="new-unit" onsubmit={createUnit}>
-      <TextField label="New unit" bind:value={newUnitTitle} placeholder="Unit title" />
+      <Field label="New unit" bind:value={newUnitTitle} placeholder="Unit title" />
       <Button type="submit" disabled={addingUnit || !canEdit}>Add unit</Button>
     </form>
 
@@ -646,7 +646,7 @@ import { Button } from '@polaris/ui';
 
     {#if canPublish}
       <form class="invite" onsubmit={invite}>
-        <TextField label="Invite a pseud by handle" bind:value={inviteHandle} placeholder="handle" />
+        <Field label="Invite a pseud by handle" bind:value={inviteHandle} placeholder="handle" />
         <Select
           label="Offered role"
           value={inviteRole}

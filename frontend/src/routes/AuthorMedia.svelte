@@ -27,7 +27,7 @@ import { Button } from '@polaris/ui';
   import EmptyState from '../lib/components/EmptyState.svelte';
   import ErrorSummary from '../lib/components/ErrorSummary.svelte';
   import Skeleton from '../lib/components/Skeleton.svelte';
-  import TextField from '../lib/components/TextField.svelte';
+  import { Field } from '@polaris/ui';
 
   type Tab = 'health' | 'insert' | 'preferences';
 
@@ -333,8 +333,8 @@ import { Button } from '@polaris/ui';
       </p>
 
       <form class="form" onsubmit={(e) => { e.preventDefault(); void insertReference(); }}>
-                  <TextField label="Work ID" bind:value={insertWorkId} placeholder="insert-work-uuid" />
-                  <TextField label="URL" bind:value={insertUrl} placeholder="https://..." onchange={() => void lookupUrl()} />
+                  <Field label="Work ID" bind:value={insertWorkId} placeholder="insert-work-uuid" />
+                  <Field label="URL" bind:value={insertUrl} placeholder="https://..." onchange={() => void lookupUrl()} />
         <label>
           Context
           <select bind:value={insertContext}>
@@ -343,7 +343,7 @@ import { Button } from '@polaris/ui';
             {/each}
           </select>
         </label>
-                  <TextField label="Note (optional)" bind:value={insertNote} placeholder="Source, artist, etc." />
+                  <Field label="Note (optional)" bind:value={insertNote} placeholder="Source, artist, etc." />
 
         {#if insertNotice}
           <p class="notice">{insertNotice}</p>
@@ -382,13 +382,13 @@ import { Button } from '@polaris/ui';
 
       <h2>Post a Targeted Bounty</h2>
       <form class="form" onsubmit={(e) => { e.preventDefault(); void submitBounty(); }}>
-        <TextField label="Work ID" bind:value={bountyWorkId} placeholder="work-uuid" />
-        <TextField label="Media Reference ID (optional)" bind:value={bountyRefId} placeholder="ref-uuid" />
+        <Field label="Work ID" bind:value={bountyWorkId} placeholder="work-uuid" />
+        <Field label="Media Reference ID (optional)" bind:value={bountyRefId} placeholder="ref-uuid" />
         <label>
           Reward (credits)
           <input type="number" bind:value={bountyReward} min="1" />
         </label>
-                  <TextField label="Description (optional)" bind:value={bountyDesc} placeholder="What needs doing" />
+                  <Field label="Description (optional)" bind:value={bountyDesc} placeholder="What needs doing" />
 
         {#if bountyNotice}
           <p class="notice">{bountyNotice}</p>

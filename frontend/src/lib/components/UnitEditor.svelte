@@ -32,7 +32,7 @@
   } from '../api';
   import { UnitAutosave, type SaveState } from '../autosave';
   import { Button } from '@polaris/ui';
-  import TextField from './TextField.svelte';
+  import { Field } from '@polaris/ui';
 
   interface Props {
     unitId: string;
@@ -297,8 +297,8 @@
   {/if}
 
   <div class="unit-meta">
-    <TextField label="Unit title" bind:value={titleDraft} onblur={renameUnit} />
-    <TextField label="Revision note (optional)" bind:value={note} />
+    <Field label="Unit title" bind:value={titleDraft} onblur={renameUnit} />
+    <Field label="Revision note (optional)" bind:value={note} />
   </div>
 
   <div class="toolbar" role="toolbar" aria-label="Formatting">

@@ -21,7 +21,7 @@
     options,
     hint,
     error,
-    /** Bindable; see the note in `TextField.svelte`. */
+    /** Bindable; see the note in `@polaris/ui Field.svelte`. */
     value = $bindable(''),
     onchange,
     ...rest

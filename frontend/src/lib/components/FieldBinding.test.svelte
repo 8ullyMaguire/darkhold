@@ -2,7 +2,7 @@
   /**
    * A harness for the field primitives' binding contract.
    *
-   * It exists so that `bind:value` on `TextField`, `Textarea` and `Select` can
+   * It exists so that `bind:value` on `Field`, `Textarea` and `Select` can
    * be tested as a *component* binding — the thing a page actually writes —
    * rather than as a DOM event. The bug this pins: without `$bindable()`, the
    * compiler accepts the binding, the runtime drops it, and the parent submits
@@ -10,7 +10,7 @@
    */
   import Select from './Select.svelte';
   import Textarea from './Textarea.svelte';
-  import TextField from './TextField.svelte';
+  import { Field } from '@polaris/ui';
 
   interface Props {
     onvalues?: (values: { text: string; area: string; choice: string }) => void;
@@ -30,7 +30,7 @@
 </script>
 
 <div>
-  <TextField label="Text" bind:value={text} />
+  <Field label="Text" bind:value={text} />
   <Textarea label="Area" bind:value={area} />
   <Select
     label="Choice"

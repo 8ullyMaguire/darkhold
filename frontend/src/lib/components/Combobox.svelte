@@ -9,7 +9,7 @@
 	interface Props {
 		label: string;
 		options: ComboboxOption[];
-		/** Bindable; see the note in TextField.svelte. */
+		/** Bindable; see the note in @polaris/ui Field.svelte. */
 		value: string;
 		onchange: (value: string) => void;
 		hint?: string;

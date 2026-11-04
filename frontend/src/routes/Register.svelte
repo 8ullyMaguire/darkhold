@@ -6,7 +6,7 @@
 import { Button } from '@polaris/ui';
   import ErrorSummary from '../lib/components/ErrorSummary.svelte';
   import Select from '../lib/components/Select.svelte';
-  import TextField from '../lib/components/TextField.svelte';
+  import { Field } from '@polaris/ui';
 
   let email = $state('');
   let password = $state('');
@@ -64,7 +64,7 @@ import { Button } from '@polaris/ui';
   {/if}
 
   <form onsubmit={submit} novalidate>
-    <TextField
+    <Field
       id="register-email"
       label="Email address"
       type="email"
@@ -75,7 +75,7 @@ import { Button } from '@polaris/ui';
       oninput={(event) => (email = event.currentTarget.value)}
     />
 
-    <TextField
+    <Field
       id="register-password"
       label="Password"
       type="password"
@@ -87,7 +87,7 @@ import { Button } from '@polaris/ui';
       oninput={(event) => (password = event.currentTarget.value)}
     />
 
-    <TextField
+    <Field
       id="register-handle"
       label="Handle"
       required
@@ -97,7 +97,7 @@ import { Button } from '@polaris/ui';
       oninput={(event) => (handle = event.currentTarget.value)}
     />
 
-    <TextField
+    <Field
       id="register-display-name"
       label="Display name"
       value={displayName}

@@ -22,7 +22,7 @@ import { Button } from '@polaris/ui';
   import EmptyState from '../lib/components/EmptyState.svelte';
   import ErrorSummary from '../lib/components/ErrorSummary.svelte';
   import Skeleton from '../lib/components/Skeleton.svelte';
-  import TextField from '../lib/components/TextField.svelte';
+  import { Field } from '@polaris/ui';
 
   // Search state
   let hashInput = $state('');
@@ -153,7 +153,7 @@ import { Button } from '@polaris/ui';
   </header>
 
   <form class="search-form" onsubmit={onSearch}>
-    <TextField label="Perceptual hash" bind:value={hashInput} placeholder="e.g. 8f3a2b1c..." />
+    <Field label="Perceptual hash" bind:value={hashInput} placeholder="e.g. 8f3a2b1c..." />
     <Button type="submit" loading={searchLoading}>Search</Button>
   </form>
 
@@ -245,8 +245,8 @@ import { Button } from '@polaris/ui';
 
           <form class="add-form" onsubmit={onMirrorSubmit}>
             <h3>Add Mirror</h3>
-            <TextField label="Storage path" bind:value={mirrorPath} placeholder="/data/media/ref-abc.jpg" />
-            <TextField label="Original URL" bind:value={mirrorUrl} placeholder="https://..." />
+            <Field label="Storage path" bind:value={mirrorPath} placeholder="/data/media/ref-abc.jpg" />
+            <Field label="Original URL" bind:value={mirrorUrl} placeholder="https://..." />
             <Button type="submit" loading={mirrorBusy}>Register Mirror</Button>
           </form>
         </section>
@@ -279,9 +279,9 @@ import { Button } from '@polaris/ui';
 
           <form class="add-form" onsubmit={onPinSubmit}>
             <h3>Add IPFS Pin</h3>
-            <TextField label="CID" bind:value={pinCid} placeholder="bafy..." />
-            <TextField label="Pin service" bind:value={pinService} />
-            <TextField label="File size (bytes)" bind:value={pinSize} />
+            <Field label="CID" bind:value={pinCid} placeholder="bafy..." />
+            <Field label="Pin service" bind:value={pinService} />
+            <Field label="File size (bytes)" bind:value={pinSize} />
             <Button type="submit" loading={pinBusy}>Pin</Button>
           </form>
         </section>

@@ -22,7 +22,7 @@ import { Button } from '@polaris/ui';
   import EmptyState from '../lib/components/EmptyState.svelte';
   import ErrorSummary from '../lib/components/ErrorSummary.svelte';
   import Skeleton from '../lib/components/Skeleton.svelte';
-  import TextField from '../lib/components/TextField.svelte';
+  import { Field } from '@polaris/ui';
 
   let works = $state<WorkSummary[] | null>(null);
   let invitations = $state<Invitation[] | null>(null);
@@ -106,7 +106,7 @@ import { Button } from '@polaris/ui';
   {/if}
 
   <form class="new-work" onsubmit={startWork}>
-    <TextField label="New work" bind:value={newTitle} placeholder="A title" required />
+    <Field label="New work" bind:value={newTitle} placeholder="A title" required />
     <Button type="submit" disabled={creating || newTitle.trim() === ''}>Start a draft</Button>
   </form>
   {#if createError}

@@ -4,7 +4,7 @@
   import { session } from '../lib/session.svelte.ts';
 import { Button } from '@polaris/ui';
   import ErrorSummary from '../lib/components/ErrorSummary.svelte';
-  import TextField from '../lib/components/TextField.svelte';
+  import { Field } from '@polaris/ui';
 
   /** `ask` collects the address; `finish` redeems the token it produced. */
   let step = $state<'ask' | 'finish'>('ask');
@@ -94,7 +94,7 @@ import { Button } from '@polaris/ui';
     {/if}
 
     <form onsubmit={ask} novalidate>
-      <TextField
+      <Field
         id="reset-email"
         label="Email address"
         type="email"
@@ -129,7 +129,7 @@ import { Button } from '@polaris/ui';
     {/if}
 
     <form onsubmit={finish} novalidate>
-      <TextField
+      <Field
         id="reset-token"
         label="Reset token"
         required
@@ -138,7 +138,7 @@ import { Button } from '@polaris/ui';
         oninput={(event) => (token = event.currentTarget.value)}
       />
 
-      <TextField
+      <Field
         id="reset-password"
         label="New password"
         type="password"

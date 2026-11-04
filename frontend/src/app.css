@@ -101,7 +101,7 @@ button {
 /*
  * A form field must be allowed to be narrower than its contents.
  *
- * Four components (TextField, Textarea, Select, Combobox) render a `.field`;
+ * Four components (Field, Textarea, Select, Combobox) render a `.field`;
  * as a flex item its automatic minimum is the content's, and a select or an
  * input sized by its longest option then pushes the row past the viewport —
  * measured on /search at 390px, 33px of sideways scroll after the fieldset's

@@ -39,7 +39,7 @@ import { Button } from '@polaris/ui';
   import ErrorSummary from '../lib/components/ErrorSummary.svelte';
   import Select from '../lib/components/Select.svelte';
   import Skeleton from '../lib/components/Skeleton.svelte';
-  import TextField from '../lib/components/TextField.svelte';
+  import { Field } from '@polaris/ui';
 
   let url = $state('');
   let previewing = $state(false);
@@ -261,7 +261,7 @@ import { Button } from '@polaris/ui';
       void check();
     }}
   >
-    <TextField
+    <Field
       label="Address of the work"
       bind:value={url}
       placeholder="https://www.royalroad.com/fiction/21220/…"
