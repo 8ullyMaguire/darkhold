@@ -67,8 +67,18 @@ pub async fn create(
         .map_err(|error| anyhow::anyhow!(error))?;
     let id = uuid::Uuid::new_v4().to_string();
     let vector = serde_json::to_string(theme_vector)?;
-    let sql = "INSERT INTO theme_schedules (id, instance_id, label, theme_vector, starts_at, ends_at, created_at)
-               VALUES (?, ?, ?, ?, ?, ?, ?)";
+    // Two statements, not one shared string: PostgreSQL spells its placeholders `$1..$n`, and the
+    // `dialects` gate refuses a `?` in a PostgreSQL arm.
+    let sql = match db.backend() {
+        Backend::Sqlite => {
+            "INSERT INTO theme_schedules (id, instance_id, label, theme_vector, starts_at, ends_at, created_at)
+             VALUES (?, ?, ?, ?, ?, ?, ?)"
+        }
+        Backend::Postgres => {
+            "INSERT INTO theme_schedules (id, instance_id, label, theme_vector, starts_at, ends_at, created_at)
+             VALUES ($1, $2, $3, $4, $5, $6, $7)"
+        }
+    };
     match db.backend() {
         Backend::Sqlite => {
             sqlx::query(sql)
@@ -101,11 +111,20 @@ pub async fn create(
 /// Every window this instance has ever written, newest start first — including revoked ones, because
 /// "the event that was called off" is a fact an operator may need to read back.
 pub async fn list_for_instance(db: &Database, instance_id: &str) -> Result<Vec<ThemeSchedule>> {
-    let sql =
-        "SELECT id, instance_id, label, theme_vector, starts_at, ends_at, created_at, revoked_at
-               FROM theme_schedules
-               WHERE instance_id = ?
-               ORDER BY starts_at DESC, created_at DESC";
+    let sql = match db.backend() {
+        Backend::Sqlite => {
+            "SELECT id, instance_id, label, theme_vector, starts_at, ends_at, created_at, revoked_at
+             FROM theme_schedules
+             WHERE instance_id = ?
+             ORDER BY starts_at DESC, created_at DESC"
+        }
+        Backend::Postgres => {
+            "SELECT id, instance_id, label, theme_vector, starts_at, ends_at, created_at, revoked_at
+             FROM theme_schedules
+             WHERE instance_id = $1
+             ORDER BY starts_at DESC, created_at DESC"
+        }
+    };
     let rows: Vec<ScheduleRow> = match db.backend() {
         Backend::Sqlite => {
             sqlx::query_as(sql)
@@ -133,15 +152,28 @@ pub async fn active_at(
     instance_id: &str,
     at: &str,
 ) -> Result<Option<ThemeSchedule>> {
-    let sql =
-        "SELECT id, instance_id, label, theme_vector, starts_at, ends_at, created_at, revoked_at
-               FROM theme_schedules
-               WHERE instance_id = ?
-                 AND starts_at <= ?
-                 AND revoked_at IS NULL
-                 AND ends_at > ?
-               ORDER BY starts_at DESC
-               LIMIT 1";
+    let sql = match db.backend() {
+        Backend::Sqlite => {
+            "SELECT id, instance_id, label, theme_vector, starts_at, ends_at, created_at, revoked_at
+             FROM theme_schedules
+             WHERE instance_id = ?
+               AND starts_at <= ?
+               AND revoked_at IS NULL
+               AND ends_at > ?
+             ORDER BY starts_at DESC
+             LIMIT 1"
+        }
+        Backend::Postgres => {
+            "SELECT id, instance_id, label, theme_vector, starts_at, ends_at, created_at, revoked_at
+             FROM theme_schedules
+             WHERE instance_id = $1
+               AND starts_at <= $2
+               AND revoked_at IS NULL
+               AND ends_at > $3
+             ORDER BY starts_at DESC
+             LIMIT 1"
+        }
+    };
     let row: Option<ScheduleRow> = match db.backend() {
         Backend::Sqlite => {
             sqlx::query_as(sql)
@@ -166,8 +198,16 @@ pub async fn active_at(
 /// Call a window off. Returns whether a live row was revoked — a second revoke is not an error, it is
 /// a no-op that says so.
 pub async fn revoke(db: &Database, instance_id: &str, id: &str, now: &str) -> Result<bool> {
-    let sql = "UPDATE theme_schedules SET revoked_at = ?
-               WHERE id = ? AND instance_id = ? AND revoked_at IS NULL";
+    let sql = match db.backend() {
+        Backend::Sqlite => {
+            "UPDATE theme_schedules SET revoked_at = ?
+             WHERE id = ? AND instance_id = ? AND revoked_at IS NULL"
+        }
+        Backend::Postgres => {
+            "UPDATE theme_schedules SET revoked_at = $1
+             WHERE id = $2 AND instance_id = $3 AND revoked_at IS NULL"
+        }
+    };
     let affected = match db.backend() {
         Backend::Sqlite => sqlx::query(sql)
             .bind(now)
