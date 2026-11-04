@@ -700,6 +700,15 @@ pub async fn run(cli: &Cli, args: &RecArgs) -> Result<(), Failure> {
             "--digest-diff needs --saved <name>: there is no saved query to diff against",
         ));
     }
+    // A stored catalogue query and a personal ranking are different questions; a
+    // `--digest-diff` across the two would compare an engine's answer against a
+    // catalogue page's and call the difference "new".
+    if args.saved.is_some() && (args.engine.is_some() || args.explain) {
+        return Err(bad_request(
+            "--saved replays a stored catalogue query; --engine ranks against your own history, so \
+             the diff would compare two different answers",
+        ));
+    }
     if args.save.is_some() && args.digest_diff {
         return Err(bad_request(
             "--save stores a query without running it, so there is no page to diff",
@@ -1530,6 +1539,17 @@ mod tests {
         assert_eq!(failure.code, 2);
         assert!(failure.message.contains("--save"), "{}", failure.message);
         assert!(failure.message.contains("--saved"), "{}", failure.message);
+    }
+
+    #[tokio::test]
+    async fn a_saved_query_and_a_personal_ranking_are_not_mixed() {
+        let (mut cli, args) = args(&["dh", "rec", "--saved", "weekly", "--engine", "rrf"]);
+        cli.token = Some("t".to_owned());
+        cli.cookie = Some("darkhold_session=abc".to_owned());
+        let failure = run(&cli, &args).await.expect_err("refused");
+        assert_eq!(failure.code, 2, "{}", failure.message);
+        assert!(failure.message.contains("--saved"), "{}", failure.message);
+        assert!(failure.message.contains("--engine"), "{}", failure.message);
     }
 
     #[tokio::test]
