@@ -3,7 +3,7 @@
   "private": true,
   "version": "0.1.0",
   "type": "module",
-  "description": "Darkhold web client \u2014 Svelte + TypeScript, built to static assets and embedded in the server binary",
+  "description": "Darkhold web client — Svelte + TypeScript, built to static assets and embedded in the server binary",
   "scripts": {
     "dev": "vite",
     "build": "vite build",
@@ -25,7 +25,7 @@
     "vitest": "^3.0.0"
   },
   "dependencies": {
-    "@polaris/ui": "file:/personal/documents/code/estate/ui/dist/polaris-ui-0.1.0.tgz",
+    "@polaris/ui": "file:../../../estate/ui/dist/polaris-ui-0.1.2.tgz",
     "@tiptap/core": "^2.27.3",
     "@tiptap/extension-link": "^2.27.3",
     "@tiptap/starter-kit": "^2.27.3",
