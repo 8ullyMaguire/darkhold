@@ -91,6 +91,13 @@ The fix is the precedent the reader pages already set: the federation mount load
 requests stay anonymous, because `load_session` attaches a user when there is one and leaves the
 request alone when there is not. Red before, green after, on the same test.
 
+## And the gate found the second one
+
+The first full gate failed on `dialects`: I had written each statement once and used it from both
+engines, and PostgreSQL spells placeholders `$1..$n`. The SQLite-only run passed, so nothing else in
+the loop would have caught it — it would have surfaced the first time a Postgres instance scheduled
+an event. Each engine now carries its own statement; the db suite passes on both (5 + 5).
+
 ## Not done, deliberately
 
 - No "next event starts in…" surface. The row asks for windows, and a countdown is a UI decision with
