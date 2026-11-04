@@ -354,6 +354,25 @@ pub fn validate_query(query: &LibraryQuery, scope: ViewScope) -> Result<(), Quer
     Ok(())
 }
 
+/// Which of `current` were not in `previous`, in the order they arrived.
+///
+/// The diff is over ids, not timestamps: a catalogue row can enter a saved
+/// query's answer because its `source_updated_at` moved, because a tag backfill
+/// gave it a fandom, or because a `-7d` window slid — none of which is a "created
+/// since" fact. Only the previous answer can say what is new.
+///
+/// Duplicates in `current` are preserved rather than collapsed: this answers a
+/// question about a page, and a page that repeats an id is a bug the caller
+/// should see, not one this function should hide.
+#[must_use]
+pub fn new_ids_since(previous: &[String], current: &[String]) -> Vec<String> {
+    current
+        .iter()
+        .filter(|id| !previous.contains(id))
+        .cloned()
+        .collect()
+}
+
 /// One item a batch operation could not act on.
 ///
 /// The code is a machine-readable reason rather than a sentence, because the
@@ -712,5 +731,32 @@ mod tests {
             assert_eq!(ViewScope::parse(scope.as_str()), Some(scope));
         }
         assert_eq!(ViewScope::parse("shared"), None);
+    }
+
+    #[test]
+    fn a_first_run_is_all_new_and_a_repeat_is_none() {
+        let page: Vec<String> = vec!["a".into(), "b".into()];
+        assert_eq!(new_ids_since(&[], &page), page);
+        assert_eq!(new_ids_since(&page, &page), Vec::<String>::new());
+    }
+
+    #[test]
+    fn an_id_that_left_the_page_and_came_back_is_new_again() {
+        // A window slides: `--updated 7d` drops last week's answers and a row can
+        // walk back in. The diff is over answers, not over creation dates.
+        let previous: Vec<String> = vec!["a".into(), "b".into()];
+        let current: Vec<String> = vec!["b".into(), "a".into(), "c".into()];
+        assert_eq!(new_ids_since(&previous, &current), vec!["c".to_owned()]);
+    }
+
+    #[test]
+    fn the_diff_keeps_the_order_the_page_arrived_in() {
+        let previous: Vec<String> = vec!["b".into()];
+        let current: Vec<String> = vec!["z".into(), "y".into(), "b".into()];
+        assert_eq!(
+            new_ids_since(&previous, &current),
+            vec!["z".to_owned(), "y".to_owned()],
+            "a digest that reorders the page is a different digest"
+        );
     }
 }

@@ -1053,6 +1053,13 @@ pub const ROUTE_TABLE: &[RouteEntry] = &[
     },
     RouteEntry {
         file: "library.rs",
+        handler: "record_view_run",
+        method: "POST",
+        path: "/saved-views/{id}/runs",
+        audience: Audience::Authenticated,
+    },
+    RouteEntry {
+        file: "library.rs",
         handler: "start_update_check",
         method: "POST",
         path: "/library/updates/check",

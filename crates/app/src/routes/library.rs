@@ -13,6 +13,7 @@
 //! PUT/DELETE             /library/items/:id/status
 //! GET/POST               /saved-views
 //! GET/PATCH/DELETE       /saved-views/:id
+//! POST                   /saved-views/:id/runs
 //! POST                   /library/updates/check              → 202 + job
 //! GET                    /library/storage
 //! ```
@@ -91,6 +92,7 @@ pub fn router() -> Router<AppState> {
             "/saved-views/{id}",
             get(get_view).patch(patch_view).delete(delete_view_route),
         )
+        .route("/saved-views/{id}/runs", post(record_view_run))
         .route("/library/updates/check", post(start_update_check))
         .route("/library/storage", get(storage_usage))
         .route("/library/items/batch", post(batch_remove_items))
@@ -865,8 +867,20 @@ async fn clear_status(
 #[derive(Debug, Deserialize)]
 struct ViewBody {
     name: String,
+    /// A library query, when one was sent at all.
+    ///
+    /// `Option` rather than a defaulted value so "the caller sent no query" and
+    /// "the caller sent an empty one" are different answers — the kind checks
+    /// below need the first, and a defaulted field cannot tell them apart.
     #[serde(default)]
-    query: LibraryQuery,
+    query: Option<LibraryQuery>,
+    /// `library` (the default) or `catalogue`; a catalogue view carries `params`.
+    #[serde(default)]
+    kind: Option<String>,
+    /// A catalogue query, as the canonical query string the caller sends to
+    /// `/catalogue` — stored verbatim (M63-06).
+    #[serde(default)]
+    params: Option<String>,
     #[serde(default)]
     scope: Option<String>,
     #[serde(default)]
@@ -879,7 +893,9 @@ fn view_json(row: &library::SavedView) -> serde_json::Value {
     serde_json::json!({
         "id": row.id,
         "name": row.name,
+        "kind": row.kind.as_str(),
         "query": row.query,
+        "params": row.params,
         "needs_repair": row.needs_repair,
         "query_version": row.query_version,
         "sort": row.sort.as_str(),
@@ -921,20 +937,76 @@ async fn create_view(
         .map_or_else(ViewScope::default, |raw| {
             ViewScope::parse(raw).unwrap_or_default()
         });
-    let sort = body
-        .sort
-        .as_deref()
-        .map_or(body.query.sort, LibrarySort::parse);
-    let row = library::create_saved_view(
-        state.db(),
-        &user.account_id.to_string(),
-        &body.name,
-        &body.query,
-        scope,
-        body.pinned,
-        sort,
-    )
-    .await
+    let kind = match body.kind.as_deref() {
+        None => {
+            if body.params.is_some() {
+                library::SavedViewKind::Catalogue
+            } else {
+                library::SavedViewKind::Library
+            }
+        }
+        Some(raw) => library::SavedViewKind::parse(raw).ok_or_else(|| {
+            ApiError(AppError::Validation {
+                message: format!(
+                    "kind: \"{raw}\" is not a view kind this build stores — `library` or `catalogue`"
+                ),
+                field_errors: Default::default(),
+            })
+        })?,
+    };
+    let account_id = user.account_id.to_string();
+    let row = match kind {
+        library::SavedViewKind::Catalogue => {
+            if body.query.is_some() {
+                return Err(ApiError(AppError::Validation {
+                    message:
+                        "query: a catalogue view carries `params`, not a library `query` — send \
+                              one or the other"
+                            .to_owned(),
+                    field_errors: Default::default(),
+                }));
+            }
+            let params = body.params.as_deref().ok_or_else(|| {
+                ApiError(AppError::Validation {
+                    message: "params: a catalogue view needs the query string it stands for"
+                        .to_owned(),
+                    field_errors: Default::default(),
+                })
+            })?;
+            library::create_catalogue_view(
+                state.db(),
+                &account_id,
+                &body.name,
+                params,
+                scope,
+                body.pinned,
+            )
+            .await
+        }
+        library::SavedViewKind::Library => {
+            if body.params.is_some() {
+                return Err(ApiError(AppError::Validation {
+                    message:
+                        "params: a library view carries `query`, not catalogue `params` — send \
+                              one or the other"
+                            .to_owned(),
+                    field_errors: Default::default(),
+                }));
+            }
+            let query = body.query.unwrap_or_default();
+            let sort = body.sort.as_deref().map_or(query.sort, LibrarySort::parse);
+            library::create_saved_view(
+                state.db(),
+                &account_id,
+                &body.name,
+                &query,
+                scope,
+                body.pinned,
+                sort,
+            )
+            .await
+        }
+    }
     .map_err(|error| {
         ApiError(AppError::Validation {
             message: error.to_string(),
@@ -942,6 +1014,37 @@ async fn create_view(
         })
     })?;
     Ok((StatusCode::CREATED, Json(view_json(&row))))
+}
+
+#[derive(Debug, Deserialize)]
+struct RunBody {
+    /// The ids the caller just saw, in the order its page returned them.
+    ids: Vec<String>,
+}
+
+/// Record a run of a saved query and answer what is new since the last one.
+///
+/// The client sends the ids it saw and does not have to keep any state of its
+/// own: the diff belongs to the query, so a second machine running the same name
+/// gets the same answer (M63-06).
+async fn record_view_run(
+    State(state): State<AppState>,
+    RequireSession(user): RequireSession,
+    Path(id): Path<String>,
+    Json(body): Json<RunBody>,
+) -> ApiResult<Json<serde_json::Value>> {
+    let run = library::record_run(state.db(), &user.account_id.to_string(), &id, &body.ids)
+        .await?
+        .ok_or_else(|| {
+            ApiError(AppError::NotFound {
+                resource: "saved view",
+            })
+        })?;
+    Ok(Json(serde_json::json!({
+        "new_ids": run.new_ids,
+        "previous": run.previous,
+        "ran_at": run.ran_at,
+    })))
 }
 
 /// One view.

@@ -1294,12 +1294,56 @@ pub async fn reading_status_counts(
 ///
 /// Bumped when the query shape changes; a row whose version this build does not
 /// know is reported as needing repair rather than misread (spec §14.2).
-pub const QUERY_DOCUMENT_VERSION: i64 = 1;
+pub const QUERY_DOCUMENT_VERSION: i64 = 2;
+
+/// Which query language a saved view's document holds.
+///
+/// Version 1 documents carry a [`LibraryQuery`] and no `kind`; they are read as
+/// [`SavedViewKind::Library`] and never rewritten, so an old view keeps working
+/// and its bytes stay exactly as its author's build wrote them.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum SavedViewKind {
+    /// A library query — `GET /library/items`'s parameters.
+    #[default]
+    Library,
+    /// A catalogue query, stored as the canonical query string the caller sends
+    /// to `GET /catalogue`.
+    Catalogue,
+}
+
+impl SavedViewKind {
+    /// The wire name.
+    #[must_use]
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Self::Library => "library",
+            Self::Catalogue => "catalogue",
+        }
+    }
+
+    /// Parse the wire name; `None` for a word this build does not know.
+    #[must_use]
+    pub fn parse(raw: &str) -> Option<Self> {
+        match raw.trim().to_ascii_lowercase().as_str() {
+            "library" => Some(Self::Library),
+            "catalogue" | "catalog" => Some(Self::Catalogue),
+            _ => None,
+        }
+    }
+}
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 struct StoredQuery {
     version: i64,
-    query: LibraryQuery,
+    /// Absent in version 1 documents, which are library queries by definition.
+    #[serde(default)]
+    kind: SavedViewKind,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    query: Option<LibraryQuery>,
+    /// A catalogue query, as the canonical query string.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    params: Option<String>,
 }
 
 /// A stored library query.
@@ -1313,6 +1357,10 @@ pub struct SavedView {
     pub name: String,
     /// The query, when this build can read it.
     pub query: Option<LibraryQuery>,
+    /// Which query language this view's document holds.
+    pub kind: SavedViewKind,
+    /// A catalogue query's canonical query string, when this is one.
+    pub params: Option<String>,
     /// Whether the stored query needs repair before it can be used.
     ///
     /// True when the document's version is not one this build knows, or when it
@@ -1362,20 +1410,42 @@ const SAVED_VIEW_COLUMNS_PG: &str = "id::text AS id, account_id::text AS account
 
 fn decode_saved_view(row: SavedViewRow) -> SavedView {
     let stored: Option<StoredQuery> = serde_json::from_str(&row.query_json).ok();
-    let (query, needs_repair) = match stored {
-        Some(StoredQuery { version, query }) if version == QUERY_DOCUMENT_VERSION => {
-            (Some(query), false)
+    let mut kind = SavedViewKind::Library;
+    let mut query = None;
+    let mut params = None;
+    let mut needs_repair = true;
+    if let Some(stored) = stored {
+        // Version 1 documents are library queries with no `kind` written; they are
+        // read as such rather than migrated, so an old view keeps working and its
+        // bytes stay as its author's build wrote them.
+        if stored.version == 1 || stored.version == QUERY_DOCUMENT_VERSION {
+            kind = if stored.version == 1 {
+                SavedViewKind::Library
+            } else {
+                stored.kind
+            };
+            match kind {
+                SavedViewKind::Library => {
+                    query = stored.query;
+                    needs_repair = query.is_none();
+                }
+                SavedViewKind::Catalogue => {
+                    params = stored.params.filter(|p| !p.trim().is_empty());
+                    needs_repair = params.is_none();
+                }
+            }
         }
-        // Either it will not parse or it was written by a build that thought
-        // about the query differently. Both mean "do not pretend to understand
-        // this", which is a state the interface can show.
-        _ => (None, true),
-    };
+        // Any other version: a build that thought about the query differently.
+        // Both states mean "do not pretend to understand this", which the
+        // interface can show.
+    }
     SavedView {
         id: row.id,
         account_id: row.account_id,
         name: row.name,
         query,
+        kind,
+        params,
         needs_repair,
         query_version: row.query_version,
         sort: LibrarySort::parse(&row.sort),
@@ -1409,16 +1479,95 @@ pub async fn create_saved_view(
     sort: LibrarySort,
 ) -> Result<SavedView> {
     darkhold_domain::library::validate_query(query, scope).map_err(|e| anyhow::anyhow!("{e}"))?;
+    let document = serde_json::to_string(&StoredQuery {
+        version: QUERY_DOCUMENT_VERSION,
+        kind: SavedViewKind::Library,
+        query: Some(query.clone()),
+        params: None,
+    })?;
+    insert_view(db, account_id, name, &document, scope, pinned, sort).await
+}
+
+/// Store a catalogue query as a named view.
+///
+/// `params` is the canonical query string the caller already sends to
+/// `GET /catalogue` — stored verbatim, because a second conversion of the same
+/// parameters would be a second set of rules for windows and fandoms, and the two
+/// would disagree exactly where a window is anchored.
+///
+/// One rule is enforced here, in the writer, for the same reason
+/// [`create_saved_view`] validates here: `exclude_read` reads the caller's own
+/// history, so a view whose params carry it is refused unless it is scoped to the
+/// library. A public view that answered differently for every reader while
+/// claiming to be shareable is the failure this refuses.
+///
+/// # Errors
+///
+/// Returns an error when the params are refused, or if the statement fails.
+pub async fn create_catalogue_view(
+    db: &Database,
+    account_id: &str,
+    name: &str,
+    params: &str,
+    scope: ViewScope,
+    pinned: bool,
+) -> Result<SavedView> {
+    let params = params.trim();
+    if params.is_empty() {
+        anyhow::bail!(
+            "a catalogue view needs a query — `dh rec --save <name>` stores the one you ran"
+        );
+    }
+    let reads_history = params.split('&').any(|pair| {
+        pair.split('=')
+            .next()
+            .is_some_and(|key| key == "exclude_read")
+    });
+    if reads_history && scope == ViewScope::Public {
+        anyhow::bail!(
+            "exclude_read: this query depends on one account's reading history, so the view must be \
+             scoped to the library rather than shared"
+        );
+    }
+    let document = serde_json::to_string(&StoredQuery {
+        version: QUERY_DOCUMENT_VERSION,
+        kind: SavedViewKind::Catalogue,
+        query: None,
+        params: Some(params.to_owned()),
+    })?;
+    insert_view(
+        db,
+        account_id,
+        name,
+        &document,
+        scope,
+        pinned,
+        LibrarySort::Recent,
+    )
+    .await
+}
+
+/// Insert a stored document and read it back.
+///
+/// The read-back is deliberate: the returned view is decoded from the bytes that
+/// were written, so a writer cannot return a struct that disagrees with its row —
+/// the failure that makes a document look right in a unit test and refuse to
+/// decode in production.
+async fn insert_view(
+    db: &Database,
+    account_id: &str,
+    name: &str,
+    document: &str,
+    scope: ViewScope,
+    pinned: bool,
+    sort: LibrarySort,
+) -> Result<SavedView> {
     if name.trim().is_empty() {
         anyhow::bail!("a view needs a name");
     }
 
     let now = now_rfc3339();
     let id = uuid::Uuid::new_v4().to_string();
-    let document = serde_json::to_string(&StoredQuery {
-        version: QUERY_DOCUMENT_VERSION,
-        query: query.clone(),
-    })?;
     let pinned_int: i64 = i64::from(pinned);
     // A view is public only if it was both scoped public and marked public; a
     // public *scope* with a private flag is a view its owner has not shared.
@@ -1435,7 +1584,7 @@ pub async fn create_saved_view(
         .bind(&id)
         .bind(account_id)
         .bind(name)
-        .bind(&document)
+        .bind(document)
         .bind(QUERY_DOCUMENT_VERSION)
         .bind(sort.as_str())
         .bind(scope.as_str())
@@ -1445,21 +1594,101 @@ pub async fn create_saved_view(
         .bind(&now))
     .await?;
 
-    Ok(SavedView {
-        id,
-        account_id: account_id.to_string(),
-        name: name.to_string(),
-        query: Some(query.clone()),
-        needs_repair: false,
-        query_version: QUERY_DOCUMENT_VERSION,
-        sort,
-        scope,
-        pinned,
-        is_public: scope == ViewScope::Public,
-        created_at: now.clone(),
-        updated_at: now,
-        version: 1,
+    find_saved_view(db, account_id, &id).await?.ok_or_else(|| {
+        anyhow::anyhow!("the saved view could not be read back after it was written")
     })
+}
+
+/// How many ids a run remembers. A saved query's page is at most a few hundred
+/// rows today; the cap is here so a caller streaming a whole catalogue into one
+/// run cannot grow this row without bound.
+pub const SEEN_CAP: usize = 5_000;
+
+/// One recorded run of a saved query.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct QueryRun {
+    /// Ids in this run that were not in the previous one, in page order.
+    pub new_ids: Vec<String>,
+    /// How many ids the previous run recorded; 0 on the first run.
+    pub previous: i64,
+    /// When this run was recorded, RFC 3339.
+    pub ran_at: String,
+}
+
+/// Record a run of a saved query and answer what is new since the last one.
+///
+/// `Ok(None)` means the view does not exist or is not this account's — the caller
+/// answers `404`, not an empty diff, because "nothing new" and "no such view" are
+/// different facts and a scheduler that acted on the first would never notice the
+/// second.
+///
+/// # Errors
+///
+/// Returns the store's error when a statement fails.
+pub async fn record_run(
+    db: &Database,
+    account_id: &str,
+    view_id: &str,
+    ids: &[String],
+) -> Result<Option<QueryRun>> {
+    if find_saved_view(db, account_id, view_id).await?.is_none() {
+        return Ok(None);
+    }
+
+    let previous = previous_run(db, view_id).await?;
+    let new_ids = darkhold_domain::library::new_ids_since(&previous, ids);
+
+    let ran_at = now_rfc3339();
+    let capped: Vec<&String> = ids.iter().take(SEEN_CAP).collect();
+    let seen = serde_json::to_string(&capped)?;
+    let seen_count = i64::try_from(capped.len()).unwrap_or(i64::MAX);
+    let sql = db.sql(
+        "INSERT INTO saved_query_runs (saved_view_id, ran_at, seen_ids_json, seen_count) \
+         VALUES (?, ?, ?, ?) \
+         ON CONFLICT (saved_view_id) DO UPDATE SET ran_at = excluded.ran_at, \
+         seen_ids_json = excluded.seen_ids_json, seen_count = excluded.seen_count",
+        "INSERT INTO saved_query_runs (saved_view_id, ran_at, seen_ids_json, seen_count) \
+         VALUES (?::uuid, ?, ?, ?) \
+         ON CONFLICT (saved_view_id) DO UPDATE SET ran_at = excluded.ran_at, \
+         seen_ids_json = excluded.seen_ids_json, seen_count = excluded.seen_count",
+    );
+    run!(db, sql, |q| q
+        .bind(view_id)
+        .bind(&ran_at)
+        .bind(&seen)
+        .bind(seen_count))
+    .await?;
+
+    Ok(Some(QueryRun {
+        new_ids,
+        previous: i64::try_from(previous.len()).unwrap_or(i64::MAX),
+        ran_at,
+    }))
+}
+
+/// The ids the previous run recorded, or nothing on a first run.
+async fn previous_run(db: &Database, view_id: &str) -> Result<Vec<String>> {
+    let sql = db.sql(
+        "SELECT seen_ids_json FROM saved_query_runs WHERE saved_view_id = ?",
+        "SELECT seen_ids_json FROM saved_query_runs WHERE saved_view_id = ?::uuid",
+    );
+    let stored: Option<String> = match db.backend() {
+        Backend::Sqlite => {
+            sqlx::query_scalar(&sql)
+                .bind(view_id)
+                .fetch_optional(db.sqlite_pool().expect("sqlite handle"))
+                .await?
+        }
+        Backend::Postgres => {
+            sqlx::query_scalar(&sql)
+                .bind(view_id)
+                .fetch_optional(db.postgres_pool().expect("postgres handle"))
+                .await?
+        }
+    };
+    Ok(stored
+        .and_then(|raw| serde_json::from_str::<Vec<String>>(&raw).ok())
+        .unwrap_or_default())
 }
 
 /// Every view the account owns, pinned first.

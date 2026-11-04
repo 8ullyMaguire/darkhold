@@ -6,8 +6,8 @@
         "implemented-verified-e2e": 129,
         "implemented-locally-tested": 247,
         "unsupported": 4,
-        "implemented-fully-tested": 415,
-        "planned": 90,
+        "implemented-fully-tested": 416,
+        "planned": 89,
         "evaluated-and-rejected": 1
       }
     },
@@ -136,12 +136,6 @@
       "milestone": "M63",
       "requirement": "`dh rec --link epub`: a link a reader can actually download from, once this instance has a download route",
       "notes": "Split out of M63-05 on 2026-11-02: that row asked for `--link md|epub|url` and there is no export route to point at, so the flag refuses with its reason rather than printing a 404 with a file extension. The link shape is already decided by `output.rs` \u2014 one line per row, absolute URL, no table \u2014 so what is missing is the endpoint, not the format. Planned rather than unsupported because the reader has no download route yet, not because the idea is wrong. Default off: a download link is a promise the binary can serve the file."
-    },
-    {
-      "id": "M63-06",
-      "milestone": "M63",
-      "requirement": "Saved queries: dh rec --save <name>, shareable URL, schedulable, with --digest-diff printing only rows new since that query last ran",
-      "notes": "Power-user sweep P6. Builds on the saved-query shelf work already in discussion; --digest-diff is the actual recurring need behind a weekly ritual. Vocabulary, decided 2026-11-02: these are **Saved Filters** (the spec's saved views), and the stream one produces is a **feed**; \"lens\" is retired. M69-21 is the same object's public half, so implement the storage once \u2014 a `--save` here writes the view M69-21 can share."
     },
     {
       "id": "M63-09",
@@ -566,7 +560,7 @@
   ],
   "open_by_milestone": {
     "M69": 25,
-    "M63": 22,
+    "M63": 21,
     "M45": 20,
     "M64": 14,
     "M66": 6,

@@ -207,6 +207,27 @@ stored column is an `ORDER BY`; and a name whose input does not exist yet is a
 supplies it. A word nobody registered is still refused, so a typo cannot be
 answered with a likes order under another name.
 
+A query can be named and rerun, and a rerun can say what is new:
+
+```
+dh rec --fandom naruto --updated 7d --save weekly     # stores the query string itself
+dh rec --saved weekly                                 # replays it, byte for byte
+dh rec --saved weekly --digest-diff                   # only rows not on the last run
+dh rec --queries                                      # name, kind, when it last changed
+```
+
+What is stored is the query string this call would have sent, so
+`--saved weekly` asks the catalogue exactly what `--save` asked — a stored
+document that re-encoded the parameters would drift precisely where a window is
+anchored. `--digest-diff` diffs **ids against the previous answer**, not against a
+timestamp: a row can enter a `--updated 7d` page because its author posted, because
+a recheck moved `source_updated_at`, or because the window slid, and only the last
+answer can say which ids are new. The first run reports everything and says so
+(`first run — nothing to diff against`). Saving, listing and diffing need the **session cookie**
+(`DARKHOLD_COOKIE`), not `DARKHOLD_TOKEN`: the saved-view routes are session routes, and a bearer
+token gets a 401 there (measured). A view belongs to an account, so a view id is not a capability —
+a run against somebody else's view is a 404, not an empty diff.
+
 `dh rec` searches a title and sorts a catalogue page. `dh q` is the other half: one expression in
 the full query language, sent to the same `/api/v1/search` endpoint the site's search box posts to,
 so an expression cannot mean one thing in a terminal and another in a URL:
