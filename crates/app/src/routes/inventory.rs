@@ -124,6 +124,13 @@ pub const ROUTE_TABLE: &[RouteEntry] = &[
         path: "/meta",
         audience: Audience::Public,
     },
+    RouteEntry {
+        file: "meta.rs",
+        handler: "capacity",
+        method: "GET",
+        path: "/instance/capacity",
+        audience: Audience::Public,
+    },
     // ------------------------------------------------------------------
     // Metadata exchange (M57, spec §11.17)
     //

@@ -168,6 +168,8 @@ pub struct Config {
     pub signals: SignalsConfig,
     /// Instance preset (spec §0.6).
     pub instance: InstanceConfig,
+    /// What this machine can afford (M45-48).
+    pub capacity: CapacityConfig,
     /// Meta-ranker settings (spec §9.10).
     pub meta_ranker: MetaRankerConfig,
     /// Revision caching settings (spec §38).
@@ -1245,6 +1247,43 @@ impl Default for SignalsConfig {
             mode: "taste_weighted".to_string(),
             diversity_injection_percent: 0.1,
         }
+    }
+}
+
+/// What the machine can afford (M45-48).
+///
+/// `tier = "auto"` derives it from measured facts; a named tier is the operator's word. `cache` is the
+/// cache the operator has provisioned (`redis`), and it is read by the tier rule — a tier will not
+/// promise a cache-dependent surface on a machine that does not have one.
+#[derive(Debug, Clone)]
+pub struct CapacityConfig {
+    pub tier: String,
+    pub cache: Option<String>,
+}
+
+impl Default for CapacityConfig {
+    fn default() -> Self {
+        Self {
+            tier: "auto".to_string(),
+            cache: None,
+        }
+    }
+}
+
+impl CapacityConfig {
+    /// The operator's word, parsed. A typo stops the process rather than silently meaning `auto`:
+    /// an operator who wrote `tier = "large"` and got `auto` would be reading a measurement while
+    /// believing it was their decision.
+    pub fn choice(&self) -> Result<darkhold_domain::capacity::TierChoice, String> {
+        darkhold_domain::capacity::parse_tier(&self.tier)
+    }
+
+    /// Whether a cache is configured — the fact the `Large` tier asks for.
+    #[must_use]
+    pub fn has_cache(&self) -> bool {
+        self.cache
+            .as_deref()
+            .is_some_and(|cache| !cache.trim().is_empty() && cache.trim() != "none")
     }
 }
 
@@ -3124,6 +3163,19 @@ impl Config {
                     diversity_injection_percent: s.diversity_injection_percent.unwrap_or(0.1),
                 }
             },
+            capacity: {
+                let c = file.capacity.unwrap_or_default();
+                let config = CapacityConfig {
+                    tier: c.tier.unwrap_or_else(|| "auto".to_string()),
+                    cache: c.cache.filter(|cache| !cache.trim().is_empty()),
+                };
+                // Parse now: a typo in `[capacity] tier` must stop startup, not surface as a
+                // measurement nobody asked for.
+                config
+                    .choice()
+                    .map_err(|message| anyhow::anyhow!(message))?;
+                config
+            },
             instance: {
                 let i = file.instance.unwrap_or_default();
                 InstanceConfig {
@@ -3498,6 +3550,7 @@ impl Config {
             taste: TasteConfig::default(),
             signals: SignalsConfig::default(),
             instance: InstanceConfig::default(),
+            capacity: CapacityConfig::default(),
             meta_ranker: MetaRankerConfig::default(),
             revisions: RevisionsConfig::default(),
             jobs: JobsConfig::default(),
@@ -4073,6 +4126,7 @@ struct FileConfig {
     signals: Option<SignalsSection>,
     /// Instance preset (spec §0.6).
     instance: Option<InstanceSection>,
+    capacity: Option<CapacitySection>,
     /// Meta-ranker settings (spec §9.10).
     meta_ranker: Option<MetaRankerSection>,
     /// Body-audience baseline (spec §7.7).
@@ -4505,6 +4559,16 @@ struct InstanceSection {
     preset: Option<String>,
     /// Who may reach the instance without signing in (spec §0.4.7).
     mode: Option<String>,
+}
+
+/// The `[capacity]` table (M45-48): hardware-aware tier.
+#[derive(Debug, Default, Deserialize)]
+#[serde(deny_unknown_fields)]
+struct CapacitySection {
+    /// `auto` (derive from measured facts) or a named tier: minimal, small, standard, large.
+    tier: Option<String>,
+    /// The cache provisioned for this instance (`redis`), or `none`.
+    cache: Option<String>,
 }
 
 /// The `[meta_ranker]` table (spec §9.10): meta-ranker settings.
@@ -6214,6 +6278,49 @@ mode = "wall_garden"
         assert!(
             error.to_string().contains("walled_garden"),
             "the message must name the accepted values: {error}"
+        );
+    }
+
+    #[test]
+    fn a_capacity_tier_is_read_and_a_typo_stops_startup() {
+        // `auto` means "measure it", a name means "I decided", and a typo must not silently
+        // become either: an operator reading a measurement they believe is their decision is
+        // the failure this parse prevents.
+        let auto = load_from("capacity-auto", "").expect("defaults load");
+        assert_eq!(auto.capacity.tier, "auto");
+        assert!(auto.capacity.cache.is_none());
+        assert_eq!(
+            auto.capacity.choice().expect("auto parses"),
+            darkhold_domain::capacity::TierChoice::Auto
+        );
+
+        let named = load_from(
+            "capacity-named",
+            r#"
+[capacity]
+tier = "standard"
+cache = "redis"
+"#,
+        )
+        .expect("loads");
+        assert_eq!(named.capacity.tier, "standard");
+        assert_eq!(
+            named.capacity.choice().expect("parses"),
+            darkhold_domain::capacity::TierChoice::Fixed(darkhold_domain::capacity::Tier::Standard)
+        );
+        assert!(named.capacity.has_cache(), "a configured cache is a fact");
+
+        let failure = load_from(
+            "capacity-typo",
+            r#"
+[capacity]
+tier = "enormous"
+"#,
+        )
+        .expect_err("a typo stops startup");
+        assert!(
+            format!("{failure}").contains("minimal, small, standard or large"),
+            "the refusal names the tiers: {failure}"
         );
     }
 

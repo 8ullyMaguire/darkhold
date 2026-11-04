@@ -9,6 +9,7 @@ pub mod badges;
 pub mod blocking;
 pub mod browse;
 pub mod canon;
+pub mod capacity;
 pub mod caps;
 pub mod category_governance;
 pub mod charging;

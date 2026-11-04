@@ -6,8 +6,8 @@
         "implemented-verified-e2e": 129,
         "implemented-locally-tested": 247,
         "unsupported": 4,
-        "implemented-fully-tested": 420,
-        "planned": 85,
+        "implemented-fully-tested": 421,
+        "planned": 84,
         "evaluated-and-rejected": 1
       }
     },
@@ -94,12 +94,6 @@
       "milestone": "M45",
       "requirement": "Preview before apply: view-as persona preview of discover/search under proposed config",
       "notes": "Gaps review F2. Config history and rollback."
-    },
-    {
-      "id": "M45-48",
-      "milestone": "M45",
-      "requirement": "Hardware-aware presets with graceful degradation tiers",
-      "notes": "Gaps review F4. SQLite weekly batches/no embeddings \u2192 Postgres+Redis incremental."
     },
     {
       "id": "M45-52",
@@ -537,7 +531,7 @@
   "open_by_milestone": {
     "M69": 25,
     "M63": 19,
-    "M45": 18,
+    "M45": 17,
     "M64": 14,
     "M66": 6,
     "M65": 1,

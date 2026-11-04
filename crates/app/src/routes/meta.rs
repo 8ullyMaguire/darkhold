@@ -16,7 +16,12 @@ use crate::version;
 
 /// Metadata routes.
 pub fn router() -> Router<AppState> {
-    Router::new().route("/meta", get(meta))
+    Router::new()
+        .route("/meta", get(meta))
+        // M45-48: what this machine is, and what that buys. Public: a reader asking why a
+        // surface is absent gets a measurement instead of a shrug, and none of these facts is
+        // private — core count, memory, engine and whether a cache exists.
+        .route("/instance/capacity", get(capacity))
 }
 
 #[derive(Debug, Serialize)]
@@ -304,4 +309,56 @@ fn rating_name(rating: darkhold_domain::policy::ContentRating) -> &'static str {
         ContentRating::Mature => "mature",
         ContentRating::Explicit => "explicit",
     }
+}
+
+/// `GET /api/v1/instance/capacity` (M45-48).
+///
+/// Publishes three things side by side, and the point is that they can disagree:
+/// the **measured** facts, the **tier** those facts buy (or the operator's word for it,
+/// in which case `override` names it), and the **report** — what that tier affords.
+#[derive(Debug, Serialize)]
+struct CapacityResponse {
+    tier: &'static str,
+    /// The tier's requirements, as a sentence.
+    requires: &'static str,
+    measured: MeasuredFacts,
+    report: darkhold_domain::capacity::TierReport,
+    /// The operator's word, when they gave one. `null` means the measurement answered.
+    override_tier: Option<&'static str>,
+}
+
+#[derive(Debug, Serialize)]
+struct MeasuredFacts {
+    cores: usize,
+    memory_mb: u64,
+    engine: &'static str,
+    has_cache: bool,
+}
+
+async fn capacity(
+    State(state): State<AppState>,
+    MaybeSession(_user): MaybeSession,
+) -> Json<CapacityResponse> {
+    let measured = state.capacity().await;
+    let choice = state
+        .config()
+        .capacity
+        .choice()
+        .unwrap_or(darkhold_domain::capacity::TierChoice::Auto);
+    let tier = darkhold_domain::capacity::resolve(&measured, choice);
+    Json(CapacityResponse {
+        tier: tier.as_str(),
+        requires: tier.requirement(),
+        measured: MeasuredFacts {
+            cores: measured.cores,
+            memory_mb: measured.memory_mb,
+            engine: measured.engine.as_str(),
+            has_cache: measured.has_redis,
+        },
+        report: tier.report(),
+        override_tier: match choice {
+            darkhold_domain::capacity::TierChoice::Auto => None,
+            darkhold_domain::capacity::TierChoice::Fixed(_) => Some(tier.as_str()),
+        },
+    })
 }

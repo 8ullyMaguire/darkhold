@@ -83,6 +83,9 @@ struct Inner {
     /// what re-measures an instance**, the same way a restart is what re-reads the
     /// config.
     scale: Arc<tokio::sync::OnceCell<darkhold_domain::modules::Scale>>,
+    /// M45-48: what this machine is. Measured once — RAM does not change under a
+    /// process, and a tier that moves under load is a tier no test can pin.
+    capacity: Arc<tokio::sync::OnceCell<darkhold_domain::capacity::Capacity>>,
 }
 
 impl AppState {
@@ -129,6 +132,7 @@ impl AppState {
                 shadow_report: crate::rec_shadow::ReportSlot::default(),
                 modules,
                 scale: Arc::new(tokio::sync::OnceCell::new()),
+                capacity: Arc::new(tokio::sync::OnceCell::new()),
             }),
         }
     }
@@ -246,6 +250,36 @@ impl AppState {
         *scale
     }
 
+    /// What this machine is, measured once (M45-48).
+    ///
+    /// Every fact here can fail to be read, and every failure lands on the *conservative*
+    /// side: cores default to 1, memory to 0, the cache to absent. `Minimal` is the safe
+    /// wrong answer for a busy server; `Large` is the expensive one.
+    pub async fn capacity(&self) -> darkhold_domain::capacity::Capacity {
+        let capacity = self
+            .inner
+            .capacity
+            .get_or_init(|| async {
+                let cores = std::thread::available_parallelism()
+                    .map(std::num::NonZeroUsize::get)
+                    .unwrap_or(1);
+                let memory_mb = read_memory_mb().unwrap_or(0);
+                let engine = match self.db().backend() {
+                    darkhold_db::Backend::Sqlite => darkhold_domain::capacity::Engine::Sqlite,
+                    darkhold_db::Backend::Postgres => darkhold_domain::capacity::Engine::Postgres,
+                };
+                let has_redis = self.config().capacity.has_cache();
+                darkhold_domain::capacity::Capacity {
+                    cores,
+                    memory_mb,
+                    engine,
+                    has_redis,
+                }
+            })
+            .await;
+        capacity.clone()
+    }
+
     /// The rate limiter, shared across every request in this process.
     #[must_use]
     pub fn rate_limiter(&self) -> &RateLimiter {
@@ -284,4 +318,19 @@ async fn count(db: &Database, sql: &str) -> i64 {
             -1
         }
     }
+}
+
+/// `MemTotal` from `/proc/meminfo`, in megabytes.
+///
+/// `None` when the file is unreadable or the line is absent — the caller treats that as "unknown",
+/// which lands on `Minimal`. A machine that cannot say how much memory it has is not a machine to
+/// switch embeddings on for.
+fn read_memory_mb() -> Option<u64> {
+    let text = std::fs::read_to_string("/proc/meminfo").ok()?;
+    let line = text
+        .lines()
+        .find(|line| line.starts_with("MemTotal:"))?
+        .to_owned();
+    let kb: u64 = line.split_whitespace().nth(1)?.parse().ok()?;
+    Some(kb / 1_024)
 }
