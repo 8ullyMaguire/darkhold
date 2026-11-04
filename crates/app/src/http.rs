@@ -125,6 +125,13 @@ struct ErrorBody {
     /// one would send the caller to mint a token that still would not work.
     #[serde(skip_serializing_if = "Option::is_none")]
     required_scope: Option<&'static str>,
+    /// Where a rejected query went wrong (`M63-08`).
+    ///
+    /// Present only on `QueryRejected`. A caret is worth a field on the one surface where
+    /// the caller typed the thing that failed, and it would be noise on every other
+    /// refusal — the same rule `conflict` and `required_scope` follow.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    query: Option<darkhold_domain::error::QueryDetail>,
     request_id: String,
 }
 
@@ -165,6 +172,7 @@ impl IntoResponse for ApiError {
                 field_errors: error.field_errors(),
                 conflict: error.conflict(),
                 required_scope: error.required_scope(),
+                query: error.query_detail(),
                 request_id,
             },
         };

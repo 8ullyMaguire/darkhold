@@ -202,11 +202,48 @@ dh q '(tag:romance OR tag:angst) AND updated>=-7d' --jsonl --fields title,author
 The grammar is the server's: `tag:`, `fandom:`, `AND`/`OR`/`NOT`, parentheses, `kudos:>=`,
 `words:>`, `completion:`, `status:`, and `updated:`/`published:` as either a date
 (`published:>=2026-08-01`) or an age (`updated>=-7d` — the same age spelling the catalogue's
-`--updated` takes). A query the parser rejects is a `422` and exit code 2, naming the token; there
-is no second parser here to disagree with it.
+`--updated` takes). A query the parser rejects is a `422` and exit code 2: the sentence names the
+token, which works spelling to use instead, and a caret sits under the character the parser stopped
+at. There is no second parser here to disagree with it.
 
-`--explain` prints each strategy's production and its match inside the filtered
-set, which is how a strategy that contributes nothing becomes visible.
+```
+   $ dh q 'kudos>=100'
+   kudos>=100
+   ^
+   `kudos>=100` is free text: comparisons go after a colon, so write `kudos:>=100` at offset 0
+   (exit 2)
+```
+
+The caret sits at the parser's offset, which for a mistake that is a whole token is the token's
+first character.
+
+`dh q --explain` prints the **query plan** instead of hits — the engine that planned it, the
+statement it was asked about, the access path, and the indexes the plan names:
+
+```
+   $ dh q 'tag:naruto AND words:>1000' --explain
+   engine: sqlite
+
+   statement:
+     SELECT * FROM (SELECT works.id, works.title, … LIMIT ?
+
+   plan:
+     CO-ROUTINE s
+     SEARCH works USING INDEX works_listing (lifecycle=? AND visibility=?)
+     SEARCH r USING COVERING INDEX sqlite_autoindex_work_tags_1 (work_id=? AND node_id=?)
+     USE TEMP B-TREE FOR ORDER BY
+
+   indexes: works_listing, sqlite_autoindex_work_tags_1, units_work_order, …
+```
+
+That is the engine's own `EXPLAIN QUERY PLAN` (SQLite) or `EXPLAIN` (PostgreSQL), run against the
+statement this search would execute, with this search's binds and limit. A plan for a statement
+nobody runs answers a question nobody asked, and would go on answering it after the real statement
+changed. `--explain` with `--jsonl`, `--cols` or `--fields` is refused: a plan has no columns to
+project.
+
+`dh rec --explain` is the other one: it prints each strategy's production and its match inside the
+filtered set, which is how a strategy that contributes nothing becomes visible.
 
 **The catalogue's fandom coverage is partial, and `dh rec --fandom` says so.**
 On the live instance 7,626 of 141,317 rows carry a fandom tag (5.4 %, 233

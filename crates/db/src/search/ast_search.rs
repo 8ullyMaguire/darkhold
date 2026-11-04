@@ -99,6 +99,69 @@ async fn search_works_ast_impl(
     rules: &[FilterRule],
     scope: &SearchFilters,
 ) -> Result<Vec<SearchResult>> {
+    let (sql, texts, numbers) = prepared(db, query, viewer_id, rules, scope)?;
+    let rows: Vec<(String, String, String, i64, i64, String)> = match db.backend() {
+        Backend::Sqlite => {
+            let mut q = sqlx::query_as::<_, (String, String, String, i64, i64, String)>(&sql);
+            for b in &texts {
+                q = q.bind(b.as_str());
+            }
+            for n in &numbers {
+                q = q.bind(*n);
+            }
+            q.bind(limit)
+                .fetch_all(db.sqlite_pool().expect("sqlite"))
+                .await?
+        }
+        Backend::Postgres => {
+            let mut q = sqlx::query_as::<_, (String, String, String, i64, i64, String)>(&sql);
+            for b in &texts {
+                q = q.bind(b.as_str());
+            }
+            for n in &numbers {
+                q = q.bind(*n);
+            }
+            q.bind(limit)
+                .fetch_all(db.postgres_pool().expect("postgres"))
+                .await?
+        }
+    };
+
+    Ok(rows
+        .into_iter()
+        .map(
+            |(id, title, author_handle, word_count, score, _updated_at)| SearchResult {
+                work_id: id,
+                title,
+                author_handle,
+                word_count,
+                score,
+            },
+        )
+        .collect())
+}
+
+/// The statement a search would run, and the string binds it would bind, in bind order.
+///
+/// Factored out so `explain_search` explains **the statement that would actually run** rather
+/// than a copy of it. A plan for a statement nobody executes answers a question nobody asked,
+/// and it would go on answering it after the real one changed.
+///
+/// Bind order, identical for both dialects: the viewer once for the visibility subquery, the
+/// user fragment's binds, the viewer again for the `blocks` exclusion, the content-filter
+/// values, then the scope's numeric bounds — with the `LIMIT` bound by the caller last.
+///
+/// Two lists rather than one because the types differ and the order does not: every text bind
+/// precedes every numeric one, so the pair reconstructs the placeholder order exactly. A single
+/// `Vec<Bind>` with an enum would work and would make this look like a query builder, which it
+/// is not.
+fn prepared(
+    db: &Database,
+    query: &str,
+    viewer_id: Option<&str>,
+    rules: &[FilterRule],
+    scope: &SearchFilters,
+) -> Result<(String, Vec<String>, Vec<i64>)> {
     let (user_where, user_binds) = if query.trim().is_empty() {
         ("1=1".to_owned(), Vec::new())
     } else {
@@ -125,68 +188,126 @@ async fn search_works_ast_impl(
         render_statement(signed_in, &user_where, rules, &bound, Dialect::Postgres),
     );
 
-    // Bind order, identical for both dialects: the viewer once per placeholder
-    // that fills it, the user fragment's binds, the filter rules, then the
-    // limit. sqlx binds in placeholder order, and `sql_owned` made that order
-    // the same on both sides.
-    let filter_binds = content_filter_sql::binds(rules);
-    let rows: Vec<(String, String, String, i64, i64, String)> = match db.backend() {
+    let mut binds: Vec<String> = Vec::new();
+    if let Some(vid) = viewer_id {
+        binds.push(vid.to_owned()); // visibility subquery
+    }
+    binds.extend(user_binds);
+    if let Some(vid) = viewer_id {
+        binds.push(vid.to_owned()); // NOT EXISTS blocks
+    }
+    binds.extend(content_filter_sql::binds(rules));
+    Ok((sql, binds, bound.binds))
+}
+
+/// What the engine says it will do with a search, for `dh q --explain` (`M63-08`).
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct SearchPlan {
+    /// `"sqlite"` or `"postgres"` — which planner answered.
+    pub engine: &'static str,
+    /// The statement the plan is for, as the engine sees it (placeholders included).
+    pub sql: String,
+    /// One line per plan row: SQLite's `detail` column, or a PostgreSQL `EXPLAIN` line.
+    pub lines: Vec<String>,
+    /// The index names the plan mentions, deduplicated, in plan order.
+    pub indexes: Vec<String>,
+}
+
+/// Ask the engine to explain the search's own statement.
+///
+/// `EXPLAIN QUERY PLAN` on SQLite and plain-text `EXPLAIN` on PostgreSQL — the text form on both,
+/// because the shape a caller needs is "which access path, which index, in what order", and the
+/// two engines' text forms answer it without a decoder. The binds are the search's binds, so the
+/// engine optimises for the same values the real query would carry: a plan for an unbound
+/// statement is a plan for a different question.
+pub async fn explain_search(
+    db: &Database,
+    query: &str,
+    viewer_id: Option<&str>,
+    limit: i64,
+    filters: &[(String, String)],
+    scope: &SearchFilters,
+) -> Result<SearchPlan> {
+    let rules: Vec<FilterRule> = filters
+        .iter()
+        .map(|(filter_type, value)| FilterRule::new(filter_type.clone(), value.clone()))
+        .collect();
+    let (sql, texts, numbers) = prepared(db, query, viewer_id, &rules, scope)?;
+
+    let (engine, lines): (&'static str, Vec<String>) = match db.backend() {
         Backend::Sqlite => {
-            let mut q = sqlx::query_as::<_, (String, String, String, i64, i64, String)>(&sql);
-            if let Some(vid) = viewer_id {
-                q = q.bind(vid); // visibility subquery
+            let statement = format!("EXPLAIN QUERY PLAN {sql}");
+            let mut q = sqlx::query_as::<_, (i64, i64, i64, String)>(&statement);
+            for b in &texts {
+                q = q.bind(b.as_str());
             }
-            for b in &user_binds {
-                q = q.bind(b.clone());
+            for n in &numbers {
+                q = q.bind(*n);
             }
-            if let Some(vid) = viewer_id {
-                q = q.bind(vid); // NOT EXISTS blocks
-            }
-            for b in &filter_binds {
-                q = q.bind(b);
-            }
-            for b in &bound.binds {
-                q = q.bind(*b);
-            }
-            q.bind(limit)
+            let rows = q
+                .bind(limit)
                 .fetch_all(db.sqlite_pool().expect("sqlite"))
-                .await?
+                .await?;
+            ("sqlite", rows.into_iter().map(|(_, _, _, d)| d).collect())
         }
         Backend::Postgres => {
-            let mut q = sqlx::query_as::<_, (String, String, String, i64, i64, String)>(&sql);
-            if let Some(vid) = viewer_id {
-                q = q.bind(vid); // visibility subquery
+            let statement = format!("EXPLAIN {sql}");
+            let mut q = sqlx::query_as::<_, (String,)>(&statement);
+            for b in &texts {
+                q = q.bind(b.as_str());
             }
-            for b in &user_binds {
-                q = q.bind(b.clone());
+            for n in &numbers {
+                q = q.bind(*n);
             }
-            if let Some(vid) = viewer_id {
-                q = q.bind(vid); // NOT EXISTS blocks
-            }
-            for b in &filter_binds {
-                q = q.bind(b);
-            }
-            for b in &bound.binds {
-                q = q.bind(*b);
-            }
-            q.bind(limit)
+            let rows = q
+                .bind(limit)
                 .fetch_all(db.postgres_pool().expect("postgres"))
-                .await?
+                .await?;
+            ("postgres", rows.into_iter().map(|(line,)| line).collect())
         }
     };
 
-    Ok(rows
-        .into_iter()
-        .map(
-            |(id, title, author_handle, word_count, score, _updated_at)| SearchResult {
-                work_id: id,
-                title,
-                author_handle,
-                word_count,
-                score,
-            },
-        )
-        .collect())
+    let indexes = indexes_in(engine, &lines);
+    Ok(SearchPlan {
+        engine,
+        sql,
+        lines,
+        indexes,
+    })
+}
+
+/// The index names a plan mentions, in plan order.
+///
+/// Deliberately a scan of the engine's own words rather than a model of the planner: "USING INDEX
+/// x" in SQLite and "Index Scan using x" in PostgreSQL are the two spellings that mean the plan
+/// used an index, and anything this does not recognise is reported as no index rather than as a
+/// guess. A diagnosis that invents an index is worse than one that reports none.
+fn indexes_in(engine: &str, lines: &[String]) -> Vec<String> {
+    // The markers, in the order that keeps the longer spelling from being read as the shorter
+    // one: "USING COVERING INDEX x" contains "INDEX x" but not "USING INDEX ", and a plan that
+    // only knew the plain form would report no index for the better of the two plans.
+    let markers: &[&str] = if engine == "sqlite" {
+        &["USING COVERING INDEX ", "USING INDEX "]
+    } else {
+        &["Index Only Scan using ", "Index Scan using "]
+    };
+    let mut out: Vec<String> = Vec::new();
+    for line in lines {
+        for marker in markers {
+            let mut rest = line.as_str();
+            while let Some(at) = rest.find(marker) {
+                let after = &rest[at + marker.len()..];
+                // A name ends at the first space or parenthesis; PostgreSQL's text form puts
+                // " on works  (cost=…)" after it, SQLite's puts " (col=?)".
+                let name = after.trim_start().split(['(', ' ']).next().unwrap_or("");
+                if !name.is_empty() && !out.iter().any(|seen| seen == name) {
+                    out.push(name.to_owned());
+                }
+                rest = after;
+            }
+        }
+    }
+    out
 }
 
 /// Which dialect to render for.
@@ -398,5 +519,50 @@ fn scope_sql(scope: &SearchFilters) -> BoundScope {
         where_clause,
         order_by,
         binds,
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn a_sqlite_plan_names_the_index_it_used() {
+        let lines = vec![
+            "SCAN works".to_owned(),
+            "SEARCH units USING INDEX idx_units_work (work_id=?)".to_owned(),
+            "USE TEMP B-TREE FOR ORDER BY".to_owned(),
+        ];
+        assert_eq!(indexes_in("sqlite", &lines), vec!["idx_units_work"]);
+    }
+
+    #[test]
+    fn a_sqlite_covering_index_counts_as_an_index() {
+        // "USING COVERING INDEX" contains "USING INDEX"? No — it does not, and a plan that only
+        // ever looked for the exact spelling would report none for the better of the two plans.
+        let lines =
+            vec!["SEARCH works USING COVERING INDEX idx_works_updated (updated_at>?)".to_owned()];
+        assert_eq!(indexes_in("sqlite", &lines), vec!["idx_works_updated"]);
+    }
+
+    #[test]
+    fn a_postgres_plan_names_the_index_it_used() {
+        let lines = vec![
+            "Limit  (cost=8.30..8.32 rows=1 width=64)".to_owned(),
+            "  ->  Index Scan using works_updated_idx on works  (cost=0.42..8.30 rows=1)"
+                .to_owned(),
+            "        Index Cond: (updated_at > '2026-10-27'::text)".to_owned(),
+        ];
+        assert_eq!(indexes_in("postgres", &lines), vec!["works_updated_idx"]);
+    }
+
+    #[test]
+    fn a_scan_reports_no_index_rather_than_a_guess() {
+        assert!(indexes_in("sqlite", &["SCAN works".to_owned()]).is_empty());
+        assert!(indexes_in(
+            "postgres",
+            &["Seq Scan on works  (cost=0.00..1.00 rows=1)".to_owned()]
+        )
+        .is_empty());
     }
 }

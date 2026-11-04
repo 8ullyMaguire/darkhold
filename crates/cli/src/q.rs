@@ -74,6 +74,15 @@ pub struct QArgs {
     /// Do not truncate long titles and authors.
     #[arg(long)]
     pub wide: bool,
+
+    /// Print the query plan and the indexes the engine would use, instead of hits.
+    ///
+    /// The plan is the engine's own — `EXPLAIN QUERY PLAN` on SQLite, `EXPLAIN` on PostgreSQL —
+    /// run against the statement this search would execute, with this search's binds. That is
+    /// the question "why is this query slow" answers itself from; a plan for a different
+    /// statement would be a diagnosis of something nobody ran.
+    #[arg(long)]
+    pub explain: bool,
 }
 
 /// The request URL for one expression.
@@ -81,12 +90,91 @@ pub struct QArgs {
 /// The expression is percent-encoded whole rather than split: it is free text to this program, and
 /// the five characters an encoder can get wrong (`&`, `+`, `#`, `%`, a space) are exactly the ones
 /// a query contains — `tag:a AND tag:b` has two spaces and an `&` in the naive spelling.
-pub fn url(base_url: &str, expression: &str, limit: i64) -> String {
-    format!(
+///
+/// `explain` appends the flag `M63-08` added. It is a parameter rather than a second function so
+/// there is one place the request is spelled, and the flag is the only thing that varies.
+pub fn url(base_url: &str, expression: &str, limit: i64, explain: bool) -> String {
+    let mut url = format!(
         "{}/api/v1/search?q={}&limit={limit}",
         base_url.trim_end_matches('/'),
         crate::rec::encode(expression)
-    )
+    );
+    if explain {
+        url.push_str("&explain=1");
+    }
+    url
+}
+
+/// The reader's expression with a caret under the character the parser stopped at.
+///
+/// The server counts **chars**, so this does too — a byte offset lands in the wrong column the
+/// first time somebody queries a tag with an accent in it. Tabs are copied rather than widened to
+/// spaces, because a terminal that receives a tab under a tab lines them up.
+fn caret(expression: &str, offset: usize) -> String {
+    let mut column = String::new();
+    for ch in expression.chars().take(offset) {
+        column.push(if ch == '\t' { '\t' } else { ' ' });
+    }
+    format!("{expression}\n{column}^")
+}
+
+/// The plan the server returned, as a terminal reads it: which engine answered, the statement it
+/// was asked about, the access path, and the indexes the plan names.
+fn render_plan(body: &Value) -> Result<String, Failure> {
+    let explain = &body["explain"];
+    if explain.is_null() {
+        return Err(environment(
+            "the server answered without an `explain` block; it is older than this command",
+        ));
+    }
+    let mut out = String::new();
+    out.push_str(&format!(
+        "engine: {}\n\nstatement:\n",
+        explain["engine"].as_str().unwrap_or("unknown")
+    ));
+    for line in wrap_sql(explain["sql"].as_str().unwrap_or(""), 96) {
+        out.push_str(&format!("  {line}\n"));
+    }
+    out.push_str("\nplan:\n");
+    let lines = explain["plan"].as_array();
+    match lines {
+        Some(lines) if !lines.is_empty() => {
+            for line in lines {
+                out.push_str(&format!("  {}\n", line.as_str().unwrap_or("")));
+            }
+        }
+        _ => out.push_str("  (the engine returned no plan rows)\n"),
+    }
+    out.push_str("\nindexes: ");
+    let indexes: Vec<&str> = explain["indexes"]
+        .as_array()
+        .map(|names| names.iter().filter_map(|n| n.as_str()).collect())
+        .unwrap_or_default();
+    if indexes.is_empty() {
+        out.push_str("none — this statement is a scan\n");
+    } else {
+        out.push_str(&format!("{}\n", indexes.join(", ")));
+    }
+    Ok(out)
+}
+
+/// Break a statement at spaces so a terminal gets lines instead of one 900-character row.
+fn wrap_sql(sql: &str, width: usize) -> Vec<String> {
+    let mut lines: Vec<String> = Vec::new();
+    let mut current = String::new();
+    for word in sql.split_whitespace() {
+        if !current.is_empty() && current.chars().count() + 1 + word.chars().count() > width {
+            lines.push(std::mem::take(&mut current));
+        }
+        if !current.is_empty() {
+            current.push(' ');
+        }
+        current.push_str(word);
+    }
+    if !current.is_empty() {
+        lines.push(current);
+    }
+    lines
 }
 
 /// Decide the output shape from the flags, refusing combinations rather than picking a winner.
@@ -94,6 +182,30 @@ fn shape(args: &QArgs, json: bool) -> Result<output::Shape, Failure> {
     use output::{parse_projection, Column, SEARCH_COLUMNS};
     let mut shape = output::Shape::default();
 
+    if args.explain {
+        // A diagnosis prints neither rows nor columns: there is nothing to project, and a
+        // `--jsonl` stream of plan lines would be a shape no script asked for.
+        let conflict = if json {
+            None
+        } else if args.jsonl {
+            Some("--jsonl")
+        } else if args.cols.is_some() {
+            Some("--cols")
+        } else if args.fields.is_some() {
+            Some("--fields")
+        } else if args.wide {
+            Some("--wide")
+        } else {
+            None
+        };
+        if let Some(flag) = conflict {
+            return Err(bad_request(format!(
+                "--explain prints a plan, not rows: {flag} has nothing to select. Drop it, or drop --explain."
+            )));
+        }
+        // `--json` stays meaningful: it prints the server's `explain` object unchanged.
+        return Ok(shape);
+    }
     if json && args.jsonl {
         return Err(bad_request(
             "--json prints the whole page; --jsonl prints one row per line. Pick one.",
@@ -155,7 +267,7 @@ pub async fn run(cli: &Cli, args: &QArgs) -> Result<(), Failure> {
     // Before the request, so a contradiction costs no round trip and the message is about the
     // command rather than about the server's answer to a request it should never have got.
     let shape_decided = shape(args, cli.json)?;
-    let request_url = url(&cli.base_url, &expression, args.limit);
+    let request_url = url(&cli.base_url, &expression, args.limit, args.explain);
 
     let client = reqwest::Client::builder()
         .timeout(std::time::Duration::from_secs(60))
@@ -176,8 +288,22 @@ pub async fn run(cli: &Cli, args: &QArgs) -> Result<(), Failure> {
     let body: Value = serde_json::from_slice(&bytes).unwrap_or(Value::Null);
     if !(200..300).contains(&status) {
         // A `422` here is the parser speaking, not a fault: it names the token, and `failure_for`
-        // turns it into exit code 2 with the server's sentence intact.
+        // turns it into exit code 2 with the server's sentence intact. `M63-08`: when the body
+        // carries the offset, draw the mistake under the reader's own text first — a caret does
+        // in one line what "offset 6" asks the reader to do by counting.
+        if let (422, Some(expression_at_error), Some(offset)) = (
+            status,
+            body["error"]["query"]["expression"].as_str(),
+            body["error"]["query"]["offset"].as_u64(),
+        ) {
+            eprintln!("{}", caret(expression_at_error, offset as usize));
+        }
         return Err(failure_for(status, &body, &cli.base_url));
+    }
+
+    if args.explain && !cli.json {
+        println!("{}", render_plan(&body)?);
+        return Ok(());
     }
 
     if cli.json {
@@ -247,7 +373,7 @@ mod tests {
 
     #[test]
     fn the_url_encodes_the_operators_and_the_spaces() {
-        let url = url("https://example.test", "tag:a AND kudos:>=100", 5);
+        let url = url("https://example.test", "tag:a AND kudos:>=100", 5, false);
         assert_eq!(
             url,
             "https://example.test/api/v1/search?q=tag%3Aa%20AND%20kudos%3A%3E%3D100&limit=5"
@@ -265,9 +391,90 @@ mod tests {
     #[test]
     fn a_trailing_slash_on_the_base_url_does_not_double() {
         assert_eq!(
-            url("https://example.test/", "tag:naruto", 2),
+            url("https://example.test/", "tag:naruto", 2, false),
             "https://example.test/api/v1/search?q=tag%3Anaruto&limit=2"
         );
+    }
+
+    #[test]
+    fn explain_appends_its_flag_and_nothing_else() {
+        let url = url("https://example.test", "tag:naruto", 3, true);
+        assert_eq!(
+            url,
+            "https://example.test/api/v1/search?q=tag%3Anaruto&limit=3&explain=1"
+        );
+    }
+
+    #[test]
+    fn explain_with_a_projection_is_refused_and_names_the_flag() {
+        let (cli, q) = args(&["dh", "q", "tag:naruto", "--explain", "--jsonl"]);
+        let error = shape(&q, cli.json).unwrap_err();
+        assert_eq!(error.code, 2);
+        assert!(error.message.contains("--jsonl"), "{}", error.message);
+        assert!(error.message.contains("--explain"), "{}", error.message);
+    }
+
+    #[test]
+    fn explain_with_json_is_allowed_because_it_prints_the_server_object() {
+        let (cli, q) = args(&["dh", "q", "tag:naruto", "--explain", "--json"]);
+        assert!(shape(&q, cli.json).is_ok());
+    }
+
+    #[test]
+    fn the_caret_sits_under_the_character_the_parser_stopped_at() {
+        assert_eq!(caret("kudos>=100", 5), "kudos>=100\n     ^");
+    }
+
+    #[test]
+    fn the_caret_counts_characters_not_bytes() {
+        // `é` is two bytes and one column. A byte offset would put the caret one place too far
+        // right, on the character after the mistake, for every query with an accent in a tag.
+        let expression = "tag:café AND kudos>=1";
+        assert_eq!(
+            caret(expression, 13),
+            format!("{expression}\n             ^")
+        );
+        assert_ne!(
+            caret(expression, 13),
+            caret(expression, 13 + 1),
+            "the caret moves one column per character"
+        );
+    }
+
+    #[test]
+    fn the_plan_renders_the_engine_the_statement_the_path_and_the_indexes() {
+        let body = serde_json::json!({
+            "explain": {
+                "engine": "sqlite",
+                "sql": "SELECT works.id FROM works",
+                "plan": ["SCAN works", "SEARCH units USING INDEX idx_units_work (work_id=?)"],
+                "indexes": ["idx_units_work"],
+            }
+        });
+        let rendered = render_plan(&body).expect("renders");
+        assert!(rendered.contains("engine: sqlite"), "{rendered}");
+        assert!(rendered.contains("  SCAN works"), "{rendered}");
+        assert!(
+            rendered.contains("idx_units_work (work_id=?)"),
+            "{rendered}"
+        );
+        assert!(rendered.contains("indexes: idx_units_work"), "{rendered}");
+    }
+
+    #[test]
+    fn a_scan_says_it_named_no_index_rather_than_printing_an_empty_list() {
+        let body = serde_json::json!({
+            "explain": { "engine": "sqlite", "sql": "SELECT 1", "plan": ["SCAN works"], "indexes": [] }
+        });
+        let rendered = render_plan(&body).expect("renders");
+        assert!(rendered.contains("indexes: none"), "{rendered}");
+    }
+
+    #[test]
+    fn a_body_without_an_explain_block_is_an_environment_failure_not_a_blank_plan() {
+        let error = render_plan(&serde_json::json!({ "items": [] })).unwrap_err();
+        assert_eq!(error.code, 1, "an old server is not a usage error");
+        assert!(error.message.contains("explain"), "{}", error.message);
     }
 
     #[test]

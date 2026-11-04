@@ -88,6 +88,32 @@ pub struct SearchQuery {
     /// Rating ceiling (M47-05).
     #[serde(default)]
     max_rating: Option<String>,
+    /// `M63-08`: return the engine's plan for this search instead of its hits.
+    ///
+    /// `?explain=1` — or `true`, `yes`, `on`. A boolean spelled the way a URL spells one.
+    ///
+    /// Not a bare `bool`: serde reads `?explain=1` as not-a-boolean and the request comes back
+    /// `400`, which is a trap for the fnatural spelling and for `dh q --explain`, which sends
+    /// `1` because that is what a person types.
+    #[serde(default, deserialize_with = "truthy")]
+    explain: bool,
+}
+
+/// Read a URL's boolean: `1|true|yes|on` and `0|false|no|off|` (empty), anything else refused
+/// by name rather than silently read as false.
+fn truthy<'de, D>(deserializer: D) -> Result<bool, D::Error>
+where
+    D: serde::Deserializer<'de>,
+{
+    use serde::Deserialize as _;
+    let raw = String::deserialize(deserializer)?;
+    match raw.trim().to_ascii_lowercase().as_str() {
+        "1" | "true" | "yes" | "on" => Ok(true),
+        "" | "0" | "false" | "no" | "off" => Ok(false),
+        other => Err(serde::de::Error::custom(format!(
+            "`explain` takes 1, true, yes or on (or 0, false, no, off); got `{other}`"
+        ))),
+    }
 }
 
 fn default_limit() -> i64 {
@@ -280,6 +306,31 @@ async fn search(
         sort: sort.clone(),
     };
 
+    // `M63-08`: a diagnosis, not a search. The plan comes from the engine, run against the
+    // statement the search below would execute — same binds, same limit — and no hits are
+    // returned, because "explain" that also searched would double the endpoint's work to
+    // answer a question about the endpoint.
+    if params.explain {
+        let plan = darkhold_db::search::explain_search(
+            state.db(),
+            &params.q,
+            viewer_id.as_deref(),
+            params.limit,
+            &filters,
+            &scope,
+        )
+        .await
+        .map_err(|e| search_failure_for(&params.q, e))?;
+        return Ok(Json(serde_json::json!({
+            "explain": {
+                "engine": plan.engine,
+                "sql": plan.sql,
+                "plan": plan.lines,
+                "indexes": plan.indexes,
+            }
+        })));
+    }
+
     let results = search_works_ast_scoped(
         state.db(),
         &params.q,
@@ -289,7 +340,7 @@ async fn search(
         &scope,
     )
     .await
-    .map_err(search_failure)?;
+    .map_err(|e| search_failure_for(&params.q, e))?;
 
     // §9.6 / M47-08b: record the search — AFTER it succeeded, so a 422 from the query language
     // leaves no entry (a query the parser rejected is not one the reader would want offered
@@ -360,11 +411,29 @@ async fn in_work(
 ///
 /// Everything else stays `500`, because it is one.
 pub fn search_failure(error: anyhow::Error) -> ApiError {
+    search_failure_for("", error)
+}
+
+/// The same mapping, for a caller that still has the expression the reader typed.
+///
+/// `M63-08`: a **parse** failure becomes `QueryRejected`, which is the same `422` /
+/// `VALIDATION_FAILED` a client already switches on and additionally carries the character
+/// offset of the mistake in `error.query`. A render failure — a field that belongs to another
+/// surface — carries no position, because there is no character to point at, and stays
+/// `Validation`.
+pub fn search_failure_for(expression: &str, error: anyhow::Error) -> ApiError {
     match error.downcast_ref::<SearchError>() {
-        Some(search) => ApiError(darkhold_domain::AppError::Validation {
-            message: search.problem.message().to_owned(),
-            field_errors: Default::default(),
-        }),
+        Some(search) => match search.problem.offset() {
+            Some(offset) => ApiError(darkhold_domain::AppError::QueryRejected {
+                message: search.problem.to_string(),
+                expression: expression.to_owned(),
+                offset,
+            }),
+            None => ApiError(darkhold_domain::AppError::Validation {
+                message: search.problem.message().to_owned(),
+                field_errors: Default::default(),
+            }),
+        },
         None => ApiError(darkhold_domain::AppError::Internal(error)),
     }
 }
