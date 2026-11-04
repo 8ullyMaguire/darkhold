@@ -29,6 +29,7 @@ pub mod limiter;
 pub mod logging;
 pub mod longevity;
 pub mod media_fetch;
+pub mod taste;
 pub mod media_job;
 pub mod narration;
 pub mod note_link_job;

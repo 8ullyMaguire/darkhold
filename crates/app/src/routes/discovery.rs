@@ -401,23 +401,62 @@ pub(crate) async fn build_candidate_engines(
     //   * `matches >= 3` is the floor: one ballot rates the best and worst cards three times and
     //     each middle twice, so a single comparison is not evidence and is not offered as such.
     //
-    // A ladder failure is fatal here, unlike the ballot write: a partial feed is a feed this code
-    // has no business serving silently, so the error goes up.
+    // A ladder failure was fatal here while the ladder was a local table: a partial feed was a feed
+    // this code had no business serving silently. It is not fatal now (see below).
     const LADDER_MIN_MATCHES: i64 = 3;
     /// How many works the ladder may place at the head of a feed.
     ///
     /// Not a tuning knob: every slot here is a slot personalisation does not get, so it is the
     /// price of the arena being visible at all. Five is a shelf, twenty is a leaderboard.
     const LADDER_SHELF: i64 = 5;
-    let ladder = darkhold_db::work_ratings::top_rated_for(
-        state.db(),
-        account_id,
-        viewer_pseud,
-        limit.min(LADDER_SHELF),
-        LADDER_MIN_MATCHES,
-    )
-    .await
-    .map_err(|e| ApiError(AppError::Internal(e)))?;
+    /// How many ratings to ask the service for, before the local filter narrows them to a shelf.
+    ///
+    /// Larger than the shelf because eligibility is decided here (visibility, content filters, the
+    /// reader's own ballots): asking for exactly five would let local filtering empty the shelf while
+    /// hundreds of eligible-rated works sat unread.
+    const LADDER_CANDIDATES: i64 = 40;
+    //
+    // The numbers come from the estate's taste service and the eligibility from `darkhold_db::ladder` (ADR
+    // 0001). Unlike the ballot write, a failure here used to be fatal — the ladder was a table on the same
+    // database, so a failure meant this instance was broken. It is a *different process* now: an outage there
+    // must cost the shelf, never the whole discovery page, so it is logged and skipped.
+    let ladder = match state.taste().ratings(LADDER_CANDIDATES).await {
+        Ok(ratings) => {
+            let candidates: Vec<darkhold_db::ladder::LadderWork> = ratings
+                .into_iter()
+                .map(|rating| darkhold_db::ladder::LadderWork {
+                    work_id: rating
+                        .item_id
+                        .strip_prefix("work:")
+                        .unwrap_or(&rating.item_id)
+                        .to_string(),
+                    rating: rating.rating,
+                    deviation: rating.deviation,
+                    matches: rating.matches,
+                })
+                .collect();
+            match darkhold_db::ladder::eligible_top(
+                state.db(),
+                &candidates,
+                account_id,
+                viewer_pseud,
+                limit.min(LADDER_SHELF),
+                LADDER_MIN_MATCHES,
+            )
+            .await
+            {
+                Ok(works) => works,
+                Err(error) => {
+                    tracing::warn!(%error, "the eligibility filter for the works ladder failed");
+                    Vec::new()
+                }
+            }
+        }
+        Err(error) => {
+            tracing::warn!(%error, "the taste service did not answer, so the feed has no ladder shelf");
+            Vec::new()
+        }
+    };
     if !ladder.is_empty() {
         engines.push(
             ladder

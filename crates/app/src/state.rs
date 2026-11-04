@@ -46,6 +46,12 @@ struct Inner {
     tts: Result<Arc<dyn crate::tts::TtsEngine>, String>,
     /// HTTP client for webhook delivery — built once, reused for all attempts.
     reqwest_client: reqwest::Client,
+    /// The estate's taste service (`polaris-taste`): the works ladder, as client calls.
+    ///
+    /// Built once because it holds an HTTP client, and it is a *client* rather than a table because the rating
+    /// of a work must mean the same thing on every product (ADR 0001). It degrades: with no secret configured
+    /// `can_cast()` is false and the arena keeps its dimension calibration and loses only the shared ladder.
+    taste: crate::taste::TasteClient,
     /// Webhook sender configuration.
     webhook_config: WebhookSenderConfig,
     /// The most recent shadow-mode evaluation, for the operator surface.
@@ -115,6 +121,7 @@ impl AppState {
                 tts,
                 reqwest_client,
                 webhook_config,
+                taste: crate::taste::TasteClient::from_env(),
                 shadow_report: crate::rec_shadow::ReportSlot::default(),
                 modules,
             }),
@@ -171,6 +178,12 @@ impl AppState {
     #[must_use]
     pub fn reqwest_client(&self) -> &reqwest::Client {
         &self.inner.reqwest_client
+    }
+
+    /// The estate's taste service client (ADR 0001).
+    #[must_use]
+    pub fn taste(&self) -> &crate::taste::TasteClient {
+        &self.inner.taste
     }
 
     /// Webhook sender configuration.

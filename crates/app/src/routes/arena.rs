@@ -226,31 +226,34 @@ async fn post_arena_vote(
     .await
     .map_err(|e| ApiError(AppError::Internal(anyhow::anyhow!("record ballot: {e}"))))?;
 
-    // The works ladder (spec §12.4a). This is the rating path: one ballot is five comparisons
-    // and one rating period per work, all inside one transaction.
+    // The works ladder (spec §12.4a) is now the estate's, not this crate's: the four cards the reader
+    // saw are published as a pool and the vote is cast as one best/worst ballot at `polaris-taste`
+    // (ADR 0001). The module that used to do this arithmetic here — 746 lines of Glicko and five
+    // comparisons per ballot — is gone, because four products rating one person's taste four ways was
+    // the defect the service exists to fix.
     //
-    // A failure here does NOT fail the request. The ballot above is already stored and it is
-    // the reader's judgement; losing a rating update is recoverable from the ballots, and
-    // losing the vote because the ladder was unhappy is not. It is logged so a broken ladder
-    // is visible rather than silently assumed working.
-    match darkhold_db::work_ratings::record_ballot(
-        db,
-        &req.best_work_id,
-        &req.worst_work_id,
-        &req.card_ids,
-        1.0,
-    )
-    .await
+    // A failure here does NOT fail the request, and the same reasoning as before still holds: the
+    // ballot above is already stored locally and it is the reader's judgement. But the reason the
+    // failure is tolerated has changed — the ladder is now a *different process*, so an outage there
+    // must cost ratings and never a vote. It is logged at warn level so a dead service is visible.
+    match state
+        .taste()
+        .cast_best_worst(
+            &account_id,
+            &req.card_ids,
+            &req.best_work_id,
+            &req.worst_work_id,
+        )
+        .await
     {
-        Ok(outcome) => {
+        Ok(cast) => {
             tracing::debug!(
-                works = outcome.works,
-                comparisons = outcome.comparisons,
-                "arena ballot applied to the works ladder"
+                comparisons = cast.comparisons,
+                "the arena ballot reached the estate taste service"
             );
         }
         Err(error) => {
-            tracing::warn!(%error, "the works ladder did not record this ballot");
+            tracing::warn!(%error, "the taste service did not record this ballot");
         }
     }
 

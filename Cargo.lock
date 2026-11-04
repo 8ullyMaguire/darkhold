@@ -727,6 +727,7 @@ dependencies = [
  "darkhold-metadata",
  "darkhold-scrapers",
  "hex",
+ "hmac",
  "image",
  "mime_guess",
  "polaris-oidc-client",

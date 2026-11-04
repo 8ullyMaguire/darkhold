@@ -60,6 +60,7 @@ pub mod imports;
 pub mod instance_taste_settings;
 pub mod instance_theme;
 pub mod jobs;
+pub mod ladder;
 pub mod lending;
 pub mod library;
 pub mod longevity;
@@ -119,7 +120,6 @@ pub mod taste_import;
 pub mod taste_leakage;
 pub mod taste_vectors;
 /// The works ladder: the arena's Glicko-2 ratings, stored (spec §12.4a).
-pub mod work_ratings;
 // M45-26 (§58.6): the welcome rota — one work, one reader, seventy-two hours.
 pub mod finishers;
 pub mod tasting;

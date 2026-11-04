@@ -22,9 +22,15 @@
 //! returns a plausible number is worse than an empty module, because a stub is a ranking that
 //! looks measured and is not.
 //!
-//! Implemented so far: [`arena::glicko`] (Glicko-2 with draws, matched against kindred case by
-//! case), [`eval`] (the ranking metrics the parity harness scores with) and [`ladder`] (the
-//! baseline ladder a challenger is measured against). Everything else is still a declaration.
+//! Implemented so far: [`eval`] (the ranking metrics the parity harness scores with) and
+//! [`ladder`] (the baseline ladder a challenger is measured against). Everything else is still a
+//! declaration.
+//!
+//! **The Glicko implementation left on 2026-11-04**, with its 15 unit tests and its kindred parity
+//! fixture: the arena's ladder is the estate's taste service (`polaris-taste`, ADR 0001), because a
+//! rating of a work must mean the same thing to four products and a crate cannot be linked into the
+//! Go and Python ones. The parity test moved with it, so the proof that the Rust port matches
+//! kindred's oracle still runs — in the crate that now owns the algorithm.
 
 /// The catalogue: the instance's works, tags and entities, ingested into the on-disk
 /// index the engine reads (spec §8.2, §12.7).
@@ -52,7 +58,6 @@ pub mod diversify;
 
 /// The arena: the pairwise comparison surface and the ladder it puts works on
 /// (spec §12.4).
-pub mod arena;
 
 /// Ranking metrics: `nDCG@10`, `recall@50`, `precision@k`, `F1@k`, `AP@k` and overlap, which is how
 /// "we match kindred" becomes a number instead of a claim (spec §8.3, R-6).
