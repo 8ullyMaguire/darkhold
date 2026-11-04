@@ -12,6 +12,19 @@ use crate::{Backend, Database};
 use anyhow::Result;
 use serde_json::Value as JsonValue;
 
+/// A row as the store reads it: `(id, instance_id, label, theme_vector, starts_at, ends_at,
+/// created_at, revoked_at)`.
+type ScheduleRow = (
+    String,
+    String,
+    String,
+    String,
+    String,
+    String,
+    String,
+    Option<String>,
+);
+
 /// One scheduled gravity window.
 #[derive(Debug, Clone)]
 pub struct ThemeSchedule {
@@ -88,25 +101,25 @@ pub async fn create(
 /// Every window this instance has ever written, newest start first — including revoked ones, because
 /// "the event that was called off" is a fact an operator may need to read back.
 pub async fn list_for_instance(db: &Database, instance_id: &str) -> Result<Vec<ThemeSchedule>> {
-    let sql = "SELECT id, instance_id, label, theme_vector, starts_at, ends_at, created_at, revoked_at
+    let sql =
+        "SELECT id, instance_id, label, theme_vector, starts_at, ends_at, created_at, revoked_at
                FROM theme_schedules
                WHERE instance_id = ?
                ORDER BY starts_at DESC, created_at DESC";
-    let rows: Vec<(String, String, String, String, String, String, String, Option<String>)> =
-        match db.backend() {
-            Backend::Sqlite => {
-                sqlx::query_as(sql)
-                    .bind(instance_id)
-                    .fetch_all(db.sqlite_pool().expect("sqlite handle"))
-                    .await?
-            }
-            Backend::Postgres => {
-                sqlx::query_as(sql)
-                    .bind(instance_id)
-                    .fetch_all(db.postgres_pool().expect("postgres handle"))
-                    .await?
-            }
-        };
+    let rows: Vec<ScheduleRow> = match db.backend() {
+        Backend::Sqlite => {
+            sqlx::query_as(sql)
+                .bind(instance_id)
+                .fetch_all(db.sqlite_pool().expect("sqlite handle"))
+                .await?
+        }
+        Backend::Postgres => {
+            sqlx::query_as(sql)
+                .bind(instance_id)
+                .fetch_all(db.postgres_pool().expect("postgres handle"))
+                .await?
+        }
+    };
     Ok(rows.into_iter().map(row_to_schedule).collect())
 }
 
@@ -120,33 +133,33 @@ pub async fn active_at(
     instance_id: &str,
     at: &str,
 ) -> Result<Option<ThemeSchedule>> {
-    let sql = "SELECT id, instance_id, label, theme_vector, starts_at, ends_at, created_at, revoked_at
+    let sql =
+        "SELECT id, instance_id, label, theme_vector, starts_at, ends_at, created_at, revoked_at
                FROM theme_schedules
                WHERE instance_id = ?
-                 AND revoked_at IS NULL
                  AND starts_at <= ?
+                 AND revoked_at IS NULL
                  AND ends_at > ?
                ORDER BY starts_at DESC
                LIMIT 1";
-    let row: Option<(String, String, String, String, String, String, String, Option<String>)> =
-        match db.backend() {
-            Backend::Sqlite => {
-                sqlx::query_as(sql)
-                    .bind(instance_id)
-                    .bind(at)
-                    .bind(at)
-                    .fetch_optional(db.sqlite_pool().expect("sqlite handle"))
-                    .await?
-            }
-            Backend::Postgres => {
-                sqlx::query_as(sql)
-                    .bind(instance_id)
-                    .bind(at)
-                    .bind(at)
-                    .fetch_optional(db.postgres_pool().expect("postgres handle"))
-                    .await?
-            }
-        };
+    let row: Option<ScheduleRow> = match db.backend() {
+        Backend::Sqlite => {
+            sqlx::query_as(sql)
+                .bind(instance_id)
+                .bind(at)
+                .bind(at)
+                .fetch_optional(db.sqlite_pool().expect("sqlite handle"))
+                .await?
+        }
+        Backend::Postgres => {
+            sqlx::query_as(sql)
+                .bind(instance_id)
+                .bind(at)
+                .bind(at)
+                .fetch_optional(db.postgres_pool().expect("postgres handle"))
+                .await?
+        }
+    };
     Ok(row.map(row_to_schedule))
 }
 
@@ -156,31 +169,25 @@ pub async fn revoke(db: &Database, instance_id: &str, id: &str, now: &str) -> Re
     let sql = "UPDATE theme_schedules SET revoked_at = ?
                WHERE id = ? AND instance_id = ? AND revoked_at IS NULL";
     let affected = match db.backend() {
-        Backend::Sqlite => {
-            sqlx::query(sql)
-                .bind(now)
-                .bind(id)
-                .bind(instance_id)
-                .execute(db.sqlite_pool().expect("sqlite handle"))
-                .await?
-                .rows_affected()
-        }
-        Backend::Postgres => {
-            sqlx::query(sql)
-                .bind(now)
-                .bind(id)
-                .bind(instance_id)
-                .execute(db.postgres_pool().expect("postgres handle"))
-                .await?
-                .rows_affected()
-        }
+        Backend::Sqlite => sqlx::query(sql)
+            .bind(now)
+            .bind(id)
+            .bind(instance_id)
+            .execute(db.sqlite_pool().expect("sqlite handle"))
+            .await?
+            .rows_affected(),
+        Backend::Postgres => sqlx::query(sql)
+            .bind(now)
+            .bind(id)
+            .bind(instance_id)
+            .execute(db.postgres_pool().expect("postgres handle"))
+            .await?
+            .rows_affected(),
     };
     Ok(affected > 0)
 }
 
-fn row_to_schedule(
-    row: (String, String, String, String, String, String, String, Option<String>),
-) -> ThemeSchedule {
+fn row_to_schedule(row: ScheduleRow) -> ThemeSchedule {
     let (id, instance_id, label, vector, starts_at, ends_at, created_at, revoked_at) = row;
     ThemeSchedule {
         id,

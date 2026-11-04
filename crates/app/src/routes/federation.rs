@@ -4,7 +4,7 @@
 //! public for better instance discovery. Other instances can publish their
 //! themes via the public endpoint for cross-instance discovery.
 
-use axum::extract::{Query, State};
+use axum::extract::{Path, Query, State};
 use axum::routing::{get, post};
 use axum::Json;
 use serde::Deserialize;
@@ -60,16 +60,27 @@ pub async fn get_instance_theme(
         return Err(ApiError(darkhold_domain::AppError::AccessDenied));
     }
     let instance_host = state.config().site.base_url.clone();
+    // M45-50: a scheduled window, when one covers now, is this instance's gravity for the moment. The
+    // instance's own vector is left untouched, so the event ends by itself and nothing has to be
+    // edited back at midnight.
+    let now = darkhold_db::identity::now_rfc3339();
+    let scheduled = darkhold_db::theme_schedule::active_at(state.db(), &instance_host, &now)
+        .await
+        .map_err(|e| ApiError(darkhold_domain::AppError::Internal(e)))?;
     let theme = instance_theme::get_local_theme(state.db(), &instance_host)
         .await
         .map_err(|e| ApiError(darkhold_domain::AppError::Internal(e)))?
         .map(|t| {
             serde_json::json!({
                 "instance_id": t.instance_id,
-                "theme_vector": t.theme_vector,
+                "theme_vector": match &scheduled {
+                    Some(schedule) => schedule.theme_vector.clone(),
+                    None => t.theme_vector.clone(),
+                },
                 "public": t.public,
                 "computed_at": t.computed_at,
                 "updated_at": t.updated_at,
+                "schedule": scheduled.as_ref().map(schedule_json),
             })
         })
         .unwrap_or(serde_json::json!({
@@ -442,7 +453,129 @@ pub async fn ap_outbox(
     })))
 }
 
-/// Apply axum routes for federation.
+// ---------------------------------------------------------------------------
+// M45-50 — scheduled gravity: a taste vector that applies for a window
+// ---------------------------------------------------------------------------
+
+/// One schedule as the API writes it.
+fn schedule_json(schedule: &darkhold_db::theme_schedule::ThemeSchedule) -> Value {
+    serde_json::json!({
+        "id": schedule.id,
+        "label": schedule.label,
+        "theme_vector": schedule.theme_vector,
+        "starts_at": schedule.starts_at,
+        "ends_at": schedule.ends_at,
+        "created_at": schedule.created_at,
+        "revoked_at": schedule.revoked_at,
+    })
+}
+
+/// The `POST` body.
+#[derive(Debug, serde::Deserialize)]
+pub struct ScheduleBody {
+    label: String,
+    theme_vector: Value,
+    starts_at: String,
+    ends_at: String,
+}
+
+/// `GET /api/v1/federation/theme/schedule` — every window this instance wrote (admin only).
+pub async fn list_theme_schedules(
+    State(state): State<AppState>,
+    RequirePseud {
+        user: _user,
+        pseud_id,
+    }: RequirePseud,
+) -> ApiResult<Json<Value>> {
+    if pseud_id.to_string() != ADMIN_PSEUD_ID {
+        return Err(ApiError(darkhold_domain::AppError::AccessDenied));
+    }
+    let instance_host = state.config().site.base_url.clone();
+    let schedules = darkhold_db::theme_schedule::list_for_instance(state.db(), &instance_host)
+        .await
+        .map_err(|e| ApiError(darkhold_domain::AppError::Internal(e)))?;
+    Ok(Json(serde_json::json!({
+        "items": schedules.iter().map(schedule_json).collect::<Vec<_>>(),
+    })))
+}
+
+/// `POST /api/v1/federation/theme/schedule` — write a window (admin only).
+///
+/// The window is validated by the domain rule before it reaches the store, so the operator reads one
+/// sentence whether the mistake is a local timestamp or a window that ends before it starts.
+pub async fn create_theme_schedule(
+    State(state): State<AppState>,
+    RequirePseud {
+        user: _user,
+        pseud_id,
+    }: RequirePseud,
+    Json(body): Json<ScheduleBody>,
+) -> ApiResult<(axum::http::StatusCode, Json<Value>)> {
+    if pseud_id.to_string() != ADMIN_PSEUD_ID {
+        return Err(ApiError(darkhold_domain::AppError::AccessDenied));
+    }
+    let window = darkhold_domain::theme_window::parse_window(&body.starts_at, &body.ends_at)
+        .map_err(|message| ApiError(darkhold_domain::AppError::field("window", message)))?;
+    if body.label.trim().is_empty() {
+        return Err(ApiError(darkhold_domain::AppError::field(
+            "label",
+            "a schedule needs a label: it is what a reader of the theme response is shown when the \
+             seasonal vector applies",
+        )));
+    }
+    let instance_host = state.config().site.base_url.clone();
+    let now = darkhold_db::identity::now_rfc3339();
+    let id = darkhold_db::theme_schedule::create(
+        state.db(),
+        &instance_host,
+        body.label.trim(),
+        &body.theme_vector,
+        &window.starts_at,
+        &window.ends_at,
+        &now,
+    )
+    .await
+    .map_err(|e| ApiError(darkhold_domain::AppError::Internal(e)))?;
+    Ok((
+        axum::http::StatusCode::CREATED,
+        Json(serde_json::json!({
+            "id": id,
+            "label": body.label.trim(),
+            "starts_at": window.starts_at,
+            "ends_at": window.ends_at,
+            "created_at": now,
+        })),
+    ))
+}
+
+/// `DELETE /api/v1/federation/theme/schedule/{id}` — call a window off (admin only).
+///
+/// Revoking keeps the row: an event that was cancelled is a fact worth reading back, and the same
+/// reason a saved query keeps its runs.
+pub async fn revoke_theme_schedule(
+    State(state): State<AppState>,
+    RequirePseud {
+        user: _user,
+        pseud_id,
+    }: RequirePseud,
+    Path(id): Path<String>,
+) -> ApiResult<Json<Value>> {
+    if pseud_id.to_string() != ADMIN_PSEUD_ID {
+        return Err(ApiError(darkhold_domain::AppError::AccessDenied));
+    }
+    let instance_host = state.config().site.base_url.clone();
+    let now = darkhold_db::identity::now_rfc3339();
+    let revoked = darkhold_db::theme_schedule::revoke(state.db(), &instance_host, &id, &now)
+        .await
+        .map_err(|e| ApiError(darkhold_domain::AppError::Internal(e)))?;
+    if !revoked {
+        return Err(ApiError(darkhold_domain::AppError::NotFound {
+            resource: "theme schedule",
+        }));
+    }
+    Ok(Json(serde_json::json!({ "id": id, "revoked_at": now })))
+}
+
 pub fn routes() -> axum::Router<AppState> {
     axum::Router::new()
         // ActivityPub endpoints (public inbox, actor discovery)
@@ -455,6 +588,15 @@ pub fn routes() -> axum::Router<AppState> {
             get(get_instance_theme).put(set_theme_visibility),
         )
         .route("/federation/theme/recompute", post(recompute_theme))
+        // M45-50 — time-boxed gravity.
+        .route(
+            "/federation/theme/schedule",
+            get(list_theme_schedules).post(create_theme_schedule),
+        )
+        .route(
+            "/federation/theme/schedule/{id}",
+            axum::routing::delete(revoke_theme_schedule),
+        )
         // Public discovery
         .route("/federation/themes", get(list_public_themes))
         // Peers (admin)

@@ -1086,7 +1086,14 @@ pub fn build_router(state: AppState) -> Router {
         .merge(module_mount(
             &state,
             "federation",
-            routes::federation::routes(),
+            // Its own session loading, like the reader pages: this mount is merged at the root, so
+            // the `/api/v1` layer that loads the session does not reach it, and every authenticated
+            // federation route — the instance theme, its schedule, peers — answered 401 to a reader
+            // who was logged in. Anonymous requests stay anonymous; the extractors decide.
+            routes::federation::routes().layer(middleware::from_fn_with_state(
+                state.clone(),
+                auth::load_session,
+            )),
             RouteClass::Default,
         ))
         // The reading surface: **server-rendered HTML** (spec §8.5). Also at

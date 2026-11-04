@@ -2694,6 +2694,27 @@ pub const ROUTE_TABLE: &[RouteEntry] = &[
     },
     RouteEntry {
         file: "federation.rs",
+        handler: "list_theme_schedules",
+        method: "GET",
+        path: "/federation/theme/schedule",
+        audience: Audience::Pseudonymous,
+    },
+    RouteEntry {
+        file: "federation.rs",
+        handler: "create_theme_schedule",
+        method: "POST",
+        path: "/federation/theme/schedule",
+        audience: Audience::Pseudonymous,
+    },
+    RouteEntry {
+        file: "federation.rs",
+        handler: "revoke_theme_schedule",
+        method: "DELETE",
+        path: "/federation/theme/schedule/{id}",
+        audience: Audience::Pseudonymous,
+    },
+    RouteEntry {
+        file: "federation.rs",
         handler: "set_theme_visibility",
         method: "PUT",
         path: "/federation/theme",

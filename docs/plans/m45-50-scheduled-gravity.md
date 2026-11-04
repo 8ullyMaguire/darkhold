@@ -76,6 +76,21 @@ Mutation proofs: make `covers` inclusive at `ends_at` → the adjacent-window te
 `active_at` prefer the *earliest* start → the overlap test fails; drop the `revoked_at IS NULL`
 predicate → the revoke test fails.
 
+## The defect this row found
+
+The first version of the route test asserted `403` for a registered reader and got `401
+AUTH_REQUIRED`. The session middleware in `server.rs` is layered on the `/api/v1` router, and the
+federation mount is merged at the **root** (so ActivityPub URLs are `/federation/inbox`, not
+`/api/v1/federation/inbox`) — outside that layer. So `RequirePseud` and `RequireSession` saw an
+anonymous request inside every federation route: the instance theme, its schedule, peers, recompute
+all answered `401` to a reader who was logged in. Nothing in the tree tested them, which is why it
+survived.
+
+The fix is the precedent the reader pages already set: the federation mount loads its own session
+(`routes::federation::routes().layer(from_fn_with_state(state, auth::load_session))`). Anonymous
+requests stay anonymous, because `load_session` attaches a user when there is one and leaves the
+request alone when there is not. Red before, green after, on the same test.
+
 ## Not done, deliberately
 
 - No "next event starts in…" surface. The row asks for windows, and a countdown is a UI decision with
