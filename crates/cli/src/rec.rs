@@ -466,6 +466,20 @@ pub fn gate(page: &Value) -> Option<String> {
 /// The metric vocabulary, as the CLI prints it.
 pub fn metrics_list() -> String {
     use darkhold_domain::quality::{Metric, Support};
+    // The name column is measured, not fixed at twenty: `freshness_weighted_quality`
+    // is twenty-six characters, and a list that prints `freshness_weighted_…` cannot
+    // be copied into `--sort`, which is the only thing this list is for.
+    let width = Metric::ALL
+        .iter()
+        .map(|metric| {
+            metric.as_str().chars().count()
+                + usize::from(matches!(metric.support(), Support::Blocked(_)))
+        })
+        .max()
+        .unwrap_or(20)
+        .max(20)
+        + 2;
+
     let mut out = String::from("QUALITY METRICS — dh rec --sort <name>\n\n");
     for metric in Metric::ALL {
         let (status, detail) = match metric.support() {
@@ -480,7 +494,7 @@ pub fn metrics_list() -> String {
         };
         out.push_str(&format!(
             "  {} {} {}\n",
-            pad(&name, 20),
+            pad(&name, width),
             pad(status, 8),
             detail
         ));
@@ -1075,6 +1089,16 @@ mod tests {
         assert!(
             text.contains("aliases: kudos = likes"),
             "the words that are not canonical names are listed too: {text}"
+        );
+        // The list exists so a name can be copied into `--sort`; a truncated name
+        // is a name the reader has to guess the tail of.
+        assert!(
+            text.contains("freshness_weighted_quality"),
+            "the longest name is printed whole: {text}"
+        );
+        assert!(
+            text.contains("updater_reliability*"),
+            "and so is the longest blocked one, with its marker: {text}"
         );
         assert!(
             text.contains("raw"),

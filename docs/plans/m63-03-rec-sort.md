@@ -1,6 +1,7 @@
 # M63-03 — `--sort` answers every name the row lists
 
-Status: implementing. Row: `M63-03` (power-user). Idea source:
+Status: implemented (`9164636e`, plus a follow-on for the name column). Row: `M63-03` (power-user).
+Idea source:
 `docs/ideas/2026-11-01-idea-sweep-power-users.md` §"The flagship", the `[S] --sort accepts any
 registered metric by name` bullet.
 
@@ -267,3 +268,20 @@ with the evidence and the gates this run actually produced. `docs/backlog/` and
 `docs/ideas-catalogue.json` regenerated. `README.md`'s `dh rec --sort` paragraph gains the eight names
 and the two kinds of answer. `~/secondbrain/10-Projects/darkhold/STANDING-PROMPT.md`'s state block
 re-derived (row counts, `Next:`).
+
+## Deviations, and what the run found
+
+1. **`score_of` gained one arm, not two.** The plan's draft scored `Completion` from a
+   `signals.status_rank` field that does not exist and should not: `Completion` is `Support::Raw`, so the
+   routes order it in SQL, and the ranker's `Candidate` carries no status. A fabricated score would be a
+   number nobody could check.
+2. **`Metric::refusal_name` was added mid-run** (step 2b). The live probe showed the refusal quoting
+   `likes_per_view` to a caller who typed `kudos_per_1k_views`.
+3. **`--list-metrics` truncated the names it exists to publish.** The name column was fixed at twenty
+   characters, so `freshness_weighted_quality` printed as `freshness_weighted_…` — a name that cannot be
+   copied into `--sort`. The column is now measured from the vocabulary (26 + marker + 2), and the test
+   asserts both long names print whole. Found by reading the live output, not by a test — the list was
+   covered only for which names it *contains*.
+4. **Step 7's propagation no longer applies.** `~/code/rust/darkhold` is at `d1c28cce` (a frontend/estate
+   commit) and `merge --ff-only local/master` fails: `fatal: Not possible to fast-forward`. The push to
+   both forges went through; the propagation merge was left alone rather than forced.
