@@ -1209,6 +1209,19 @@ where
                 })
                 .into_response();
             }
+            // M45-47: a mechanism that declared a minimum activity is unavailable below
+            // it — when the operator asked for that (`[modules] scale_aware`). The two
+            // refusals are one sentence to a caller: `404 MODULE_UNAVAILABLE` either way,
+            // because "not on this instance" and "not on an instance this small" are the
+            // same answer to "can I use this". The scale is counted once per process.
+            if state.config().modules.scale_aware
+                && state.modules().dormant(id, state.scale().await)
+            {
+                return crate::http::ApiError(darkhold_domain::AppError::ModuleUnavailable {
+                    module: id,
+                })
+                .into_response();
+            }
             if per_user {
                 if let Some(user) = request.extensions().get::<auth::SessionUser>() {
                     let account = user.account_id.to_string();

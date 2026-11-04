@@ -55,7 +55,18 @@ struct ModuleView {
     enabled_for_caller: bool,
     milestone: &'static str,
     spec: &'static str,
+    /// What this mechanism needs an instance to have grown to (M45-47), and whether
+    /// this instance has. Zeroes mean "works for one reader with one work".
+    min_scale: ScaleView,
+    dormant: bool,
     nav: Vec<NavView>,
+}
+
+/// A threshold, as the catalogue publishes it.
+#[derive(Debug, Serialize)]
+struct ScaleView {
+    active_readers: u32,
+    active_works: u32,
 }
 
 /// A navigation entry belonging to an extension.
@@ -71,6 +82,13 @@ struct NavView {
 struct Catalogue {
     /// Whether the instance lets readers hold their own overrides (§59.3).
     allow_user_overrides: bool,
+    /// How big this instance is, counted once per process (M45-47). Published so a
+    /// reader asking "why is the curation page empty" gets the numbers rather than a
+    /// number they have to guess.
+    observed_scale: ScaleView,
+    /// Whether this instance refuses a dormant mechanism rather than only reporting it
+    /// ([modules] scale_aware).
+    scale_aware: bool,
     core: &'static [&'static str],
     /// Every registered surface, ordered: what this instance runs first, then by
     /// id. A disabled row is still listed — that is the point, an operator reading
@@ -147,6 +165,11 @@ async fn list(
         }
         _ => Vec::new(),
     };
+    let scale = state.scale().await;
+    let observed_scale = ScaleView {
+        active_readers: scale.active_readers,
+        active_works: scale.active_works,
+    };
     let mut rows: Vec<ModuleView> = darkhold_domain::modules::all()
         .iter()
         .map(|ext| ModuleView {
@@ -154,6 +177,14 @@ async fn list(
             name: ext.name,
             summary: ext.summary,
             enabled: modules.enabled(ext.id),
+            min_scale: {
+                let minimum = ext.min_scale();
+                ScaleView {
+                    active_readers: minimum.active_readers,
+                    active_works: minimum.active_works,
+                }
+            },
+            dormant: modules.dormant(ext.id, scale),
             // The gate's rule, not a second one: only a `per_user` row narrows
             // anything, so a stray row written directly into the table must not
             // make the catalogue report a surface as gone for its caller.
@@ -201,6 +232,8 @@ async fn list(
 
     Ok(Json(Catalogue {
         allow_user_overrides: modules.allow_user_overrides(),
+        observed_scale,
+        scale_aware: state.config().modules.scale_aware,
         core: darkhold_domain::modules::core(),
         modules: rows,
         ideas,

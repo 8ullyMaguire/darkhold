@@ -809,6 +809,16 @@ pub struct ModulesConfig {
     pub enabled: Vec<String>,
     /// Whether readers may switch `per_user` surfaces off for themselves.
     pub allow_user_overrides: bool,
+    /// Whether a mechanism that declared a minimum activity is **refused** below it
+    /// (M45-47), or merely reported as dormant.
+    ///
+    /// Off by default, on purpose. Dormancy is computed and published either way —
+    /// `GET /api/v1/modules` says `dormant: true` with the numbers — but a 404 on a
+    /// surface that works is a product decision an operator makes, not one this
+    /// software makes for them on a fresh instance. Turning it on means: a mechanism
+    /// below its declared scale answers `404 MODULE_UNAVAILABLE` exactly like one the
+    /// operator switched off, because to a caller the two are the same question.
+    pub scale_aware: bool,
 }
 
 impl Default for ModulesConfig {
@@ -821,6 +831,8 @@ impl Default for ModulesConfig {
             // wants one posture for everybody sets this false, and the PATCH route
             // refuses naming the key rather than silently ignoring the preference.
             allow_user_overrides: true,
+            // Report, do not refuse, until an operator asks. See the field's doc.
+            scale_aware: false,
         }
     }
 }
@@ -834,6 +846,8 @@ struct ModulesSection {
     #[serde(default)]
     enabled: Vec<String>,
     allow_user_overrides: Option<bool>,
+    #[serde(default)]
+    scale_aware: Option<bool>,
 }
 
 /// Guests — real identities with a door that closes on MAU (spec §14.1).
@@ -3308,6 +3322,9 @@ impl Config {
                     allow_user_overrides: e
                         .allow_user_overrides
                         .unwrap_or_else(|| ModulesConfig::default().allow_user_overrides),
+                    scale_aware: e
+                        .scale_aware
+                        .unwrap_or_else(|| ModulesConfig::default().scale_aware),
                 }
             },
             guest: {

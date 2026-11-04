@@ -1,6 +1,6 @@
 {
  "generated_by": "scripts/ideas_catalogue.py",
- "count": 181,
+ "count": 180,
  "ideas": [
   {
    "why_summary": "",
@@ -214,19 +214,6 @@
    "why_summary": "-- Gaps review F2. Config history and rollback.",
    "id": "M45-46",
    "title": "Preview before apply",
-   "sources": [
-    "docs/requirements.csv"
-   ],
-   "milestone": "M45",
-   "relevance": 4,
-   "because": "a requirements row exists (+4)",
-   "default_on": false,
-   "built": false
-  },
-  {
-   "why_summary": "-- Gaps review F3. Small instances get simpler behavior, features unlock as they grow.",
-   "id": "M45-47",
-   "title": "Scale-aware activation",
    "sources": [
     "docs/requirements.csv"
    ],
