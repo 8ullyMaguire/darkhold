@@ -228,6 +228,26 @@ answer can say which ids are new. The first run reports everything and says so
 token gets a 401 there (measured). A view belongs to an account, so a view id is not a capability —
 a run against somebody else's view is a 404, not an empty diff.
 
+Those three verbs — list, read, record a run — also accept a **bearer token carrying
+`library.read`**, because a scheduled run cannot hold a cookie that expires in days. The verbs that
+create, rename and delete a view are still session-only: a token minted to read a view every six hours
+has no business deleting it, and the server answers `401` (wrong kind of credential) rather than `403`
+(too few scopes). `dh cron install` is what that widening is for:
+
+```
+dh cron install --saved weekly --every 6h --jitter 10m      # writes user units, prints the systemctl lines
+dh cron install --saved weekly --every 6h --dry-run         # prints the units, writes nothing
+dh cron list                                                # what is installed, read from the units
+```
+
+Three files under `~/.config/darkhold/cron/`, one per query: `<name>.timer`, `<name>.service`, and
+`<name>.env` holding `DARKHOLD_TOKEN` at mode `0600` and never printed. The service runs
+`dh rec --saved <name> --digest-diff`, so a timer's output is the difference since its last run. It
+does not run `systemctl`; it prints `systemctl --user daemon-reload` and
+`systemctl --user enable --now <name>.timer`, because a CLI that shells out to systemctl fails
+differently on every distro. `--every` takes a number and one of `s`/`m`/`h`/`d`: a bare `6` is
+refused, since systemd would read it as six seconds.
+
 `dh rec` searches a title and sorts a catalogue page. `dh q` is the other half: one expression in
 the full query language, sent to the same `/api/v1/search` endpoint the site's search box posts to,
 so an expression cannot mean one thing in a terminal and another in a URL:

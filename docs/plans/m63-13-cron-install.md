@@ -139,6 +139,28 @@ shells out to `systemctl` is a CLI that fails differently on every distro. `dh c
 reads the directory and prints `name · every · next run` from the timer files it can parse — the
 diagnostic that makes `--print` unnecessary in the common case.
 
+### Step 2b — deviations the implementation forced
+
+1. **Three verbs widened, not all six.** The plan said every `/saved-views` handler takes
+   `RequireActorScoped`. Built narrower, on purpose: `library.read` covers list, get and
+   record-a-run, which is what a timer needs, and the verbs that create, rename and delete stay
+   `RequireSession`. A token minted to read a view every six hours should not be able to delete it,
+   and there is no `library.write` scope to express "may write, may not destroy". The server answers
+   `401` there, not `403`: it is the wrong kind of credential, not one with too few scopes.
+2. **Recording a run needs `library.read`, not a write scope.** A run row is bookkeeping for a read
+   — it records what the page the account already saw contained — so requiring a write scope would
+   have made every scheduled `--digest-diff` need a privilege it has no other use for.
+3. **`--print` does not exist; `--dry-run` prints.** Two flags for one behaviour is a flag too many.
+4. **`--jitter` without `--every` cannot be tested because clap already requires `--every`.** The
+   refusal written for it in Step 2 was dead code and is not shipped.
+5. **The client had to learn the token too.** `dh rec` refused before the request (`set
+   DARKHOLD_COOKIE … DARKHOLD_TOKEN will not open it`), so the probe answered with the right words
+   for the wrong reason. `Credential` now resolves a cookie or a token, and `--save` keeps the
+   session-only arm — otherwise the CLI would send a token the server still answers `401` to.
+6. **The no-token refusal first named `dh token create --scope …`, which does not exist.** Caught by
+   reading the output of the probe rather than its exit code; it now names `POST /api/v1/me/tokens`
+   and the scope, which is the only way to mint one today.
+
 ### Step 4 — verification
 
 ```bash

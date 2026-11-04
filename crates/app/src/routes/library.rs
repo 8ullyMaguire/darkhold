@@ -911,9 +911,13 @@ fn view_json(row: &library::SavedView) -> serde_json::Value {
 /// The reader's saved views.
 async fn list_views(
     State(state): State<AppState>,
-    RequireSession(user): RequireSession,
+    RequireActorScoped { actor }: RequireActorScoped,
 ) -> ApiResult<Json<serde_json::Value>> {
-    let rows = library::saved_views_for(state.db(), &user.account_id.to_string()).await?;
+    // `library.read`: a session passes (its authority was settled at login), a token must carry
+    // it. This is the verb a timer runs, so it is the one that has to accept a token; the verbs
+    // that create, rename and delete stay session-only on purpose — see `create_view`.
+    let actor = actor.require(Scope::LibraryRead)?;
+    let rows = library::saved_views_for(state.db(), &actor.account_id.to_string()).await?;
     Ok(Json(serde_json::json!({
         "items": rows.iter().map(view_json).collect::<Vec<_>>(),
         "next_cursor": null,
@@ -1029,11 +1033,15 @@ struct RunBody {
 /// gets the same answer (M63-06).
 async fn record_view_run(
     State(state): State<AppState>,
-    RequireSession(user): RequireSession,
+    RequireActorScoped { actor }: RequireActorScoped,
     Path(id): Path<String>,
     Json(body): Json<RunBody>,
 ) -> ApiResult<Json<serde_json::Value>> {
-    let run = library::record_run(state.db(), &user.account_id.to_string(), &id, &body.ids)
+    // A run row is bookkeeping for a read, not a change to what the account can see, so a token
+    // holding only `library.read` may write it — otherwise every scheduled `--digest-diff` would
+    // need a write scope it has no other use for.
+    let actor = actor.require(Scope::LibraryRead)?;
+    let run = library::record_run(state.db(), &actor.account_id.to_string(), &id, &body.ids)
         .await?
         .ok_or_else(|| {
             ApiError(AppError::NotFound {
@@ -1050,10 +1058,11 @@ async fn record_view_run(
 /// One view.
 async fn get_view(
     State(state): State<AppState>,
-    RequireSession(user): RequireSession,
+    RequireActorScoped { actor }: RequireActorScoped,
     Path(id): Path<String>,
 ) -> ApiResult<Json<serde_json::Value>> {
-    let row = library::find_saved_view(state.db(), &user.account_id.to_string(), &id)
+    let actor = actor.require(Scope::LibraryRead)?;
+    let row = library::find_saved_view(state.db(), &actor.account_id.to_string(), &id)
         .await?
         .ok_or_else(|| {
             ApiError(AppError::NotFound {

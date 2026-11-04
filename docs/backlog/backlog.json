@@ -6,8 +6,8 @@
         "implemented-verified-e2e": 129,
         "implemented-locally-tested": 247,
         "unsupported": 4,
-        "implemented-fully-tested": 417,
-        "planned": 88,
+        "implemented-fully-tested": 418,
+        "planned": 87,
         "evaluated-and-rejected": 1
       }
     },
@@ -154,12 +154,6 @@
       "milestone": "M63",
       "requirement": "dh watch <saved-query> --exec '<cmd>' --notify ntfy|desktop|webhook: a debounced polling daemon",
       "notes": "Power-user sweep P12. The difference between a saved search and a workflow. Pluggable sinks so the notification path is not tied to one provider."
-    },
-    {
-      "id": "M63-13",
-      "milestone": "M63",
-      "requirement": "dh cron install --every 6h --jitter 10m: writes a systemd user timer for a saved query or recheck job",
-      "notes": "Power-user sweep P13. The instance already runs timers for fic-catalogue-ingest; this hands the same mechanism to a user without a unit file."
     },
     {
       "id": "M63-14",
@@ -555,7 +549,7 @@
   "open_by_milestone": {
     "M69": 25,
     "M45": 20,
-    "M63": 20,
+    "M63": 19,
     "M64": 14,
     "M66": 6,
     "M65": 1,

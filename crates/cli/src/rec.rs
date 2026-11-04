@@ -913,44 +913,83 @@ fn stored_view(item: &Value) -> StoredView {
     }
 }
 
-/// The session cookie, and the CSRF token carried beside it.
+/// Which credential opens a saved-view door, and what to say when neither does.
 ///
-/// `/saved-views` is a **session** surface: `RequireSession` reads the cookie the
-/// browser sends and never a bearer token (measured — a valid `DARKHOLD_TOKEN`
-/// gets a 401 there). `dh module` learned this first and this follows it, down to
-/// refusing with the variable that would work rather than the one that would not.
-fn session_cookie(cli: &Cli, why: &str) -> Result<(String, Option<String>), Failure> {
-    let raw = cli.cookie.clone().ok_or_else(|| {
-        auth_required(format!(
-            "{why}: set DARKHOLD_COOKIE (the session cookie — saving a view is a session \
-             operation, so DARKHOLD_TOKEN will not open it)"
-        ))
-    })?;
-    let csrf = raw
-        .split(';')
-        .filter_map(|pair| pair.trim().split_once('='))
-        .find(|(name, _)| name.trim() == "darkhold_csrf")
-        .map(|(_, value)| value.trim().to_owned());
-    Ok((raw, csrf))
+/// `/saved-views` used to be session-only (`M63-06` measured that a bearer token got a `401`
+/// there). `M63-13` widened the three verbs a scheduled run needs — list, get, record-a-run — to
+/// `RequireActorScoped` with `library.read`, because a timer cannot hold a cookie that expires in
+/// days. The verbs that create, rename and delete a view are still `RequireSession`, so a token
+/// here reads and records; the server answers `401`, not `403`, if one is pointed at the rest.
+#[derive(Debug, Clone)]
+enum Credential {
+    /// The session cookie the browser sends, plus the CSRF token carried beside it.
+    Session {
+        cookie: String,
+        csrf: Option<String>,
+    },
+    /// A bearer token, which is how an unattended run authenticates.
+    Token(String),
 }
 
-/// Attach the session, and the CSRF header a session request needs on a write.
-fn with_session(
+impl Credential {
+    /// Ask for one, naming both variables — and saying which one buys what.
+    fn resolve(cli: &Cli, why: &str) -> Result<Self, Failure> {
+        if let Some(cookie) = cli.cookie.clone() {
+            let csrf = cookie
+                .split(';')
+                .filter_map(|pair| pair.trim().split_once('='))
+                .find(|(name, _)| name.trim() == "darkhold_csrf")
+                .map(|(_, value)| value.trim().to_owned());
+            return Ok(Self::Session { cookie, csrf });
+        }
+        if let Some(token) = cli.token.clone() {
+            return Ok(Self::Token(token));
+        }
+        Err(auth_required(format!(
+            "{why}: set DARKHOLD_COOKIE (a session) or DARKHOLD_TOKEN (a token carrying \
+             `library.read`, which is what a scheduled run has)"
+        )))
+    }
+
+    /// A door that is still session-only: creating, renaming and deleting a view.
+    ///
+    /// `M63-13` widened the three verbs a schedule needs; it did not widen these. Saying so here
+    /// rather than letting the server answer `401` means the caller is told which variable works
+    /// instead of discovering that the one they set is the wrong kind of credential.
+    fn session_only(cli: &Cli, why: &str) -> Result<Self, Failure> {
+        if cli.cookie.is_none() {
+            return Err(auth_required(format!(
+                "{why}: set DARKHOLD_COOKIE (a session — creating or changing a view is a session \
+                 operation, so DARKHOLD_TOKEN will not open it)"
+            )));
+        }
+        Self::resolve(cli, why)
+    }
+}
+
+/// Attach the credential: a cookie and its CSRF header, or a bearer token.
+fn with_credential(
     request: reqwest::RequestBuilder,
-    cookie: &str,
-    csrf: Option<&str>,
+    credential: &Credential,
 ) -> reqwest::RequestBuilder {
-    let request = request.header(reqwest::header::COOKIE, cookie);
-    match csrf {
-        Some(token) => request.header("x-csrf-token", token),
-        None => request,
+    match credential {
+        Credential::Session { cookie, csrf } => {
+            let request = request.header(reqwest::header::COOKIE, cookie);
+            match csrf {
+                Some(token) => request.header("x-csrf-token", token),
+                None => request,
+            }
+        }
+        Credential::Token(token) => {
+            request.header(reqwest::header::AUTHORIZATION, format!("Bearer {token}"))
+        }
     }
 }
 
 async fn stored_views(cli: &Cli) -> Result<Vec<StoredView>, Failure> {
-    let (cookie, csrf) = session_cookie(
+    let credential = Credential::resolve(
         cli,
-        "saved views belong to an account, so this needs a session",
+        "saved views belong to an account, so this needs a session or a token",
     )?;
     let url = format!("{}/api/v1/saved-views", cli.base_url.trim_end_matches('/'));
     let client = reqwest::Client::builder()
@@ -958,7 +997,7 @@ async fn stored_views(cli: &Cli) -> Result<Vec<StoredView>, Failure> {
         .build()
         .map_err(|e| environment(format!("http client: {e}")))?;
     let (status, bytes) = crate::http::send(
-        || with_session(client.get(&url), &cookie, csrf.as_deref()),
+        || with_credential(client.get(&url), &credential),
         &cli.base_url,
     )
     .await?;
@@ -1049,7 +1088,7 @@ async fn save_query(cli: &Cli, target: &Target, args: &RecArgs, name: &str) -> R
              drop it to save the query",
         ));
     }
-    let (cookie, csrf) = session_cookie(cli, "--save writes a view to your account")?;
+    let credential = Credential::session_only(cli, "--save writes a view to your account")?;
     let payload = serde_json::json!({
         "name": name,
         "kind": "catalogue",
@@ -1062,7 +1101,7 @@ async fn save_query(cli: &Cli, target: &Target, args: &RecArgs, name: &str) -> R
         .build()
         .map_err(|e| environment(format!("http client: {e}")))?;
     let (status, bytes) = crate::http::send(
-        || with_session(client.post(&url).json(&payload), &cookie, csrf.as_deref()),
+        || with_credential(client.post(&url).json(&payload), &credential),
         &cli.base_url,
     )
     .await?;
@@ -1094,7 +1133,7 @@ async fn digest(cli: &Cli, view: &StoredView, body: Value) -> Result<(Value, Str
         .collect();
     let page = ids.len();
 
-    let (cookie, csrf) = session_cookie(cli, "--digest-diff records a run against a saved view")?;
+    let credential = Credential::resolve(cli, "--digest-diff records a run against a saved view")?;
     let url = format!(
         "{}/api/v1/saved-views/{}/runs",
         cli.base_url.trim_end_matches('/'),
@@ -1106,7 +1145,7 @@ async fn digest(cli: &Cli, view: &StoredView, body: Value) -> Result<(Value, Str
         .map_err(|e| environment(format!("http client: {e}")))?;
     let payload = serde_json::json!({ "ids": ids });
     let (status, bytes) = crate::http::send(
-        || with_session(client.post(&url).json(&payload), &cookie, csrf.as_deref()),
+        || with_credential(client.post(&url).json(&payload), &credential),
         &cli.base_url,
     )
     .await?;
@@ -1619,14 +1658,64 @@ mod tests {
     fn the_csrf_token_is_read_out_of_the_cookie_header() {
         let (mut cli, _args) = args(&["dh", "rec", "--queries"]);
         cli.cookie = Some("darkhold_session=s3cret; darkhold_csrf=c51f; other=1".to_owned());
-        let (_, csrf) = session_cookie(&cli, "test").expect("a cookie was set");
+        let Credential::Session { csrf, .. } =
+            Credential::resolve(&cli, "test").expect("a cookie was set")
+        else {
+            panic!("a cookie was set, so the credential is a session");
+        };
         assert_eq!(csrf.as_deref(), Some("c51f"));
 
         // A session with no CSRF cookie is not an error here — a GET needs none,
         // and the write paths let the server say so.
         cli.cookie = Some("darkhold_session=s3cret".to_owned());
-        let (_, csrf) = session_cookie(&cli, "test").expect("a cookie was set");
+        let Credential::Session { csrf, .. } =
+            Credential::resolve(&cli, "test").expect("a cookie was set")
+        else {
+            panic!("still a session");
+        };
         assert_eq!(csrf, None);
+    }
+
+    #[test]
+    fn a_token_is_the_credential_when_there_is_no_cookie() {
+        // M63-13: an unattended run has a token, not a cookie. The resolver prefers the cookie
+        // when both are present, because a session can do more than a token can.
+        let (mut cli, _args) = args(&["dh", "rec", "--queries"]);
+        cli.token = Some("t0ken".to_owned());
+        match Credential::resolve(&cli, "test").expect("a token was set") {
+            Credential::Token(token) => assert_eq!(token, "t0ken"),
+            Credential::Session { .. } => panic!("no cookie was set"),
+        }
+
+        cli.cookie = Some("darkhold_session=s3cret".to_owned());
+        assert!(
+            matches!(
+                Credential::resolve(&cli, "test"),
+                Ok(Credential::Session { .. })
+            ),
+            "the session wins when both are present: it can also create and delete views"
+        );
+
+        // Neither: the refusal names both variables, and says which one a schedule can use.
+        let (bare, _args) = args(&["dh", "rec", "--queries"]);
+        let failure = Credential::resolve(&bare, "saved views belong to an account")
+            .expect_err("no credential");
+        assert_eq!(failure.code, crate::exit::AUTH);
+        assert!(
+            failure.message.contains("DARKHOLD_COOKIE"),
+            "{}",
+            failure.message
+        );
+        assert!(
+            failure.message.contains("DARKHOLD_TOKEN"),
+            "{}",
+            failure.message
+        );
+        assert!(
+            failure.message.contains("library.read"),
+            "{}",
+            failure.message
+        );
     }
 
     #[test]

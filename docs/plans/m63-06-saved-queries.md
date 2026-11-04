@@ -1,5 +1,11 @@
 # M63-06 — saved queries, and a diff that means "new since last time"
 
+> **Superseded in part by `M63-13`**: the "cookie-only" finding below was true when it was
+> measured, and `dh cron install` needed a credential that survives a month. The three verbs a
+> scheduled run uses (list, get, record-a-run) now also accept a token carrying `library.read`;
+> create/rename/delete are still session-only. See `docs/plans/m63-13-cron-install.md`.
+
+
 Status: implementing. Row: `M63-06` (power-user). Idea source:
 `docs/ideas/2026-11-01-idea-sweep-power-users.md` (`--save`, `--digest-diff`).
 

@@ -1021,7 +1021,7 @@ pub const ROUTE_TABLE: &[RouteEntry] = &[
         handler: "list_views",
         method: "GET",
         path: "/saved-views",
-        audience: Audience::Authenticated,
+        audience: Audience::Scoped,
     },
     RouteEntry {
         file: "library.rs",
@@ -1035,7 +1035,7 @@ pub const ROUTE_TABLE: &[RouteEntry] = &[
         handler: "get_view",
         method: "GET",
         path: "/saved-views/{id}",
-        audience: Audience::Authenticated,
+        audience: Audience::Scoped,
     },
     RouteEntry {
         file: "library.rs",
@@ -1056,7 +1056,7 @@ pub const ROUTE_TABLE: &[RouteEntry] = &[
         handler: "record_view_run",
         method: "POST",
         path: "/saved-views/{id}/runs",
-        audience: Audience::Authenticated,
+        audience: Audience::Scoped,
     },
     RouteEntry {
         file: "library.rs",

@@ -1,6 +1,6 @@
 {
  "generated_by": "scripts/ideas_catalogue.py",
- "count": 182,
+ "count": 181,
  "ideas": [
   {
    "why_summary": "",
@@ -344,19 +344,6 @@
    "why_summary": "docs/ideas/2026-11-01-idea-sweep-power-users.md Power-user sweep P11. Batch editorial work on 500 rows must be resumable and reversible; a partial failure that cannot be resumed is",
    "id": "M63-11",
    "title": "dh lib tag --from-csv with a per-row error report and a rollback file; dh lib diff and push --dry-run before any bulk write",
-   "sources": [
-    "docs/requirements.csv"
-   ],
-   "milestone": "M63",
-   "relevance": 4,
-   "because": "a requirements row exists (+4)",
-   "default_on": false,
-   "built": false
-  },
-  {
-   "why_summary": "docs/ideas/2026-11-01-idea-sweep-power-users.md Power-user sweep P13. The instance already runs timers for fic-catalogue-ingest; this hands the same mechanism to a user without a u",
-   "id": "M63-13",
-   "title": "dh cron install --every 6h --jitter 10m",
    "sources": [
     "docs/requirements.csv"
    ],

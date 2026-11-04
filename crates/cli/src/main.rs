@@ -16,6 +16,7 @@
 //! found, `4` auth, `5` rate-limited — defined once in [`exit`] and documented in
 //! `docs/cli-exit-codes.md`, because a wrapper script decides what to do from that number alone.
 
+mod cron;
 mod exit;
 mod gen;
 mod http;
@@ -28,6 +29,8 @@ mod safety;
 mod supply;
 
 use clap::{Parser, Subcommand};
+
+use crate::cron::CronArgs;
 
 /// Query a Darkhold catalogue from a terminal.
 #[derive(Debug, Parser)]
@@ -125,6 +128,13 @@ pub enum Command {
         #[command(subcommand)]
         action: Box<supply::SupplyArgs>,
     },
+    /// Install a systemd user timer that runs a saved query on a schedule.
+    ///
+    /// `dh cron install --saved weekly --every 6h --jitter 10m` writes three files under
+    /// `~/.config/darkhold/cron/`: the timer, the service, and a `0600` environment file holding
+    /// a token that carries `library.read`. It does not run `systemctl`; it prints the two
+    /// commands. `--dry-run` prints the units and writes nothing.
+    Cron(CronArgs),
     /// §59: what this instance runs, and what it could. `list` and `show` read the
     /// server; `check` validates a config file without one.
     Module {
@@ -205,6 +215,13 @@ async fn main() -> std::process::ExitCode {
             }
         },
         Command::Supply { action } => match supply::run(&cli, action).await {
+            Ok(()) => std::process::ExitCode::SUCCESS,
+            Err(error) => {
+                eprintln!("{error}");
+                std::process::ExitCode::from(error.code)
+            }
+        },
+        Command::Cron(args) => match cron::run(&cli, args).await {
             Ok(()) => std::process::ExitCode::SUCCESS,
             Err(error) => {
                 eprintln!("{error}");
