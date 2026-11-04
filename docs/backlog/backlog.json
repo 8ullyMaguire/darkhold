@@ -6,8 +6,8 @@
         "implemented-verified-e2e": 129,
         "implemented-locally-tested": 247,
         "unsupported": 4,
-        "implemented-fully-tested": 416,
-        "planned": 89,
+        "implemented-fully-tested": 417,
+        "planned": 88,
         "evaluated-and-rejected": 1
       }
     },
@@ -136,12 +136,6 @@
       "milestone": "M63",
       "requirement": "`dh rec --link epub`: a link a reader can actually download from, once this instance has a download route",
       "notes": "Split out of M63-05 on 2026-11-02: that row asked for `--link md|epub|url` and there is no export route to point at, so the flag refuses with its reason rather than printing a 404 with a file extension. The link shape is already decided by `output.rs` \u2014 one line per row, absolute URL, no table \u2014 so what is missing is the endpoint, not the format. Planned rather than unsupported because the reader has no download route yet, not because the idea is wrong. Default off: a download link is a promise the binary can serve the file."
-    },
-    {
-      "id": "M63-09",
-      "milestone": "M63",
-      "requirement": "dh q --from-file with .darkhold/queries/*.q: the user's query library is a versioned file, not browser history",
-      "notes": "Power-user sweep P9. Same shape as the instance's own config: reviewable, diffable, shareable."
     },
     {
       "id": "M63-10",
@@ -560,8 +554,8 @@
   ],
   "open_by_milestone": {
     "M69": 25,
-    "M63": 21,
     "M45": 20,
+    "M63": 20,
     "M64": 14,
     "M66": 6,
     "M65": 1,

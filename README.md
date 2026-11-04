@@ -255,6 +255,36 @@ at. There is no second parser here to disagree with it.
 The caret sits at the parser's offset, which for a mistake that is a whole token is the token's
 first character.
 
+An expression worth keeping goes in a file, because a file is versioned, diffable and reviewable in a
+way a shell history is not. `--from-file` reads it from `.darkhold/queries/<name>.q` (a name with a
+slash is a path; a file beside the caller is the fallback):
+
+```
+   .darkhold/queries/weekly.q
+     # weekly scan: naruto, updated this week, at least 100 kudos
+     tag:naruto AND updated>=-7d
+     AND kudos:>=100
+
+   $ dh q --from-file weekly
+```
+
+`#` starts a comment at the start of a line or after whitespace — a tag spelled `#angst` survives,
+because there is no escape rule in the grammar to inherit. Blank lines are skipped, each line is
+trimmed, and the lines are joined with one space, which is the string the server parses. The offset map
+is kept, so a rejection points into the file and not into a join the reader never typed:
+
+```
+   $ dh q --from-file bad
+   .darkhold/queries/bad.q:3:12
+   kudos:>=abc
+              ^
+   kudos >= takes an integer, got "abc" at offset 26
+   (exit 2)
+```
+
+Passing an expression as an argument *and* `--from-file` is refused: one of the two would be silently
+ignored, and silence is the one thing a query tool cannot afford.
+
 `dh q --explain` prints the **query plan** instead of hits — the engine that planned it, the
 statement it was asked about, the access path, and the indexes the plan names:
 
