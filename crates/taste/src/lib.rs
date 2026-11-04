@@ -61,7 +61,13 @@ pub mod diversify;
 
 /// Ranking metrics: `nDCG@10`, `recall@50`, `precision@k`, `F1@k`, `AP@k` and overlap, which is how
 /// "we match kindred" becomes a number instead of a claim (spec §8.3, R-6).
-pub mod eval;
+/// The ranking metrics, re-exported from `polaris-eval`: nDCG, recall, precision, MAP and the parity report.
+///
+/// A re-export rather than a module so this crate's existing paths (`crate::eval::ndcg_at`,
+/// `darkhold_taste::eval::Judgement`) keep working unchanged — the callers never learn the code moved.
+pub mod eval {
+    pub use polaris_eval::*;
+}
 
 /// The baseline ladder: every rung a recommender is placed against on one split, and the
 /// pre-registered conjunction a challenger has to clear (spec §12.7a, §24.4; requirement M64-16).

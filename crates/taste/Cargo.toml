@@ -23,6 +23,10 @@ path = "src/main.rs"
 # happened to be there, and a ranking that depends on the archive's state is not a
 # ranking that can be measured (spec §8.3).
 darkhold-domain = { path = "../domain" }
+# The ranking metrics moved out on 2026-11-04: `polaris-search` scores a candidate ranking with the same
+# nDCG/recall this crate's parity harness uses, and two implementations of a metric is two published numbers
+# for one ranking. Path dependency until the Forgejo registry answers (see the crate's README).
+polaris-eval = { path = "../../../../polaris-eval" }
 serde.workspace = true
 serde_json.workspace = true
 # The service mode's HTTP surface: the `taste` binary serves `/healthz`, and it

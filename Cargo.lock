@@ -858,6 +858,7 @@ version = "0.1.0"
 dependencies = [
  "axum",
  "darkhold-domain",
+ "polaris-eval",
  "serde",
  "serde_json",
  "tokio",
@@ -2139,6 +2140,10 @@ dependencies = [
  "flate2",
  "miniz_oxide 0.8.9",
 ]
+
+[[package]]
+name = "polaris-eval"
+version = "0.1.0"
 
 [[package]]
 name = "polaris-oidc-client"
