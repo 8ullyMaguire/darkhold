@@ -279,7 +279,7 @@ async fn search(
             Support::Blocked(reason) => {
                 return Err(invalid(format!(
                     "sort: \"{}\" is not available yet — {reason}",
-                    metric.as_str()
+                    metric.refusal_name(sort_word)
                 )))
             }
             Support::Raw => return Ok(Json(search_raw(state, params).await?).into_response()),

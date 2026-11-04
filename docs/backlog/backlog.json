@@ -6,8 +6,8 @@
         "implemented-verified-e2e": 129,
         "implemented-locally-tested": 247,
         "unsupported": 4,
-        "implemented-fully-tested": 413,
-        "planned": 92,
+        "implemented-fully-tested": 415,
+        "planned": 90,
         "evaluated-and-rejected": 1
       }
     },
@@ -132,12 +132,6 @@
       "notes": "Gaps review G6. Operators are legally responsible for their own instance."
     },
     {
-      "id": "M63-03",
-      "milestone": "M63",
-      "requirement": "dh rec --sort accepts any registered metric name (wilson, kudos, kudos_per_1k_views, kudos_per_hour, completion, updater_reliability, hidden_gem, freshness_weighted_quality)",
-      "notes": "Weights: quality = 0.40 source_pct + 0.25 consensus + 0.15 engagement_density + 0.10 crosspost + 0.10 confidence, renormalised over the signals a row has. source_pct is a RAW percentile among engaged rows with both ends anchored (0 = bottom, 1 = best of its own archive) because two earlier guardrails each made the achievable maximum depend on n and put 34 of the top 40 rows in the largest archive; evidence is the separate `confidence` signal instead. Gate: `ranked N of M`, and `measured: false` on rows the metric could not score. velocity, hidden_gem, likes_per_view and wilson are refused by name with the work item that unblocks them (M63-32)."
-    },
-    {
       "id": "M63-05b",
       "milestone": "M63",
       "requirement": "`dh rec --link epub`: a link a reader can actually download from, once this instance has a download route",
@@ -148,12 +142,6 @@
       "milestone": "M63",
       "requirement": "Saved queries: dh rec --save <name>, shareable URL, schedulable, with --digest-diff printing only rows new since that query last ran",
       "notes": "Power-user sweep P6. Builds on the saved-query shelf work already in discussion; --digest-diff is the actual recurring need behind a weekly ritual. Vocabulary, decided 2026-11-02: these are **Saved Filters** (the spec's saved views), and the stream one produces is a **feed**; \"lens\" is retired. M69-21 is the same object's public half, so implement the storage once \u2014 a `--save` here writes the view M69-21 can share."
-    },
-    {
-      "id": "M63-08",
-      "milestone": "M63",
-      "requirement": "dh q --explain prints the query plan and index used; parse errors point at the token and exit 2",
-      "notes": "Power-user sweep P8. Slow-query diagnosis without psql, and a usage error distinguishable from a runtime error by exit code."
     },
     {
       "id": "M63-09",
@@ -578,7 +566,7 @@
   ],
   "open_by_milestone": {
     "M69": 25,
-    "M63": 24,
+    "M63": 22,
     "M45": 20,
     "M64": 14,
     "M66": 6,

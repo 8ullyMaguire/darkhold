@@ -323,10 +323,132 @@ async fn a_blocked_metric_names_the_work_that_unblocks_it() {
 async fn an_unknown_metric_is_refused_rather_than_silently_reordered() {
     let harness = Harness::new("unknown").await;
     let mut client = harness.client();
-    let (status, body) = client.get("/api/v1/catalogue?sort=kudos").await;
+    // `kudos` is a name now (M63-03), so the refusal is pinned to its typo.
+    let (status, body) = client.get("/api/v1/catalogue?sort=kudos2").await;
     assert_eq!(status, StatusCode::UNPROCESSABLE_ENTITY, "body: {body}");
     let message = body["error"]["message"].as_str().unwrap_or_default();
     assert!(message.contains("unknown sort"), "{message}");
+}
+
+/// `completion` is a stored column, so it must answer as a plain catalogue page
+/// ordered by the status *rank* — a row with the fewest likes but a finished
+/// state leads, which no string order and no likes order would produce.
+#[tokio::test]
+async fn completion_orders_finished_works_first_and_stays_a_plain_page() {
+    let harness = Harness::new("completion").await;
+    let (mut client, account) = reader(&harness, "m6303done").await;
+    seed(&harness.db, &account).await;
+    // `sb-1` carries the fewest likes of the engaged rows.
+    match harness.db.backend() {
+        darkhold_db::Backend::Postgres => {
+            sqlx::query("UPDATE library_items SET status = 'complete' WHERE source_work_key = $1")
+                .bind("sb-1")
+                .execute(harness.db.postgres_pool().expect("postgres"))
+                .await
+                .expect("mark one work complete");
+        }
+        darkhold_db::Backend::Sqlite => {
+            sqlx::query("UPDATE library_items SET status = 'complete' WHERE source_work_key = ?")
+                .bind("sb-1")
+                .execute(harness.db.sqlite_pool().expect("sqlite"))
+                .await
+                .expect("mark one work complete");
+        }
+    }
+
+    let (status, body) = client.get("/api/v1/catalogue?sort=completion").await;
+    assert_eq!(status, StatusCode::OK, "body: {body}");
+    assert_eq!(body["sort"], "completion");
+    assert!(
+        body.get("metric").is_none(),
+        "a column sort is not a metric ranking: {body}"
+    );
+    let first = body["items"]
+        .as_array()
+        .expect("items")
+        .first()
+        .expect("a page");
+    assert_eq!(
+        first["source_work_key"], "sb-1",
+        "the finished work leads despite the fewest likes: {first}"
+    );
+    assert_eq!(first["status"], "complete");
+}
+
+/// The archive's own word for the imported count answers the same page. If the
+/// alias were only in the metric vocabulary, the raw path would refuse it with
+/// `unknown sort: kudos` — the exact dead end this row exists to close.
+#[tokio::test]
+async fn the_kudos_spelling_answers_the_same_page_as_likes() {
+    let harness = Harness::new("kudos").await;
+    let (mut client, account) = reader(&harness, "m6303kudos").await;
+    seed(&harness.db, &account).await;
+
+    let (status, kudos) = client.get("/api/v1/catalogue?sort=kudos").await;
+    assert_eq!(status, StatusCode::OK, "body: {kudos}");
+    let (_, likes) = client.get("/api/v1/catalogue?sort=likes").await;
+    let keys = |page: &Value| -> Vec<String> {
+        page["items"]
+            .as_array()
+            .expect("items")
+            .iter()
+            .map(|item| {
+                item["source_work_key"]
+                    .as_str()
+                    .unwrap_or_default()
+                    .to_owned()
+            })
+            .collect()
+    };
+    assert_eq!(keys(&kudos), keys(&likes), "one count, two words");
+}
+
+/// `freshness_weighted_quality` is a computed metric, so the name has to reach the
+/// ranker and come back with the gate. Every seeded row shares one source date,
+/// so this asserts the wiring, not a spread the fixture cannot produce.
+#[tokio::test]
+async fn a_freshness_weighted_quality_answers_as_a_metric_page() {
+    let harness = Harness::new("fwq").await;
+    let (mut client, account) = reader(&harness, "m6303fwq").await;
+    seed(&harness.db, &account).await;
+
+    let (status, body) = client
+        .get("/api/v1/catalogue?sort=freshness_weighted_quality")
+        .await;
+    assert_eq!(status, StatusCode::OK, "body: {body}");
+    assert_eq!(body["metric"], "freshness_weighted_quality");
+    assert_eq!(body["ranked"], 9, "nine rows carry an endorsement: {body}");
+    assert!(
+        body["items"][0]["score"].as_f64().is_some(),
+        "a ranked metric carries a score: {}",
+        body["items"][0]
+    );
+}
+
+/// The two names the catalogue cannot compute yet say so, and name the work that
+/// unblocks them — never `unknown sort`.
+#[tokio::test]
+async fn a_rate_without_snapshots_is_refused_by_name() {
+    let harness = Harness::new("rates").await;
+    let mut client = harness.client();
+    for word in [
+        "kudos_per_hour",
+        "updater_reliability",
+        // An alias answers in its own words, not the canonical name's.
+        "kudos_per_1k_views",
+    ] {
+        let (status, body) = client.get(&format!("/api/v1/catalogue?sort={word}")).await;
+        assert_eq!(status, StatusCode::UNPROCESSABLE_ENTITY, "{word}: {body}");
+        let message = body["error"]["message"].as_str().unwrap_or_default();
+        assert!(
+            message.contains(word),
+            "{word} is echoed, not renamed: {message}"
+        );
+        assert!(
+            message.contains("M63-32"),
+            "{word} names what unblocks it: {message}"
+        );
+    }
 }
 
 #[tokio::test]

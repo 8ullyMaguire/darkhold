@@ -190,6 +190,23 @@ different from the same window in a URL: `7d`, `>30d`, `@2026-10-27`,
 needs `DARKHOLD_TOKEN`, because the engines rank against what the calling account
 has already read; a plain catalogue query does not.
 
+`--sort` takes two kinds of name and answers both, never `unknown sort` for a
+name this product has an opinion about. `dh rec --list-metrics` prints the whole
+vocabulary with each name's status:
+
+```
+dh rec --sort kudos                 # AO3's word for the imported count (= likes)
+dh rec --sort completion            # complete, ongoing, hiatus, unknown, cancelled
+dh rec --sort freshness_weighted_quality   # quality × exp(-days/180)
+dh rec --sort wilson ; echo $?      # 2: "not available yet — views are null … (M63-32 imports them)"
+```
+
+A computed metric ranks in memory and answers with the gate (`ranked N of M`); a
+stored column is an `ORDER BY`; and a name whose input does not exist yet is a
+`422` (exit 2) that names both the missing input and the requirement row that
+supplies it. A word nobody registered is still refused, so a typo cannot be
+answered with a likes order under another name.
+
 `dh rec` searches a title and sorts a catalogue page. `dh q` is the other half: one expression in
 the full query language, sent to the same `/api/v1/search` endpoint the site's search box posts to,
 so an expression cannot mean one thing in a terminal and another in a URL:

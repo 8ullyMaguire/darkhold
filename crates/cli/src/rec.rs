@@ -487,6 +487,10 @@ pub fn metrics_list() -> String {
     }
     out.push_str("\nraw = a stored column ordered in SQL. triage = metadata order for rows with no endorsement data.\n");
     out.push_str("* = refused with the reason and the work item that unblocks it.\n");
+    out.push_str(concat!(
+        "aliases: kudos = likes, kudos_per_1k_views = likes_per_view, ",
+        "status = completion, fresh_quality = freshness_weighted_quality\n"
+    ));
     out
 }
 
@@ -1053,6 +1057,10 @@ mod tests {
             "cohort_pct",
             "recency",
             "unmeasured",
+            "freshness_weighted_quality",
+            "completion",
+            "kudos_per_hour",
+            "updater_reliability",
         ] {
             assert!(text.contains(name), "{name} missing from:\n{text}");
         }
@@ -1065,6 +1073,10 @@ mod tests {
             "and say what unblocks them: {text}"
         );
         assert!(
+            text.contains("aliases: kudos = likes"),
+            "the words that are not canonical names are listed too: {text}"
+        );
+        assert!(
             text.contains("raw"),
             "the stored columns are still there: {text}"
         );
@@ -1074,6 +1086,17 @@ mod tests {
     fn a_sort_word_outside_the_vocabulary_is_refused_locally() {
         assert!(validate_sort("source_pct").is_ok());
         assert!(validate_sort("wilson").is_ok());
+        // M63-03: the row's own words are names now, blocked or not.
+        for word in [
+            "kudos",
+            "kudos_per_1k_views",
+            "kudos_per_hour",
+            "completion",
+            "updater_reliability",
+            "freshness_weighted_quality",
+        ] {
+            assert!(validate_sort(word).is_ok(), "{word} must be a name");
+        }
         let failure = validate_sort("wilson2").expect_err("unknown");
         assert_eq!(failure.code, 2);
         assert!(failure.message.contains("--list-metrics"));

@@ -1,6 +1,6 @@
 {
  "generated_by": "scripts/ideas_catalogue.py",
- "count": 185,
+ "count": 184,
  "ideas": [
   {
    "why_summary": "",
@@ -309,19 +309,6 @@
     "docs/requirements.csv"
    ],
    "milestone": "M45",
-   "relevance": 4,
-   "because": "a requirements row exists (+4)",
-   "default_on": false,
-   "built": false
-  },
-  {
-   "why_summary": "crates/domain/src/quality.rs (20 metric names + ranker, 22 unit tests); crates/db/src/metrics.rs (candidate population, gate counts, full-row join); /catalogue?sort= and /rec/run?s",
-   "id": "M63-03",
-   "title": "dh rec --sort accepts any registered metric name (wilson, kudos, kudos_per_1k_views, kudos_per_hour, completion, updater_reliability, hidden_gem, freshness_weighted_quality)",
-   "sources": [
-    "docs/requirements.csv"
-   ],
-   "milestone": "M63",
    "relevance": 4,
    "because": "a requirements row exists (+4)",
    "default_on": false,
