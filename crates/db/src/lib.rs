@@ -125,6 +125,7 @@ pub mod finishers;
 pub mod tasting;
 pub mod taxonomy;
 pub mod taxonomy_export;
+pub mod theme_schedule;
 pub mod thread_modes;
 pub mod translation;
 pub mod trust_events;

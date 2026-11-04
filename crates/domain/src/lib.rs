@@ -89,6 +89,7 @@ pub mod typed_votes;
 pub mod vote_decay;
 pub mod vote_decay_sql;
 pub mod webhook;
+pub mod theme_window;
 pub mod window;
 pub mod wip_adoption;
 pub mod work_discussion;
