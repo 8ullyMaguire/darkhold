@@ -1,6 +1,6 @@
 {
  "generated_by": "scripts/ideas_catalogue.py",
- "count": 186,
+ "count": 185,
  "ideas": [
   {
    "why_summary": "",
@@ -344,19 +344,6 @@
    "why_summary": "docs/ideas/2026-11-01-idea-sweep-power-users.md Power-user sweep P6. Builds on the saved-query shelf work already in discussion; --digest-diff is the actual recurring need behind a",
    "id": "M63-06",
    "title": "Saved queries",
-   "sources": [
-    "docs/requirements.csv"
-   ],
-   "milestone": "M63",
-   "relevance": 4,
-   "because": "a requirements row exists (+4)",
-   "default_on": false,
-   "built": false
-  },
-  {
-   "why_summary": "docs/ideas/2026-11-01-idea-sweep-power-users.md Power-user sweep P8. Slow-query diagnosis without psql, and a usage error distinguishable from a runtime error by exit code.",
-   "id": "M63-08",
-   "title": "dh q --explain prints the query plan and index used; parse errors point at the token and exit 2",
    "sources": [
     "docs/requirements.csv"
    ],
