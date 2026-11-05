@@ -21,6 +21,8 @@ pub mod derivative;
 pub mod doctor;
 pub mod estate_search;
 pub mod exports;
+// The HTTP half of a feed: which format, what content type, what ETag. Rendering lives in `commons-feed`.
+pub mod feed_http;
 pub mod fixity;
 pub mod html;
 pub mod http;

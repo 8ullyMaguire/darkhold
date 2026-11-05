@@ -38,8 +38,6 @@ pub mod exports;
 pub mod extension;
 pub mod external_seed;
 pub mod fairqueue;
-pub mod feed;
-pub mod feeds;
 pub mod finishers;
 pub mod flows;
 pub mod generated_content;

@@ -61,6 +61,24 @@ pub const MODULES: &[Module] = &[
         source: "crates/app/src/routes/admin_discovery.rs",
     },
     Module {
+        id: "admin_fixity",
+        name: "Admin Fixity",
+        summary: "W5 §2.3 — the operator's fixity view: re-read stored bytes and show what disagrees.",
+        // On by default: an operator surface nobody else can see, and an archive that cannot check its own
+        // bytes is the one thing this module exists to prevent. Registered rather than mounted unregistered,
+        // because `module_mount` only mounts ids the instance knows — an unregistered id is a route that
+        // answers `404 MODULE_UNAVAILABLE` forever, which is exactly what the first deploy did.
+        default_on: true,
+        stability: Stability::Stable,
+        toggle: Toggle::Operator,
+        requires: &[],
+        milestone: "W5",
+        spec: "§W5",
+        nav: &[],
+        relevance: 10,
+        source: "crates/app/src/routes/admin_fixity.rs",
+    },
+    Module {
         id: "analytics",
         name: "Analytics",
         summary: "Trust-gated analytics over HTTP (`docs/spec-amendments/trust-gated-analytics.md`).",
