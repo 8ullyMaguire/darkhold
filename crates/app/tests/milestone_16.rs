@@ -390,6 +390,14 @@ async fn webhook_delivery_records_to_outbox() {
         .await
         .expect("list webhooks");
     assert!(!webhooks.is_empty(), "webhook should be active");
+    // The row a sender reads must carry the secret it signs with. This assertion is the whole point: the query
+    // omitted `secret`, so every delivery was signed with an empty key and no receiver could verify it — while
+    // `is_empty` stayed happily false. A test that only asks "is there a webhook" says yes to a webhook no
+    // subscriber can trust.
+    assert_eq!(
+        webhooks[0]["secret"], "whsec_delivery_secret",
+        "the endpoint row handed to the sender must include the signing secret"
+    );
 
     harness.cleanup().await;
 }

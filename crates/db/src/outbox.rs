@@ -114,6 +114,76 @@ pub async fn pending(db: &Database, limit: i64) -> Result<Vec<OutboxEvent>> {
     Ok(rows)
 }
 
+/// The oldest undelivered events a worker **that can handle them** may take.
+///
+/// `pending` answers a different question: "what is waiting?", oldest first, whatever the topic. A worker that took
+/// that batch could be handed a topic it has no handler for, and the honest response is to defer it — which is what
+/// this estate did for months. `outbox_events` accumulated 40,664 rows for topics nothing consumes
+/// (`work.published`, `publish.index`), every pass took the same oldest fifty, deferred all fifty, and a fresh
+/// `comment.posted` sat behind 40k unclaimable rows: `attempts` stayed 0 and a webhook never fired even after the
+/// producer existed. A queue ordered oldest-first is only fair if the worker can take what it is handed.
+///
+/// Empty `topics` means "nothing is claimable here" — not "everything", which is how a starved worker is built.
+pub async fn claimable(
+    db: &Database,
+    topics: &[String],
+    limit: i64,
+) -> Result<Vec<OutboxEvent>> {
+    if topics.is_empty() || limit <= 0 {
+        return Ok(Vec::new());
+    }
+
+    // Postgres numbers its parameters and SQLite does not, and `now` is bound first, so Postgres topics start at
+    // $2. Getting that off by one is a 500 at runtime and a green compile, which is why the gate exercises the
+    // deployment and not only the unit tests.
+    let statement = match db.backend() {
+        Backend::Sqlite => format!(
+            "SELECT id, topic, payload, attempts, created_at FROM outbox_events
+              WHERE delivered_at IS NULL AND claimed_at IS NULL AND available_at <= ?
+                AND topic IN ({})
+              ORDER BY created_at ASC LIMIT ?",
+            vec!["?"; topics.len()].join(", ")
+        ),
+        Backend::Postgres => format!(
+            "SELECT id::text AS id, topic, payload, attempts, created_at FROM outbox_events
+              WHERE delivered_at IS NULL AND claimed_at IS NULL AND available_at <= $1
+                AND topic IN ({})
+              ORDER BY created_at ASC LIMIT ${}",
+            (2..=topics.len() + 1)
+                .map(|index| format!("${index}"))
+                .collect::<Vec<_>>()
+                .join(", "),
+            topics.len() + 2
+        ),
+    };
+
+    let rows: Vec<OutboxEvent> = match db.backend() {
+        Backend::Sqlite => {
+            let mut query = sqlx::query_as::<_, OutboxEvent>(&statement);
+            query = query.bind(now_rfc3339());
+            for topic in topics {
+                query = query.bind(topic.clone());
+            }
+            query
+                .bind(limit)
+                .fetch_all(db.sqlite_pool().expect("sqlite handle"))
+                .await?
+        }
+        Backend::Postgres => {
+            let mut query = sqlx::query_as::<_, OutboxEvent>(&statement);
+            query = query.bind(now_rfc3339());
+            for topic in topics {
+                query = query.bind(topic.clone());
+            }
+            query
+                .bind(limit)
+                .fetch_all(db.postgres_pool().expect("postgres handle"))
+                .await?
+        }
+    };
+    Ok(rows)
+}
+
 /// Mark an event delivered.
 pub async fn mark_delivered(db: &Database, id: OutboxEventId) -> Result<()> {
     let sql = db.sql(
