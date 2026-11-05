@@ -243,6 +243,50 @@ mod signature_tests {
     }
 }
 
+/// One page of this subject's inbox, mapped nowhere: the caller decides the shape.
+///
+/// `None` means "the inbox did not answer", which is not the same as "no notifications" — the adapter uses the
+/// difference to fall back to the local table instead of showing an empty bell to someone who has mail.
+pub async fn list(subject: &str, limit: u32) -> Option<serde_json::Value> {
+    let assertion = subject_assertion(subject, "GET", "/api/v1/inbox")?;
+    let client = reqwest::Client::builder()
+        .timeout(std::time::Duration::from_millis(1500))
+        .build()
+        .ok()?;
+    let response = client
+        .get(format!("{}/api/v1/inbox?limit={limit}", base()))
+        .header("x-inbox-assertion", assertion)
+        .send()
+        .await
+        .ok()?;
+    if !response.status().is_success() {
+        return None;
+    }
+    response.json().await.ok()
+}
+
+/// Mark specific events read. Ids are event ids, which is what the inbox list returns.
+pub async fn mark_read(subject: &str, ids: &[String]) -> bool {
+    let Some(assertion) = subject_assertion(subject, "POST", "/api/v1/inbox/read") else {
+        return false;
+    };
+    let Ok(client) = reqwest::Client::builder()
+        .timeout(std::time::Duration::from_millis(1500))
+        .build()
+    else {
+        return false;
+    };
+    matches!(
+        client
+            .post(format!("{}/api/v1/inbox/read", base()))
+            .header("x-inbox-assertion", assertion)
+            .json(&serde_json::json!({ "ids": ids }))
+            .send()
+            .await,
+        Ok(response) if response.status().is_success()
+    )
+}
+
 /// Mark every unread event read for this subject. What a bell does when it is clicked: the number is the
 /// question, and clearing it is the answer the person meant.
 pub async fn mark_all_read(subject: &str) -> Result<u64, String> {

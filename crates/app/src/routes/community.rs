@@ -513,6 +513,26 @@ async fn post_reply(
                 None,
             )
             .await;
+
+            // And the estate's inbox, which is what the bell now reads. The local row above stays for the
+            // length of the transition, because it is the fallback when the inbox is unreachable — but it is a
+            // fallback, not a second inbox: the list prefers the estate and says which source it used.
+            if author.account_id != user.account_id {
+                crate::inbox::emit_in_background(
+                    "darkhold",
+                    crate::inbox::Event {
+                        kind: "reply".into(),
+                        recipients: vec![author.account_id.to_string()],
+                        actor_sub: Some(user.account_id.to_string()),
+                        actor_handle: None,
+                        object_kind: Some("topic".into()),
+                        object_id: Some(id.clone()),
+                        object_url: Some(format!("/topics/{id}")),
+                        object_title: Some(topic.title.clone()),
+                        dedupe_key: format!("darkhold:reply:{pid}:{}", author.account_id),
+                    },
+                );
+            }
         }
     }
 
