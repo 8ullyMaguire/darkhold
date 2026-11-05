@@ -78,6 +78,20 @@ struct Inner {
     /// changing what an instance runs is a restart, which is what a config file
     /// edit already means.
     modules: darkhold_domain::modules::ModuleState,
+    /// M45-47 — how big this instance is, counted once.
+    ///
+    /// A `OnceCell` on the instance, not a field resolved at startup, because the
+    /// counts need the database and `AppState::new` is synchronous by design (tests
+    /// build a router without a runtime). Counting once per process is also the
+    /// honest granularity: a mechanism crosses its threshold on the scale of days,
+    /// and a `COUNT(*)` per request would be a tax on the page least able to afford
+    /// it. The consequence is stated where a reader will meet it: **a restart is
+    /// what re-measures an instance**, the same way a restart is what re-reads the
+    /// config.
+    scale: Arc<tokio::sync::OnceCell<darkhold_domain::modules::Scale>>,
+    /// M45-48: what this machine is. Measured once — RAM does not change under a
+    /// process, and a tier that moves under load is a tier no test can pin.
+    capacity: Arc<tokio::sync::OnceCell<darkhold_domain::capacity::Capacity>>,
 }
 
 impl AppState {
@@ -124,6 +138,8 @@ impl AppState {
                 taste: crate::taste::TasteClient::from_env(),
                 shadow_report: crate::rec_shadow::ReportSlot::default(),
                 modules,
+                scale: Arc::new(tokio::sync::OnceCell::new()),
+                capacity: Arc::new(tokio::sync::OnceCell::new()),
             }),
         }
     }
@@ -217,6 +233,66 @@ impl AppState {
         &self.inner.modules
     }
 
+    /// How big this instance is, counted once (M45-47).
+    ///
+    /// `active_readers` counts accounts that are neither deleted nor in a non-active
+    /// status (`deleted_at IS NULL AND status = 'active'` — the schema's spelling, not
+    /// a `suspended_at` column this table does not have); `active_works` counts work
+    /// rows. Both are `COUNT(*)` — facts, not scores — and the first
+    /// caller pays for them. A failed count is **zero**, deliberately: a mechanism
+    /// that cannot measure its instance should stay dormant, because turning on a
+    /// crowd feature on the strength of a failed query is how "nothing here" pages
+    /// get shipped.
+    pub async fn scale(&self) -> darkhold_domain::modules::Scale {
+        let scale = self
+            .inner
+            .scale
+            .get_or_init(|| async {
+                let readers = count(
+                    self.db(),
+                    "SELECT COUNT(*) FROM accounts WHERE deleted_at IS NULL AND status = 'active'",
+                )
+                .await;
+                let works = count(self.db(), "SELECT COUNT(*) FROM works").await;
+                darkhold_domain::modules::Scale {
+                    active_readers: u32::try_from(readers.max(0)).unwrap_or(u32::MAX),
+                    active_works: u32::try_from(works.max(0)).unwrap_or(u32::MAX),
+                }
+            })
+            .await;
+        *scale
+    }
+
+    /// What this machine is, measured once (M45-48).
+    ///
+    /// Every fact here can fail to be read, and every failure lands on the *conservative*
+    /// side: cores default to 1, memory to 0, the cache to absent. `Minimal` is the safe
+    /// wrong answer for a busy server; `Large` is the expensive one.
+    pub async fn capacity(&self) -> darkhold_domain::capacity::Capacity {
+        let capacity = self
+            .inner
+            .capacity
+            .get_or_init(|| async {
+                let cores = std::thread::available_parallelism()
+                    .map(std::num::NonZeroUsize::get)
+                    .unwrap_or(1);
+                let memory_mb = read_memory_mb().unwrap_or(0);
+                let engine = match self.db().backend() {
+                    darkhold_db::Backend::Sqlite => darkhold_domain::capacity::Engine::Sqlite,
+                    darkhold_db::Backend::Postgres => darkhold_domain::capacity::Engine::Postgres,
+                };
+                let has_redis = self.config().capacity.has_cache();
+                darkhold_domain::capacity::Capacity {
+                    cores,
+                    memory_mb,
+                    engine,
+                    has_redis,
+                }
+            })
+            .await;
+        capacity.clone()
+    }
+
     /// The rate limiter, shared across every request in this process.
     #[must_use]
     pub fn rate_limiter(&self) -> &RateLimiter {
@@ -228,4 +304,46 @@ impl AppState {
     pub fn uptime_ms(&self) -> u64 {
         u64::try_from(self.inner.started_at.elapsed().as_millis()).unwrap_or(u64::MAX)
     }
+}
+
+/// One `COUNT(*)` on whichever engine this database is, or `-1` when the query
+/// failed — so a caller can tell "zero rows" from "could not count".
+async fn count(db: &Database, sql: &str) -> i64 {
+    let result = match db.backend() {
+        darkhold_db::Backend::Sqlite => {
+            sqlx::query_scalar(sql)
+                .fetch_one(db.sqlite_pool().expect("sqlite handle"))
+                .await
+        }
+        darkhold_db::Backend::Postgres => {
+            sqlx::query_scalar(sql)
+                .fetch_one(db.postgres_pool().expect("postgres handle"))
+                .await
+        }
+    };
+    match result {
+        Ok(count) => count,
+        Err(error) => {
+            // Not silent: a count that failed makes a mechanism look dormant, and
+            // "the curation page is empty" with a failed query behind it is a bug
+            // nobody would find from the page itself.
+            tracing::warn!(%error, "instance scale count failed; treating the count as zero: {sql}");
+            -1
+        }
+    }
+}
+
+/// `MemTotal` from `/proc/meminfo`, in megabytes.
+///
+/// `None` when the file is unreadable or the line is absent — the caller treats that as "unknown",
+/// which lands on `Minimal`. A machine that cannot say how much memory it has is not a machine to
+/// switch embeddings on for.
+fn read_memory_mb() -> Option<u64> {
+    let text = std::fs::read_to_string("/proc/meminfo").ok()?;
+    let line = text
+        .lines()
+        .find(|line| line.starts_with("MemTotal:"))?
+        .to_owned();
+    let kb: u64 = line.split_whitespace().nth(1)?.parse().ok()?;
+    Some(kb / 1_024)
 }

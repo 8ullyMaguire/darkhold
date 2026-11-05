@@ -259,6 +259,126 @@ impl ModuleState {
     pub fn enabled_ids(&self) -> impl Iterator<Item = &&'static str> {
         self.enabled.iter()
     }
+
+    /// Whether this surface is **dormant**: switched on, and below the activity it
+    /// needs to be anything but an empty page (M45-47).
+    ///
+    /// A core id is never dormant. The core is what an instance *is* — a health
+    /// endpoint that stops answering on a small instance would be a lie about what
+    /// the software does, not a graduated feature.
+    #[must_use]
+    pub fn dormant(&self, id: &str, scale: Scale) -> bool {
+        if is_core(id) || !self.enabled(id) {
+            return false;
+        }
+        !scale.satisfies(min_scale(id))
+    }
+
+    /// Every enabled surface that is dormant at `scale`, in id order.
+    #[must_use]
+    pub fn dormant_at(&self, scale: Scale) -> Vec<&'static str> {
+        self.enabled
+            .iter()
+            .copied()
+            .filter(|id| self.dormant(id, scale))
+            .collect()
+    }
+}
+
+/// How much a mechanism needs an instance to have grown before it can work.
+///
+/// Two facts, not a score: a crowded mechanism needs **readers** (people to be
+/// crowd-sourced from) and **works** (things to rank, match or bounty). A small
+/// instance running `curator` or `roadmap` is not a smaller version of a working
+/// feature — it is a page that says "nothing here" to the first person who opens
+/// it, which reads as broken rather than early.
+///
+/// **Measured, not estimated.** `active_readers` counts account rows that are not
+/// suspended, `active_works` counts work rows; both are one `COUNT(*)` each, and
+/// the app caches the answer for the life of the process (`AppState::scale`). The
+/// word "active" is doing the work here: these are rows that exist and can be
+/// acted on, not a judgement about how engaged anybody is.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+pub struct Scale {
+    pub active_readers: u32,
+    pub active_works: u32,
+}
+
+impl Scale {
+    /// An instance with nothing in it. Everything with a threshold is dormant.
+    pub const ZERO: Self = Self {
+        active_readers: 0,
+        active_works: 0,
+    };
+
+    /// Whether an instance this size clears `minimum` on **both** counts.
+    ///
+    /// Both, not either: a bounties board with a thousand readers and no works has
+    /// nothing to identify, and a matchmaker with ten thousand works and four
+    /// readers has nobody to match. A mechanism that needed only one of the two
+    /// would say so by declaring the other as zero.
+    #[must_use]
+    pub const fn satisfies(&self, minimum: Self) -> bool {
+        self.active_readers >= minimum.active_readers && self.active_works >= minimum.active_works
+    }
+}
+
+impl Module {
+    /// What this surface needs an instance to have grown to, before it is anything
+    /// but an empty page.
+    ///
+    /// Every row has an answer — zero is an answer, and it is the right one for a
+    /// surface that works for one reader with one work. The rows that need a crowd
+    /// declare it in [`min_scale`], which is one table so a threshold cannot hide in
+    /// a hundred registry entries.
+    #[must_use]
+    pub fn min_scale(&self) -> Scale {
+        min_scale(self.id)
+    }
+}
+
+/// The thresholds, in one place, keyed by module id.
+///
+/// A table rather than a field per row, for the same reason [`core`] is a list: a
+/// reader asking "what does this instance not run yet, and why" gets one answer,
+/// and a typo cannot invent a threshold for an id that does not exist — the test
+/// below refuses an id the registry does not know.
+///
+/// The numbers are deliberate and small. `curator` needs enough works that an
+/// invited rec-blogger has something to curate; `roadmap` needs enough readers that
+/// a vote means more than one person clicking twice.
+#[must_use]
+pub fn min_scale(id: &str) -> Scale {
+    match id {
+        // A curated shelf of three works is a person with a bookmark folder.
+        "curator" => Scale {
+            active_readers: 25,
+            active_works: 500,
+        },
+        // A board where a proposal can carry: one voice is a diary.
+        "roadmap" => Scale {
+            active_readers: 25,
+            active_works: 0,
+        },
+        // Matching betas to authors needs both sides to exist in numbers.
+        "collaborators" => Scale {
+            active_readers: 50,
+            active_works: 100,
+        },
+        _ => Scale::ZERO,
+    }
+}
+
+/// Every id that declares a non-zero threshold, for the catalogue payload and the
+/// "why is this dormant" sentence.
+#[must_use]
+pub fn scaled_ids() -> Vec<&'static str> {
+    registry::MODULES
+        .iter()
+        .chain(registry::IDEAS.iter())
+        .map(|row| row.id)
+        .filter(|id| min_scale(id) != Scale::ZERO)
+        .collect()
 }
 
 /// Validate an `[modules]` table (§59.3).
@@ -642,5 +762,124 @@ mod tests {
     fn the_nearest_id_is_not_offered_for_a_distant_typo() {
         assert_eq!(nearest("completely_different_thing"), None);
         assert_eq!(nearest("quiz"), None, "an exact id needs no suggestion");
+    }
+
+    // -----------------------------------------------------------------------
+    // M45-47: scale-aware activation
+    // -----------------------------------------------------------------------
+
+    #[test]
+    fn a_mechanism_below_its_threshold_is_dormant_and_above_it_is_not() {
+        let state = ModuleState::resolve(&[], &[], false);
+        // `curator` needs 25 readers and 500 works.
+        let small = Scale {
+            active_readers: 24,
+            active_works: 10_000,
+        };
+        assert!(
+            state.dormant("curator", small),
+            "enough works and too few readers is still dormant: a curated shelf needs curators"
+        );
+        let grown = Scale {
+            active_readers: 25,
+            active_works: 500,
+        };
+        assert!(
+            !state.dormant("curator", grown),
+            "the threshold is inclusive — at 25/500 the mechanism has what it declared it needs"
+        );
+    }
+
+    #[test]
+    fn both_facts_have_to_clear_and_the_reason_is_symmetric() {
+        let minimum = Scale {
+            active_readers: 50,
+            active_works: 100,
+        };
+        assert!(minimum.satisfies(minimum), "a scale satisfies itself");
+        assert!(!Scale {
+            active_readers: 49,
+            active_works: 100
+        }
+        .satisfies(minimum));
+        assert!(!Scale {
+            active_readers: 50,
+            active_works: 99
+        }
+        .satisfies(minimum));
+        assert!(Scale {
+            active_readers: 51,
+            active_works: 100
+        }
+        .satisfies(minimum));
+    }
+
+    #[test]
+    fn a_surface_that_works_for_one_reader_declares_no_threshold() {
+        // The default has to be zero, or every surface added later is dormant on a
+        // fresh instance until somebody remembers to give it a number.
+        assert_eq!(min_scale("library"), Scale::ZERO);
+        assert_eq!(min_scale("browse"), Scale::ZERO);
+        assert_eq!(min_scale("not_a_module"), Scale::ZERO);
+    }
+
+    #[test]
+    fn every_declared_threshold_names_a_registered_id_and_asks_for_something() {
+        // A threshold on an id the registry does not know is a rule that can never
+        // fire; a threshold of zero in the table is a row that belongs in the
+        // default. Both are the kind of thing a table invites, so they are refused
+        // here rather than noticed a year later.
+        for id in scaled_ids() {
+            assert!(
+                find(id).is_some(),
+                "`{id}` declares a threshold but is not in the registry"
+            );
+            assert!(
+                min_scale(id) != Scale::ZERO,
+                "`{id}` is in the table with zero, which is the default — delete the arm"
+            );
+        }
+        assert!(
+            !scaled_ids().is_empty(),
+            "some mechanism needs a crowd; an empty table means this feature does nothing"
+        );
+    }
+
+    #[test]
+    fn a_core_door_and_a_switched_off_door_are_never_dormant() {
+        let state = ModuleState::resolve(&["curator".to_owned()], &[], false);
+        // Switched off is not the same as dormant: one is a decision, the other is a
+        // measurement, and a caller reading `dormant: true` for a surface the operator
+        // turned off would be told the wrong story.
+        assert!(!state.dormant("curator", Scale::ZERO));
+        // The core has no threshold and cannot acquire one.
+        for id in core() {
+            assert!(
+                !state.dormant(id, Scale::ZERO),
+                "core id `{id}` cannot be dormant"
+            );
+        }
+    }
+
+    #[test]
+    fn the_dormant_list_is_the_enabled_rows_that_fall_short() {
+        let state = ModuleState::resolve(&[], &[], false);
+        let at_zero = state.dormant_at(Scale::ZERO);
+        for id in &at_zero {
+            assert!(state.enabled(id), "`{id}` is dormant but not even enabled");
+            assert!(min_scale(id) != Scale::ZERO, "`{id}` has no threshold");
+        }
+        assert!(
+            at_zero.contains(&"curator"),
+            "an empty instance has no curation to invite anybody to: {at_zero:?}"
+        );
+        let huge = Scale {
+            active_readers: u32::MAX,
+            active_works: u32::MAX,
+        };
+        assert!(
+            state.dormant_at(huge).is_empty(),
+            "at the largest possible scale nothing is dormant"
+        );
     }
 }

@@ -101,6 +101,17 @@ pub enum Metric {
     /// Wilson lower bound on likes per view — the rate this catalogue cannot
     /// compute yet, kept as a name so `--sort wilson` explains itself.
     Wilson,
+    /// `quality` multiplied by `recency`: the same composite, discounted by age.
+    FreshnessWeightedQuality,
+    /// `library_items.status` — complete, ongoing, hiatus, cancelled. A stored
+    /// column, so the routes order it in SQL rather than scoring it here.
+    Completion,
+    /// Δkudos per hour. Blocked with [`Self::Velocity`]: a rate needs two
+    /// snapshots, and one is all the catalogue has.
+    KudosPerHour,
+    /// How often an author ships what they start. Blocked: nothing records an
+    /// author's update history yet.
+    UpdaterReliability,
 }
 
 /// What a metric can do with today's data.
@@ -131,6 +142,10 @@ impl Metric {
         Self::Recency,
         Self::Confidence,
         Self::Unmeasured,
+        Self::FreshnessWeightedQuality,
+        Self::Completion,
+        Self::KudosPerHour,
+        Self::UpdaterReliability,
         Self::Likes,
         Self::Aggregate,
         Self::Views,
@@ -175,6 +190,16 @@ impl Metric {
             "hidden_gem" | "hidden-gem" => Some(Self::HiddenGem),
             "likes_per_view" | "kudos_per_view" => Some(Self::LikesPerView),
             "wilson" | "wilson_lower_bound" => Some(Self::Wilson),
+            "freshness_weighted_quality" | "fresh_quality" | "fq" => {
+                Some(Self::FreshnessWeightedQuality)
+            }
+            "completion" | "status" => Some(Self::Completion),
+            "kudos_per_hour" | "likes_per_hour" => Some(Self::KudosPerHour),
+            "updater_reliability" | "reliability" => Some(Self::UpdaterReliability),
+            // The archive's own word for the imported count (the row names it),
+            // and the rate spelled the way a reader would type it.
+            "kudos" => Some(Self::Likes),
+            "kudos_per_1k_views" => Some(Self::LikesPerView),
             _ => None,
         }
     }
@@ -204,6 +229,10 @@ impl Metric {
             Self::HiddenGem => "hidden_gem",
             Self::LikesPerView => "likes_per_view",
             Self::Wilson => "wilson",
+            Self::FreshnessWeightedQuality => "freshness_weighted_quality",
+            Self::Completion => "completion",
+            Self::KudosPerHour => "kudos_per_hour",
+            Self::UpdaterReliability => "updater_reliability",
         }
     }
 
@@ -214,9 +243,17 @@ impl Metric {
             Self::Likes | Self::Aggregate | Self::Views | Self::Words | Self::Updated => {
                 Support::Raw
             }
+            // A `CHECK`-constrained stored column: the routes order it in SQL.
+            Self::Completion => Support::Raw,
             Self::Unmeasured => Support::Triage,
             Self::Velocity | Self::HiddenGem => Support::Blocked(
                 "needs two snapshots of the same row; the monthly recheck (M63-32) creates the second",
+            ),
+            Self::KudosPerHour => Support::Blocked(
+                "Δkudos needs two snapshots of the same row; the monthly recheck (M63-32) creates the second",
+            ),
+            Self::UpdaterReliability => Support::Blocked(
+                "needs the author's update history, which nothing records yet; the recheck (M63-32) starts it",
             ),
             Self::LikesPerView | Self::Wilson => {
                 Support::Blocked("views are null on all 141,317 rows (M63-32 imports them)")
@@ -231,7 +268,24 @@ impl Metric {
             | Self::SourceCoverage
             | Self::CohortPct
             | Self::Recency
-            | Self::Confidence => Support::Ranked,
+            | Self::Confidence
+            | Self::FreshnessWeightedQuality => Support::Ranked,
+        }
+    }
+
+    /// The name a refusal should use: the word the caller typed, plus the
+    /// canonical name when the two differ.
+    ///
+    /// `--sort kudos_per_1k_views` answered as `sort: "likes_per_view" is not
+    /// available yet` tells the caller about a word they did not type; the alias
+    /// and the canonical name both belong in the sentence.
+    #[must_use]
+    pub fn refusal_name(self, typed: &str) -> String {
+        let typed = typed.trim();
+        if typed.eq_ignore_ascii_case(self.as_str()) {
+            typed.to_owned()
+        } else {
+            format!("{typed} (= {})", self.as_str())
         }
     }
 
@@ -262,6 +316,10 @@ impl Metric {
             Self::HiddenGem => "high velocity, low absolute count",
             Self::LikesPerView => "likes per 1k views",
             Self::Wilson => "Wilson lower bound on likes per view",
+            Self::FreshnessWeightedQuality => "quality × exp(-days/180); an undated row scores 0",
+            Self::Completion => "complete, then ongoing, hiatus, unknown, cancelled",
+            Self::KudosPerHour => "kudos gained per hour",
+            Self::UpdaterReliability => "how often an author finishes what they start",
         }
     }
 }
@@ -646,13 +704,21 @@ fn score_of(metric: Metric, signals: &Signals) -> f64 {
         Metric::Recency => signals.recency.unwrap_or(0.0),
         Metric::Confidence => signals.confidence.unwrap_or(0.0),
         Metric::Unmeasured => signals.triage.unwrap_or(0.0),
+        // Freshness is what the metric is for, so a missing date scores zero
+        // rather than being renormalised away — the same choice `Recency` makes.
+        Metric::FreshnessWeightedQuality => {
+            score_of(Metric::Quality, signals) * signals.recency.unwrap_or(0.0)
+        }
         Metric::Likes
         | Metric::Aggregate
         | Metric::Views
         | Metric::Words
         | Metric::Updated
+        | Metric::Completion
         | Metric::Velocity
         | Metric::HiddenGem
+        | Metric::KudosPerHour
+        | Metric::UpdaterReliability
         | Metric::LikesPerView
         | Metric::Wilson => 0.0,
     }
@@ -898,15 +964,97 @@ mod tests {
         }
     }
 
+    /// The idea sweep wrote the names a reader of AO3 would type, and this row's
+    /// requirement quotes them verbatim. `kudos` is the imported count under the
+    /// archive's own word for it; `completion` is the stored status; and a typo is
+    /// still refused rather than quietly reordered.
+    #[test]
+    fn the_kudos_and_completion_spellings_reach_their_metric() {
+        assert_eq!(Metric::parse("kudos"), Some(Metric::Likes));
+        assert_eq!(
+            Metric::parse("kudos_per_1k_views"),
+            Some(Metric::LikesPerView)
+        );
+        assert_eq!(Metric::parse("completion"), Some(Metric::Completion));
+        assert_eq!(Metric::parse("kudos_per_hour"), Some(Metric::KudosPerHour));
+        assert_eq!(
+            Metric::parse("updater_reliability"),
+            Some(Metric::UpdaterReliability)
+        );
+        assert_eq!(
+            Metric::parse("freshness_weighted_quality"),
+            Some(Metric::FreshnessWeightedQuality)
+        );
+        assert_eq!(
+            Metric::parse("kudos2"),
+            None,
+            "a typo is refused, not folded onto a neighbour"
+        );
+        // A refusal quotes the word the caller typed; the canonical name follows
+        // in parentheses only when it is a different word.
+        assert_eq!(
+            Metric::LikesPerView.refusal_name("kudos_per_1k_views"),
+            "kudos_per_1k_views (= likes_per_view)"
+        );
+        assert_eq!(
+            Metric::KudosPerHour.refusal_name("kudos_per_hour"),
+            "kudos_per_hour"
+        );
+    }
+
+    /// Freshness is the whole point of the metric, so a row with no source date
+    /// scores zero rather than being renormalised back up to its quality — the
+    /// same decision `recency` already made, asserted here so the two cannot drift
+    /// apart.
+    #[test]
+    fn a_freshness_weighted_quality_prefers_the_fresher_of_two_equal_rows() {
+        let mut fresh = candidate("fresh", "sb", 500, Some(60_000));
+        fresh.freshness_days = Some(0.0);
+        let mut stale = candidate("stale", "sb", 500, Some(60_000));
+        stale.freshness_days = Some(180.0);
+        let mut undated = candidate("undated", "sb", 500, Some(60_000));
+        undated.freshness_days = None;
+
+        let ranked = rank(
+            Metric::FreshnessWeightedQuality,
+            &[fresh, stale, undated],
+            5,
+            0,
+        );
+        let score = |id: &str| {
+            ranked
+                .hits
+                .iter()
+                .find(|h| h.id == id)
+                .unwrap_or_else(|| panic!("{id} ranked"))
+                .score
+        };
+        // 180 days is one half-life by construction, so the ratio is exactly 1/e.
+        assert!(
+            (score("fresh") - score("stale") * std::f64::consts::E).abs() < 1e-9,
+            "one half-life apart: fresh {} vs stale {}",
+            score("fresh"),
+            score("stale")
+        );
+        assert_eq!(score("undated"), 0.0, "no date, no freshness to weight by");
+        assert!(score("fresh") > 0.0, "a measured row still has a quality");
+    }
+
     #[test]
     fn an_unknown_metric_is_refused_rather_than_silently_reordered() {
-        assert_eq!(Metric::parse("kudos"), None);
+        // `kudos` is a name now; its typo is the one that must still be refused.
+        assert_eq!(Metric::parse("kudos2"), None);
         assert_eq!(Metric::parse("likes desc; drop table"), None);
     }
 
     #[test]
     fn a_blocked_metric_names_the_work_that_unblocks_it() {
-        for metric in [Metric::Velocity, Metric::HiddenGem] {
+        for metric in [
+            Metric::Velocity,
+            Metric::HiddenGem,
+            Metric::KudosPerHour,
+            Metric::UpdaterReliability,
+        ] {
             match metric.support() {
                 Support::Blocked(reason) => assert!(reason.contains("M63-32"), "{reason}"),
                 other => panic!("{metric:?} should be blocked, was {other:?}"),

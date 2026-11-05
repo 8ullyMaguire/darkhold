@@ -4,7 +4,7 @@
 //! public for better instance discovery. Other instances can publish their
 //! themes via the public endpoint for cross-instance discovery.
 
-use axum::extract::{Query, State};
+use axum::extract::{Path, Query, State};
 use axum::routing::{get, post};
 use axum::Json;
 use serde::Deserialize;
@@ -60,25 +60,53 @@ pub async fn get_instance_theme(
         return Err(ApiError(darkhold_domain::AppError::AccessDenied));
     }
     let instance_host = state.config().site.base_url.clone();
+    // M45-50: a scheduled window, when one covers now, is this instance's gravity for the moment. The
+    // instance's own vector is left untouched, so the event ends by itself and nothing has to be
+    // edited back at midnight.
+    let now = darkhold_db::identity::now_rfc3339();
+    let scheduled = darkhold_db::theme_schedule::active_at(state.db(), &instance_host, &now)
+        .await
+        .map_err(|e| ApiError(darkhold_domain::AppError::Internal(e)))?;
+    // M45-69: the operator's shelf, when one exists. It is published beside the computed vector rather
+    // than replacing it in the record, and `source` says which one answered — a reader of this response
+    // can tell "the operator wants this" from "our readers happen to like this".
+    let operator = darkhold_db::operator_theme::get(state.db(), &instance_host)
+        .await
+        .map_err(|e| ApiError(darkhold_domain::AppError::Internal(e)))?;
     let theme = instance_theme::get_local_theme(state.db(), &instance_host)
         .await
-        .map_err(|e| ApiError(darkhold_domain::AppError::Internal(e)))?
-        .map(|t| {
-            serde_json::json!({
-                "instance_id": t.instance_id,
-                "theme_vector": t.theme_vector,
-                "public": t.public,
-                "computed_at": t.computed_at,
-                "updated_at": t.updated_at,
-            })
-        })
-        .unwrap_or(serde_json::json!({
-            "instance_id": instance_host,
-            "theme_vector": {},
-            "public": false,
-            "computed_at": null,
-            "updated_at": null,
-        }));
+        .map_err(|e| ApiError(darkhold_domain::AppError::Internal(e)))?;
+
+    let source = darkhold_domain::operator_theme::precedence(
+        scheduled.is_some(),
+        operator.is_some(),
+        theme.is_some(),
+    );
+    let effective = match (&scheduled, &operator, &theme) {
+        (Some(schedule), _, _) => schedule.theme_vector.clone(),
+        (None, Some(shelf), _) => shelf.theme_vector.clone(),
+        (None, None, Some(computed)) => computed.theme_vector.clone(),
+        (None, None, None) => serde_json::json!({}),
+    };
+    let theme = serde_json::json!({
+        "instance_id": instance_host,
+        "theme_vector": effective,
+        "source": source.as_str(),
+        "public": theme.as_ref().map(|t| t.public).unwrap_or(false),
+        "computed_at": theme.as_ref().map(|t| t.computed_at.clone()),
+        "updated_at": theme.as_ref().map(|t| t.updated_at.clone()),
+        "schedule": scheduled.as_ref().map(schedule_json),
+        // Visible, not blended: the stated shelf keeps its own top tags and seed counts, so an operator
+        // can see what their shelf actually became.
+        "operator_shelf": operator.as_ref().map(|shelf| serde_json::json!({
+            "top_tags": shelf.top_tags,
+            "seed_count": shelf.seed_count,
+            "resolved_count": shelf.resolved_count,
+            "sourced_at": shelf.sourced_at,
+        })),
+        // What the readers' bookmarks say, kept even when the shelf wins, so the difference is legible.
+        "computed_vector": theme.as_ref().map(|t| t.theme_vector.clone()),
+    });
     Ok(Json(theme))
 }
 
@@ -442,7 +470,129 @@ pub async fn ap_outbox(
     })))
 }
 
-/// Apply axum routes for federation.
+// ---------------------------------------------------------------------------
+// M45-50 — scheduled gravity: a taste vector that applies for a window
+// ---------------------------------------------------------------------------
+
+/// One schedule as the API writes it.
+fn schedule_json(schedule: &darkhold_db::theme_schedule::ThemeSchedule) -> Value {
+    serde_json::json!({
+        "id": schedule.id,
+        "label": schedule.label,
+        "theme_vector": schedule.theme_vector,
+        "starts_at": schedule.starts_at,
+        "ends_at": schedule.ends_at,
+        "created_at": schedule.created_at,
+        "revoked_at": schedule.revoked_at,
+    })
+}
+
+/// The `POST` body.
+#[derive(Debug, serde::Deserialize)]
+pub struct ScheduleBody {
+    label: String,
+    theme_vector: Value,
+    starts_at: String,
+    ends_at: String,
+}
+
+/// `GET /api/v1/federation/theme/schedule` — every window this instance wrote (admin only).
+pub async fn list_theme_schedules(
+    State(state): State<AppState>,
+    RequirePseud {
+        user: _user,
+        pseud_id,
+    }: RequirePseud,
+) -> ApiResult<Json<Value>> {
+    if pseud_id.to_string() != ADMIN_PSEUD_ID {
+        return Err(ApiError(darkhold_domain::AppError::AccessDenied));
+    }
+    let instance_host = state.config().site.base_url.clone();
+    let schedules = darkhold_db::theme_schedule::list_for_instance(state.db(), &instance_host)
+        .await
+        .map_err(|e| ApiError(darkhold_domain::AppError::Internal(e)))?;
+    Ok(Json(serde_json::json!({
+        "items": schedules.iter().map(schedule_json).collect::<Vec<_>>(),
+    })))
+}
+
+/// `POST /api/v1/federation/theme/schedule` — write a window (admin only).
+///
+/// The window is validated by the domain rule before it reaches the store, so the operator reads one
+/// sentence whether the mistake is a local timestamp or a window that ends before it starts.
+pub async fn create_theme_schedule(
+    State(state): State<AppState>,
+    RequirePseud {
+        user: _user,
+        pseud_id,
+    }: RequirePseud,
+    Json(body): Json<ScheduleBody>,
+) -> ApiResult<(axum::http::StatusCode, Json<Value>)> {
+    if pseud_id.to_string() != ADMIN_PSEUD_ID {
+        return Err(ApiError(darkhold_domain::AppError::AccessDenied));
+    }
+    let window = darkhold_domain::theme_window::parse_window(&body.starts_at, &body.ends_at)
+        .map_err(|message| ApiError(darkhold_domain::AppError::field("window", message)))?;
+    if body.label.trim().is_empty() {
+        return Err(ApiError(darkhold_domain::AppError::field(
+            "label",
+            "a schedule needs a label: it is what a reader of the theme response is shown when the \
+             seasonal vector applies",
+        )));
+    }
+    let instance_host = state.config().site.base_url.clone();
+    let now = darkhold_db::identity::now_rfc3339();
+    let id = darkhold_db::theme_schedule::create(
+        state.db(),
+        &instance_host,
+        body.label.trim(),
+        &body.theme_vector,
+        &window.starts_at,
+        &window.ends_at,
+        &now,
+    )
+    .await
+    .map_err(|e| ApiError(darkhold_domain::AppError::Internal(e)))?;
+    Ok((
+        axum::http::StatusCode::CREATED,
+        Json(serde_json::json!({
+            "id": id,
+            "label": body.label.trim(),
+            "starts_at": window.starts_at,
+            "ends_at": window.ends_at,
+            "created_at": now,
+        })),
+    ))
+}
+
+/// `DELETE /api/v1/federation/theme/schedule/{id}` — call a window off (admin only).
+///
+/// Revoking keeps the row: an event that was cancelled is a fact worth reading back, and the same
+/// reason a saved query keeps its runs.
+pub async fn revoke_theme_schedule(
+    State(state): State<AppState>,
+    RequirePseud {
+        user: _user,
+        pseud_id,
+    }: RequirePseud,
+    Path(id): Path<String>,
+) -> ApiResult<Json<Value>> {
+    if pseud_id.to_string() != ADMIN_PSEUD_ID {
+        return Err(ApiError(darkhold_domain::AppError::AccessDenied));
+    }
+    let instance_host = state.config().site.base_url.clone();
+    let now = darkhold_db::identity::now_rfc3339();
+    let revoked = darkhold_db::theme_schedule::revoke(state.db(), &instance_host, &id, &now)
+        .await
+        .map_err(|e| ApiError(darkhold_domain::AppError::Internal(e)))?;
+    if !revoked {
+        return Err(ApiError(darkhold_domain::AppError::NotFound {
+            resource: "theme schedule",
+        }));
+    }
+    Ok(Json(serde_json::json!({ "id": id, "revoked_at": now })))
+}
+
 pub fn routes() -> axum::Router<AppState> {
     axum::Router::new()
         // ActivityPub endpoints (public inbox, actor discovery)
@@ -455,10 +605,256 @@ pub fn routes() -> axum::Router<AppState> {
             get(get_instance_theme).put(set_theme_visibility),
         )
         .route("/federation/theme/recompute", post(recompute_theme))
+        // M45-50 — time-boxed gravity.
+        .route(
+            "/federation/theme/schedule",
+            get(list_theme_schedules).post(create_theme_schedule),
+        )
+        .route(
+            "/federation/theme/schedule/{id}",
+            axum::routing::delete(revoke_theme_schedule),
+        )
+        // M45-69 — what the instance is FOR, stated by pointing at a shelf.
+        .route(
+            "/federation/theme/operator",
+            get(get_operator_theme)
+                .post(set_operator_theme)
+                .delete(delete_operator_theme),
+        )
         // Public discovery
         .route("/federation/themes", get(list_public_themes))
         // Peers (admin)
         .route("/federation/peers", get(list_peers))
         .route("/federation/peers/similar", get(list_similar_peers))
         .route("/federation/peers", post(set_peer_state))
+}
+
+// ---------------------------------------------------------------------------
+// M45-69 — operator taste: the shelf, published rather than blended
+// ---------------------------------------------------------------------------
+
+/// What the operator posted.
+#[derive(Debug, Deserialize)]
+pub struct OperatorShelfBody {
+    /// One line per work: a catalogue title or id, a URL, or a work this instance does not have.
+    pub seeds: Vec<String>,
+}
+
+/// `POST /api/v1/federation/theme/operator` — state what the instance is for.
+///
+/// Every line is resolved the same way `?seed=` resolves a seed: a catalogue row first, then stored
+/// external evidence by id. What each line contributed is kept, including the ones that contributed
+/// nothing — "3 of 5 seeds used" is the useful fact, and a response that only listed the three would be
+/// indistinguishable from a shelf of three.
+pub async fn set_operator_theme(
+    State(state): State<AppState>,
+    RequirePseud {
+        user: _user,
+        pseud_id,
+    }: RequirePseud,
+    Json(body): Json<OperatorShelfBody>,
+) -> ApiResult<Json<Value>> {
+    if pseud_id.to_string() != ADMIN_PSEUD_ID {
+        return Err(ApiError(darkhold_domain::AppError::AccessDenied));
+    }
+    const MAX_SEEDS: usize = 50;
+    let lines: Vec<&str> = body
+        .seeds
+        .iter()
+        .map(|line| line.trim())
+        .filter(|line| !line.is_empty())
+        .collect();
+    if lines.is_empty() {
+        return Err(ApiError(darkhold_domain::AppError::field(
+            "seeds",
+            "name at least one work — an empty shelf says nothing about what the instance is for",
+        )));
+    }
+    if lines.len() > MAX_SEEDS {
+        return Err(ApiError(darkhold_domain::AppError::field(
+            "seeds",
+            format!(
+                "{} works named, and a shelf takes at most {MAX_SEEDS}",
+                lines.len()
+            ),
+        )));
+    }
+
+    let instance_host = state.config().site.base_url.clone();
+    let mut seed_tags: Vec<darkhold_domain::operator_theme::SeedTags> = Vec::new();
+    let mut record: Vec<Value> = Vec::new();
+
+    for (index, line) in lines.iter().enumerate() {
+        let number = index + 1;
+        let classified = darkhold_domain::external_seed::classify(line);
+        let spec = match classified {
+            darkhold_domain::external_seed::Line::Blank => {
+                record.push(serde_json::json!({
+                    "line": number, "spec": line, "status": "unused",
+                    "reason": "empty line",
+                }));
+                continue;
+            }
+            darkhold_domain::external_seed::Line::TooLong { chars } => {
+                record.push(serde_json::json!({
+                    "line": number, "spec": line, "status": "unused",
+                    "reason": format!("{chars} characters is a pasted paragraph, not a title"),
+                }));
+                continue;
+            }
+            darkhold_domain::external_seed::Line::Pointer { spec, .. } => spec,
+        };
+
+        let tags = match darkhold_db::metrics::resolve_seed(state.db(), &spec).await {
+            Ok(darkhold_db::metrics::SeedMatch::One(row)) => {
+                let tags = darkhold_db::operator_theme::tags_for_item(state.db(), &row.id)
+                    .await
+                    .map_err(|e| ApiError(darkhold_domain::AppError::Internal(e)))?;
+                let (status, reason) = if tags.is_empty() {
+                    (
+                        "unused",
+                        Some("in the catalogue, but carries no tags to state"),
+                    )
+                } else {
+                    ("used", None)
+                };
+                record.push(serde_json::json!({
+                    "line": number, "spec": spec, "status": status,
+                    "title": row.title, "id": row.id, "tags": tags,
+                    "reason": reason,
+                }));
+                tags
+            }
+            Ok(darkhold_db::metrics::SeedMatch::Many(rows)) => {
+                record.push(serde_json::json!({
+                    "line": number, "spec": spec, "status": "ambiguous",
+                    "reason": format!("{} rows match and none is dominant — name one by id", rows.len()),
+                    "candidates": rows.iter().take(6).map(|row| serde_json::json!({
+                        "id": row.id, "title": row.title, "likes": row.likes,
+                    })).collect::<Vec<_>>(),
+                }));
+                continue;
+            }
+            Ok(darkhold_db::metrics::SeedMatch::None) => {
+                // Evidence this instance cannot read: no tags, and saying so is the point.
+                let known = darkhold_db::external_seed::by_spec(
+                    state.db(),
+                    &_user.account_id.to_string(),
+                    &spec,
+                )
+                .await
+                .ok()
+                .flatten();
+                record.push(serde_json::json!({
+                    "line": number, "spec": spec, "status": "unused",
+                    "reason": "not in this instance's catalogue, so it carries no tags",
+                    "external_id": known.map(|row| row.id),
+                }));
+                continue;
+            }
+            Err(error) => return Err(ApiError(darkhold_domain::AppError::Internal(error))),
+        };
+
+        if !tags.is_empty() {
+            seed_tags.push(darkhold_domain::operator_theme::SeedTags {
+                label: spec.clone(),
+                tags,
+            });
+        }
+    }
+
+    let (vector, top_tags) = darkhold_domain::operator_theme::from_seeds(&seed_tags);
+    if vector.is_empty() {
+        return Err(ApiError(darkhold_domain::AppError::field(
+            "seeds",
+            format!(
+                "theme: none of the {} seeds carries a tag — a shelf with no tags states nothing this \
+                 instance can act on",
+                lines.len()
+            ),
+        )));
+    }
+
+    let now = darkhold_db::identity::now_rfc3339();
+    let claim = darkhold_db::operator_theme::ThemeClaim {
+        vector: &serde_json::json!(vector),
+        top_tags: &serde_json::json!(top_tags
+            .iter()
+            .map(|(tag, weight)| serde_json::json!({
+                "tag": tag, "weight": weight,
+            }))
+            .collect::<Vec<_>>()),
+        seeds: &Value::Array(record.clone()),
+        seed_count: lines.len() as i64,
+        resolved_count: seed_tags.len() as i64,
+    };
+    darkhold_db::operator_theme::upsert(state.db(), &instance_host, &claim, &now)
+        .await
+        .map_err(|e| ApiError(darkhold_domain::AppError::Internal(e)))?;
+
+    Ok(Json(serde_json::json!({
+        "instance_id": instance_host,
+        "theme_vector": vector,
+        "top_tags": claim.top_tags,
+        "seeds": record,
+        "seed_count": lines.len(),
+        "resolved_count": seed_tags.len(),
+        "sourced_at": now,
+        "updated_at": now,
+        "note": "published on its own: this is what the instance is FOR, not what its readers happen to like — \
+                 the computed theme is untouched",
+    })))
+}
+
+/// `GET /api/v1/federation/theme/operator` — the stated shelf, or `null`.
+pub async fn get_operator_theme(
+    State(state): State<AppState>,
+    RequirePseud {
+        user: _user,
+        pseud_id,
+    }: RequirePseud,
+) -> ApiResult<Json<Value>> {
+    if pseud_id.to_string() != ADMIN_PSEUD_ID {
+        return Err(ApiError(darkhold_domain::AppError::AccessDenied));
+    }
+    let instance_host = state.config().site.base_url.clone();
+    let theme = darkhold_db::operator_theme::get(state.db(), &instance_host)
+        .await
+        .map_err(|e| ApiError(darkhold_domain::AppError::Internal(e)))?;
+    Ok(Json(serde_json::json!({ "operator_theme": theme })))
+}
+
+/// `DELETE /api/v1/federation/theme/operator` — forget the shelf, returning to bookmarks.
+pub async fn delete_operator_theme(
+    State(state): State<AppState>,
+    RequirePseud {
+        user: _user,
+        pseud_id,
+    }: RequirePseud,
+) -> ApiResult<Json<Value>> {
+    if pseud_id.to_string() != ADMIN_PSEUD_ID {
+        return Err(ApiError(darkhold_domain::AppError::AccessDenied));
+    }
+    let instance_host = state.config().site.base_url.clone();
+    let removed = darkhold_db::operator_theme::delete(state.db(), &instance_host)
+        .await
+        .map_err(|e| ApiError(darkhold_domain::AppError::Internal(e)))?;
+    let now = darkhold_db::identity::now_rfc3339();
+    // What answers *now* after forgetting the shelf — which includes a season that was already open.
+    // Answering `none` while an event is running would be a small lie in a response whose whole job is
+    // to say where the theme comes from.
+    let scheduled = darkhold_db::theme_schedule::active_at(state.db(), &instance_host, &now)
+        .await
+        .map_err(|e| ApiError(darkhold_domain::AppError::Internal(e)))?
+        .is_some();
+    let computed = darkhold_db::instance_theme::get_local_theme(state.db(), &instance_host)
+        .await
+        .ok()
+        .flatten()
+        .is_some();
+    Ok(Json(serde_json::json!({
+        "removed": removed,
+        "source": darkhold_domain::operator_theme::precedence(scheduled, false, computed).as_str(),
+        "updated_at": now,
+    })))
 }

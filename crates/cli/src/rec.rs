@@ -111,6 +111,25 @@ pub struct RecArgs {
     /// Drop what you are already reading. Reads your history, so it needs a token.
     #[arg(long)]
     pub exclude_read: bool,
+
+    /// Store this query as a saved view on the server. Needs a token.
+    ///
+    /// What is stored is the query string this call would have sent, verbatim,
+    /// so running it later asks the catalogue exactly what it asks now.
+    #[arg(long, value_name = "NAME")]
+    pub save: Option<String>,
+
+    /// Run a saved view by name, replaying the parameters it stored.
+    #[arg(long, value_name = "NAME")]
+    pub saved: Option<String>,
+
+    /// With `--saved`: print only the rows that were not on this query's last run.
+    #[arg(long)]
+    pub digest_diff: bool,
+
+    /// List saved views and exit. Needs a token.
+    #[arg(long)]
+    pub queries: bool,
 }
 
 /// What a failed run must tell the shell.
@@ -211,10 +230,7 @@ pub(crate) fn encode(value: &str) -> String {
 
 /// Build the request URL: the route, then every parameter that was given.
 pub fn url(base_url: &str, target: &Target, args: &RecArgs) -> String {
-    let path = match target {
-        Target::Catalogue => "/api/v1/catalogue",
-        Target::Engine(_) => "/api/v1/rec/run",
-    };
+    let path = path_for(target);
     let mut params: Vec<(String, String)> = Vec::new();
     let mut push = |key: &str, value: Option<&str>| {
         if let Some(value) = value.filter(|v| !v.is_empty()) {
@@ -466,6 +482,20 @@ pub fn gate(page: &Value) -> Option<String> {
 /// The metric vocabulary, as the CLI prints it.
 pub fn metrics_list() -> String {
     use darkhold_domain::quality::{Metric, Support};
+    // The name column is measured, not fixed at twenty: `freshness_weighted_quality`
+    // is twenty-six characters, and a list that prints `freshness_weighted_…` cannot
+    // be copied into `--sort`, which is the only thing this list is for.
+    let width = Metric::ALL
+        .iter()
+        .map(|metric| {
+            metric.as_str().chars().count()
+                + usize::from(matches!(metric.support(), Support::Blocked(_)))
+        })
+        .max()
+        .unwrap_or(20)
+        .max(20)
+        + 2;
+
     let mut out = String::from("QUALITY METRICS — dh rec --sort <name>\n\n");
     for metric in Metric::ALL {
         let (status, detail) = match metric.support() {
@@ -480,13 +510,17 @@ pub fn metrics_list() -> String {
         };
         out.push_str(&format!(
             "  {} {} {}\n",
-            pad(&name, 20),
+            pad(&name, width),
             pad(status, 8),
             detail
         ));
     }
     out.push_str("\nraw = a stored column ordered in SQL. triage = metadata order for rows with no endorsement data.\n");
     out.push_str("* = refused with the reason and the work item that unblocks it.\n");
+    out.push_str(concat!(
+        "aliases: kudos = likes, kudos_per_1k_views = likes_per_view, ",
+        "status = completion, fresh_quality = freshness_weighted_quality\n"
+    ));
     out
 }
 
@@ -646,6 +680,40 @@ pub async fn run(cli: &Cli, args: &RecArgs) -> Result<(), Failure> {
         print!("{}", metrics_list());
         return Ok(());
     }
+    if args.queries {
+        if args.save.is_some() || args.saved.is_some() || args.digest_diff {
+            return Err(bad_request(
+                "--queries lists saved views; it does not also save, run or diff one",
+            ));
+        }
+        return list_queries(cli).await;
+    }
+    // Answered before anything else, because each pair names two different verbs
+    // and silently picking one would make the other a lie.
+    if args.save.is_some() && args.saved.is_some() {
+        return Err(bad_request(
+            "--save stores a query and --saved runs one; pick one",
+        ));
+    }
+    if args.digest_diff && args.saved.is_none() {
+        return Err(bad_request(
+            "--digest-diff needs --saved <name>: there is no saved query to diff against",
+        ));
+    }
+    // A stored catalogue query and a personal ranking are different questions; a
+    // `--digest-diff` across the two would compare an engine's answer against a
+    // catalogue page's and call the difference "new".
+    if args.saved.is_some() && (args.engine.is_some() || args.explain) {
+        return Err(bad_request(
+            "--saved replays a stored catalogue query; --engine ranks against your own history, so \
+             the diff would compare two different answers",
+        ));
+    }
+    if args.save.is_some() && args.digest_diff {
+        return Err(bad_request(
+            "--save stores a query without running it, so there is no page to diff",
+        ));
+    }
     // Refuse an unknown metric here, where the message can point at the
     // vocabulary, rather than letting the server answer `unknown sort` after a
     // round trip.
@@ -690,7 +758,22 @@ pub async fn run(cli: &Cli, args: &RecArgs) -> Result<(), Failure> {
     // server knows which that is; ask for rrf, which is what pluggable mode
     // serves, and let the server's refusal say so if it is disabled.
     let target = Target::resolve(args, "rrf");
-    let url = url(&cli.base_url, &target, args);
+    if let Some(name) = args.save.as_deref() {
+        return save_query(cli, &target, args, name).await;
+    }
+    let saved = match args.saved.as_deref() {
+        Some(name) => Some(lookup_view(cli, name).await?),
+        None => None,
+    };
+    let url = match &saved {
+        Some(view) => format!(
+            "{}{}?{}",
+            cli.base_url.trim_end_matches('/'),
+            path_for(&target),
+            view.params.as_deref().unwrap_or_default()
+        ),
+        None => url(&cli.base_url, &target, args),
+    };
 
     let client = reqwest::Client::builder()
         .timeout(std::time::Duration::from_secs(60))
@@ -714,6 +797,19 @@ pub async fn run(cli: &Cli, args: &RecArgs) -> Result<(), Failure> {
     if !(200..300).contains(&status) {
         return Err(failure_for(status, &body, &cli.base_url));
     }
+
+    // The diff is asked of the server, which owns the query's memory: the client
+    // only has to say which ids it just saw. A second machine running the same
+    // name therefore gets the same answer (M63-06).
+    let mut digest_note = None;
+    let body = match (&saved, args.digest_diff) {
+        (Some(view), true) => {
+            let (filtered, note) = digest(cli, view, body).await?;
+            digest_note = Some(note);
+            filtered
+        }
+        _ => body,
+    };
 
     if cli.json {
         println!(
@@ -753,6 +849,9 @@ pub async fn run(cli: &Cli, args: &RecArgs) -> Result<(), Failure> {
     } else {
         print!("{printed}");
     }
+    if let Some(line) = &digest_note {
+        println!("\n{line}");
+    }
     if let Some(line) = gate(&body) {
         println!("\n{line}");
     }
@@ -763,6 +862,331 @@ pub async fn run(cli: &Cli, args: &RecArgs) -> Result<(), Failure> {
         println!("\n{block}");
     }
     Ok(())
+}
+
+// ---------------------------------------------------------------------------
+// Saved queries (M63-06)
+// ---------------------------------------------------------------------------
+
+/// Where a target's parameters are sent — the one place that mapping lives.
+fn path_for(target: &Target) -> &'static str {
+    match target {
+        Target::Catalogue => "/api/v1/catalogue",
+        Target::Engine(_) => "/api/v1/rec/run",
+    }
+}
+
+/// A saved view, as `GET /saved-views` reports it.
+struct StoredView {
+    id: String,
+    name: String,
+    kind: String,
+    /// A catalogue view's canonical query string; `None` for a library view or a
+    /// document this build cannot read.
+    params: Option<String>,
+    updated_at: String,
+}
+
+#[must_use]
+fn stored_view(item: &Value) -> StoredView {
+    let field = |key: &str| {
+        item.get(key)
+            .and_then(Value::as_str)
+            .unwrap_or_default()
+            .to_owned()
+    };
+    StoredView {
+        id: field("id"),
+        name: field("name"),
+        // A build that stored a document before `kind` existed means a library
+        // view; guessing otherwise would offer a library filter as a query.
+        kind: item
+            .get("kind")
+            .and_then(Value::as_str)
+            .unwrap_or("library")
+            .to_owned(),
+        params: item
+            .get("params")
+            .and_then(Value::as_str)
+            .map(str::to_owned),
+        updated_at: field("updated_at"),
+    }
+}
+
+/// Which credential opens a saved-view door, and what to say when neither does.
+///
+/// `/saved-views` used to be session-only (`M63-06` measured that a bearer token got a `401`
+/// there). `M63-13` widened the three verbs a scheduled run needs — list, get, record-a-run — to
+/// `RequireActorScoped` with `library.read`, because a timer cannot hold a cookie that expires in
+/// days. The verbs that create, rename and delete a view are still `RequireSession`, so a token
+/// here reads and records; the server answers `401`, not `403`, if one is pointed at the rest.
+#[derive(Debug, Clone)]
+enum Credential {
+    /// The session cookie the browser sends, plus the CSRF token carried beside it.
+    Session {
+        cookie: String,
+        csrf: Option<String>,
+    },
+    /// A bearer token, which is how an unattended run authenticates.
+    Token(String),
+}
+
+impl Credential {
+    /// Ask for one, naming both variables — and saying which one buys what.
+    fn resolve(cli: &Cli, why: &str) -> Result<Self, Failure> {
+        if let Some(cookie) = cli.cookie.clone() {
+            let csrf = cookie
+                .split(';')
+                .filter_map(|pair| pair.trim().split_once('='))
+                .find(|(name, _)| name.trim() == "darkhold_csrf")
+                .map(|(_, value)| value.trim().to_owned());
+            return Ok(Self::Session { cookie, csrf });
+        }
+        if let Some(token) = cli.token.clone() {
+            return Ok(Self::Token(token));
+        }
+        Err(auth_required(format!(
+            "{why}: set DARKHOLD_COOKIE (a session) or DARKHOLD_TOKEN (a token carrying \
+             `library.read`, which is what a scheduled run has)"
+        )))
+    }
+
+    /// A door that is still session-only: creating, renaming and deleting a view.
+    ///
+    /// `M63-13` widened the three verbs a schedule needs; it did not widen these. Saying so here
+    /// rather than letting the server answer `401` means the caller is told which variable works
+    /// instead of discovering that the one they set is the wrong kind of credential.
+    fn session_only(cli: &Cli, why: &str) -> Result<Self, Failure> {
+        if cli.cookie.is_none() {
+            return Err(auth_required(format!(
+                "{why}: set DARKHOLD_COOKIE (a session — creating or changing a view is a session \
+                 operation, so DARKHOLD_TOKEN will not open it)"
+            )));
+        }
+        Self::resolve(cli, why)
+    }
+}
+
+/// Attach the credential: a cookie and its CSRF header, or a bearer token.
+fn with_credential(
+    request: reqwest::RequestBuilder,
+    credential: &Credential,
+) -> reqwest::RequestBuilder {
+    match credential {
+        Credential::Session { cookie, csrf } => {
+            let request = request.header(reqwest::header::COOKIE, cookie);
+            match csrf {
+                Some(token) => request.header("x-csrf-token", token),
+                None => request,
+            }
+        }
+        Credential::Token(token) => {
+            request.header(reqwest::header::AUTHORIZATION, format!("Bearer {token}"))
+        }
+    }
+}
+
+async fn stored_views(cli: &Cli) -> Result<Vec<StoredView>, Failure> {
+    let credential = Credential::resolve(
+        cli,
+        "saved views belong to an account, so this needs a session or a token",
+    )?;
+    let url = format!("{}/api/v1/saved-views", cli.base_url.trim_end_matches('/'));
+    let client = reqwest::Client::builder()
+        .timeout(std::time::Duration::from_secs(30))
+        .build()
+        .map_err(|e| environment(format!("http client: {e}")))?;
+    let (status, bytes) = crate::http::send(
+        || with_credential(client.get(&url), &credential),
+        &cli.base_url,
+    )
+    .await?;
+    let body: Value = serde_json::from_slice(&bytes).unwrap_or(Value::Null);
+    if !(200..300).contains(&status) {
+        return Err(failure_for(status, &body, &cli.base_url));
+    }
+    Ok(body
+        .get("items")
+        .and_then(Value::as_array)
+        .map(|items| items.iter().map(stored_view).collect())
+        .unwrap_or_default())
+}
+
+async fn list_queries(cli: &Cli) -> Result<(), Failure> {
+    let views = stored_views(cli).await?;
+    if views.is_empty() {
+        println!("no saved views");
+        return Ok(());
+    }
+    let width = views
+        .iter()
+        .map(|view| view.name.chars().count())
+        .max()
+        .unwrap_or(4)
+        .max(4);
+    for view in &views {
+        println!(
+            "{:<width$}  {:<9}  {}",
+            view.name,
+            view.kind,
+            view.updated_at,
+            width = width
+        );
+    }
+    Ok(())
+}
+
+/// The view named `name`, refused unless it is one `rec` can run.
+async fn lookup_view(cli: &Cli, name: &str) -> Result<StoredView, Failure> {
+    let views = stored_views(cli).await?;
+    let view = views
+        .into_iter()
+        .find(|view| view.name == name)
+        .ok_or_else(|| {
+            bad_request(format!(
+                "no saved view named \"{name}\" — `dh rec --queries` lists them"
+            ))
+        })?;
+    if view.kind != "catalogue" {
+        return Err(bad_request(format!(
+            "\"{name}\" is a {} view: it filters your library items, so `dh library` opens it and \
+             `dh rec` cannot run it",
+            view.kind
+        )));
+    }
+    if view.params.as_deref().is_none_or(str::is_empty) {
+        return Err(bad_request(format!(
+            "\"{name}\" has nothing stored this build can run — re-save it with \
+             `dh rec --save {name}`"
+        )));
+    }
+    Ok(view)
+}
+
+/// Store the query this call would have sent, and print where it lives.
+async fn save_query(cli: &Cli, target: &Target, args: &RecArgs, name: &str) -> Result<(), Failure> {
+    if matches!(target, Target::Engine(_)) {
+        return Err(bad_request(
+            "--save stores a catalogue query; an engine run is ranked against your own history, so \
+             it is not a query a second reader could run",
+        ));
+    }
+    let url_built = url(&cli.base_url, target, args);
+    let params = url_built
+        .split_once('?')
+        .map_or(String::new(), |(_, query)| query.to_owned());
+    // Answered before the credential is looked at: this is a contradiction in the
+    // command, and telling the caller to set a cookie would send them to fix the
+    // wrong thing (the same ordering the engine and `--seed` checks use).
+    // The writer refuses it too, but it cannot name the flag the caller typed.
+    if params
+        .split('&')
+        .any(|pair| pair.split('=').next() == Some("exclude_read"))
+    {
+        return Err(bad_request(
+            "--exclude-read depends on your own reading history, so the view could not be shared; \
+             drop it to save the query",
+        ));
+    }
+    let credential = Credential::session_only(cli, "--save writes a view to your account")?;
+    let payload = serde_json::json!({
+        "name": name,
+        "kind": "catalogue",
+        "params": params,
+        "scope": "public",
+    });
+    let url = format!("{}/api/v1/saved-views", cli.base_url.trim_end_matches('/'));
+    let client = reqwest::Client::builder()
+        .timeout(std::time::Duration::from_secs(30))
+        .build()
+        .map_err(|e| environment(format!("http client: {e}")))?;
+    let (status, bytes) = crate::http::send(
+        || with_credential(client.post(&url).json(&payload), &credential),
+        &cli.base_url,
+    )
+    .await?;
+    let body: Value = serde_json::from_slice(&bytes).unwrap_or(Value::Null);
+    if !(200..300).contains(&status) {
+        return Err(failure_for(status, &body, &cli.base_url));
+    }
+    let id = body.get("id").and_then(Value::as_str).unwrap_or_default();
+    println!("saved \"{name}\" ({id})");
+    println!(
+        "{}{}?{}",
+        cli.base_url.trim_end_matches('/'),
+        path_for(target),
+        params
+    );
+    Ok(())
+}
+
+/// Ask the server what is new, then keep only those rows.
+async fn digest(cli: &Cli, view: &StoredView, body: Value) -> Result<(Value, String), Failure> {
+    let items: Vec<Value> = body
+        .get("items")
+        .and_then(Value::as_array)
+        .cloned()
+        .unwrap_or_default();
+    let ids: Vec<String> = items
+        .iter()
+        .filter_map(|row| row.get("id").and_then(Value::as_str).map(str::to_owned))
+        .collect();
+    let page = ids.len();
+
+    let credential = Credential::resolve(cli, "--digest-diff records a run against a saved view")?;
+    let url = format!(
+        "{}/api/v1/saved-views/{}/runs",
+        cli.base_url.trim_end_matches('/'),
+        view.id
+    );
+    let client = reqwest::Client::builder()
+        .timeout(std::time::Duration::from_secs(30))
+        .build()
+        .map_err(|e| environment(format!("http client: {e}")))?;
+    let payload = serde_json::json!({ "ids": ids });
+    let (status, bytes) = crate::http::send(
+        || with_credential(client.post(&url).json(&payload), &credential),
+        &cli.base_url,
+    )
+    .await?;
+    let run: Value = serde_json::from_slice(&bytes).unwrap_or(Value::Null);
+    if !(200..300).contains(&status) {
+        return Err(failure_for(status, &run, &cli.base_url));
+    }
+
+    let new_ids: Vec<String> = run
+        .get("new_ids")
+        .and_then(Value::as_array)
+        .map(|ids| {
+            ids.iter()
+                .filter_map(Value::as_str)
+                .map(str::to_owned)
+                .collect()
+        })
+        .unwrap_or_default();
+    let previous = run.get("previous").and_then(Value::as_i64).unwrap_or(0);
+    let kept: Vec<Value> = items
+        .into_iter()
+        .filter(|row| {
+            row.get("id")
+                .and_then(Value::as_str)
+                .is_some_and(|id| new_ids.iter().any(|new| new == id))
+        })
+        .collect();
+    let new_count = kept.len();
+    let note = match previous {
+        0 => format!("first run — nothing to diff against ({page} on the page)"),
+        seen => format!("{new_count} new of {page} on the page (the last run recorded {seen})"),
+    };
+    let mut out = body;
+    out["items"] = Value::Array(kept);
+    out["digest"] = serde_json::json!({
+        "new": new_count,
+        "page": page,
+        "previous": previous,
+        "ran_at": run.get("ran_at").cloned().unwrap_or(Value::Null),
+    });
+    Ok((out, note))
 }
 
 #[cfg(test)]
@@ -1053,6 +1477,10 @@ mod tests {
             "cohort_pct",
             "recency",
             "unmeasured",
+            "freshness_weighted_quality",
+            "completion",
+            "kudos_per_hour",
+            "updater_reliability",
         ] {
             assert!(text.contains(name), "{name} missing from:\n{text}");
         }
@@ -1065,6 +1493,20 @@ mod tests {
             "and say what unblocks them: {text}"
         );
         assert!(
+            text.contains("aliases: kudos = likes"),
+            "the words that are not canonical names are listed too: {text}"
+        );
+        // The list exists so a name can be copied into `--sort`; a truncated name
+        // is a name the reader has to guess the tail of.
+        assert!(
+            text.contains("freshness_weighted_quality"),
+            "the longest name is printed whole: {text}"
+        );
+        assert!(
+            text.contains("updater_reliability*"),
+            "and so is the longest blocked one, with its marker: {text}"
+        );
+        assert!(
             text.contains("raw"),
             "the stored columns are still there: {text}"
         );
@@ -1074,6 +1516,17 @@ mod tests {
     fn a_sort_word_outside_the_vocabulary_is_refused_locally() {
         assert!(validate_sort("source_pct").is_ok());
         assert!(validate_sort("wilson").is_ok());
+        // M63-03: the row's own words are names now, blocked or not.
+        for word in [
+            "kudos",
+            "kudos_per_1k_views",
+            "kudos_per_hour",
+            "completion",
+            "updater_reliability",
+            "freshness_weighted_quality",
+        ] {
+            assert!(validate_sort(word).is_ok(), "{word} must be a name");
+        }
         let failure = validate_sort("wilson2").expect_err("unknown");
         assert_eq!(failure.code, 2);
         assert!(failure.message.contains("--list-metrics"));
@@ -1098,5 +1551,189 @@ mod tests {
         let failure = failure_for(422, &body, "u");
         assert_eq!(failure.code, crate::exit::USAGE);
         assert!(failure.message.contains("no fandom called"));
+    }
+
+    // -----------------------------------------------------------------------
+    // Saved queries (M63-06). Each of these is refused before a request is made,
+    // which is the point: the message names the flag, not a status code.
+    // -----------------------------------------------------------------------
+
+    #[tokio::test]
+    async fn digest_diff_without_a_saved_query_is_refused_by_name() {
+        let (cli, args) = args(&["dh", "rec", "--digest-diff"]);
+        let failure = run(&cli, &args).await.expect_err("refused");
+        assert_eq!(failure.code, 2);
+        assert!(failure.message.contains("--saved"), "{}", failure.message);
+        assert!(
+            failure.message.contains("--digest-diff"),
+            "{}",
+            failure.message
+        );
+    }
+
+    #[tokio::test]
+    async fn saving_and_running_are_two_verbs_and_are_not_merged() {
+        let (cli, args) = args(&["dh", "rec", "--save", "weekly", "--saved", "weekly"]);
+        let failure = run(&cli, &args).await.expect_err("refused");
+        assert_eq!(failure.code, 2);
+        assert!(failure.message.contains("--save"), "{}", failure.message);
+        assert!(failure.message.contains("--saved"), "{}", failure.message);
+    }
+
+    #[tokio::test]
+    async fn a_saved_query_and_a_personal_ranking_are_not_mixed() {
+        let (mut cli, args) = args(&["dh", "rec", "--saved", "weekly", "--engine", "rrf"]);
+        cli.token = Some("t".to_owned());
+        cli.cookie = Some("darkhold_session=abc".to_owned());
+        let failure = run(&cli, &args).await.expect_err("refused");
+        assert_eq!(failure.code, 2, "{}", failure.message);
+        assert!(failure.message.contains("--saved"), "{}", failure.message);
+        assert!(failure.message.contains("--engine"), "{}", failure.message);
+    }
+
+    #[tokio::test]
+    async fn listing_refuses_to_also_save_or_diff() {
+        let (cli, args) = args(&["dh", "rec", "--queries", "--saved", "weekly"]);
+        let failure = run(&cli, &args).await.expect_err("refused");
+        assert_eq!(failure.code, 2);
+        assert!(failure.message.contains("--queries"), "{}", failure.message);
+    }
+
+    #[tokio::test]
+    async fn saving_without_a_session_is_an_auth_failure_not_a_usage_one() {
+        let (cli, args) = args(&["dh", "rec", "--fandom", "naruto", "--save", "weekly"]);
+        let failure = run(&cli, &args).await.expect_err("refused");
+        assert_eq!(
+            failure.code,
+            crate::exit::AUTH,
+            "a view is written to an account, so this is 4: {}",
+            failure.message
+        );
+        assert!(
+            failure.message.contains("DARKHOLD_COOKIE"),
+            "the saved-view surface is a session surface, so the refusal must name the session \
+             variable: {}",
+            failure.message
+        );
+        assert!(
+            failure.message.contains("DARKHOLD_TOKEN will not open it"),
+            "a caller who tries the token must be told why it cannot work: {}",
+            failure.message
+        );
+    }
+
+    #[tokio::test]
+    async fn listing_without_a_session_is_an_auth_failure() {
+        let (cli, args) = args(&["dh", "rec", "--queries"]);
+        let failure = run(&cli, &args).await.expect_err("refused");
+        assert_eq!(failure.code, crate::exit::AUTH, "{}", failure.message);
+    }
+
+    #[tokio::test]
+    async fn a_history_dependent_query_cannot_be_saved_as_a_shared_view() {
+        let (mut cli, args) = args(&[
+            "dh",
+            "rec",
+            "--fandom",
+            "naruto",
+            "--exclude-read",
+            "--save",
+            "weekly",
+        ]);
+        // `--exclude-read` needs a session of its own before this point, so both
+        // credentials are present: the refusal being tested is the contradiction,
+        // not the missing credential.
+        cli.token = Some("t".to_owned());
+        cli.cookie = Some("darkhold_session=abc".to_owned());
+        let failure = run(&cli, &args).await.expect_err("refused");
+        assert_eq!(failure.code, 2, "{}", failure.message);
+        assert!(
+            failure.message.contains("--exclude-read"),
+            "the refusal must name the flag the caller typed: {}",
+            failure.message
+        );
+    }
+
+    #[test]
+    fn the_csrf_token_is_read_out_of_the_cookie_header() {
+        let (mut cli, _args) = args(&["dh", "rec", "--queries"]);
+        cli.cookie = Some("darkhold_session=s3cret; darkhold_csrf=c51f; other=1".to_owned());
+        let Credential::Session { csrf, .. } =
+            Credential::resolve(&cli, "test").expect("a cookie was set")
+        else {
+            panic!("a cookie was set, so the credential is a session");
+        };
+        assert_eq!(csrf.as_deref(), Some("c51f"));
+
+        // A session with no CSRF cookie is not an error here — a GET needs none,
+        // and the write paths let the server say so.
+        cli.cookie = Some("darkhold_session=s3cret".to_owned());
+        let Credential::Session { csrf, .. } =
+            Credential::resolve(&cli, "test").expect("a cookie was set")
+        else {
+            panic!("still a session");
+        };
+        assert_eq!(csrf, None);
+    }
+
+    #[test]
+    fn a_token_is_the_credential_when_there_is_no_cookie() {
+        // M63-13: an unattended run has a token, not a cookie. The resolver prefers the cookie
+        // when both are present, because a session can do more than a token can.
+        let (mut cli, _args) = args(&["dh", "rec", "--queries"]);
+        cli.token = Some("t0ken".to_owned());
+        match Credential::resolve(&cli, "test").expect("a token was set") {
+            Credential::Token(token) => assert_eq!(token, "t0ken"),
+            Credential::Session { .. } => panic!("no cookie was set"),
+        }
+
+        cli.cookie = Some("darkhold_session=s3cret".to_owned());
+        assert!(
+            matches!(
+                Credential::resolve(&cli, "test"),
+                Ok(Credential::Session { .. })
+            ),
+            "the session wins when both are present: it can also create and delete views"
+        );
+
+        // Neither: the refusal names both variables, and says which one a schedule can use.
+        let (bare, _args) = args(&["dh", "rec", "--queries"]);
+        let failure = Credential::resolve(&bare, "saved views belong to an account")
+            .expect_err("no credential");
+        assert_eq!(failure.code, crate::exit::AUTH);
+        assert!(
+            failure.message.contains("DARKHOLD_COOKIE"),
+            "{}",
+            failure.message
+        );
+        assert!(
+            failure.message.contains("DARKHOLD_TOKEN"),
+            "{}",
+            failure.message
+        );
+        assert!(
+            failure.message.contains("library.read"),
+            "{}",
+            failure.message
+        );
+    }
+
+    #[test]
+    fn a_view_is_read_from_the_wire_with_its_kind_intact() {
+        let view = stored_view(&serde_json::json!({
+            "id": "abc",
+            "name": "weekly",
+            "kind": "catalogue",
+            "params": "fandom=naruto&limit=2",
+            "updated_at": "2026-11-04T10:00:00Z",
+        }));
+        assert_eq!(view.kind, "catalogue");
+        assert_eq!(view.params.as_deref(), Some("fandom=naruto&limit=2"));
+
+        // A document written before `kind` existed is a library view; offering it
+        // as a runnable query would hand the catalogue a library filter.
+        let old = stored_view(&serde_json::json!({ "id": "def", "name": "shelf" }));
+        assert_eq!(old.kind, "library");
+        assert_eq!(old.params, None);
     }
 }

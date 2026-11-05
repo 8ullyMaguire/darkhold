@@ -124,6 +124,13 @@ pub const ROUTE_TABLE: &[RouteEntry] = &[
         path: "/meta",
         audience: Audience::Public,
     },
+    RouteEntry {
+        file: "meta.rs",
+        handler: "capacity",
+        method: "GET",
+        path: "/instance/capacity",
+        audience: Audience::Public,
+    },
     // ------------------------------------------------------------------
     // Metadata exchange (M57, spec §11.17)
     //
@@ -885,6 +892,13 @@ pub const ROUTE_TABLE: &[RouteEntry] = &[
     // ------------------------------------------------------------------
     RouteEntry {
         file: "library.rs",
+        handler: "shelf_documents",
+        method: "GET",
+        path: "/shelf-documents",
+        audience: Audience::Scoped,
+    },
+    RouteEntry {
+        file: "library.rs",
         handler: "list_shelves",
         method: "GET",
         path: "/shelves",
@@ -1021,7 +1035,7 @@ pub const ROUTE_TABLE: &[RouteEntry] = &[
         handler: "list_views",
         method: "GET",
         path: "/saved-views",
-        audience: Audience::Authenticated,
+        audience: Audience::Scoped,
     },
     RouteEntry {
         file: "library.rs",
@@ -1035,7 +1049,7 @@ pub const ROUTE_TABLE: &[RouteEntry] = &[
         handler: "get_view",
         method: "GET",
         path: "/saved-views/{id}",
-        audience: Audience::Authenticated,
+        audience: Audience::Scoped,
     },
     RouteEntry {
         file: "library.rs",
@@ -1050,6 +1064,13 @@ pub const ROUTE_TABLE: &[RouteEntry] = &[
         method: "DELETE",
         path: "/saved-views/{id}",
         audience: Audience::Authenticated,
+    },
+    RouteEntry {
+        file: "library.rs",
+        handler: "record_view_run",
+        method: "POST",
+        path: "/saved-views/{id}/runs",
+        audience: Audience::Scoped,
     },
     RouteEntry {
         file: "library.rs",
@@ -2078,6 +2099,69 @@ pub const ROUTE_TABLE: &[RouteEntry] = &[
     },
     RouteEntry {
         file: "taxonomy.rs",
+        handler: "list_tropes",
+        method: "GET",
+        path: "/tropes",
+        audience: Audience::Public,
+    },
+    RouteEntry {
+        file: "catalogue.rs",
+        handler: "taste_brief",
+        method: "GET",
+        path: "/catalogue/taste-brief",
+        audience: Audience::Public,
+    },
+    RouteEntry {
+        file: "recommendation_transparency.rs",
+        handler: "explain_taste",
+        method: "GET",
+        path: "/me/taste/explain",
+        audience: Audience::Authenticated,
+    },
+    RouteEntry {
+        file: "recommendation_transparency.rs",
+        handler: "set_taste_signal",
+        method: "PUT",
+        path: "/me/taste/signals",
+        audience: Audience::Authenticated,
+    },
+    RouteEntry {
+        file: "federation.rs",
+        handler: "set_operator_theme",
+        method: "POST",
+        path: "/federation/theme/operator",
+        audience: Audience::Pseudonymous,
+    },
+    RouteEntry {
+        file: "federation.rs",
+        handler: "get_operator_theme",
+        method: "GET",
+        path: "/federation/theme/operator",
+        audience: Audience::Pseudonymous,
+    },
+    RouteEntry {
+        file: "federation.rs",
+        handler: "delete_operator_theme",
+        method: "DELETE",
+        path: "/federation/theme/operator",
+        audience: Audience::Pseudonymous,
+    },
+    RouteEntry {
+        file: "catalogue.rs",
+        handler: "resolve_external_seeds",
+        method: "POST",
+        path: "/catalogue/seeds",
+        audience: Audience::Authenticated,
+    },
+    RouteEntry {
+        file: "catalogue.rs",
+        handler: "list_external_seeds",
+        method: "GET",
+        path: "/catalogue/seeds",
+        audience: Audience::Authenticated,
+    },
+    RouteEntry {
+        file: "taxonomy.rs",
         handler: "create_taxonomy_alias",
         method: "POST",
         path: "/taxonomy/aliases",
@@ -2683,6 +2767,27 @@ pub const ROUTE_TABLE: &[RouteEntry] = &[
         handler: "get_instance_theme",
         method: "GET",
         path: "/federation/theme",
+        audience: Audience::Pseudonymous,
+    },
+    RouteEntry {
+        file: "federation.rs",
+        handler: "list_theme_schedules",
+        method: "GET",
+        path: "/federation/theme/schedule",
+        audience: Audience::Pseudonymous,
+    },
+    RouteEntry {
+        file: "federation.rs",
+        handler: "create_theme_schedule",
+        method: "POST",
+        path: "/federation/theme/schedule",
+        audience: Audience::Pseudonymous,
+    },
+    RouteEntry {
+        file: "federation.rs",
+        handler: "revoke_theme_schedule",
+        method: "DELETE",
+        path: "/federation/theme/schedule/{id}",
         audience: Audience::Pseudonymous,
     },
     RouteEntry {

@@ -95,6 +95,8 @@ pub enum CatalogueSort {
     Words,
     /// Most recently changed catalogue row first.
     Updated,
+    /// Reading state: complete first, then ongoing, hiatus, unknown, cancelled.
+    Completion,
 }
 
 impl CatalogueSort {
@@ -102,12 +104,14 @@ impl CatalogueSort {
     #[must_use]
     pub fn parse(raw: &str) -> Option<Self> {
         match raw.trim().to_ascii_lowercase().as_str() {
-            // `quality` is the operator's word for it; `likes` is what it is.
-            "" | "likes" | "quality" => Some(Self::Likes),
+            // `quality` is the operator's word for it; `likes` is what it is, and
+            // `kudos` is the archive's own word for the same count (M63-03).
+            "" | "likes" | "quality" | "kudos" => Some(Self::Likes),
             "aggregate" | "total" => Some(Self::Aggregate),
             "views" => Some(Self::Views),
             "words" | "word_count" => Some(Self::Words),
             "updated" | "recent" => Some(Self::Updated),
+            "completion" | "status" => Some(Self::Completion),
             _ => None,
         }
     }
@@ -121,6 +125,7 @@ impl CatalogueSort {
             Self::Views => "views",
             Self::Words => "words",
             Self::Updated => "updated",
+            Self::Completion => "completion",
         }
     }
 }
@@ -402,6 +407,13 @@ fn order_by(sort: CatalogueSort) -> &'static str {
         CatalogueSort::Views => "views DESC NULLS LAST, likes DESC, id DESC",
         CatalogueSort::Words => "word_count DESC NULLS LAST, likes DESC, id DESC",
         CatalogueSort::Updated => "updated_at DESC, id DESC",
+        // A categorical column, ranked rather than ordered as text: `cancelled`
+        // sorts before `complete` under any collation, which is the opposite of
+        // useful to a reader asking for finished works first.
+        CatalogueSort::Completion => {
+            "CASE status WHEN 'complete' THEN 0 WHEN 'ongoing' THEN 1 \
+             WHEN 'hiatus' THEN 2 WHEN 'unknown' THEN 3 ELSE 4 END, likes DESC, id DESC"
+        }
     }
 }
 
@@ -671,6 +683,7 @@ mod tests {
             CatalogueSort::Views,
             CatalogueSort::Words,
             CatalogueSort::Updated,
+            CatalogueSort::Completion,
         ] {
             assert_eq!(CatalogueSort::parse(sort.as_str()), Some(sort));
         }
@@ -678,8 +691,28 @@ mod tests {
 
     #[test]
     fn an_unknown_sort_is_refused_rather_than_silently_reordered() {
-        assert_eq!(CatalogueSort::parse("kudos"), None);
+        // `kudos` is AO3's word for `likes` and the metric vocabulary sends it
+        // down this path, so this vocabulary has to know it too — otherwise the
+        // alias dies here with `unknown sort: kudos`.
+        assert_eq!(CatalogueSort::parse("kudos"), Some(CatalogueSort::Likes));
+        assert_eq!(CatalogueSort::parse("kudos2"), None);
         assert_eq!(CatalogueSort::parse("likes desc; drop table"), None);
+    }
+
+    #[test]
+    fn completion_is_a_rank_not_an_alphabetical_column() {
+        // `cancelled` sorts before `complete` under any string order, which is
+        // the opposite of what a reader asking for `--sort completion` wants.
+        let order = order_by(CatalogueSort::Completion);
+        assert!(
+            order.starts_with("CASE status WHEN 'complete' THEN 0 WHEN 'ongoing' THEN 1"),
+            "{order}"
+        );
+        assert!(order.contains("WHEN 'hiatus' THEN 2"));
+        assert!(
+            order.ends_with("likes DESC, id DESC"),
+            "stably paged: {order}"
+        );
     }
 
     #[test]

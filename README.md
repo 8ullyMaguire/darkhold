@@ -190,6 +190,64 @@ different from the same window in a URL: `7d`, `>30d`, `@2026-10-27`,
 needs `DARKHOLD_TOKEN`, because the engines rank against what the calling account
 has already read; a plain catalogue query does not.
 
+`--sort` takes two kinds of name and answers both, never `unknown sort` for a
+name this product has an opinion about. `dh rec --list-metrics` prints the whole
+vocabulary with each name's status:
+
+```
+dh rec --sort kudos                 # AO3's word for the imported count (= likes)
+dh rec --sort completion            # complete, ongoing, hiatus, unknown, cancelled
+dh rec --sort freshness_weighted_quality   # quality × exp(-days/180)
+dh rec --sort wilson ; echo $?      # 2: "not available yet — views are null … (M63-32 imports them)"
+```
+
+A computed metric ranks in memory and answers with the gate (`ranked N of M`); a
+stored column is an `ORDER BY`; and a name whose input does not exist yet is a
+`422` (exit 2) that names both the missing input and the requirement row that
+supplies it. A word nobody registered is still refused, so a typo cannot be
+answered with a likes order under another name.
+
+A query can be named and rerun, and a rerun can say what is new:
+
+```
+dh rec --fandom naruto --updated 7d --save weekly     # stores the query string itself
+dh rec --saved weekly                                 # replays it, byte for byte
+dh rec --saved weekly --digest-diff                   # only rows not on the last run
+dh rec --queries                                      # name, kind, when it last changed
+```
+
+What is stored is the query string this call would have sent, so
+`--saved weekly` asks the catalogue exactly what `--save` asked — a stored
+document that re-encoded the parameters would drift precisely where a window is
+anchored. `--digest-diff` diffs **ids against the previous answer**, not against a
+timestamp: a row can enter a `--updated 7d` page because its author posted, because
+a recheck moved `source_updated_at`, or because the window slid, and only the last
+answer can say which ids are new. The first run reports everything and says so
+(`first run — nothing to diff against`). Saving, listing and diffing need the **session cookie**
+(`DARKHOLD_COOKIE`), not `DARKHOLD_TOKEN`: the saved-view routes are session routes, and a bearer
+token gets a 401 there (measured). A view belongs to an account, so a view id is not a capability —
+a run against somebody else's view is a 404, not an empty diff.
+
+Those three verbs — list, read, record a run — also accept a **bearer token carrying
+`library.read`**, because a scheduled run cannot hold a cookie that expires in days. The verbs that
+create, rename and delete a view are still session-only: a token minted to read a view every six hours
+has no business deleting it, and the server answers `401` (wrong kind of credential) rather than `403`
+(too few scopes). `dh cron install` is what that widening is for:
+
+```
+dh cron install --saved weekly --every 6h --jitter 10m      # writes user units, prints the systemctl lines
+dh cron install --saved weekly --every 6h --dry-run         # prints the units, writes nothing
+dh cron list                                                # what is installed, read from the units
+```
+
+Three files under `~/.config/darkhold/cron/`, one per query: `<name>.timer`, `<name>.service`, and
+`<name>.env` holding `DARKHOLD_TOKEN` at mode `0600` and never printed. The service runs
+`dh rec --saved <name> --digest-diff`, so a timer's output is the difference since its last run. It
+does not run `systemctl`; it prints `systemctl --user daemon-reload` and
+`systemctl --user enable --now <name>.timer`, because a CLI that shells out to systemctl fails
+differently on every distro. `--every` takes a number and one of `s`/`m`/`h`/`d`: a bare `6` is
+refused, since systemd would read it as six seconds.
+
 `dh rec` searches a title and sorts a catalogue page. `dh q` is the other half: one expression in
 the full query language, sent to the same `/api/v1/search` endpoint the site's search box posts to,
 so an expression cannot mean one thing in a terminal and another in a URL:
@@ -202,11 +260,78 @@ dh q '(tag:romance OR tag:angst) AND updated>=-7d' --jsonl --fields title,author
 The grammar is the server's: `tag:`, `fandom:`, `AND`/`OR`/`NOT`, parentheses, `kudos:>=`,
 `words:>`, `completion:`, `status:`, and `updated:`/`published:` as either a date
 (`published:>=2026-08-01`) or an age (`updated>=-7d` — the same age spelling the catalogue's
-`--updated` takes). A query the parser rejects is a `422` and exit code 2, naming the token; there
-is no second parser here to disagree with it.
+`--updated` takes). A query the parser rejects is a `422` and exit code 2: the sentence names the
+token, which works spelling to use instead, and a caret sits under the character the parser stopped
+at. There is no second parser here to disagree with it.
 
-`--explain` prints each strategy's production and its match inside the filtered
-set, which is how a strategy that contributes nothing becomes visible.
+```
+   $ dh q 'kudos>=100'
+   kudos>=100
+   ^
+   `kudos>=100` is free text: comparisons go after a colon, so write `kudos:>=100` at offset 0
+   (exit 2)
+```
+
+The caret sits at the parser's offset, which for a mistake that is a whole token is the token's
+first character.
+
+An expression worth keeping goes in a file, because a file is versioned, diffable and reviewable in a
+way a shell history is not. `--from-file` reads it from `.darkhold/queries/<name>.q` (a name with a
+slash is a path; a file beside the caller is the fallback):
+
+```
+   .darkhold/queries/weekly.q
+     # weekly scan: naruto, updated this week, at least 100 kudos
+     tag:naruto AND updated>=-7d
+     AND kudos:>=100
+
+   $ dh q --from-file weekly
+```
+
+`#` starts a comment at the start of a line or after whitespace — a tag spelled `#angst` survives,
+because there is no escape rule in the grammar to inherit. Blank lines are skipped, each line is
+trimmed, and the lines are joined with one space, which is the string the server parses. The offset map
+is kept, so a rejection points into the file and not into a join the reader never typed:
+
+```
+   $ dh q --from-file bad
+   .darkhold/queries/bad.q:3:12
+   kudos:>=abc
+              ^
+   kudos >= takes an integer, got "abc" at offset 26
+   (exit 2)
+```
+
+Passing an expression as an argument *and* `--from-file` is refused: one of the two would be silently
+ignored, and silence is the one thing a query tool cannot afford.
+
+`dh q --explain` prints the **query plan** instead of hits — the engine that planned it, the
+statement it was asked about, the access path, and the indexes the plan names:
+
+```
+   $ dh q 'tag:naruto AND words:>1000' --explain
+   engine: sqlite
+
+   statement:
+     SELECT * FROM (SELECT works.id, works.title, … LIMIT ?
+
+   plan:
+     CO-ROUTINE s
+     SEARCH works USING INDEX works_listing (lifecycle=? AND visibility=?)
+     SEARCH r USING COVERING INDEX sqlite_autoindex_work_tags_1 (work_id=? AND node_id=?)
+     USE TEMP B-TREE FOR ORDER BY
+
+   indexes: works_listing, sqlite_autoindex_work_tags_1, units_work_order, …
+```
+
+That is the engine's own `EXPLAIN QUERY PLAN` (SQLite) or `EXPLAIN` (PostgreSQL), run against the
+statement this search would execute, with this search's binds and limit. A plan for a statement
+nobody runs answers a question nobody asked, and would go on answering it after the real statement
+changed. `--explain` with `--jsonl`, `--cols` or `--fields` is refused: a plan has no columns to
+project.
+
+`dh rec --explain` is the other one: it prints each strategy's production and its match inside the
+filtered set, which is how a strategy that contributes nothing becomes visible.
 
 **The catalogue's fandom coverage is partial, and `dh rec --fandom` says so.**
 On the live instance 7,626 of 141,317 rows carry a fandom tag (5.4 %, 233

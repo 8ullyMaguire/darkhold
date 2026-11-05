@@ -1086,7 +1086,14 @@ pub fn build_router(state: AppState) -> Router {
         .merge(module_mount(
             &state,
             "federation",
-            routes::federation::routes(),
+            // Its own session loading, like the reader pages: this mount is merged at the root, so
+            // the `/api/v1` layer that loads the session does not reach it, and every authenticated
+            // federation route — the instance theme, its schedule, peers — answered 401 to a reader
+            // who was logged in. Anonymous requests stay anonymous; the extractors decide.
+            routes::federation::routes().layer(middleware::from_fn_with_state(
+                state.clone(),
+                auth::load_session,
+            )),
             RouteClass::Default,
         ))
         // The reading surface: **server-rendered HTML** (spec §8.5). Also at
@@ -1204,6 +1211,19 @@ where
         let state = gate_state.clone();
         async move {
             if !on {
+                return crate::http::ApiError(darkhold_domain::AppError::ModuleUnavailable {
+                    module: id,
+                })
+                .into_response();
+            }
+            // M45-47: a mechanism that declared a minimum activity is unavailable below
+            // it — when the operator asked for that (`[modules] scale_aware`). The two
+            // refusals are one sentence to a caller: `404 MODULE_UNAVAILABLE` either way,
+            // because "not on this instance" and "not on an instance this small" are the
+            // same answer to "can I use this". The scale is counted once per process.
+            if state.config().modules.scale_aware
+                && state.modules().dormant(id, state.scale().await)
+            {
                 return crate::http::ApiError(darkhold_domain::AppError::ModuleUnavailable {
                     module: id,
                 })

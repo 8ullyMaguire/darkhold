@@ -173,7 +173,7 @@ async fn run(
         if let darkhold_domain::quality::Support::Blocked(reason) = metric.support() {
             return Err(invalid(format!(
                 "sort: \"{}\" is not available yet — {reason}",
-                metric.as_str()
+                metric.refusal_name(sort_word.unwrap_or_default())
             )));
         }
     }

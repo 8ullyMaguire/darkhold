@@ -36,11 +36,11 @@
 
 use axum::extract::{Query, State};
 use axum::response::{IntoResponse, Response};
-use axum::routing::get;
+use axum::routing::{get, post};
 use axum::{Json, Router};
 use serde::{Deserialize, Serialize};
 
-use crate::auth::MaybeSession;
+use crate::auth::{MaybeSession, RequireSession};
 use crate::http::{ApiError, ApiResult};
 use crate::state::AppState;
 use darkhold_db::catalogue::{
@@ -233,6 +233,15 @@ pub fn router() -> Router<AppState> {
         .route("/catalogue/fandoms", get(fandoms))
         .route("/catalogue/export", get(export_manifest))
         .route("/catalogue/export.sqlite", get(export_sqlite))
+        // M45-67: the works a reader wants more of are often not here. A list is resolved line by
+        // line — catalogue row when it exists, stored evidence when it does not, a reason when it is
+        // neither — and evidence is never turned into a work.
+        .route(
+            "/catalogue/seeds",
+            post(resolve_external_seeds).get(list_external_seeds),
+        )
+        // M45-71: the shelf as a document — a judgement that can be reviewed, diffed and posted.
+        .route("/catalogue/taste-brief", get(taste_brief))
 }
 
 async fn search(
@@ -279,7 +288,7 @@ async fn search(
             Support::Blocked(reason) => {
                 return Err(invalid(format!(
                     "sort: \"{}\" is not available yet — {reason}",
-                    metric.as_str()
+                    metric.refusal_name(sort_word)
                 )))
             }
             Support::Raw => return Ok(Json(search_raw(state, params).await?).into_response()),
@@ -424,24 +433,96 @@ async fn build_query(
 /// scan a reader can wait for. The summary only contributes when the title is too
 /// short to identify anything — a one-word title like "Gamer" matches most of the
 /// catalogue, and a seven-word one already narrows it to the story.
-fn preselection_tokens(seed: &darkhold_db::metrics::SeedLookup) -> Vec<String> {
-    let mut tokens = darkhold_domain::similar::tokens(&seed.title);
-    tokens.sort_by_key(|token| std::cmp::Reverse(token.len()));
-    tokens.truncate(6);
-    if tokens.len() < 2 {
-        let mut body = darkhold_domain::similar::tokens(&seed.summary);
-        body.sort_by_key(|token| std::cmp::Reverse(token.len()));
-        for token in body {
-            if tokens.contains(&token) {
-                continue;
+/// The words the candidate scan will look for: the seeds' titles first, then their summaries.
+///
+/// Built over a **set** (M45-66). The per-seed cap stays six title tokens, but the set gets a
+/// budget too: twenty short seeds would otherwise preselect on a hundred words, which is the
+/// catalogue rather than a taste. Six per seed up to twelve total, in the order the reader named
+/// them, so the first seed they thought of still leads.
+fn preselection_tokens(seeds: &[darkhold_db::metrics::SeedLookup]) -> Vec<String> {
+    const TOTAL_CAP: usize = 12;
+    let mut tokens: Vec<String> = Vec::new();
+    for seed in seeds {
+        let mut mine = darkhold_domain::similar::tokens(&seed.title);
+        mine.sort_by_key(|token| std::cmp::Reverse(token.len()));
+        mine.truncate(6);
+        if mine.len() < 2 {
+            let mut body = darkhold_domain::similar::tokens(&seed.summary);
+            body.sort_by_key(|token| std::cmp::Reverse(token.len()));
+            for token in body {
+                if mine.contains(&token) {
+                    continue;
+                }
+                mine.push(token);
+                if mine.len() >= 6 {
+                    break;
+                }
             }
-            tokens.push(token);
-            if tokens.len() >= 6 {
-                break;
+        }
+        for token in mine {
+            if tokens.len() >= TOTAL_CAP {
+                return tokens;
+            }
+            if !tokens.contains(&token) {
+                tokens.push(token);
             }
         }
     }
     tokens
+}
+
+/// Resolve one name in a set to exactly one row, refusing with the candidates when it cannot (M45-66).
+///
+/// The refusal names **which** name failed: a set query with one ambiguous seed would otherwise print
+/// a list of candidates with no clue which of five names produced them.
+async fn resolve_one_seed(
+    state: &AppState,
+    spec: &str,
+    account: Option<&str>,
+) -> ApiResult<darkhold_db::metrics::SeedLookup> {
+    match darkhold_db::metrics::resolve_seed(state.db(), spec).await? {
+        darkhold_db::metrics::SeedMatch::One(row) => Ok(row),
+        darkhold_db::metrics::SeedMatch::None => {
+            // M45-67: an id that names stored evidence ranks too — otherwise the list a reader
+            // pasted would be a table nobody can use, and the point of storing it was to use it.
+            if let Some(account_id) = account {
+                if let Some(evidence) =
+                    darkhold_db::external_seed::by_id(state.db(), account_id, spec).await?
+                {
+                    return Ok(darkhold_db::metrics::SeedLookup {
+                        id: evidence.id,
+                        title: evidence.title,
+                        // No author and no summary: the instance has not seen this work, and
+                        // inventing either would be a claim it cannot support.
+                        author: String::new(),
+                        summary: String::new(),
+                        source_key: evidence.source_key,
+                        likes: 0,
+                    });
+                }
+            }
+            Err(ApiError(AppError::NotFound {
+                resource: Box::leak(format!("catalogue row for seed \"{spec}\"").into_boxed_str()),
+            }))
+        }
+        darkhold_db::metrics::SeedMatch::Many(rows) => {
+            let named: Vec<String> = rows
+                .iter()
+                .take(6)
+                .map(|row| {
+                    format!(
+                        "{} [{}] {}L ({})",
+                        row.title, row.source_key, row.likes, row.id
+                    )
+                })
+                .collect();
+            Err(invalid(format!(
+                "seed \"{spec}\": {} rows match and none is dominant — pick one by id: {}",
+                rows.len(),
+                named.join("; ")
+            )))
+        }
+    }
 }
 
 /// Answer `/catalogue?seed=…`: the rows most similar to one row (M63-04).
@@ -479,45 +560,35 @@ async fn similar_page(
     }
     let offset = params.offset.unwrap_or(0).max(0);
 
-    let seed_row = match darkhold_db::metrics::resolve_seed(state.db(), spec).await? {
-        darkhold_db::metrics::SeedMatch::One(row) => row,
-        darkhold_db::metrics::SeedMatch::None => {
-            return Err(ApiError(AppError::NotFound {
-                resource: "catalogue row",
-            }))
-        }
-        darkhold_db::metrics::SeedMatch::Many(rows) => {
-            // A refusal has to be actionable: two identical titles with no
-            // archive and no like count is a dead end, and it is exactly what the
-            // first version printed for `--seed "Ghost in the City"`.
-            let named: Vec<String> = rows
-                .iter()
-                .take(6)
-                .map(|row| {
-                    format!(
-                        "{} [{}] {}L ({})",
-                        row.title, row.source_key, row.likes, row.id
-                    )
-                })
-                .collect();
-            return Err(invalid(format!(
-                "seed: {} rows match \"{spec}\" and none is dominant — pick one by id: {}",
-                rows.len(),
-                named.join("; ")
-            )));
-        }
-    };
-
+    // M45-66: `seed=a,b,c` ranks by the set. The cap is a query-cost bound, not a taste limit: each
+    // seed adds its vocabulary to one token union, and a hundred seeds is a search for "everything".
+    const MAX_SEEDS: usize = 20;
+    let specs: Vec<&str> = spec
+        .split(',')
+        .map(str::trim)
+        .filter(|part| !part.is_empty())
+        .collect();
+    if specs.is_empty() {
+        return Err(invalid("seed: name at least one work"));
+    }
+    if specs.len() > MAX_SEEDS {
+        return Err(invalid(format!(
+            "seed: {} works named, and a set query takes at most {MAX_SEEDS} — beyond that the \
+             union stops describing a taste and starts describing the catalogue",
+            specs.len()
+        )));
+    }
+    let mut seeds = Vec::with_capacity(specs.len());
+    for one in &specs {
+        seeds.push(
+            resolve_one_seed(&state, one, account.map(|id| id.to_string()).as_deref()).await?,
+        );
+    }
     let mut query = build_query(&state, &params, exclude_account).await?;
-    query.tokens = preselection_tokens(&seed_row);
-    let page = darkhold_db::metrics::similar(
-        state.db(),
-        &query,
-        &seed_row,
-        limit as usize,
-        offset as usize,
-    )
-    .await?;
+    query.tokens = preselection_tokens(&seeds);
+    let page =
+        darkhold_db::metrics::similar(state.db(), &query, &seeds, limit as usize, offset as usize)
+            .await?;
 
     Ok(SimilarPage {
         items: page
@@ -935,4 +1006,246 @@ async fn export_sqlite(
         headers.insert("x-catalogue-rows", value);
     }
     Ok(response)
+}
+
+/// `POST /api/v1/catalogue/seeds` — resolve a pasted list, one line at a time (M45-67).
+///
+/// Three outcomes per line, and the response says which, because "3 of 8 resolved" is not something a
+/// reader can act on: they need to know that line 5 is a QQ thread this instance cannot read and that
+/// line 7 was refused for being a pasted chapter. Nothing here creates a work.
+async fn resolve_external_seeds(
+    State(state): State<AppState>,
+    RequireSession(session): RequireSession,
+    Json(body): Json<ResolveSeedsBody>,
+) -> ApiResult<Json<serde_json::Value>> {
+    const MAX_LINES: usize = 200;
+    if body.lines.len() > MAX_LINES {
+        return Err(invalid(format!(
+            "lines: {} given and a list takes at most {MAX_LINES} — split it, because a list this \
+             long is a file and files get imported, not typed",
+            body.lines.len()
+        )));
+    }
+    let account_id = session.account_id.to_string();
+    let now = time::OffsetDateTime::now_utc()
+        .format(&time::format_description::well_known::Rfc3339)
+        .unwrap_or_default();
+
+    let mut results = Vec::with_capacity(body.lines.len());
+    let (mut resolved, mut external, mut refused, mut ambiguous) = (0usize, 0usize, 0usize, 0usize);
+    for (index, line) in body.lines.iter().enumerate() {
+        let number = index + 1;
+        let outcome = match darkhold_domain::external_seed::classify(line) {
+            darkhold_domain::external_seed::Line::Blank => {
+                refused += 1;
+                serde_json::json!({
+                    "line": number, "status": "refused",
+                    "reason": "empty line — nothing to resolve, and an empty seed would match the catalogue",
+                })
+            }
+            darkhold_domain::external_seed::Line::TooLong { chars } => {
+                refused += 1;
+                serde_json::json!({
+                    "line": number, "status": "refused",
+                    "reason": format!("{chars} characters is a pasted paragraph, not a title (limit {})",
+                        darkhold_domain::external_seed::MAX_TITLE_CHARS),
+                })
+            }
+            darkhold_domain::external_seed::Line::Pointer {
+                spec,
+                source_key,
+                source_url,
+            } => {
+                match darkhold_db::metrics::resolve_seed(state.db(), &spec).await? {
+                    darkhold_db::metrics::SeedMatch::One(row) => {
+                        resolved += 1;
+                        serde_json::json!({
+                            "line": number, "status": "resolved", "spec": spec,
+                            "id": row.id, "title": row.title, "source_key": row.source_key,
+                        })
+                    }
+                    darkhold_db::metrics::SeedMatch::Many(rows) => {
+                        ambiguous += 1;
+                        serde_json::json!({
+                            "line": number, "status": "ambiguous", "spec": spec,
+                            "reason": "several rows match and none is dominant",
+                            "candidates": rows.iter().take(6).map(|row| serde_json::json!({
+                                "id": row.id, "title": row.title,
+                                "source_key": row.source_key, "likes": row.likes,
+                            })).collect::<Vec<_>>(),
+                        })
+                    }
+                    darkhold_db::metrics::SeedMatch::None => {
+                        // Not here — kept as evidence, with the words the reader typed. No word
+                        // count, no likes, no author: this instance has not seen the work and any
+                        // number it printed would be invented.
+                        let title = title_from(&spec, &source_key, source_url.as_deref());
+                        let provenance = serde_json::json!({
+                            "typed": line, "source_key": source_key,
+                            "reason": "not in this instance's catalogue",
+                        });
+                        let claim = darkhold_db::external_seed::Claim {
+                            spec: &spec,
+                            title: &title,
+                            source_key: &source_key,
+                            source_url: source_url.as_deref(),
+                            provenance: &provenance,
+                        };
+                        let stored = darkhold_db::external_seed::remember(
+                            state.db(),
+                            &account_id,
+                            &claim,
+                            &now,
+                        )
+                        .await?;
+                        external += 1;
+                        serde_json::json!({
+                            "line": number, "status": "external", "spec": spec,
+                            "id": stored.id, "title": stored.title,
+                            "source_key": stored.source_key,
+                            "note": "stored as taste evidence — it is not a catalogue row, and this \
+                                     instance cannot report metrics for it",
+                        })
+                    }
+                }
+            }
+        };
+        results.push(outcome);
+    }
+
+    Ok(Json(serde_json::json!({
+        "results": results,
+        "counts": {
+            "lines": body.lines.len(),
+            "resolved": resolved,
+            "external": external,
+            "ambiguous": ambiguous,
+            "refused": refused,
+        },
+    })))
+}
+
+/// The words to rank by when a line is evidence rather than a row.
+///
+/// A URL's last path segment is tried when it looks like a slug (`some-dark-fic`), because
+/// `archiveofourown.org/works/123456` carries no title at all — and a numeric segment is an id, not
+/// words, so ranking on it would be ranking on noise.
+fn title_from(spec: &str, source_key: &str, source_url: Option<&str>) -> String {
+    let Some(url) = source_url else {
+        return spec.to_owned();
+    };
+    let segment = url
+        .split(['?', '#'])
+        .next()
+        .unwrap_or(url)
+        .trim_end_matches('/')
+        .rsplit('/')
+        .next()
+        .unwrap_or_default();
+    let looks_like_words = segment.len() > 3
+        && segment.chars().any(|c| c.is_alphabetic())
+        && segment
+            .chars()
+            .all(|c| c.is_ascii_alphanumeric() || c == '-' || c == '_');
+    if looks_like_words {
+        segment.replace(['-', '_'], " ")
+    } else {
+        // A bare id: name it by where it points, so the row can still explain itself.
+        format!("{source_key} {segment}")
+    }
+}
+
+/// `GET /api/v1/catalogue/seeds` — the evidence this reader has supplied, newest first.
+async fn list_external_seeds(
+    State(state): State<AppState>,
+    RequireSession(session): RequireSession,
+) -> ApiResult<Json<serde_json::Value>> {
+    let rows =
+        darkhold_db::external_seed::list_for_account(state.db(), &session.account_id.to_string())
+            .await?;
+    Ok(Json(serde_json::json!({
+        "items": rows.iter().map(|row| serde_json::json!({
+            "id": row.id, "spec": row.spec, "title": row.title,
+            "source_key": row.source_key, "source_url": row.source_url,
+            "provenance": row.provenance_json, "created_at": row.created_at,
+        })).collect::<Vec<_>>(),
+        "total": rows.len(),
+    })))
+}
+
+/// The body of `POST /catalogue/seeds`.
+#[derive(Debug, serde::Deserialize)]
+struct ResolveSeedsBody {
+    lines: Vec<String>,
+}
+
+/// `GET /api/v1/catalogue/taste-brief?seed=a,b&format=json` — the shelf as markdown (M45-71).
+///
+/// The bytes are deterministic: same shelf, same document. That is what makes it committable — a brief
+/// that changed on every read could not be reviewed, and this row exists so a judgement can be.
+async fn taste_brief(
+    State(state): State<AppState>,
+    MaybeSession(session): MaybeSession,
+    Query(params): Query<BriefParams>,
+) -> ApiResult<Response> {
+    const MAX_SEEDS: usize = 20;
+    let spec = params
+        .seed
+        .as_deref()
+        .map(str::trim)
+        .filter(|s| !s.is_empty())
+        .ok_or_else(|| invalid("seed: a brief is generated from works you name"))?;
+    let specs: Vec<&str> = spec
+        .split(',')
+        .map(str::trim)
+        .filter(|p| !p.is_empty())
+        .collect();
+    if specs.is_empty() {
+        return Err(invalid("seed: name at least one work"));
+    }
+    if specs.len() > MAX_SEEDS {
+        return Err(invalid(format!(
+            "seed: {} works named, and a brief takes at most {MAX_SEEDS}",
+            specs.len()
+        )));
+    }
+
+    let account = session.as_ref().map(|user| user.account_id.to_string());
+    let mut facts = Vec::with_capacity(specs.len());
+    for one in &specs {
+        let seed = resolve_one_seed(&state, one, account.as_deref()).await?;
+        let read = darkhold_db::taste_brief::facts_for_item(state.db(), &seed.id).await?;
+        facts.push(darkhold_domain::taste_brief::SeedFacts {
+            title: seed.title,
+            fandoms: read.fandoms,
+            tags: read.tags,
+        });
+    }
+    let brief = darkhold_domain::taste_brief::build(&facts);
+
+    let wants_json = params
+        .format
+        .as_deref()
+        .is_some_and(|format| format.eq_ignore_ascii_case("json"));
+    if wants_json {
+        return Ok(Json(serde_json::json!(brief)).into_response());
+    }
+    Ok((
+        [(
+            axum::http::header::CONTENT_TYPE,
+            "text/markdown; charset=utf-8",
+        )],
+        brief.markdown,
+    )
+        .into_response())
+}
+
+/// The brief's own query string: `seed` and `format`, and nothing else.
+///
+/// Deliberately not `CatalogueParams`: a brief is not a search, and sharing the struct would put `sort`
+/// and `limit` on a document that has neither.
+#[derive(Debug, serde::Deserialize)]
+struct BriefParams {
+    seed: Option<String>,
+    format: Option<String>,
 }

@@ -42,6 +42,20 @@ pub struct ConflictDetail {
     pub actual: i64,
 }
 
+/// Where a rejected query went wrong, for a client that wants to point at it.
+///
+/// The offset is counted in `chars`, not bytes: a caret drawn under a query that
+/// contains a multi-byte character must land on the character the parser stopped at,
+/// and the parser counts characters too.
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub struct QueryDetail {
+    /// The expression as the caller sent it, so a caret is drawn under their own text
+    /// rather than under a re-rendering of it.
+    pub expression: String,
+    /// Character offset of the mistake.
+    pub offset: usize,
+}
+
 /// Machine-readable error codes (spec §3.3). The string form is part of the
 /// public API contract: never rename one without a version bump.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
@@ -174,6 +188,22 @@ pub enum AppError {
         message: String,
         /// Per-field messages, safe to display.
         field_errors: BTreeMap<String, String>,
+    },
+
+    /// The caller's query did not parse (`M63-08`).
+    ///
+    /// A `Validation` in every respect a client can switch on — the code is
+    /// `VALIDATION_FAILED` and the status is `422` — but it carries the position of the
+    /// mistake as a field. The alternative is a client parsing "at offset 12" out of an
+    /// English sentence, which is what this module exists to stop.
+    #[error("{message}")]
+    QueryRejected {
+        /// Human-readable reason, safe to display.
+        message: String,
+        /// The expression as it was sent, so the caret can be drawn under it.
+        expression: String,
+        /// Character offset of the mistake.
+        offset: usize,
     },
 
     /// Optimistic concurrency failure (spec §3.4).
@@ -346,7 +376,7 @@ impl AppError {
             Self::NotFound { .. } => ErrorCode::NotFound,
             Self::ModuleUnavailable { .. } => ErrorCode::ModuleUnavailable,
             Self::ModuleNotUserToggleable { .. } => ErrorCode::ModuleNotUserToggleable,
-            Self::Validation { .. } => ErrorCode::ValidationFailed,
+            Self::Validation { .. } | Self::QueryRejected { .. } => ErrorCode::ValidationFailed,
             Self::RevisionConflict { .. } => ErrorCode::RevisionConflict,
             Self::RateLimited { .. } => ErrorCode::RateLimited,
             Self::QuotaExceeded { .. } => ErrorCode::QuotaExceeded,
@@ -378,7 +408,9 @@ impl AppError {
             | Self::TrustLevelInsufficient { .. } => 403,
             Self::NotFound { .. } | Self::ModuleUnavailable { .. } => 404,
             Self::ModuleNotUserToggleable { .. } => 403,
-            Self::Validation { .. } | Self::SourceUnsupported { .. } => 422,
+            Self::Validation { .. }
+            | Self::QueryRejected { .. }
+            | Self::SourceUnsupported { .. } => 422,
             // The request is well formed and the instance cannot serve it: the
             // program that would is absent. 422 rather than 503 — nothing is
             // temporarily down, and retrying the same request changes nothing
@@ -424,6 +456,20 @@ impl AppError {
         match self {
             Self::Validation { field_errors, .. } => field_errors.clone(),
             _ => BTreeMap::new(),
+        }
+    }
+
+    /// The position of a rejected query's mistake, when there is one (`M63-08`).
+    #[must_use]
+    pub fn query_detail(&self) -> Option<QueryDetail> {
+        match self {
+            Self::QueryRejected {
+                expression, offset, ..
+            } => Some(QueryDetail {
+                expression: expression.clone(),
+                offset: *offset,
+            }),
+            _ => None,
         }
     }
 
@@ -482,6 +528,34 @@ impl AppError {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn a_rejected_query_is_a_validation_that_carries_its_offset() {
+        let error = AppError::QueryRejected {
+            message: "unexpected `>`. Write `kudos:>=100`".to_owned(),
+            expression: "kudos>=100".to_owned(),
+            offset: 5,
+        };
+        // The public contract does not move: a typo is a validation failure, and a client
+        // that switches on the code keeps working.
+        assert_eq!(error.code(), ErrorCode::ValidationFailed);
+        assert_eq!(error.status_code(), 422);
+        assert!(error.field_errors().is_empty());
+        let detail = error
+            .query_detail()
+            .expect("the position travels as a field");
+        assert_eq!(detail.offset, 5);
+        assert_eq!(detail.expression, "kudos>=100");
+        assert!(
+            AppError::Validation {
+                message: "x".to_owned(),
+                field_errors: BTreeMap::new(),
+            }
+            .query_detail()
+            .is_none(),
+            "and nothing else grows the field"
+        );
+    }
 
     #[test]
     fn codes_are_stable_upper_snake_strings() {
