@@ -28,8 +28,8 @@ the gates every change passes before it is committed.
 
 This repository is the base for the consolidated from-scratch specification. The
 honest one-line status, re-derived from `docs/requirements.csv` (903 rows):
-**817 implemented** (429 fully-tested, 133 verified E2E, 255 built but not
-verified end to end), **81 planned**, **4 deliberately unsupported**, **1
+**818 implemented** (429 fully-tested, 134 verified E2E, 255 built but not
+verified end to end), **80 planned**, **4 deliberately unsupported**, **1
 evaluated and rejected**. The planned remainder is
 concentrated in a few blocks — M69 (24) · M63 (17) · M64 (14) · M45 (13) · GS (5) — and `docs/plans/remaining-work.md` tracks them; the M45 block is the
 taste and catalogue block the last sessions have been closing a row at a time.

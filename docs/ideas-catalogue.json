@@ -1,6 +1,6 @@
 {
  "generated_by": "scripts/ideas_catalogue.py",
- "count": 175,
+ "count": 174,
  "ideas": [
   {
    "why_summary": "",
@@ -864,19 +864,6 @@
    "why_summary": "The `restricted` audience is a fourth visibility tier, not a flag on the existing private one, because the metadata stays public. The refusal shape follows the existing rule (M59-2",
    "id": "M70-04",
    "title": "A work can be restricted to signed-in accounts",
-   "sources": [
-    "docs/requirements.csv"
-   ],
-   "milestone": "M70",
-   "relevance": 4,
-   "because": "a requirements row exists (+4)",
-   "default_on": false,
-   "built": false
-  },
-  {
-   "why_summary": "AO3 shipped collection tags in 2026. The distinction that makes it worth a row: a collection tag describes the collection's intent (a challenge, a ship week, a fandom event), not i",
-   "id": "M70-05",
-   "title": "Collections carry tags of their own, and collections can be browsed and filtered by those tags independently of the works inside them.",
    "sources": [
     "docs/requirements.csv"
    ],

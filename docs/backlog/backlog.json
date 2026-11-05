@@ -3,12 +3,12 @@
     "requirements.csv": {
       "rows": 903,
       "by_status": {
-        "implemented-verified-e2e": 133,
+        "implemented-verified-e2e": 134,
         "implemented-locally-tested": 247,
         "unsupported": 4,
         "implemented-fully-tested": 429,
         "implemented": 8,
-        "planned": 81,
+        "planned": 80,
         "evaluated-and-rejected": 1
       }
     },
@@ -493,12 +493,6 @@
       "notes": "The `restricted` audience is a fourth visibility tier, not a flag on the existing private one, because the metadata stays public. The refusal shape follows the existing rule (M59-26): an anonymous reader learns nothing from the response that distinguishes restricted from missing."
     },
     {
-      "id": "M70-05",
-      "milestone": "M70",
-      "requirement": "Collections carry tags of their own, and collections can be browsed and filtered by those tags independently of the works inside them.",
-      "notes": "AO3 shipped collection tags in 2026. The distinction that makes it worth a row: a collection tag describes the collection's intent (a challenge, a ship week, a fandom event), not its contents, so it must not leak into work search or taste. Canonicalisation applies to it as to any tag, and a collection tag is not a work tag."
-    },
-    {
       "id": "M70-06",
       "milestone": "M70",
       "requirement": "Reader site skins: a reader can apply their own stylesheet to the interface, scoped to their session, with the instance's own theme still authoritative and no ability to load remote resources.",
@@ -517,7 +511,7 @@
     "M64": 14,
     "M45": 13,
     "M66": 6,
-    "M70": 4,
+    "M70": 3,
     "M65": 1,
     "M29": 1,
     "M44": 1
