@@ -1,15 +1,15 @@
 {
   "sources": {
     "requirements.csv": {
-      "rows": 903,
+      "rows": 906,
       "by_status": {
-        "implemented-verified-e2e": 134,
+        "implemented-verified-e2e": 135,
         "implemented-locally-tested": 247,
         "unsupported": 4,
         "implemented-fully-tested": 429,
         "implemented": 8,
-        "planned": 80,
-        "evaluated-and-rejected": 1
+        "planned": 81,
+        "evaluated-and-rejected": 2
       }
     },
     "concord": {
@@ -493,16 +493,22 @@
       "notes": "The `restricted` audience is a fourth visibility tier, not a flag on the existing private one, because the metadata stays public. The refusal shape follows the existing rule (M59-26): an anonymous reader learns nothing from the response that distinguishes restricted from missing."
     },
     {
-      "id": "M70-06",
-      "milestone": "M70",
-      "requirement": "Reader site skins: a reader can apply their own stylesheet to the interface, scoped to their session, with the instance's own theme still authoritative and no ability to load remote resources.",
-      "notes": "AO3 skins are per-reader CSS. Two constraints keep this from becoming an XSS surface or an exfiltration channel: the CSS is served as a static text/plain document referenced by the reader's own page (never injected into another reader's response), and `@import`/`url()` to remote origins is refused at save time. Operator themes stay the default and win on tokens the skin does not override."
-    },
-    {
       "id": "M70-08",
       "milestone": "M70",
       "requirement": "Step-up authentication: a session can be asked for a second factor for sensitive actions, and the product reads the factor from the identity provider's claim rather than implementing one of its own.",
       "notes": "darkhold authenticates through `polaris-oidc-client`; a factor implemented here would be a floor below the issuer's and would not protect the issuer's other sites. The row is therefore a consumer: sensitive routes declare the required `acr` (e.g. `2fa`), the login flow requests it, and a session that lacks it is refused with a reason that names the requirement rather than a bare 403."
+    },
+    {
+      "id": "M70-09",
+      "milestone": "M70",
+      "requirement": "An extension document \u2014 a saved-view bundle, a dashboard layout, a theme token set \u2014 is a versioned JSON document that can be exported by one reader and imported by another, and an import is validated by the same rules the server enforces locally, with unknown fields refused rather than ignored.",
+      "notes": "This is the load-bearing row of the extension decision (ADR 0005): the thing that makes extensions shareable without making them executable. Three decisions are in it. First, documents are DATA \u2014 no callbacks, no conditions the server has to evaluate on someone else's behalf. Second, import is untrusted input: it goes through the same validator as a locally-authored document, so a shared document cannot be a way to reach a state the API refuses. Third, an unknown field is a REFUSAL, not a silent ignore: a document written by a newer instance must fail loudly, because silently dropping the field it depends on is how two instances end up with the same document and different behaviour."
+    },
+    {
+      "id": "M70-10",
+      "milestone": "M70",
+      "requirement": "Public extension documents can be browsed, previewed and attributed: a list shows each document's author pseud, its version and what kind of thing it is, and a preview is produced by the server from the same renderer the reader uses \u2014 never by executing the document.",
+      "notes": "Sharing needs a surface, and the surface is where a marketplace would begin. Three rules keep it from becoming one: the preview is the server's own rendering of the document (so a preview cannot disagree with what installing does), attribution is a PSEUD and never an account (ADR 0003), and there is no install counter, no rating and no ranking \u2014 sorting by popularity on a corpus of four is a way to make the first uploader permanently first."
     }
   ],
   "open_by_milestone": {
@@ -511,7 +517,7 @@
     "M64": 14,
     "M45": 13,
     "M66": 6,
-    "M70": 3,
+    "M70": 4,
     "M65": 1,
     "M29": 1,
     "M44": 1

@@ -1,6 +1,6 @@
 {
  "generated_by": "scripts/ideas_catalogue.py",
- "count": 174,
+ "count": 175,
  "ideas": [
   {
    "why_summary": "",
@@ -874,9 +874,9 @@
    "built": false
   },
   {
-   "why_summary": "AO3 skins are per-reader CSS. Two constraints keep this from becoming an XSS surface or an exfiltration channel: the CSS is served as a static text/plain document referenced by the",
-   "id": "M70-06",
-   "title": "Reader site skins",
+   "why_summary": "darkhold authenticates through `polaris-oidc-client`; a factor implemented here would be a floor below the issuer's and would not protect the issuer's other sites. The row is there",
+   "id": "M70-08",
+   "title": "Step-up authentication",
    "sources": [
     "docs/requirements.csv"
    ],
@@ -887,9 +887,22 @@
    "built": false
   },
   {
-   "why_summary": "darkhold authenticates through `polaris-oidc-client`; a factor implemented here would be a floor below the issuer's and would not protect the issuer's other sites. The row is there",
-   "id": "M70-08",
-   "title": "Step-up authentication",
+   "why_summary": "This is the load-bearing row of the extension decision (ADR 0005): the thing that makes extensions shareable without making them executable. Three decisions are in it. First, docum",
+   "id": "M70-09",
+   "title": "An extension document \u2014 a saved-view bundle, a dashboard layout, a theme token set \u2014 is a versioned JSON document that can be exported by one reader and imported by another, and an import is validated by the same rules the server enforces locally, with unknown fields refused rather than ignored.",
+   "sources": [
+    "docs/requirements.csv"
+   ],
+   "milestone": "M70",
+   "relevance": 4,
+   "because": "a requirements row exists (+4)",
+   "default_on": false,
+   "built": false
+  },
+  {
+   "why_summary": "Sharing needs a surface, and the surface is where a marketplace would begin. Three rules keep it from becoming one: the preview is the server's own rendering of the document (so a ",
+   "id": "M70-10",
+   "title": "Public extension documents can be browsed, previewed and attributed",
    "sources": [
     "docs/requirements.csv"
    ],
