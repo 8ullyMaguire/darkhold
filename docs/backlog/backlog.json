@@ -7,8 +7,8 @@
         "implemented-locally-tested": 247,
         "unsupported": 4,
         "implemented-fully-tested": 429,
-        "implemented": 6,
-        "planned": 79,
+        "implemented": 7,
+        "planned": 78,
         "evaluated-and-rejected": 1
       }
     },
@@ -179,12 +179,6 @@
       "milestone": "M63",
       "requirement": "reconcile the live database with the workspace migrations: 11 tables the migrations create are absent, 12 legacy-named tables are present",
       "notes": "Found while planning M63-01. The live instance was migrated by the other lineage (lorehaven), whose migration numbers collide with this tree's, so master's files are recorded as applied while the schema is the other one. Everything M63-01 touches exists in both shapes, so the milestone was verifiable; anything that reads chapters/bodies/ships from the live instance will not be. Decide per table: rename (units->chapters, entity_*->canonical_*, revisions->chapter_revisions) or create-and-backfill. Do not run this blind: 127k rows live in the legacy shapes."
-    },
-    {
-      "id": "M63-34",
-      "milestone": "M63",
-      "requirement": "catalogue q= searches the summary as well as title and author, and can search title+summary in one query from the CLI",
-      "notes": "Found while answering a real question ('20 best progression-fantasy fics with a system') with dh rec: the verb could not find them, because the words that identify the subgenre ('the Gamer', 'LitRPG', 'Chaos Gacha', 'Celestial Grimoire') live in the summary and the tags, not the title. A summary scan belongs behind the same route so the CLI and the site share one definition; weighing it (summary is long, so a plain LIKE over 141k rows needs measuring before it ships) is part of the item."
     },
     {
       "id": "M63-37",
@@ -501,7 +495,7 @@
   ],
   "open_by_milestone": {
     "M69": 25,
-    "M63": 18,
+    "M63": 17,
     "M64": 14,
     "M45": 13,
     "M66": 6,

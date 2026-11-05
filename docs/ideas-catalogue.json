@@ -1,6 +1,6 @@
 {
  "generated_by": "scripts/ideas_catalogue.py",
- "count": 173,
+ "count": 172,
  "ideas": [
   {
    "why_summary": "",
@@ -396,19 +396,6 @@
    "why_summary": "live information_schema vs migrations/postgres: missing chapters, bodies, chapter_revisions, import_chapters, ship_participants, taxonomy_aliases, taxonomy_closure, taxonomy_edges,",
    "id": "M63-33",
    "title": "reconcile the live database with the workspace migrations",
-   "sources": [
-    "docs/requirements.csv"
-   ],
-   "milestone": "M63",
-   "relevance": 4,
-   "because": "a requirements row exists (+4)",
-   "default_on": false,
-   "built": false
-  },
-  {
-   "why_summary": "crates/db/src/catalogue.rs search(): `lower(title) LIKE ? OR lower(author_text) LIKE ?` \u2014 summary is never matched; measured 2026-11-01: 'system'-style keywords match 261 rows via ",
-   "id": "M63-34",
-   "title": "catalogue q= searches the summary as well as title and author, and can search title+summary in one query from the CLI",
    "sources": [
     "docs/requirements.csv"
    ],
