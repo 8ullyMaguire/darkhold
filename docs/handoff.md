@@ -3907,3 +3907,40 @@ Two things that bit during this deploy, worth carrying forward:
   `POST /alerts/run` with `RequireActorScoped` and no `ROUTE_TABLE` row, so master went red the moment the
   lineages met. Fixed at `cd15dd00` (`Audience::Scoped`, 5/5). Merging the deployed tree is not a formality —
   run `route_inventory` immediately afterwards.
+
+### M70 triage — what is a slice and what is a migration
+
+The eight archive-parity rows added on 2026-11-05 are not the same size, and pretending otherwise is how a
+session starts three of them and finishes none. Ordered by what they actually cost:
+
+**Pure rule, testable in `domain` with no schema** — start here:
+
+* **M70-01 orphaning.** The rule is a state, not a workflow: owner becomes NULL, the label freezes to
+  `"<pseud> (orphaned)"`, and no route accepts an orphaned work back. The account-deletion path then chooses
+  *orphan* instead of *delete*, which is a cascade change but a mechanical one.
+* **M70-02 whole-work reading.** The rule is the anchor: chapter id plus offset, never a byte offset into a
+  merged document. Everything else is presentation.
+
+**Needs a schema decision before code:**
+
+* **M70-03 co-creators** — join table with `invited | accepted | declined | removed`, and the rule that an
+  unaccepted credit never appears on a public work. Interacts with erasure: one co-creator leaving cannot take
+  the other's work with them.
+* **M70-07 Marked for Later** — deliberately *not* a private bookmark, so it needs its own table. Modelling it
+  as a flag would leak it into aggregate metrics and the taste vector.
+* **M70-05 collection tags** — canonicalisation applies, but the tag must not enter work search or taste. That
+  separation is the row.
+
+**Needs an integration surface that exists elsewhere:**
+
+* **M70-08 step-up auth** — consumer only; the factor lives in the issuer (`polaris-oidc-client`). The row is
+  `acr` required per sensitive route, and a refusal that names the requirement.
+* **M70-06 reader skins** — a static document served per reader, `@import`/`url()` refused at save. The XSS
+  surface is the whole risk, so it ships after the refusal tests, not before.
+
+**Fourth visibility tier, touches everything:**
+
+* **M70-04 restricted audience** — metadata public, body for sessions only, refusal indistinguishable from
+  missing (the M59-26 rule). Do it after M70-03 and M70-07, because both change what "who may see this" means.
+
+Order: **M70-01 → M70-02 → M70-03 → M70-07 → M70-05 → M70-04 → M70-08 → M70-06.**
