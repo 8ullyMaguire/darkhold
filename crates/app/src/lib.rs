@@ -21,6 +21,7 @@ pub mod derivative;
 pub mod doctor;
 pub mod estate_search;
 pub mod exports;
+pub mod fixity;
 pub mod html;
 pub mod http;
 pub mod imports;

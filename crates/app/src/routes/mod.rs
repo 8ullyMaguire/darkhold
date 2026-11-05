@@ -4,6 +4,7 @@ pub mod account_permissions;
 // W2: sign in with Polaris.
 pub mod admin;
 pub mod admin_discovery;
+pub mod admin_fixity;
 pub mod analytics;
 pub mod archive;
 pub mod arena;
