@@ -1,13 +1,13 @@
 {
   "sources": {
     "requirements.csv": {
-      "rows": 886,
+      "rows": 894,
       "by_status": {
         "implemented-verified-e2e": 129,
         "implemented-locally-tested": 247,
         "unsupported": 4,
         "implemented-fully-tested": 421,
-        "planned": 84,
+        "planned": 92,
         "evaluated-and-rejected": 1
       }
     },
@@ -526,12 +526,60 @@
       "milestone": "M44",
       "requirement": "44 roadmap consensus an elo ranked community voted board: a public board where the community ranks feature ideas by pairwise consensus, ported from FicHub's fichub-consensus Elo design",
       "notes": "Reserved section, specified in docs/spec/44-roadmap-consensus-an-elo-ranked-community-voted.md. Registered 2026-11-02 for the same reason as M29-08: an idea the coverage gate named with no home."
+    },
+    {
+      "id": "M45-66",
+      "milestone": "M45",
+      "requirement": "Rank the catalogue by a set of seed works, not one",
+      "notes": "Concord card '[L] Rank by a set of seeds, not one work'. Measured gap: `/api/v1/catalogue?seed=` (M63-04) refuses a list; a reader with fifty works that describe a subgenre picks one and hopes it represents the set. Centroid of the seeds' tag/embedding vectors, publishing the contributing tags."
+    },
+    {
+      "id": "M45-67",
+      "milestone": "M45",
+      "requirement": "External seeds: a list of titles becomes taste evidence, never catalogue rows",
+      "notes": "Concord card '[L] External seeds'. The works a reader wants more of are often not here (Wattpad/QQ/SB/WN). Resolve URLs and AO3 ids; store the rest as provenance-carrying taste evidence, never as fabricatable rows; report per line what resolved and why not."
+    },
+    {
+      "id": "M45-68",
+      "milestone": "M45",
+      "requirement": "Trope groups: one name expanding to many tags",
+      "notes": "Concord card '[M] Trope groups'. `dark progression` is five freeform tags with growing synonyms; define the group once (name, members, OR semantics) and publish the expansion at /taxonomy. Sits beside the existing tag alias table."
+    },
+    {
+      "id": "M45-69",
+      "milestone": "M45",
+      "requirement": "Operator taste: the instance theme seeded from the operator's shelf, with provenance",
+      "notes": "Concord card '[M] Operator taste'. instance_theme is computed from bookmarks and M45-50 seasons override it; neither lets an operator state what the instance is FOR by pointing at a shelf. Publish as an operator-sourced vector with seed count and top tags, visible rather than blended."
+    },
+    {
+      "id": "M45-70",
+      "milestone": "M45",
+      "requirement": "Explain my taste: the tags and seeds behind a ranking",
+      "notes": "Concord card '[S] Explain my taste'. GET /api/v1/me/taste/explain: top weighted tags, the signals that produced each, and which the reader can switch off. The numbers exist; nothing publishes them."
+    },
+    {
+      "id": "M45-71",
+      "milestone": "M45",
+      "requirement": "Taste brief: a document generated from a list of works",
+      "notes": "Concord card '[M] Taste brief'. From a shelf or list emit markdown \u2014 fandoms, recurring tropes, one-off tags, and the query that expresses the whole thing \u2014 committable to docs and pushable to Concord. A judgement becomes a reviewable artefact."
+    },
+    {
+      "id": "M45-72",
+      "milestone": "M45",
+      "requirement": "Shelf documents: what this instance recommends, and the query behind each shelf",
+      "notes": "Concord card '[M] Shelf documents'. Saved views and digest runs exist; nothing renders them into one readable page with provenance (query, count, last change). Publishing the query is what makes a shelf an editorial decision."
+    },
+    {
+      "id": "M63-39",
+      "milestone": "M63",
+      "requirement": "Ship the trope queries as a reviewable query library",
+      "notes": "Concord card '[S] Ship the trope queries'. `.darkhold/queries/<name>.q` exists (M63-09); ship the first trope family as files with comments on what each clause excludes, so the definition is diffable in review."
     }
   ],
   "open_by_milestone": {
     "M69": 25,
-    "M63": 19,
-    "M45": 17,
+    "M45": 24,
+    "M63": 20,
     "M64": 14,
     "M66": 6,
     "M65": 1,

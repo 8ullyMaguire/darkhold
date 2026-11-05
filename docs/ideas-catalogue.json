@@ -1,6 +1,6 @@
 {
  "generated_by": "scripts/ideas_catalogue.py",
- "count": 178,
+ "count": 186,
  "ideas": [
   {
    "why_summary": "",
@@ -289,6 +289,71 @@
    "built": false
   },
   {
+   "why_summary": "-- Concord card '[L] External seeds'. The works a reader wants more of are often not here (Wattpad/QQ/SB/WN). Resolve URLs and AO3 ids; store the rest as provenance-carrying taste ",
+   "id": "M45-67",
+   "title": "External seeds",
+   "sources": [
+    "docs/requirements.csv"
+   ],
+   "milestone": "M45",
+   "relevance": 4,
+   "because": "a requirements row exists (+4)",
+   "default_on": false,
+   "built": false
+  },
+  {
+   "why_summary": "-- Concord card '[M] Trope groups'. `dark progression` is five freeform tags with growing synonyms; define the group once (name, members, OR semantics) and publish the expansion at",
+   "id": "M45-68",
+   "title": "Trope groups",
+   "sources": [
+    "docs/requirements.csv"
+   ],
+   "milestone": "M45",
+   "relevance": 4,
+   "because": "a requirements row exists (+4)",
+   "default_on": false,
+   "built": false
+  },
+  {
+   "why_summary": "-- Concord card '[S] Explain my taste'. GET /api/v1/me/taste/explain: top weighted tags, the signals that produced each, and which the reader can switch off. The numbers exist; not",
+   "id": "M45-70",
+   "title": "Explain my taste",
+   "sources": [
+    "docs/requirements.csv"
+   ],
+   "milestone": "M45",
+   "relevance": 4,
+   "because": "a requirements row exists (+4)",
+   "default_on": false,
+   "built": false
+  },
+  {
+   "why_summary": "-- Concord card '[M] Taste brief'. From a shelf or list emit markdown \u2014 fandoms, recurring tropes, one-off tags, and the query that expresses the whole thing \u2014 committable to docs ",
+   "id": "M45-71",
+   "title": "Taste brief",
+   "sources": [
+    "docs/requirements.csv"
+   ],
+   "milestone": "M45",
+   "relevance": 4,
+   "because": "a requirements row exists (+4)",
+   "default_on": false,
+   "built": false
+  },
+  {
+   "why_summary": "-- Concord card '[M] Shelf documents'. Saved views and digest runs exist; nothing renders them into one readable page with provenance (query, count, last change). Publishing the qu",
+   "id": "M45-72",
+   "title": "Shelf documents",
+   "sources": [
+    "docs/requirements.csv"
+   ],
+   "milestone": "M45",
+   "relevance": 4,
+   "because": "a requirements row exists (+4)",
+   "default_on": false,
+   "built": false
+  },
+  {
    "why_summary": "-- Split out of M63-05 on 2026-11-02: that row asked for `--link md|epub|url` and there is no export route to point at, so the flag refuses with its reason rather than printing a 4",
    "id": "M63-05b",
    "title": "`dh rec --link epub`",
@@ -487,6 +552,19 @@
    "why_summary": "measured 2026-11-01: library_items.views is NULL on all 141,317 rows; likes exist on 1,247 of them; the crawler sums XenForo threadmark likes into one integer, which is total engag",
    "id": "M63-37",
    "title": "per-source engagement is stored as the source reports it (likes, hits, replies, bookmarks) instead of one normalised `likes`, so a rate metric can be computed per archive",
+   "sources": [
+    "docs/requirements.csv"
+   ],
+   "milestone": "M63",
+   "relevance": 4,
+   "because": "a requirements row exists (+4)",
+   "default_on": false,
+   "built": false
+  },
+  {
+   "why_summary": "-- Concord card '[S] Ship the trope queries'. `.darkhold/queries/<name>.q` exists (M63-09); ship the first trope family as files with comments on what each clause excludes, so the ",
+   "id": "M63-39",
+   "title": "Ship the trope queries as a reviewable query library",
    "sources": [
     "docs/requirements.csv"
    ],
@@ -968,6 +1046,32 @@
    "why_summary": "-- Gaps review E2. Browse archive through X's eyes; operator's own lens stays invisible. Renamed 2026-11-02: 'curator lenses' borrowed the same word as the saved-filter feature, wh",
    "id": "M45-40",
    "title": "Curator views",
+   "sources": [
+    "docs/requirements.csv"
+   ],
+   "milestone": "M45",
+   "relevance": 3,
+   "because": "a requirements row exists (+4); needs a model or heavy compute (-1)",
+   "default_on": false,
+   "built": false
+  },
+  {
+   "why_summary": "-- Concord card '[L] Rank by a set of seeds, not one work'. Measured gap: `/api/v1/catalogue?seed=` (M63-04) refuses a list; a reader with fifty works that describe a subgenre pick",
+   "id": "M45-66",
+   "title": "Rank the catalogue by a set of seed works, not one",
+   "sources": [
+    "docs/requirements.csv"
+   ],
+   "milestone": "M45",
+   "relevance": 3,
+   "because": "a requirements row exists (+4); needs a model or heavy compute (-1)",
+   "default_on": false,
+   "built": false
+  },
+  {
+   "why_summary": "-- Concord card '[M] Operator taste'. instance_theme is computed from bookmarks and M45-50 seasons override it; neither lets an operator state what the instance is FOR by pointing ",
+   "id": "M45-69",
+   "title": "Operator taste",
    "sources": [
     "docs/requirements.csv"
    ],
