@@ -1113,6 +1113,20 @@ pub const ROUTE_TABLE: &[RouteEntry] = &[
     },
     // M63-14: the same view, rendered as a feed. Scoped like the view it renders.
     RouteEntry {
+        file: "admin_fixity.rs",
+        handler: "get_report",
+        method: "GET",
+        path: "/admin/fixity/report",
+        audience: Audience::Operator,
+    },
+    RouteEntry {
+        file: "admin_fixity.rs",
+        handler: "post_run",
+        method: "POST",
+        path: "/admin/fixity/run",
+        audience: Audience::Operator,
+    },
+    RouteEntry {
         file: "trends.rs",
         handler: "trends",
         method: "GET",

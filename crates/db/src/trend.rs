@@ -4,6 +4,10 @@
 //! It is not "when the author published" — a sources' own dates are patchy, and a fandom that was imported
 //! late would look like it exploded. **The radar measures our arrivals, and says so.**
 //!
+//! **Fandoms are `canonical_entities` rows of `kind = 'fandom'`.** `taxonomy_nodes` is the *old* spelling of
+//! that table and no longer exists in a freshly migrated schema — the first version of this query joined it and
+//! every test failed with `no such table: taxonomy_nodes`. That is what the store test is for.
+//!
 //! Two windows, both counted in one query: the recent window and the baseline before it. The split is done
 //! in SQL (`CASE WHEN`) so a fandom with works in both windows is one row rather than two that have to be
 //! joined in code.
@@ -39,24 +43,24 @@ pub async fn counts(
     min_recent: i64,
 ) -> Result<Vec<FandomCounts>> {
     let sql = db.sql(
-        "SELECT n.canonical AS fandom, \
+        "SELECT ce.canonical AS fandom, \
                 SUM(CASE WHEN wt.added_at >= ?1 THEN 1 ELSE 0 END) AS recent, \
                 SUM(CASE WHEN wt.added_at < ?1 THEN 1 ELSE 0 END) AS baseline \
            FROM work_tags wt \
-           JOIN taxonomy_nodes n ON n.id = wt.node_id \
-          WHERE n.kind = 'fandom' AND wt.added_at >= ?2 \
-          GROUP BY n.canonical \
+           JOIN canonical_entities ce ON ce.id = wt.node_id \
+          WHERE ce.kind = 'fandom' AND wt.added_at >= ?2 \
+          GROUP BY ce.canonical \
          HAVING SUM(CASE WHEN wt.added_at >= ?1 THEN 1 ELSE 0 END) >= ?3 \
-          ORDER BY recent DESC, n.canonical",
-        "SELECT n.canonical AS fandom, \
+          ORDER BY recent DESC, ce.canonical",
+        "SELECT ce.canonical AS fandom, \
                 SUM(CASE WHEN wt.added_at >= $1 THEN 1 ELSE 0 END)::bigint AS recent, \
                 SUM(CASE WHEN wt.added_at < $1 THEN 1 ELSE 0 END)::bigint AS baseline \
            FROM work_tags wt \
-           JOIN taxonomy_nodes n ON n.id::text = wt.node_id::text \
-          WHERE n.kind = 'fandom' AND wt.added_at >= $2 \
-          GROUP BY n.canonical \
+           JOIN canonical_entities ce ON ce.id::text = wt.node_id::text \
+          WHERE ce.kind = 'fandom' AND wt.added_at >= $2 \
+          GROUP BY ce.canonical \
          HAVING SUM(CASE WHEN wt.added_at >= $1 THEN 1 ELSE 0 END) >= $3 \
-          ORDER BY recent DESC, n.canonical",
+          ORDER BY recent DESC, ce.canonical",
     );
     // Each arm maps its own row type: SQLite and PostgreSQL rows are different types, so the conversion
     // cannot be hoisted out of the match. The column names are the same on both sides by construction.

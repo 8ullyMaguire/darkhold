@@ -23,6 +23,7 @@ use serde::Deserialize;
 use darkhold_domain::error::AppError;
 use darkhold_domain::trend::{assess, Verdict};
 
+use crate::auth::MaybeSession;
 use crate::http::{ApiError, ApiResult};
 use crate::state::AppState;
 
@@ -59,6 +60,9 @@ fn invalid(message: impl Into<String>) -> ApiError {
 
 async fn trends(
     State(state): State<AppState>,
+    // Present and unused: this route answers the same for a signed-in reader as for a stranger, and the
+    // extractor is what says so. The inventory test reads it as the proof of `Audience::Public`.
+    MaybeSession(_session): MaybeSession,
     Query(params): Query<TrendParams>,
 ) -> ApiResult<Response> {
     let recent_days = params.recent_days.unwrap_or(RECENT_DAYS);
