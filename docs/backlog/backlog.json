@@ -3,12 +3,12 @@
     "requirements.csv": {
       "rows": 920,
       "by_status": {
-        "implemented-verified-e2e": 138,
+        "implemented-verified-e2e": 139,
         "implemented-locally-tested": 248,
         "unsupported": 4,
         "implemented-fully-tested": 433,
         "implemented": 9,
-        "planned": 86,
+        "planned": 85,
         "evaluated-and-rejected": 2
       }
     },
@@ -493,12 +493,6 @@
       "notes": "The `restricted` audience is a fourth visibility tier, not a flag on the existing private one, because the metadata stays public. The refusal shape follows the existing rule (M59-26): an anonymous reader learns nothing from the response that distinguishes restricted from missing."
     },
     {
-      "id": "M70-08",
-      "milestone": "M70",
-      "requirement": "Step-up authentication: a session can be asked for a second factor for sensitive actions, and the product reads the factor from the identity provider's claim rather than implementing one of its own.",
-      "notes": "darkhold authenticates through `polaris-oidc-client`; a factor implemented here would be a floor below the issuer's and would not protect the issuer's other sites. The row is therefore a consumer: sensitive routes declare the required `acr` (e.g. `2fa`), the login flow requests it, and a session that lacks it is refused with a reason that names the requirement rather than a bare 403."
-    },
-    {
       "id": "M16-06",
       "milestone": "M16",
       "requirement": "\u00a721.4's execution sandbox: `wasmi` with fuel, memory ceilings, output limits, host-call limits, bounded concurrency, hard wall-clock termination, host-I/O timeouts, and revocation that stops a running package.",
@@ -548,10 +542,10 @@
     "M45": 13,
     "M16": 7,
     "M66": 6,
-    "M70": 2,
     "M65": 1,
     "M29": 1,
-    "M44": 1
+    "M44": 1,
+    "M70": 1
   },
   "unlinked_concord": [
     {

@@ -1,6 +1,6 @@
 {
  "generated_by": "scripts/ideas_catalogue.py",
- "count": 180,
+ "count": 179,
  "ideas": [
   {
    "why_summary": "",
@@ -942,19 +942,6 @@
    "why_summary": "The `restricted` audience is a fourth visibility tier, not a flag on the existing private one, because the metadata stays public. The refusal shape follows the existing rule (M59-2",
    "id": "M70-04",
    "title": "A work can be restricted to signed-in accounts",
-   "sources": [
-    "docs/requirements.csv"
-   ],
-   "milestone": "M70",
-   "relevance": 4,
-   "because": "a requirements row exists (+4)",
-   "default_on": false,
-   "built": false
-  },
-  {
-   "why_summary": "darkhold authenticates through `polaris-oidc-client`; a factor implemented here would be a floor below the issuer's and would not protect the issuer's other sites. The row is there",
-   "id": "M70-08",
-   "title": "Step-up authentication",
    "sources": [
     "docs/requirements.csv"
    ],
