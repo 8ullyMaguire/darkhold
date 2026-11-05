@@ -67,6 +67,19 @@ lineage's, not as a regression in the rows above.
 
 ## A row shipped beside a concurrent session — 2026-11-05 (later)
 
+**Merge with the other session's commons-feed adoption** (`f9f15821`, hygiene `4d1e9129`). Their `4de283f4`
+deleted `darkhold_domain::{feed,feeds}` in favour of `commons-feed`; the conflict in `domain/src/lib.rs` was that
+deletion against my `pub mod finder;` line — `finder` kept, `feed`/`feeds` dropped. Two invariants then caught
+wiring the commit had left behind: `GET /catalogue/feed` was registered but not in `ROUTE_TABLE`, and
+`catalogue_feed` had no `MaybeSession`, so `route_inventory` failed both ways. Fixed, clippy and repo clean.
+
+**Host-absolute dependency path:** `crates/app/Cargo.toml` names `commons-feed` as
+`../../../../../../projects/commons/crates/commons-feed`. From `~/code/rust/darkhold` on thinkcentre that walks up
+through the mount to `/personal/projects/commons`, so it builds there; on any checkout outside that layout it is
+`/home/projects/commons`, which does not exist. The tree now builds on cachyos because `/home/projects/commons` is
+a symlink to `~/code-local/rust/commons`. This is a portability defect, not a fix: the dependency should be a
+workspace path or an env-var root.
+
 **M45-34 shipped: fic-finder bounties** (`ec1ba63c`). `finder_bounties` + `finder_proposals` (0157), money on the
 existing economy: reserve on open, CAS on accept, one payout keyed by the winning proposal, release on
 cancel/expiry. PG caught `text = uuid` in available_credits that SQLite could not. Store 4/4 both engines; live
