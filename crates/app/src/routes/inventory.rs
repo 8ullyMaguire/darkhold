@@ -1148,6 +1148,27 @@ pub const ROUTE_TABLE: &[RouteEntry] = &[
         audience: Audience::Public,
     },
     RouteEntry {
+        file: "collection_tags.rs",
+        handler: "list",
+        method: "GET",
+        path: "/collections/{id}/tags",
+        audience: Audience::Public,
+    },
+    RouteEntry {
+        file: "collection_tags.rs",
+        handler: "attach",
+        method: "PUT",
+        path: "/collections/{id}/tags/{node}",
+        audience: Audience::Authenticated,
+    },
+    RouteEntry {
+        file: "collection_tags.rs",
+        handler: "detach",
+        method: "DELETE",
+        path: "/collections/{id}/tags/{node}",
+        audience: Audience::Authenticated,
+    },
+    RouteEntry {
         file: "marked_for_later.rs",
         handler: "mark",
         method: "POST",

@@ -1,6 +1,7 @@
 //! HTTP routes.
 
 pub mod account_permissions;
+pub mod collection_tags;
 pub mod marked_for_later;
 pub mod orphan;
 pub mod whole_work;

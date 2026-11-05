@@ -687,6 +687,14 @@ pub fn build_router(state: AppState) -> Router {
             routes::marked_for_later::router(),
             RouteClass::Write,
         ))
+        // M70-05 — collection tags: what a collection is FOR. They never reach a work (no work_tags write, no
+        // work-facing read), which is what keeps a challenge tag out of that tag's search results and taste vectors.
+        .merge(module_mount(
+            &state,
+            "events",
+            routes::collection_tags::router(),
+            RouteClass::Write,
+        ))
         // §58's supply surface (M45-25): keystone authors, droughts, and the
         // routing a reader opts into. Write class — every door needs a session,
         // and routing creates a row the patronage pays against.
