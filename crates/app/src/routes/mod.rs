@@ -39,6 +39,7 @@ pub mod exports;
 pub mod external;
 pub mod federation;
 pub mod feedback;
+pub mod feeds;
 pub mod flows;
 pub mod governance;
 pub mod health;

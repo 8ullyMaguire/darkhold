@@ -151,7 +151,8 @@ pub struct MetricPage {
 /// What the route answers.
 #[derive(Debug, Serialize)]
 pub struct CataloguePage {
-    items: Vec<CatalogueRow>,
+    /// The rows on this page. `pub` because M63-14 renders them as a feed: one execution path, two clients.
+    pub items: Vec<CatalogueRow>,
     sort: String,
     limit: i64,
     offset: i64,
@@ -344,7 +345,10 @@ async fn search(
 }
 
 /// The catalogue as a plain `ORDER BY` page — every sort the store can do in SQL.
-async fn search_raw(state: AppState, params: CatalogueParams) -> ApiResult<CataloguePage> {
+pub(crate) async fn search_raw(
+    state: AppState,
+    params: CatalogueParams,
+) -> ApiResult<CataloguePage> {
     let sort = match params.sort.as_deref() {
         None => CatalogueSort::Likes,
         Some(raw) => {

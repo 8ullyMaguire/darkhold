@@ -595,6 +595,15 @@ pub fn build_router(state: AppState) -> Router {
             routes::library::router(),
             RouteClass::Write,
         ))
+        // M63-14 — a saved view as a feed. Same module gate as the views it
+        // renders, so a build with `library` off has no feeds either, and the
+        // same `LibraryRead` scope from inside the handlers.
+        .merge(module_mount(
+            &state,
+            "library",
+            routes::feeds::router(),
+            RouteClass::Default,
+        ))
         // The public catalogue: metadata-only search across every source. A read
         // class because it touches no session and no writer's row — see the
         // module docs for why that is safe while library_items stays metadata-only.

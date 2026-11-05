@@ -1111,6 +1111,14 @@ pub const ROUTE_TABLE: &[RouteEntry] = &[
         path: "/saved-views/{id}/runs",
         audience: Audience::Scoped,
     },
+    // M63-14: the same view, rendered as a feed. Scoped like the view it renders.
+    RouteEntry {
+        file: "feeds.rs",
+        handler: "saved_view_feed",
+        method: "GET",
+        path: "/saved-views/{id}/feed",
+        audience: Audience::Scoped,
+    },
     RouteEntry {
         file: "library.rs",
         handler: "start_update_check",
