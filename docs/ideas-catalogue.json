@@ -1,6 +1,6 @@
 {
  "generated_by": "scripts/ideas_catalogue.py",
- "count": 177,
+ "count": 176,
  "ideas": [
   {
    "why_summary": "",
@@ -88,19 +88,6 @@
     "docs/requirements.csv"
    ],
    "milestone": "M44",
-   "relevance": 4,
-   "because": "a requirements row exists (+4)",
-   "default_on": false,
-   "built": false
-  },
-  {
-   "why_summary": "-- Gaps review C8.",
-   "id": "M45-32",
-   "title": "Trend radar",
-   "sources": [
-    "docs/requirements.csv"
-   ],
-   "milestone": "M45",
    "relevance": 4,
    "because": "a requirements row exists (+4)",
    "default_on": false,

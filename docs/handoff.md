@@ -67,6 +67,14 @@ lineage's, not as a regression in the rows above.
 
 ## A row shipped beside a concurrent session — 2026-11-05 (later)
 
+**M45-32 shipped: the trend radar** (`79df61af`, ledger after it). `GET /catalogue/trends` — a fandom is
+emerging at >=3 arrivals in the recent window and >=2x its own per-week baseline; below the floor the
+answer is `no_verdict` with the reason. Store test on **both engines**, with a row exactly on the recent
+bound so an exclusive `>` is caught (mutation proves it). Live probe `scripts/probe-m45-32-trends.sh`:
+surge-fandom 24x, emerging; flat-fandom absent under the floor. Two defects it found: the store joined
+`taxonomy_nodes`, dropped since migration 0124 (fandoms are `canonical_entities` of kind `fandom`), and
+the rule first compared a count against a per-week rate.
+
 **M63-14 shipped: a saved view as a feed** (`0593a022`, ledger `c48385b6`).
 `GET /saved-views/:id/feed?format=atom|rss|json` renders the view through the same execution path the page
 uses (`library::query_library`, `catalogue::search_raw`), with a strong `ETag` over the rendered bytes and

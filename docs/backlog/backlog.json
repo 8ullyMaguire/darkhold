@@ -7,9 +7,9 @@
         "implemented-locally-tested": 247,
         "unsupported": 4,
         "implemented-fully-tested": 429,
-        "planned": 83,
-        "evaluated-and-rejected": 1,
-        "implemented": 1
+        "implemented": 2,
+        "planned": 82,
+        "evaluated-and-rejected": 1
       }
     },
     "concord": {
@@ -24,12 +24,6 @@
     }
   },
   "open_requirements": [
-    {
-      "id": "M45-32",
-      "milestone": "M45",
-      "requirement": "Trend radar: emerging-fandom detection for event and bounty timing",
-      "notes": "Gaps review C8."
-    },
     {
       "id": "M45-33",
       "milestone": "M45",
@@ -526,7 +520,7 @@
   "open_by_milestone": {
     "M69": 25,
     "M63": 18,
-    "M45": 17,
+    "M45": 16,
     "M64": 14,
     "M66": 6,
     "M65": 1,
