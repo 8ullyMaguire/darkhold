@@ -24,6 +24,10 @@ pub fn router() -> Router<AppState> {
         .route("/search/history", get(list_history).delete(clear_history))
         .route("/search/in-work/{id}", get(in_work))
         .route("/users/search", get(users_search))
+        // The estate index (polaris-search) reached through this product, so the service stays on loopback and
+        // the browser never learns its address. `/search` above is this catalogue; this is everything else.
+        .route("/estate/search", get(crate::estate_search::search))
+        .route("/estate/suggest", get(crate::estate_search::suggest))
 }
 
 /// Search pseudonyms with the shared query language.

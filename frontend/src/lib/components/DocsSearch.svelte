@@ -16,6 +16,58 @@
   let results = $state<readonly DocEntry[]>([]);
   let highlighted = $state(0);
 
+  /**
+   * Estate results, from the index behind `/api/v1/estate/search` — a server-side proxy to `polaris-search`, so
+   * the browser never learns the service's address and the palette needs no second credential.
+   *
+   * Debounced because a palette asks on every keystroke and the index is a database: 180 ms is long enough to
+   * collapse a fast typist and short enough not to feel laggy. A failed fetch empties the list rather than
+   * showing an error — nobody wants a network banner inside a completion box.
+   */
+  type EstateHit = { site: string; kind: string; doc_id: string; title: string };
+  let estate = $state<readonly EstateHit[]>([]);
+
+  $effect(() => {
+    const q = query.trim();
+    if (q.length < 2) {
+      estate = [];
+      return;
+    }
+    const controller = new AbortController();
+    const timer = setTimeout(async () => {
+      try {
+        const res = await fetch(`/api/v1/estate/search?q=${encodeURIComponent(q)}&limit=5`, {
+          signal: controller.signal,
+          headers: { accept: 'application/json' }
+        });
+        if (!res.ok) {
+          estate = [];
+          return;
+        }
+        const body = await res.json();
+        estate = (body?.data ?? []).map((h: EstateHit) => ({
+          site: h.site,
+          kind: h.kind,
+          doc_id: h.doc_id,
+          title: h.title
+        }));
+      } catch {
+        estate = [];
+      }
+    }, 180);
+    return () => {
+      clearTimeout(timer);
+      controller.abort();
+    };
+  });
+
+  function openEstate(hit: EstateHit) {
+    query = '';
+    onclose();
+    history.pushState({}, '', `/works/${encodeURIComponent(hit.doc_id)}`);
+    dispatchEvent(new PopStateEvent('popstate'));
+  }
+
   /** All docs when the box is empty (a browsable index), matches otherwise. */
   $effect(() => {
     results = query.trim().length === 0 ? DOCS.slice(0, 8) : searchDocs(query, 8);
@@ -43,7 +95,7 @@
   }
 </script>
 
-<Dialog {open} title="Search the help pages" description="Type a word — reading, posting, forum, import…" {onclose}>
+<Dialog {open} title="Search the estate" description="Help pages, and works from every site in the index" {onclose}>
   <div class="docs-search">
     <input
       type="search"
@@ -53,12 +105,7 @@
       aria-label="Search help pages"
       autocomplete="off"
     />
-    {#if results.length === 0}
-      <p class="no-results">
-        Nothing matched. Try a shorter word, or read
-        <a href="/docs/getting-started" onclick={() => go('getting-started')}>Getting started</a>.
-      </p>
-    {:else}
+    {#if results.length > 0}
       <ul role="listbox" aria-label="Help pages">
         {#each results as doc, i (doc.slug)}
           <li class:result={i === highlighted}>
@@ -74,6 +121,28 @@
           </li>
         {/each}
       </ul>
+    {/if}
+    {#if estate.length > 0}
+      <div class="estate">
+        <p class="estate-heading">In the estate</p>
+        <ul role="listbox" aria-label="Estate results">
+          {#each estate as hit (hit.doc_id)}
+            <li>
+              <button onclick={() => openEstate(hit)}>
+                <span class="title">{hit.title || '(untitled)'}</span>
+                <span class="summary">{hit.site} · {hit.kind}</span>
+              </button>
+            </li>
+          {/each}
+        </ul>
+      </div>
+    {/if}
+    {#if results.length === 0 && estate.length === 0}
+      <p class="no-results">
+        Nothing matched. Try a shorter word, or read
+        <a href="/docs/getting-started" onclick={() => go('getting-started')}>Getting started</a>.
+      </p>
+    {:else}
       <p class="hint">↑ ↓ to move · Enter to open · Esc to close</p>
     {/if}
   </div>
@@ -119,6 +188,13 @@
   .summary {
     color: var(--text-2, #666);
     font-size: 0.85rem;
+  }
+  .estate-heading {
+    color: var(--text-2, #666);
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    margin: 0.75rem 0 0.25rem;
   }
   .no-results {
     color: var(--text-2, #666);
