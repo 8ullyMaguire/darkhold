@@ -3832,3 +3832,57 @@ warning, and the fix is the one word rustc asked for.
 
 Both paths are still defects. The right fix is a version field or a workspace-level dependency, not a symlink
 somebody has to remember.
+
+## 2026-11-05 — session handoff: shared primitives, and M69 peering opened
+
+**Shipped this session** (all green, both forges, propagation checkout ff'd):
+
+* **M63-34** `beae9509` — a catalogue `q` reads title, author AND summary; `title:` / `author:` / `summary:`
+  narrow it. One CASE expression (fixed placeholder count) so the SQLite and PostgreSQL statements keep the same
+  shape. A colon that is not a known field is text, so "Star Wars: A New Hope" stays findable. `summary:` with
+  nothing after it returns an empty page, not everything.
+* **M69-01** `83a41b05` — `/.well-known/taste-fingerprint.json`, root-mounted under the federation gate, from the
+  same precedence `GET /federation/theme` reads. Refuses with 404 when the theme is absent or not `public`,
+  because `{"tags": []}` reads to a sibling as "no taste" rather than "not offered".
+* **M69-02 first slice** `284bdc06` — `domain::peering::rank`: cosine over published fingerprints, floor
+  `MIN_SIMILARITY = 0.25`, cap `MAX_SUGGESTIONS = 10`, never itself, unreadable profile skipped rather than
+  scored 0.0, ties broken on instance id.
+* `f34ec589` — `well_known::current()` is the single assembly of the instance fingerprint; the route is a thin
+  wrapper. M69-02 must rank against this document, not a second copy of it.
+* `bfaed069` — `docs/plans/remaining-work.md` regenerated from the CSV (77 planned, by milestone).
+* `452fb962` — merged the deployed tree's `/metrics` root router; `501d2f27` records the two out-of-checkout
+  paths (below).
+* **Shared primitives, in the commons workspace** (`~/code-local/rust/commons`, `a4b87db`): `commons-identify`,
+  `commons-bounty`, `commons-trend`. darkhold adopted all three **by deletion** — `crates/domain/src/{identifier,
+  finder,trend}.rs` and their tests are gone (`5675d108`, `fb0880b4`). Rules travel, money and schema do not;
+  `commons-bounty` names an `Escrow` trait and moves no money itself.
+
+**Two decisions worth keeping:**
+
+* **Extract on the second caller.** `commons-trend` was extracted only when a second caller was named. A rule
+  nobody else needs belongs in the product that needs it.
+* **Adoption is proven by deletion.** A re-export under a local alias is how two copies survive under one name.
+
+**Blocker that cost an hour:** `polaris-core` used `Atomic::fetch_update` (renamed `try_update`) and darkhold
+denies warnings, so a deprecation in a *sibling* broke darkhold's build rather than warning in the sibling.
+Fixed in `polaris-core-rust` at `07e2919`, not by relaxing the deny.
+
+**Still defects, still not fixed:** `crates/app/Cargo.toml` reaches outside the checkout twice —
+`../../../../../../projects/commons` (commons-feed) and `../../../../polaris-core-rust`. A fresh clone cannot
+load its own manifest; on cachyos both resolve through symlinks (`/home/projects/commons`,
+`~/code-local/polaris-core-rust` → the thinkcentre copies). The fix is a version field or a workspace
+dependency, not a symlink.
+
+**Next, in order:**
+
+1. **M69-02 remainder** — `federation_peers_v2` stores a similarity NUMBER, not the counterpart's fingerprint
+   vector. Live ranking needs a fetched-fingerprint store (or a fetch-and-cache step) plus
+   `GET /federation/peering/suggestions` on the operator surface. `peering::rank` is waiting for both.
+2. **M45-39** — instance-death protection; the redirect registry must ship with the middleware that consults it,
+   or it is a table nothing reads.
+3. **Needs the user's word, not a guess:** **GS-1..5** (guest access trust model — changes what an anonymous
+   visitor may do) and **M69-24** (the shared taste boundary between darkhold and suki).
+
+**Counts at handoff:** 895 rows · 813 implemented · 77 planned (M69 24 · M63 17 · M64 14 · M45 13 · GS 5 ·
+M65 · M66 · M29 · M44). Re-derive from `docs/requirements.csv` before quoting them; the CSV is the truth and
+only `scripts/ledger.py` may write it.
