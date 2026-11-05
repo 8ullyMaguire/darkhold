@@ -892,9 +892,13 @@ async fn an_outbox_event_is_deleted_only_after_its_handler_succeeds() {
     let report = worker.run_once(&state).await.expect("pass");
 
     assert_eq!(report.outbox_delivered, 1);
+    // A topic with no handler is not fetched at all now. Deferring it *was* the old behaviour and it starved the
+    // queue: the oldest fifty rows came back every pass, all unclaimable, while new events waited behind them. The
+    // unhandled event is still there to be seen — by `pending`, and by `undelivered_count` — which is what the
+    // operator question ("what is waiting?") actually asks.
     assert_eq!(
-        report.outbox_deferred, 1,
-        "no handler for publish.index yet"
+        report.outbox_deferred, 0,
+        "a topic this worker cannot handle is never offered to it"
     );
     assert_eq!(seen.lock().expect("lock").as_slice(), ["test.deliverable"]);
 
@@ -915,6 +919,64 @@ async fn an_outbox_event_is_deleted_only_after_its_handler_succeeds() {
     );
 
     let _ = (handled, unhandled);
+    harness.cleanup().await;
+}
+
+/// A backlog of events for topics nothing consumes does not delay an event the worker can deliver.
+///
+/// This is the failure the estate actually had: 40,664 undelivered rows for `work.published`/`publish.index` sat
+/// oldest-first in front of a live `comment.posted`, so the worker's batch was always somebody else's unclaimable
+/// history, `attempts` never moved off zero, and a webhook subscription looked healthy while never firing.
+#[tokio::test]
+async fn a_backlog_of_unhandled_topics_does_not_starve_a_handled_one() {
+    let harness = Harness::new("outbox-starvation").await;
+    for index in 0..50 {
+        outbox::enqueue(
+            harness.tdb.db(),
+            "publish.index",
+            r#"{"work":"old"}"#,
+            Some(&format!("old-{index}")),
+        )
+        .await
+        .expect("enqueue backlog");
+    }
+    tokio::time::sleep(std::time::Duration::from_millis(5)).await;
+    outbox::enqueue(
+        harness.tdb.db(),
+        "test.deliverable",
+        r#"{"hello":"now"}"#,
+        Some("fresh"),
+    )
+    .await
+    .expect("enqueue fresh");
+
+    let seen: Arc<std::sync::Mutex<Vec<String>>> = Arc::new(std::sync::Mutex::new(Vec::new()));
+    let captured = seen.clone();
+    let handler: TopicHandler = Arc::new(move |_state, event| {
+        let captured = captured.clone();
+        let topic = event.topic.clone();
+        Box::pin(async move {
+            captured.lock().expect("lock").push(topic);
+            Ok(())
+        })
+    });
+    let mut options = darkhold_app::worker::WorkerOptions::default();
+    options.batch = 10;
+    let worker = darkhold_app::worker::Worker::new(options).with_topic("test.deliverable", handler);
+    let report = worker.run_once(&harness.state).await.expect("pass");
+
+    assert_eq!(
+        report.outbox_delivered, 1,
+        "the only event this worker can deliver is the newest one, and it was delivered"
+    );
+    assert_eq!(seen.lock().expect("lock").as_slice(), ["test.deliverable"]);
+    assert_eq!(
+        outbox::undelivered_count(harness.tdb.db())
+            .await
+            .expect("count"),
+        50,
+        "the backlog is untouched, not consumed"
+    );
     harness.cleanup().await;
 }
 

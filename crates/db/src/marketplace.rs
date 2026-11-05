@@ -385,6 +385,12 @@ pub async fn list_webhooks(db: &Database, owner: &str) -> Result<Vec<Value>, sql
                         "owner": r.get::<String, _>("owner"),
                         "url": r.get::<String, _>("url"),
                         "events": r.get::<String, _>("events"),
+                        // The secret has to travel with the row: `webhook_sender` signs with
+                        // `wh["secret"]`, and a projection that omitted it signed every delivery with an
+                        // empty key. The receiver — holding the real secret — could never verify, so every
+                        // subscriber would have answered 400 and every webhook would have looked like a
+                        // broken network instead of a broken query.
+                        "secret": r.get::<String, _>("secret"),
                         "active": r.get::<i64, _>("active") == 1,
                         "created_at": r.get::<String, _>("created_at"),
                     })
@@ -404,6 +410,12 @@ pub async fn list_webhooks(db: &Database, owner: &str) -> Result<Vec<Value>, sql
                         "owner": r.get::<String, _>("owner"),
                         "url": r.get::<String, _>("url"),
                         "events": r.get::<String, _>("events"),
+                        // The secret has to travel with the row: `webhook_sender` signs with
+                        // `wh["secret"]`, and a projection that omitted it signed every delivery with an
+                        // empty key. The receiver — holding the real secret — could never verify, so every
+                        // subscriber would have answered 400 and every webhook would have looked like a
+                        // broken network instead of a broken query.
+                        "secret": r.get::<String, _>("secret"),
                         "active": r.get::<i64, _>("active") == 1,
                         "created_at": r.get::<String, _>("created_at"),
                     })
@@ -471,7 +483,7 @@ pub async fn list_all_active_webhooks(db: &Database) -> Result<Vec<Value>, sqlx:
     match db.backend() {
         Backend::Sqlite => {
             let rows = sqlx::query(
-                "SELECT id, owner, url, events, active, created_at FROM webhook_endpoints WHERE active = 1"
+                "SELECT id, owner, url, events, secret, active, created_at FROM webhook_endpoints WHERE active = 1"
             )
             .fetch_all(db.sqlite_pool().expect("sqlite"))
             .await?;
@@ -483,6 +495,12 @@ pub async fn list_all_active_webhooks(db: &Database) -> Result<Vec<Value>, sqlx:
                         "owner": r.get::<String, _>("owner"),
                         "url": r.get::<String, _>("url"),
                         "events": r.get::<String, _>("events"),
+                        // The secret has to travel with the row: `webhook_sender` signs with
+                        // `wh["secret"]`, and a projection that omitted it signed every delivery with an
+                        // empty key. The receiver — holding the real secret — could never verify, so every
+                        // subscriber would have answered 400 and every webhook would have looked like a
+                        // broken network instead of a broken query.
+                        "secret": r.get::<String, _>("secret"),
                         "active": r.get::<i64, _>("active") == 1,
                         "created_at": r.get::<String, _>("created_at"),
                     })
@@ -491,7 +509,7 @@ pub async fn list_all_active_webhooks(db: &Database) -> Result<Vec<Value>, sqlx:
         }
         Backend::Postgres => {
             let rows = sqlx::query(
-                "SELECT id, owner, url, events, CAST(active AS BIGINT), created_at FROM webhook_endpoints WHERE active = $1"
+                "SELECT id, owner, url, events, secret, CAST(active AS BIGINT), created_at FROM webhook_endpoints WHERE active = $1"
             )
             .bind(1i64)
             .fetch_all(db.postgres_pool().expect("postgres"))
@@ -504,6 +522,12 @@ pub async fn list_all_active_webhooks(db: &Database) -> Result<Vec<Value>, sqlx:
                         "owner": r.get::<String, _>("owner"),
                         "url": r.get::<String, _>("url"),
                         "events": r.get::<String, _>("events"),
+                        // The secret has to travel with the row: `webhook_sender` signs with
+                        // `wh["secret"]`, and a projection that omitted it signed every delivery with an
+                        // empty key. The receiver — holding the real secret — could never verify, so every
+                        // subscriber would have answered 400 and every webhook would have looked like a
+                        // broken network instead of a broken query.
+                        "secret": r.get::<String, _>("secret"),
                         "active": r.get::<i64, _>("active") == 1,
                         "created_at": r.get::<String, _>("created_at"),
                     })

@@ -201,6 +201,26 @@ async fn post_comment(
     // The comment exists in the database; from here on it can only be held, not un-written. Counted at the insert
     // rather than at the 200 so a hold or a moderation gate does not hide a comment that a reader can see.
     crate::metrics::comment_created();
+
+    // W5 task 4b. `comment.posted` had a subscriber and no producer: the webhook worker could deliver it,
+    // `webhook_delivery` documented it, and a test subscribed to it — but nothing ever wrote the event, so a
+    // "reply" webhook could not fire from a real comment. This is the producer. Enqueued rather than delivered
+    // inline, because the person who wrote the comment is waiting for a 200 and the webhook is not their problem.
+    let _ = darkhold_db::outbox::enqueue(
+        state.db(),
+        "comment.posted",
+        &serde_json::json!({
+            "event_type": "comment.posted",
+            // `id` above is the comment's own id (the insert shadows the path parameter), so the work comes from
+            // `work_id`, which the handler parsed before the shadow.
+            "work_id": work_id.to_string(),
+            "comment_id": id,
+            "author": pseud_id.to_string(),
+        })
+        .to_string(),
+        Some(&format!("comment.posted:{id}")),
+    )
+    .await;
     // Record @handle mentions in the comment body (spec §17.5). Best-effort.
     let _ =
         darkhold_db::community::record_mentions(state.db(), "comment", &id, &pseud_id.to_string())

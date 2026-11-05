@@ -402,7 +402,13 @@ impl Worker {
     /// no handler is counted as deferred and left alone — the alternative is a
     /// claim that something was indexed, notified or federated when nothing was.
     async fn deliver_outbox(&self, state: &AppState) -> Result<(u64, u64, u64)> {
-        let pending = outbox::pending(state.db(), self.inner.options.batch).await?;
+        // Only the topics this worker has a handler for. `pending` would hand over the oldest rows whatever their
+        // topic, and the answer to "no handler" is to defer — so a 40k backlog of topics nothing consumes starved
+        // every new event behind it. Sorted so the SQL is byte-identical between passes and a slow query can be
+        // matched to a log line.
+        let mut topics: Vec<String> = self.inner.handlers.keys().cloned().collect();
+        topics.sort();
+        let pending = outbox::claimable(state.db(), &topics, self.inner.options.batch).await?;
         let mut delivered = 0;
         let mut deferred = 0;
         let mut failed = 0;

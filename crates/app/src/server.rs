@@ -194,6 +194,20 @@ pub async fn serve(config: Config, db: Database, args: &ServeArgs) -> Result<()>
                 handler
             })
 
+            // W5 task 4b: the topic `webhook_delivery` documents ("`comment.posted` stays as-is") had no
+            // handler registered, so even a produced event would have sat in the outbox. Registered beside
+            // `publish.notify`, through the same delivery path: one sender, one signature, one retry policy.
+            .with_topic("comment.posted", {
+                let handler: crate::worker::TopicHandler = Arc::new(|_state: &AppState, event: &outbox::OutboxEvent| {
+                    let state = _state.clone();
+                    let event = event.clone();
+                    Box::pin(async move {
+                        crate::webhook_delivery::deliver_notification(&state, &event).await
+                    })
+                });
+                handler
+            })
+
             .with_topic("publish.notify", {
                 let handler: crate::worker::TopicHandler = Arc::new(|_state: &AppState, event: &outbox::OutboxEvent| {
                     let state = _state.clone();
