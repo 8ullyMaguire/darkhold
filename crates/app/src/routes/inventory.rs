@@ -1113,6 +1113,13 @@ pub const ROUTE_TABLE: &[RouteEntry] = &[
     },
     // M63-14: the same view, rendered as a feed. Scoped like the view it renders.
     RouteEntry {
+        file: "trends.rs",
+        handler: "trends",
+        method: "GET",
+        path: "/catalogue/trends",
+        audience: Audience::Public,
+    },
+    RouteEntry {
         file: "feeds.rs",
         handler: "saved_view_feed",
         method: "GET",

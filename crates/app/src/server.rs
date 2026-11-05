@@ -613,6 +613,15 @@ pub fn build_router(state: AppState) -> Router {
             routes::catalogue::router(),
             RouteClass::Search,
         ))
+        // M45-32 — the trend radar: aggregate arrival counts, so an event can be timed against a fandom
+        // that is actually arriving. Public, and inside the catalogue gate: with no catalogue there is
+        // nothing to count.
+        .merge(module_mount(
+            &state,
+            "catalogue",
+            routes::trends::router(),
+            RouteClass::Default,
+        ))
         // §58's supply surface (M45-25): keystone authors, droughts, and the
         // routing a reader opts into. Write class — every door needs a session,
         // and routing creates a row the patronage pays against.

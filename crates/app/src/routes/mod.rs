@@ -93,6 +93,7 @@ pub mod taxonomy;
 pub mod taxonomy_export;
 pub mod thread_modes;
 pub mod translation;
+pub mod trends;
 pub mod typed_votes;
 pub mod vanguard;
 pub mod welcome;
