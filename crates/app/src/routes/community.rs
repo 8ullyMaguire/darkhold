@@ -198,6 +198,9 @@ async fn post_comment(
     )
     .await
     .map_err(|e| ApiError(darkhold_domain::AppError::Internal(e)))?;
+    // The comment exists in the database; from here on it can only be held, not un-written. Counted at the insert
+    // rather than at the 200 so a hold or a moderation gate does not hide a comment that a reader can see.
+    crate::metrics::comment_created();
     // Record @handle mentions in the comment body (spec §17.5). Best-effort.
     let _ =
         darkhold_db::community::record_mentions(state.db(), "comment", &id, &pseud_id.to_string())

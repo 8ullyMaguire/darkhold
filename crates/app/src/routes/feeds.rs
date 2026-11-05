@@ -292,6 +292,9 @@ fn filters_note(params: &[(String, String)]) -> Option<String> {
 
 /// Render the response, or the 304 that makes a feed cheap to poll.
 fn respond(body: &str, format: Format, headers: &HeaderMap, private: bool) -> ApiResult<Response> {
+    // Every feed document, private or public, passes through here — including the 304 path below, because a
+    // conditional request that costs no bytes is still a poll the product answered.
+    crate::metrics::feed_rendered();
     let tag = feed_http::etag(body);
     if let Some(sent) = headers
         .get(header::IF_NONE_MATCH)
