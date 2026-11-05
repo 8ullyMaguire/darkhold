@@ -12,8 +12,8 @@ fn chapters() -> Chapters<'static> {
 
 #[test]
 fn every_position_round_trips_through_the_whole_work_frame() {
-    for chapter in 0..LENGTHS.len() {
-        for offset in [0, 1, LENGTHS[chapter] / 2, LENGTHS[chapter]] {
+    for (chapter, length) in LENGTHS.iter().enumerate() {
+        for offset in [0, 1, length / 2, *length] {
             let position = Position { chapter, offset };
             let whole = to_whole(chapters(), position).expect("locatable");
             // A boundary has two spellings — (0, 100) and (1, 0) — so the round trip is compared in canonical form.
