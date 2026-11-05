@@ -116,7 +116,7 @@ async fn set_key(db: &Database, unit: &str, key: i64) {
                 .expect("set the key");
         }
         Backend::Postgres => {
-            sqlx::query("UPDATE units SET order_key = ? WHERE id = ?::uuid")
+            sqlx::query("UPDATE units SET order_key = $1 WHERE id = $2::uuid")
                 .bind(key)
                 .bind(unit)
                 .execute(db.postgres_pool().expect("postgres"))
