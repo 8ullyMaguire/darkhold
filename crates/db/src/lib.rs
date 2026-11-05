@@ -50,6 +50,7 @@ pub mod exchange;
 pub mod exchanges;
 pub mod exports;
 pub mod external;
+pub mod external_seed;
 pub mod federation;
 pub mod flow_store;
 pub mod generated_content;

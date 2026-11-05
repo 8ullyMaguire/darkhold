@@ -6,8 +6,8 @@
         "implemented-verified-e2e": 129,
         "implemented-locally-tested": 247,
         "unsupported": 4,
-        "implemented-fully-tested": 424,
-        "planned": 89,
+        "implemented-fully-tested": 425,
+        "planned": 88,
         "evaluated-and-rejected": 1
       }
     },
@@ -528,12 +528,6 @@
       "notes": "Reserved section, specified in docs/spec/44-roadmap-consensus-an-elo-ranked-community-voted.md. Registered 2026-11-02 for the same reason as M29-08: an idea the coverage gate named with no home."
     },
     {
-      "id": "M45-67",
-      "milestone": "M45",
-      "requirement": "External seeds: a list of titles becomes taste evidence, never catalogue rows",
-      "notes": "Concord card '[L] External seeds'. The works a reader wants more of are often not here (Wattpad/QQ/SB/WN). Resolve URLs and AO3 ids; store the rest as provenance-carrying taste evidence, never as fabricatable rows; report per line what resolved and why not."
-    },
-    {
       "id": "M45-69",
       "milestone": "M45",
       "requirement": "Operator taste: the instance theme seeded from the operator's shelf, with provenance",
@@ -560,7 +554,7 @@
   ],
   "open_by_milestone": {
     "M69": 25,
-    "M45": 22,
+    "M45": 21,
     "M63": 19,
     "M64": 14,
     "M66": 6,

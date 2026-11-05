@@ -1,6 +1,6 @@
 {
  "generated_by": "scripts/ideas_catalogue.py",
- "count": 183,
+ "count": 182,
  "ideas": [
   {
    "why_summary": "",
@@ -279,19 +279,6 @@
    "why_summary": "-- Measured 2026-11-02 while closing M45-62, from the migrations rather than from memory: 68 identity-carrying columns sit outside the foreign-key graph, and neither gate can see 3",
    "id": "M45-65",
    "title": "both identity gates see the spellings the schema actually uses",
-   "sources": [
-    "docs/requirements.csv"
-   ],
-   "milestone": "M45",
-   "relevance": 4,
-   "because": "a requirements row exists (+4)",
-   "default_on": false,
-   "built": false
-  },
-  {
-   "why_summary": "-- Concord card '[L] External seeds'. The works a reader wants more of are often not here (Wattpad/QQ/SB/WN). Resolve URLs and AO3 ids; store the rest as provenance-carrying taste ",
-   "id": "M45-67",
-   "title": "External seeds",
    "sources": [
     "docs/requirements.csv"
    ],

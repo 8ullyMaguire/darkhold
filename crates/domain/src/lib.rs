@@ -36,6 +36,7 @@ pub mod exchange;
 pub mod exchanges;
 pub mod exports;
 pub mod extension;
+pub mod external_seed;
 pub mod fairqueue;
 pub mod feeds;
 pub mod finishers;

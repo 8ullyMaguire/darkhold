@@ -2098,6 +2098,20 @@ pub const ROUTE_TABLE: &[RouteEntry] = &[
         audience: Audience::Public,
     },
     RouteEntry {
+        file: "catalogue.rs",
+        handler: "resolve_external_seeds",
+        method: "POST",
+        path: "/catalogue/seeds",
+        audience: Audience::Authenticated,
+    },
+    RouteEntry {
+        file: "catalogue.rs",
+        handler: "list_external_seeds",
+        method: "GET",
+        path: "/catalogue/seeds",
+        audience: Audience::Authenticated,
+    },
+    RouteEntry {
         file: "taxonomy.rs",
         handler: "create_taxonomy_alias",
         method: "POST",
