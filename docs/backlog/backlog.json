@@ -6,8 +6,8 @@
         "implemented-verified-e2e": 129,
         "implemented-locally-tested": 247,
         "unsupported": 4,
-        "implemented-fully-tested": 425,
-        "planned": 88,
+        "implemented-fully-tested": 426,
+        "planned": 87,
         "evaluated-and-rejected": 1
       }
     },
@@ -528,12 +528,6 @@
       "notes": "Reserved section, specified in docs/spec/44-roadmap-consensus-an-elo-ranked-community-voted.md. Registered 2026-11-02 for the same reason as M29-08: an idea the coverage gate named with no home."
     },
     {
-      "id": "M45-69",
-      "milestone": "M45",
-      "requirement": "Operator taste: the instance theme seeded from the operator's shelf, with provenance",
-      "notes": "Concord card '[M] Operator taste'. instance_theme is computed from bookmarks and M45-50 seasons override it; neither lets an operator state what the instance is FOR by pointing at a shelf. Publish as an operator-sourced vector with seed count and top tags, visible rather than blended."
-    },
-    {
       "id": "M45-70",
       "milestone": "M45",
       "requirement": "Explain my taste: the tags and seeds behind a ranking",
@@ -554,7 +548,7 @@
   ],
   "open_by_milestone": {
     "M69": 25,
-    "M45": 21,
+    "M45": 20,
     "M63": 19,
     "M64": 14,
     "M66": 6,

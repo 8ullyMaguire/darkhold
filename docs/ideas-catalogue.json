@@ -1,6 +1,6 @@
 {
  "generated_by": "scripts/ideas_catalogue.py",
- "count": 182,
+ "count": 181,
  "ideas": [
   {
    "why_summary": "",
@@ -1007,19 +1007,6 @@
    "why_summary": "-- Gaps review E2. Browse archive through X's eyes; operator's own lens stays invisible. Renamed 2026-11-02: 'curator lenses' borrowed the same word as the saved-filter feature, wh",
    "id": "M45-40",
    "title": "Curator views",
-   "sources": [
-    "docs/requirements.csv"
-   ],
-   "milestone": "M45",
-   "relevance": 3,
-   "because": "a requirements row exists (+4); needs a model or heavy compute (-1)",
-   "default_on": false,
-   "built": false
-  },
-  {
-   "why_summary": "-- Concord card '[M] Operator taste'. instance_theme is computed from bookmarks and M45-50 seasons override it; neither lets an operator state what the instance is FOR by pointing ",
-   "id": "M45-69",
-   "title": "Operator taste",
    "sources": [
     "docs/requirements.csv"
    ],

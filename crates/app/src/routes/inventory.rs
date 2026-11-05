@@ -2098,6 +2098,27 @@ pub const ROUTE_TABLE: &[RouteEntry] = &[
         audience: Audience::Public,
     },
     RouteEntry {
+        file: "federation.rs",
+        handler: "set_operator_theme",
+        method: "POST",
+        path: "/federation/theme/operator",
+        audience: Audience::Pseudonymous,
+    },
+    RouteEntry {
+        file: "federation.rs",
+        handler: "get_operator_theme",
+        method: "GET",
+        path: "/federation/theme/operator",
+        audience: Audience::Pseudonymous,
+    },
+    RouteEntry {
+        file: "federation.rs",
+        handler: "delete_operator_theme",
+        method: "DELETE",
+        path: "/federation/theme/operator",
+        audience: Audience::Pseudonymous,
+    },
+    RouteEntry {
         file: "catalogue.rs",
         handler: "resolve_external_seeds",
         method: "POST",
