@@ -119,6 +119,43 @@ pub async fn orphan_work(db: &Database, work_id: &str) -> Result<Option<String>,
     }
 }
 
+/// Orphan every work owned by a person's pseuds, and return how many moved.
+///
+/// Called by [`crate::erasure::erase_account`] **before** the account row goes: after that, the cascade has already
+/// taken the works and there is nothing left to rekey. This is the one place where the domain rule and the schema's
+/// `ON DELETE CASCADE` meet, and the ordering is the whole contract.
+///
+/// Each work is orphaned in its own transaction rather than one enclosing all of them: a person with 2,000 works
+/// should not need a 2,000-row transaction to leave, and a failure halfway is not a corruption — the remaining
+/// works are still owned by the account, which is the state before the call.
+pub async fn orphan_works_of(db: &Database, account_id: &str) -> Result<u64, sqlx::Error> {
+    let list = db.sql(
+        "SELECT w.id FROM works w JOIN pseuds p ON p.id = w.owner_pseud_id WHERE p.account_id = ?",
+        "SELECT w.id::text FROM works w JOIN pseuds p ON p.id = w.owner_pseud_id WHERE p.account_id::text = $1",
+    );
+    let work_ids: Vec<String> = match db.backend() {
+        Backend::Sqlite => {
+            sqlx::query_scalar(&list)
+                .bind(account_id)
+                .fetch_all(db.sqlite_pool().expect("sqlite handle"))
+                .await?
+        }
+        Backend::Postgres => {
+            sqlx::query_scalar(&list)
+                .bind(account_id)
+                .fetch_all(db.postgres_pool().expect("postgres handle"))
+                .await?
+        }
+    };
+    let mut moved = 0;
+    for work_id in work_ids {
+        if orphan_work(db, &work_id).await?.is_some() {
+            moved += 1;
+        }
+    }
+    Ok(moved)
+}
+
 /// The handle of a detached pseud, derived from the work id so two orphans of two works cannot collide under the
 /// global `pseuds_handle_normalized` index.
 fn detached_handle(work_id: &str) -> String {

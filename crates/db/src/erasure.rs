@@ -591,6 +591,15 @@ pub async fn erase_account(db: &Database, account_id: &str) -> Result<()> {
         }
     }
 
+    // Orphan before the delete, not after (M70-01). `works` hangs off `pseuds`, which hang off `accounts`, every
+    // link `ON DELETE CASCADE`: once this row is gone the works are gone with it, and there is nothing left to
+    // rekey. Orphaning first moves each work onto a detached pseud owned by the instance, so the cascade finds no
+    // works to take and the author's name survives as a frozen label.
+    //
+    // Best effort is not good enough here: a failure must abort the erasure rather than delete works the caller
+    // believed would be kept.
+    crate::orphan::orphan_works_of(db, account_id).await?;
+
     let del = db.sql(
         "DELETE FROM accounts WHERE id = ?",
         "DELETE FROM accounts WHERE id::text = $1",

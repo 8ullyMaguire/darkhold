@@ -252,3 +252,50 @@ async fn orphaning_twice_is_a_no_op_rather_than_a_second_detachment() {
 
     let _ = std::fs::remove_dir_all(dir);
 }
+
+#[tokio::test]
+async fn erasing_an_account_orphans_its_works_instead_of_deleting_them() {
+    let (db, dir) = database("erasure").await;
+    seed(&db).await;
+
+    // The whole point of the wiring: the caller erases a person, and the works outlive them.
+    darkhold_db::erasure::erase_account(&db, "01955000-0000-4000-8000-000000000001")
+        .await
+        .expect("erase");
+
+    assert_eq!(
+        scalar(
+            &db,
+            "SELECT count(*) FROM accounts WHERE id = '01955000-0000-4000-8000-000000000001'"
+        )
+        .await,
+        0,
+        "the account is gone"
+    );
+    assert_eq!(
+        scalar(
+            &db,
+            "SELECT count(*) FROM works WHERE id = '01957000-0000-4000-8000-000000000001'"
+        )
+        .await,
+        1,
+        "and the work is not"
+    );
+    assert_eq!(
+        text(
+            &db,
+            "SELECT title FROM works WHERE id = '01957000-0000-4000-8000-000000000001'"
+        )
+        .await
+        .as_deref(),
+        Some("The Long Way Round"),
+        "with its content, not a tombstone"
+    );
+    assert_eq!(
+        scalar(&db, "SELECT count(*) FROM works WHERE owner_pseud_id = '01956000-0000-4000-8000-000000000001'").await,
+        0,
+        "the author's pseud left with the account; nothing points at it"
+    );
+
+    let _ = std::fs::remove_dir_all(dir);
+}
