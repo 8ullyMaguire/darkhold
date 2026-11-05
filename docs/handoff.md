@@ -2,8 +2,8 @@
 
 ## Two lineages merged, and a class of bug that only PostgreSQL shows — 2026-11-05
 
-**Where it stands:** 894 requirements. 805 implemented (429 fully-tested, 129 verified-e2e, 247
-locally-tested), **84 planned**, 4 unsupported, 1 rejected. Counted from `docs/requirements.csv`, not
+**Where it stands:** 894 requirements. 806 implemented (429 fully-tested, 129 verified-e2e, 248
+locally-tested), **83 planned**, 4 unsupported, 1 rejected. Counted from `docs/requirements.csv`, not
 remembered: `python3 -c "import csv,collections;print(collections.Counter(r['status'] for r in
 csv.DictReader(open('docs/requirements.csv'))))"`.
 
@@ -64,6 +64,29 @@ see them — `fmt` clean, `clippy --workspace --all-targets` exit 0, `dialects` 
 the suites they touch (`unit_order_stability` on both engines, `exports`) — but **no full 8/8 has been run on
 `7a73c827`**. Run `bash scripts/gate.sh all` once before the next row, and treat any red there as the merged
 lineage's, not as a regression in the rows above.
+
+## A row shipped beside a concurrent session — 2026-11-05 (later)
+
+**M63-14 shipped: a saved view as a feed** (`0593a022`, ledger `c48385b6`).
+`GET /saved-views/:id/feed?format=atom|rss|json` renders the view through the same execution path the page
+uses (`library::query_library`, `catalogue::search_raw`), with a strong `ETag` over the rendered bytes and
+`If-None-Match → 304` with no body. Verification at that sha: `fmt` ok, `clippy -p darkhold-domain -p
+darkhold-app --all-targets` exit 0, domain `feed` 5/5, app `m63_14_feeds` 3/3, app `route_inventory` 5/5,
+`repo` ok — **not** a full `gate.sh all`, because the row is one read route in an existing module and the
+full gate takes ~45 minutes. Two mutations were used as evidence: an always-false `If-None-Match` matcher and
+a constant-hash tag each turn a domain test red.
+
+**How to work while another session is in this repo.** It has already merged the deploy lineage into `master`
+and committed `fixity` while this row was in flight, so a shared working tree is a race. The row was built in
+`git worktree add ~/code-local/rust/darkhold-roadmap -b roadmap-m63-14 master` with
+`CARGO_TARGET_DIR=~/.cargo-target-darkhold-dev` — separate branch, separate target dir, so neither session
+rebuilds or restages the other — then fast-forwarded into `master` and pushed. Do that again rather than
+editing the shared checkout.
+
+**Two traps from that session's `fixity` commit.** It was clippy-red and fmt-dirty after the merge (an
+eleven-tuple in `latest_report`) — repaired at `caafd5b0` without changing behaviour. And every `fixity` test
+failed with `no such table: fixity_runs` until `touch crates/db/build.rs`: `build.rs` embeds the migration
+catalogue in OUT_DIR, and a stale one simply omits the newest migration.
 
 **Next three:** **M45-65**
 (the identity-gate inventory — do not "fix" it blind, it turns red until all 68 columns carry a treatment
