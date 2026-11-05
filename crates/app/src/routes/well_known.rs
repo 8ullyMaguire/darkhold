@@ -34,12 +34,11 @@ pub fn router() -> Router<AppState> {
     Router::new().route("/.well-known/taste-fingerprint.json", get(fingerprint))
 }
 
-async fn fingerprint(
-    State(state): State<AppState>,
-    // Public routes take `MaybeSession` by invariant (route_inventory enforces it): a surface that cannot see a
-    // session today is a surface that cannot personalise later without changing its signature under a green test.
-    MaybeSession(_session): MaybeSession,
-) -> ApiResult<Json<Fingerprint>> {
+/// This instance's own fingerprint, or `None` when it has not published one.
+///
+/// Shared deliberately: M69-02 ranks candidates against *this* document, and a second assembly of it here and
+/// there is how the published shape and the ranked shape drift apart.
+pub async fn current(state: &AppState) -> ApiResult<Option<Fingerprint>> {
     let instance_id = state.config().site.base_url.clone();
 
     let scheduled = darkhold_db::theme_schedule::active_at(
@@ -63,16 +62,11 @@ async fn fingerprint(
         (None, None, Some(computed)) => (Some(computed.theme_vector.clone()), computed.public),
         (None, None, None) => (None, false),
     };
-
     if !public {
-        return Err(ApiError(AppError::NotFound {
-            resource: "public taste fingerprint",
-        }));
+        return Ok(None);
     }
     let Some(vector) = vector else {
-        return Err(ApiError(AppError::NotFound {
-            resource: "public taste fingerprint",
-        }));
+        return Ok(None);
     };
 
     let weights = weights_from(&vector);
@@ -81,7 +75,21 @@ async fn fingerprint(
         .map(|row| row.computed_at.clone())
         .or_else(|| operator.as_ref().map(|row| row.updated_at.clone()))
         .unwrap_or_else(darkhold_db::identity::now_rfc3339);
-    Ok(Json(build(&instance_id, &generated_at, &weights)))
+    Ok(Some(build(&instance_id, &generated_at, &weights)))
+}
+
+async fn fingerprint(
+    State(state): State<AppState>,
+    // Public routes take `MaybeSession` by invariant (route_inventory enforces it): a surface that cannot see a
+    // session today is a surface that cannot personalise later without changing its signature under a green test.
+    MaybeSession(_session): MaybeSession,
+) -> ApiResult<Json<Fingerprint>> {
+    current(&state)
+        .await?
+        .ok_or(ApiError(AppError::NotFound {
+            resource: "public taste fingerprint",
+        }))
+        .map(Json)
 }
 
 /// A stored theme vector is `{tag: number}`; the fingerprint builder takes exactly that, so anything that is not a
