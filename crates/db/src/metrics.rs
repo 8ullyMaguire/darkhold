@@ -682,20 +682,34 @@ pub async fn resolve_seed(db: &Database, spec: &str) -> Result<SeedMatch> {
 pub async fn similar(
     db: &Database,
     query: &CatalogueQuery,
-    seed_row: &SeedLookup,
+    seeds: &[SeedLookup],
     limit: usize,
     offset: usize,
 ) -> Result<SimilarPage> {
+    // M45-66: a set of seeds ranks by the union of their vocabulary, and excludes every one of them
+    // from the results — a set query that recommended one of its own seeds would answer "more like
+    // these" with "one of these".
+    let seed_row = seeds.first().expect("at least one seed");
     let rows = candidates(db, query).await?;
     let (total, _engaged) = counts(db, query).await?;
     let scanned = rows.len() as i64;
 
-    let seed = Seed::of(
-        seed_row.id.clone(),
-        &seed_row.title,
-        &seed_row.summary,
-        &seed_row.author,
-    );
+    let seed = Seed::of_set(seeds.iter().map(|row| {
+        (
+            row.id.as_str(),
+            row.title.as_str(),
+            row.summary.as_str(),
+            row.author.as_str(),
+        )
+    }))
+    .unwrap_or_else(|| {
+        Seed::of(
+            seed_row.id.clone(),
+            &seed_row.title,
+            &seed_row.summary,
+            &seed_row.author,
+        )
+    });
     let population: Vec<Seed> = rows
         .iter()
         .map(|row| Seed::of(row.id.clone(), &row.title, &row.summary, &row.author_text))
@@ -726,8 +740,16 @@ pub async fn similar(
     }
 
     Ok(SimilarPage {
-        seed_id: seed_row.id.clone(),
-        seed_title: seed_row.title.clone(),
+        seed_id: seeds
+            .iter()
+            .map(|row| row.id.clone())
+            .collect::<Vec<_>>()
+            .join(","),
+        seed_title: if seeds.len() == 1 {
+            seed_row.title.clone()
+        } else {
+            format!("{} (+{} more)", seed_row.title, seeds.len() - 1)
+        },
         ranked,
         total,
         scanned,

@@ -334,7 +334,7 @@ async fn seeded(db: &Database) -> metrics::SimilarPage {
     };
     let mut q = query();
     q.tokens = darkhold_domain::similar::tokens(&lookup.title);
-    metrics::similar(db, &q, &lookup, 20, 0)
+    metrics::similar(db, &q, std::slice::from_ref(&lookup), 20, 0)
         .await
         .expect("similar")
 }
@@ -558,4 +558,104 @@ async fn a_seed_spec_resolves_by_id_url_title_and_refuses_an_ambiguous_title() {
         }
         other => panic!("a tie must be refused with both rows, got {other:?}"),
     }
+}
+
+/// M45-66: a set of seeds is a taste, and a taste is not one work.
+///
+/// The third row shares `starfarer` with the **second** seed and nothing with the first, so it can
+/// only be reached through the union. The single-seed half of the test is what makes that claim
+/// mean something: without it, a passing set assertion could be explained by the first seed alone.
+#[tokio::test]
+async fn a_set_of_seeds_finds_the_neighbour_of_the_second_one() {
+    let db = connect("seed-set").await;
+    let account = account(&db).await;
+    insert(
+        &db,
+        &account,
+        (
+            "necromancer",
+            "Necromancer's Tale",
+            "soul magic and undead armies",
+            "Ana",
+            500,
+        ),
+        None,
+    )
+    .await;
+    insert(
+        &db,
+        &account,
+        (
+            "starfarer",
+            "Starfarer",
+            "a pirate of the stars",
+            "Bex",
+            400,
+        ),
+        None,
+    )
+    .await;
+    insert(
+        &db,
+        &account,
+        (
+            "voyager",
+            "Starfarer's Return",
+            "multiverse hopping across galaxies",
+            "Cyd",
+            10,
+        ),
+        None,
+    )
+    .await;
+
+    let one = match metrics::resolve_seed(&db, "Necromancer's Tale")
+        .await
+        .expect("resolve")
+    {
+        metrics::SeedMatch::One(row) => row,
+        other => panic!("expected one row, got {other:?}"),
+    };
+    let two = match metrics::resolve_seed(&db, "Starfarer")
+        .await
+        .expect("resolve")
+    {
+        metrics::SeedMatch::One(row) => row,
+        other => panic!("expected one row, got {other:?}"),
+    };
+
+    let mut q = query();
+    q.tokens = darkhold_domain::similar::tokens(&one.title);
+    let single = metrics::similar(&db, &q, std::slice::from_ref(&one), 20, 0)
+        .await
+        .expect("similar");
+    let single_titles: Vec<&str> = single
+        .items
+        .iter()
+        .map(|item| item.row.title.as_str())
+        .collect();
+    assert!(
+        !single_titles.contains(&"Starfarer's Return"),
+        "one seed's vocabulary does not reach a row that shares none of it: {single_titles:?}"
+    );
+
+    q.tokens = darkhold_domain::similar::tokens(&one.title);
+    q.tokens
+        .extend(darkhold_domain::similar::tokens(&two.title));
+    let set = metrics::similar(&db, &q, &[one.clone(), two.clone()], 20, 0)
+        .await
+        .expect("similar");
+    let set_titles: Vec<&str> = set
+        .items
+        .iter()
+        .map(|item| item.row.title.as_str())
+        .collect();
+    assert!(
+        set_titles.contains(&"Starfarer's Return"),
+        "the second seed's vocabulary is what the set adds: {set_titles:?}"
+    );
+    assert!(
+        !set_titles.contains(&"Starfarer") && !set_titles.contains(&"Necromancer's Tale"),
+        "no seed is its own neighbour: {set_titles:?}"
+    );
 }

@@ -6,8 +6,8 @@
         "implemented-verified-e2e": 129,
         "implemented-locally-tested": 247,
         "unsupported": 4,
-        "implemented-fully-tested": 423,
-        "planned": 90,
+        "implemented-fully-tested": 424,
+        "planned": 89,
         "evaluated-and-rejected": 1
       }
     },
@@ -528,12 +528,6 @@
       "notes": "Reserved section, specified in docs/spec/44-roadmap-consensus-an-elo-ranked-community-voted.md. Registered 2026-11-02 for the same reason as M29-08: an idea the coverage gate named with no home."
     },
     {
-      "id": "M45-66",
-      "milestone": "M45",
-      "requirement": "Rank the catalogue by a set of seed works, not one",
-      "notes": "Concord card '[L] Rank by a set of seeds, not one work'. Measured gap: `/api/v1/catalogue?seed=` (M63-04) refuses a list; a reader with fifty works that describe a subgenre picks one and hopes it represents the set. Centroid of the seeds' tag/embedding vectors, publishing the contributing tags."
-    },
-    {
       "id": "M45-67",
       "milestone": "M45",
       "requirement": "External seeds: a list of titles becomes taste evidence, never catalogue rows",
@@ -566,7 +560,7 @@
   ],
   "open_by_milestone": {
     "M69": 25,
-    "M45": 23,
+    "M45": 22,
     "M63": 19,
     "M64": 14,
     "M66": 6,

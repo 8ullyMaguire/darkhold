@@ -109,6 +109,64 @@ impl Seed {
         }
     }
 
+    /// Build a seed from **several** rows (M45-66): the tokens of the set, and the set's ids so every
+    /// seed is excluded from its own results.
+    ///
+    /// Union, not intersection: a reader who names five works wants "like any of these", because the
+    /// works that describe a subgenre do not share one vocabulary — one is tagged `gamer`, another
+    /// `litrpg`, and requiring both would find nothing. Duplicate tokens collapse, so a word two
+    /// seeds share is not counted twice: the seed is the *set's* vocabulary, not a weighted sum of
+    /// five titles, and weighting by repetition would make one chatty title dominate the query.
+    #[must_use]
+    pub fn of_set<'a, I>(rows: I) -> Option<Self>
+    where
+        I: IntoIterator<Item = (&'a str, &'a str, &'a str, &'a str)>,
+    {
+        let mut ids = Vec::new();
+        let mut title_tokens: Vec<String> = Vec::new();
+        let mut body_tokens: Vec<String> = Vec::new();
+        let mut authors: Vec<String> = Vec::new();
+        for (id, title, summary, author) in rows {
+            if ids.iter().any(|seen| seen == id) {
+                continue;
+            }
+            ids.push(id.to_owned());
+            for token in tokens(title) {
+                if !title_tokens.contains(&token) {
+                    title_tokens.push(token);
+                }
+            }
+
+            for token in tokens(summary) {
+                if !body_tokens.contains(&token) {
+                    body_tokens.push(token);
+                }
+            }
+            authors.push(author.trim().to_lowercase());
+        }
+        let first = ids.first()?.clone();
+        // The author bonus only applies when every seed shares one author: five works by five authors
+        // are not evidence of an author a reader likes.
+        let mut distinct = authors.clone();
+        distinct.sort();
+        distinct.dedup();
+        let author = if distinct.len() == 1 {
+            distinct.remove(0)
+        } else {
+            String::new()
+        };
+        let _ = &first;
+        Some(Self {
+            // The set's identity is its ids, joined. One seed keeps its own id, so a single-seed
+            // query is unchanged; `rank` splits on the comma to exclude every seed from the results.
+            // Ids are UUIDs, so no id can contain the separator.
+            id: ids.join(","),
+            title_tokens,
+            body_tokens,
+            author,
+        })
+    }
+
     /// Every token this row carries, with its field weight.
     fn weighted(&self) -> Vec<(&str, f64)> {
         let mut out: Vec<(&str, f64)> =
@@ -284,7 +342,9 @@ pub fn rank(seed: &Seed, population: &[Seed], idf: &Idf) -> Vec<SimHit> {
     let mine = prepare(seed, idf);
     let mut hits: Vec<SimHit> = population
         .iter()
-        .filter(|other| other.id != seed.id)
+        // Every seed is excluded, not just the first: a set query that recommended one of its own
+        // seeds would be answering "more like this" with "this" (M45-66).
+        .filter(|other| !seed.id.split(',').any(|seed_id| seed_id == other.id))
         .filter_map(|other| {
             let (score, shared) = compare(&mine, &prepare(other, idf));
             (score > 0.0).then_some(SimHit {
@@ -303,6 +363,57 @@ pub fn rank(seed: &Seed, population: &[Seed], idf: &Idf) -> Vec<SimHit> {
     hits
 }
 
+#[test]
+fn a_set_is_the_union_of_its_seeds_and_excludes_all_of_them() {
+    let seed = Seed::of_set([
+        ("id-1", "The Gamer's Guide", "a system and levels", "Shiro"),
+        ("id-2", "Dark Conquest", "litrpg stat grinding", "Vandal"),
+    ])
+    .expect("a set of two");
+
+    assert!(
+        seed.title_tokens.contains(&"gamer".to_string()),
+        "the first seed's vocabulary is in the set: {:?}",
+        seed.title_tokens
+    );
+    assert!(
+        seed.body_tokens.contains(&"litrpg".to_string()),
+        "and so is the second's: {:?}",
+        seed.body_tokens
+    );
+    assert_eq!(
+        seed.id, "id-1,id-2",
+        "the set names every seed, so every seed can be excluded"
+    );
+    assert_eq!(
+        seed.author, "",
+        "two authors is not evidence of an author a reader likes"
+    );
+}
+
+#[test]
+fn a_set_of_one_author_keeps_the_author_bonus() {
+    let seed = Seed::of_set([("a", "One", "", "Shiro"), ("b", "Two", "", "  shiro ")])
+        .expect("a set of two");
+    assert_eq!(seed.author, "shiro", "same author, normalised");
+}
+
+#[test]
+fn a_repeated_token_is_kept_once_because_the_set_is_not_a_sum() {
+    let seed = Seed::of_set([("a", "dragon king", "", ""), ("b", "dragon empire", "", "")])
+        .expect("a set");
+    let dragons = seed
+        .title_tokens
+        .iter()
+        .filter(|token| *token == "dragon")
+        .count();
+    assert_eq!(
+        dragons, 1,
+        "a word two seeds share is not two votes — weighting by repetition would let one chatty \
+             title dominate the query: {:?}",
+        seed.title_tokens
+    );
+}
 #[cfg(test)]
 mod tests {
     use super::*;

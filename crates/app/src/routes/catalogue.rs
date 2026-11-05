@@ -424,24 +424,75 @@ async fn build_query(
 /// scan a reader can wait for. The summary only contributes when the title is too
 /// short to identify anything — a one-word title like "Gamer" matches most of the
 /// catalogue, and a seven-word one already narrows it to the story.
-fn preselection_tokens(seed: &darkhold_db::metrics::SeedLookup) -> Vec<String> {
-    let mut tokens = darkhold_domain::similar::tokens(&seed.title);
-    tokens.sort_by_key(|token| std::cmp::Reverse(token.len()));
-    tokens.truncate(6);
-    if tokens.len() < 2 {
-        let mut body = darkhold_domain::similar::tokens(&seed.summary);
-        body.sort_by_key(|token| std::cmp::Reverse(token.len()));
-        for token in body {
-            if tokens.contains(&token) {
-                continue;
+/// The words the candidate scan will look for: the seeds' titles first, then their summaries.
+///
+/// Built over a **set** (M45-66). The per-seed cap stays six title tokens, but the set gets a
+/// budget too: twenty short seeds would otherwise preselect on a hundred words, which is the
+/// catalogue rather than a taste. Six per seed up to twelve total, in the order the reader named
+/// them, so the first seed they thought of still leads.
+fn preselection_tokens(seeds: &[darkhold_db::metrics::SeedLookup]) -> Vec<String> {
+    const TOTAL_CAP: usize = 12;
+    let mut tokens: Vec<String> = Vec::new();
+    for seed in seeds {
+        let mut mine = darkhold_domain::similar::tokens(&seed.title);
+        mine.sort_by_key(|token| std::cmp::Reverse(token.len()));
+        mine.truncate(6);
+        if mine.len() < 2 {
+            let mut body = darkhold_domain::similar::tokens(&seed.summary);
+            body.sort_by_key(|token| std::cmp::Reverse(token.len()));
+            for token in body {
+                if mine.contains(&token) {
+                    continue;
+                }
+                mine.push(token);
+                if mine.len() >= 6 {
+                    break;
+                }
             }
-            tokens.push(token);
-            if tokens.len() >= 6 {
-                break;
+        }
+        for token in mine {
+            if tokens.len() >= TOTAL_CAP {
+                return tokens;
+            }
+            if !tokens.contains(&token) {
+                tokens.push(token);
             }
         }
     }
     tokens
+}
+
+/// Resolve one name in a set to exactly one row, refusing with the candidates when it cannot (M45-66).
+///
+/// The refusal names **which** name failed: a set query with one ambiguous seed would otherwise print
+/// a list of candidates with no clue which of five names produced them.
+async fn resolve_one_seed(
+    state: &AppState,
+    spec: &str,
+) -> ApiResult<darkhold_db::metrics::SeedLookup> {
+    match darkhold_db::metrics::resolve_seed(state.db(), spec).await? {
+        darkhold_db::metrics::SeedMatch::One(row) => Ok(row),
+        darkhold_db::metrics::SeedMatch::None => Err(ApiError(AppError::NotFound {
+            resource: Box::leak(format!("catalogue row for seed \"{spec}\"").into_boxed_str()),
+        })),
+        darkhold_db::metrics::SeedMatch::Many(rows) => {
+            let named: Vec<String> = rows
+                .iter()
+                .take(6)
+                .map(|row| {
+                    format!(
+                        "{} [{}] {}L ({})",
+                        row.title, row.source_key, row.likes, row.id
+                    )
+                })
+                .collect();
+            Err(invalid(format!(
+                "seed \"{spec}\": {} rows match and none is dominant — pick one by id: {}",
+                rows.len(),
+                named.join("; ")
+            )))
+        }
+    }
 }
 
 /// Answer `/catalogue?seed=…`: the rows most similar to one row (M63-04).
@@ -479,45 +530,33 @@ async fn similar_page(
     }
     let offset = params.offset.unwrap_or(0).max(0);
 
-    let seed_row = match darkhold_db::metrics::resolve_seed(state.db(), spec).await? {
-        darkhold_db::metrics::SeedMatch::One(row) => row,
-        darkhold_db::metrics::SeedMatch::None => {
-            return Err(ApiError(AppError::NotFound {
-                resource: "catalogue row",
-            }))
-        }
-        darkhold_db::metrics::SeedMatch::Many(rows) => {
-            // A refusal has to be actionable: two identical titles with no
-            // archive and no like count is a dead end, and it is exactly what the
-            // first version printed for `--seed "Ghost in the City"`.
-            let named: Vec<String> = rows
-                .iter()
-                .take(6)
-                .map(|row| {
-                    format!(
-                        "{} [{}] {}L ({})",
-                        row.title, row.source_key, row.likes, row.id
-                    )
-                })
-                .collect();
-            return Err(invalid(format!(
-                "seed: {} rows match \"{spec}\" and none is dominant — pick one by id: {}",
-                rows.len(),
-                named.join("; ")
-            )));
-        }
-    };
-
+    // M45-66: `seed=a,b,c` ranks by the set. The cap is a query-cost bound, not a taste limit: each
+    // seed adds its vocabulary to one token union, and a hundred seeds is a search for "everything".
+    const MAX_SEEDS: usize = 20;
+    let specs: Vec<&str> = spec
+        .split(',')
+        .map(str::trim)
+        .filter(|part| !part.is_empty())
+        .collect();
+    if specs.is_empty() {
+        return Err(invalid("seed: name at least one work"));
+    }
+    if specs.len() > MAX_SEEDS {
+        return Err(invalid(format!(
+            "seed: {} works named, and a set query takes at most {MAX_SEEDS} — beyond that the \
+             union stops describing a taste and starts describing the catalogue",
+            specs.len()
+        )));
+    }
+    let mut seeds = Vec::with_capacity(specs.len());
+    for one in &specs {
+        seeds.push(resolve_one_seed(&state, one).await?);
+    }
     let mut query = build_query(&state, &params, exclude_account).await?;
-    query.tokens = preselection_tokens(&seed_row);
-    let page = darkhold_db::metrics::similar(
-        state.db(),
-        &query,
-        &seed_row,
-        limit as usize,
-        offset as usize,
-    )
-    .await?;
+    query.tokens = preselection_tokens(&seeds);
+    let page =
+        darkhold_db::metrics::similar(state.db(), &query, &seeds, limit as usize, offset as usize)
+            .await?;
 
     Ok(SimilarPage {
         items: page
