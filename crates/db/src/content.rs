@@ -1095,6 +1095,18 @@ pub async fn set_unit_spoiler_gated(
 }
 
 /// Units of a work in reading order.
+///
+/// The tie-break on `id` is not decoration. `order_key` is not unique: the
+/// work exported for the estate bundle on 2026-11-05 (`78eb8d57…`) has **784
+/// units and 545 distinct keys**, so 239 of them share a key with a neighbour.
+/// `ORDER BY order_key` alone leaves the order of those ties to the planner, and
+/// Postgres is explicit that it promises no order it was not given — the same
+/// defect that made two runs of the Python bundle exporter produce different
+/// bytes (`cc8358…` and `39646938…`) until it was given `, u.id`.
+///
+/// This function feeds the reader page, narration and every export, so an
+/// unstable order here is three separate bugs wearing one coat. `id` is stable,
+/// unique and already the insertion order of a freshly imported work.
 pub async fn units_for_work(db: &Database, work: WorkId) -> ContentResult<Vec<Unit>> {
     let sql = sql_owned(
         db,
@@ -1103,14 +1115,14 @@ pub async fn units_for_work(db: &Database, work: WorkId) -> ContentResult<Vec<Un
                FROM units c
                LEFT JOIN revisions r ON r.id = c.current_revision_id
               WHERE c.work_id = ? AND c.deleted_at IS NULL
-              ORDER BY c.order_key ASC"
+              ORDER BY c.order_key ASC, c.id ASC"
         ),
         format!(
             "SELECT {UNIT_COLUMNS_PG}
                FROM units c
                LEFT JOIN revisions r ON r.id = c.current_revision_id
               WHERE c.work_id::text = ? AND c.deleted_at IS NULL
-              ORDER BY c.order_key ASC"
+              ORDER BY c.order_key ASC, c.id ASC"
         ),
     );
 
