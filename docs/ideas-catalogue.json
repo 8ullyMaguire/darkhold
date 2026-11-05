@@ -1,6 +1,6 @@
 {
  "generated_by": "scripts/ideas_catalogue.py",
- "count": 182,
+ "count": 181,
  "ideas": [
   {
    "why_summary": "",
@@ -955,19 +955,6 @@
    "why_summary": "darkhold authenticates through `polaris-oidc-client`; a factor implemented here would be a floor below the issuer's and would not protect the issuer's other sites. The row is there",
    "id": "M70-08",
    "title": "Step-up authentication",
-   "sources": [
-    "docs/requirements.csv"
-   ],
-   "milestone": "M70",
-   "relevance": 4,
-   "because": "a requirements row exists (+4)",
-   "default_on": false,
-   "built": false
-  },
-  {
-   "why_summary": "This is the load-bearing row of the extension decision (ADR 0005): the thing that makes extensions shareable without making them executable. Three decisions are in it. First, docum",
-   "id": "M70-09",
-   "title": "An extension document \u2014 a saved-view bundle, a dashboard layout, a theme token set \u2014 is a versioned JSON document that can be exported by one reader and imported by another, and an import is validated by the same rules the server enforces locally, with unknown fields refused rather than ignored.",
    "sources": [
     "docs/requirements.csv"
    ],
