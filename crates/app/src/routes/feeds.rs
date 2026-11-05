@@ -332,7 +332,9 @@ fn set_common_headers(headers: &mut HeaderMap, tag: &str, format: Format, privat
 }
 
 /// A library view's items, through the same store function the page uses.
-async fn library_items(
+/// `pub(crate)` because the alert sweep runs a view through the same two helpers: a saved view that renders a feed
+/// and a saved view that alerts must be the same query, or a reader is told about works the feed never showed.
+pub(crate) async fn library_items(
     state: &AppState,
     account: &str,
     view: &library::SavedView,
@@ -362,7 +364,7 @@ async fn library_items(
 }
 
 /// A catalogue view's items, through the same page the catalogue route serves.
-async fn catalogue_items(
+pub(crate) async fn catalogue_items(
     state: &AppState,
     view: &library::SavedView,
     limit: i64,

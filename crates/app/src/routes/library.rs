@@ -95,6 +95,10 @@ pub fn router() -> Router<AppState> {
             get(get_view).patch(patch_view).delete(delete_view_route),
         )
         .route("/saved-views/{id}/runs", post(record_view_run))
+            // W5 task 6: the same diff, run by the server, so an alert does not require the reader to be
+            // watching. A sweep of every saved view the caller owns; the report says what was checked and what
+            // was skipped rather than answering "ok".
+            .route("/alerts/run", post(run_alerts))
         // M45-72: the shelves as one document, with the query behind each — a shelf whose query is not
         // published is a taste nobody can argue with.
         .route("/shelf-documents", get(shelf_documents))
@@ -1058,6 +1062,20 @@ async fn record_view_run(
         "previous": run.previous,
         "ran_at": run.ran_at,
     })))
+}
+
+/// Run every saved view the caller owns and ring the bell for what is new.
+///
+/// `library.read` is enough for the same reason `POST /saved-views/:id/runs` accepts it: a sweep is bookkeeping
+/// over a read the account is already allowed to perform, and requiring a write scope would make the scheduled
+/// path need a credential it has no other use for.
+async fn run_alerts(
+    State(state): State<AppState>,
+    RequireActorScoped { actor }: RequireActorScoped,
+) -> ApiResult<Json<serde_json::Value>> {
+    let actor = actor.require(Scope::LibraryRead)?;
+    let report = crate::alerts::sweep_account(&state, &actor.account_id.to_string()).await?;
+    Ok(Json(serde_json::json!(report)))
 }
 
 /// One view.
