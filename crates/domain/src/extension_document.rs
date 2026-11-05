@@ -181,6 +181,75 @@ impl Document {
     }
 }
 
+/// A one-line description of what a document arranges, produced by the server from the document itself.
+///
+/// This is the preview, and it is deliberately a *description* rather than a rendering: a preview that ran the
+/// document would be an execution path, and one that showed raw JSON would ask a reader to read a file to decide
+/// whether they want it. Counting and naming what is inside is the honest middle.
+#[must_use]
+pub fn summary(document: &Document) -> String {
+    match document.kind {
+        Kind::SavedViews => {
+            let names: Vec<&str> = document
+                .body
+                .get("views")
+                .and_then(Value::as_array)
+                .map(|views| {
+                    views
+                        .iter()
+                        .filter_map(|view| view.get("name").and_then(Value::as_str))
+                        .collect()
+                })
+                .unwrap_or_default();
+            format!(
+                "{} saved view{}: {}",
+                names.len(),
+                if names.len() == 1 { "" } else { "s" },
+                names.join(", ")
+            )
+        }
+        Kind::Layout => {
+            let slots: Vec<String> = document
+                .body
+                .get("slots")
+                .and_then(Value::as_array)
+                .map(|slots| {
+                    slots
+                        .iter()
+                        .filter_map(|slot| {
+                            let widget = slot.get("widget").and_then(Value::as_str)?;
+                            Some(match slot.get("span").and_then(Value::as_u64) {
+                                Some(span) => format!("{widget} ×{span}"),
+                                None => widget.to_owned(),
+                            })
+                        })
+                        .collect()
+                })
+                .unwrap_or_default();
+            format!(
+                "{} slot{}: {}",
+                slots.len(),
+                if slots.len() == 1 { "" } else { "s" },
+                slots.join(", ")
+            )
+        }
+        Kind::ThemeTokens => {
+            let names: Vec<&str> = document
+                .body
+                .get("tokens")
+                .and_then(Value::as_object)
+                .map(|tokens| tokens.keys().map(String::as_str).collect())
+                .unwrap_or_default();
+            format!(
+                "{} design token{}: {}",
+                names.len(),
+                if names.len() == 1 { "" } else { "s" },
+                names.join(", ")
+            )
+        }
+    }
+}
+
 const TOP_LEVEL: [&str; 4] = ["version", "kind", "name", "body"];
 
 /// Validate a document.

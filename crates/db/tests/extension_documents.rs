@@ -123,6 +123,52 @@ fn layout(name: &str) -> String {
     )
 }
 
+async fn first_pseud(db: &darkhold_db::Database, account: &str) -> String {
+    match db.backend() {
+        darkhold_db::Backend::Sqlite => {
+            let row: (String,) = sqlx::query_as(
+                "SELECT id FROM pseuds WHERE account_id = ? ORDER BY created_at LIMIT 1",
+            )
+            .bind(account)
+            .fetch_one(db.sqlite_pool().expect("sqlite"))
+            .await
+            .expect("a pseud");
+            row.0
+        }
+        darkhold_db::Backend::Postgres => {
+            let row: (String,) = sqlx::query_as(
+                "SELECT id::text FROM pseuds WHERE account_id::text = $1 ORDER BY created_at LIMIT 1",
+            )
+            .bind(account)
+            .fetch_one(db.postgres_pool().expect("postgres"))
+            .await
+            .expect("a pseud");
+            row.0
+        }
+    }
+}
+
+async fn pseud_handle(db: &darkhold_db::Database, id: &str) -> String {
+    match db.backend() {
+        darkhold_db::Backend::Sqlite => {
+            let row: (String,) = sqlx::query_as("SELECT handle FROM pseuds WHERE id = ?")
+                .bind(id)
+                .fetch_one(db.sqlite_pool().expect("sqlite"))
+                .await
+                .expect("handle");
+            row.0
+        }
+        darkhold_db::Backend::Postgres => {
+            let row: (String,) = sqlx::query_as("SELECT handle FROM pseuds WHERE id::text = $1")
+                .bind(id)
+                .fetch_one(db.postgres_pool().expect("postgres"))
+                .await
+                .expect("handle");
+            row.0
+        }
+    }
+}
+
 #[tokio::test]
 async fn documents_are_private_until_published_and_export_is_the_stored_bytes() {
     let (db, dir) = database("extdoc").await;
@@ -194,6 +240,48 @@ async fn documents_are_private_until_published_and_export_is_the_stored_bytes() 
     assert!(!darkhold_db::extension_documents::delete(&db, &mine, A1)
         .await
         .expect("delete again"));
+
+    // Publishing is attributed to a pseud; the pseud must be the account's own.
+    let pseud = first_pseud(&db, A1).await;
+    let theirs = first_pseud(&db, A2).await;
+
+    assert!(
+        !darkhold_db::extension_documents::publish(&db, &shared, A1, &theirs)
+            .await
+            .expect("publish"),
+        "a document cannot be published as somebody else's pseud"
+    );
+    assert!(
+        darkhold_db::extension_documents::publish(&db, &shared, A1, &pseud)
+            .await
+            .expect("publish")
+    );
+
+    // The browse list shows the pseud, not the account, and skips anything unpublished.
+    let listed = darkhold_db::extension_documents::list_public(&db, None, 50)
+        .await
+        .expect("browse");
+    assert_eq!(listed.len(), 1);
+    assert_eq!(listed[0].pseud_handle, pseud_handle(&db, &pseud).await);
+    assert!(
+        listed.iter().all(|row| row.pseud_handle != A1),
+        "an account id must never appear as an author"
+    );
+
+    // Withdrawing removes it from the list and leaves the row.
+    assert!(
+        darkhold_db::extension_documents::unpublish(&db, &shared, A1)
+            .await
+            .expect("unpublish")
+    );
+    assert!(darkhold_db::extension_documents::list_public(&db, None, 50)
+        .await
+        .expect("browse")
+        .is_empty());
+    assert!(darkhold_db::extension_documents::get(&db, &shared, A1)
+        .await
+        .expect("get")
+        .is_some());
 
     // Erasure takes the rest.
     exec(&db, &format!("DELETE FROM accounts WHERE id = '{A1}'")).await;

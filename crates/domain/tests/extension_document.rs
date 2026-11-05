@@ -1,6 +1,6 @@
 //! M70-09 — a shared document means what it says, or it is refused.
 
-use darkhold_domain::extension_document::{parse, Kind, Refusal, MAX_BYTES, VERSION};
+use darkhold_domain::extension_document::{parse, summary, Kind, Refusal, MAX_BYTES, VERSION};
 
 fn json(kind: &str, body: &str) -> String {
     format!(r#"{{"version":{VERSION},"kind":"{kind}","name":"Winter reading","body":{body}}}"#)
@@ -176,4 +176,32 @@ fn everything_that_is_not_a_document_is_named_as_such() {
         Err(Refusal::BadName),
         "whitespace is not a name"
     );
+}
+
+#[test]
+fn the_summary_names_what_is_inside_without_running_anything() {
+    let views = parse(&json(
+        "saved_views",
+        r#"{"views":[{"name":"Slow burn","filters":{}},{"name":"WIP","filters":{}}]}"#,
+    ))
+    .expect("bundle");
+    assert_eq!(summary(&views), "2 saved views: Slow burn, WIP");
+
+    let layout = parse(&json(
+        "layout",
+        r#"{"slots":[{"widget":"inbox"},{"widget":"trends","span":6}]}"#,
+    ))
+    .expect("layout");
+    assert_eq!(
+        summary(&layout),
+        "2 slots: inbox, trends ×6",
+        "the span is shown when it is set, because a layout is mostly about proportions"
+    );
+
+    let theme = parse(&json(
+        "theme_tokens",
+        r##"{"tokens":{"--ink":"#101014","--paper":"#fdfdfb"}}"##,
+    ))
+    .expect("theme");
+    assert_eq!(summary(&theme), "2 design tokens: --ink, --paper");
 }

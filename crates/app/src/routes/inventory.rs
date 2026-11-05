@@ -1149,6 +1149,20 @@ pub const ROUTE_TABLE: &[RouteEntry] = &[
     },
     RouteEntry {
         file: "extension_documents.rs",
+        handler: "browse",
+        method: "GET",
+        path: "/extension-documents",
+        audience: Audience::Public,
+    },
+    RouteEntry {
+        file: "extension_documents.rs",
+        handler: "publish",
+        method: "PUT",
+        path: "/me/extension-documents/{id}/publish",
+        audience: Audience::Authenticated,
+    },
+    RouteEntry {
+        file: "extension_documents.rs",
         handler: "list",
         method: "GET",
         path: "/me/extension-documents",
