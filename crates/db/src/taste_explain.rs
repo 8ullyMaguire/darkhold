@@ -55,7 +55,7 @@ fn statements() -> [(Signal, &'static str, &'static str); 5] {
              FROM reading_status rs
              JOIN work_tags wt ON wt.work_id = rs.subject_id
              JOIN canonical_entities tn ON tn.id = wt.node_id
-             WHERE rs.account_id = $1::text AND rs.subject_type = 'work' AND rs.status = 'finished'",
+             WHERE rs.account_id = $1::uuid AND rs.subject_type = 'work' AND rs.status = 'finished'",
         ),
         (
             Signal::Bookmark,
@@ -68,7 +68,7 @@ fn statements() -> [(Signal, &'static str, &'static str); 5] {
              FROM bookmarks b
              JOIN work_tags wt ON wt.work_id = b.subject_id
              JOIN canonical_entities tn ON tn.id = wt.node_id
-             WHERE b.account_id = $1::text AND b.subject_type = 'work'",
+             WHERE b.account_id = $1::uuid AND b.subject_type = 'work'",
         ),
         (
             Signal::RatingUp,
@@ -81,7 +81,7 @@ fn statements() -> [(Signal, &'static str, &'static str); 5] {
              FROM rating r
              JOIN work_tags wt ON wt.work_id = r.work_id
              JOIN canonical_entities tn ON tn.id = wt.node_id
-             WHERE r.account_id = $1::text AND r.stars >= 4 AND r.deleted_at IS NULL",
+             WHERE r.account_id = $1::uuid AND r.stars >= 4 AND r.deleted_at IS NULL",
         ),
         (
             Signal::RatingDown,
@@ -94,7 +94,7 @@ fn statements() -> [(Signal, &'static str, &'static str); 5] {
              FROM rating r
              JOIN work_tags wt ON wt.work_id = r.work_id
              JOIN canonical_entities tn ON tn.id = wt.node_id
-             WHERE r.account_id = $1::text AND r.stars <= 2 AND r.deleted_at IS NULL",
+             WHERE r.account_id = $1::uuid AND r.stars <= 2 AND r.deleted_at IS NULL",
         ),
         (
             Signal::Dropped,
@@ -107,7 +107,7 @@ fn statements() -> [(Signal, &'static str, &'static str); 5] {
              FROM reading_status rs
              JOIN work_tags wt ON wt.work_id = rs.subject_id
              JOIN canonical_entities tn ON tn.id = wt.node_id
-             WHERE rs.account_id = $1::text AND rs.subject_type = 'work' AND rs.status = 'dropped'",
+             WHERE rs.account_id = $1::uuid AND rs.subject_type = 'work' AND rs.status = 'dropped'",
         ),
     ]
 }
@@ -122,7 +122,7 @@ pub async fn disabled_signals(db: &Database, account_id: &str) -> Result<Vec<Str
             "SELECT signal FROM taste_signal_prefs WHERE account_id = ? AND enabled = FALSE"
         }
         Backend::Postgres => {
-            "SELECT signal FROM taste_signal_prefs WHERE account_id = $1::text AND enabled = FALSE"
+            "SELECT signal FROM taste_signal_prefs WHERE account_id = $1::uuid AND enabled = FALSE"
         }
     };
     let rows: Vec<(String,)> = match db.backend() {
@@ -169,7 +169,7 @@ pub async fn set_signal(
         Backend::Postgres => {
             sqlx::query(
                 "INSERT INTO taste_signal_prefs (account_id, signal, enabled, updated_at)
-                 VALUES ($1::text, $2, $3, $4)
+                 VALUES ($1::uuid, $2, $3, $4)
                  ON CONFLICT(account_id, signal) DO UPDATE SET
                    enabled = EXCLUDED.enabled,
                    updated_at = EXCLUDED.updated_at",

@@ -4,7 +4,9 @@
 -- the default is the one that explains a reading: a signal you never touched is a signal that counted.
 -- The row has a foreign key onto `accounts`, so erasing the reader takes the preference with it.
 CREATE TABLE taste_signal_prefs (
-    account_id TEXT NOT NULL REFERENCES accounts (id) ON DELETE CASCADE,
+    -- `UUID`, not TEXT: a reference must match its target's type in Postgres, and `accounts.id` is
+    -- `uuid`. The SQLite twin keeps TEXT because that engine has one string type.
+    account_id UUID NOT NULL REFERENCES accounts (id) ON DELETE CASCADE,
     signal     TEXT NOT NULL,
     enabled    INTEGER NOT NULL,
     updated_at TEXT NOT NULL,
