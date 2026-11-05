@@ -8,7 +8,7 @@
 //! names no reader. It exists so an event or a bounty can be timed against a fandom that is actually
 //! arriving, rather than against last year's biggest.
 //!
-//! The window arithmetic is here and the rule is in `darkhold_domain::trend`; this module produces the two
+//! The window arithmetic is here and the rule is in `commons_trend`; this module produces the two
 //! RFC 3339 bounds, asks the store, and hands each fandom's counts to the rule. **The rule's inputs are
 //! printed with the answer** — a caller that disagrees with `emerging` can see the counts and the ratio it
 //! was decided on.
@@ -20,8 +20,8 @@ use axum::routing::get;
 use axum::{Json, Router};
 use serde::Deserialize;
 
+use commons_trend::{assess, Verdict};
 use darkhold_domain::error::AppError;
-use darkhold_domain::trend::{assess, Verdict};
 
 use crate::auth::MaybeSession;
 use crate::http::{ApiError, ApiResult};
@@ -88,7 +88,7 @@ async fn trends(
         state.db(),
         &baseline_since,
         &recent_since,
-        darkhold_domain::trend::MIN_RECENT,
+        commons_trend::MIN_RECENT,
     )
     .await?;
 
@@ -97,7 +97,7 @@ async fn trends(
     let mut judged: Vec<(i32, f64, serde_json::Value)> = rows
         .into_iter()
         .map(|row| {
-            let counts = darkhold_domain::trend::Counts {
+            let counts = commons_trend::Counts {
                 recent: row.recent,
                 baseline: row.baseline,
                 baseline_weeks,
@@ -133,8 +133,8 @@ async fn trends(
     let body = serde_json::json!({
         "recent_days": recent_days,
         "baseline_days": baseline_days,
-        "min_recent": darkhold_domain::trend::MIN_RECENT,
-        "ratio_threshold": darkhold_domain::trend::RATIO,
+        "min_recent": commons_trend::MIN_RECENT,
+        "ratio_threshold": commons_trend::RATIO,
         "counts_what": "works that gained this fandom tag in this instance, by the tag's arrival — not the source's publication date",
         "items": items,
     });

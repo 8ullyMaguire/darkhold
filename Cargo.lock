@@ -549,6 +549,13 @@ dependencies = [
 ]
 
 [[package]]
+name = "commons-trend"
+version = "0.1.0"
+dependencies = [
+ "serde",
+]
+
+[[package]]
 name = "compression-codecs"
 version = "0.4.39"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -750,6 +757,7 @@ dependencies = [
  "commons-bounty",
  "commons-feed",
  "commons-identify",
+ "commons-trend",
  "crc32fast",
  "darkhold-db",
  "darkhold-domain",
@@ -802,6 +810,7 @@ dependencies = [
  "anyhow",
  "commons-bounty",
  "commons-identify",
+ "commons-trend",
  "darkhold-domain",
  "darkhold-taste",
  "hex",

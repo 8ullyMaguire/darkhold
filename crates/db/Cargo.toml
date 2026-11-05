@@ -12,6 +12,7 @@ name = "darkhold_db"
 path = "src/lib.rs"
 
 [dependencies]
+commons-trend = { path = "../../../../../../projects/commons/crates/commons-trend" }
 commons-identify = { path = "../../../../../../projects/commons/crates/commons-identify" }
 commons-bounty = { path = "../../../../../../projects/commons/crates/commons-bounty" }
 anyhow.workspace = true
