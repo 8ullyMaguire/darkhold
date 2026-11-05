@@ -663,6 +663,14 @@ pub fn build_router(state: AppState) -> Router {
             routes::finder::router(),
             RouteClass::Write,
         ))
+        // M70-01 — orphaning: the work stays online, the author link goes. Session-scoped; ownership is checked
+        // inside the handler, and a stranger gets the same answer as for a work that does not exist.
+        .merge(module_mount(
+            &state,
+            "catalogue",
+            routes::orphan::router(),
+            RouteClass::Write,
+        ))
         // §58's supply surface (M45-25): keystone authors, droughts, and the
         // routing a reader opts into. Write class — every door needs a session,
         // and routing creates a row the patronage pays against.

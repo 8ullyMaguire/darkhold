@@ -960,8 +960,10 @@ async fn a_backlog_of_unhandled_topics_does_not_starve_a_handled_one() {
             Ok(())
         })
     });
-    let mut options = darkhold_app::worker::WorkerOptions::default();
-    options.batch = 10;
+    let options = darkhold_app::worker::WorkerOptions {
+        batch: 10,
+        ..darkhold_app::worker::WorkerOptions::default()
+    };
     let worker = darkhold_app::worker::Worker::new(options).with_topic("test.deliverable", handler);
     let report = worker.run_once(&harness.state).await.expect("pass");
 

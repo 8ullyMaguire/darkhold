@@ -28,7 +28,7 @@ use crate::{Backend, Database, SYSTEM_ACCOUNT};
 ///
 /// Returns `Ok(None)` for a missing work too: from the caller's side "there is nothing here to detach" is the same
 /// answer, and a route that distinguishes them leaks whether a work id exists.
-pub async fn orphan_work(db: &Database, work_id: &str) -> Result<Option<String>, sqlx::Error> {
+pub async fn orphan_work(db: &Database, work_id: &str) -> anyhow::Result<Option<String>> {
     let select = db.sql(
         "SELECT p.display_name, p.account_id \
            FROM works w JOIN pseuds p ON p.id = w.owner_pseud_id \
@@ -55,7 +55,7 @@ pub async fn orphan_work(db: &Database, work_id: &str) -> Result<Option<String>,
                 return Ok(None);
             }
             let label = darkhold_domain::orphan::freeze(&display_name, true, false)
-                .map_err(|reason| sqlx::Error::Protocol(format!("cannot orphan: {reason:?}")))?;
+                .map_err(|reason| anyhow::anyhow!("cannot orphan: {reason:?}"))?;
             let handle = detached_handle(work_id);
             sqlx::query(
                 "INSERT INTO pseuds (id, account_id, handle, display_name, bio, discoverability, created_at, \
@@ -91,7 +91,7 @@ pub async fn orphan_work(db: &Database, work_id: &str) -> Result<Option<String>,
                 return Ok(None);
             }
             let label = darkhold_domain::orphan::freeze(&display_name, true, false)
-                .map_err(|reason| sqlx::Error::Protocol(format!("cannot orphan: {reason:?}")))?;
+                .map_err(|reason| anyhow::anyhow!("cannot orphan: {reason:?}"))?;
             let handle = detached_handle(work_id);
             sqlx::query(
                 "INSERT INTO pseuds (id, account_id, handle, display_name, bio, discoverability, created_at, \
@@ -128,7 +128,7 @@ pub async fn orphan_work(db: &Database, work_id: &str) -> Result<Option<String>,
 /// Each work is orphaned in its own transaction rather than one enclosing all of them: a person with 2,000 works
 /// should not need a 2,000-row transaction to leave, and a failure halfway is not a corruption — the remaining
 /// works are still owned by the account, which is the state before the call.
-pub async fn orphan_works_of(db: &Database, account_id: &str) -> Result<u64, sqlx::Error> {
+pub async fn orphan_works_of(db: &Database, account_id: &str) -> anyhow::Result<u64> {
     let list = db.sql(
         "SELECT w.id FROM works w JOIN pseuds p ON p.id = w.owner_pseud_id WHERE p.account_id = ?",
         "SELECT w.id::text FROM works w JOIN pseuds p ON p.id = w.owner_pseud_id WHERE p.account_id::text = $1",
@@ -154,6 +154,36 @@ pub async fn orphan_works_of(db: &Database, account_id: &str) -> Result<u64, sql
         }
     }
     Ok(moved)
+}
+
+/// Whether `account_id` owns `work_id` through one of its pseuds.
+///
+/// Asked separately from [`orphan_work`] so the route can refuse a stranger with the same answer it gives for a
+/// work that does not exist — a 403 here would confirm the id.
+pub async fn owned_by(db: &Database, work_id: &str, account_id: &str) -> anyhow::Result<bool> {
+    let statement = db.sql(
+        "SELECT count(*) FROM works w JOIN pseuds p ON p.id = w.owner_pseud_id \
+          WHERE w.id = ? AND p.account_id = ?",
+        "SELECT count(*) FROM works w JOIN pseuds p ON p.id = w.owner_pseud_id \
+          WHERE w.id = $1::uuid AND p.account_id::text = $2",
+    );
+    let count: i64 = match db.backend() {
+        Backend::Sqlite => {
+            sqlx::query_scalar(&statement)
+                .bind(work_id)
+                .bind(account_id)
+                .fetch_one(db.sqlite_pool().expect("sqlite handle"))
+                .await?
+        }
+        Backend::Postgres => {
+            sqlx::query_scalar(&statement)
+                .bind(work_id)
+                .bind(account_id)
+                .fetch_one(db.postgres_pool().expect("postgres handle"))
+                .await?
+        }
+    };
+    Ok(count > 0)
 }
 
 /// The handle of a detached pseud, derived from the work id so two orphans of two works cannot collide under the

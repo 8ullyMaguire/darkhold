@@ -1,6 +1,7 @@
 //! HTTP routes.
 
 pub mod account_permissions;
+pub mod orphan;
 // W2: sign in with Polaris.
 pub mod admin;
 pub mod admin_discovery;
