@@ -3886,3 +3886,24 @@ dependency, not a symlink.
 **Counts at handoff:** 895 rows · 813 implemented · 77 planned (M69 24 · M63 17 · M64 14 · M45 13 · GS 5 ·
 M65 · M66 · M29 · M44). Re-derive from `docs/requirements.csv` before quoting them; the CSV is the truth and
 only `scripts/ledger.py` may write it.
+
+### Deploy, 2026-11-05 17:07 — `build=0.1.0+cd15dd00` live
+
+`systemctl --user restart darkhold.service` on thinkcentre after a release build of `cd15dd00`.
+Verified over the socket, not from the unit's exit code:
+
+    health=200   metrics=200   fingerprint=404   /api/v1/catalogue?q=rain=200
+
+The 404 is the designed refusal (the production instance theme is not marked `public`), not a broken route —
+the probe proves it end to end against the local build.
+
+Two things that bit during this deploy, worth carrying forward:
+
+* **Two cargo processes, one target dir.** Another session was building the same tree into
+  `~/.cargo-target/darkhold` while mine waited on the lock; the build appeared "stuck" for 25 minutes and the
+  binary timestamp moved twice. Before rebuilding, check `pgrep -af cargo` on the host — a second builder is
+  the likeliest explanation for a build that will not finish.
+* **The deployed tree can ship an untabled route.** `df816462` (alerts) registered
+  `POST /alerts/run` with `RequireActorScoped` and no `ROUTE_TABLE` row, so master went red the moment the
+  lineages met. Fixed at `cd15dd00` (`Audience::Scoped`, 5/5). Merging the deployed tree is not a formality —
+  run `route_inventory` immediately afterwards.
