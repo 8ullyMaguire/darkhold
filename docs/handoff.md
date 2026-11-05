@@ -3816,3 +3816,19 @@ here, but the recipe is wrong and the skill now says so.
 and records the patron in `account`; the public listing therefore shows a blank `created_by`. Not
 changed here — it is the economy's row shape, not §61's — but an operator reading the listing should
 know which column carries the funder.
+
+## 2026-11-05 — the tree reaches outside its own checkout, twice
+
+`crates/app/Cargo.toml` names two siblings by path: `commons-feed` through `../../../../../../projects/commons`
+and `polaris-core` through `../../../../polaris-core-rust`. Neither exists in a fresh clone, so a clone cannot
+even load its manifest. On cachyos both resolve through symlinks (`/home/projects/commons` and
+`~/code-local/polaris-core-rust` -> the thinkcentre copy); on thinkcentre they resolve through `/personal/projects`
+and the documents tree.
+
+The second one bit the merge: `polaris-core` used `Atomic::fetch_update`, which rustc has renamed `try_update`,
+and because darkhold denies warnings the deprecation broke *darkhold's* build rather than warning in the sibling.
+Fixed in `polaris-core-rust` (`07e2919`) rather than by relaxing the deny — a warning in a dependency is a real
+warning, and the fix is the one word rustc asked for.
+
+Both paths are still defects. The right fix is a version field or a workspace-level dependency, not a symlink
+somebody has to remember.
