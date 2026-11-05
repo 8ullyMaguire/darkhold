@@ -1148,6 +1148,13 @@ pub const ROUTE_TABLE: &[RouteEntry] = &[
         audience: Audience::Public,
     },
     RouteEntry {
+        file: "whole_work.rs",
+        handler: "whole",
+        method: "GET",
+        path: "/works/{id}/whole",
+        audience: Audience::Public,
+    },
+    RouteEntry {
         file: "orphan.rs",
         handler: "orphan",
         method: "POST",

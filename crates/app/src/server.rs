@@ -671,6 +671,14 @@ pub fn build_router(state: AppState) -> Router {
             routes::orphan::router(),
             RouteClass::Write,
         ))
+        // M70-02 — whole-work reading: chapter spans and the reader's place inside them. Public, because reading a
+        // published work is public; the conversion it exposes is the domain's, not a second implementation.
+        .merge(module_mount(
+            &state,
+            "catalogue",
+            routes::whole_work::router(),
+            RouteClass::Default,
+        ))
         // §58's supply surface (M45-25): keystone authors, droughts, and the
         // routing a reader opts into. Write class — every door needs a session,
         // and routing creates a row the patronage pays against.

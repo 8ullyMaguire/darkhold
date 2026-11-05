@@ -2,6 +2,7 @@
 
 pub mod account_permissions;
 pub mod orphan;
+pub mod whole_work;
 // W2: sign in with Polaris.
 pub mod admin;
 pub mod admin_discovery;
