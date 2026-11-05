@@ -56,12 +56,9 @@ pub mod signal;
 /// (spec §12.7).
 pub mod diversify;
 
-/// The arena: the pairwise comparison surface and the ladder it puts works on
-/// (spec §12.4).
-
 /// Ranking metrics: `nDCG@10`, `recall@50`, `precision@k`, `F1@k`, `AP@k` and overlap, which is how
-/// "we match kindred" becomes a number instead of a claim (spec §8.3, R-6).
-/// The ranking metrics, re-exported from `polaris-eval`: nDCG, recall, precision, MAP and the parity report.
+/// "we match kindred" becomes a number instead of a claim (spec §8.3, R-6), re-exported from
+/// `polaris-eval`.
 ///
 /// A re-export rather than a module so this crate's existing paths (`crate::eval::ndcg_at`,
 /// `darkhold_taste::eval::Judgement`) keep working unchanged — the callers never learn the code moved.

@@ -27,13 +27,14 @@ all live in this repository.
 the gates every change passes before it is committed.
 
 This repository is the base for the consolidated from-scratch specification. The
-honest one-line status, re-derived from `docs/requirements.csv` (640 rows):
-**583 implemented** (285 fully-tested, 115 verified E2E, 183 built but not
-verified end to end), **53 planned**, **4 deliberately unsupported**, tags
-through `v0.51.0`. What remains is planned in `docs/plans/remaining-work.md`:
-the metadata exchange endpoint (M57), the companion bot (M54), the gated adapters
-(M53), and the M45 block — 45 of the 53 rows, and the dominant term in any
-estimate. `docs/plans/bots-extension.md` covers the bot core, the separate
+honest one-line status, re-derived from `docs/requirements.csv` (894 rows):
+**805 implemented** (429 fully-tested, 129 verified E2E, 247 built but not
+verified end to end), **84 planned**, **4 deliberately unsupported**, **1
+evaluated and rejected**, tags through `v0.51.0`. The planned remainder is
+concentrated in a few blocks — M69 (25 rows), M63 (19), M45 (17), M64 (14),
+M66 (6) — and `docs/plans/remaining-work.md` tracks them; the M45 block is the
+taste and catalogue block the last sessions have been closing a row at a time.
+`docs/plans/bots-extension.md` covers the bot core, the separate
 Lorebook desktop app, and a Chromium extension that does not exist yet.
 
 **The metadata exchange** (spec §11.17, §15.17, §19.14, §2.3.1) was adopted

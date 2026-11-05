@@ -1,5 +1,62 @@
 # Handoff
 
+## Two lineages merged, and a class of bug that only PostgreSQL shows — 2026-11-05
+
+**Where it stands:** 894 requirements. 805 implemented (429 fully-tested, 129 verified-e2e, 247
+locally-tested), **84 planned**, 4 unsupported, 1 rejected. Counted from `docs/requirements.csv`, not
+remembered: `python3 -c "import csv,collections;print(collections.Counter(r['status'] for r in
+csv.DictReader(open('docs/requirements.csv'))))"`.
+
+**The tree merged two lineages at `b5004009`** (`7cb3dbd8` deployed ← `7dbd857e` workstation, 43 commits,
+migrations 0149–0153). Two consequences a cold start must know:
+
+- The merged lineage depends on **sibling checkouts outside this repo**:
+  `crates/taste` → `../../../../polaris-eval`, `crates/app` → `../../../../polaris-oidc-client`. Both must
+  exist at `/home/alvaro/code-local/polaris-eval` and `…/polaris-oidc-client`. They went missing mid-session
+  and every cargo command died with `failed to load manifest … No such file or directory`, which reads as a
+  broken workspace. They live on thinkcentre at
+  `/home/alvaro/mnt/thinkcentre/personal/documents/code/<name>`; copy them to `~/code-local/`, do **not**
+  symlink the sshfs mount into a build tree.
+- The merged files were formatted by a different rustfmt, so `cargo fmt --all --check` was red on ten files
+  nobody had edited. Formatting them is mechanical; it is in `9a8c259f` with the route-table fix.
+
+**The finding of the session is a class, not a row.** Four rows had been marked
+`implemented-fully-tested` on the strength of SQLite runs. Run against a real PostgreSQL
+(`DARKHOLD_TEST_PG_URL=postgres://darkhold:darkhold@127.0.0.1:55433/postgres`, container `lh-pg-test`),
+three **production** stores returned errors and the tests' own PostgreSQL arms turned out never to have
+executed:
+
+    taste_brief::facts_for_item     WHERE li.id = $1      → operator does not exist: uuid = text
+    operator_theme::tags_for_item   same                  → same
+    operator_theme::get             seed_count as i64     → INT8 not compatible with INT4
+    taste_explain::events           five arms SELECT uuid → String as TEXT not compatible with UUID
+    the test files                  ?::uuid in their PG arms and 'w-dark' as an id → dead arms
+
+Fixed in `7dbd857e`: `$1::uuid`, `seed_count::bigint`, `subject_id::text`, and the tests rewritten with
+`$n`, real UUIDs and text timestamps (`library_items.created_at` is TEXT holding
+`YYYY-MM-DDTHH:MM:SSZ` — migration 0132's check refuses a `::timestamptz` render). The whole crate was then
+swept on PostgreSQL: **52 suites ok, 0 failed**. The rule to carry forward: *a store is proven by running
+both engines; `gate.sh dialects` is a static linter and passes statements that have never executed.*
+
+**Rows closed this session** (each with a live probe on :8099 and a gate sha in its ledger entry):
+
+| row | what | commit |
+|---|---|---|
+| M45-66 | seed sets — `?seed=a,b,c` unions vocabularies, one budget, all seeds excluded | `e8be6ee8` |
+| M45-67 | external seeds — evidence per reader, never a catalogue row, resolves into a seed | `f6f34cb0` |
+| M45-69 | operator taste — published, not blended; season > operator > bookmarks | `ed5f8caf` |
+| M45-70 | explain my taste — five signals, distinct-work counts, switches that report what they suppressed | `c8eaa31c` |
+| M45-71 | taste brief — a shelf as deterministic markdown with the query that expresses it | `007b066a` |
+| M45-72 | shelf documents — every saved view with its query, last change, last run | see its ledger entry |
+
+**Next three:** `M45-72`'s gate sha (the row's `gates` field is the only thing left on it), then **M45-65**
+(the identity-gate inventory — do not "fix" it blind, it turns red until all 68 columns carry a treatment
+read off their writer), then the M63 power-user block, whose rows unblock most of the remaining CLI work.
+
+**Two rows a cold start must not touch blind:** M45-65 and M65-09 (deferred on purpose with its reason
+recorded; it looks cheap and is not). **One decision needs a person:** `arena`'s `default_on` — it ranks
+people.
+
 ## The backlog's tail, measured — 2026-11-02
 
 Full text: `docs/handoffs/2026-11-02T2145+0100-backlog-tail-measured-handoff.md`.

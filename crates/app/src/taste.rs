@@ -36,7 +36,9 @@ const RATINGS_PATH: &str = "/api/v1/taste/ratings";
 /// How long an assertion is valid for. The service accepts 120 s and tolerates 15 s of skew.
 const ASSERTION_TTL: u64 = 60;
 
-#[derive(Debug, Clone)]
+/// A cached ladder: the instant it was read and the rows it carried.
+type LadderCache = std::sync::Arc<std::sync::Mutex<Option<(std::time::Instant, Vec<Rating>)>>>;
+
 pub struct TasteClient {
     base: String,
     assertion_secret: String,
@@ -48,7 +50,9 @@ pub struct TasteClient {
     /// this, a reader scrolling their feed is one HTTP call to another process per page. Thirty seconds is
     /// long enough to make the call amortised and short enough that a vote shows up while the reader is still
     /// on the site.
-    ladder: std::sync::Arc<std::sync::Mutex<Option<(std::time::Instant, Vec<Rating>)>>>,
+    // The cached ladder: when it was fetched and what it said. A type alias rather than the tower of
+    // generics inline, which is what a reader needs to see at the field.
+    ladder: LadderCache,
 }
 
 /// How long a ladder read is reused for.

@@ -126,7 +126,7 @@ mod tests {
     fn the_match_floor_is_applied_before_any_query() {
         // One ballot gives the middles two comparisons, so `matches >= 3` is the evidence floor. A
         // candidate below it must not even reach the eligibility query.
-        let candidates = vec![candidate("a", 1), candidate("b", 5)];
+        let candidates = [candidate("a", 1), candidate("b", 5)];
         let kept: Vec<&LadderWork> = candidates.iter().filter(|c| c.matches >= 3).collect();
         assert_eq!(kept.len(), 1);
         assert_eq!(kept[0].work_id, "b");
@@ -134,7 +134,7 @@ mod tests {
 
     #[test]
     fn the_sql_is_bounded_by_the_ids_it_was_given() {
-        let ids = vec!["a".to_string(), "b".to_string(), "c".to_string()];
+        let ids = ["a".to_string(), "b".to_string(), "c".to_string()];
         let marks = vec!["?"; ids.len()].join(",");
         assert_eq!(marks, "?,?,?");
         assert!(!marks.contains('*'));
