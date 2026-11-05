@@ -1447,7 +1447,10 @@ mod tests {
 
         // Every format is listed once, so a picker built from `ALL` cannot omit the newest one.
         assert_eq!(ExportFormat::ALL.len(), 8);
-        assert_eq!(ExportFormat::ALL.iter().filter(|f| **f == format).count(), 1);
+        assert_eq!(
+            ExportFormat::ALL.iter().filter(|f| **f == format).count(),
+            1
+        );
     }
 
     #[test]

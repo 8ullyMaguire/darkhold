@@ -733,7 +733,10 @@ async fn convert_to_bundle(
     }
 
     let metadata = tokio::fs::metadata(&output).await.map_err(|error| {
-        ExportFailure::Storage(format!("{} produced no bundle: {error}", converter.binary()))
+        ExportFailure::Storage(format!(
+            "{} produced no bundle: {error}",
+            converter.binary()
+        ))
     })?;
     if metadata.len() > MAX_ARTIFACT_BYTES {
         let _ = tokio::fs::remove_dir_all(&dir).await;
