@@ -1,6 +1,6 @@
 {
  "generated_by": "scripts/ideas_catalogue.py",
- "count": 176,
+ "count": 175,
  "ideas": [
   {
    "why_summary": "",
@@ -998,19 +998,6 @@
     "docs/requirements.csv"
    ],
    "milestone": "M69",
-   "relevance": 3,
-   "because": "a requirements row exists (+4); needs a model or heavy compute (-1)",
-   "default_on": false,
-   "built": false
-  },
-  {
-   "why_summary": "AO3's MFL is not a bookmark with a flag: it is private by definition, it does not appear in counts, and finishing a work removes it rather than keeping a record. Modelling it as a ",
-   "id": "M70-07",
-   "title": "Marked for Later",
-   "sources": [
-    "docs/requirements.csv"
-   ],
-   "milestone": "M70",
    "relevance": 3,
    "because": "a requirements row exists (+4); needs a model or heavy compute (-1)",
    "default_on": false,
