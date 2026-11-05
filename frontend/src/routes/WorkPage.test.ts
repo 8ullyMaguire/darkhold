@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from '@testing-library/svelte';
+import { fireEvent, render, screen, waitFor } from '@testing-library/svelte';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import WorkPage from './WorkPage.svelte';
@@ -12,6 +12,8 @@ vi.mock('../lib/api', async (importOriginal) => {
   return {
     ...actual,
     fetchWork: vi.fn(),
+    fetchWholeWork: vi.fn(),
+    fetchUnit: vi.fn(),
     fetchWorkPricing: vi.fn(),
     fetchReviews: vi.fn().mockResolvedValue({ items: [] }),
     purchaseWork: vi.fn(),
@@ -25,6 +27,8 @@ vi.mock('../lib/api', async (importOriginal) => {
 });
 
 import {
+  fetchWholeWork,
+  fetchUnit,
   fetchWork,
   fetchWorkMediaReferences,
   fetchWorkNoteLinks,
@@ -358,5 +362,69 @@ describe('WorkPage media fallback (M45-36)', () => {
     const fallback = await screen.findByTestId('media-ref-unavailable');
     expect(fallback.textContent).toContain('Listen while you read');
     expect(fallback.textContent).not.toContain('It was hosted at');
+  });
+});
+
+/**
+ * M70-02 — the reading-mode switch.
+ *
+ * The two modes are not equivalent and the page must not pretend they are: the chapter list is real links to
+ * server-rendered pages (works without JavaScript), and "Entire work" is an enhancement fetched on demand. What
+ * this test pins down:
+ *
+ * * the whole-work view loads on demand, not on page load — a reader who never asks never pays for it;
+ * * **every** span is rendered, including a unit with no saved revision, which gets its heading and an honest note
+ *   rather than being silently dropped;
+ * * the body inserted is the server's `sanitized_html`, which is the only markup this page trusts.
+ */
+describe('WorkPage reading modes (M70-02)', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    session.status = 'anonymous';
+    session.me = null as any;
+  });
+
+  it('loads the whole work on demand and renders empty units honestly', async () => {
+    (fetchWork as any).mockResolvedValue({
+      id: 'work-1',
+      title: 'The Long Way Round',
+      summary: '',
+      content_withheld: false,
+      units: [
+        { id: 'unit-1', title: 'One', word_count: 100 },
+        { id: 'unit-2', title: 'Two', word_count: 0 },
+      ],
+    });
+    (fetchWholeWork as any).mockResolvedValue({
+      work_id: 'work-1',
+      total_words: 100,
+      chapters: [
+        { index: 0, chapter_id: 'unit-1', title: 'One', start: 0, words: 100 },
+        { index: 1, chapter_id: 'unit-2', title: 'Two', start: 100, words: 0 },
+      ],
+      position: null,
+    });
+    (fetchUnit as any).mockResolvedValue({ sanitized_html: '<p>Low tide, and the boat</p>' });
+
+    render(WorkPage, { props: { workId: 'work-1' } });
+
+    // Nothing is fetched until the reader asks.
+    await screen.findByTestId('mode-whole');
+    expect(fetchWholeWork).not.toHaveBeenCalled();
+
+    await fireEvent.click(screen.getByTestId('mode-whole'));
+
+    await screen.findByTestId('whole-summary');
+    expect(fetchWholeWork).toHaveBeenCalledTimes(1);
+    // The draft unit is not fetched for a body it does not have, and is still on the page.
+    expect(fetchUnit).toHaveBeenCalledTimes(1);
+    expect(screen.getByText('Two')).toBeInTheDocument();
+    expect(screen.getByText('This unit has no text yet.')).toBeInTheDocument();
+    expect(screen.getByText('Low tide, and the boat')).toBeInTheDocument();
+    // The accessibility state is the button's, not a class name's.
+    expect(screen.getByTestId('mode-whole')).toHaveAttribute('aria-pressed', 'true');
+    expect(screen.getByTestId('mode-chapters')).toHaveAttribute('aria-pressed', 'false');
+    // And the summary counts what the server counted.
+    expect(screen.getByTestId('whole-summary').textContent).toContain('100 words');
   });
 });

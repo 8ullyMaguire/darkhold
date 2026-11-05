@@ -15,6 +15,9 @@
     apiFetch,
     fetchDiscussionMode,
       fetchReviews,
+      fetchWholeWork,
+      fetchUnit,
+      type WholeWork,
       fetchWork,
     fetchWorkMediaReferences,
     fetchWorkNoteLinks,
@@ -67,6 +70,55 @@
   let work = $state<PublicWork | AuthorWork | null>(null);
   let error = $state<unknown>(null);
   let loading = $state(true);
+
+  /**
+   * M70-02 — reading mode.
+   *
+   * `chapters` is the default because it is the surface that works with JavaScript switched off: every unit is a
+   * real link to a server-rendered page (spec §8.5). `whole` is an enhancement on top of it, and the page says so
+   * rather than pretending the two are equivalent.
+   */
+  let mode = $state<'chapters' | 'whole'>('chapters');
+  let whole = $state<WholeWork | null>(null);
+  let wholeUnits = $state<{ id: string; title: string; html: string; words: number }[]>([]);
+  let wholeLoading = $state(false);
+  let wholeError = $state<string | null>(null);
+
+  async function showWholeWork() {
+    mode = 'whole';
+    if (whole !== null || wholeLoading) return;
+    wholeLoading = true;
+    wholeError = null;
+    try {
+      const spans = await fetchWholeWork(workId);
+      whole = spans;
+      // A unit with no saved revision is a real state; it gets a heading and no body rather than being dropped,
+      // because a reader looking for chapter two must find where it would have been.
+      const bodies = await Promise.all(
+        spans.chapters.map(async (span) => {
+          if (span.words === 0) return { id: span.chapter_id, title: span.title, html: '', words: 0 };
+          const content = await fetchUnit(workId, span.chapter_id);
+          return {
+            id: span.chapter_id,
+            title: span.title,
+            html: content.sanitized_html,
+            words: span.words,
+          };
+        }),
+      );
+      wholeUnits = bodies;
+      const at = new URLSearchParams(window.location.search).get('at');
+      if (at) {
+        const chapterId = at.slice(0, at.lastIndexOf(':'));
+        const target = document.getElementById(`unit-${chapterId}`);
+        target?.scrollIntoView();
+      }
+    } catch (failure) {
+      wholeError = failure instanceof ApiError ? failure.message : 'The whole-work view could not be loaded.';
+    } finally {
+      wholeLoading = false;
+    }
+  }
 
   // Paywall state: set when fetchWork returns 403 CONTENT_RESTRICTED.
   let paywall = $state<PublicPricingResponse | null>(null);
@@ -515,6 +567,51 @@
   {:else if work.units.length === 0}
     <p class="note">This work has no units.</p>
   {:else}
+    <div class="reading-mode" role="group" aria-label="Reading mode">
+      <button
+        type="button"
+        class="mode"
+        aria-pressed={mode === 'chapters'}
+        onclick={() => (mode = 'chapters')}
+        data-testid="mode-chapters"
+      >Chapter by chapter</button>
+      <button
+        type="button"
+        class="mode"
+        aria-pressed={mode === 'whole'}
+        onclick={() => void showWholeWork()}
+        data-testid="mode-whole"
+      >Entire work</button>
+    </div>
+
+    {#if mode === 'whole'}
+      {#if wholeLoading}
+        <p class="note" data-testid="whole-loading">Loading all {work.units.length} units…</p>
+      {:else if wholeError}
+        <p class="note" data-testid="whole-error">{wholeError} The chapter list is below.</p>
+      {:else}
+        <p class="note" data-testid="whole-summary">
+          {(whole?.total_words ?? 0).toLocaleString()} words in {work.units.length} units, one document.
+        </p>
+        <article class="whole">
+          {#each wholeUnits as body (body.id)}
+            <section id={`unit-${body.id}`} class="whole-unit">
+              <h2>{body.title.trim() === '' ? 'Untitled unit' : body.title}</h2>
+              {#if body.html === ''}
+                <p class="note">This unit has no text yet.</p>
+              {:else}
+                <!-- `sanitized_html` is markup the SERVER produced from the validated editor document
+                     (spec §8.3, ADR 0002), which is the one value on this page that is not escaped. -->
+                <div class="prose">{@html body.html}</div>
+              {/if}
+            </section>
+          {/each}
+        </article>
+      {/if}
+      <p class="note">
+        <button type="button" class="mode" onclick={() => (mode = 'chapters')}>Back to the chapter list</button>
+      </p>
+    {:else}
     <ol class="units">
       {#each work.units as unit (unit.id)}
         {@const unitHref = `${workHref}/units/${unit.id}`}
@@ -535,6 +632,7 @@
         </li>
       {/each}
     </ol>
+    {/if}
   {/if}
 
   <!-- Discussion surface (spec §35): reaction bar + Discuss link. -->
@@ -659,6 +757,28 @@
     font-size: var(--text-sm);
   }
 
+  .reading-mode {
+    display: flex;
+    gap: var(--space-2, 0.5rem);
+    margin-block-end: var(--space-3, 0.75rem);
+  }
+  .mode {
+    padding: 0.25rem 0.6rem;
+    border: 1px solid var(--color-border, #ccc);
+    border-radius: var(--radius-2, 4px);
+    background: transparent;
+    cursor: pointer;
+  }
+  .mode[aria-pressed='true'] {
+    border-color: var(--color-accent, #555);
+    font-weight: 600;
+  }
+  .whole-unit {
+    margin-block-end: var(--space-6, 2rem);
+  }
+  .whole-unit h2 {
+    margin-block-end: var(--space-2, 0.5rem);
+  }
   .units {
     padding-left: var(--space-5);
     display: flex;

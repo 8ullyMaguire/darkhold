@@ -798,6 +798,42 @@ export function updateUnit(
   });
 }
 
+/**
+ * A work read as one document (M70-02).
+ *
+ * `position` is the reader's place resolved to a canonical `(chapter, offset)` pair: a chapter boundary has two
+ * spellings and the server answers with the earlier one, so asking twice about the same place gives the same
+ * answer.
+ */
+export interface WholeWorkSpan {
+  index: number;
+  chapter_id: string;
+  title: string;
+  start: number;
+  words: number;
+}
+
+export interface WholeWorkPosition {
+  chapter: number;
+  chapter_id: string;
+  offset: number;
+  words_before: number;
+  words_into_work: number;
+}
+
+export interface WholeWork {
+  work_id: string;
+  total_words: number;
+  chapters: WholeWorkSpan[];
+  position: WholeWorkPosition | null;
+}
+
+/** The spans of a work read as one document, plus the reader's place when `at` is given as `chapter:offset`. */
+export function fetchWholeWork(workId: string, at?: string): Promise<WholeWork> {
+  const suffix = at ? `?at=${encodeURIComponent(at)}` : '';
+  return apiFetch<WholeWork>(`/works/${encodeURIComponent(workId)}/whole${suffix}`);
+}
+
 /** A unit's text. `document` is present only for a contributor. */
 export function fetchUnit(
   workId: string,
