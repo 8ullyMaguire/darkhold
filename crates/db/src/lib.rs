@@ -24,6 +24,7 @@ pub mod browse;
 pub mod canon_agnostic;
 pub mod catalogue;
 pub mod catalogue_export;
+pub mod marked_for_later;
 pub mod orphan;
 pub mod whole_work;
 // M63-03: source-relative quality metrics.

@@ -1148,6 +1148,27 @@ pub const ROUTE_TABLE: &[RouteEntry] = &[
         audience: Audience::Public,
     },
     RouteEntry {
+        file: "marked_for_later.rs",
+        handler: "mark",
+        method: "POST",
+        path: "/works/{id}/marked-for-later",
+        audience: Audience::Authenticated,
+    },
+    RouteEntry {
+        file: "marked_for_later.rs",
+        handler: "unmark",
+        method: "DELETE",
+        path: "/works/{id}/marked-for-later",
+        audience: Audience::Authenticated,
+    },
+    RouteEntry {
+        file: "marked_for_later.rs",
+        handler: "queue",
+        method: "GET",
+        path: "/me/marked-for-later",
+        audience: Audience::Authenticated,
+    },
+    RouteEntry {
         file: "whole_work.rs",
         handler: "whole",
         method: "GET",

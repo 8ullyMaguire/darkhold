@@ -679,6 +679,14 @@ pub fn build_router(state: AppState) -> Router {
             routes::whole_work::router(),
             RouteClass::Default,
         ))
+        // M70-07 — Marked for Later: a private queue of works to read. Session-scoped doors only; the read is
+        // `/me/...` because there is no such thing as somebody else's queue.
+        .merge(module_mount(
+            &state,
+            "library",
+            routes::marked_for_later::router(),
+            RouteClass::Write,
+        ))
         // §58's supply surface (M45-25): keystone authors, droughts, and the
         // routing a reader opts into. Write class — every door needs a session,
         // and routing creates a row the patronage pays against.
