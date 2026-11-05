@@ -83,6 +83,7 @@ pub mod retention_quorum;
 pub mod settings;
 pub mod shelf_document;
 pub mod similar;
+pub mod specialist;
 pub mod spoilers;
 pub mod stats;
 pub mod subscriptions;

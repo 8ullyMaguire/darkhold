@@ -118,6 +118,7 @@ pub mod syndication;
 // M45-26 (§58.6): the welcome rota — one work, one reader, seventy-two hours.
 pub mod finishers;
 pub mod shelf_document;
+pub mod specialist;
 pub mod subscriptions;
 pub mod supply;
 pub mod tag_confirmation;

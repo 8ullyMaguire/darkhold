@@ -366,6 +366,14 @@ pub fn build_router(state: AppState) -> Router {
             routes::collaborators::router(),
             RouteClass::Write,
         ))
+        // M45-33 — specialist matchmaking. Under the collaborators gate because it is the same
+        // question one step earlier: who works on this work, and who asked them to.
+        .merge(module_mount(
+            &state,
+            "collaborators",
+            routes::specialists::router(),
+            RouteClass::Write,
+        ))
         .layer(middleware::from_fn_with_state(
             state.clone(),
             auth::verify_csrf,
