@@ -3,12 +3,12 @@
     "requirements.csv": {
       "rows": 920,
       "by_status": {
-        "implemented-verified-e2e": 137,
+        "implemented-verified-e2e": 138,
         "implemented-locally-tested": 248,
         "unsupported": 4,
         "implemented-fully-tested": 433,
         "implemented": 9,
-        "planned": 87,
+        "planned": 86,
         "evaluated-and-rejected": 2
       }
     },
@@ -499,12 +499,6 @@
       "notes": "darkhold authenticates through `polaris-oidc-client`; a factor implemented here would be a floor below the issuer's and would not protect the issuer's other sites. The row is therefore a consumer: sensitive routes declare the required `acr` (e.g. `2fa`), the login flow requests it, and a session that lacks it is refused with a reason that names the requirement rather than a bare 403."
     },
     {
-      "id": "M70-10",
-      "milestone": "M70",
-      "requirement": "Public extension documents can be browsed, previewed and attributed: a list shows each document's author pseud, its version and what kind of thing it is, and a preview is produced by the server from the same renderer the reader uses \u2014 never by executing the document.",
-      "notes": "Sharing needs a surface, and the surface is where a marketplace would begin. Three rules keep it from becoming one: the preview is the server's own rendering of the document (so a preview cannot disagree with what installing does), attribution is a PSEUD and never an account (ADR 0003), and there is no install counter, no rating and no ranking \u2014 sorting by popularity on a corpus of four is a way to make the first uploader permanently first."
-    },
-    {
       "id": "M16-06",
       "milestone": "M16",
       "requirement": "\u00a721.4's execution sandbox: `wasmi` with fuel, memory ceilings, output limits, host-call limits, bounded concurrency, hard wall-clock termination, host-I/O timeouts, and revocation that stops a running package.",
@@ -554,7 +548,7 @@
     "M45": 13,
     "M16": 7,
     "M66": 6,
-    "M70": 3,
+    "M70": 2,
     "M65": 1,
     "M29": 1,
     "M44": 1

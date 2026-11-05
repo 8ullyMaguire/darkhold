@@ -1,6 +1,6 @@
 {
  "generated_by": "scripts/ideas_catalogue.py",
- "count": 181,
+ "count": 180,
  "ideas": [
   {
    "why_summary": "",
@@ -955,19 +955,6 @@
    "why_summary": "darkhold authenticates through `polaris-oidc-client`; a factor implemented here would be a floor below the issuer's and would not protect the issuer's other sites. The row is there",
    "id": "M70-08",
    "title": "Step-up authentication",
-   "sources": [
-    "docs/requirements.csv"
-   ],
-   "milestone": "M70",
-   "relevance": 4,
-   "because": "a requirements row exists (+4)",
-   "default_on": false,
-   "built": false
-  },
-  {
-   "why_summary": "Sharing needs a surface, and the surface is where a marketplace would begin. Three rules keep it from becoming one: the preview is the server's own rendering of the document (so a ",
-   "id": "M70-10",
-   "title": "Public extension documents can be browsed, previewed and attributed",
    "sources": [
     "docs/requirements.csv"
    ],
