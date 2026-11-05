@@ -1183,6 +1183,15 @@ pub fn build_router(state: AppState) -> Router {
             routes::opensearch::router(),
             RouteClass::Default,
         ))
+        // M69-01 — the taste fingerprint at the root, like the OpenSearch document: another instance fetches it
+        // with no session. Gated on the federation extension, because a peering invitation nobody can act on is
+        // an instruction to fail.
+        .merge(module_mount(
+            &state,
+            "federation",
+            routes::well_known::router(),
+            RouteClass::Default,
+        ))
         .nest("/api/v1", api)
         .fallback(assets::serve)
         .layer(RequestBodyLimitLayer::new(config.server.max_body_bytes))

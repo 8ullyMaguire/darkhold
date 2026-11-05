@@ -1127,6 +1127,13 @@ pub const ROUTE_TABLE: &[RouteEntry] = &[
         audience: Audience::Operator,
     },
     RouteEntry {
+        file: "well_known.rs",
+        handler: "fingerprint",
+        method: "GET",
+        path: "/.well-known/taste-fingerprint.json",
+        audience: Audience::Public,
+    },
+    RouteEntry {
         file: "feeds.rs",
         handler: "catalogue_feed",
         method: "GET",

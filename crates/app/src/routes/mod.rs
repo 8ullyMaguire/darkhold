@@ -104,3 +104,5 @@ pub mod welcome;
 pub mod wip_adoption;
 pub mod work_discussion;
 pub mod works;
+
+pub mod well_known;
