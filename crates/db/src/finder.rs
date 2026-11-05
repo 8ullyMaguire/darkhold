@@ -11,9 +11,7 @@
 //! 4. **Release on cancel or expiry.** A cancelled bounty that kept its hold would quietly freeze someone's
 //!    credits forever.
 
-use darkhold_domain::finder::{
-    may_accept, may_propose, validate_new, Bounty, BountyState, Proposal,
-};
+use commons_bounty::{may_accept, may_propose, validate_new, Bounty, BountyState, Proposal};
 
 use crate::{sql_owned, Backend, Database, Result};
 
@@ -232,7 +230,7 @@ fn bounty_from_row(row: BountyRow) -> Option<Bounty> {
         id,
         asker_account_id: asker,
         description,
-        fandom,
+        subject: fandom,
         budget,
         state: BountyState::parse(&state)?,
         closes_at,
@@ -366,7 +364,7 @@ pub async fn propose(
         id,
         bounty_id: bounty_id.to_owned(),
         proposer_account_id: proposer.to_owned(),
-        work_id: work_id.to_owned(),
+        subject_id: work_id.to_owned(),
         note: note.trim().to_owned(),
         state: "proposed".to_owned(),
         created_at: now,
@@ -408,7 +406,7 @@ pub async fn proposals(db: &Database, bounty_id: &str) -> Result<Vec<Proposal>> 
                 id,
                 bounty_id,
                 proposer_account_id: proposer,
-                work_id,
+                subject_id: work_id,
                 note,
                 state,
                 created_at,

@@ -48,12 +48,12 @@ fn invalid(message: impl Into<String>) -> ApiError {
     })
 }
 
-fn bounty_json(row: &darkhold_domain::finder::Bounty) -> Value {
+fn bounty_json(row: &commons_bounty::Bounty) -> Value {
     json!({
         "id": row.id,
         "asker_account_id": row.asker_account_id,
         "description": row.description,
-        "fandom": row.fandom,
+        "fandom": row.subject,
         "budget": row.budget,
         "state": row.state.as_str(),
         "closes_at": row.closes_at,
@@ -62,12 +62,12 @@ fn bounty_json(row: &darkhold_domain::finder::Bounty) -> Value {
     })
 }
 
-fn proposal_json(row: &darkhold_domain::finder::Proposal) -> Value {
+fn proposal_json(row: &commons_bounty::Proposal) -> Value {
     json!({
         "id": row.id,
         "bounty_id": row.bounty_id,
         "proposer_account_id": row.proposer_account_id,
-        "work_id": row.work_id,
+        "work_id": row.subject_id,
         "note": row.note,
         "state": row.state,
         "created_at": row.created_at,

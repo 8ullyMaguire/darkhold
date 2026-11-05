@@ -7,9 +7,9 @@
 //! * an invalid identifier is refused before it can match the wrong row;
 //! * a work cannot detach an identifier it does not hold.
 
+use commons_identify::Scheme;
 use darkhold_db::identifier::{self as store, Attached, Target};
 use darkhold_db::Database;
-use darkhold_domain::identifier::Scheme;
 
 fn scratch_dir(tag: &str) -> std::path::PathBuf {
     let dir = std::env::temp_dir().join(format!(

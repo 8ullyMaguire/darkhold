@@ -12,6 +12,8 @@ name = "darkhold_db"
 path = "src/lib.rs"
 
 [dependencies]
+commons-identify = { path = "../../../../../../projects/commons/crates/commons-identify" }
+commons-bounty = { path = "../../../../../../projects/commons/crates/commons-bounty" }
 anyhow.workspace = true
 hex.workspace = true
 # For the link challenge's nonce only (spec §23.2). Already in the tree
@@ -37,6 +39,8 @@ darkhold-domain = { path = "../domain" }
 darkhold-taste = { path = "../taste" }
 
 [dev-dependencies]
+commons-identify = { path = "../../../../../../projects/commons/crates/commons-identify" }
+commons-bounty = { path = "../../../../../../projects/commons/crates/commons-bounty" }
 tokio = { workspace = true, features = ["macros", "rt-multi-thread"] }
 # The scoped-database harness, for a test that needs the schema *between* two
 # migrations (crates/db/tests/canonical_entities.rs).

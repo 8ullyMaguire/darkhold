@@ -524,12 +524,28 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "1d07550c9036bf2ae0c684c4297d503f838287c83c53686d05370d0e139ae570"
 
 [[package]]
+name = "commons-bounty"
+version = "0.1.0"
+dependencies = [
+ "chrono",
+ "serde",
+]
+
+[[package]]
 name = "commons-feed"
 version = "0.1.0"
 dependencies = [
  "chrono",
  "serde",
  "serde_json",
+]
+
+[[package]]
+name = "commons-identify"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "uuid",
 ]
 
 [[package]]
@@ -731,7 +747,9 @@ dependencies = [
  "chacha20poly1305",
  "chrono",
  "clap",
+ "commons-bounty",
  "commons-feed",
+ "commons-identify",
  "crc32fast",
  "darkhold-db",
  "darkhold-domain",
@@ -782,6 +800,8 @@ name = "darkhold-db"
 version = "0.1.0"
 dependencies = [
  "anyhow",
+ "commons-bounty",
+ "commons-identify",
  "darkhold-domain",
  "darkhold-taste",
  "hex",

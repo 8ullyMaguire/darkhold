@@ -26,8 +26,8 @@ use axum::{Json, Router};
 use serde::Deserialize;
 use serde_json::{json, Value};
 
+use commons_identify::Scheme;
 use darkhold_db::identifier::{self as store, Attached, Target};
-use darkhold_domain::identifier::Scheme;
 
 use crate::auth::{MaybeSession, RequireSession, SessionUser};
 use crate::http::{ApiError, ApiResult};

@@ -10,7 +10,7 @@
 //!   turn into a uniqueness error on its second pass; `ON CONFLICT DO UPDATE SET source = ...` makes the second
 //!   call a provenance update, not a failure.
 
-use darkhold_domain::identifier::{canonical, Identified, Scheme};
+use commons_identify::{canonical, Identified, Scheme};
 
 use crate::{sql_owned, Backend, Database, Result};
 
@@ -41,7 +41,7 @@ impl Target {
 #[derive(Debug, Clone, PartialEq)]
 pub struct Identifier {
     pub scheme: Scheme,
-    /// Canonical spelling, as `darkhold_domain::identifier` produced it.
+    /// Canonical spelling, as `commons_identify` produced it.
     pub value: String,
     pub work_id: Option<String>,
     pub edition_id: Option<String>,

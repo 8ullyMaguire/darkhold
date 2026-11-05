@@ -16,6 +16,8 @@ name = "darkhold"
 path = "src/main.rs"
 
 [dependencies]
+commons-identify = { path = "../../../../../../projects/commons/crates/commons-identify" }
+commons-bounty = { path = "../../../../../../projects/commons/crates/commons-bounty" }
 async-trait.workspace = true
 anyhow.workspace = true
 argon2.workspace = true
