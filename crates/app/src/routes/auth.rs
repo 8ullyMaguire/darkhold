@@ -227,6 +227,8 @@ async fn register(
         &account,
         Some(pseud_id),
         user_agent(&headers).as_deref(),
+        // A password session asserts no assurance level: `None`, which is a different statement from "low".
+        None,
     )
     .await?;
 
@@ -307,8 +309,14 @@ async fn login(
     let pseuds = identity::pseuds_for_account(state.db(), account.id).await?;
     let initial = pseuds.first().map(|pseud| pseud.id);
 
-    let issued =
-        auth::issue_session(&state, &account, initial, user_agent(&headers).as_deref()).await?;
+    let issued = auth::issue_session(
+        &state,
+        &account,
+        initial,
+        user_agent(&headers).as_deref(),
+        None,
+    )
+    .await?;
 
     // Record the login for streak tracking (spec §9.7.1). Best-effort: a
     // streak failure must never block a successful sign-in.
@@ -547,6 +555,11 @@ async fn revoke_all_sessions(
     State(state): State<AppState>,
     RequireSession(user): RequireSession,
 ) -> ApiResult<StatusCode> {
+    // M70-08 — revoking every session is the one action that can lock a reader out of the device they are holding,
+    // so it is the first place step-up applies. On an instance with no issuer the guard is absent (see
+    // `auth::require_step_up`); on one with an issuer, a session signed in at a lower assurance is refused with a
+    // sentence that says what to do.
+    auth::require_step_up(&user, darkhold_domain::step_up::Requirement::SecondFactor)?;
     let now = sessions::now();
     let revoked = sessions::revoke_all_sessions(state.db(), user.account_id, &now).await?;
     tracing::info!(account = %user.account_id, revoked, "all sessions revoked");

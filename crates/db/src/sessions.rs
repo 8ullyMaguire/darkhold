@@ -36,6 +36,11 @@ pub struct Session {
     pub last_seen_at: String,
     /// Hard expiry, RFC 3339.
     pub expires_at: String,
+    /// The assurance level the issuer asserted at sign-in, verbatim from the id_token's `acr`.
+    ///
+    /// `None` for a password session: this site does not manufacture an assurance claim, and "no claim" is a
+    /// different statement from "low" (see `darkhold_domain::step_up`).
+    pub acr: Option<String>,
 }
 
 /// Row shape for session queries.
@@ -48,6 +53,7 @@ type SessionRow = (
     String,
     String,
     String,
+    Option<String>,
 );
 
 /// The purpose of a single-use recovery token.
@@ -84,6 +90,22 @@ pub const fn recovery_ttl_hours(purpose: RecoveryPurpose) -> i64 {
     }
 }
 
+/// What the caller knows about a session beyond its identity.
+///
+/// Grouped rather than passed as five more arguments: they are all optional context, and a positional list of
+/// `Option`s is where a call site eventually swaps two of them and nobody notices.
+#[derive(Debug, Clone, Copy)]
+pub struct SessionContext<'a> {
+    /// User agent captured at creation, shown in the session list.
+    pub user_agent: Option<&'a str>,
+    /// The pseud the session should start as, if one is chosen at sign-in.
+    pub active_pseud_id: Option<PseudId>,
+    /// Hard expiry, RFC 3339.
+    pub expires_at: &'a str,
+    /// The assurance level the issuer asserted, verbatim. `None` when the issuer asserted nothing.
+    pub acr: Option<&'a str>,
+}
+
 /// Insert a session.
 ///
 /// The caller supplies the *hash* of the token; the plaintext is returned to
@@ -93,22 +115,26 @@ pub async fn create_session(
     account_id: AccountId,
     token_hash: &str,
     csrf_token_hash: &str,
-    user_agent: Option<&str>,
-    active_pseud_id: Option<PseudId>,
-    expires_at: &str,
+    context: SessionContext<'_>,
 ) -> Result<SessionId> {
+    let SessionContext {
+        user_agent,
+        active_pseud_id,
+        expires_at,
+        acr,
+    } = context;
     let id = SessionId::new();
     let now = now_rfc3339();
 
     let sql = db.sql(
         "INSERT INTO sessions
              (id, token_hash, account_id, csrf_token_hash, user_agent, active_pseud_id,
-              created_at, last_seen_at, expires_at)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+              created_at, last_seen_at, expires_at, acr)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
         "INSERT INTO sessions
              (id, token_hash, account_id, csrf_token_hash, user_agent, active_pseud_id,
-              created_at, last_seen_at, expires_at)
-         VALUES (?::uuid, ?, ?::uuid, ?, ?, ?::uuid, ?, ?, ?)",
+              created_at, last_seen_at, expires_at, acr)
+         VALUES (?::uuid, ?, ?::uuid, ?, ?, ?::uuid, ?, ?, ?, ?)",
     );
 
     match db.backend() {
@@ -123,6 +149,7 @@ pub async fn create_session(
                 .bind(&now)
                 .bind(&now)
                 .bind(expires_at)
+                .bind(acr)
                 .execute(db.sqlite_pool().expect("sqlite handle"))
                 .await
                 .context("inserting session")?;
@@ -138,6 +165,7 @@ pub async fn create_session(
                 .bind(&now)
                 .bind(&now)
                 .bind(expires_at)
+                .bind(acr)
                 .execute(db.postgres_pool().expect("postgres handle"))
                 .await
                 .context("inserting session")?;
@@ -159,11 +187,11 @@ pub async fn find_live_session_by_token_hash(
 ) -> Result<Option<Session>> {
     let sql = db.sql(
         "SELECT id, account_id, active_pseud_id, csrf_token_hash, user_agent,
-                created_at, last_seen_at, expires_at
+                created_at, last_seen_at, expires_at, acr
            FROM sessions
           WHERE token_hash = ? AND revoked_at IS NULL AND expires_at > ?",
         "SELECT id::text, account_id::text, active_pseud_id::text, csrf_token_hash, user_agent,
-                created_at, last_seen_at, expires_at
+                created_at, last_seen_at, expires_at, acr
            FROM sessions
           WHERE token_hash = ? AND revoked_at IS NULL AND expires_at > ?",
     );
@@ -196,12 +224,12 @@ pub async fn live_sessions_for_account(
 ) -> Result<Vec<Session>> {
     let sql = db.sql(
         "SELECT id, account_id, active_pseud_id, csrf_token_hash, user_agent,
-                created_at, last_seen_at, expires_at
+                created_at, last_seen_at, expires_at, acr
            FROM sessions
           WHERE account_id = ? AND revoked_at IS NULL AND expires_at > ?
           ORDER BY last_seen_at DESC",
         "SELECT id::text, account_id::text, active_pseud_id::text, csrf_token_hash, user_agent,
-                created_at, last_seen_at, expires_at
+                created_at, last_seen_at, expires_at, acr
            FROM sessions
           WHERE account_id::text = ? AND revoked_at IS NULL AND expires_at > ?
           ORDER BY last_seen_at DESC",
@@ -717,6 +745,7 @@ fn decode_session(row: SessionRow) -> Session {
         created_at,
         last_seen_at,
         expires_at,
+        acr,
     ) = row;
     Session {
         id: id.parse().unwrap_or_default(),
@@ -727,6 +756,7 @@ fn decode_session(row: SessionRow) -> Session {
         created_at,
         last_seen_at,
         expires_at,
+        acr,
     }
 }
 

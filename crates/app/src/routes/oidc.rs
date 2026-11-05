@@ -187,6 +187,20 @@ async fn callback(
         }
     };
 
+    // The issuer's assurance claim for this sign-in, read verbatim and handed to the session. It is decoded from the
+    // same token that just verified, and it is never interpreted here: step-up (M70-08) compares it, so this site
+    // never has to invent an assurance level of its own.
+    let acr = tokens
+        .id_token
+        .as_deref()
+        .and_then(|token| decode_jwt_payload(token).ok())
+        .and_then(|claims| {
+            claims
+                .get("acr")
+                .and_then(serde_json::Value::as_str)
+                .map(str::to_owned)
+        });
+
     // The profile comes from /userinfo over TLS rather than from the id_token's payload: one authority
     // decides who the user is, and no product has to grow a JWT verifier to find out.
     let profile = match provider.userinfo(access).await {
@@ -283,13 +297,14 @@ async fn callback(
         .get(header::USER_AGENT)
         .and_then(|value| value.to_str().ok());
 
-    let issued = match auth::issue_session(&state, &account, initial, user_agent).await {
-        Ok(issued) => issued,
-        Err(error) => {
-            tracing::error!(%error, "could not issue a session after Polaris sign-in");
-            return Redirect::to("/login?oidc=error").into_response();
-        }
-    };
+    let issued =
+        match auth::issue_session(&state, &account, initial, user_agent, acr.as_deref()).await {
+            Ok(issued) => issued,
+            Err(error) => {
+                tracing::error!(%error, "could not issue a session after Polaris sign-in");
+                return Redirect::to("/login?oidc=error").into_response();
+            }
+        };
     if let Err(error) =
         darkhold_db::engagement::record_login(state.db(), &account.id.to_string()).await
     {

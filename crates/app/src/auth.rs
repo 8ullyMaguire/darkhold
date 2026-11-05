@@ -104,6 +104,8 @@ pub struct SessionUser {
     pub age_state: AgeState,
     /// Storage form of the CSRF token bound to this session.
     pub csrf_token_hash: String,
+    /// The assurance level the issuer asserted at sign-in, verbatim. `None` for a password session.
+    pub acr: Option<String>,
 }
 
 impl SessionUser {
@@ -215,8 +217,56 @@ pub async fn resolve_session(
         pseud_id: session.active_pseud_id,
         age_state: account.age_state,
         csrf_token_hash: session.csrf_token_hash.clone(),
+        acr: session.acr.clone(),
     };
     Some((user, session))
+}
+
+/// Whether this instance can ask for a second factor at all.
+///
+/// Step-up comes from the issuer: this site does not run a second factor of its own, and manufacturing an assurance
+/// level locally would be a claim nobody can audit. An instance without `POLARIS_ID_ISSUER` therefore has no step-up
+/// to offer.
+#[must_use]
+pub fn step_up_configured() -> bool {
+    std::env::var("POLARIS_ID_ISSUER")
+        .map(|value| !value.is_empty())
+        .unwrap_or(false)
+}
+
+/// Refuse an operation whose requirement this session's assurance does not meet (M70-08).
+///
+/// Three outcomes, and the third is the one worth reading twice:
+///
+/// * satisfied — carry on;
+/// * the session carries an `acr` below the bar — 403 `STEP_UP_REQUIRED`, naming both levels, because "sign in again
+///   with your second factor" is actionable and "forbidden" is not;
+/// * the session carries **no** `acr`. If the instance has an issuer, that session was not signed in with a second
+///   factor and is refused. If it has none, there is nothing to step up to, and refusing would lock every operator
+///   out of their own tools — so the guard is *absent* there rather than permissive, which is a decision recorded in
+///   ADR 0005 and in M70-08's notes.
+pub fn require_step_up(
+    session: &SessionUser,
+    requirement: darkhold_domain::step_up::Requirement,
+) -> Result<(), crate::http::ApiError> {
+    use darkhold_domain::step_up::{check, Verdict};
+    match check(session.acr.as_deref(), requirement) {
+        Verdict::Satisfied => Ok(()),
+        Verdict::StepUp { have, need } => Err(crate::http::ApiError(AppError::StepUpRequired {
+            have: Some(have),
+            need,
+        })),
+        Verdict::Unknown { need } => {
+            if step_up_configured() {
+                Err(crate::http::ApiError(AppError::StepUpRequired {
+                    have: None,
+                    need,
+                }))
+            } else {
+                Ok(())
+            }
+        }
+    }
 }
 
 /// Middleware attaching [`SessionUser`] to requests that carry a live session.
@@ -758,6 +808,7 @@ pub async fn issue_session(
     account: &Account,
     initial_pseud: Option<PseudId>,
     user_agent: Option<&str>,
+    acr: Option<&str>,
 ) -> anyhow::Result<IssuedSession> {
     let token = crypto::generate_token();
     let csrf_token = crypto::generate_token();
@@ -769,9 +820,12 @@ pub async fn issue_session(
         account.id,
         &crypto::hash_token(&token),
         &crypto::hash_token(&csrf_token),
-        user_agent,
-        initial_pseud,
-        &expires_at,
+        sessions::SessionContext {
+            user_agent,
+            active_pseud_id: initial_pseud,
+            expires_at: &expires_at,
+            acr,
+        },
     )
     .await?;
 

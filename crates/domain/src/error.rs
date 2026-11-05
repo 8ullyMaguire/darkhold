@@ -94,6 +94,8 @@ pub enum ErrorCode {
     /// refusal as a capability refusal tells the reader to go edit a plugin
     /// manifest when the thing they need to change is their own standing.
     TrustLevelInsufficient,
+    /// The session's assurance is below what this operation needs (M70-08).
+    StepUpRequired,
     /// A module of the instance is not available.
     ModuleUnavailable,
     /// The surface exists, but its switch is not the reader's to throw (§59.3).
@@ -125,6 +127,7 @@ impl ErrorCode {
             Self::InsufficientCredits => "INSUFFICIENT_CREDITS",
             Self::ExtensionPermissionDenied => "EXTENSION_PERMISSION_DENIED",
             Self::TrustLevelInsufficient => "TRUST_LEVEL_INSUFFICIENT",
+            Self::StepUpRequired => "STEP_UP_REQUIRED",
             Self::ModuleUnavailable => "MODULE_UNAVAILABLE",
             Self::ModuleNotUserToggleable => "MODULE_NOT_USER_TOGGLEABLE",
             Self::ConverterUnavailable => "CONVERTER_UNAVAILABLE",
@@ -276,6 +279,23 @@ pub enum AppError {
     /// trust threshold a reader can look up and work toward. A refusal that
     /// names neither the level found nor the bar required is not actionable,
     /// and §0.3 makes thresholds visible by design.
+    /// The operation needs a stronger sign-in than this session has (M70-08).
+    ///
+    /// `have` is the level the session carries, or `None` when the session carries no `acr` at all — a password
+    /// session on a site where single sign-on, and therefore step-up, is not configured. The two are reported
+    /// differently because they call for different things from the reader: re-authenticate, or configure the
+    /// issuer.
+    #[error(
+        "this action needs sign-in level {need}; {}",
+        .have.map_or_else(|| "this session carries no sign-in level".to_owned(), |level| format!("this session has level {level}"))
+    )]
+    StepUpRequired {
+        /// The level the session carries, if the issuer asserted one.
+        have: Option<u8>,
+        /// The level the operation needs.
+        need: u8,
+    },
+
     #[error("this action requires trust level {required}; this account is at {level}")]
     TrustLevelInsufficient {
         /// The trust level the account actually holds.
@@ -387,6 +407,7 @@ impl AppError {
             Self::InsufficientCredits { .. } => ErrorCode::InsufficientCredits,
             Self::ExtensionPermissionDenied { .. } => ErrorCode::ExtensionPermissionDenied,
             Self::TrustLevelInsufficient { .. } => ErrorCode::TrustLevelInsufficient,
+            Self::StepUpRequired { .. } => ErrorCode::StepUpRequired,
             Self::ConverterUnavailable { .. } => ErrorCode::ConverterUnavailable,
             Self::Internal(_) => ErrorCode::Internal,
             Self::NotImplemented => ErrorCode::NotImplemented,
@@ -405,6 +426,7 @@ impl AppError {
             | Self::MissingScope { .. }
             | Self::ContentRestricted
             | Self::ExtensionPermissionDenied { .. }
+            | Self::StepUpRequired { .. }
             | Self::TrustLevelInsufficient { .. } => 403,
             Self::NotFound { .. } | Self::ModuleUnavailable { .. } => 404,
             Self::ModuleNotUserToggleable { .. } => 403,
@@ -574,6 +596,7 @@ mod tests {
             ErrorCode::InsufficientCredits,
             ErrorCode::ExtensionPermissionDenied,
             ErrorCode::TrustLevelInsufficient,
+            ErrorCode::StepUpRequired,
             ErrorCode::Internal,
         ];
         for code in all {
