@@ -80,6 +80,13 @@ through the mount to `/personal/projects/commons`, so it builds there; on any ch
 a symlink to `~/code-local/rust/commons`. This is a portability defect, not a fix: the dependency should be a
 workspace path or an env-var root.
 
+**The three rediscovery primitives are shared** (`fb0880b4`). `commons-identify` (canonical ISBN/ISRC/MBID/
+TMDB/Wikidata), `commons-bounty` (state machine, bounds, settlement order) and `commons-trend` (the emergence
+rule) live in `~/code-local/rust/commons`; darkhold's copies are deleted, not re-exported. The split that made
+them shareable: **the rules travel, the money and the schema do not** — a bounty's category is `subject` here and
+a studio there, and the ledger stays with the host behind an `Escrow` trait. Priority doc:
+`~/secondbrain/10-Projects/polaris-estate-rediscovery.md`.
+
 **M45-34 shipped: fic-finder bounties** (`ec1ba63c`). `finder_bounties` + `finder_proposals` (0157), money on the
 existing economy: reserve on open, CAS on accept, one payout keyed by the winning proposal, release on
 cancel/expiry. PG caught `text = uuid` in available_credits that SQLite could not. Store 4/4 both engines; live
