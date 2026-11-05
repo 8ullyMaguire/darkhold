@@ -81,15 +81,20 @@ async fn shelves_are_pinned_first_and_a_view_without_a_run_says_so() {
     let account = uuid::Uuid::new_v4().to_string();
     exec(&db,
         "INSERT INTO accounts (id, email, status, age_state, created_at, updated_at) VALUES (?, ?, 'active', 'adult', ?, ?)",
-        "INSERT INTO accounts (id, email, status, age_state, created_at, updated_at) VALUES (?::uuid, ?, 'active', 'adult', ?::timestamptz, ?::timestamptz)",
+        "INSERT INTO accounts (id, email, status, age_state, created_at, updated_at) VALUES ($1::uuid, $2, 'active', 'adult', $3, $4)",
         &[&account, &format!("{}@example.invalid", account), T0, T0]).await;
+
+    // Real UUIDs, because `saved_views.id` is a UUID on PostgreSQL and `'v1'` is not one. One spelling
+    // for both engines: a test that needs a different id per engine is testing its own scaffolding.
+    const V1: &str = "11111111-1111-1111-1111-111111111111";
+    const V2: &str = "22222222-2222-2222-2222-222222222222";
 
     // Two views: "alpha" was run once, "zeta" never. Zeta is pinned, so it opens the page.
     let catalogue_doc = r#"{"version":1,"kind":"catalogue","query":null,"params":"tag:dark AND trope:system-grind"}"#;
     let library_doc = r#"{"version":1,"kind":"library","query":{"shelves":["grimdark"],"tags":[],"statuses":[],"source":null,"updated_since":null,"sort":"recent"},"params":null}"#;
     for (id, name, doc, pinned) in [
-        ("v1", "alpha", library_doc, 0),
-        ("v2", "zeta", catalogue_doc, 1),
+        (V1, "alpha", library_doc, 0),
+        (V2, "zeta", catalogue_doc, 1),
     ] {
         let sqlite = format!(
             "INSERT INTO saved_views (id, account_id, name, query_json, query_version, sort, scope, pinned, is_public, created_at, updated_at, version)
@@ -97,15 +102,20 @@ async fn shelves_are_pinned_first_and_a_view_without_a_run_says_so() {
         );
         let postgres = format!(
             "INSERT INTO saved_views (id, account_id, name, query_json, query_version, sort, scope, pinned, is_public, created_at, updated_at, version)
-             VALUES ('{id}'::uuid, ?::uuid, '{name}', ?, 1, 'recent', 'public', {}, 0, '{T0}', '{T0}', 1)",
+             VALUES ('{id}'::uuid, $1::uuid, '{name}', $2, 1, 'recent', 'public', {}, FALSE, '{T0}', '{T0}', 1)",
             if pinned == 1 { "TRUE" } else { "FALSE" }
         );
         exec(&db, &sqlite, &postgres, &[&account, doc]).await;
     }
-    exec(&db,
-        "INSERT INTO saved_query_runs (saved_view_id, ran_at, seen_ids_json, seen_count) VALUES ('v1', ?, '[]', 12)",
-        "INSERT INTO saved_query_runs (saved_view_id, ran_at, seen_ids_json, seen_count) VALUES ('v1'::uuid, ?, '[]', 12)",
-        &[T0]).await;
+    exec(
+        &db,
+        "INSERT INTO saved_query_runs (saved_view_id, ran_at, seen_ids_json, seen_count)
+         VALUES ('11111111-1111-1111-1111-111111111111', ?, '[]', 12)",
+        "INSERT INTO saved_query_runs (saved_view_id, ran_at, seen_ids_json, seen_count)
+         VALUES ('11111111-1111-1111-1111-111111111111'::uuid, $1, '[]', 12)",
+        &[T0],
+    )
+    .await;
 
     let rows = darkhold_db::shelf_document::shelves_for_account(&db, &account)
         .await
@@ -132,7 +142,7 @@ async fn shelves_are_pinned_first_and_a_view_without_a_run_says_so() {
     let other = uuid::Uuid::new_v4().to_string();
     exec(&db,
         "INSERT INTO accounts (id, email, status, age_state, created_at, updated_at) VALUES (?, ?, 'active', 'adult', ?, ?)",
-        "INSERT INTO accounts (id, email, status, age_state, created_at, updated_at) VALUES (?::uuid, ?, 'active', 'adult', ?::timestamptz, ?::timestamptz)",
+        "INSERT INTO accounts (id, email, status, age_state, created_at, updated_at) VALUES ($1::uuid, $2, 'active', 'adult', $3, $4)",
         &[&other, &format!("{}@example.invalid", other), T0, T0]).await;
     let theirs = darkhold_db::shelf_document::shelves_for_account(&db, &other)
         .await

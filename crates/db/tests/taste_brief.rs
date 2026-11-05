@@ -75,6 +75,16 @@ fn make_config(url: String) -> darkhold_db::DatabaseConfig {
 
 const T0: &str = "2026-01-01T00:00:00Z";
 
+// Real UUIDs: `works.id`, `canonical_entities.id` and `library_items.id` are UUID columns on
+// PostgreSQL, so `'w1'` is not a value that engine can store. One spelling for both engines — a test that
+// needs a different id per engine is testing its own scaffolding.
+const F1: &str = "44444444-4444-4444-4444-444444444444";
+const T1: &str = "55555555-5555-5555-5555-555555555555";
+const T2: &str = "66666666-6666-6666-6666-666666666666";
+const C1: &str = "77777777-7777-7777-7777-777777777777";
+const LI1: &str = "88888888-8888-8888-8888-888888888888";
+const LI2: &str = "99999999-9999-9999-9999-999999999999";
+
 #[tokio::test]
 async fn a_shelf_row_yields_its_fandoms_apart_from_its_tags() {
     let db = connect("facts").await;
@@ -82,42 +92,43 @@ async fn a_shelf_row_yields_its_fandoms_apart_from_its_tags() {
     let pseud = uuid::Uuid::new_v4().to_string();
     exec(&db,
         "INSERT INTO accounts (id, email, status, age_state, created_at, updated_at) VALUES (?, ?, 'active', 'adult', ?, ?)",
-        "INSERT INTO accounts (id, email, status, age_state, created_at, updated_at) VALUES (?::uuid, ?, 'active', 'adult', ?::timestamptz, ?::timestamptz)",
+        "INSERT INTO accounts (id, email, status, age_state, created_at, updated_at) VALUES ($1::uuid, $2, 'active', 'adult', $3, $4)",
         &[&account, &format!("{}@example.invalid", account), T0, T0]).await;
     exec(&db,
         "INSERT INTO pseuds (id, account_id, handle, display_name, created_at, updated_at) VALUES (?, ?, 'reader', 'Reader', ?, ?)",
-        "INSERT INTO pseuds (id, account_id, handle, display_name, created_at, updated_at) VALUES (?::uuid, ?::uuid, 'reader', 'Reader', ?::timestamptz, ?::timestamptz)",
+        "INSERT INTO pseuds (id, account_id, handle, display_name, created_at, updated_at) VALUES ($1::uuid, $2::uuid, 'reader', 'Reader', $3, $4)",
         &[&pseud, &account, T0, T0]).await;
     exec(&db,
-        "INSERT INTO works (id, owner_pseud_id, title, summary, created_at, updated_at) VALUES ('w1', ?, 'A Gamer Guide', '', ?, ?)",
-        "INSERT INTO works (id, owner_pseud_id, title, summary, created_at, updated_at) VALUES ('w1'::uuid, ?::uuid, 'A Gamer Guide', '', ?::timestamptz, ?::timestamptz)",
+        "INSERT INTO works (id, owner_pseud_id, title, summary, created_at, updated_at) VALUES ('33333333-3333-3333-3333-333333333333', ?, 'A Gamer Guide', '', ?, ?)",
+        "INSERT INTO works (id, owner_pseud_id, title, summary, created_at, updated_at) VALUES ('33333333-3333-3333-3333-333333333333'::uuid, $1::uuid, 'A Gamer Guide', '', $2, $3)",
         &[&pseud, T0, T0]).await;
     for (node, kind, canon) in [
-        ("f1", "fandom", "Harry Potter"),
-        ("t1", "tag", "dark protagonist"),
-        ("t2", "tag", "system"),
-        ("c1", "character", "Tom Riddle"),
+        (F1, "fandom", "Harry Potter"),
+        (T1, "tag", "dark protagonist"),
+        (T2, "tag", "system"),
+        (C1, "character", "Tom Riddle"),
     ] {
         exec(&db,
             "INSERT INTO canonical_entities (id, kind, canonical, norm, created_at) VALUES (?, ?, ?, ?, ?)",
-            "INSERT INTO canonical_entities (id, kind, canonical, norm, created_at) VALUES (?::uuid, ?, ?, ?, ?::timestamptz)",
+            "INSERT INTO canonical_entities (id, kind, canonical, norm, created_at) VALUES ($1::uuid, $2, $3, $4, $5)",
             &[node, kind, canon, canon, T0]).await;
         exec(&db,
-            "INSERT INTO work_tags (work_id, node_id, added_at) VALUES ('w1', ?, ?)",
-            "INSERT INTO work_tags (work_id, node_id, added_at) VALUES ('w1'::uuid, ?::uuid, ?::timestamptz)",
+            "INSERT INTO work_tags (work_id, node_id, added_at) VALUES ('33333333-3333-3333-3333-333333333333', ?, ?)",
+            "INSERT INTO work_tags (work_id, node_id, added_at) VALUES ('33333333-3333-3333-3333-333333333333'::uuid, $1::uuid, $2)",
             &[node, T0]).await;
     }
     exec(&db,
         "INSERT INTO library_items (id, account_id, work_id, source_key, source_work_key, title, author_text, summary,
              word_count, status, source_url, source_updated_at, last_synced_at, created_at, updated_at, likes)
-         VALUES ('li1', ?, 'w1', 'sb', 'k1', 'A Gamer Guide', 'Shiro', '', 20000, 'ongoing', 'https://example.invalid/w', ?, ?, ?, ?, 5)",
+         VALUES ('88888888-8888-8888-8888-888888888888', ?, '33333333-3333-3333-3333-333333333333', 'sb', 'k1', 'A Gamer Guide', 'Shiro', '', 20000, 'ongoing', 'https://example.invalid/w', ?, ?, ?, ?, 5)",
         "INSERT INTO library_items (id, account_id, work_id, source_key, source_work_key, title, author_text, summary,
              word_count, status, source_url, source_updated_at, last_synced_at, created_at, updated_at, likes)
-         VALUES ('li1'::uuid, ?::uuid, 'w1'::uuid, 'sb', 'k1', 'A Gamer Guide', 'Shiro', '', 20000, 'ongoing',
-                 'https://example.invalid/w', ?::timestamptz, ?::timestamptz, ?::timestamptz, ?::timestamptz, 5)",
+         VALUES ('88888888-8888-8888-8888-888888888888'::uuid, $1::uuid, '33333333-3333-3333-3333-333333333333'::uuid,
+                 'sb', 'k1', 'A Gamer Guide', 'Shiro', '', 20000, 'ongoing', 'https://example.invalid/w',
+                 $2, $3, $4, $5, 5)",
         &[&account, T0, T0, T0, T0]).await;
 
-    let facts = darkhold_db::taste_brief::facts_for_item(&db, "li1")
+    let facts = darkhold_db::taste_brief::facts_for_item(&db, LI1)
         .await
         .expect("facts");
     assert_eq!(
@@ -139,13 +150,14 @@ async fn a_shelf_row_yields_its_fandoms_apart_from_its_tags() {
     exec(&db,
         "INSERT INTO library_items (id, account_id, work_id, source_key, source_work_key, title, author_text, summary,
              word_count, status, source_url, source_updated_at, last_synced_at, created_at, updated_at, likes)
-         VALUES ('li2', ?, NULL, 'sb', 'k2', 'Unlinked', '', '', 1, 'ongoing', 'https://example.invalid/x', ?, ?, ?, ?, 0)",
+         VALUES ('99999999-9999-9999-9999-999999999999', ?, NULL, 'sb', 'k2', 'Unlinked', '', '', 1, 'ongoing', 'https://example.invalid/x', ?, ?, ?, ?, 0)",
         "INSERT INTO library_items (id, account_id, work_id, source_key, source_work_key, title, author_text, summary,
              word_count, status, source_url, source_updated_at, last_synced_at, created_at, updated_at, likes)
-         VALUES ('li2'::uuid, ?::uuid, NULL, 'sb', 'k2', 'Unlinked', '', '', 1, 'ongoing', 'https://example.invalid/x',
-                 ?::timestamptz, ?::timestamptz, ?::timestamptz, ?::timestamptz, 0)",
+         VALUES ('99999999-9999-9999-9999-999999999999'::uuid, $1::uuid, NULL, 'sb', 'k2', 'Unlinked', '', '', 1,
+                 'ongoing', 'https://example.invalid/x',
+                 $2, $3, $4, $5, 0)",
         &[&account, T0, T0, T0, T0]).await;
-    let bare = darkhold_db::taste_brief::facts_for_item(&db, "li2")
+    let bare = darkhold_db::taste_brief::facts_for_item(&db, LI2)
         .await
         .expect("facts");
     assert!(bare.fandoms.is_empty() && bare.tags.is_empty());

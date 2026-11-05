@@ -34,7 +34,7 @@ pub async fn facts_for_item(db: &Database, item_id: &str) -> Result<WorkFacts> {
              FROM library_items li
              JOIN work_tags wt ON wt.work_id = li.work_id
              JOIN canonical_entities ce ON ce.id = wt.node_id
-             WHERE li.id = $1
+             WHERE li.id = $1::uuid
              ORDER BY ce.canonical"
         }
     };

@@ -51,7 +51,7 @@ fn statements() -> [(Signal, &'static str, &'static str); 5] {
              JOIN work_tags wt ON wt.work_id = rs.subject_id
              JOIN canonical_entities tn ON tn.id = wt.node_id
              WHERE rs.account_id = ? AND rs.subject_type = 'work' AND rs.status = 'finished'",
-            "SELECT rs.subject_id, tn.canonical
+            "SELECT rs.subject_id::text AS subject_id, tn.canonical
              FROM reading_status rs
              JOIN work_tags wt ON wt.work_id = rs.subject_id
              JOIN canonical_entities tn ON tn.id = wt.node_id
@@ -64,7 +64,7 @@ fn statements() -> [(Signal, &'static str, &'static str); 5] {
              JOIN work_tags wt ON wt.work_id = b.subject_id
              JOIN canonical_entities tn ON tn.id = wt.node_id
              WHERE b.account_id = ? AND b.subject_type = 'work'",
-            "SELECT b.subject_id, tn.canonical
+            "SELECT b.subject_id::text AS subject_id, tn.canonical
              FROM bookmarks b
              JOIN work_tags wt ON wt.work_id = b.subject_id
              JOIN canonical_entities tn ON tn.id = wt.node_id
@@ -77,7 +77,7 @@ fn statements() -> [(Signal, &'static str, &'static str); 5] {
              JOIN work_tags wt ON wt.work_id = r.work_id
              JOIN canonical_entities tn ON tn.id = wt.node_id
              WHERE r.account_id = ? AND r.stars >= 4 AND r.deleted_at IS NULL",
-            "SELECT r.work_id, tn.canonical
+            "SELECT r.work_id::text AS subject_id, tn.canonical
              FROM rating r
              JOIN work_tags wt ON wt.work_id = r.work_id
              JOIN canonical_entities tn ON tn.id = wt.node_id
@@ -90,7 +90,7 @@ fn statements() -> [(Signal, &'static str, &'static str); 5] {
              JOIN work_tags wt ON wt.work_id = r.work_id
              JOIN canonical_entities tn ON tn.id = wt.node_id
              WHERE r.account_id = ? AND r.stars <= 2 AND r.deleted_at IS NULL",
-            "SELECT r.work_id, tn.canonical
+            "SELECT r.work_id::text AS subject_id, tn.canonical
              FROM rating r
              JOIN work_tags wt ON wt.work_id = r.work_id
              JOIN canonical_entities tn ON tn.id = wt.node_id
@@ -103,7 +103,7 @@ fn statements() -> [(Signal, &'static str, &'static str); 5] {
              JOIN work_tags wt ON wt.work_id = rs.subject_id
              JOIN canonical_entities tn ON tn.id = wt.node_id
              WHERE rs.account_id = ? AND rs.subject_type = 'work' AND rs.status = 'dropped'",
-            "SELECT rs.subject_id, tn.canonical
+            "SELECT rs.subject_id::text AS subject_id, tn.canonical
              FROM reading_status rs
              JOIN work_tags wt ON wt.work_id = rs.subject_id
              JOIN canonical_entities tn ON tn.id = wt.node_id

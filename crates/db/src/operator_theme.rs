@@ -125,6 +125,12 @@ pub async fn upsert(
 /// The instance's stated theme, if it has one.
 pub async fn get(db: &Database, instance_id: &str) -> Result<Option<OperatorTheme>> {
     const COLUMNS: &str = "instance_id, theme_vector, top_tags, seeds, seed_count, resolved_count, sourced_at, updated_at";
+    // The counts are INTEGER on PostgreSQL and INTEGER on SQLite, but this row decodes them as `i64`, so
+    // the PostgreSQL statement widens them: a decode that only works on one engine is a hazard the next
+    // migration inherits.
+    const COLUMNS_PG: &str =
+        "instance_id, theme_vector, top_tags, seeds, seed_count::bigint AS seed_count, \
+                              resolved_count::bigint AS resolved_count, sourced_at, updated_at";
     let row: Option<ThemeRow> = match db.backend() {
         Backend::Sqlite => {
             sqlx::query_as(&format!(
@@ -136,7 +142,7 @@ pub async fn get(db: &Database, instance_id: &str) -> Result<Option<OperatorThem
         }
         Backend::Postgres => {
             sqlx::query_as(&format!(
-                "SELECT {COLUMNS} FROM operator_themes WHERE instance_id = $1"
+                "SELECT {COLUMNS_PG} FROM operator_themes WHERE instance_id = $1"
             ))
             .bind(instance_id)
             .fetch_optional(db.postgres_pool().expect("postgres handle"))
@@ -187,7 +193,7 @@ pub async fn tags_for_item(db: &Database, item_id: &str) -> Result<Vec<String>> 
              FROM library_items li
              JOIN work_tags wt ON wt.work_id = li.work_id
              JOIN canonical_entities tn ON tn.id = wt.node_id
-             WHERE li.id = $1
+             WHERE li.id = $1::uuid
              ORDER BY tn.canonical"
         }
     };

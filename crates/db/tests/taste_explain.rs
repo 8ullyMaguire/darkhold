@@ -84,44 +84,60 @@ async fn the_explanation_is_the_acts_the_reader_performed_and_their_switches() {
 
     exec(&db,
         "INSERT INTO accounts (id, email, status, age_state, created_at, updated_at) VALUES (?, ?, 'active', 'adult', ?, ?)",
-        "INSERT INTO accounts (id, email, status, age_state, created_at, updated_at) VALUES (?::uuid, ?, 'active', 'adult', ?::timestamptz, ?::timestamptz)",
+        "INSERT INTO accounts (id, email, status, age_state, created_at, updated_at) VALUES ($1::uuid, $2, 'active', 'adult', $3, $4)",
         &[&account, &format!("{}@example.invalid", account), T0, T0]).await;
     exec(&db,
         "INSERT INTO pseuds (id, account_id, handle, display_name, created_at, updated_at) VALUES (?, ?, 'reader', 'Reader', ?, ?)",
-        "INSERT INTO pseuds (id, account_id, handle, display_name, created_at, updated_at) VALUES (?::uuid, ?::uuid, 'reader', 'Reader', ?::timestamptz, ?::timestamptz)",
+        "INSERT INTO pseuds (id, account_id, handle, display_name, created_at, updated_at) VALUES ($1::uuid, $2::uuid, 'reader', 'Reader', $3, $4)",
         &[&pseud, &account, T0, T0]).await;
 
+    // Real UUIDs: `works.id`, `canonical_entities.id` and `work_tags.*` are UUID columns on PostgreSQL, so
+    // `'w-dark'` is not a value that engine can store. One spelling for both engines.
+    const DARK: &str = "aaaaaaaa-0000-0000-0000-000000000001";
+    const FLUFF: &str = "aaaaaaaa-0000-0000-0000-000000000002";
+    const N_NECRO: &str = "bbbbbbbb-0000-0000-0000-000000000001";
+    const N_FLUFF: &str = "bbbbbbbb-0000-0000-0000-000000000002";
+    const N_SYSTEM: &str = "bbbbbbbb-0000-0000-0000-000000000003";
+
     // Two works: one about necromancy (finished, 5 stars), one about fluff (1 star, dropped).
-    for (work, title) in [("w-dark", "Necromancer"), ("w-fluff", "Cotton Candy")] {
+    for (work, title) in [(DARK, "Necromancer"), (FLUFF, "Cotton Candy")] {
         exec(&db,
             "INSERT INTO works (id, owner_pseud_id, title, summary, created_at, updated_at) VALUES (?, ?, ?, '', ?, ?)",
-            "INSERT INTO works (id, owner_pseud_id, title, summary, created_at, updated_at) VALUES (?::uuid, ?::uuid, ?, '', ?::timestamptz, ?::timestamptz)",
+            "INSERT INTO works (id, owner_pseud_id, title, summary, created_at, updated_at) VALUES ($1::uuid, $2::uuid, $3, '', $4, $5)",
             &[work, &pseud, title, T0, T0]).await;
     }
-    for (node, canon) in [("t1", "necromancy"), ("t2", "fluff"), ("t3", "system")] {
+    for (node, canon) in [
+        (N_NECRO, "necromancy"),
+        (N_FLUFF, "fluff"),
+        (N_SYSTEM, "system"),
+    ] {
         exec(&db,
             "INSERT INTO canonical_entities (id, kind, canonical, norm, created_at) VALUES (?, 'tag', ?, ?, ?)",
-            "INSERT INTO canonical_entities (id, kind, canonical, norm, created_at) VALUES (?::uuid, 'tag', ?, ?, ?::timestamptz)",
+            "INSERT INTO canonical_entities (id, kind, canonical, norm, created_at) VALUES ($1::uuid, 'tag', $2, $3, $4)",
             &[node, canon, canon, T0]).await;
     }
-    for (work, node) in [("w-dark", "t1"), ("w-dark", "t3"), ("w-fluff", "t2")] {
-        exec(&db,
+    for (work, node) in [(DARK, N_NECRO), (DARK, N_SYSTEM), (FLUFF, N_FLUFF)] {
+        exec(
+            &db,
             "INSERT INTO work_tags (work_id, node_id, added_at) VALUES (?, ?, ?)",
-            "INSERT INTO work_tags (work_id, node_id, added_at) VALUES (?::uuid, ?::uuid, ?::timestamptz)",
-            &[work, node, T0]).await;
+            "INSERT INTO work_tags (work_id, node_id, added_at) VALUES ($1::uuid, $2::uuid, $3)",
+            &[work, node, T0],
+        )
+        .await;
     }
 
     // The acts: finished the dark work and rated it 5; dropped the fluffy one and rated it 1.
-    for (work, status) in [("w-dark", "finished"), ("w-fluff", "dropped")] {
+    // The same binds on both engines, so a placeholder is never bound to a different value per engine.
+    for (work, status) in [(DARK, "finished"), (FLUFF, "dropped")] {
         exec(&db,
             "INSERT INTO reading_status (id, account_id, subject_type, subject_id, status, updated_at) VALUES (?, ?, 'work', ?, ?, ?)",
-            "INSERT INTO reading_status (id, account_id, subject_type, subject_id, status, updated_at) VALUES (gen_random_uuid(), ?::uuid, 'work', ?::uuid, ?, ?::timestamptz)",
+            "INSERT INTO reading_status (id, account_id, subject_type, subject_id, status, updated_at) VALUES ($1::uuid, $2::uuid, 'work', $3::uuid, $4, $5)",
             &[&uuid::Uuid::new_v4().to_string(), &account, work, status, T0]).await;
     }
-    for (work, stars) in [("w-dark", "5"), ("w-fluff", "1")] {
+    for (work, stars) in [(DARK, "5"), (FLUFF, "1")] {
         exec(&db,
             "INSERT INTO rating (id, account_id, pseud_id, work_id, stars, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?)",
-            "INSERT INTO rating (id, account_id, pseud_id, work_id, stars, created_at, updated_at) VALUES (gen_random_uuid(), ?::uuid, ?::uuid, ?::uuid, ?, ?::timestamptz, ?::timestamptz)",
+            "INSERT INTO rating (id, account_id, pseud_id, work_id, stars, created_at, updated_at) VALUES ($1::uuid, $2::uuid, $3::uuid, $4::uuid, $5::int, $6, $7)",
             &[&uuid::Uuid::new_v4().to_string(), &account, &pseud, work, stars, T0, T0]).await;
     }
 
