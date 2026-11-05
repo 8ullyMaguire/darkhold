@@ -61,6 +61,7 @@ pub mod note_links;
 pub mod operator_theme;
 pub mod orphaning;
 pub mod payouts;
+pub mod peering;
 pub mod permission;
 pub mod policy;
 pub mod positivity;
