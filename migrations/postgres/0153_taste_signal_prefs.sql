@@ -8,7 +8,9 @@ CREATE TABLE taste_signal_prefs (
     -- `uuid`. The SQLite twin keeps TEXT because that engine has one string type.
     account_id UUID NOT NULL REFERENCES accounts (id) ON DELETE CASCADE,
     signal     TEXT NOT NULL,
-    enabled    INTEGER NOT NULL,
+    -- BOOLEAN here, INTEGER on SQLite: each engine's honest type for a flag, and the store binds a
+    -- bool in both arms.
+    enabled    BOOLEAN NOT NULL,
     updated_at TEXT NOT NULL,
     PRIMARY KEY (account_id, signal)
 );
