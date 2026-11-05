@@ -124,11 +124,7 @@ pub async fn pending(db: &Database, limit: i64) -> Result<Vec<OutboxEvent>> {
 /// producer existed. A queue ordered oldest-first is only fair if the worker can take what it is handed.
 ///
 /// Empty `topics` means "nothing is claimable here" — not "everything", which is how a starved worker is built.
-pub async fn claimable(
-    db: &Database,
-    topics: &[String],
-    limit: i64,
-) -> Result<Vec<OutboxEvent>> {
+pub async fn claimable(db: &Database, topics: &[String], limit: i64) -> Result<Vec<OutboxEvent>> {
     if topics.is_empty() || limit <= 0 {
         return Ok(Vec::new());
     }

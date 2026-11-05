@@ -24,6 +24,7 @@ pub mod browse;
 pub mod canon_agnostic;
 pub mod catalogue;
 pub mod catalogue_export;
+pub mod orphan;
 // M63-03: source-relative quality metrics.
 pub mod metrics;
 // W2: the Polaris link table and in-flight sign-in state.
