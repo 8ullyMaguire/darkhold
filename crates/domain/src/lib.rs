@@ -87,6 +87,7 @@ pub mod taxonomy;
 pub mod theme_window;
 pub mod thread_modes;
 pub mod translation;
+pub mod tropes;
 pub mod typed_votes;
 pub mod vote_decay;
 pub mod vote_decay_sql;

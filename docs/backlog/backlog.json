@@ -6,8 +6,8 @@
         "implemented-verified-e2e": 129,
         "implemented-locally-tested": 247,
         "unsupported": 4,
-        "implemented-fully-tested": 422,
-        "planned": 91,
+        "implemented-fully-tested": 423,
+        "planned": 90,
         "evaluated-and-rejected": 1
       }
     },
@@ -540,12 +540,6 @@
       "notes": "Concord card '[L] External seeds'. The works a reader wants more of are often not here (Wattpad/QQ/SB/WN). Resolve URLs and AO3 ids; store the rest as provenance-carrying taste evidence, never as fabricatable rows; report per line what resolved and why not."
     },
     {
-      "id": "M45-68",
-      "milestone": "M45",
-      "requirement": "Trope groups: one name expanding to many tags",
-      "notes": "Concord card '[M] Trope groups'. `dark progression` is five freeform tags with growing synonyms; define the group once (name, members, OR semantics) and publish the expansion at /taxonomy. Sits beside the existing tag alias table."
-    },
-    {
       "id": "M45-69",
       "milestone": "M45",
       "requirement": "Operator taste: the instance theme seeded from the operator's shelf, with provenance",
@@ -572,7 +566,7 @@
   ],
   "open_by_milestone": {
     "M69": 25,
-    "M45": 24,
+    "M45": 23,
     "M63": 19,
     "M64": 14,
     "M66": 6,

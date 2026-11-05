@@ -756,6 +756,14 @@ fn numeric_column(field: &QueryField) -> Result<&'static str, QueryError> {
 
 fn render_fielded(field: &QueryField, value: &str) -> Result<SqlFragment, QueryError> {
     match field {
+        // `trope:` is expanded into an `Or` of `tag:` leaves at parse time (M45-68), so a `Trope`
+        // leaf here would mean the expansion was skipped — refuse rather than render `= 'x'` on a
+        // column that has no trope in it.
+        QueryField::Trope => Err(QueryError::new(
+            "trope: is a group name and expands to tags before it reaches SQL; nothing should render \
+             it",
+            0,
+        )),
         // A field that belongs to another surface. Rejecting it with a message
         // naming the field is the point of a shared language: `category:meta`
         // on the works search is a reader mistake, and a silent zero-row answer

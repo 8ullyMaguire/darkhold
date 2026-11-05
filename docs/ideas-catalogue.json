@@ -1,6 +1,6 @@
 {
  "generated_by": "scripts/ideas_catalogue.py",
- "count": 185,
+ "count": 184,
  "ideas": [
   {
    "why_summary": "",
@@ -292,19 +292,6 @@
    "why_summary": "-- Concord card '[L] External seeds'. The works a reader wants more of are often not here (Wattpad/QQ/SB/WN). Resolve URLs and AO3 ids; store the rest as provenance-carrying taste ",
    "id": "M45-67",
    "title": "External seeds",
-   "sources": [
-    "docs/requirements.csv"
-   ],
-   "milestone": "M45",
-   "relevance": 4,
-   "because": "a requirements row exists (+4)",
-   "default_on": false,
-   "built": false
-  },
-  {
-   "why_summary": "-- Concord card '[M] Trope groups'. `dark progression` is five freeform tags with growing synonyms; define the group once (name, members, OR semantics) and publish the expansion at",
-   "id": "M45-68",
-   "title": "Trope groups",
    "sources": [
     "docs/requirements.csv"
    ],

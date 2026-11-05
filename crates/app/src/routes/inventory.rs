@@ -2092,6 +2092,13 @@ pub const ROUTE_TABLE: &[RouteEntry] = &[
     },
     RouteEntry {
         file: "taxonomy.rs",
+        handler: "list_tropes",
+        method: "GET",
+        path: "/tropes",
+        audience: Audience::Public,
+    },
+    RouteEntry {
+        file: "taxonomy.rs",
         handler: "create_taxonomy_alias",
         method: "POST",
         path: "/taxonomy/aliases",

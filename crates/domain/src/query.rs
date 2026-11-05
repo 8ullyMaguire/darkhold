@@ -11,6 +11,8 @@ pub enum QueryField {
     Character,
     Relationship,
     Tag,
+    /// A trope group (M45-68): a name that expands to the tags it means.
+    Trope,
     Mood,
     Summary,
     Body,
@@ -77,6 +79,7 @@ impl QueryField {
             Self::Character => "character",
             Self::Relationship => "relationship",
             Self::Tag => "tag",
+            Self::Trope => "trope",
             Self::Mood => "mood",
             Self::Summary => "summary",
             Self::Body => "body",
@@ -119,6 +122,7 @@ impl QueryField {
             "character" => Self::Character,
             "relationship" => Self::Relationship,
             "tag" => Self::Tag,
+            "trope" => Self::Trope,
             "mood" => Self::Mood,
             "summary" => Self::Summary,
             "body" => Self::Body,
@@ -167,6 +171,7 @@ impl QueryField {
             | Self::Character
             | Self::Relationship
             | Self::Tag
+            | Self::Trope
             | Self::Mood
             | Self::Summary
             | Self::Body
@@ -510,6 +515,10 @@ pub enum QueryAst {
     Phrase(String),
     /// A fielded search: `field:value`.
     Fielded(QueryField, String),
+    // NOTE: there is deliberately no `Trope` node. `trope:<slug>` expands at parse time into the
+    // `Or` of its member `tag:` terms (M45-68), so every consumer downstream — the SQL builder, the
+    // term budget, the renderers — sees a query it already understood. A node would have needed a
+    // second implementation of "a work has any of these tags" and would have drifted from the first.
     /// A comparison: `field>value`, `field>=value`, `field<value`, `field<=value`.
     ///
     /// A separate node from `Fielded` so a renderer never has to look at the
@@ -785,13 +794,21 @@ impl QueryBudget {
     /// walking, because it also bounds the flat case -- a thousand terms joined by
     /// `and` is legal and shallow.
     fn walk(&self, ast: &QueryAst, terms: &mut usize) -> std::result::Result<(), QueryError> {
-        *terms += 1;
-        if self.max_terms != 0 && *terms > self.max_terms {
-            return Err(QueryError::new(
-                format!("this query has more than {} terms", self.max_terms),
-                0,
-            ));
-        }
+        // A term is a **predicate**, not a connective (M45-68). Counting `And`/`Or`/`Not` nodes made
+        // the budget a function of how a reader spelled the query: `a OR b OR c` cost six, `a b c`
+        // cost three, and a `trope:` group — which expands to a disjunction the reader never typed —
+        // was charged for the parentheses as well as the tags. The guard exists to bound work, and a
+        // connective with fifty children is cheap; a leaf is what compiles to a predicate.
+        let leaf = |terms: &mut usize| -> std::result::Result<(), QueryError> {
+            *terms += 1;
+            if self.max_terms != 0 && *terms > self.max_terms {
+                return Err(QueryError::new(
+                    format!("this query has more than {} terms", self.max_terms),
+                    0,
+                ));
+            }
+            Ok(())
+        };
         match ast {
             QueryAst::And(v) | QueryAst::Or(v) => {
                 for t in v {
@@ -802,7 +819,7 @@ impl QueryBudget {
             // A scoped predicate is ONE term to the budget -- it compiles to a
             // single EXISTS however many bounds it carries. Pricing it by arity
             // would price it against a structure that does not exist at runtime.
-            QueryAst::Scoped(_) => {}
+            QueryAst::Scoped(_) => leaf(terms)?,
             QueryAst::MinMatch {
                 needed,
                 terms: inner,
@@ -855,7 +872,7 @@ impl QueryBudget {
             | QueryAst::Fielded(..)
             | QueryAst::Comparison(..)
             | QueryAst::ExistsCharacter(..)
-            | QueryAst::ExistsRelationship(..) => {}
+            | QueryAst::ExistsRelationship(..) => leaf(terms)?,
         }
         Ok(())
     }
@@ -1174,6 +1191,9 @@ impl<'a> Parser<'a> {
                         if let Some(node) = self.take_expansion_suffix(f)? {
                             return Ok(node);
                         }
+                        if f == QueryField::Trope {
+                            return trope_node(&value, start);
+                        }
                         return Ok(QueryAst::Fielded(f, value));
                     }
                     return Err(QueryError::new("expected a field value", self.pos));
@@ -1222,6 +1242,9 @@ impl<'a> Parser<'a> {
                     }
                 }
 
+                if f == QueryField::Trope {
+                    return trope_node(value, start);
+                }
                 return Ok(QueryAst::Fielded(f, value.to_owned()));
             }
         }
@@ -1703,6 +1726,29 @@ impl std::fmt::Display for QueryError {
 }
 
 impl std::error::Error for QueryError {}
+
+/// `trope:<slug>` becomes the `Or` of its member tags (M45-68).
+///
+/// The expansion is a **disjunction**: a work carrying any one of the group's tags satisfies it. An
+/// unknown name is refused with the groups that exist, because "no works matched" for a name that was
+/// never a group is the answer that teaches a reader nothing.
+fn trope_node(value: &str, offset: usize) -> Result<QueryAst, QueryError> {
+    let members = crate::tropes::expand(value).ok_or_else(|| {
+        QueryError::new(
+            format!(
+                "trope:{value}: not a trope group — expected one of {}",
+                crate::tropes::slugs().join(", ")
+            ),
+            offset,
+        )
+    })?;
+    Ok(QueryAst::Or(
+        members
+            .iter()
+            .map(|member| QueryAst::Fielded(QueryField::Tag, (*member).to_owned()))
+            .collect(),
+    ))
+}
 
 #[cfg(test)]
 mod tests {

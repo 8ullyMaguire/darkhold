@@ -2,6 +2,7 @@
 //!
 //! Spec §15.1–15.3.
 
+use crate::auth::MaybeSession;
 use crate::auth::{RequirePseud, RequireSession};
 use crate::http::{ApiError, ApiResult};
 use crate::state::AppState;
@@ -18,6 +19,9 @@ pub fn router() -> Router<AppState> {
         .route("/taxonomy", get(autocomplete).post(create_taxonomy_node))
         .route("/taxonomy/{id}", get(get_node))
         .route("/taxonomy/aliases", post(create_taxonomy_alias))
+        // M45-68: what `trope:<slug>` means, published — a group that expands in private is a
+        // vocabulary nobody can learn.
+        .route("/tropes", get(list_tropes))
         .route("/works/{id}/tags", post(tag_work))
 }
 
@@ -180,4 +184,26 @@ async fn tag_work(
         .await
         .map_err(|e| ApiError(darkhold_domain::AppError::Internal(e)))?;
     Ok(Json(serde_json::json!({ "tag": tag })))
+}
+
+/// `GET /api/v1/tropes` — every trope group, its label and the tags it expands to (M45-68).
+///
+/// Public and static: the groups ship with the binary, so this is a document, not a query. A reader
+/// (or a client) can see exactly what `trope:dark-progression` will match before running it.
+async fn list_tropes(
+    State(_state): State<AppState>,
+    MaybeSession(_user): MaybeSession,
+) -> Json<serde_json::Value> {
+    let items: Vec<serde_json::Value> = darkhold_domain::tropes::TROPES
+        .iter()
+        .map(|group| {
+            serde_json::json!({
+                "slug": group.slug,
+                "label": group.label,
+                "summary": group.summary,
+                "expands_to": group.members,
+            })
+        })
+        .collect();
+    Json(serde_json::json!({ "items": items }))
 }
