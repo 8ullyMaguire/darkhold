@@ -6,8 +6,8 @@
         "implemented-verified-e2e": 129,
         "implemented-locally-tested": 247,
         "unsupported": 4,
-        "implemented-fully-tested": 421,
-        "planned": 92,
+        "implemented-fully-tested": 422,
+        "planned": 91,
         "evaluated-and-rejected": 1
       }
     },
@@ -568,18 +568,12 @@
       "milestone": "M45",
       "requirement": "Shelf documents: what this instance recommends, and the query behind each shelf",
       "notes": "Concord card '[M] Shelf documents'. Saved views and digest runs exist; nothing renders them into one readable page with provenance (query, count, last change). Publishing the query is what makes a shelf an editorial decision."
-    },
-    {
-      "id": "M63-39",
-      "milestone": "M63",
-      "requirement": "Ship the trope queries as a reviewable query library",
-      "notes": "Concord card '[S] Ship the trope queries'. `.darkhold/queries/<name>.q` exists (M63-09); ship the first trope family as files with comments on what each clause excludes, so the definition is diffable in review."
     }
   ],
   "open_by_milestone": {
     "M69": 25,
     "M45": 24,
-    "M63": 20,
+    "M63": 19,
     "M64": 14,
     "M66": 6,
     "M65": 1,
