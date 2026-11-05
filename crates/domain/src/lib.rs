@@ -59,6 +59,7 @@ pub mod monetization;
 pub mod north_star;
 pub mod note_links;
 pub mod operator_theme;
+pub mod orphan;
 pub mod orphaning;
 pub mod payouts;
 pub mod peering;
