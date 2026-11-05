@@ -231,6 +231,10 @@ async fn post_comment(
         let recipient = crate::inbox::canonical(state.db(), &author.to_string()).await;
         // The author is not notified of their own comment. The inbox enforces this too; doing it here as well
         // keeps the event honest for anything else reading the stream.
+        // The author earns XP for their own comment, from this product's observation of it. The object key is the
+        // comment id, so a retried request cannot pay twice for one comment.
+        crate::loops::award_in_background("darkhold", actor.clone(), "comment", id.clone());
+
         if recipient != actor {
             crate::inbox::emit_in_background(
                 "darkhold",

@@ -31,6 +31,7 @@ pub mod longevity;
 pub mod media_fetch;
 pub mod estate_search;
 pub mod inbox;
+pub mod loops;
 pub mod taste;
 pub mod media_job;
 pub mod narration;
