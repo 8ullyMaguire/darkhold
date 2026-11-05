@@ -7,8 +7,8 @@
         "implemented-locally-tested": 247,
         "unsupported": 4,
         "implemented-fully-tested": 429,
-        "implemented": 7,
-        "planned": 78,
+        "implemented": 8,
+        "planned": 77,
         "evaluated-and-rejected": 1
       }
     },
@@ -325,12 +325,6 @@
       "notes": "The first milestone is deliberately smaller and shippable: serve local files to another person on the LAN or by a direct link, with no relay, no DHT, no node discovery and no global namespace; the user's own files stay their own files. Items 50, 51, 61, 69 and 96 belong to it (drag-drop import, local full-text search, offline queue, Calibre metadata.db ingestion, a local engine over local edges). The seeding network (81, 93, 98, 99) is a later spec that needs a threat model first \u2014 a document, not a weekend."
     },
     {
-      "id": "M69-01",
-      "milestone": "M69",
-      "requirement": "each instance publishes a taste fingerprint at /.well-known, in one shape both darkhold and suki read",
-      "notes": "Suki spec \u00a716.1 (instance DNA). darkhold has no fingerprint of its own \u2014 M45-44 subscribes to a peer's picks, which is the consumption side only. The document is the shape suki publishes (top tags by weight, warning/rating distribution, counts) because a peer should not have to know which product is answering. Synergy: the first row where the two products share a wire format rather than a philosophy. Default off: it changes what a stranger sees or what the instance claims about itself, so it waits for a decision rather than a default."
-    },
-    {
       "id": "M69-02",
       "milestone": "M69",
       "requirement": "peering is suggested by cosine similarity over that fingerprint, and a colliding hardcoded filter blocks it outright",
@@ -494,7 +488,7 @@
     }
   ],
   "open_by_milestone": {
-    "M69": 25,
+    "M69": 24,
     "M63": 17,
     "M64": 14,
     "M45": 13,
