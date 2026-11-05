@@ -114,6 +114,9 @@ pub mod storage;
 pub mod story_identity;
 pub mod syndication;
 // M45-25 (§58): keystone authors, droughts, and the routing record.
+/// The works ladder: the arena's Glicko-2 ratings, stored (spec §12.4a).
+// M45-26 (§58.6): the welcome rota — one work, one reader, seventy-two hours.
+pub mod finishers;
 pub mod shelf_document;
 pub mod subscriptions;
 pub mod supply;
@@ -124,9 +127,6 @@ pub mod taste_health;
 pub mod taste_import;
 pub mod taste_leakage;
 pub mod taste_vectors;
-/// The works ladder: the arena's Glicko-2 ratings, stored (spec §12.4a).
-// M45-26 (§58.6): the welcome rota — one work, one reader, seventy-two hours.
-pub mod finishers;
 pub mod tasting;
 pub mod taxonomy;
 pub mod taxonomy_export;
