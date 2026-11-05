@@ -29,7 +29,7 @@ the gates every change passes before it is committed.
 This repository is the base for the consolidated from-scratch specification. The
 honest one-line status, re-derived from `docs/requirements.csv` (894 rows):
 **805 implemented** (429 fully-tested, 129 verified E2E, 247 built but not
-verified end to end), **82 planned**, **4 deliberately unsupported**, **1
+verified end to end), **81 planned**, **4 deliberately unsupported**, **1
 evaluated and rejected**, tags through `v0.51.0`. The planned remainder is
 concentrated in a few blocks — M69 (25 rows), M63 (19), M45 (17), M64 (14),
 M66 (6) — and `docs/plans/remaining-work.md` tracks them; the M45 block is the

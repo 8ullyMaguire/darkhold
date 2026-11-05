@@ -67,6 +67,12 @@ lineage's, not as a regression in the rows above.
 
 ## A row shipped beside a concurrent session — 2026-11-05 (later)
 
+**M45-33 shipped: specialist matchmaking** (`b21287de`). Betas, Britpickers, canon consultants, sensitivity
+readers — opt-in by the absence of a profile row, skills as rows (an indexed equality, not a `LIKE '%beta%'`
+that matches `betamax`), acceptance as compare-and-set (`WHERE state = 'open'`) so two specialists racing
+produce one match and one 409. Store 4/4 on **both engines** including the race; domain 5/5; erasure 10/10.
+**No live probe yet** — ten signed-in routes covered by the router tests, nothing curled.
+
 **M45-32 shipped: the trend radar** (`79df61af`, ledger after it). `GET /catalogue/trends` — a fandom is
 emerging at >=3 arrivals in the recent window and >=2x its own per-week baseline; below the floor the
 answer is `no_verdict` with the reason. Store test on **both engines**, with a row exactly on the recent
