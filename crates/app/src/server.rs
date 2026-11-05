@@ -703,6 +703,14 @@ pub fn build_router(state: AppState) -> Router {
             routes::reader_skin::router(),
             RouteClass::Write,
         ))
+        // M70-09 — extension documents. Authoring and importing are one request, so there is one validator:
+        // `extension_document::parse`.
+        .merge(module_mount(
+            &state,
+            "marketplace",
+            routes::extension_documents::router(),
+            RouteClass::Write,
+        ))
         // §58's supply surface (M45-25): keystone authors, droughts, and the
         // routing a reader opts into. Write class — every door needs a session,
         // and routing creates a row the patronage pays against.

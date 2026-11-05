@@ -2,6 +2,7 @@
 
 pub mod account_permissions;
 pub mod collection_tags;
+pub mod extension_documents;
 pub mod marked_for_later;
 pub mod orphan;
 pub mod reader_skin;
