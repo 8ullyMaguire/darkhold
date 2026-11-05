@@ -258,29 +258,40 @@ async fn api_scope_vocabulary_works() {
 
 #[tokio::test]
 async fn feed_building_produces_valid_xml() {
-    let harness = Harness::new("feeds").await;
-    let _client = harness.client();
-
-    let items = vec![darkhold_domain::feeds::FeedItem {
-        title: "Test Story".to_string(),
+    // This test used to exercise `darkhold_domain::feeds::build_rss`/`build_atom` — a renderer no production
+    // code called, kept alive by this test alone. darkhold renders feeds with `commons-feed` now, so the test
+    // asks the renderer that actually serves readers, and it asks the two questions that historically broke
+    // feeds: a title with `&` in it, and an item whose source gave no date.
+    let meta = commons_feed::FeedMeta {
+        title: "My Feed".to_string(),
+        link: "https://example.com".to_string(),
+        description: Some("Description".to_string()),
+        language: Some("en".to_string()),
+        self_url: None,
+    };
+    let entries = vec![commons_feed::FeedEntry {
+        id: "work-1".to_string(),
         link: "https://example.com/works/1".to_string(),
-        description: "A test story".to_string(),
-        published_at: "2026-09-14T12:00:00Z".to_string(),
-        guid: "https://example.com/works/1".to_string(),
+        title: "Test Story & <Friends>".to_string(),
+        summary: Some("A **test** story".to_string()),
+        author: Some("someone".to_string()),
+        published: None,
     }];
 
-    let rss =
-        darkhold_domain::feeds::build_rss("My Feed", "https://example.com", "Description", &items);
-    assert!(rss.contains(r#"<rss version="2.0">"#));
+    let rss = commons_feed::rss2(&meta, &entries);
+    assert!(rss.contains(r#"<rss version="2.0""#), "the root element carries the atom namespace: {rss}");
     assert!(rss.contains("<title>My Feed</title>"));
     assert!(rss.contains("<item>"));
+    assert!(rss.contains("Test Story &amp; &lt;Friends&gt;"), "the title is escaped, not passed through: {rss}");
+    assert!(!rss.contains("<pubDate>"), "an undated item prints no date, or the ETag can never match again");
 
-    let atom =
-        darkhold_domain::feeds::build_atom("My Feed", "https://example.com", "Description", &items);
+    let atom = commons_feed::atom(&meta, &entries);
     assert!(atom.contains(r#"<feed xmlns="http://www.w3.org/2005/Atom">"#));
     assert!(atom.contains("<entry>"));
 
-    harness.cleanup().await;
+    let json = commons_feed::json_feed(&meta, &entries);
+    assert!(json.contains("https://jsonfeed.org/version/1.1"));
+    assert!(!json.contains("**"), "markdown is stripped by the renderer, not by the caller");
 }
 
 #[tokio::test]
