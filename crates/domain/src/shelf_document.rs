@@ -110,7 +110,11 @@ pub fn render(instance: &str, shelves: &[Shelf]) -> String {
     out.push_str(&format!(
         "{} {}. Each entry is the query that makes it, so the shelf can be disagreed with.\n",
         shelves.len(),
-        if shelves.len() == 1 { "shelf" } else { "shelves" }
+        if shelves.len() == 1 {
+            "shelf"
+        } else {
+            "shelves"
+        }
     ));
     for shelf in shelves {
         out.push_str(&format!("\n## {}\n\n", shelf.name));
