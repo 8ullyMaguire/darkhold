@@ -1,6 +1,6 @@
 {
  "generated_by": "scripts/ideas_catalogue.py",
- "count": 175,
+ "count": 182,
  "ideas": [
   {
    "why_summary": "",
@@ -62,6 +62,84 @@
     "docs/requirements.csv"
    ],
    "milestone": "M66",
+   "relevance": 4,
+   "because": "a requirements row exists (+4)",
+   "default_on": false,
+   "built": false
+  },
+  {
+   "why_summary": "NOT BUILT and deliberately so: there is no `wasmi` dependency in the workspace. Trust and subscription tiers change resource ceilings, never permissions \u2014 that distinction is alrea",
+   "id": "M16-06",
+   "title": "\u00a721.4's execution sandbox",
+   "sources": [
+    "docs/requirements.csv"
+   ],
+   "milestone": "M16",
+   "relevance": 4,
+   "because": "a requirements row exists (+4)",
+   "default_on": false,
+   "built": false
+  },
+  {
+   "why_summary": "The storage exists (`extension_submissions`, `extension_manifests`, `extension_grants` in 0018_marketplace.sql) but the workflow itself is not built: no quorum, no renewal-of-conse",
+   "id": "M16-07",
+   "title": "\u00a721.5's review workflow",
+   "sources": [
+    "docs/requirements.csv"
+   ],
+   "milestone": "M16",
+   "relevance": 4,
+   "because": "a requirements row exists (+4)",
+   "default_on": false,
+   "built": false
+  },
+  {
+   "why_summary": "NOT BUILT as a gallery. M70-10 builds the document-browse subset deliberately without ratings or install counts: on a corpus of four, ranking by popularity makes the first uploader",
+   "id": "M16-08",
+   "title": "\u00a721.6's gallery mechanics",
+   "sources": [
+    "docs/requirements.csv"
+   ],
+   "milestone": "M16",
+   "relevance": 4,
+   "because": "a requirements row exists (+4)",
+   "default_on": false,
+   "built": false
+  },
+  {
+   "why_summary": "NOT BUILT. Credits are the closed-loop economy (M45-18) and this is deliberately a separate ledger; mixing them would let a credit balance become a price. No processor integration ",
+   "id": "M16-11",
+   "title": "\u00a721.9's paid marketplace, separate from credits",
+   "sources": [
+    "docs/requirements.csv"
+   ],
+   "milestone": "M16",
+   "relevance": 4,
+   "because": "a requirements row exists (+4)",
+   "default_on": false,
+   "built": false
+  },
+  {
+   "why_summary": "NOT MET \u2014 every item except 'reset remains reachable' (there is no theme to break) and 'opt-out honoured' needs the executor from M16-06. Written as one row because these are the c",
+   "id": "M16-12",
+   "title": "\u00a721's acceptance list",
+   "sources": [
+    "docs/requirements.csv"
+   ],
+   "milestone": "M16",
+   "relevance": 4,
+   "because": "a requirements row exists (+4)",
+   "default_on": false,
+   "built": false
+  },
+  {
+   "why_summary": "NOT BUILT. Delivery retries and records, but nothing rotates a secret, nothing limits a subscriber's request rate, and a permanently failing endpoint keeps being tried \u2014 which is b",
+   "id": "M16-14",
+   "title": "\u00a721.8's operational half",
+   "sources": [
+    "docs/requirements.csv"
+   ],
+   "milestone": "M16",
    "relevance": 4,
    "because": "a requirements row exists (+4)",
    "default_on": false,
@@ -922,6 +1000,19 @@
    "milestone": "M66",
    "relevance": 3,
    "because": "a requirements row exists (+4); the source hedges (-1)",
+   "default_on": false,
+   "built": false
+  },
+  {
+   "why_summary": "NOT BUILT. M70-06 gives a reader a stylesheet; this is the model underneath that makes a theme composable, previewable and undoable. The cannot-hide rule is the one that needs a me",
+   "id": "M16-13",
+   "title": "\u00a721.7's theme model beyond one stylesheet",
+   "sources": [
+    "docs/requirements.csv"
+   ],
+   "milestone": "M16",
+   "relevance": 3,
+   "because": "a requirements row exists (+4); needs a model or heavy compute (-1)",
    "default_on": false,
    "built": false
   },

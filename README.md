@@ -27,11 +27,11 @@ all live in this repository.
 the gates every change passes before it is committed.
 
 This repository is the base for the consolidated from-scratch specification. The
-honest one-line status, re-derived from `docs/requirements.csv` (906 rows):
-**819 implemented** (429 fully-tested, 135 verified E2E, 255 built but not
-verified end to end), **81 planned**, **4 deliberately unsupported**, **2
+honest one-line status, re-derived from `docs/requirements.csv` (920 rows):
+**826 implemented** (433 fully-tested, 136 verified E2E, 257 built but not
+verified end to end), **88 planned**, **4 deliberately unsupported**, **2
 evaluated and rejected**. The planned remainder is
-concentrated in a few blocks — M69 (24) · M63 (17) · M64 (14) · M45 (13) · GS (5) — and `docs/plans/remaining-work.md` tracks them; the M45 block is the
+concentrated in a few blocks — M69 (24) · M63 (17) · M64 (14) · M45 (13) · M16 (7) — and `docs/plans/remaining-work.md` tracks them; the M45 block is the
 taste and catalogue block the last sessions have been closing a row at a time.
 `docs/plans/bots-extension.md` covers the bot core, the separate
 Lorebook desktop app, and a Chromium extension that does not exist yet.

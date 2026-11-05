@@ -1,14 +1,14 @@
 {
   "sources": {
     "requirements.csv": {
-      "rows": 906,
+      "rows": 920,
       "by_status": {
-        "implemented-verified-e2e": 135,
-        "implemented-locally-tested": 247,
+        "implemented-verified-e2e": 136,
+        "implemented-locally-tested": 248,
         "unsupported": 4,
-        "implemented-fully-tested": 429,
-        "implemented": 8,
-        "planned": 81,
+        "implemented-fully-tested": 433,
+        "implemented": 9,
+        "planned": 88,
         "evaluated-and-rejected": 2
       }
     },
@@ -509,6 +509,48 @@
       "milestone": "M70",
       "requirement": "Public extension documents can be browsed, previewed and attributed: a list shows each document's author pseud, its version and what kind of thing it is, and a preview is produced by the server from the same renderer the reader uses \u2014 never by executing the document.",
       "notes": "Sharing needs a surface, and the surface is where a marketplace would begin. Three rules keep it from becoming one: the preview is the server's own rendering of the document (so a preview cannot disagree with what installing does), attribution is a PSEUD and never an account (ADR 0003), and there is no install counter, no rating and no ranking \u2014 sorting by popularity on a corpus of four is a way to make the first uploader permanently first."
+    },
+    {
+      "id": "M16-06",
+      "milestone": "M16",
+      "requirement": "\u00a721.4's execution sandbox: `wasmi` with fuel, memory ceilings, output limits, host-call limits, bounded concurrency, hard wall-clock termination, host-I/O timeouts, and revocation that stops a running package.",
+      "notes": "NOT BUILT and deliberately so: there is no `wasmi` dependency in the workspace. Trust and subscription tiers change resource ceilings, never permissions \u2014 that distinction is already encoded in the manifest, so the sandbox has something to enforce that is not its own policy. The path is specified and gated by M45-57 for source adapters; building the executor is the prerequisite for M16-07, M16-08 and M16-12."
+    },
+    {
+      "id": "M16-07",
+      "milestone": "M16",
+      "requirement": "\u00a721.5's review workflow: submitted \u2192 automated checks \u2192 permission review \u2192 security review \u2192 independent quorum approval \u2192 published, with renewed consent when permissions grow, and emergency revocation with rollback.",
+      "notes": "The storage exists (`extension_submissions`, `extension_manifests`, `extension_grants` in 0018_marketplace.sql) but the workflow itself is not built: no quorum, no renewal-of-consent path, no rollback. Free and paid extensions follow the same review \u2014 a paid status that skipped security review would be a way to buy the review."
+    },
+    {
+      "id": "M16-08",
+      "milestone": "M16",
+      "requirement": "\u00a721.6's gallery mechanics: idempotent installation, one active installation per package and pseud scope, version pinning and update policy, uninstall, ratings and written reviews, install counts with documented semantics, remix/fork lineage with attribution preserved, and licence compatibility checks.",
+      "notes": "NOT BUILT as a gallery. M70-10 builds the document-browse subset deliberately without ratings or install counts: on a corpus of four, ranking by popularity makes the first uploader permanently first. Forking must not bypass review or copy grants; install counts must not be inflatable by reinstalls, and individual installation histories are never public."
+    },
+    {
+      "id": "M16-11",
+      "milestone": "M16",
+      "requirement": "\u00a721.9's paid marketplace, separate from credits: purchases, entitlements, refunds, developer revenue accounting, optional processor-backed payouts, the 85/15 reference split, and operator tax/invoicing setup.",
+      "notes": "NOT BUILT. Credits are the closed-loop economy (M45-18) and this is deliberately a separate ledger; mixing them would let a credit balance become a price. No processor integration exists, so the 85/15 split is a number in a spec with nothing to divide."
+    },
+    {
+      "id": "M16-12",
+      "milestone": "M16",
+      "requirement": "\u00a721's acceptance list: infinite loops terminate, memory excess fails safely, host APIs enforce permission denial, revoked packages stop running, uninstall removes grants, reset remains reachable after a broken theme, forks keep attribution and request their own grants, and custom engines and recipes honour opt-out.",
+      "notes": "NOT MET \u2014 every item except 'reset remains reachable' (there is no theme to break) and 'opt-out honoured' needs the executor from M16-06. Written as one row because these are the claims that make the rest of \u00a721 trustworthy, and splitting them would let the easy half be declared done."
+    },
+    {
+      "id": "M16-13",
+      "milestone": "M16",
+      "requirement": "\u00a721.7's theme model beyond one stylesheet: design tokens, constrained layout slots, scoped styling, preview, reset, safe mode, accessibility checks \u2014 and the rule that a theme cannot hide the positivity filter status, the feedback mechanism, the safety controls or the extension management interface.",
+      "notes": "NOT BUILT. M70-06 gives a reader a stylesheet; this is the model underneath that makes a theme composable, previewable and undoable. The cannot-hide rule is the one that needs a mechanism rather than a rule: a theme is CSS, and CSS can hide anything, so the safety surfaces have to live outside the document a theme styles \u2014 either in a shadow root, an iframe, or a separately-styled region the theme cannot select."
+    },
+    {
+      "id": "M16-14",
+      "milestone": "M16",
+      "requirement": "\u00a721.8's operational half: rotating secrets, a per-subscription rate limit, and auto-disable of a subscription that keeps failing.",
+      "notes": "NOT BUILT. Delivery retries and records, but nothing rotates a secret, nothing limits a subscriber's request rate, and a permanently failing endpoint keeps being tried \u2014 which is both a resource leak and a way to keep probing an endpoint that has moved."
     }
   ],
   "open_by_milestone": {
@@ -516,6 +558,7 @@
     "M63": 17,
     "M64": 14,
     "M45": 13,
+    "M16": 7,
     "M66": 6,
     "M70": 4,
     "M65": 1,

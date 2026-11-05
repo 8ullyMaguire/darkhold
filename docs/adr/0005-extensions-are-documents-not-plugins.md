@@ -2,6 +2,26 @@
 
 Status: accepted, 2026-11-05. Decides M70-09, M70-10 and the rejection recorded in M70-11.
 
+## Correction (same day, after reading §21)
+
+The first version of this ADR said "no plugin system", which was **wrong about the repository**: `docs/spec.md` §21
+already specifies a full extension platform — a typed manifest, a closed capability vocabulary, a review workflow
+with quorum, a `wasmi` execution sandbox with fuel and memory ceilings, gallery mechanics, and a paid marketplace —
+and `darkhold-domain::extension` implements the manifest, category, capability, grant and resource-limit layer with
+11 tests, while `0018_marketplace.sql` carries `extension_manifests`, `extension_grants` and `extension_submissions`.
+None of that had a ledger row, which is why a design question could be answered as if the territory were empty.
+
+What stands, and what is now decided, is narrower than "no plugins" and wider than "game skins":
+
+* **§21.1–§21.5 (manifest, categories, capabilities, grants, resource ceilings) are the design.** They exist and are
+  tested. M16-01…M16-05 record them.
+* **The reader-shared document surface (M70-09, M70-10) is the tier-2 subset** of that platform: what a reader can
+  hand to another reader without any of it executing. It is not a competing model.
+* **The `wasmi` executor (§21.4, M16-06), the gallery (§21.6, M16-08) and the paid marketplace (§21.9, M16-11) are
+  deferred, not deleted**, with their reasons recorded in those rows. A deferral that says why is a decision; a
+  spec section with no row is an oversight waiting to be re-litigated.
+
+
 ## Problem
 
 Every self-hosted platform eventually gets the same request: let people share what they built. On this product it
