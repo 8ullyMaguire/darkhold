@@ -1,6 +1,6 @@
 {
  "generated_by": "scripts/ideas_catalogue.py",
- "count": 177,
+ "count": 176,
  "ideas": [
   {
    "why_summary": "",
@@ -855,19 +855,6 @@
     "docs/requirements.csv"
    ],
    "milestone": "M69",
-   "relevance": 4,
-   "because": "a requirements row exists (+4)",
-   "default_on": false,
-   "built": false
-  },
-  {
-   "why_summary": "Every author field in this product is single-owner today (`library_items.account_id`). Co-creation needs a join table with its own state machine (invited, accepted, declined, remov",
-   "id": "M70-03",
-   "title": "Co-creators",
-   "sources": [
-    "docs/requirements.csv"
-   ],
-   "milestone": "M70",
    "relevance": 4,
    "because": "a requirements row exists (+4)",
    "default_on": false,

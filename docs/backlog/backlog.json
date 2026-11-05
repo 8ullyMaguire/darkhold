@@ -3,12 +3,12 @@
     "requirements.csv": {
       "rows": 903,
       "by_status": {
-        "implemented-verified-e2e": 131,
+        "implemented-verified-e2e": 132,
         "implemented-locally-tested": 247,
         "unsupported": 4,
         "implemented-fully-tested": 429,
         "implemented": 8,
-        "planned": 83,
+        "planned": 82,
         "evaluated-and-rejected": 1
       }
     },
@@ -487,12 +487,6 @@
       "notes": "Reserved section, specified in docs/spec/44-roadmap-consensus-an-elo-ranked-community-voted.md. Registered 2026-11-02 for the same reason as M29-08: an idea the coverage gate named with no home."
     },
     {
-      "id": "M70-03",
-      "milestone": "M70",
-      "requirement": "Co-creators: more than one account can be credited as author of a work, with an invitation that must be accepted before a name appears, and a visibility rule that a co-creator sees the draft.",
-      "notes": "Every author field in this product is single-owner today (`library_items.account_id`). Co-creation needs a join table with its own state machine (invited, accepted, declined, removed), and the acceptance rule matters: an unaccepted credit must not put a stranger's name on a public work. Interacts with the erasure surface \u2014 a co-creator's erasure cannot orphan the other's work."
-    },
-    {
       "id": "M70-04",
       "milestone": "M70",
       "requirement": "A work can be restricted to signed-in accounts: metadata visible to all, body and comments only to a session, with the refusal indistinguishable from a work that does not exist.",
@@ -529,7 +523,7 @@
     "M64": 14,
     "M45": 13,
     "M66": 6,
-    "M70": 6,
+    "M70": 5,
     "M65": 1,
     "M29": 1,
     "M44": 1
