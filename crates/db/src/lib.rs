@@ -116,6 +116,7 @@ pub mod syndication;
 pub mod subscriptions;
 pub mod supply;
 pub mod tag_confirmation;
+pub mod taste_explain;
 pub mod taste_health;
 pub mod taste_import;
 pub mod taste_leakage;

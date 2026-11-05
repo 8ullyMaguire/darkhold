@@ -6,8 +6,8 @@
         "implemented-verified-e2e": 129,
         "implemented-locally-tested": 247,
         "unsupported": 4,
-        "implemented-fully-tested": 426,
-        "planned": 87,
+        "implemented-fully-tested": 427,
+        "planned": 86,
         "evaluated-and-rejected": 1
       }
     },
@@ -528,12 +528,6 @@
       "notes": "Reserved section, specified in docs/spec/44-roadmap-consensus-an-elo-ranked-community-voted.md. Registered 2026-11-02 for the same reason as M29-08: an idea the coverage gate named with no home."
     },
     {
-      "id": "M45-70",
-      "milestone": "M45",
-      "requirement": "Explain my taste: the tags and seeds behind a ranking",
-      "notes": "Concord card '[S] Explain my taste'. GET /api/v1/me/taste/explain: top weighted tags, the signals that produced each, and which the reader can switch off. The numbers exist; nothing publishes them."
-    },
-    {
       "id": "M45-71",
       "milestone": "M45",
       "requirement": "Taste brief: a document generated from a list of works",
@@ -548,7 +542,7 @@
   ],
   "open_by_milestone": {
     "M69": 25,
-    "M45": 20,
+    "M45": 19,
     "M63": 19,
     "M64": 14,
     "M66": 6,

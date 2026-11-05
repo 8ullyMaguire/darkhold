@@ -19,7 +19,7 @@
 
 use axum::extract::{Path, Query, State};
 use axum::http::StatusCode;
-use axum::routing::{get, post};
+use axum::routing::{get, post, put};
 use axum::{Json, Router};
 use serde::Deserialize;
 use serde_json::{json, Value};
@@ -37,6 +37,9 @@ pub fn router() -> Router<AppState> {
     Router::new()
         .route("/discovery/slots/{slot_id}/explanation", get(explain_slot))
         .route("/me/attention-report", get(get_attention_report))
+        // M45-70 — the tags behind the reader's own ranking, and the signals that produced them.
+        .route("/me/taste/explain", get(explain_taste))
+        .route("/me/taste/signals", put(set_taste_signal))
         .route(
             "/me/attention-report",
             axum::routing::put(set_attention_report),
@@ -427,4 +430,100 @@ async fn public_wrangling_log(
         "status": p.status,
         "created_at": p.created_at,
     })).collect::<Vec<_>>() })))
+}
+
+// ---------------------------------------------------------------------------
+// M45-70 — explain my taste
+// ---------------------------------------------------------------------------
+
+/// How many tags an explanation lists. A reader can act on twenty; a dump of four hundred is a data
+/// export, and the archive endpoint already exports.
+const EXPLAIN_LIMIT: usize = 20;
+
+/// `GET /api/v1/me/taste/explain` — the tags behind the reader's ranking, with their signals.
+///
+/// Every number here comes from acts the reader performed, read out of the tables that already record
+/// them; nothing is a model output. `suppressed` is what a switched-off signal would have added, so the
+/// reader can see their switches working.
+async fn explain_taste(
+    State(state): State<AppState>,
+    RequireSession(user): RequireSession,
+) -> ApiResult<Json<serde_json::Value>> {
+    let account = user.account_id.to_string();
+    Ok(Json(explain_for(&state, &account).await?))
+}
+
+/// The explanation, shared by the read and the write, so a toggle returns the same shape it changes.
+async fn explain_for(state: &AppState, account: &str) -> ApiResult<serde_json::Value> {
+    use darkhold_domain::taste_explain::{explain, Signal};
+
+    let events = darkhold_db::taste_explain::events(state.db(), account)
+        .await
+        .map_err(|e| ApiError(darkhold_domain::AppError::Internal(e)))?;
+    let disabled_keys = darkhold_db::taste_explain::disabled_signals(state.db(), account)
+        .await
+        .map_err(|e| ApiError(darkhold_domain::AppError::Internal(e)))?;
+    let disabled: Vec<Signal> = disabled_keys
+        .iter()
+        .filter_map(|key| Signal::parse(key))
+        .collect();
+
+    let all = explain(&events, &disabled);
+    let total = all.len();
+    let top: Vec<_> = all.into_iter().take(EXPLAIN_LIMIT).collect();
+
+    Ok(serde_json::json!({
+        "tags": top,
+        "signals": Signal::ALL.iter().map(|signal| serde_json::json!({
+            "signal": signal.key(),
+            "label": signal.label(),
+            "weight": signal.weight(),
+            "enabled": !disabled.contains(signal),
+        })).collect::<Vec<_>>(),
+        "counts": {
+            "acts": events.len(),
+            "tags": total,
+            "listed": EXPLAIN_LIMIT.min(total),
+        },
+        "note": "computed from your own acts — finished, bookmarked, rated, dropped. Nothing here is a \
+                 guess about you, and a signal you switch off is shown as suppressed rather than hidden.",
+    }))
+}
+
+/// What the reader wants to change.
+#[derive(Debug, serde::Deserialize)]
+pub struct TasteSignalBody {
+    /// One of `finished`, `bookmark`, `rating_up`, `rating_down`, `dropped`.
+    pub signal: String,
+    /// Whether it should count.
+    pub enabled: bool,
+}
+
+/// `PUT /api/v1/me/taste/signals` — switch one signal off or on, and see the result.
+async fn set_taste_signal(
+    State(state): State<AppState>,
+    RequireSession(user): RequireSession,
+    Json(body): Json<TasteSignalBody>,
+) -> ApiResult<Json<serde_json::Value>> {
+    use darkhold_domain::taste_explain::Signal;
+
+    let Some(signal) = Signal::parse(&body.signal) else {
+        return Err(ApiError(darkhold_domain::AppError::field(
+            "signal",
+            format!(
+                "{} is not a signal — expected one of {}",
+                body.signal,
+                Signal::ALL.map(Signal::key).join(", ")
+            ),
+        )));
+    };
+    let account = user.account_id.to_string();
+    let now = darkhold_db::identity::now_rfc3339();
+    darkhold_db::taste_explain::set_signal(state.db(), &account, signal.key(), body.enabled, &now)
+        .await
+        .map_err(|e| ApiError(darkhold_domain::AppError::Internal(e)))?;
+
+    // The same shape as the read, so a client can replace its state with the response instead of
+    // re-fetching and hoping the two agree.
+    Ok(Json(explain_for(&state, &account).await?))
 }

@@ -2098,6 +2098,20 @@ pub const ROUTE_TABLE: &[RouteEntry] = &[
         audience: Audience::Public,
     },
     RouteEntry {
+        file: "recommendation_transparency.rs",
+        handler: "explain_taste",
+        method: "GET",
+        path: "/me/taste/explain",
+        audience: Audience::Authenticated,
+    },
+    RouteEntry {
+        file: "recommendation_transparency.rs",
+        handler: "set_taste_signal",
+        method: "PUT",
+        path: "/me/taste/signals",
+        audience: Audience::Authenticated,
+    },
+    RouteEntry {
         file: "federation.rs",
         handler: "set_operator_theme",
         method: "POST",

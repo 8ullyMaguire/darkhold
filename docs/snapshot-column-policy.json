@@ -1411,6 +1411,11 @@
       "treatment": "drop_table",
       "why": "M45-67: the works one reader wants more of. A taste profile with a title attached, and nothing in it survives removing the reader, so the table leaves the published dataset whole.",
       "reviewed_by": "alvaro, 2026-11-04, against spec 11.16"
+    },
+    "taste_signal_prefs.account_id": {
+      "treatment": "drop_table",
+      "why": "M45-70: which signals a reader switched off, which is a preference with nothing to say once the reader is gone.",
+      "reviewed_by": "alvaro, 2026-11-04, against spec 11.16"
     }
   }
 }
