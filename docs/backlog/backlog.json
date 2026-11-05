@@ -6,8 +6,8 @@
         "implemented-verified-e2e": 129,
         "implemented-locally-tested": 247,
         "unsupported": 4,
-        "implemented-fully-tested": 428,
-        "planned": 85,
+        "implemented-fully-tested": 429,
+        "planned": 84,
         "evaluated-and-rejected": 1
       }
     },
@@ -526,18 +526,12 @@
       "milestone": "M44",
       "requirement": "44 roadmap consensus an elo ranked community voted board: a public board where the community ranks feature ideas by pairwise consensus, ported from FicHub's fichub-consensus Elo design",
       "notes": "Reserved section, specified in docs/spec/44-roadmap-consensus-an-elo-ranked-community-voted.md. Registered 2026-11-02 for the same reason as M29-08: an idea the coverage gate named with no home."
-    },
-    {
-      "id": "M45-72",
-      "milestone": "M45",
-      "requirement": "Shelf documents: what this instance recommends, and the query behind each shelf",
-      "notes": "Concord card '[M] Shelf documents'. Saved views and digest runs exist; nothing renders them into one readable page with provenance (query, count, last change). Publishing the query is what makes a shelf an editorial decision."
     }
   ],
   "open_by_milestone": {
     "M69": 25,
     "M63": 19,
-    "M45": 18,
+    "M45": 17,
     "M64": 14,
     "M66": 6,
     "M65": 1,

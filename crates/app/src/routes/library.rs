@@ -53,6 +53,8 @@ use darkhold_domain::library::{
 };
 use darkhold_domain::AppError;
 
+use axum::response::IntoResponse;
+
 use crate::auth::{RequireActorScoped, RequireSession};
 use crate::http::{ApiError, ApiResult};
 use crate::state::AppState;
@@ -93,6 +95,9 @@ pub fn router() -> Router<AppState> {
             get(get_view).patch(patch_view).delete(delete_view_route),
         )
         .route("/saved-views/{id}/runs", post(record_view_run))
+        // M45-72: the shelves as one document, with the query behind each — a shelf whose query is not
+        // published is a taste nobody can argue with.
+        .route("/shelf-documents", get(shelf_documents))
         .route("/library/updates/check", post(start_update_check))
         .route("/library/storage", get(storage_usage))
         .route("/library/items/batch", post(batch_remove_items))
@@ -1292,4 +1297,73 @@ fn read_shelf_name(raw: &str) -> Result<String, ApiError> {
         }));
     }
     Ok(name.to_owned())
+}
+
+/// `GET /shelf-documents[?format=json]` — every saved view and the query that makes it (M45-72).
+///
+/// Markdown by default: this is a document meant to be read, posted and committed, so the content type says
+/// so and the bytes do not depend on a client. `format=json` returns the same object for a client that would
+/// rather render it itself.
+///
+/// A view whose stored document this build cannot read is printed as unreadable rather than as a shelf with
+/// no filters — "I cannot read this" and "this has no filters" are different claims, and only the first is
+/// true.
+async fn shelf_documents(
+    State(state): State<AppState>,
+    RequireActorScoped { actor }: RequireActorScoped,
+    headers: axum::http::HeaderMap,
+    Query(params): Query<ShelfDocumentParams>,
+) -> ApiResult<axum::response::Response> {
+    // `library.read`: the same verb `list_views` uses, so a timer can publish the page with a token.
+    let actor = actor.require(Scope::LibraryRead)?;
+    let rows =
+        darkhold_db::shelf_document::shelves_for_account(state.db(), &actor.account_id.to_string())
+            .await?;
+    let shelves: Vec<darkhold_domain::shelf_document::Shelf> = rows
+        .into_iter()
+        .map(|row| {
+            let query_text = darkhold_domain::shelf_document::query_text(&row.document)
+                .unwrap_or_else(|| {
+                    "(this instance cannot read the query this view stores)".to_owned()
+                });
+            darkhold_domain::shelf_document::Shelf {
+                name: row.name,
+                scope: row.scope,
+                pinned: row.pinned,
+                query_text,
+                last_changed: row.last_changed,
+                last_run: row
+                    .last_run
+                    .map(|(ran_at, seen)| darkhold_domain::shelf_document::Run { ran_at, seen }),
+            }
+        })
+        .collect();
+
+    if params
+        .format
+        .as_deref()
+        .is_some_and(|f| f.eq_ignore_ascii_case("json"))
+    {
+        return Ok(Json(serde_json::json!({ "items": shelves })).into_response());
+    }
+    let instance = headers
+        .get(axum::http::header::HOST)
+        .and_then(|value| value.to_str().ok())
+        .filter(|host| !host.is_empty())
+        .unwrap_or("this instance");
+    let document = darkhold_domain::shelf_document::render(instance, &shelves);
+    Ok((
+        [(
+            axum::http::header::CONTENT_TYPE,
+            "text/markdown; charset=utf-8",
+        )],
+        document,
+    )
+        .into_response())
+}
+
+/// The page's own query string: one optional format.
+#[derive(Debug, serde::Deserialize)]
+struct ShelfDocumentParams {
+    format: Option<String>,
 }

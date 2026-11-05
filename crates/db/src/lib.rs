@@ -113,6 +113,7 @@ pub mod storage;
 pub mod story_identity;
 pub mod syndication;
 // M45-25 (§58): keystone authors, droughts, and the routing record.
+pub mod shelf_document;
 pub mod subscriptions;
 pub mod supply;
 pub mod tag_confirmation;

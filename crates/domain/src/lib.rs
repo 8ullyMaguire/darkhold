@@ -80,6 +80,7 @@ pub mod recommendation_transparency;
 pub mod retention;
 pub mod retention_quorum;
 pub mod settings;
+pub mod shelf_document;
 pub mod similar;
 pub mod spoilers;
 pub mod stats;

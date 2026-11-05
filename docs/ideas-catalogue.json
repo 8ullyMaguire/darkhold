@@ -1,6 +1,6 @@
 {
  "generated_by": "scripts/ideas_catalogue.py",
- "count": 179,
+ "count": 178,
  "ideas": [
   {
    "why_summary": "",
@@ -279,19 +279,6 @@
    "why_summary": "-- Measured 2026-11-02 while closing M45-62, from the migrations rather than from memory: 68 identity-carrying columns sit outside the foreign-key graph, and neither gate can see 3",
    "id": "M45-65",
    "title": "both identity gates see the spellings the schema actually uses",
-   "sources": [
-    "docs/requirements.csv"
-   ],
-   "milestone": "M45",
-   "relevance": 4,
-   "because": "a requirements row exists (+4)",
-   "default_on": false,
-   "built": false
-  },
-  {
-   "why_summary": "-- Concord card '[M] Shelf documents'. Saved views and digest runs exist; nothing renders them into one readable page with provenance (query, count, last change). Publishing the qu",
-   "id": "M45-72",
-   "title": "Shelf documents",
    "sources": [
     "docs/requirements.csv"
    ],
