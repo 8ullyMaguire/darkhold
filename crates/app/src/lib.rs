@@ -30,6 +30,7 @@ pub mod imports;
 pub mod inbox;
 pub mod keys;
 pub mod library_updates;
+pub mod alerts;
 pub mod limiter;
 pub mod logging;
 pub mod longevity;
