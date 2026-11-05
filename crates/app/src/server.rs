@@ -695,6 +695,14 @@ pub fn build_router(state: AppState) -> Router {
             routes::collection_tags::router(),
             RouteClass::Write,
         ))
+        // M70-06 — the reader's own stylesheet. CSS only, and `reader_skin::check` refuses @import, remote url(),
+        // stylesheet code paths and `</style` before anything is stored.
+        .merge(module_mount(
+            &state,
+            "reader_surface",
+            routes::reader_skin::router(),
+            RouteClass::Write,
+        ))
         // §58's supply surface (M45-25): keystone authors, droughts, and the
         // routing a reader opts into. Write class — every door needs a session,
         // and routing creates a row the patronage pays against.

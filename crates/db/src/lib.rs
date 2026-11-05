@@ -27,6 +27,7 @@ pub mod catalogue_export;
 pub mod collection_tags;
 pub mod marked_for_later;
 pub mod orphan;
+pub mod reader_skin;
 pub mod whole_work;
 // M63-03: source-relative quality metrics.
 pub mod metrics;
