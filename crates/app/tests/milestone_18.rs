@@ -279,11 +279,20 @@ async fn feed_building_produces_valid_xml() {
     }];
 
     let rss = commons_feed::rss2(&meta, &entries);
-    assert!(rss.contains(r#"<rss version="2.0""#), "the root element carries the atom namespace: {rss}");
+    assert!(
+        rss.contains(r#"<rss version="2.0""#),
+        "the root element carries the atom namespace: {rss}"
+    );
     assert!(rss.contains("<title>My Feed</title>"));
     assert!(rss.contains("<item>"));
-    assert!(rss.contains("Test Story &amp; &lt;Friends&gt;"), "the title is escaped, not passed through: {rss}");
-    assert!(!rss.contains("<pubDate>"), "an undated item prints no date, or the ETag can never match again");
+    assert!(
+        rss.contains("Test Story &amp; &lt;Friends&gt;"),
+        "the title is escaped, not passed through: {rss}"
+    );
+    assert!(
+        !rss.contains("<pubDate>"),
+        "an undated item prints no date, or the ETag can never match again"
+    );
 
     let atom = commons_feed::atom(&meta, &entries);
     assert!(atom.contains(r#"<feed xmlns="http://www.w3.org/2005/Atom">"#));
@@ -291,7 +300,10 @@ async fn feed_building_produces_valid_xml() {
 
     let json = commons_feed::json_feed(&meta, &entries);
     assert!(json.contains("https://jsonfeed.org/version/1.1"));
-    assert!(!json.contains("**"), "markdown is stripped by the renderer, not by the caller");
+    assert!(
+        !json.contains("**"),
+        "markdown is stripped by the renderer, not by the caller"
+    );
 }
 
 #[tokio::test]

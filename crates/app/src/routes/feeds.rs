@@ -41,7 +41,7 @@ use serde::Deserialize;
 
 use darkhold_db::library::{self, SavedViewKind};
 
-use crate::auth::RequireActorScoped;
+use crate::auth::{MaybeSession, RequireActorScoped};
 use crate::feed_http::{self, Format};
 use crate::http::{ApiError, ApiResult};
 use crate::routes::catalogue::{self, CatalogueParams};
@@ -172,9 +172,11 @@ async fn saved_view_feed(
 
     let view = library::find_saved_view(state.db(), &account, &id)
         .await?
-        .ok_or_else(|| ApiError(AppError::NotFound {
-            resource: "saved view",
-        }))?;
+        .ok_or_else(|| {
+            ApiError(AppError::NotFound {
+                resource: "saved view",
+            })
+        })?;
 
     let entries = match view.kind {
         SavedViewKind::Library => library_items(&state, &account, &view, limit).await?,
@@ -203,6 +205,9 @@ async fn saved_view_feed(
 /// `?fandom=…&sort=new` gets the same order the page shows.
 async fn catalogue_feed(
     State(state): State<AppState>,
+    // A public route takes `MaybeSession` even when it does not personalise yet: the audience invariant is
+    // what keeps a future per-reader filter from having to change the signature under a passing test.
+    MaybeSession(_session): MaybeSession,
     Query(params): Query<FeedParams>,
     RawQuery(raw): RawQuery,
     headers: HeaderMap,
@@ -212,10 +217,11 @@ async fn catalogue_feed(
 
     // The catalogue's own parameters, minus the three the feed owns, plus the one the feed decides. Rebuilt
     // rather than mutated so the catalogue route's parser stays the only thing that defines a filter.
-    let mut rest: Vec<(String, String)> = url::form_urlencoded::parse(raw.unwrap_or_default().as_bytes())
-        .filter(|(key, _)| key != "format" && key != "limit" && key != "token")
-        .map(|(key, value)| (key.into_owned(), value.into_owned()))
-        .collect();
+    let mut rest: Vec<(String, String)> =
+        url::form_urlencoded::parse(raw.unwrap_or_default().as_bytes())
+            .filter(|(key, _)| key != "format" && key != "limit" && key != "token")
+            .map(|(key, value)| (key.into_owned(), value.into_owned()))
+            .collect();
     rest.push(("limit".to_owned(), limit.to_string()));
     let query = url::form_urlencoded::Serializer::new(String::new())
         .extend_pairs(&rest)

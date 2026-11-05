@@ -1127,6 +1127,13 @@ pub const ROUTE_TABLE: &[RouteEntry] = &[
         audience: Audience::Operator,
     },
     RouteEntry {
+        file: "feeds.rs",
+        handler: "catalogue_feed",
+        method: "GET",
+        path: "/catalogue/feed",
+        audience: Audience::Public,
+    },
+    RouteEntry {
         file: "finder.rs",
         handler: "list",
         method: "GET",
