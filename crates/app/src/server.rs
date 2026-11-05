@@ -630,6 +630,14 @@ pub fn build_router(state: AppState) -> Router {
             routes::trends::router(),
             RouteClass::Default,
         ))
+        // M45-37 — stable identifiers: identity over location. Public reads (an ISBN on a work is a
+        // catalogue claim), contributor writes, and the same catalogue gate as the rows it identifies.
+        .merge(module_mount(
+            &state,
+            "catalogue",
+            routes::identifiers::router(),
+            RouteClass::Write,
+        ))
         // §58's supply surface (M45-25): keystone authors, droughts, and the
         // routing a reader opts into. Write class — every door needs a session,
         // and routing creates a row the patronage pays against.

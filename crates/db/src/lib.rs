@@ -56,6 +56,7 @@ pub mod flow_store;
 pub mod generated_content;
 pub mod governance;
 pub mod hit_rate;
+pub mod identifier;
 pub mod identity;
 pub mod imports;
 pub mod instance_taste_settings;

@@ -44,6 +44,7 @@ pub mod feeds;
 pub mod flows;
 pub mod governance;
 pub mod health;
+pub mod identifiers;
 pub mod imports;
 pub mod inbox_proxy;
 pub mod inventory;
