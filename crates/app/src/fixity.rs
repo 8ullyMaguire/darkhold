@@ -252,6 +252,24 @@ pub struct Report {
 ///
 /// The newest run decides what "now" means: an old run's findings are history, and showing them as current
 /// would make a repaired store look broken forever.
+/// One row of `fixity_runs`, in column order.
+///
+/// A named type because clippy is right: an eleven-tuple in a `let` is unreadable at the call site and
+/// the compiler cannot tell you which field moved when one does.
+type FixityRunRow = (
+    String,
+    String,
+    Option<String>,
+    i64,
+    i64,
+    i64,
+    i64,
+    i64,
+    i64,
+    i64,
+    Option<String>,
+);
+
 ///
 /// # Errors
 /// As the underlying queries.
@@ -264,19 +282,7 @@ pub async fn latest_report(db: &Database) -> Result<Report> {
                 complete, error
            FROM fixity_runs ORDER BY seq DESC LIMIT 1",
     );
-    let row: Option<(
-        String,
-        String,
-        Option<String>,
-        i64,
-        i64,
-        i64,
-        i64,
-        i64,
-        i64,
-        i64,
-        Option<String>,
-    )> = match db.backend() {
+    let row: Option<FixityRunRow> = match db.backend() {
         Backend::Sqlite => {
             sqlx::query_as(&sql)
                 .fetch_optional(db.sqlite_pool().expect("sqlite handle"))
@@ -311,7 +317,15 @@ pub async fn latest_report(db: &Database) -> Result<Report> {
         "SELECT checksum, storage_key, kind, expected_bytes, actual_bytes, actual_checksum, noted_at \
            FROM fixity_drift WHERE run_id = $1 ORDER BY kind, checksum",
     );
-    type DriftTuple = (String, String, String, i64, Option<i64>, Option<String>, String);
+    type DriftTuple = (
+        String,
+        String,
+        String,
+        i64,
+        Option<i64>,
+        Option<String>,
+        String,
+    );
     let drift: Vec<DriftTuple> = match db.backend() {
         Backend::Sqlite => {
             sqlx::query_as::<_, DriftTuple>(&drift_sql)
@@ -342,7 +356,15 @@ pub async fn latest_report(db: &Database) -> Result<Report> {
         drift: drift
             .into_iter()
             .map(
-                |(checksum, storage_key, kind, expected_bytes, actual_bytes, actual_checksum, noted_at)| {
+                |(
+                    checksum,
+                    storage_key,
+                    kind,
+                    expected_bytes,
+                    actual_bytes,
+                    actual_checksum,
+                    noted_at,
+                )| {
                     DriftRow {
                         checksum,
                         storage_key,

@@ -25,7 +25,8 @@ async fn store_three(db: &TestDb) -> (BlobStore, Vec<String>) {
 
 #[tokio::test]
 async fn a_clean_store_scans_clean() {
-    let db = TestDb::connect_with_dir("fixity-clean", &test_support::scratch_dir("fixity-clean")).await;
+    let db =
+        TestDb::connect_with_dir("fixity-clean", &test_support::scratch_dir("fixity-clean")).await;
     let (store, _checksums) = store_three(&db).await;
 
     let summary = darkhold_app::fixity::scan(db.db(), &store, 1 << 20)
@@ -40,7 +41,8 @@ async fn a_clean_store_scans_clean() {
 
 #[tokio::test]
 async fn one_flipped_byte_is_caught_and_named() {
-    let db = TestDb::connect_with_dir("fixity-flip", &test_support::scratch_dir("fixity-flip")).await;
+    let db =
+        TestDb::connect_with_dir("fixity-flip", &test_support::scratch_dir("fixity-flip")).await;
     let (store, checksums) = store_three(&db).await;
     let victim = checksums[1].clone();
 
@@ -79,7 +81,11 @@ async fn one_flipped_byte_is_caught_and_named() {
 
 #[tokio::test]
 async fn a_deleted_file_is_a_missing_finding_not_an_error() {
-    let db = TestDb::connect_with_dir("fixity-missing", &test_support::scratch_dir("fixity-missing")).await;
+    let db = TestDb::connect_with_dir(
+        "fixity-missing",
+        &test_support::scratch_dir("fixity-missing"),
+    )
+    .await;
     let (store, checksums) = store_three(&db).await;
     std::fs::remove_file(store.path_for(&checksums[2])).expect("delete blob");
 
@@ -97,7 +103,11 @@ async fn a_deleted_file_is_a_missing_finding_not_an_error() {
 
 #[tokio::test]
 async fn restoring_the_bytes_clears_the_next_run_and_keeps_the_history() {
-    let db = TestDb::connect_with_dir("fixity-restore", &test_support::scratch_dir("fixity-restore")).await;
+    let db = TestDb::connect_with_dir(
+        "fixity-restore",
+        &test_support::scratch_dir("fixity-restore"),
+    )
+    .await;
     let (store, checksums) = store_three(&db).await;
     let victim = checksums[0].clone();
     let path = store.path_for(&victim);
@@ -123,7 +133,11 @@ async fn restoring_the_bytes_clears_the_next_run_and_keeps_the_history() {
     let report = darkhold_app::fixity::latest_report(db.db())
         .await
         .expect("report");
-    assert_eq!(report.drift.len(), 0, "the newest run has nothing to report");
+    assert_eq!(
+        report.drift.len(),
+        0,
+        "the newest run has nothing to report"
+    );
 
     // The old finding still exists, under the old run: "corrupt on Tuesday, clean on Wednesday".
     let old = db
@@ -138,7 +152,8 @@ async fn restoring_the_bytes_clears_the_next_run_and_keeps_the_history() {
 
 #[tokio::test]
 async fn a_budget_that_runs_out_says_so() {
-    let db = TestDb::connect_with_dir("fixity-budget", &test_support::scratch_dir("fixity-budget")).await;
+    let db = TestDb::connect_with_dir("fixity-budget", &test_support::scratch_dir("fixity-budget"))
+        .await;
     let (store, _checksums) = store_three(&db).await;
 
     // A five-byte budget buys exactly one five-byte blob, and then the pass must stop and say so. The first
