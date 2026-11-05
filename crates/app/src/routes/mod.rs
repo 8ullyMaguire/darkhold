@@ -43,6 +43,7 @@ pub mod flows;
 pub mod governance;
 pub mod health;
 pub mod imports;
+pub mod inbox_proxy;
 pub mod inventory;
 pub mod jobs;
 pub mod lending;

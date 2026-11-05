@@ -32,6 +32,9 @@ reqwest = { version = "0.12", default-features = false, features = [
     "rustls-tls",
     "http2",
     "json",
+    # The inbox stream is a body that never ends: without `stream` there is no `bytes_stream()` to pass
+    # through, and the only alternative is collecting it forever (measured: the compiler says so).
+    "stream",
 ] }
 # The taste service authenticates a product with an HMAC over sub/exp/method/path — the same construction
 # `polaris-taste/src/assertion.rs` verifies (ADR 0001, W3 §10).

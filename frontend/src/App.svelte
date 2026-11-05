@@ -26,6 +26,7 @@ import { Button } from '@polaris/ui';
   import Community from './routes/Community.svelte';
   import Docs from './routes/Docs.svelte';
   import DocsSearch from './lib/components/DocsSearch.svelte';
+  import InboxBell from './lib/components/InboxBell.svelte';
   import ForumCategory from './routes/ForumCategory.svelte';
   import ForumSearch from './routes/ForumSearch.svelte';
   import ForumTopic from './routes/ForumTopic.svelte';
@@ -416,6 +417,9 @@ import { Button } from '@polaris/ui';
     -->
     <div class="controls">
       {#if session.isSignedIn}
+        <!-- The estate's one inbox (W4). Anonymous visitors have no bell: there is nothing to count, and a
+             control that only ever says zero teaches people to ignore it. -->
+        <InboxBell />
         <!--
           Identity (Milestone 2). The switcher itself lives on the pages where a
           pseud is chosen; the header says which face is acting, so a writer is

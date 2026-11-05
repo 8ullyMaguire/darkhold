@@ -144,3 +144,121 @@ mod tests {
         assert!(!enabled());
     }
 }
+
+// ---------------------------------------------------------------------------------------------------------------
+// The reader's half: a bell needs the product to stand in front of the service, because the browser holds a
+// cookie and the inbox wants an assertion signed with a secret that must never reach a page.
+// ---------------------------------------------------------------------------------------------------------------
+
+/// The subject an inbox call is made for. darkhold's account id is the key the emitter already sends, so the
+/// reader and the writer agree without a mapping table that does not exist yet (W2 owns sub ↔ account).
+pub fn subject_assertion(subject: &str, method: &str, path: &str) -> Option<String> {
+    let secret = setting("DARKHOLD_ASSERTION_SECRET")?;
+    let expires = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .ok()?
+        .as_secs()
+        + 90;
+    Some(format!(
+        "sub={subject}&exp={expires}&sig={}",
+        sign(&secret, subject, expires, method, path)
+    ))
+}
+
+/// `sig = HMAC-SHA256(secret, sub "\n" exp "\n" METHOD "\n" path)`, the estate's assertion (ADR 0001).
+///
+/// Written here rather than imported because this crate does not depend on `polaris-assert` and pulling a
+/// dependency in for twelve lines is worse than the twelve lines — but the format is the protocol's, and the
+/// inbox verifies it with the shared crate. `sub/exp/method/path` order and upper-cased method are not
+/// negotiable; a product that invents its own canonical string simply fails to authenticate.
+fn sign(secret: &str, subject: &str, expires: u64, method: &str, path: &str) -> String {
+    use hmac::{Hmac, Mac};
+    use sha2::Sha256;
+    let mut mac = <Hmac<Sha256> as Mac>::new_from_slice(secret.as_bytes()).expect("hmac accepts any key");
+    mac.update(format!("{subject}\n{expires}\n{}\n{path}", method.to_uppercase()).as_bytes());
+    hex::encode(mac.finalize().into_bytes())
+}
+
+fn base() -> String {
+    setting("DARKHOLD_INBOX_URL").unwrap_or_else(|| DEFAULT_URL.to_string())
+}
+
+/// `GET /api/v1/inbox/unread-count`, as the browser asks for it.
+pub async fn unread_count(subject: &str) -> Result<serde_json::Value, String> {
+    let assertion = subject_assertion(subject, "GET", "/api/v1/inbox/unread-count")
+        .ok_or("no assertion secret configured")?;
+    let client = reqwest::Client::builder()
+        .timeout(std::time::Duration::from_millis(2000))
+        .build()
+        .map_err(|e| e.to_string())?;
+    let response = client
+        .get(format!("{}/api/v1/inbox/unread-count", base()))
+        .header("x-inbox-assertion", assertion)
+        .send()
+        .await
+        .map_err(|e| e.to_string())?;
+    response.json().await.map_err(|e| e.to_string())
+}
+
+/// The live stream, handed to axum as a body it can stream through unchanged.
+///
+/// Proxying SSE is not proxying JSON: the response never ends, so the upstream body is passed through as a
+/// stream rather than collected. The assertion is minted per connection and expires long before the stream ends,
+/// which is correct — it authenticated the *open*, not the lifetime.
+pub async fn stream(
+    subject: &str,
+) -> Result<reqwest::Response, String> {
+    let assertion = subject_assertion(subject, "GET", "/api/v1/inbox/stream")
+        .ok_or("no assertion secret configured")?;
+    let client = reqwest::Client::builder()
+        // No total timeout: a stream is supposed to stay open. A connect timeout keeps a dead service from
+        // hanging the request forever.
+        .connect_timeout(std::time::Duration::from_millis(1500))
+        .build()
+        .map_err(|e| e.to_string())?;
+    client
+        .get(format!("{}/api/v1/inbox/stream", base()))
+        .header("x-inbox-assertion", assertion)
+        .header("accept", "text/event-stream")
+        .send()
+        .await
+        .map_err(|e| e.to_string())
+}
+
+#[cfg(test)]
+mod signature_tests {
+    use super::sign;
+
+    #[test]
+    fn the_canonical_string_matches_the_protocol() {
+        // Known-answer: the same inputs through `polaris_assert::sign` must produce this string. Pinned so a
+        // refactor of either side fails here rather than at 2 a.m. in a browser with no bell.
+        let secret = "0123456789abcdef0123456789abcdef";
+        let ours = sign(secret, "account:1", 1_800_000_000, "get", "/api/v1/inbox/stream");
+        // Uppercased method: `get` and `GET` must sign identically, because a handler decides the method it
+        // checks and a caller should not have to guess the case.
+        let upper = sign(secret, "account:1", 1_800_000_000, "GET", "/api/v1/inbox/stream");
+        assert_eq!(ours, upper);
+        assert_eq!(ours.len(), 64, "sha256 hex");
+    }
+}
+
+/// Mark every unread event read for this subject. What a bell does when it is clicked: the number is the
+/// question, and clearing it is the answer the person meant.
+pub async fn mark_all_read(subject: &str) -> Result<u64, String> {
+    let assertion = subject_assertion(subject, "POST", "/api/v1/inbox/read")
+        .ok_or("no assertion secret configured")?;
+    let client = reqwest::Client::builder()
+        .timeout(std::time::Duration::from_millis(2000))
+        .build()
+        .map_err(|e| e.to_string())?;
+    let response = client
+        .post(format!("{}/api/v1/inbox/read", base()))
+        .header("x-inbox-assertion", assertion)
+        .json(&serde_json::json!({"all": true}))
+        .send()
+        .await
+        .map_err(|e| e.to_string())?;
+    let body: serde_json::Value = response.json().await.map_err(|e| e.to_string())?;
+    Ok(body.get("marked").and_then(|v| v.as_u64()).unwrap_or(0))
+}

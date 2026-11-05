@@ -425,7 +425,7 @@ pub fn build_router(state: AppState) -> Router {
         .merge(module_mount(
             &state,
             "search",
-            routes::search::router(),
+            routes::search::router().merge(routes::inbox_proxy::router()),
             RouteClass::Default,
         ))
         .merge(module_mount(
