@@ -951,6 +951,12 @@ pub fn build_router(state: AppState) -> Router {
         ))
         .merge(module_mount(
             &state,
+            "admin_fixity",
+            routes::admin_fixity::router(),
+            RouteClass::Default,
+        ))
+        .merge(module_mount(
+            &state,
             "operator_hit_rate",
             routes::operator_hit_rate::router(),
             RouteClass::Default,
