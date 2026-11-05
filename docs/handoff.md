@@ -58,6 +58,13 @@ both engines; `gate.sh dialects` is a static linter and passes statements that h
 
 **The gate every row above is measured at:** `gate.sh all` **8/8 at `04e3bab6`**, 322 suites ok / 0 failed (the merged tree's own repairs are in the four commits before it).
 
+**After that sha the deploy lineage added two commits** (`85aa409a` reading-order tie-break, `101fda14`
+`estate_bundle` export), merged locally at `5576fdb1`. Those three commits are verified by the gates that can
+see them — `fmt` clean, `clippy --workspace --all-targets` exit 0, `dialects` ok, `ledger` ok, `repo` ok, and
+the suites they touch (`unit_order_stability` on both engines, `exports`) — but **no full 8/8 has been run on
+`7a73c827`**. Run `bash scripts/gate.sh all` once before the next row, and treat any red there as the merged
+lineage's, not as a regression in the rows above.
+
 **Next three:** **M45-65**
 (the identity-gate inventory — do not "fix" it blind, it turns red until all 68 columns carry a treatment
 read off their writer), then the M63 power-user block, whose rows unblock most of the remaining CLI work.
