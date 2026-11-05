@@ -114,7 +114,7 @@
     padding: 0 0.25rem;
     border-radius: 999px;
     background: var(--accent, #b4453c);
-    color: #fff;
+    color: var(--color-accent-contrast, #fff);
     font-size: 0.7rem;
     line-height: 1.05rem;
     text-align: center;
