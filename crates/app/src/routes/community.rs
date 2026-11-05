@@ -117,7 +117,7 @@ async fn get_work_comments(
 
 async fn post_comment(
     State(state): State<AppState>,
-    RequirePseud { pseud_id, .. }: RequirePseud,
+    RequirePseud { user, pseud_id }: RequirePseud,
     Path(id): Path<String>,
     Json(body): Json<CreateCommentBody>,
 ) -> ApiResult<Json<serde_json::Value>> {
@@ -221,6 +221,33 @@ async fn post_comment(
             return Err(ApiError(darkhold_domain::AppError::Internal(e)));
         }
     };
+    // W4 task 1: tell the estate's inbox a comment happened, so one bell can ring once instead of five
+    // products each owning a table. Fire-and-forget: the person who wrote the comment is waiting for it to be
+    // stored, not for a notification to be delivered.
+    if let Some(author) = author_account {
+        let actor = user.account_id.to_string();
+        let recipient = author.to_string();
+        // The author is not notified of their own comment. The inbox enforces this too; doing it here as well
+        // keeps the event honest for anything else reading the stream.
+        if recipient != actor {
+            crate::inbox::emit_in_background(
+                "darkhold",
+                crate::inbox::Event {
+                    kind: "comment".into(),
+                    recipients: vec![recipient.clone()],
+                    actor_sub: Some(actor),
+                    actor_handle: None,
+                    object_kind: Some("work".into()),
+                    object_id: Some(work_id.to_string()),
+                    object_url: Some(format!("/works/{work_id}")),
+                    object_title: None,
+                    // The comment id, not the work id: two comments on one work are two notifications.
+                    dedupe_key: format!("darkhold:comment:{id}:{recipient}"),
+                },
+            );
+        }
+    }
+
     let receipt = darkhold_domain::positivity::sender_receipt(stored.outcome);
     Ok(Json(serde_json::json!({ "id": id, "receipt": receipt })))
 }
