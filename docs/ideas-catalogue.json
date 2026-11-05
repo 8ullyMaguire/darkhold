@@ -1,6 +1,6 @@
 {
  "generated_by": "scripts/ideas_catalogue.py",
- "count": 171,
+ "count": 178,
  "ideas": [
   {
    "why_summary": "",
@@ -861,6 +861,84 @@
    "built": false
   },
   {
+   "why_summary": "AO3's Entire Work mode. The hard part is not concatenation, it is the anchor: a reader who is 40% into a 300k-word work and switches modes must land in the same place, so the ancho",
+   "id": "M70-02",
+   "title": "Whole-work reading",
+   "sources": [
+    "docs/requirements.csv"
+   ],
+   "milestone": "M70",
+   "relevance": 4,
+   "because": "a requirements row exists (+4)",
+   "default_on": false,
+   "built": false
+  },
+  {
+   "why_summary": "Every author field in this product is single-owner today (`library_items.account_id`). Co-creation needs a join table with its own state machine (invited, accepted, declined, remov",
+   "id": "M70-03",
+   "title": "Co-creators",
+   "sources": [
+    "docs/requirements.csv"
+   ],
+   "milestone": "M70",
+   "relevance": 4,
+   "because": "a requirements row exists (+4)",
+   "default_on": false,
+   "built": false
+  },
+  {
+   "why_summary": "The `restricted` audience is a fourth visibility tier, not a flag on the existing private one, because the metadata stays public. The refusal shape follows the existing rule (M59-2",
+   "id": "M70-04",
+   "title": "A work can be restricted to signed-in accounts",
+   "sources": [
+    "docs/requirements.csv"
+   ],
+   "milestone": "M70",
+   "relevance": 4,
+   "because": "a requirements row exists (+4)",
+   "default_on": false,
+   "built": false
+  },
+  {
+   "why_summary": "AO3 shipped collection tags in 2026. The distinction that makes it worth a row: a collection tag describes the collection's intent (a challenge, a ship week, a fandom event), not i",
+   "id": "M70-05",
+   "title": "Collections carry tags of their own, and collections can be browsed and filtered by those tags independently of the works inside them.",
+   "sources": [
+    "docs/requirements.csv"
+   ],
+   "milestone": "M70",
+   "relevance": 4,
+   "because": "a requirements row exists (+4)",
+   "default_on": false,
+   "built": false
+  },
+  {
+   "why_summary": "AO3 skins are per-reader CSS. Two constraints keep this from becoming an XSS surface or an exfiltration channel: the CSS is served as a static text/plain document referenced by the",
+   "id": "M70-06",
+   "title": "Reader site skins",
+   "sources": [
+    "docs/requirements.csv"
+   ],
+   "milestone": "M70",
+   "relevance": 4,
+   "because": "a requirements row exists (+4)",
+   "default_on": false,
+   "built": false
+  },
+  {
+   "why_summary": "darkhold authenticates through `polaris-oidc-client`; a factor implemented here would be a floor below the issuer's and would not protect the issuer's other sites. The row is there",
+   "id": "M70-08",
+   "title": "Step-up authentication",
+   "sources": [
+    "docs/requirements.csv"
+   ],
+   "milestone": "M70",
+   "relevance": 4,
+   "because": "a requirements row exists (+4)",
+   "default_on": false,
+   "built": false
+  },
+  {
    "why_summary": "docs/ROADMAP-guest-trust-governance.md Firewall specific to this site: reader-visible data is the guest's most valuable and most private artifact, and nothing may be published abou",
    "id": "GS-2",
    "title": "the guest fold moves reading progress and bookmarks with the guest",
@@ -946,6 +1024,19 @@
     "docs/requirements.csv"
    ],
    "milestone": "M69",
+   "relevance": 3,
+   "because": "a requirements row exists (+4); needs a model or heavy compute (-1)",
+   "default_on": false,
+   "built": false
+  },
+  {
+   "why_summary": "AO3's MFL is not a bookmark with a flag: it is private by definition, it does not appear in counts, and finishing a work removes it rather than keeping a record. Modelling it as a ",
+   "id": "M70-07",
+   "title": "Marked for Later",
+   "sources": [
+    "docs/requirements.csv"
+   ],
+   "milestone": "M70",
    "relevance": 3,
    "because": "a requirements row exists (+4); needs a model or heavy compute (-1)",
    "default_on": false,

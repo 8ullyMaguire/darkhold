@@ -1,14 +1,14 @@
 {
   "sources": {
     "requirements.csv": {
-      "rows": 895,
+      "rows": 903,
       "by_status": {
         "implemented-verified-e2e": 129,
         "implemented-locally-tested": 247,
         "unsupported": 4,
         "implemented-fully-tested": 429,
         "implemented": 8,
-        "planned": 77,
+        "planned": 85,
         "evaluated-and-rejected": 1
       }
     },
@@ -485,6 +485,54 @@
       "milestone": "M44",
       "requirement": "44 roadmap consensus an elo ranked community voted board: a public board where the community ranks feature ideas by pairwise consensus, ported from FicHub's fichub-consensus Elo design",
       "notes": "Reserved section, specified in docs/spec/44-roadmap-consensus-an-elo-ranked-community-voted.md. Registered 2026-11-02 for the same reason as M29-08: an idea the coverage gate named with no home."
+    },
+    {
+      "id": "M70-01",
+      "milestone": "M70",
+      "requirement": "Orphaning: a creator can detach a work from their account and keep it online, and deleting the account does not take the work with it. The work keeps its pseud name as a frozen string, loses its owner link, and cannot be reclaimed.",
+      "notes": "Orphaning is AO3's most distinctive promise: leaving is not deleting. The mechanism is not a soft delete but a transfer to nobody \u2014 `owner_account_id` NULL plus a frozen `orphan_label`, with the author field rendered from that label. Must be irreversible by construction: no route accepts an orphaned work back, and the account deletion path cascades to orphan rather than to delete."
+    },
+    {
+      "id": "M70-02",
+      "milestone": "M70",
+      "requirement": "Whole-work reading: a multi-chapter work can be read as one continuous document, with a stable position that survives the switch between whole and per-chapter views.",
+      "notes": "AO3's Entire Work mode. The hard part is not concatenation, it is the anchor: a reader who is 40% into a 300k-word work and switches modes must land in the same place, so the anchor is a chapter id plus an offset inside it, not a byte offset into a merged document. Note-per-chapter and end-notes placement differ between modes and are part of the contract."
+    },
+    {
+      "id": "M70-03",
+      "milestone": "M70",
+      "requirement": "Co-creators: more than one account can be credited as author of a work, with an invitation that must be accepted before a name appears, and a visibility rule that a co-creator sees the draft.",
+      "notes": "Every author field in this product is single-owner today (`library_items.account_id`). Co-creation needs a join table with its own state machine (invited, accepted, declined, removed), and the acceptance rule matters: an unaccepted credit must not put a stranger's name on a public work. Interacts with the erasure surface \u2014 a co-creator's erasure cannot orphan the other's work."
+    },
+    {
+      "id": "M70-04",
+      "milestone": "M70",
+      "requirement": "A work can be restricted to signed-in accounts: metadata visible to all, body and comments only to a session, with the refusal indistinguishable from a work that does not exist.",
+      "notes": "The `restricted` audience is a fourth visibility tier, not a flag on the existing private one, because the metadata stays public. The refusal shape follows the existing rule (M59-26): an anonymous reader learns nothing from the response that distinguishes restricted from missing."
+    },
+    {
+      "id": "M70-05",
+      "milestone": "M70",
+      "requirement": "Collections carry tags of their own, and collections can be browsed and filtered by those tags independently of the works inside them.",
+      "notes": "AO3 shipped collection tags in 2026. The distinction that makes it worth a row: a collection tag describes the collection's intent (a challenge, a ship week, a fandom event), not its contents, so it must not leak into work search or taste. Canonicalisation applies to it as to any tag, and a collection tag is not a work tag."
+    },
+    {
+      "id": "M70-06",
+      "milestone": "M70",
+      "requirement": "Reader site skins: a reader can apply their own stylesheet to the interface, scoped to their session, with the instance's own theme still authoritative and no ability to load remote resources.",
+      "notes": "AO3 skins are per-reader CSS. Two constraints keep this from becoming an XSS surface or an exfiltration channel: the CSS is served as a static text/plain document referenced by the reader's own page (never injected into another reader's response), and `@import`/`url()` to remote origins is refused at save time. Operator themes stay the default and win on tokens the skin does not override."
+    },
+    {
+      "id": "M70-07",
+      "milestone": "M70",
+      "requirement": "Marked for Later: a private, per-reader queue of works to read, distinct from bookmarks, with its own remove-on-finish behaviour and no public trace.",
+      "notes": "AO3's MFL is not a bookmark with a flag: it is private by definition, it does not appear in counts, and finishing a work removes it rather than keeping a record. Modelling it as a bookmark with `private=true` would make it show up in someone's aggregate metrics and in their taste vector, which is exactly what a reader using it expects not to happen."
+    },
+    {
+      "id": "M70-08",
+      "milestone": "M70",
+      "requirement": "Step-up authentication: a session can be asked for a second factor for sensitive actions, and the product reads the factor from the identity provider's claim rather than implementing one of its own.",
+      "notes": "darkhold authenticates through `polaris-oidc-client`; a factor implemented here would be a floor below the issuer's and would not protect the issuer's other sites. The row is therefore a consumer: sensitive routes declare the required `acr` (e.g. `2fa`), the login flow requests it, and a session that lacks it is refused with a reason that names the requirement rather than a bare 403."
     }
   ],
   "open_by_milestone": {
@@ -492,6 +540,7 @@
     "M63": 17,
     "M64": 14,
     "M45": 13,
+    "M70": 8,
     "M66": 6,
     "M65": 1,
     "M29": 1,
