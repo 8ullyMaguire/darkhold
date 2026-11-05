@@ -87,6 +87,7 @@ pub mod stats;
 pub mod subscriptions;
 pub mod taste_brief;
 pub mod taste_explain;
+pub mod taste_fingerprint;
 pub mod taste_vector;
 pub mod taxonomy;
 pub mod theme_window;
