@@ -44,6 +44,7 @@ pub mod finishers;
 pub mod flows;
 pub mod generated_content;
 pub mod governance;
+pub mod identifier;
 pub mod ids;
 pub mod imports;
 pub mod jobs;
