@@ -457,3 +457,110 @@ this spec that lets data leave the instance. Everything else here is either
 local or an inbound fetch. The §0.3 signal prohibition is the reason that is
 survivable, and it is worth reading once before the endpoint is written, not
 after.
+
+<!-- AUTO:planned -->
+## 77 planned rows
+
+### M69 (24)
+
+- **M69-02** — peering is suggested by cosine similarity over that fingerprint, and a colliding hardcoded filter blocks it outright
+- **M69-03** — a signed taste passport moves a reader's taste and contribution history between instances, suki and darkhold alike
+- **M69-04** — a takedown is a tombstone that survives re-import, and the importer refuses the work citing the original
+- **M69-05** — mirroring by taste similarity, with the mirror visible as attribution on the work page rather than as a silent copy
+- **M69-06** — a perceptual-hash rescue ring: after a peer dies, a work's media is recovered by hash match from survivors
+- **M69-07** — an evacuation protocol: an instance announcing shutdown exports to taste-similar peers, and says who took what
+- **M69-08** — one blend function with an interaction decay and a floor, used by every surface that ranks
+- **M69-09** — affinity is a stored 0..1 score per reader, recomputed nightly, not a per-work multiplier
+- **M69-10** — the arena ranks by Glicko-2 — deviation, volatility, a divergence flag — rather than Elo at K=32
+- **M69-11** — arena pairing prefers similar ratings with high deviation, explores occasionally, and calibrates new works without moving the global rank
+- **M69-12** — every recommendation carries a match percentage and a reason sentence a reader can check
+- **M69-13** — trust velocity: progression multiplied by taste alignment and behaviour quality, clamped, and never a demotion
+- **M69-14** — a live badge, gained and lost as taste drifts, unlike the episodic awards that already exist
+- **M69-15** — taste-gated membership: above a configured population, new readers get a probation and the floor rises with the instance
+- **M69-16** — content filtering in three layers — hardcoded, policy, taste — with overrides that carry a reason and an audit trail
+- **M69-17** — a tag assertion records who asserted it — human, source, model, community — and a model may only propose
+- **M69-18** — trope clusters with a coverage checklist, so a work knows which trope families it never names
+- **M69-19** — related tags ranked by NPMI rather than by raw co-occurrence
+- **M69-20** — a tag script: a persistent set of assertions applied to works while browsing, so gardening is a mode rather than a form
+- **M69-21** — Saved Filters: one saved view — filter, sort and blend — with a slug, subscriptions, keybind and a pinned feed
+- **M69-22** — the morning queue and the daily surprise, expressed as Saved Filters over surfaces that already exist
+- **M69-23** — an import source can carry a Saved Filter as intake policy: what this source may bring in, and what it queues
+- **M69-24** — one shared taste crate and one JSON schema set, so darkhold and suki compute blend, affinity and the passport identically
+- **M69-26** — every setting is platform default, operator override, reader personalisation — with the bounds stated once
+
+### M63 (17)
+
+- **M63-05b** — `dh rec --link epub`: a link a reader can actually download from, once this instance has a download route
+- **M63-10** — dh lib sync --since: incremental local sqlite mirror of the library and catalogue
+- **M63-11** — dh lib tag --from-csv with a per-row error report and a rollback file; dh lib diff and push --dry-run before any bulk write
+- **M63-12** — dh watch <saved-query> --exec '<cmd>' --notify ntfy|desktop|webhook: a debounced polling daemon
+- **M63-15** — dh doctor: diagnoses token scope, clock skew, TLS, DNS and API version drift, one suggested fix per problem
+- **M63-18** — Config profiles (--profile, DARKHOLD_PROFILE) with per-profile instance URL and token; dh config get/set with dotted keys
+- **M63-22** — dh admin explain-rec <work>: full feature vector and every strategy's score for one work
+- **M63-23** — dh admin backup --to - streams a consistent dump to stdout; dh admin health emits machine-readable checks with per-check exit codes
+- **M63-24** — dh bench: times the 20 canonical queries against a local or remote instance and prints a table
+- **M63-25** — dh audit --since 7d: the account owner sees every write their tokens made
+- **M63-26** — dh stats --by week --year: streaks and a shareable wrapped-style personal report for the engineering-minded reader
+- **M63-29** — dh tui: a full-screen mode of the same binary behind a feature flag, not a separate project
+- **M63-30** — dh lib --calibre <path>: read Calibre's metadata.db as a data source to seed a reading history, with no crate or RPC link to lorebook
+- **M63-32** — fandom tags cover the whole catalogue and can be ranked: backfill tags for the sb/sv/qq/ao3/ffnet estate and import the endorsement counts the tagged 
+- **M63-33** — reconcile the live database with the workspace migrations: 11 tables the migrations create are absent, 12 legacy-named tables are present
+- **M63-37** — per-source engagement is stored as the source reports it (likes, hits, replies, bookmarks) instead of one normalised `likes`, so a rate metric can be 
+- **M63-38** — the quality weights are per-operator and per-surface rather than compiled in
+
+### M64 (14)
+
+- **M64-01** — every recommendation surface has a canonical id and a field of two to four named algorithms chosen by config, and an algorithm whose data is empty ref
+- **M64-02** — impressions and the events that follow them are logged append-only per (surface, algorithm, position, item), with a sticky bucket assignment per pseud
+- **M64-03** — per-arm metrics and guardrails are computed as daily snapshots, so a promotion reads a snapshot and never the raw log at decision time
+- **M64-04** — a challenger is promoted automatically only on a sequential-test win with every guardrail in bounds, at minimum sample and after seven days, and demot
+- **M64-06** — tag_jaccard and tag_cooccurrence over the normalised tag taxonomy with synonym mapping, refused by name while no engaged row carries a tag
+- **M64-07** — crosspost_union: one story's engagement is summed across every archive it appears on, reusing M63-04's resolution rule for which copy a name means
+- **M64-08** — fandom_graph: an operator-managed adjacency map with edge weights (Worm<->Ward, Naruto<->Boruto, MCU<->616, SB<->SV culture) used by tag.cross_fandom 
+- **M64-09** — taste gravity applies at every recommendation surface as a bounded influence layer after the blend, with a per-surface strength, reordering and never 
+- **M64-10** — length, status, rating and cadence are first-class facets on every browse and search surface, and a facet whose column is null on the filtered rows sa
+- **M64-11** — co_shelving: reading lists are first-class (create, curate, publish, follow) and list co-occurrence feeds story.similar and library.because_you_shelve
+- **M64-12** — co_read: session transitions feed story.also_enjoyed, with bot and single-click traffic excluded
+- **M64-13** — engagement_overlap at reader-cluster level with k-anonymity (a minimum number of readers per cluster) and aggregation thresholds, exposing no per-read
+- **M64-14** — embedding similarity for summaries first and full text last, feature-gated on a configured AI provider and degrading to disabled rather than erroring
+- **M64-15** — the operator console lists every live experiment per surface with its numbers, allows hold, promote and preview-as-persona, and shows why each promoti
+
+### M45 (13)
+
+- **M45-39** — Instance-death protection: mutual backup, dead-man's-switch export, redirect registry
+- **M45-40** — Curator views: invited rec-bloggers publish opt-in taste-profile views
+- **M45-41** — Rec-post attribution: share links carry sharer code, both sides earn credits
+- **M45-42** — Claim your works: invite authors whose works exist as metadata
+- **M45-43** — Discord bot with rec commands, per-fandom feeds, account linking
+- **M45-44** — Sister instances: subscribe to public picks over ActivityPub
+- **M45-45** — Taste as versioned blendable object with governance mode
+- **M45-46** — Preview before apply: view-as persona preview of discover/search under proposed config
+- **M45-52** — DSA notice-and-action flow and statements of reasons
+- **M45-54** — RPF instance policy knob; Spain honor/image rights awareness
+- **M45-55** — Built-in compliance tooling: notice forms, SOR templates, DSAR export
+- **M45-58** — erasure reaches the supply routing record: §58.3 keeps a routing row forever, and GDPR erasure must still remove the account from it
+- **M45-65** — both identity gates see the spellings the schema actually uses: bare `account`, `created_by`, `pseud_id`
+
+### GS (5)
+
+- **GS-1** — guest access with consent: a reader may read before registering, and the consent gate exists before the surface it gates. The estate standard sets the
+- **GS-2** — the guest fold moves reading progress and bookmarks with the guest: progress and bookmarks are the guest's most valuable and most private artifact, so
+- **GS-3** — guest identity as a first-class pseudonym: the guest identity is a cookie-backed pseudonym that upgrades in place on registration, and it comes first 
+- **GS-4** — elastic trust from karma, not a parallel score: trust is derived from the karma terms already in this tree (karma: 99 references, trust_level: 52) rat
+- **GS-5** — a jury drawn from the eligible pool: governance decisions are made by a jury drawn from the eligible pool; cheap to fake, so it needs a test that woul
+
+### M29 (1)
+
+- **M29-08** — 29 community roadmap feature consensus: readers propose what the platform builds next, the community ranks the proposals against each other, and an op
+
+### M44 (1)
+
+- **M44-02** — 44 roadmap consensus an elo ranked community voted board: a public board where the community ranks feature ideas by pairwise consensus, ported from Fi
+
+### M65 (1)
+
+- **M65-09** — the module gate skips the per-user lookup when nobody holds an override
+
+### M66 (1)
+
+- **M66-08** — P2P local file sharing over the LAN and by direct link, with a seeding network later: a reader serves their own files to another person directly — no
