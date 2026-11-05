@@ -914,6 +914,10 @@ pub async fn request(
     )
     .await
     .map_err(transient)?;
+    // Counted when the job queue accepts the row — the product's door. Whether the worker then produces the blob
+    // is a different number (a failed job retries, and a retry is not a second export); conflating the two hides
+    // which half broke.
+    crate::metrics::export_queued();
 
     let row = repo::create_export(
         db,
@@ -1003,6 +1007,10 @@ pub async fn request_bulk(
     )
     .await
     .map_err(transient)?;
+    // Counted when the job queue accepts the row — the product's door. Whether the worker then produces the blob
+    // is a different number (a failed job retries, and a retry is not a second export); conflating the two hides
+    // which half broke.
+    crate::metrics::export_queued();
 
     let row = repo::create_export(
         db,

@@ -29,6 +29,9 @@ hex.workspace = true
 # The OIDC protocol lives in one estate crate so that four sites cannot drift on PKCE, the nonce, or the
 # authorize parameters. Path dependency until the Forgejo registry answers (see the crate's README).
 polaris-oidc-client = { path = "../../../../polaris-oidc-client" }
+# The estate's metrics registry: `/metrics` used to answer the SPA shell, so a status-code monitor believed
+# darkhold published metrics. The renderer and the content type live in polaris-core, once.
+polaris-core = { path = "../../../../polaris-core-rust" }
 # The estate's one feed renderer (rss2/atom/json_feed, XML escaping, markdown stripping). Until 2026-11-05
 # darkhold had three: this crate was unused, `darkhold_domain::feed` rendered the saved-view feed, and
 # `darkhold_domain::feeds` rendered nothing a user could see — only a test called it.

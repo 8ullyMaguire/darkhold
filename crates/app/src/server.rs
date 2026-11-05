@@ -316,6 +316,9 @@ pub async fn apply_migration_policy(
 /// limiting before we know who is asking — would give every account behind a
 /// shared address the same allowance.
 pub fn build_router(state: AppState) -> Router {
+    // Families exist from boot, not from the first event: a counter that appears after traffic is one a
+    // dashboard cannot graph across a restart.
+    crate::metrics::register();
     let config = state.config().clone();
     let cors = build_cors(&config);
 
@@ -1193,6 +1196,10 @@ pub fn build_router(state: AppState) -> Router {
             RouteClass::Default,
         ))
         .nest("/api/v1", api)
+        // `/metrics` is mounted on the ROOT router, not under `/api/v1`: a scraper asks `/metrics`, and the SPA
+        // fallback below would otherwise answer it with HTML and a 200 (measured 2026-11-05 — a status-code
+        // monitor called that "published").
+        .merge(crate::metrics::router())
         .fallback(assets::serve)
         .layer(RequestBodyLimitLayer::new(config.server.max_body_bytes))
         .layer(TimeoutLayer::with_status_code(
