@@ -58,11 +58,17 @@ impl Client {
             let Some((name, value)) = pair.split_once('=') else {
                 continue;
             };
-            self.cookies.push((name.trim().to_owned(), value.trim().to_owned()));
+            self.cookies
+                .push((name.trim().to_owned(), value.trim().to_owned()));
         }
     }
 
-    async fn request(&mut self, method: &str, uri: &str, body: Option<Value>) -> (StatusCode, Value) {
+    async fn request(
+        &mut self,
+        method: &str,
+        uri: &str,
+        body: Option<Value>,
+    ) -> (StatusCode, Value) {
         let mut builder = Request::builder()
             .method(method)
             .uri(uri)
@@ -82,10 +88,17 @@ impl Client {
             Some(v) => Body::from(v.to_string()),
             None => Body::empty(),
         };
-        let response = self.app.clone().oneshot(builder.body(body).unwrap()).await.unwrap();
+        let response = self
+            .app
+            .clone()
+            .oneshot(builder.body(body).unwrap())
+            .await
+            .unwrap();
         let status = response.status();
         self.capture(&response);
-        let bytes = axum::body::to_bytes(response.into_body(), usize::MAX).await.unwrap();
+        let bytes = axum::body::to_bytes(response.into_body(), usize::MAX)
+            .await
+            .unwrap();
         let json: Value = serde_json::from_slice(&bytes)
             .unwrap_or_else(|_| Value::String(String::from_utf8_lossy(&bytes).into_owned()));
         (status, json)
@@ -159,6 +172,9 @@ async fn the_sweep_answers_a_report_that_adds_up() {
     // rather than a repeating log.
     let (status, second) = client.request("POST", "/api/v1/alerts/run", None).await;
     assert_eq!(status, StatusCode::OK, "{second}");
-    assert_eq!(second["new"], 0, "the second sweep re-announced work: {second}");
+    assert_eq!(
+        second["new"], 0,
+        "the second sweep re-announced work: {second}"
+    );
     assert_eq!(second["checked"], 1, "{second}");
 }

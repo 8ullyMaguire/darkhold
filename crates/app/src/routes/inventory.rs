@@ -931,6 +931,13 @@ pub const ROUTE_TABLE: &[RouteEntry] = &[
     },
     RouteEntry {
         file: "library.rs",
+        handler: "run_alerts",
+        method: "POST",
+        path: "/alerts/run",
+        audience: Audience::Scoped,
+    },
+    RouteEntry {
+        file: "library.rs",
         handler: "shelf_documents",
         method: "GET",
         path: "/shelf-documents",

@@ -25,10 +25,10 @@
 use commons_feed::FeedEntry;
 use darkhold_db::library::{self, SavedViewKind};
 
+use crate::http::ApiError;
 use crate::inbox::{self, Event};
 use crate::routes::feeds;
 use crate::state::AppState;
-use crate::http::ApiError;
 
 /// How many works one view may announce in one sweep.
 pub const ALERT_CAP: usize = 20;
@@ -193,7 +193,10 @@ mod tests {
         assert_eq!(event.recipients, vec!["sub-1".to_owned()]);
         assert_eq!(event.object_kind.as_deref(), Some("work"));
         assert_eq!(event.object_id.as_deref(), Some("w-1"));
-        assert!(event.object_url.is_some(), "a bell that cannot link is a bell that annoys");
+        assert!(
+            event.object_url.is_some(),
+            "a bell that cannot link is a bell that annoys"
+        );
         // The author of a work is not the actor of an alert: nobody did this, a query matched.
         assert!(event.actor_sub.is_none());
     }

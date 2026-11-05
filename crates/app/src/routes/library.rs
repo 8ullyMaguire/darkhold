@@ -95,10 +95,10 @@ pub fn router() -> Router<AppState> {
             get(get_view).patch(patch_view).delete(delete_view_route),
         )
         .route("/saved-views/{id}/runs", post(record_view_run))
-            // W5 task 6: the same diff, run by the server, so an alert does not require the reader to be
-            // watching. A sweep of every saved view the caller owns; the report says what was checked and what
-            // was skipped rather than answering "ok".
-            .route("/alerts/run", post(run_alerts))
+        // W5 task 6: the same diff, run by the server, so an alert does not require the reader to be
+        // watching. A sweep of every saved view the caller owns; the report says what was checked and what
+        // was skipped rather than answering "ok".
+        .route("/alerts/run", post(run_alerts))
         // M45-72: the shelves as one document, with the query behind each — a shelf whose query is not
         // published is a taste nobody can argue with.
         .route("/shelf-documents", get(shelf_documents))
