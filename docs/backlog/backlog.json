@@ -3,12 +3,12 @@
     "requirements.csv": {
       "rows": 903,
       "by_status": {
-        "implemented-verified-e2e": 129,
+        "implemented-verified-e2e": 130,
         "implemented-locally-tested": 247,
         "unsupported": 4,
         "implemented-fully-tested": 429,
         "implemented": 8,
-        "planned": 85,
+        "planned": 84,
         "evaluated-and-rejected": 1
       }
     },
@@ -487,12 +487,6 @@
       "notes": "Reserved section, specified in docs/spec/44-roadmap-consensus-an-elo-ranked-community-voted.md. Registered 2026-11-02 for the same reason as M29-08: an idea the coverage gate named with no home."
     },
     {
-      "id": "M70-01",
-      "milestone": "M70",
-      "requirement": "Orphaning: a creator can detach a work from their account and keep it online, and deleting the account does not take the work with it. The work keeps its pseud name as a frozen string, loses its owner link, and cannot be reclaimed.",
-      "notes": "Orphaning is AO3's most distinctive promise: leaving is not deleting. The mechanism is not a soft delete but a transfer to nobody \u2014 `owner_account_id` NULL plus a frozen `orphan_label`, with the author field rendered from that label. Must be irreversible by construction: no route accepts an orphaned work back, and the account deletion path cascades to orphan rather than to delete."
-    },
-    {
       "id": "M70-02",
       "milestone": "M70",
       "requirement": "Whole-work reading: a multi-chapter work can be read as one continuous document, with a stable position that survives the switch between whole and per-chapter views.",
@@ -540,7 +534,7 @@
     "M63": 17,
     "M64": 14,
     "M45": 13,
-    "M70": 8,
+    "M70": 7,
     "M66": 6,
     "M65": 1,
     "M29": 1,
