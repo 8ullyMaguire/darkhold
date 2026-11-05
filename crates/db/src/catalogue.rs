@@ -130,6 +130,46 @@ impl CatalogueSort {
     }
 }
 
+/// Which text a catalogue `q` reads (M63-34).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum SearchScope {
+    /// Title, author and summary together — what a bare `q` means.
+    All,
+    Title,
+    Author,
+    Summary,
+}
+
+impl SearchScope {
+    /// Parse a `q` prefix. `None` means the colon was part of the text.
+    #[must_use]
+    pub fn parse(raw: &str) -> Option<Self> {
+        match raw.trim().to_ascii_lowercase().as_str() {
+            "title" => Some(Self::Title),
+            "author" => Some(Self::Author),
+            "summary" => Some(Self::Summary),
+            _ => None,
+        }
+    }
+
+    /// The SQL expression a `q` is matched against.
+    ///
+    /// `coalesce(summary, '')` because the column is nullable in the SQLite schema: a single null summary would
+    /// otherwise make the whole expression null, and a null never matches — so one row with no summary would
+    /// silently vanish from every search.
+    #[must_use]
+    pub fn haystack(self) -> &'static str {
+        match self {
+            Self::Title => "lower(title)",
+            Self::Author => "lower(author_text)",
+            Self::Summary => "lower(coalesce(summary, ''))",
+            Self::All => {
+                "lower(title || ' ' || coalesce(author_text, '') || ' ' || coalesce(summary, ''))"
+            }
+        }
+    }
+}
+
 /// What the caller asked for.
 #[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
 pub struct CatalogueQuery {
@@ -137,7 +177,8 @@ pub struct CatalogueQuery {
     pub source: Option<String>,
     /// Only rows with at least this many imported likes.
     pub min_likes: Option<i64>,
-    /// Case-insensitive substring over title and author.
+    /// Case-insensitive substring over title, author and summary; `title:`, `author:` and `summary:`
+    /// narrow it to one field. A colon that is not one of those is part of the text.
     pub q: Option<String>,
     /// Ordering; `None` means [`CatalogueSort::Likes`].
     pub sort: Option<CatalogueSort>,
@@ -427,12 +468,6 @@ pub async fn search(db: &Database, query: &CatalogueQuery) -> Result<Vec<Catalog
     let offset = query.offset.unwrap_or(0).max(0);
     let source = query.source.as_deref().filter(|s| !s.is_empty());
     let min_likes = query.min_likes.unwrap_or(0).max(0);
-    let needle = query
-        .q
-        .as_deref()
-        .map(str::trim)
-        .filter(|s| !s.is_empty())
-        .map(str::to_lowercase);
 
     let sort = query.sort.unwrap_or(CatalogueSort::Likes);
     let order = order_by(sort);
@@ -463,23 +498,51 @@ pub async fn search(db: &Database, query: &CatalogueQuery) -> Result<Vec<Catalog
     // docs/plans/m63-31-timestamp-normalisation.md is the record.
     let filters = filters_sql(query);
 
+    // M63-34 — which text a `q` reads.
+    //
+    // A bare `q` reads title, author and summary together; `title:`, `author:` and `summary:` narrow it to one
+    // field. One CASE expression rather than a predicate per field keeps the placeholder count fixed, which is
+    // what makes the two dialect strings below stay identical in shape.
+    let (scope, needle) = match query.q.as_deref() {
+        None => (SearchScope::All, None),
+        Some(raw) => {
+            let trimmed = raw.trim();
+            let (scope, rest) = match trimmed.split_once(':') {
+                Some((field, value)) if SearchScope::parse(field).is_some() => (
+                    SearchScope::parse(field).unwrap_or(SearchScope::All),
+                    value.trim().to_owned(),
+                ),
+                // A colon that is not a known field is part of the text: `Star Wars: A New Hope` must not lose
+                // its title to a scope that does not exist.
+                _ => (SearchScope::All, trimmed.to_owned()),
+            };
+            if rest.is_empty() {
+                // `summary:` with nothing after it cannot match anything, and returning everything would look
+                // like the scope was ignored. The caller gets an empty page and can see the query was incomplete.
+                return Ok(Vec::new());
+            }
+            (scope, Some(rest.to_lowercase()))
+        }
+    };
+    let haystack = scope.haystack();
+
     let base_sqlite = format!(
         "SELECT {columns_sqlite} FROM library_items \
          WHERE (? IS NULL OR source_key = ?) \
            AND likes >= ? \
-           AND (? IS NULL OR lower(title) LIKE '%' || ? || '%' \
-                          OR lower(author_text) LIKE '%' || ? || '%'){windows_sqlite} \
+           AND (? IS NULL OR {haystack} LIKE '%' || ? || '%'){windows_sqlite} \
          ORDER BY {order} LIMIT ? OFFSET ?",
-        windows_sqlite = filters.sqlite
+        windows_sqlite = filters.sqlite,
+        haystack = haystack
     );
     let base_pg = format!(
         "SELECT {columns_pg} FROM library_items \
          WHERE (?::text IS NULL OR source_key = ?::text) \
            AND likes >= ? \
-           AND (?::text IS NULL OR lower(title) LIKE '%' || ?::text || '%' \
-                          OR lower(author_text) LIKE '%' || ?::text || '%'){windows_pg} \
+           AND (?::text IS NULL OR {haystack} LIKE '%' || ?::text || '%'){windows_pg} \
          ORDER BY {order} LIMIT ? OFFSET ?",
-        windows_pg = filters.postgres
+        windows_pg = filters.postgres,
+        haystack = haystack
     );
     let sql = sql_owned(db, base_sqlite, base_pg);
 
@@ -492,12 +555,11 @@ pub async fn search(db: &Database, query: &CatalogueQuery) -> Result<Vec<Catalog
             min_likes,
             needle.map(str::to_owned),
             needle.map(str::to_owned),
-            needle.map(str::to_owned),
             limit,
             offset,
         )
     };
-    let (b1, b2, b3, b4, b5, b6, b7, b8) = bind_all(source, needle.as_deref());
+    let (b1, b2, b3, b4, b5, b6, b7) = bind_all(source, needle.as_deref());
     // Window placeholders sit in the WHERE clause, so their binds come before
     // LIMIT/OFFSET in both engines' positional order.
     let windows_binds = filters.binds.clone();
@@ -509,14 +571,14 @@ pub async fn search(db: &Database, query: &CatalogueQuery) -> Result<Vec<Catalog
                 .bind(b2)
                 .bind(b3)
                 .bind(b4)
-                .bind(b5)
-                .bind(b6);
+                .bind(b5);
             for value in &windows_binds {
                 q = q.bind(value.clone());
             }
+            // limit/offset come after the window placeholders, because they are at the end of the statement.
             let rows: Vec<CatalogueRow> = q
+                .bind(b6)
                 .bind(b7)
-                .bind(b8)
                 .fetch_all(db.sqlite_pool().expect("sqlite handle"))
                 .await?;
             Ok(rows)
@@ -527,14 +589,14 @@ pub async fn search(db: &Database, query: &CatalogueQuery) -> Result<Vec<Catalog
                 .bind(b2)
                 .bind(b3)
                 .bind(b4)
-                .bind(b5)
-                .bind(b6);
+                .bind(b5);
             for value in &windows_binds {
                 q = q.bind(value.clone());
             }
+            // limit/offset come after the window placeholders, because they are at the end of the statement.
             let rows: Vec<CatalogueRow> = q
+                .bind(b6)
                 .bind(b7)
-                .bind(b8)
                 .fetch_all(db.postgres_pool().expect("postgres handle"))
                 .await?;
             Ok(rows)
