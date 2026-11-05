@@ -52,6 +52,7 @@ pub mod exports;
 pub mod external;
 pub mod external_seed;
 pub mod federation;
+pub mod finder;
 pub mod flow_store;
 pub mod generated_content;
 pub mod governance;

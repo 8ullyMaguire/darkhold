@@ -638,6 +638,14 @@ pub fn build_router(state: AppState) -> Router {
             routes::identifiers::router(),
             RouteClass::Write,
         ))
+        // M45-34 — fic-finder bounties. Reads are public (an offer nobody can see is answered by nobody); the
+        // writes that move credits are session-scoped and asker-only inside the handlers.
+        .merge(module_mount(
+            &state,
+            "collaborators",
+            routes::finder::router(),
+            RouteClass::Write,
+        ))
         // §58's supply surface (M45-25): keystone authors, droughts, and the
         // routing a reader opts into. Write class — every door needs a session,
         // and routing creates a row the patronage pays against.

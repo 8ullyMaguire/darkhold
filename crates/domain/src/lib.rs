@@ -40,6 +40,7 @@ pub mod external_seed;
 pub mod fairqueue;
 pub mod feed;
 pub mod feeds;
+pub mod finder;
 pub mod finishers;
 pub mod flows;
 pub mod generated_content;
