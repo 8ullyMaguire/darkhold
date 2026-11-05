@@ -744,6 +744,7 @@ so the count can only go down and every fix is visible.**
 | `credit_holds` | written, never read | the row is written on every event and read by nothing |
 | `dmca_takedowns` | written, never read | the row is written on every event and read by nothing |
 | `encryption_keys` | written, never read | the row is written on every event and read by nothing |
+| `work_ratings` | read, never written | migration 0129's arena ladder. A reader still asks it for a work's standing; the writes belong to the `polaris-taste` service that now keeps the ladder (ADR 0001), so on a fresh instance the table is empty and the reader falls back. Kept so an instance migrated from the pre-move ladder does not lose its rating history |
 | `exchange_signal_entities` | written, never read | the row is written on every event and read by nothing |
 | `federation_inbound` | written, never read | the row is written on every event and read by nothing |
 | `feed_handles` | written, never read | the row is written on every event and read by nothing |
