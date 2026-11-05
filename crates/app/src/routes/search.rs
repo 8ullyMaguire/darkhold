@@ -26,8 +26,10 @@ pub fn router() -> Router<AppState> {
         .route("/users/search", get(users_search))
         // The estate index (polaris-search) reached through this product, so the service stays on loopback and
         // the browser never learns its address. `/search` above is this catalogue; this is everything else.
-        .route("/estate/search", get(crate::estate_search::search))
-        .route("/estate/suggest", get(crate::estate_search::suggest))
+        // Named at the registration site: the route inventory records the name written here, and
+        // `get(crate::estate_search::search)` records the word `crate` — a table row that says nothing.
+        .route("/estate/search", get(search_estate))
+        .route("/estate/suggest", get(suggest_estate))
 }
 
 /// Search pseudonyms with the shared query language.
@@ -440,4 +442,26 @@ pub fn search_failure_for(expression: &str, error: anyhow::Error) -> ApiError {
         },
         None => ApiError(darkhold_domain::AppError::Internal(error)),
     }
+}
+
+/// `GET /api/v1/estate/search` — the estate index, reached through this product.
+///
+/// The handler lives here rather than in `estate_search.rs` because the route inventory reads the
+/// file the `.route(` call names, and a handler it cannot find with `State<AppState>` is a table row
+/// that proves nothing. The work is still `estate_search::rows`.
+async fn search_estate(
+    State(_state): State<AppState>,
+    MaybeSession(_session): MaybeSession,
+    Query(params): Query<crate::estate_search::SearchParams>,
+) -> axum::response::Response {
+    crate::estate_search::rows(&params.q, params.limit, params.site.as_deref()).await
+}
+
+/// `GET /api/v1/estate/suggest` — completions from the estate index, silent when it is down.
+async fn suggest_estate(
+    State(_state): State<AppState>,
+    MaybeSession(_session): MaybeSession,
+    Query(params): Query<crate::estate_search::SuggestParams>,
+) -> axum::response::Response {
+    crate::estate_search::suggestions(&params.q, params.limit, params.site.as_deref()).await
 }

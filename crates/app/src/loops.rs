@@ -26,7 +26,12 @@ fn endpoint() -> Option<(String, String)> {
 /// A person publishing a comment waits for the comment, not for a number to move. A failed award is a log line: XP
 /// can be reconciled from the ledger later, and a comment that failed because a gamification service was down is a
 /// comment that should have been saved anyway.
-pub fn award_in_background(site: &'static str, sub: String, verb: &'static str, object_key: String) {
+pub fn award_in_background(
+    site: &'static str,
+    sub: String,
+    verb: &'static str,
+    object_key: String,
+) {
     let Some((url, token)) = endpoint() else {
         return;
     };
@@ -54,8 +59,12 @@ pub fn award_in_background(site: &'static str, sub: String, verb: &'static str, 
                     }
                 }
             }
-            Ok(response) => tracing::warn!(status = %response.status(), "the loops service refused an award"),
-            Err(error) => tracing::warn!(%error, "the loops service is unreachable; the comment is unaffected"),
+            Ok(response) => {
+                tracing::warn!(status = %response.status(), "the loops service refused an award")
+            }
+            Err(error) => {
+                tracing::warn!(%error, "the loops service is unreachable; the comment is unaffected")
+            }
         }
     });
 }

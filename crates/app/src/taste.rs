@@ -149,8 +149,8 @@ impl TasteClient {
     pub fn assertion(&self, subject: &str, method: &str, path: &str, now: u64) -> String {
         let expires = now + ASSERTION_TTL;
         let message = format!("{subject}\n{expires}\n{}\n{path}", method.to_uppercase());
-        let mut mac =
-            HmacSha256::new_from_slice(self.assertion_secret.as_bytes()).expect("hmac accepts any key");
+        let mut mac = HmacSha256::new_from_slice(self.assertion_secret.as_bytes())
+            .expect("hmac accepts any key");
         mac.update(message.as_bytes());
         format!(
             "sub={subject}&exp={expires}&sig={}",
@@ -216,7 +216,10 @@ impl TasteClient {
             .http
             .post(format!("{}{BALLOTS_PATH}", self.base))
             .timeout(Duration::from_secs(4))
-            .header("x-taste-assertion", self.assertion(subject, "POST", BALLOTS_PATH, now))
+            .header(
+                "x-taste-assertion",
+                self.assertion(subject, "POST", BALLOTS_PATH, now),
+            )
             .json(&BallotBody {
                 pool: &pool,
                 judgment,
@@ -306,10 +309,22 @@ mod tests {
         assert!(one.contains("sub=account:ada"));
         assert!(one.contains(&format!("exp={}", now + ASSERTION_TTL)));
         // Same inputs, same signature: an assertion is deterministic, which is what makes it testable.
-        assert_eq!(one, client().assertion("account:ada", "POST", BALLOTS_PATH, now));
-        assert_ne!(one, client().assertion("account:bob", "POST", BALLOTS_PATH, now));
-        assert_ne!(one, client().assertion("account:ada", "GET", BALLOTS_PATH, now));
-        assert_ne!(one, client().assertion("account:ada", "POST", RATINGS_PATH, now));
+        assert_eq!(
+            one,
+            client().assertion("account:ada", "POST", BALLOTS_PATH, now)
+        );
+        assert_ne!(
+            one,
+            client().assertion("account:bob", "POST", BALLOTS_PATH, now)
+        );
+        assert_ne!(
+            one,
+            client().assertion("account:ada", "GET", BALLOTS_PATH, now)
+        );
+        assert_ne!(
+            one,
+            client().assertion("account:ada", "POST", RATINGS_PATH, now)
+        );
     }
 
     #[test]

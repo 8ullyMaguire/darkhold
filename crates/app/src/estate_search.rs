@@ -17,15 +17,12 @@
 use std::time::Duration;
 
 use axum::{
-    extract::{Query, State},
     http::StatusCode,
     response::{IntoResponse, Response},
     Json,
 };
 use serde::Deserialize;
 use serde_json::{json, Value};
-
-use crate::state::AppState;
 
 const DEFAULT_URL: &str = "http://127.0.0.1:8060";
 /// A palette that waits longer than this is a palette the reader has stopped using. Measured, not guessed: the
@@ -43,7 +40,7 @@ fn base_url() -> String {
 
 #[derive(Debug, Deserialize)]
 pub struct SuggestParams {
-    q: String,
+    pub q: String,
     #[serde(default)]
     pub limit: Option<u32>,
     /// Restrict to one site, for a caller that wants this catalogue only. Absent means the estate.
@@ -58,7 +55,9 @@ fn encode(value: &str) -> String {
     let mut out = String::with_capacity(value.len());
     for byte in value.bytes() {
         match byte {
-            b'A'..=b'Z' | b'a'..=b'z' | b'0'..=b'9' | b'-' | b'_' | b'.' | b'~' => out.push(byte as char),
+            b'A'..=b'Z' | b'a'..=b'z' | b'0'..=b'9' | b'-' | b'_' | b'.' | b'~' => {
+                out.push(byte as char)
+            }
             b' ' => out.push('+'),
             _ => out.push_str(&format!("%{byte:02X}")),
         }
@@ -84,14 +83,17 @@ async fn get(path: &str) -> Result<Value, String> {
     let status = response.status();
     let body = response.text().await.map_err(|e| format!("body: {e}"))?;
     if !status.is_success() {
-        return Err(format!("service answered {status}: {}", body.chars().take(160).collect::<String>()));
+        return Err(format!(
+            "service answered {status}: {}",
+            body.chars().take(160).collect::<String>()
+        ));
     }
     serde_json::from_str(&body).map_err(|e| format!("json: {e}"))
 }
 
 /// `GET /api/v1/estate/suggest?q=&limit=&site=` — completions from the estate index.
-pub async fn suggest(Query(params): Query<SuggestParams>) -> Response {
-    let q = params.q.trim();
+pub async fn suggestions(q: &str, limit: Option<u32>, site: Option<&str>) -> Response {
+    let q = q.trim();
     if q.is_empty() {
         return (
             StatusCode::BAD_REQUEST,
@@ -100,9 +102,9 @@ pub async fn suggest(Query(params): Query<SuggestParams>) -> Response {
             .into_response();
     }
     // Eight is the palette's own number: a list long enough to scroll is a search result wearing another name.
-    let limit = params.limit.unwrap_or(8).clamp(1, 20);
+    let limit = limit.unwrap_or(8).clamp(1, 20);
     let mut path = format!("/api/v1/search/suggest?q={}&limit={limit}", encode(q));
-    if let Some(site) = params.site.as_deref() {
+    if let Some(site) = site {
         path.push_str(&format!("&site={}", encode(site)));
     }
     match get(&path).await {
@@ -111,14 +113,18 @@ pub async fn suggest(Query(params): Query<SuggestParams>) -> Response {
         // and presses Enter. An error banner for a completion list would be noise on every keystroke.
         Err(error) => {
             tracing::warn!(error = %error, "estate suggest unavailable");
-            (StatusCode::OK, Json(json!({"data": [], "unavailable": true}))).into_response()
+            (
+                StatusCode::OK,
+                Json(json!({"data": [], "unavailable": true})),
+            )
+                .into_response()
         }
     }
 }
 
 #[derive(Debug, Deserialize)]
 pub struct SearchParams {
-    q: String,
+    pub q: String,
     #[serde(default)]
     pub limit: Option<u32>,
     #[serde(default)]
@@ -126,9 +132,8 @@ pub struct SearchParams {
 }
 
 /// `GET /api/v1/estate/search?q=&limit=&site=` — the estate's ranked rows, passed through.
-pub async fn search(State(state): State<AppState>, Query(params): Query<SearchParams>) -> Response {
-    let _ = &state;
-    let q = params.q.trim();
+pub async fn rows(q: &str, limit: Option<u32>, site: Option<&str>) -> Response {
+    let q = q.trim();
     if q.is_empty() {
         return (
             StatusCode::BAD_REQUEST,
@@ -136,9 +141,9 @@ pub async fn search(State(state): State<AppState>, Query(params): Query<SearchPa
         )
             .into_response();
     }
-    let limit = params.limit.unwrap_or(10).clamp(1, 50);
+    let limit = limit.unwrap_or(10).clamp(1, 50);
     let mut path = format!("/api/v1/search?q={}&limit={limit}", encode(q));
-    if let Some(site) = params.site.as_deref() {
+    if let Some(site) = site {
         path.push_str(&format!("&site={}", encode(site)));
     }
     match get(&path).await {

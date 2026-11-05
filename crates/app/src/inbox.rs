@@ -174,7 +174,8 @@ pub fn subject_assertion(subject: &str, method: &str, path: &str) -> Option<Stri
 fn sign(secret: &str, subject: &str, expires: u64, method: &str, path: &str) -> String {
     use hmac::{Hmac, Mac};
     use sha2::Sha256;
-    let mut mac = <Hmac<Sha256> as Mac>::new_from_slice(secret.as_bytes()).expect("hmac accepts any key");
+    let mut mac =
+        <Hmac<Sha256> as Mac>::new_from_slice(secret.as_bytes()).expect("hmac accepts any key");
     mac.update(format!("{subject}\n{expires}\n{}\n{path}", method.to_uppercase()).as_bytes());
     hex::encode(mac.finalize().into_bytes())
 }
@@ -205,9 +206,7 @@ pub async fn unread_count(subject: &str) -> Result<serde_json::Value, String> {
 /// Proxying SSE is not proxying JSON: the response never ends, so the upstream body is passed through as a
 /// stream rather than collected. The assertion is minted per connection and expires long before the stream ends,
 /// which is correct — it authenticated the *open*, not the lifetime.
-pub async fn stream(
-    subject: &str,
-) -> Result<reqwest::Response, String> {
+pub async fn stream(subject: &str) -> Result<reqwest::Response, String> {
     let assertion = subject_assertion(subject, "GET", "/api/v1/inbox/stream")
         .ok_or("no assertion secret configured")?;
     let client = reqwest::Client::builder()
@@ -234,10 +233,22 @@ mod signature_tests {
         // Known-answer: the same inputs through `polaris_assert::sign` must produce this string. Pinned so a
         // refactor of either side fails here rather than at 2 a.m. in a browser with no bell.
         let secret = "0123456789abcdef0123456789abcdef";
-        let ours = sign(secret, "account:1", 1_800_000_000, "get", "/api/v1/inbox/stream");
+        let ours = sign(
+            secret,
+            "account:1",
+            1_800_000_000,
+            "get",
+            "/api/v1/inbox/stream",
+        );
         // Uppercased method: `get` and `GET` must sign identically, because a handler decides the method it
         // checks and a caller should not have to guess the case.
-        let upper = sign(secret, "account:1", 1_800_000_000, "GET", "/api/v1/inbox/stream");
+        let upper = sign(
+            secret,
+            "account:1",
+            1_800_000_000,
+            "GET",
+            "/api/v1/inbox/stream",
+        );
         assert_eq!(ours, upper);
         assert_eq!(ours.len(), 64, "sha256 hex");
     }

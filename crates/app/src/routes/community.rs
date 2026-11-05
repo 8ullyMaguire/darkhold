@@ -524,7 +524,8 @@ async fn post_reply(
             // length of the transition, because it is the fallback when the inbox is unreachable — but it is a
             // fallback, not a second inbox: the list prefers the estate and says which source it used.
             if author.account_id != user.account_id {
-                let recipient = crate::inbox::canonical(state.db(), &author.account_id.to_string()).await;
+                let recipient =
+                    crate::inbox::canonical(state.db(), &author.account_id.to_string()).await;
                 let actor = crate::inbox::canonical(state.db(), &user.account_id.to_string()).await;
                 crate::inbox::emit_in_background(
                     "darkhold",

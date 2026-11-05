@@ -173,7 +173,9 @@ async fn callback(
             Err(_) => return Redirect::to("/login?oidc=invalid_response").into_response(),
         },
         None => {
-            tracing::error!("token response carried no id_token, so the attempt cannot be verified");
+            tracing::error!(
+                "token response carried no id_token, so the attempt cannot be verified"
+            );
             return Redirect::to("/login?oidc=invalid_response").into_response();
         }
     };

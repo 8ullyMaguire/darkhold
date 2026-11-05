@@ -890,6 +890,45 @@ pub const ROUTE_TABLE: &[RouteEntry] = &[
     // ------------------------------------------------------------------
     // Library — session-scoped (all reads and writes)
     // ------------------------------------------------------------------
+    // The estate index reached through this product (polaris-search behind a loopback), so the
+    // browser never learns the service's address. Public: a search box that needs a session is a
+    // search box an anonymous reader cannot use.
+    RouteEntry {
+        file: "search.rs",
+        handler: "search_estate",
+        method: "GET",
+        path: "/estate/search",
+        audience: Audience::Public,
+    },
+    RouteEntry {
+        file: "search.rs",
+        handler: "suggest_estate",
+        method: "GET",
+        path: "/estate/suggest",
+        audience: Audience::Public,
+    },
+    // The bell and its stream proxy: a session's own subject, forwarded to the estate inbox.
+    RouteEntry {
+        file: "inbox_proxy.rs",
+        handler: "unread_count",
+        method: "GET",
+        path: "/inbox/unread-count",
+        audience: Audience::Authenticated,
+    },
+    RouteEntry {
+        file: "inbox_proxy.rs",
+        handler: "stream",
+        method: "GET",
+        path: "/inbox/stream",
+        audience: Audience::Authenticated,
+    },
+    RouteEntry {
+        file: "inbox_proxy.rs",
+        handler: "mark_all_read",
+        method: "POST",
+        path: "/inbox/read",
+        audience: Audience::Authenticated,
+    },
     RouteEntry {
         file: "library.rs",
         handler: "shelf_documents",

@@ -35,8 +35,13 @@ async fn list_notifications(
 
     if let Some(body) = crate::inbox::list(&subject, 200).await {
         let items = map_inbox_rows(&body);
-        let unread = items.iter().filter(|item| !item["read"].as_bool().unwrap_or(true)).count();
-        return Ok(Json(json!({ "items": items, "unread_count": unread, "source": "estate" })));
+        let unread = items
+            .iter()
+            .filter(|item| !item["read"].as_bool().unwrap_or(true))
+            .count();
+        return Ok(Json(
+            json!({ "items": items, "unread_count": unread, "source": "estate" }),
+        ));
     }
 
     // Fallback: the local table. A bell that goes empty because a service is restarting is a bell that lies.
@@ -69,7 +74,9 @@ async fn list_notifications(
             })
         })
         .collect();
-    Ok(Json(json!({ "items": items, "unread_count": unread, "source": "local" })))
+    Ok(Json(
+        json!({ "items": items, "unread_count": unread, "source": "local" }),
+    ))
 }
 
 /// The estate row, in this product's words.
@@ -82,9 +89,15 @@ fn map_inbox_rows(body: &serde_json::Value) -> Vec<serde_json::Value> {
         .map(|rows| {
             rows.iter()
                 .map(|row| {
-                    let kind = row.get("event_type").and_then(|v| v.as_str()).unwrap_or("event");
+                    let kind = row
+                        .get("event_type")
+                        .and_then(|v| v.as_str())
+                        .unwrap_or("event");
                     let site = row.get("site").and_then(|v| v.as_str()).unwrap_or("");
-                    let object_kind = row.get("object_kind").and_then(|v| v.as_str()).unwrap_or("");
+                    let object_kind = row
+                        .get("object_kind")
+                        .and_then(|v| v.as_str())
+                        .unwrap_or("");
                     let title = row
                         .get("object_title")
                         .and_then(|v| v.as_str())
@@ -135,7 +148,10 @@ async fn read_all(
     RequireSession(user): RequireSession,
 ) -> ApiResult<StatusCode> {
     let account_id = user.account_id.to_string();
-    if crate::inbox::mark_all_read(&crate::inbox::canonical(state.db(), &account_id).await).await.is_ok() {
+    if crate::inbox::mark_all_read(&crate::inbox::canonical(state.db(), &account_id).await)
+        .await
+        .is_ok()
+    {
         return Ok(StatusCode::NO_CONTENT);
     }
     // The fallback also clears the local rows, so the two stores cannot disagree about what the person has seen.
@@ -160,7 +176,12 @@ async fn mark_read(
         })
     })?;
     let account_id = user.account_id.to_string();
-    if crate::inbox::mark_read(&crate::inbox::canonical(state.db(), &account_id).await, &[id.to_string()]).await {
+    if crate::inbox::mark_read(
+        &crate::inbox::canonical(state.db(), &account_id).await,
+        &[id.to_string()],
+    )
+    .await
+    {
         return Ok(StatusCode::NO_CONTENT);
     }
     darkhold_db::notifications::mark_read(state.db(), &account_id, &id.to_string())

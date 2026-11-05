@@ -16,8 +16,8 @@ use axum::{
 };
 
 use crate::auth::RequireSession;
-use crate::inbox;
 use crate::http::ApiResult;
+use crate::inbox;
 use crate::state::AppState;
 
 pub fn router() -> Router<AppState> {
@@ -27,7 +27,10 @@ pub fn router() -> Router<AppState> {
         .route("/inbox/read", post(mark_all_read))
 }
 
-async fn unread_count(State(state): State<AppState>, RequireSession(user): RequireSession) -> ApiResult<Json<serde_json::Value>> {
+async fn unread_count(
+    State(state): State<AppState>,
+    RequireSession(user): RequireSession,
+) -> ApiResult<Json<serde_json::Value>> {
     // A bell that cannot reach the inbox shows zero rather than an error: an error banner where a number
     // belongs is worse than a number that is briefly wrong.
     let subject = inbox::canonical(state.db(), &user.account_id.to_string()).await;
@@ -35,7 +38,9 @@ async fn unread_count(State(state): State<AppState>, RequireSession(user): Requi
         Ok(count) => Ok(Json(count)),
         Err(error) => {
             tracing::warn!(%error, "the inbox did not answer the unread count");
-            Ok(Json(serde_json::json!({ "total": 0, "by_site": {}, "unavailable": true })))
+            Ok(Json(
+                serde_json::json!({ "total": 0, "by_site": {}, "unavailable": true }),
+            ))
         }
     }
 }
@@ -54,22 +59,35 @@ async fn stream(State(state): State<AppState>, RequireSession(user): RequireSess
         Ok(upstream) => {
             let status = upstream.status();
             tracing::warn!(%status, "the inbox refused the stream");
-            (StatusCode::SERVICE_UNAVAILABLE, "the inbox is not streaming").into_response()
+            (
+                StatusCode::SERVICE_UNAVAILABLE,
+                "the inbox is not streaming",
+            )
+                .into_response()
         }
         Err(error) => {
             tracing::warn!(%error, "the inbox did not answer the stream");
-            (StatusCode::SERVICE_UNAVAILABLE, "the inbox is not answering").into_response()
+            (
+                StatusCode::SERVICE_UNAVAILABLE,
+                "the inbox is not answering",
+            )
+                .into_response()
         }
     }
 }
 
-async fn mark_all_read(State(state): State<AppState>, RequireSession(user): RequireSession) -> ApiResult<Json<serde_json::Value>> {
+async fn mark_all_read(
+    State(state): State<AppState>,
+    RequireSession(user): RequireSession,
+) -> ApiResult<Json<serde_json::Value>> {
     let subject = inbox::canonical(state.db(), &user.account_id.to_string()).await;
     match inbox::mark_all_read(&subject).await {
         Ok(marked) => Ok(Json(serde_json::json!({ "marked": marked }))),
         Err(error) => {
             tracing::warn!(%error, "the inbox did not accept a mark-all");
-            Ok(Json(serde_json::json!({ "marked": 0, "unavailable": true })))
+            Ok(Json(
+                serde_json::json!({ "marked": 0, "unavailable": true }),
+            ))
         }
     }
 }
