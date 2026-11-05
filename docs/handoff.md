@@ -67,6 +67,11 @@ lineage's, not as a regression in the rows above.
 
 ## A row shipped beside a concurrent session — 2026-11-05 (later)
 
+**M45-34 shipped: fic-finder bounties** (`ec1ba63c`). `finder_bounties` + `finder_proposals` (0157), money on the
+existing economy: reserve on open, CAS on accept, one payout keyed by the winning proposal, release on
+cancel/expiry. PG caught `text = uuid` in available_credits that SQLite could not. Store 4/4 both engines; live
+probe `scripts/probe-m45-34-bounties.sh` walks 40 credits → 25 reserved → 25 paid → 15 left.
+
 **M45-37 shipped: stable identifiers** (`ed2b254d`). `entity_identifiers` keyed (scheme, value) — one identifier
 names one thing, so a second claim is answered with the holder's id instead of a duplicate row. Five schemes with
 real validation (ISBN-10/13 check digits, ISRC shape, MBID uuid spellings, TMDB kind required, Wikidata Q-number);

@@ -7,8 +7,8 @@
         "implemented-locally-tested": 247,
         "unsupported": 4,
         "implemented-fully-tested": 429,
-        "implemented": 4,
-        "planned": 80,
+        "implemented": 5,
+        "planned": 79,
         "evaluated-and-rejected": 1
       }
     },
@@ -24,12 +24,6 @@
     }
   },
   "open_requirements": [
-    {
-      "id": "M45-34",
-      "milestone": "M45",
-      "requirement": "Fic Finder bounties: pay for identifying half-remembered works",
-      "notes": "Gaps review C10. Full-text search + optional semantic search + reverse media search."
-    },
     {
       "id": "M45-39",
       "milestone": "M45",
@@ -508,8 +502,8 @@
   "open_by_milestone": {
     "M69": 25,
     "M63": 18,
-    "M45": 14,
     "M64": 14,
+    "M45": 13,
     "M66": 6,
     "M65": 1,
     "M29": 1,
