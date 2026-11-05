@@ -239,6 +239,8 @@ pub const FK_FREE_ACCOUNT_COLUMNS: &[UnlinkedColumn] = &[
         treatment: Treatment::Delete, why: "§9.7.1 makes recognition episodic and personal; a badge held by an erased account is not an audit record of anything, and M47-14's table was the leak this list found" },
     UnlinkedColumn { table: "oidc_links", column: "account_id", kind: ColumnKind::Text,
         treatment: Treatment::Delete, why: "§18/W2: the row says 'this estate subject is this account'. Erasing the account and keeping the link would leave a way back in that no session, password or erase ever removed — the identity the person erased from is still claimed by a subject the estate still vouches for" },
+    UnlinkedColumn { table: "external_seeds", column: "account_id", kind: ColumnKind::Text,
+        treatment: Treatment::Delete, why: "M45-67: a list of the works a reader wants more of is one of the most personal things they can paste, and it is not an audit record of anything — erasing the account must take the list with it rather than leave it under an id that no longer resolves to anybody" },
     UnlinkedColumn { table: "module_user_state", column: "account_id", kind: ColumnKind::Text,
         treatment: Treatment::Delete, why: "M65-10: a module preference belongs to the person; the snapshot policy's `rekey_account` is a SNAPSHOT treatment (11.16.3b), not this one — live erasure deletes the account, so there is nothing to rekey to and a preference must not survive" },
 ];

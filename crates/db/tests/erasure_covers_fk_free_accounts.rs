@@ -255,8 +255,28 @@ async fn a_row_about_the_person_is_deleted() {
     .await
     .expect("insert a module preference");
 
+    // M45-67: the list of works a reader wants more of. Added to this test rather than to a new one
+    // because the question is the same one: does the generic treatment loop actually reach a table
+    // that is not in the foreign-key graph? A classified column nobody exercises is a decision, not
+    // a behaviour.
+    exec(
+        &tdb,
+        "INSERT INTO external_seeds \
+         (id, account_id, spec, title, source_key, source_url, provenance_json, created_at) \
+         VALUES ('44444444-4444-4444-4444-444444444444', ?, 'A Gamer''s Guide', 'A Gamer''s Guide', \
+                 'unknown', NULL, '{}', '2026-11-02T00:00:00Z')",
+        "INSERT INTO external_seeds \
+         (id, account_id, spec, title, source_key, source_url, provenance_json, created_at) \
+         VALUES ('44444444-4444-4444-4444-444444444444', $1, 'A Gamer''s Guide', 'A Gamer''s Guide', \
+                 'unknown', NULL, '{}', '2026-11-02T00:00:00Z')",
+        &[account],
+    )
+    .await
+    .expect("insert an external seed");
+
     assert_eq!(count(&tdb, "directory_votes", account).await, 1);
     assert_eq!(count(&tdb, "module_user_state", account).await, 1);
+    assert_eq!(count(&tdb, "external_seeds", account).await, 1);
 
     erase_account(tdb.db(), account).await.expect("erase");
 
@@ -271,6 +291,13 @@ async fn a_row_about_the_person_is_deleted() {
         0,
         "a module preference restored against an erased reader's wish is exactly what the policy \
          entry feared — delete, not rekey"
+    );
+
+    assert_eq!(
+        count(&tdb, "external_seeds", account).await,
+        0,
+        "a shelf is the most personal thing a reader pastes here: erasing the account must take it, \
+         not leave the titles under an id that no longer resolves to anybody"
     );
 
     tdb.cleanup().await;
