@@ -76,6 +76,7 @@ pub mod query_sql_user;
 pub mod quick_reactions;
 pub mod reading;
 pub mod reading_goal;
+pub mod reading_position;
 pub mod reasons;
 pub mod recommendation_transparency;
 pub mod retention;
