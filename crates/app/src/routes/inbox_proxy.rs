@@ -27,10 +27,11 @@ pub fn router() -> Router<AppState> {
         .route("/inbox/read", post(mark_all_read))
 }
 
-async fn unread_count(RequireSession(user): RequireSession) -> ApiResult<Json<serde_json::Value>> {
+async fn unread_count(State(state): State<AppState>, RequireSession(user): RequireSession) -> ApiResult<Json<serde_json::Value>> {
     // A bell that cannot reach the inbox shows zero rather than an error: an error banner where a number
     // belongs is worse than a number that is briefly wrong.
-    match inbox::unread_count(&user.account_id.to_string()).await {
+    let subject = inbox::canonical(state.db(), &user.account_id.to_string()).await;
+    match inbox::unread_count(&subject).await {
         Ok(count) => Ok(Json(count)),
         Err(error) => {
             tracing::warn!(%error, "the inbox did not answer the unread count");
@@ -39,8 +40,9 @@ async fn unread_count(RequireSession(user): RequireSession) -> ApiResult<Json<se
     }
 }
 
-async fn stream(State(_state): State<AppState>, RequireSession(user): RequireSession) -> Response {
-    match inbox::stream(&user.account_id.to_string()).await {
+async fn stream(State(state): State<AppState>, RequireSession(user): RequireSession) -> Response {
+    let subject = inbox::canonical(state.db(), &user.account_id.to_string()).await;
+    match inbox::stream(&subject).await {
         Ok(upstream) if upstream.status().is_success() => Response::builder()
             .status(StatusCode::OK)
             .header(header::CONTENT_TYPE, "text/event-stream")
@@ -61,8 +63,9 @@ async fn stream(State(_state): State<AppState>, RequireSession(user): RequireSes
     }
 }
 
-async fn mark_all_read(RequireSession(user): RequireSession) -> ApiResult<Json<serde_json::Value>> {
-    match inbox::mark_all_read(&user.account_id.to_string()).await {
+async fn mark_all_read(State(state): State<AppState>, RequireSession(user): RequireSession) -> ApiResult<Json<serde_json::Value>> {
+    let subject = inbox::canonical(state.db(), &user.account_id.to_string()).await;
+    match inbox::mark_all_read(&subject).await {
         Ok(marked) => Ok(Json(serde_json::json!({ "marked": marked }))),
         Err(error) => {
             tracing::warn!(%error, "the inbox did not accept a mark-all");

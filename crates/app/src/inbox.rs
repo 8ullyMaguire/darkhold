@@ -243,6 +243,28 @@ mod signature_tests {
     }
 }
 
+/// The estate's name for this person.
+///
+/// **The inbox is keyed by the polaris subject, not by a site's account id.** It was keyed by darkhold's account id
+/// for a day, and that made an estate-wide inbox into darkhold's inbox wearing the estate's name: a person's mail
+/// from another site could never land in the same list, because the two sites would have called them different
+/// things. `oidc_links` is where darkhold already knows the difference.
+///
+/// An account with no link keeps its own id: a person who has never signed in through polaris-id still has a
+/// bell, and a bell that goes silent because a link is missing would be worse than one keyed locally.
+pub async fn canonical(db: &darkhold_db::Database, account_id: &str) -> String {
+    match account_id.parse() {
+        Ok(id) => darkhold_db::oidc::subject_for_account(db, "polaris-id", id)
+            .await
+            .ok()
+            .flatten()
+            .unwrap_or_else(|| account_id.to_string()),
+        // An id that is not an account id is already someone's name for the person (a test subject, a
+        // migration artefact); passing it through beats inventing a lookup for it.
+        Err(_) => account_id.to_string(),
+    }
+}
+
 /// One page of this subject's inbox, mapped nowhere: the caller decides the shape.
 ///
 /// `None` means "the inbox did not answer", which is not the same as "no notifications" — the adapter uses the

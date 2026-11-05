@@ -225,8 +225,10 @@ async fn post_comment(
     // products each owning a table. Fire-and-forget: the person who wrote the comment is waiting for it to be
     // stored, not for a notification to be delivered.
     if let Some(author) = author_account {
-        let actor = user.account_id.to_string();
-        let recipient = author.to_string();
+        // Both sides resolved to the estate's name for the person, so the same comment would file under the
+        // same sender and recipient if this site were one of six rather than the only one.
+        let actor = crate::inbox::canonical(state.db(), &user.account_id.to_string()).await;
+        let recipient = crate::inbox::canonical(state.db(), &author.to_string()).await;
         // The author is not notified of their own comment. The inbox enforces this too; doing it here as well
         // keeps the event honest for anything else reading the stream.
         if recipient != actor {
@@ -518,12 +520,14 @@ async fn post_reply(
             // length of the transition, because it is the fallback when the inbox is unreachable — but it is a
             // fallback, not a second inbox: the list prefers the estate and says which source it used.
             if author.account_id != user.account_id {
+                let recipient = crate::inbox::canonical(state.db(), &author.account_id.to_string()).await;
+                let actor = crate::inbox::canonical(state.db(), &user.account_id.to_string()).await;
                 crate::inbox::emit_in_background(
                     "darkhold",
                     crate::inbox::Event {
                         kind: "reply".into(),
-                        recipients: vec![author.account_id.to_string()],
-                        actor_sub: Some(user.account_id.to_string()),
+                        recipients: vec![recipient],
+                        actor_sub: Some(actor),
                         actor_handle: None,
                         object_kind: Some("topic".into()),
                         object_id: Some(id.clone()),

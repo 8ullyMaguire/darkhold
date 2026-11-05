@@ -207,6 +207,37 @@ pub async fn signs_in_through_provider(db: &Database, account_id: AccountId) -> 
     Ok(row.is_some())
 }
 
+/// The provider's own name for this person — the polaris subject, when there is one.
+///
+/// This is the key the estate's inbox files by. A site's account id is a local nickname: two sites will always
+/// disagree about it, so mail addressed by account id can never be one person's mail.
+pub async fn subject_for_account(
+    db: &Database,
+    provider: &str,
+    account_id: AccountId,
+) -> Result<Option<String>> {
+    let sql = db.sql(
+        "SELECT subject FROM oidc_links WHERE provider = ? AND account_id = ? LIMIT 1",
+        "SELECT subject FROM oidc_links WHERE provider = $1 AND account_id = $2 LIMIT 1",
+    );
+    let account = account_id.to_string();
+    let row: Option<(String,)> = match db.backend() {
+        crate::Backend::Sqlite => sqlx::query_as(&sql)
+            .bind(provider)
+            .bind(&account)
+            .fetch_optional(db.sqlite_pool().expect("sqlite handle"))
+            .await
+            .context("asking the provider for its name for an account")?,
+        crate::Backend::Postgres => sqlx::query_as(&sql)
+            .bind(provider)
+            .bind(&account)
+            .fetch_optional(db.postgres_pool().expect("postgres handle"))
+            .await
+            .context("asking the provider for its name for an account")?,
+    };
+    Ok(row.map(|(subject,)| subject))
+}
+
 pub async fn profile_for_account(
     db: &Database,
     provider: &str,
