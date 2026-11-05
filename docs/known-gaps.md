@@ -866,3 +866,17 @@ The recurring cause in every case above is the one in `ADR 0004` and house rule
 §2.1: SQLite's untyped integers and booleans decode into anything, so a missing
 cast or a wrong bind type is invisible locally and a 500 in production. A
 PostgreSQL run is not optional.
+
+## Build: the manifest reaches outside the checkout
+
+`crates/app/Cargo.toml` names two siblings by relative path — `commons-feed` through
+`../../../../../../projects/commons` and `polaris-core` through `../../../../polaris-core-rust`. Neither exists
+in a fresh clone, so `cargo metadata` fails before a single line compiles. On cachyos both resolve through
+symlinks (`/home/projects/commons`, `~/code-local/polaris-core-rust` -> the thinkcentre copies); on thinkcentre
+they resolve through `/personal/projects` and the documents tree.
+
+This is not cosmetic: a dependency outside the checkout also means a warning in it breaks this crate's build,
+because this workspace denies warnings. It did — `polaris-core` used `Atomic::fetch_update`, renamed
+`try_update`, and darkhold refused to build. Fixed in the sibling rather than by relaxing the deny.
+
+The fix is a version field or a workspace-level dependency; a symlink is a thing somebody has to remember.
