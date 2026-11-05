@@ -10,15 +10,22 @@ csv.DictReader(open('docs/requirements.csv'))))"`.
 **The tree merged two lineages at `b5004009`** (`7cb3dbd8` deployed ← `7dbd857e` workstation, 43 commits,
 migrations 0149–0153). Two consequences a cold start must know:
 
-- The merged lineage depends on **sibling checkouts outside this repo**:
-  `crates/taste` → `../../../../polaris-eval`, `crates/app` → `../../../../polaris-oidc-client`. Both must
-  exist at `/home/alvaro/code-local/polaris-eval` and `…/polaris-oidc-client`. They went missing mid-session
-  and every cargo command died with `failed to load manifest … No such file or directory`, which reads as a
-  broken workspace. They live on thinkcentre at
-  `/home/alvaro/mnt/thinkcentre/personal/documents/code/<name>`; copy them to `~/code-local/`, do **not**
-  symlink the sshfs mount into a build tree.
-- The merged files were formatted by a different rustfmt, so `cargo fmt --all --check` was red on ten files
-  nobody had edited. Formatting them is mechanical; it is in `9a8c259f` with the route-table fix.
+- The merged lineage depends on **sibling checkouts outside this repo**, and every one of them must
+  exist or nothing builds:
+  `crates/taste` → `../../../../polaris-eval`; `crates/app` → `../../../../polaris-oidc-client`;
+  and the frontend → `file:../../../estate/ui/dist/polaris-ui-0.1.2.tgz` (the `@polaris/ui` package).
+  They live on thinkcentre at `/home/alvaro/mnt/thinkcentre/personal/documents/code/<name>`; copy them to
+  `~/code-local/…` (and the estate `ui/dist` beside them), then `pnpm install` in `frontend/`. **Copy, do not
+  symlink** an sshfs mount into a build tree. Missing, every cargo command dies with
+  `failed to load manifest … No such file or directory` and `svelte-check` reports `Cannot find module
+  '@polaris/ui'` — both read as broken source rather than a missing checkout.
+- The merged tree did not pass this repo's gates, and each refusal was real: five routes registered without
+  `ROUTE_TABLE` rows (`inbox_proxy` ×3, estate search ×2 — and the two estate handlers had to move into
+  `routes/search.rs`, because the audience test looks for `State<AppState>` in the file the `.route(` call
+  names); clippy errors under 1.99 (two `vec!`s, one complex type, and a doc comment stranded by the arena
+  removal); `reachability` refusing `work_ratings` (read, never written — its writer is the polaris-taste
+  service, ADR 0001); and one literal `#fff` in the inbox badge that the token test names. Repairs:
+  `9a8c259f`, `b4f454e8`, `e6a35785`, `04e3bab6`.
 
 **The finding of the session is a class, not a row.** Four rows had been marked
 `implemented-fully-tested` on the strength of SQLite runs. Run against a real PostgreSQL
@@ -47,9 +54,11 @@ both engines; `gate.sh dialects` is a static linter and passes statements that h
 | M45-69 | operator taste — published, not blended; season > operator > bookmarks | `ed5f8caf` |
 | M45-70 | explain my taste — five signals, distinct-work counts, switches that report what they suppressed | `c8eaa31c` |
 | M45-71 | taste brief — a shelf as deterministic markdown with the query that expresses it | `007b066a` |
-| M45-72 | shelf documents — every saved view with its query, last change, last run | see its ledger entry |
+| M45-72 | shelf documents — every saved view with its query, last change, last run | `b802adbf` |
 
-**Next three:** `M45-72`'s gate sha (the row's `gates` field is the only thing left on it), then **M45-65**
+**The gate every row above is measured at:** `gate.sh all` **8/8 at `04e3bab6`**, 322 suites ok / 0 failed (the merged tree's own repairs are in the four commits before it).
+
+**Next three:** **M45-65**
 (the identity-gate inventory — do not "fix" it blind, it turns red until all 68 columns carry a treatment
 read off their writer), then the M63 power-user block, whose rows unblock most of the remaining CLI work.
 
