@@ -82,6 +82,7 @@ pub const MAX_ARTIFACT_BYTES: u64 = 512 * 1024 * 1024;
 pub struct Converters {
     ebook_convert: Option<PathBuf>,
     pandoc: Option<PathBuf>,
+    polaris_export: Option<PathBuf>,
 }
 
 impl Converters {
@@ -91,6 +92,7 @@ impl Converters {
         Self {
             ebook_convert: which("ebook-convert"),
             pandoc: which("pandoc"),
+            polaris_export: which("polaris-export"),
         }
     }
 
@@ -100,6 +102,7 @@ impl Converters {
         match converter {
             Converter::EbookConvert => self.ebook_convert.as_deref(),
             Converter::Pandoc => self.pandoc.as_deref(),
+            Converter::PolarisExport => self.polaris_export.as_deref(),
         }
     }
 
@@ -490,6 +493,21 @@ pub async fn produce(state: &AppState, row: &ExportJob) -> Result<Artifact, Expo
         ))
     })?;
 
+    // The estate bundle is the one format whose input is not this instance's HTML. Its exporter is
+    // handed a work id and reads the database itself, so `content.md` and the reader page cannot
+    // disagree about the order of a 784-unit work (see `content::units_for_work`'s tie-break).
+    // Rendering an HTML intermediate only to ignore it would be the opposite of that promise.
+    if format == ExportFormat::EstateBundle {
+        let bytes = convert_to_bundle(state, program, converter, row).await?;
+        return Ok(Artifact {
+            bytes,
+            media_type: format.media_type().to_owned(),
+            extension: format.extension().to_owned(),
+            converter: Some(converter),
+            converter_version: state.converters().version(converter),
+        });
+    }
+
     // The converter's input is this instance's own standalone HTML: it is the
     // rendering already verified for the HTML format, and using it means a PDF
     // and an HTML export of the same work cannot disagree.
@@ -551,6 +569,15 @@ async fn convert(
     // formats rather than left to guess from extensions.
     let mut command = tokio::process::Command::new(program);
     match converter {
+        Converter::PolarisExport => {
+            // `produce` routes the bundle format to `convert_to_bundle` before reaching here, because
+            // its input is a work id rather than this instance's HTML. An error rather than a panic:
+            // a future caller that gets this wrong deserves a refused export, not a dead worker.
+            let _ = tokio::fs::remove_dir_all(&dir).await;
+            return Err(ExportFailure::Unsupported(
+                "the bundle exporter reads a work by id, not an HTML file".to_owned(),
+            ));
+        }
         Converter::EbookConvert => {
             command.arg("--quiet").arg(&input).arg(&output);
         }
@@ -616,6 +643,110 @@ async fn convert(
     let bytes = tokio::fs::read(&output)
         .await
         .map_err(|error| ExportFailure::Storage(format!("could not read the output: {error}")))?;
+    let _ = tokio::fs::remove_dir_all(&dir).await;
+    Ok(bytes)
+}
+
+// ---------------------------------------------------------------------------
+// The bundle exporter
+// ---------------------------------------------------------------------------
+
+/// Run the estate bundle exporter for one work.
+///
+/// Everything the exporter needs is passed explicitly: a fixed `--kind work`, the id from the export
+/// row, a directory this instance chose inside its own storage, `--zip`, and **the instance's own
+/// DSN** — the exporter must read the same database this service is serving, not whatever a
+/// developer's shell happens to export. No shell, no interpolation, one program.
+///
+/// The size and time guards are the same ones a converter gets, because the failure mode is the same
+/// one: a program that hangs, or one that writes a file nobody asked for.
+async fn convert_to_bundle(
+    state: &AppState,
+    program: &Path,
+    converter: Converter,
+    row: &ExportJob,
+) -> Result<Vec<u8>, ExportFailure> {
+    if row.subject_type != "work" {
+        return Err(ExportFailure::Unsupported(
+            "an estate bundle is written for a work; a library item has no site record to cite"
+                .to_owned(),
+        ));
+    }
+
+    let dir = state
+        .config()
+        .storage
+        .root
+        .join("tmp")
+        .join(format!("export-{}", MediaAssetId::new()));
+    tokio::fs::create_dir_all(&dir).await.map_err(|error| {
+        ExportFailure::Storage(format!("could not prepare a work directory: {error}"))
+    })?;
+
+    // The exporter writes `<out>.zip` and a directory beside it; `out` is this instance's path, so
+    // the file it produces is predictable without reading its stdout.
+    let out = dir.join(&row.subject_id);
+    let output = out.with_extension("zip");
+
+    let mut command = tokio::process::Command::new(program);
+    command
+        .arg("--kind")
+        .arg("work")
+        .arg("--id")
+        .arg(&row.subject_id)
+        .arg("--out")
+        .arg(&out)
+        .arg("--zip")
+        .arg("--dsn")
+        .arg(&state.config().database.url);
+    command.kill_on_drop(true);
+
+    let result = tokio::time::timeout(CONVERT_TIMEOUT, command.output()).await;
+    let outcome = match result {
+        Err(_) => {
+            let _ = tokio::fs::remove_dir_all(&dir).await;
+            return Err(ExportFailure::Storage(format!(
+                "{} took longer than {} seconds",
+                converter.binary(),
+                CONVERT_TIMEOUT.as_secs()
+            )));
+        }
+        Ok(Err(error)) => {
+            let _ = tokio::fs::remove_dir_all(&dir).await;
+            return Err(ExportFailure::Unsupported(format!(
+                "{} could not be run: {error}",
+                converter.binary()
+            )));
+        }
+        Ok(Ok(output)) => output,
+    };
+
+    if !outcome.status.success() {
+        let stderr = String::from_utf8_lossy(&outcome.stderr);
+        let tail: String = stderr.lines().rev().take(3).collect::<Vec<_>>().join("; ");
+        let _ = tokio::fs::remove_dir_all(&dir).await;
+        return Err(ExportFailure::Unsupported(format!(
+            "{} exited with {}: {tail}",
+            converter.binary(),
+            outcome.status
+        )));
+    }
+
+    let metadata = tokio::fs::metadata(&output).await.map_err(|error| {
+        ExportFailure::Storage(format!("{} produced no bundle: {error}", converter.binary()))
+    })?;
+    if metadata.len() > MAX_ARTIFACT_BYTES {
+        let _ = tokio::fs::remove_dir_all(&dir).await;
+        return Err(ExportFailure::Unsupported(format!(
+            "{} produced {} bytes, past this instance's limit",
+            converter.binary(),
+            metadata.len()
+        )));
+    }
+
+    let bytes = tokio::fs::read(&output)
+        .await
+        .map_err(|error| ExportFailure::Storage(format!("could not read the bundle: {error}")))?;
     let _ = tokio::fs::remove_dir_all(&dir).await;
     Ok(bytes)
 }

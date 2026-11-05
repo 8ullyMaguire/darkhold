@@ -51,6 +51,14 @@ pub enum ExportFormat {
     Mobi,
     /// A ZIP archive containing multiple files.
     Zip,
+    /// The estate's item bundle: `bundle.json`, `content.md`, `attachments.json`, `assets/`.
+    ///
+    /// Not rendered from this instance's HTML. The format's whole value is that `content.md` is the
+    /// canonical text with a *stated* order, and the only implementation of that guarantee today is
+    /// the estate's exporter that gate 24 exercises. Rendering it a second time here would be two
+    /// definitions of "the canonical text" and a drift nobody would notice until two archives of one
+    /// work disagreed.
+    EstateBundle,
 }
 
 /// An external program a format depends on.
@@ -60,6 +68,12 @@ pub enum Converter {
     EbookConvert,
     /// `pandoc`, which can produce a PDF but not AZW3 or MOBI.
     Pandoc,
+    /// `polaris-export`, the estate bundle exporter (`estate/tools/export_bundle.py`).
+    ///
+    /// Unlike the other two it is not handed this instance's HTML: it is handed a *work id* and reads
+    /// the database itself, because the bundle's `content.md` has to come from the same query the
+    /// reader page uses rather than from a rendering that happened to be in memory.
+    PolarisExport,
 }
 
 impl Converter {
@@ -69,6 +83,7 @@ impl Converter {
         match self {
             Self::EbookConvert => "ebook-convert",
             Self::Pandoc => "pandoc",
+            Self::PolarisExport => "polaris-export",
         }
     }
 
@@ -80,13 +95,17 @@ impl Converter {
                 "install Calibre (`ebook-convert`), which provides PDF, AZW3 and MOBI"
             }
             Self::Pandoc => "install pandoc, which provides PDF",
+            Self::PolarisExport => {
+                "install the estate bundle exporter on PATH as `polaris-export` \
+                 (`estate/tools/export_bundle.py`)"
+            }
         }
     }
 }
 
 impl ExportFormat {
     /// Every format, in spec §13.1's order.
-    pub const ALL: [Self; 7] = [
+    pub const ALL: [Self; 8] = [
         Self::PlainText,
         Self::Html,
         Self::Markdown,
@@ -94,6 +113,7 @@ impl ExportFormat {
         Self::Pdf,
         Self::Azw3,
         Self::Mobi,
+        Self::EstateBundle,
     ];
 
     /// The stored and wire representation.
@@ -112,6 +132,7 @@ impl ExportFormat {
             Self::Azw3 => "azw3",
             Self::Mobi => "mobi",
             Self::Zip => "zip",
+            Self::EstateBundle => "estate_bundle",
         }
     }
 
@@ -127,16 +148,17 @@ impl ExportFormat {
             "azw3" => Self::Azw3,
             "mobi" => Self::Mobi,
             "zip" => Self::Zip,
+            "estate_bundle" => Self::EstateBundle,
             _ => return None,
         })
     }
 
     /// Whether this build can produce the format on its own.
     ///
-    /// The four that are `true` here are always available; the three that are
-    /// `false` depend on a program the instance may not have, so an interface
-    /// asks before offering them (spec §13.1: "disable unavailable formats with
-    /// installation guidance").
+    /// The five that are `true` here are always available; the four that are
+    /// `false` (three converters plus the estate bundle) depend on a program the
+    /// instance may not have, so an interface asks before offering them (spec
+    /// §13.1: "disable unavailable formats with installation guidance").
     #[must_use]
     pub const fn is_builtin(self) -> bool {
         matches!(
@@ -158,6 +180,7 @@ impl ExportFormat {
             Self::Pdf => &[Converter::EbookConvert, Converter::Pandoc],
             Self::Azw3 | Self::Mobi => &[Converter::EbookConvert],
             Self::Zip => &[],
+            Self::EstateBundle => &[Converter::PolarisExport],
         }
     }
 
@@ -173,6 +196,7 @@ impl ExportFormat {
             Self::Azw3 => "AZW3",
             Self::Mobi => "MOBI",
             Self::Zip => "ZIP",
+            Self::EstateBundle => "Estate bundle",
         }
     }
 
@@ -201,6 +225,9 @@ impl ExportFormat {
             Self::Azw3 => "azw3",
             Self::Mobi => "mobi",
             Self::Zip => "zip",
+            // Two suffixes on purpose: a download called `work.zip` says nothing about what is inside
+            // it, and the file's whole promise is that it is a bundle a reader can open years later.
+            Self::EstateBundle => "bundle.zip",
         }
     }
 
@@ -216,6 +243,7 @@ impl ExportFormat {
             Self::Azw3 => "application/vnd.amazon.ebook",
             Self::Mobi => "application/x-mobipocket-ebook",
             Self::Zip => "application/zip",
+            Self::EstateBundle => "application/zip",
         }
     }
 }
@@ -589,6 +617,9 @@ pub fn render(
             return Err(ExportError::NeedsConverter { format })
         }
         ExportFormat::Zip => return Err(ExportError::ZipOnlyForBulk),
+        // Produced by the exporter program, never here. Reaching this arm means a caller asked the
+        // renderer for a format it does not render, which is exactly what `NeedsConverter` says.
+        ExportFormat::EstateBundle => return Err(ExportError::NeedsConverter { format }),
     })
 }
 
@@ -1388,6 +1419,35 @@ mod tests {
                 "{format:?}: {error:?}"
             );
         }
+    }
+
+    #[test]
+    fn the_estate_bundle_is_a_converter_format_with_a_zip_wire_shape() {
+        let format = ExportFormat::EstateBundle;
+
+        // The stored string is in a database column and in URLs, so it is part of the wire contract.
+        assert_eq!(format.as_str(), "estate_bundle");
+        assert_eq!(ExportFormat::parse("estate_bundle"), Some(format));
+
+        // Not built here: it is produced by the exporter program, like every other converter format.
+        assert!(!format.is_builtin());
+        assert_eq!(format.converters(), &[Converter::PolarisExport]);
+        assert_eq!(Converter::PolarisExport.binary(), "polaris-export");
+
+        // A download called `.zip` says nothing about what is in it.
+        assert_eq!(format.extension(), "bundle.zip");
+        assert_eq!(format.media_type(), "application/zip");
+
+        // Asking the renderer for it is a refusal that names the converter, not a panic and not an
+        // empty document reported as success.
+        assert_eq!(
+            render(&imported(), format, &ExportOptions::defaults()).expect_err("must refuse"),
+            ExportError::NeedsConverter { format }
+        );
+
+        // Every format is listed once, so a picker built from `ALL` cannot omit the newest one.
+        assert_eq!(ExportFormat::ALL.len(), 8);
+        assert_eq!(ExportFormat::ALL.iter().filter(|f| **f == format).count(), 1);
     }
 
     #[test]
