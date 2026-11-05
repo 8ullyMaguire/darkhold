@@ -7,8 +7,9 @@
         "implemented-locally-tested": 247,
         "unsupported": 4,
         "implemented-fully-tested": 429,
-        "planned": 84,
-        "evaluated-and-rejected": 1
+        "planned": 83,
+        "evaluated-and-rejected": 1,
+        "implemented": 1
       }
     },
     "concord": {
@@ -136,12 +137,6 @@
       "milestone": "M63",
       "requirement": "dh watch <saved-query> --exec '<cmd>' --notify ntfy|desktop|webhook: a debounced polling daemon",
       "notes": "Power-user sweep P12. The difference between a saved search and a workflow. Pluggable sinks so the notification path is not tied to one provider."
-    },
-    {
-      "id": "M63-14",
-      "milestone": "M63",
-      "requirement": "Per-saved-query RSS/Atom and JSON Feed endpoints with ETag/If-None-Match",
-      "notes": "Power-user sweep P14. The cheapest client for a power user who lives in a feed reader; conditional GET makes polling a 304 instead of a query."
     },
     {
       "id": "M63-15",
@@ -530,7 +525,7 @@
   ],
   "open_by_milestone": {
     "M69": 25,
-    "M63": 19,
+    "M63": 18,
     "M45": 17,
     "M64": 14,
     "M66": 6,

@@ -1,6 +1,6 @@
 {
  "generated_by": "scripts/ideas_catalogue.py",
- "count": 178,
+ "count": 177,
  "ideas": [
   {
    "why_summary": "",
@@ -318,19 +318,6 @@
    "why_summary": "docs/ideas/2026-11-01-idea-sweep-power-users.md Power-user sweep P11. Batch editorial work on 500 rows must be resumable and reversible; a partial failure that cannot be resumed is",
    "id": "M63-11",
    "title": "dh lib tag --from-csv with a per-row error report and a rollback file; dh lib diff and push --dry-run before any bulk write",
-   "sources": [
-    "docs/requirements.csv"
-   ],
-   "milestone": "M63",
-   "relevance": 4,
-   "because": "a requirements row exists (+4)",
-   "default_on": false,
-   "built": false
-  },
-  {
-   "why_summary": "docs/ideas/2026-11-01-idea-sweep-power-users.md Power-user sweep P14. The cheapest client for a power user who lives in a feed reader; conditional GET makes polling a 304 instead o",
-   "id": "M63-14",
-   "title": "Per-saved-query RSS/Atom and JSON Feed endpoints with ETag/If-None-Match",
    "sources": [
     "docs/requirements.csv"
    ],
