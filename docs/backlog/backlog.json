@@ -7,8 +7,8 @@
         "implemented-locally-tested": 247,
         "unsupported": 4,
         "implemented-fully-tested": 429,
-        "implemented": 3,
-        "planned": 81,
+        "implemented": 4,
+        "planned": 80,
         "evaluated-and-rejected": 1
       }
     },
@@ -29,12 +29,6 @@
       "milestone": "M45",
       "requirement": "Fic Finder bounties: pay for identifying half-remembered works",
       "notes": "Gaps review C10. Full-text search + optional semantic search + reverse media search."
-    },
-    {
-      "id": "M45-37",
-      "milestone": "M45",
-      "requirement": "Stable identifiers for media: MusicBrainz/ISRC, tracklists, Wikidata, ISBN/TMDB",
-      "notes": "Gaps review D2. Identity over location."
     },
     {
       "id": "M45-39",
@@ -514,7 +508,7 @@
   "open_by_milestone": {
     "M69": 25,
     "M63": 18,
-    "M45": 15,
+    "M45": 14,
     "M64": 14,
     "M66": 6,
     "M65": 1,

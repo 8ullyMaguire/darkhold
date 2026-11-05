@@ -1,6 +1,6 @@
 {
  "generated_by": "scripts/ideas_catalogue.py",
- "count": 175,
+ "count": 174,
  "ideas": [
   {
    "why_summary": "",
@@ -97,19 +97,6 @@
    "why_summary": "-- Gaps review C10. Full-text search + optional semantic search + reverse media search.",
    "id": "M45-34",
    "title": "Fic Finder bounties",
-   "sources": [
-    "docs/requirements.csv"
-   ],
-   "milestone": "M45",
-   "relevance": 4,
-   "because": "a requirements row exists (+4)",
-   "default_on": false,
-   "built": false
-  },
-  {
-   "why_summary": "-- Gaps review D2. Identity over location.",
-   "id": "M45-37",
-   "title": "Stable identifiers for media",
    "sources": [
     "docs/requirements.csv"
    ],

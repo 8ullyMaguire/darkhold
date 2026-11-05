@@ -67,6 +67,12 @@ lineage's, not as a regression in the rows above.
 
 ## A row shipped beside a concurrent session — 2026-11-05 (later)
 
+**M45-37 shipped: stable identifiers** (`ed2b254d`). `entity_identifiers` keyed (scheme, value) — one identifier
+names one thing, so a second claim is answered with the holder's id instead of a duplicate row. Five schemes with
+real validation (ISBN-10/13 check digits, ISRC shape, MBID uuid spellings, TMDB kind required, Wikidata Q-number);
+public reads, contributor writes; store 4/4 on **both engines**; live probe `scripts/probe-m45-37-identifiers.sh`.
+The re-run path first returned the stale row without updating provenance — a test caught it.
+
 **M45-33 shipped: specialist matchmaking** (`b21287de`). Betas, Britpickers, canon consultants, sensitivity
 readers — opt-in by the absence of a profile row, skills as rows (an indexed equality, not a `LIKE '%beta%'`
 that matches `betamax`), acceptance as compare-and-set (`WHERE state = 'open'`) so two specialists racing
