@@ -240,6 +240,8 @@ pub fn router() -> Router<AppState> {
             "/catalogue/seeds",
             post(resolve_external_seeds).get(list_external_seeds),
         )
+        // M45-71: the shelf as a document — a judgement that can be reviewed, diffed and posted.
+        .route("/catalogue/taste-brief", get(taste_brief))
 }
 
 async fn search(
@@ -1175,4 +1177,75 @@ async fn list_external_seeds(
 #[derive(Debug, serde::Deserialize)]
 struct ResolveSeedsBody {
     lines: Vec<String>,
+}
+
+/// `GET /api/v1/catalogue/taste-brief?seed=a,b&format=json` — the shelf as markdown (M45-71).
+///
+/// The bytes are deterministic: same shelf, same document. That is what makes it committable — a brief
+/// that changed on every read could not be reviewed, and this row exists so a judgement can be.
+async fn taste_brief(
+    State(state): State<AppState>,
+    MaybeSession(session): MaybeSession,
+    Query(params): Query<BriefParams>,
+) -> ApiResult<Response> {
+    const MAX_SEEDS: usize = 20;
+    let spec = params
+        .seed
+        .as_deref()
+        .map(str::trim)
+        .filter(|s| !s.is_empty())
+        .ok_or_else(|| invalid("seed: a brief is generated from works you name"))?;
+    let specs: Vec<&str> = spec
+        .split(',')
+        .map(str::trim)
+        .filter(|p| !p.is_empty())
+        .collect();
+    if specs.is_empty() {
+        return Err(invalid("seed: name at least one work"));
+    }
+    if specs.len() > MAX_SEEDS {
+        return Err(invalid(format!(
+            "seed: {} works named, and a brief takes at most {MAX_SEEDS}",
+            specs.len()
+        )));
+    }
+
+    let account = session.as_ref().map(|user| user.account_id.to_string());
+    let mut facts = Vec::with_capacity(specs.len());
+    for one in &specs {
+        let seed = resolve_one_seed(&state, one, account.as_deref()).await?;
+        let read = darkhold_db::taste_brief::facts_for_item(state.db(), &seed.id).await?;
+        facts.push(darkhold_domain::taste_brief::SeedFacts {
+            title: seed.title,
+            fandoms: read.fandoms,
+            tags: read.tags,
+        });
+    }
+    let brief = darkhold_domain::taste_brief::build(&facts);
+
+    let wants_json = params
+        .format
+        .as_deref()
+        .is_some_and(|format| format.eq_ignore_ascii_case("json"));
+    if wants_json {
+        return Ok(Json(serde_json::json!(brief)).into_response());
+    }
+    Ok((
+        [(
+            axum::http::header::CONTENT_TYPE,
+            "text/markdown; charset=utf-8",
+        )],
+        brief.markdown,
+    )
+        .into_response())
+}
+
+/// The brief's own query string: `seed` and `format`, and nothing else.
+///
+/// Deliberately not `CatalogueParams`: a brief is not a search, and sharing the struct would put `sort`
+/// and `limit` on a document that has neither.
+#[derive(Debug, serde::Deserialize)]
+struct BriefParams {
+    seed: Option<String>,
+    format: Option<String>,
 }

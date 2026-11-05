@@ -84,6 +84,7 @@ pub mod similar;
 pub mod spoilers;
 pub mod stats;
 pub mod subscriptions;
+pub mod taste_brief;
 pub mod taste_explain;
 pub mod taste_vector;
 pub mod taxonomy;
