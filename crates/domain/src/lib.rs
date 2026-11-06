@@ -34,6 +34,7 @@ pub mod draw;
 pub mod earned_bookmark;
 pub mod economy;
 pub mod error;
+pub mod experiment_promotion;
 pub mod events;
 pub mod exchange;
 pub mod exchanges;
