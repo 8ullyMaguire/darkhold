@@ -647,7 +647,7 @@ pub const IDEAS: &[Module] = &[
     Module {
         id: "M64-15",
         name: "the operator console lists every live experiment per surface with its numbers…",
-        summary: "docs/design/2026-11-01-ranking-signals-and-surfaces.md P15. Promotion is automatic (M64-04); this is the surface where the operator can disagree without editing a table. preview-as",
+        summary: "0612cdf7 P15. Promotion is automatic (M64-04); this is the surface where the operator can disagree without editing a table. preview-as-persona reuses M45-46 (preview before apply).",
         default_on: false,
         stability: Stability::Planned,
         toggle: Toggle::Operator,
