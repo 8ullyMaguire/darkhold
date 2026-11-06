@@ -1014,6 +1014,13 @@ pub const ROUTE_TABLE: &[RouteEntry] = &[
     },
     RouteEntry {
         file: "library.rs",
+        handler: "because_you_shelved",
+        method: "GET",
+        path: "/library/because-you-shelved",
+        audience: Audience::Authenticated,
+    },
+    RouteEntry {
+        file: "library.rs",
         handler: "follow_shelf",
         method: "POST",
         path: "/shelves/{id}/follow",

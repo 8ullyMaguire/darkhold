@@ -1941,6 +1941,139 @@ async fn a_shelved_reader_feed_pulls_toward_what_they_already_know() {
 }
 
 #[tokio::test]
+async fn because_you_shelved_answers_from_public_shelves_only() {
+    // M64-11's second surface. What it must not do is harder than what it must: a recommendation built on somebody's private
+    // shelf would report what they collected, so the same fixture is built twice — once public, once private — and the private
+    // one must not appear.
+    let harness = Harness::new("bys-shelves").await;
+    let mut reader = harness.reader("Shelver").await;
+    let (status, _) = reader
+        .post(
+            "/api/v1/auth/login",
+            json!({ "email": "Shelver@example.com", "password": GOOD_PASSWORD }),
+        )
+        .await;
+    assert_eq!(status, StatusCode::OK);
+    let account = account_of(&harness.db, "Shelver").await;
+    let pseud = pseud_of(&harness.db, &account.to_string()).await;
+
+    let mine = make_published_work(&harness.db, &pseud.to_string(), "Mine").await;
+    let public_peer = make_published_work(&harness.db, &pseud.to_string(), "Public peer").await;
+    let private_peer = make_published_work(&harness.db, &pseud.to_string(), "Private peer").await;
+
+    // My shelf, holding the work I shelved.
+    let my_shelf = uuid::Uuid::new_v4().to_string();
+    let my_item = uuid::Uuid::new_v4().to_string();
+    for (sqlite, postgres, binds) in [
+        (
+            "INSERT INTO shelves (id, account_id, name, created_at, updated_at, version)
+             VALUES (?, ?, 'Mine', '2026-01-01T00:00:00Z', '2026-01-01T00:00:00Z', 1)",
+            "INSERT INTO shelves (id, account_id, name, created_at, updated_at, version)
+             VALUES (?::uuid, ?::uuid, 'Mine', '2026-01-01T00:00:00Z'::timestamptz,
+                     '2026-01-01T00:00:00Z'::timestamptz, 1)",
+            vec![my_shelf.clone(), account.to_string()],
+        ),
+        (
+            "INSERT INTO library_items (id, account_id, work_id, source_key, source_work_key, title,
+                                        source_url, created_at, updated_at, version)
+             VALUES (?, ?, ?, 'manual', ?, 'Mine', 'https://example.invalid/m',
+                     '2026-01-01T00:00:00Z', '2026-01-01T00:00:00Z', 1)",
+            "INSERT INTO library_items (id, account_id, work_id, source_key, source_work_key, title,
+                                        source_url, created_at, updated_at, version)
+             VALUES (?::uuid, ?::uuid, ?::uuid, 'manual', ?, 'Mine', 'https://example.invalid/m',
+                     '2026-01-01T00:00:00Z'::timestamptz, '2026-01-01T00:00:00Z'::timestamptz, 1)",
+            vec![my_item.clone(), account.to_string(), mine.clone(), mine.clone()],
+        ),
+        (
+            "INSERT INTO shelf_items (id, shelf_id, library_item_id, created_at)
+             VALUES (?, ?, ?, '2026-01-01T00:00:00Z')",
+            "INSERT INTO shelf_items (id, shelf_id, library_item_id, created_at)
+             VALUES (?::uuid, ?::uuid, ?::uuid, '2026-01-01T00:00:00Z'::timestamptz)",
+            vec![
+                uuid::Uuid::new_v4().to_string(),
+                my_shelf.clone(),
+                my_item.clone(),
+            ],
+        ),
+    ] {
+        bind_exec(&harness.db, sqlite, postgres, &binds).await;
+    }
+
+    // Another reader's two shelves: one public with my work and a peer, one private with my work and another.
+    let other = uuid::Uuid::new_v4().to_string();
+    bind_exec(
+        &harness.db,
+        "INSERT INTO accounts (id, status, email, age_state, created_at, updated_at, version)
+         VALUES (?, 'active', 'other-shelf@example.invalid', 'adult',
+                 '2026-01-01T00:00:00Z', '2026-01-01T00:00:00Z', 1)",
+        "INSERT INTO accounts (id, status, email, age_state, created_at, updated_at, version)
+         VALUES (?::uuid, 'active', 'other-shelf@example.invalid', 'adult',
+                 '2026-01-01T00:00:00Z'::timestamptz, '2026-01-01T00:00:00Z'::timestamptz, 1)",
+        std::slice::from_ref(&other),
+    )
+    .await;
+    for (name, public, peer) in [("Public list", 1, &public_peer), ("Private list", 0, &private_peer)] {
+        let shelf = uuid::Uuid::new_v4().to_string();
+        bind_exec(
+            &harness.db,
+            "INSERT INTO shelves (id, account_id, name, is_public, created_at, updated_at, version)
+             VALUES (?, ?, ?, ?, '2026-01-01T00:00:00Z', '2026-01-01T00:00:00Z', 1)",
+            "INSERT INTO shelves (id, account_id, name, is_public, created_at, updated_at, version)
+             VALUES (?::uuid, ?::uuid, ?, ?, '2026-01-01T00:00:00Z'::timestamptz,
+                     '2026-01-01T00:00:00Z'::timestamptz, 1)",
+            &[shelf.clone(), other.clone(), name.to_owned(), public.to_string()],
+        )
+        .await;
+        for work in [&mine, peer] {
+            let item = uuid::Uuid::new_v4().to_string();
+            bind_exec(
+                &harness.db,
+                "INSERT INTO library_items (id, account_id, work_id, source_key, source_work_key, title,
+                                            source_url, created_at, updated_at, version)
+                 VALUES (?, ?, ?, 'manual', ?, 'x', 'https://example.invalid/x',
+                         '2026-01-01T00:00:00Z', '2026-01-01T00:00:00Z', 1)",
+                "INSERT INTO library_items (id, account_id, work_id, source_key, source_work_key, title,
+                                            source_url, created_at, updated_at, version)
+                 VALUES (?::uuid, ?::uuid, ?::uuid, 'manual', ?, 'x', 'https://example.invalid/x',
+                         '2026-01-01T00:00:00Z'::timestamptz, '2026-01-01T00:00:00Z'::timestamptz, 1)",
+                &[item.clone(), other.clone(), work.clone(), item.clone()],
+            )
+            .await;
+            bind_exec(
+                &harness.db,
+                "INSERT INTO shelf_items (id, shelf_id, library_item_id, created_at)
+                 VALUES (?, ?, ?, '2026-01-01T00:00:00Z')",
+                "INSERT INTO shelf_items (id, shelf_id, library_item_id, created_at)
+                 VALUES (?::uuid, ?::uuid, ?::uuid, '2026-01-01T00:00:00Z'::timestamptz)",
+                &[uuid::Uuid::new_v4().to_string(), shelf.clone(), item.clone()],
+            )
+            .await;
+        }
+    }
+
+    let (status, body) = reader.get("/api/v1/library/because-you-shelved").await;
+    assert_eq!(status, StatusCode::OK, "body: {body}");
+    let ids: Vec<&str> = body["works"]
+        .as_array()
+        .expect("works")
+        .iter()
+        .filter_map(|work| work["id"].as_str())
+        .collect();
+    assert!(
+        ids.contains(&public_peer.as_str()),
+        "the public peer is recommended: {body}"
+    );
+    assert!(
+        !ids.contains(&private_peer.as_str()),
+        "a private shelf is not a source: {body}"
+    );
+    assert!(
+        !ids.contains(&mine.as_str()),
+        "the work the reader already shelved is not recommended back: {body}"
+    );
+}
+
+#[tokio::test]
 async fn the_reader_gravity_dial_narrows_never_widens_and_cannot_move_a_locked_instance() {
     let mut harness = Harness::new("gravity-dial").await;
     harness.config.taste.gravity_strength = 0.2;

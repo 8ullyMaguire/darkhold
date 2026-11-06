@@ -7,6 +7,7 @@
 //! GET/PATCH/DELETE       /shelves/:id
 //! POST/DELETE            /shelves/:id/items/:libraryItemId
 //! GET                    /shelves/following
+//! GET                    /library/because-you-shelved
 //! POST/DELETE            /shelves/:id/follow
 //! GET/POST               /bookmarks
 //! GET/PATCH/DELETE       /bookmarks/:id
@@ -79,6 +80,11 @@ pub fn router() -> Router<AppState> {
         // Following a shelf (M64-11). The static segment has to be declared beside `/shelves/{id}`; axum matches a literal
         // segment before a parameter, so `/shelves/following` never reaches `get_shelf`.
         .route("/shelves/following", get(list_followed_shelves))
+        // M64-11: the surface the registry calls `library.because_you_shelved`.
+        .route(
+            "/library/because-you-shelved",
+            get(because_you_shelved),
+        )
         .route(
             "/shelves/{id}/follow",
             post(follow_shelf).delete(unfollow_shelf),
@@ -310,6 +316,41 @@ async fn create_shelf(
     )
     .await?;
     Ok((StatusCode::CREATED, Json(shelf_json(&shelf, Some(0)))))
+}
+
+/// Works other readers shelved alongside this reader's shelves (surface `library.because_you_shelved`).
+///
+/// The route is the surface: it reads that surface's configured set, so an operator override changes what this returns, and an
+/// empty shelf gives an empty page rather than a refusal — "you have not shelved anything yet" is a true answer about the reader,
+/// while a `404` would say the surface does not exist.
+async fn because_you_shelved(
+    State(state): State<AppState>,
+    RequireSession(user): RequireSession,
+) -> ApiResult<Json<serde_json::Value>> {
+    use crate::routes::discovery::enabled_engines_for_bucket;
+    let account = user.account_id.to_string();
+    let engines = enabled_engines_for_bucket(&state, "library.because_you_shelved", None);
+
+    let mut works = Vec::new();
+    if engines.is_empty() || engines.contains("co_shelving") {
+        let ids = darkhold_db::discovery::co_shelving_recommendations(state.db(), &account, 40)
+            .await?;
+        // Position, not a share of anything: `co_shelving_recommendations` orders by how many public shelves carry both works,
+        // and the strongest recommendation is the first. Scaling to `0..=1` here would invent a similarity the query does not
+        // compute — this surface says "because you shelved", and the order is the whole of its claim.
+        let total = ids.len().max(1) as f64;
+        let scored: Vec<(String, f64)> = ids
+            .into_iter()
+            .enumerate()
+            .map(|(index, id)| (id.to_string(), 1.0 - (index as f64 / total)))
+            .collect();
+        works = darkhold_db::reader_surface::works_by_score(state.db(), scored).await?;
+    }
+
+    Ok(Json(serde_json::json!({
+        "works": works,
+        "next_cursor": null,
+    })))
 }
 
 /// The shelves this reader follows.
