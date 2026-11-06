@@ -115,6 +115,50 @@ pub async fn set_at_uri(db: &Database, work_id: &str, at_uri: &str) -> Result<()
     Ok(())
 }
 
+/// Where this work was published, if anywhere. `None` is the ordinary case: most works have never been bridged.
+pub async fn at_uri_for(db: &Database, work_id: &str) -> Result<Option<String>, sqlx::Error> {
+    let sql = db.sql(
+        "SELECT at_uri FROM works WHERE id = ? AND at_uri IS NOT NULL",
+        "SELECT at_uri FROM works WHERE id = $1::uuid AND at_uri IS NOT NULL",
+    );
+    let uri = match db.backend() {
+        Backend::Sqlite => {
+            sqlx::query(&sql)
+                .bind(work_id)
+                .fetch_optional(db.sqlite_pool().ok_or_else(pool_err)?)
+                .await?
+                .map(|r| r.get::<String, _>("at_uri"))
+        }
+        Backend::Postgres => {
+            sqlx::query(&sql)
+                .bind(work_id)
+                .fetch_optional(db.postgres_pool().ok_or_else(pool_err)?)
+                .await?
+                .map(|r| r.get::<String, _>("at_uri"))
+        }
+    };
+    Ok(uri)
+}
+
+/// Forget a record that no longer exists. Called only after the PDS has confirmed the delete, so the column never claims a
+/// record that is still live — the failure mode that makes a purge impossible to run twice.
+pub async fn clear_at_uri(db: &Database, work_id: &str) -> Result<(), sqlx::Error> {
+    let sql = db.sql(
+        "UPDATE works SET at_uri = NULL, updated_at = ? WHERE id = ?",
+        "UPDATE works SET at_uri = NULL, updated_at = $1 WHERE id = $2::uuid",
+    );
+    let now = crate::identity::now_rfc3339();
+    match db.backend() {
+        Backend::Sqlite => {
+            sqlx::query(&sql).bind(&now).bind(work_id).execute(db.sqlite_pool().ok_or_else(pool_err)?).await?;
+        }
+        Backend::Postgres => {
+            sqlx::query(&sql).bind(&now).bind(work_id).execute(db.postgres_pool().ok_or_else(pool_err)?).await?;
+        }
+    }
+    Ok(())
+}
+
 /// The `at://` URIs already published, for the purge in `docs/FEDERATION.md` §9 and for the gate that counts them.
 pub async fn published_uris(db: &Database, limit: i64) -> Result<Vec<(String, String)>, sqlx::Error> {
     let sql = db.sql(

@@ -116,6 +116,60 @@ pub async fn publish_work(state: &AppState, payload: &str) -> Result<()> {
     Ok(())
 }
 
+/// Delete the record for a work that was withdrawn (W6 §5: "a tombstone never leaves a dangling `at://`").
+///
+/// Three properties, each of which a purge needs to be safe to run repeatedly:
+///   * no `at_uri` means nothing was ever published — `Ok(())`, not an error, so a withdrawal of an unbridged work is free;
+///   * a record the PDS says is already gone (`RecordNotFound`) is treated as deleted, because the estate's goal is the
+///     absence of the record, not the history of how it went away;
+///   * the column is cleared **after** the PDS confirms, so a failed delete leaves the `at_uri` behind for the next attempt
+///     instead of forgetting a record that is still live.
+pub async fn withdraw_work(state: &AppState, work_id: &str) -> Result<()> {
+    let Some(at_uri) = darkhold_db::atproto::at_uri_for(state.db(), work_id).await? else {
+        return Ok(());
+    };
+    // `at://did/collection/rkey` — the rkey is everything after the last slash, and the collection is the segment before it.
+    let mut parts = at_uri.rsplitn(3, '/');
+    let rkey = parts.next().unwrap_or_default().to_owned();
+    let collection = parts.next().unwrap_or_default().to_owned();
+    let repo = at_uri.trim_start_matches("at://").split('/').next().unwrap_or_default().to_owned();
+    if rkey.is_empty() || collection.is_empty() || repo.is_empty() {
+        anyhow::bail!("cannot parse an at:// URI: {at_uri}");
+    }
+
+    // Withdrawn records are deleted even when the bridge has since been switched off: leaving one behind because the
+    // publish path is disabled is exactly the dangling `at://` this function exists to prevent.
+    let Some(config) = state.config().atproto.as_ref() else {
+        return Ok(());
+    };
+    let password = std::env::var(&config.password_env)
+        .with_context(|| format!("{} is not set in this unit's environment", config.password_env))?;
+    let http = state.reqwest_client();
+    let session = create_session(http, config, &password).await?;
+
+    let response = http
+        .post(format!("{}/xrpc/com.atproto.repo.deleteRecord", config.pds.trim_end_matches('/')))
+        .bearer_auth(&session.access_jwt)
+        .json(&json!({ "repo": repo, "collection": collection, "rkey": rkey }))
+        .send()
+        .await
+        .context("deleteRecord did not complete")?;
+
+    let status = response.status();
+    if status.is_success() {
+        darkhold_db::atproto::clear_at_uri(state.db(), work_id).await?;
+        tracing::info!(work = %work_id, %at_uri, "deleted the ATProto record for a withdrawn work");
+        return Ok(());
+    }
+    let body = response.text().await.unwrap_or_default();
+    if body.contains("RecordNotFound") {
+        darkhold_db::atproto::clear_at_uri(state.db(), work_id).await?;
+        tracing::info!(work = %work_id, %at_uri, "the ATProto record was already gone");
+        return Ok(());
+    }
+    anyhow::bail!("deleteRecord answered {status}: {}", body.chars().take(300).collect::<String>());
+}
+
 /// A session on the PDS. Created per delivery, not cached: a cached JWT is a second thing that expires, and at this
 /// volume the extra round trip costs nothing.
 async fn create_session(
