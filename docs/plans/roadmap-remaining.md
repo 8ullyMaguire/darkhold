@@ -157,3 +157,6 @@ M69-21 first half (de8fb809): saved views take a per-account slug with PUT /save
 
 M69-16 layer two (cdeac9dc): content_policy_blocks with a required reason, revocation as a record, merged into
 content_filter_sql::for_pseud so it reaches signed-out readers; per-work overrides remain.
+
+M69-10 consumer half (48da17e2): volatility and divergence are carried from polaris-taste and gate ladder
+eligibility through one is_settled() rule; the arithmetic stays in the service per ADR 0001.
