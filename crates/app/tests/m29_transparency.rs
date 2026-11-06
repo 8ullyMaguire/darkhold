@@ -1456,6 +1456,53 @@ async fn a_served_recommendation_carries_its_reason_and_match_percentage() {
 }
 
 #[tokio::test]
+async fn a_surface_runs_only_the_algorithms_it_is_configured_with() {
+    // M64-01's second half: the registry is not decoration. Configure the feed to run popularity alone and the feed
+    // must be popularity alone — a per-surface choice that the route ignored would be a setting that lies.
+    let mut harness = Harness::new("surface-set").await;
+    harness
+        .config
+        .discovery
+        .surfaces
+        .insert("discover.feed".to_owned(), vec!["popular".to_owned()]);
+
+    let mut reader = harness.reader("SurfaceSet").await;
+    let account = account_of(&harness.db, "SurfaceSet").await;
+    let pseud = pseud_of(&harness.db, &account.to_string()).await;
+    for n in 0..3 {
+        make_published_work(&harness.db, &pseud.to_string(), &format!("Set {n}")).await;
+    }
+
+    let (status, body) = reader.get("/api/v1/discovery").await;
+    assert_eq!(status, StatusCode::OK, "body: {body}");
+    let items = body["items"].as_array().expect("items");
+    assert!(!items.is_empty(), "popularity still serves works: {body}");
+    for item in items {
+        assert_eq!(
+            item["reason_code"], "popular",
+            "only the configured algorithm ran, so only its reason appears: {item}"
+        );
+    }
+
+    // The negative half, which is what makes the positive half evidence: with only the media-reference engine
+    // configured and no media references seeded, the feed must be EMPTY even though three published works are waiting.
+    // Without the wiring, `popular` would still run and serve them — the assertion that fails when the registry is
+    // ignored.
+    harness
+        .config
+        .discovery
+        .surfaces
+        .insert("discover.feed".to_owned(), vec!["media_ref_collab".to_owned()]);
+    let mut narrowed = harness.reader("SurfaceSet").await;
+    let (status, body) = narrowed.get("/api/v1/discovery").await;
+    assert_eq!(status, StatusCode::OK, "body: {body}");
+    assert!(
+        body["items"].as_array().expect("items").is_empty(),
+        "the media engine has no references to work from and popularity is switched off, so nothing is served: {body}"
+    );
+}
+
+#[tokio::test]
 async fn an_anonymous_recommendation_carries_no_slot_id() {
     // A slot is a record of what a *reader* was shown, so there is nothing to
     // record for someone who is not one. Emitting an id nobody can later

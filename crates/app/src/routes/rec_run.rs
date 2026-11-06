@@ -319,6 +319,9 @@ async fn run(
                 Some(&account_id),
                 user.pseud_id.as_ref().map(|p| p.as_uuid()),
                 MAX_CANDIDATES,
+                // A recipe composes algorithms rather than reading a surface's set (M64-01's own note); `None` keeps
+                // every engine.
+                None,
             )
             .await?;
             let blended = darkhold_domain::discovery::blend(&engines);

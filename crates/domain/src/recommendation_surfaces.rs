@@ -82,7 +82,10 @@ pub const MAX_ALGORITHMS: usize = 4;
 
 /// Every surface this build ranks. Closed: see the module docs.
 pub const SURFACES: &[Surface] = &[
-    Surface { id: "discover.feed", label: "Discover", need: DataNeed::WorkTags, defaults: &["tag_jaccard", "time_decay", "popular"] },
+    // The discover feed's default set is the four engines `build_candidate_engines` actually runs, in the order they
+    // contribute: the works ladder, tag affinity, popularity and media-reference collaboration. A default that named an
+    // algorithm no engine implements would be documentation of a feed that does not exist.
+    Surface { id: "discover.feed", label: "Discover", need: DataNeed::WorkTags, defaults: &["rated_by_readers", "tag_jaccard", "popular", "media_ref_collab"] },
     Surface { id: "story.similar", label: "Similar works", need: DataNeed::WorkTags, defaults: &["tag_jaccard", "tag_cooccurrence", "co_shelving"] },
     Surface { id: "story.also_enjoyed", label: "Also enjoyed", need: DataNeed::Shelves, defaults: &["co_read", "engagement_overlap"] },
     Surface { id: "story.more_by_author", label: "More by this author", need: DataNeed::None, defaults: &["same_author"] },
@@ -107,6 +110,27 @@ pub const SURFACES: &[Surface] = &[
     Surface { id: "tag.cross_fandom", label: "Cross-fandom tags", need: DataNeed::WorkTags, defaults: &["fandom_graph"] },
     Surface { id: "tag.facets", label: "A tag's facets", need: DataNeed::None, defaults: &["text_relevance"] },
 ];
+
+/// The engine reason a registered algorithm runs as, or `None` when no engine implements it yet.
+///
+/// The blend's engines name themselves with short strings (`"tags"`, `"ladder"`), while the registry names algorithms
+/// by what they do (`"tag_jaccard"`, `"rated_by_readers"`). This is the one place the two vocabularies are joined, so a
+/// configured algorithm either maps to a running engine or is refused at load — it cannot quietly do nothing.
+///
+/// `None` is a real answer for algorithms the tree has not built (`npmi` is a query, not a blend engine; `co_shelving`
+/// needs shelves). A surface configured with only unbuilt algorithms serves no engines, which is exactly the refusal the
+/// route reports.
+pub fn engine_reason(algorithm: &str) -> Option<&'static str> {
+    Some(match algorithm {
+        // Two tag algorithms, one engine: the feed's tag engine blends both signals already.
+        "tag_jaccard" | "tag_cooccurrence" | "npmi" => "tags",
+        "popular" | "time_decay" => "popular",
+        "rated_by_readers" | "ladder" => "ladder",
+        "media_ref_collab" => "media_ref_collab",
+        "strategy" => "strategy",
+        _ => return None,
+    })
+}
 
 /// Look a surface up by its canonical id.
 pub fn surface(id: &str) -> Option<&'static Surface> {

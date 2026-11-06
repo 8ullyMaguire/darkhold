@@ -81,9 +81,28 @@ async fn list_surfaces(
                 .map(|table| counts.get(table).copied().unwrap_or(0) == 0)
                 .unwrap_or(false);
 
-            // A refusal names the algorithm and what would fill it. All algorithms on a surface share the surface's
-            // declared need, so a surface is refused whole or not at all — a per-algorithm need is a future refinement,
-            // and inventing one now would be a claim about data nobody has measured.
+            // Two different refusals, and they are not the same claim:
+            //
+            //   * **no engine implements it** — the algorithm is named in the registry but no code runs under that name.
+            //     This is a build fact, not a data fact, and it holds whether or not the table has rows.
+            //   * **its data is empty** — the code exists and its table is empty, which is a work item with a milestone.
+            //
+            // Reporting them together is what makes the endpoint useful during the build-out: an operator sees which
+            // surfaces are one import away and which are one milestone away.
+            let unimplemented: Vec<Value> = algorithms
+                .iter()
+                .filter(|name| {
+                    darkhold_domain::recommendation_surfaces::engine_reason(name).is_none()
+                })
+                .map(|name| {
+                    serde_json::json!({
+                        "algorithm": name,
+                        "reason": "no engine implements this algorithm yet",
+                        "milestone": "",
+                    })
+                })
+                .collect();
+
             let refused: Vec<Value> = if empty {
                 algorithms
                     .iter()
@@ -102,6 +121,9 @@ async fn list_surfaces(
             } else {
                 Vec::new()
             };
+
+            let mut refused = refused;
+            refused.extend(unimplemented);
 
             serde_json::json!({
                 "id": surface.id,

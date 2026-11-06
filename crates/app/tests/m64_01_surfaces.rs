@@ -103,21 +103,36 @@ async fn every_surface_is_listed_and_empty_data_refuses_by_name() {
         let need = surface["need"].as_str().expect("need");
 
         if need == "none" {
-            assert!(
-                surface["refused"].as_array().expect("refused").is_empty(),
-                "{id} needs nothing, so nothing on it can be refused: {surface}"
-            );
+            // A surface that needs no data cannot refuse for lack of it. It may still name an algorithm no engine
+            // implements yet — that is a build fact, not a data fact, and the two must not be conflated.
+            for entry in surface["refused"].as_array().expect("refused") {
+                let reason = entry["reason"].as_str().expect("reason");
+                assert!(
+                    !reason.contains("no rows yet"),
+                    "{id} needs nothing, so it cannot refuse for empty data: {entry}"
+                );
+            }
             continue;
         }
 
-        // Every algorithm on a surface whose table is empty is refused, by name, with the milestone that fills it.
+        // Every algorithm on a surface whose table is empty is refused for lack of data, by name, with the milestone
+        // that fills it. (A surface may also carry "no engine implements this" entries; those are counted separately,
+        // because the two claims differ in what an operator should do next.)
         let refused = surface["refused"].as_array().expect("refused");
+        let data_refusals: Vec<&Value> = refused
+            .iter()
+            .filter(|entry| {
+                entry["reason"]
+                    .as_str()
+                    .is_some_and(|reason| reason.contains("no rows yet"))
+            })
+            .collect();
         assert_eq!(
-            refused.len(),
+            data_refusals.len(),
             algorithms.len(),
             "{id} needs `{need}` and has no rows, so every algorithm refuses: {surface}"
         );
-        for entry in refused {
+        for entry in data_refusals {
             let algorithm = entry["algorithm"].as_str().expect("algorithm");
             assert!(
                 algorithms.iter().any(|a| a.as_str() == Some(algorithm)),

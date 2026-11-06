@@ -365,6 +365,25 @@ fn reason_for(stage: &str) -> darkhold_domain::recommendation_transparency::Slot
 /// one of which nobody remembered to update. `no_selector_returns_the_same_works_as_discovery`
 /// compares the two routes' id lists directly and is the only test in the suite
 /// that can see the difference, because no store or domain test calls both routes.
+/// The engines a surface runs, from its configured (or default) algorithm set (M64-01).
+///
+/// The mapping is `recommendation_surfaces::engine_reason`, which is the one place the registry's names meet the
+/// blend's. An algorithm with no engine is dropped here and reported as a refusal by the surfaces endpoint, so a
+/// surface cannot appear to run something that does not exist.
+pub(crate) fn enabled_engines_for(
+    state: &AppState,
+    surface_id: &str,
+) -> std::collections::BTreeSet<&'static str> {
+    use darkhold_domain::recommendation_surfaces::{algorithms_for, engine_reason, surface};
+    let Some(surface) = surface(surface_id) else {
+        return std::collections::BTreeSet::new();
+    };
+    algorithms_for(surface, &state.config().discovery.surfaces)
+        .iter()
+        .filter_map(|algorithm| engine_reason(algorithm))
+        .collect()
+}
+
 pub(crate) async fn build_candidate_engines(
     state: &AppState,
     account_id: Option<&str>,
@@ -374,8 +393,13 @@ pub(crate) async fn build_candidate_engines(
     // `as i64` at the call site, which is exactly the kind of conversion that
     // makes two call sites disagree about what a limit is.
     limit: i64,
+    // Which engines this surface runs (M64-01). `None` means "every engine", which is what the pluggable and shadow
+    // paths want; a configured surface passes its mapped set and an engine outside it never runs, so a per-surface
+    // choice cannot be silently ignored.
+    enabled: Option<&std::collections::BTreeSet<&'static str>>,
 ) -> ApiResult<Vec<Vec<darkhold_domain::discovery::Candidate>>> {
     let mut engines: Vec<Vec<darkhold_domain::discovery::Candidate>> = Vec::new();
+    let runs = |reason: &'static str| enabled.map(|set| set.contains(reason)).unwrap_or(true);
 
     // Engine 1: the works ladder (spec §12.4a). The arena's best/worst ballot rates works with
     // Glicko-2, and this is the engine that finally *reads* those ratings.
@@ -420,7 +444,12 @@ pub(crate) async fn build_candidate_engines(
     // 0001). Unlike the ballot write, a failure here used to be fatal — the ladder was a table on the same
     // database, so a failure meant this instance was broken. It is a *different process* now: an outage there
     // must cost the shelf, never the whole discovery page, so it is logged and skipped.
-    let ladder = match state.taste().ratings(LADDER_CANDIDATES).await {
+    let ladder = if !runs("ladder") {
+        // The surface does not run the ladder: no request to the taste service at all, which is the point of a
+        // per-surface choice — a disabled engine should cost nothing, not compute and then discard.
+        Vec::new()
+    } else {
+        match state.taste().ratings(LADDER_CANDIDATES).await {
         Ok(ratings) => {
             let candidates: Vec<darkhold_db::ladder::LadderWork> = ratings
                 .into_iter()
@@ -456,6 +485,7 @@ pub(crate) async fn build_candidate_engines(
             tracing::warn!(%error, "the taste service did not answer, so the feed has no ladder shelf");
             Vec::new()
         }
+        }
     };
     if !ladder.is_empty() {
         engines.push(
@@ -490,23 +520,45 @@ pub(crate) async fn build_candidate_engines(
     }
 
     if let Some(account_id) = account_id {
-        // Engine 2: tag-based personalization (from taste profile).
-        let personalized = darkhold_db::discovery::personalized_recommendations(
-            state.db(),
-            account_id,
-            viewer_pseud,
-            limit,
-        )
-        .await
-        .map_err(|e| ApiError(AppError::Internal(e)))?;
+        if runs("tags") {
+            // Engine 2: tag-based personalization (from taste profile).
+            let personalized = darkhold_db::discovery::personalized_recommendations(
+                state.db(),
+                account_id,
+                viewer_pseud,
+                limit,
+            )
+            .await
+            .map_err(|e| ApiError(AppError::Internal(e)))?;
+            engines.push(
+                personalized
+                    .into_iter()
+                    .enumerate()
+                    .map(|(idx, id)| darkhold_domain::discovery::Candidate {
+                        work_id: id,
+                        score: (limit - idx as i64),
+                        reason: "tags".into(),
+                        taste_signal: 0.0,
+                        diversity_class: 0.5,
+                    })
+                    .collect(),
+            );
+        }
+    }
+
+    // Engine 3: popularity-based (public engine).
+    if runs("popular") {
+        let popular = darkhold_db::discovery::public_recommendations(state.db(), viewer_pseud, limit)
+            .await
+            .map_err(|e| ApiError(AppError::Internal(e)))?;
         engines.push(
-            personalized
+            popular
                 .into_iter()
                 .enumerate()
                 .map(|(idx, id)| darkhold_domain::discovery::Candidate {
                     work_id: id,
                     score: (limit - idx as i64),
-                    reason: "tags".into(),
+                    reason: "popular".into(),
                     taste_signal: 0.0,
                     diversity_class: 0.5,
                 })
@@ -514,49 +566,33 @@ pub(crate) async fn build_candidate_engines(
         );
     }
 
-    // Engine 3: popularity-based (public engine).
-    let popular = darkhold_db::discovery::public_recommendations(state.db(), viewer_pseud, limit)
-        .await
-        .map_err(|e| ApiError(AppError::Internal(e)))?;
-    engines.push(
-        popular
-            .into_iter()
-            .enumerate()
-            .map(|(idx, id)| darkhold_domain::discovery::Candidate {
-                work_id: id,
-                score: (limit - idx as i64),
-                reason: "popular".into(),
-                taste_signal: 0.0,
-                diversity_class: 0.5,
-            })
-            .collect(),
-    );
-
     // Engine 4: media-reference collaborative (signed-in users only).
     // Finds works sharing media references (faceclaims, moodboards, playlists)
     // with the user's bookmarked works. Spec §32.7.3, §9.10.
     if let Some(account_id) = account_id {
-        let media_collab = darkhold_db::discovery::media_reference_collaborative_recommendations(
-            state.db(),
-            account_id,
-            viewer_pseud,
-            limit,
-        )
-        .await
-        .map_err(|e| ApiError(AppError::Internal(e)))?;
-        engines.push(
-            media_collab
-                .into_iter()
-                .enumerate()
-                .map(|(idx, id)| darkhold_domain::discovery::Candidate {
-                    work_id: id,
-                    score: (limit - idx as i64),
-                    reason: "media_ref_collab".into(),
-                    taste_signal: 0.0,
-                    diversity_class: 0.5,
-                })
-                .collect(),
-        );
+        if runs("media_ref_collab") {
+            let media_collab = darkhold_db::discovery::media_reference_collaborative_recommendations(
+                state.db(),
+                account_id,
+                viewer_pseud,
+                limit,
+            )
+            .await
+            .map_err(|e| ApiError(AppError::Internal(e)))?;
+            engines.push(
+                media_collab
+                    .into_iter()
+                    .enumerate()
+                    .map(|(idx, id)| darkhold_domain::discovery::Candidate {
+                        work_id: id,
+                        score: (limit - idx as i64),
+                        reason: "media_ref_collab".into(),
+                        taste_signal: 0.0,
+                        diversity_class: 0.5,
+                    })
+                    .collect(),
+            );
+        }
     }
 
     Ok(engines)
@@ -587,8 +623,17 @@ async fn get_discovery(
     let effective_sort =
         resolve_sort(&state, session.as_ref(), params.sort.as_deref(), "discover").await;
 
-    let engines =
-        build_candidate_engines(&state, account_id.as_deref(), viewer_pseud, limit).await?;
+    // The feed is the one surface wired to the registry so far (M64-01): its configured set decides which engines
+    // run, and the default set is exactly the four engines this function implements.
+    let enabled = enabled_engines_for(&state, "discover.feed");
+    let engines = build_candidate_engines(
+        &state,
+        account_id.as_deref(),
+        viewer_pseud,
+        limit,
+        Some(&enabled),
+    )
+    .await?;
 
     // Merge candidates. Branch on rec_mode (spec §16.1a, M52-07):
     // - legacy: blend multi-engine candidates (current behavior)

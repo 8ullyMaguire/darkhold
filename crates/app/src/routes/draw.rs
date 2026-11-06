@@ -114,6 +114,8 @@ async fn get_draw(
         Some(&account_id),
         Some(viewer),
         POOL as i64,
+        // The draw's surface (`draw.hand`) is not in the registry yet; `None` keeps every engine, today's behaviour.
+        None,
     )
     .await?;
     let mut blended = darkhold_domain::discovery::blend(&engines);

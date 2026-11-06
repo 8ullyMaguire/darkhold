@@ -171,6 +171,9 @@ pub async fn render_queue(
             Some(&account),
             viewer_pseud,
             CANDIDATE_CAP as i64,
+            // Not yet wired to the registry (M64-01): the concierge serves `home.curated`, whose chosen algorithms are
+            // operator picks rather than blend engines. `None` keeps every engine, which is today's behaviour.
+            None,
         )
         .await?;
         darkhold_domain::discovery::blend(&engines)
