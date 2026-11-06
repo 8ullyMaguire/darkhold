@@ -1274,6 +1274,13 @@ pub fn build_router(state: AppState) -> Router {
             )),
             RouteClass::Default,
         ))
+        // The landing page, rendered as a document (ADR 0006). At the root and before the fallback, with its own
+        // session loading for the same reason the reader has it: without the layer a signed-in reader would be
+        // answered as a stranger and never redirected to discovery.
+        .merge(routes::landing_page::router().layer(middleware::from_fn_with_state(
+            state.clone(),
+            auth::load_session,
+        )))
         // The OpenSearch description document (M69-25). At the root, because the
         // browser reads it as a URL it stores, not as an API call — and gated on
         // the `search` extension, because a document advertising a search that

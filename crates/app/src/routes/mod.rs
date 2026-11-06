@@ -57,6 +57,7 @@ pub mod inbox_proxy;
 pub mod inventory;
 pub mod jobs;
 pub mod lending;
+pub mod landing_page;
 pub mod library;
 pub mod marketplace;
 pub mod media;

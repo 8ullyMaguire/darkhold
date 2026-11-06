@@ -5585,4 +5585,13 @@ pub const ROUTE_TABLE: &[RouteEntry] = &[
         path: "/opensearch.xml",
         audience: Audience::Public,
     },
+    // ADR 0006: the landing page is a document rendered by the server. Anonymous readers, crawlers and previews
+    // get it; a signed-in reader is redirected to `/discover` by the handler itself.
+    RouteEntry {
+        file: "landing_page.rs",
+        handler: "landing",
+        method: "GET",
+        path: "/",
+        audience: Audience::Public,
+    },
 ];
