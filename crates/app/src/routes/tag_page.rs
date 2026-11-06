@@ -102,6 +102,29 @@ async fn tag_page(
     }
     page.close("ul");
 
+    // ── related tags, by NPMI (M69-19) ──────────────────────────────────
+    //
+    // Absent when there is nothing to relate: a heading with no tags under it is the empty-section failure the other
+    // pages are tested against. The word "related" is earned by the statistic, which is why a tag that is on
+    // everything does not appear here.
+    let related = darkhold_db::taxonomy::related_tags_by_npmi(state.db(), &norm, 12)
+        .await
+        .unwrap_or_default();
+    if !related.is_empty() {
+        page.open("section", &[("class", "related")]);
+        page.open("h2", &[]).text("Related tags").close("h2");
+        page.open("ul", &[("class", "tag-list")]);
+        for (name, _npmi, _count) in &related {
+            page.open("li", &[])
+                .open("a", &[("href", &format!("/tags/{}", encode_tag(name)))])
+                .text(name)
+                .close("a")
+                .close("li");
+        }
+        page.close("ul");
+        page.close("section");
+    }
+
     page.open("p", &[])
         .open("a", &[("href", "/tags")])
         .text("All tags")
@@ -112,4 +135,20 @@ async fn tag_page(
     page.close("html");
 
     docs::page_response(page)
+}
+
+/// Percent-encode a tag for a path segment. Spaces are the only character that matters in practice, and `%20` is what
+/// the browse route parses.
+fn encode_tag(tag: &str) -> String {
+    let mut out = String::new();
+    for byte in tag.as_bytes() {
+        match byte {
+            b' ' => out.push_str("%20"),
+            b'A'..=b'Z' | b'a'..=b'z' | b'0'..=b'9' | b'-' | b'_' | b'~' | b'.' => {
+                out.push(*byte as char)
+            }
+            other => out.push_str(&format!("%{other:02X}")),
+        }
+    }
+    out
 }

@@ -954,6 +954,167 @@ pub async fn tag_names_for_work(db: &Database, work_id: &str) -> Result<Vec<Stri
     Ok(rows.into_iter().map(|(n,)| n).collect())
 }
 
+/// Tags that co-occur with `tag_norm`, ranked by **NPMI** rather than by raw co-occurrence (M69-19).
+///
+/// Raw counts reward ubiquitous tags: `angst` co-occurs with everything, so it "relates" to everything and therefore
+/// says nothing. NPMI normalises each co-occurrence by how often both tags appear at all:
+///
+/// ```text
+/// npmi(a,b) = ln( P(a,b) / (P(a) P(b)) ) / -ln P(a,b)
+/// ```
+///
+/// which is 1 when `b` appears exactly when `a` does, 0 when they are independent, and negative when they avoid each
+/// other. The denominator makes the value comparable across tags with different popularity, which is the whole point.
+///
+/// Counts are fetched as counts and the logarithm is taken here rather than in SQL: `log()` is a compile-time option in
+/// SQLite and a different function name in PostgreSQL, and a ranking that silently differs per backend is worse than
+/// one that costs a few hundred multiplications.
+///
+/// Returns `(canonical name, npmi, co-occurrence count)`, highest NPMI first, pairs seen in fewer than two works last —
+/// a pair seen once is noise, and its NPMI is 1.0 by construction (P(a,b) = P(a) = P(b)), which would put the rarest
+/// accident at the top of the list.
+pub async fn related_tags_by_npmi(
+    db: &Database,
+    tag_norm: &str,
+    limit: i64,
+) -> Result<Vec<(String, f64, i64)>> {
+    let sqlite_pair = "SELECT tn.canonical, COUNT(*) AS pair_count \
+         FROM work_tags a \
+         JOIN work_tags b ON b.work_id = a.work_id AND b.node_id <> a.node_id \
+         JOIN canonical_entities tn ON tn.id = b.node_id \
+         WHERE a.node_id = (SELECT id FROM canonical_entities WHERE kind = 'tag' AND norm = ?) \
+           AND tn.kind = 'tag' \
+         GROUP BY b.node_id \
+         ORDER BY pair_count DESC \
+         LIMIT 500";
+    let postgres_pair = "SELECT tn.canonical, COUNT(*) AS pair_count \
+         FROM work_tags a \
+         JOIN work_tags b ON b.work_id = a.work_id AND b.node_id <> a.node_id \
+         JOIN canonical_entities tn ON tn.id = b.node_id \
+         WHERE a.node_id = (SELECT id FROM canonical_entities WHERE kind = 'tag' AND norm = $1) \
+           AND tn.kind = 'tag' \
+         GROUP BY tn.canonical \
+         ORDER BY pair_count DESC \
+         LIMIT 500";
+
+    let pairs: Vec<(String, i64)> = match db.backend() {
+        Backend::Sqlite => {
+            sqlx::query_as(sqlite_pair)
+                .bind(tag_norm)
+                .fetch_all(db.sqlite_pool().expect("sqlite"))
+                .await?
+        }
+        Backend::Postgres => {
+            sqlx::query_as(postgres_pair)
+                .bind(tag_norm)
+                .fetch_all(db.postgres_pool().expect("postgres"))
+                .await?
+        }
+    };
+    if pairs.is_empty() {
+        return Ok(Vec::new());
+    }
+
+    // The three denominators NPMI needs: how many works carry the tag, how many carry each candidate, and how many
+    // work-tag links exist in total (the probability space).
+    let total_sql = db.sql(
+        "SELECT COUNT(*) FROM work_tags",
+        "SELECT COUNT(*)::bigint FROM work_tags",
+    );
+    let total: i64 = match db.backend() {
+        Backend::Sqlite => {
+            sqlx::query_scalar(&total_sql)
+                .fetch_one(db.sqlite_pool().expect("sqlite"))
+                .await?
+        }
+        Backend::Postgres => {
+            sqlx::query_scalar(&total_sql)
+                .fetch_one(db.postgres_pool().expect("postgres"))
+                .await?
+        }
+    };
+    if total <= 0 {
+        return Ok(Vec::new());
+    }
+
+    // One query for every tag's own count, not one per candidate: the candidate list can be hundreds long, and a
+    // ranking that costs a round trip per row is a ranking that will be turned off under load.
+    let counts_sql = db.sql(
+        "SELECT tn.canonical, COUNT(*) FROM work_tags wt JOIN canonical_entities tn ON tn.id = wt.node_id \
+          WHERE tn.kind = 'tag' GROUP BY tn.canonical",
+        "SELECT tn.canonical, COUNT(*)::bigint FROM work_tags wt JOIN canonical_entities tn ON tn.id = wt.node_id \
+          WHERE tn.kind = 'tag' GROUP BY tn.canonical",
+    );
+    let counts: Vec<(String, i64)> = match db.backend() {
+        Backend::Sqlite => {
+            sqlx::query_as(&counts_sql)
+                .fetch_all(db.sqlite_pool().expect("sqlite"))
+                .await?
+        }
+        Backend::Postgres => {
+            sqlx::query_as(&counts_sql)
+                .fetch_all(db.postgres_pool().expect("postgres"))
+                .await?
+        }
+    };
+    let by_tag: std::collections::HashMap<String, i64> = counts.into_iter().collect();
+
+    // The tag's own canonical name: the caller supplies the normalised form, and the counts table is keyed by the
+    // display form, so the bridge is looked up rather than guessed.
+    let canonical_sql = db.sql(
+        "SELECT canonical FROM canonical_entities WHERE kind = 'tag' AND norm = ?",
+        "SELECT canonical FROM canonical_entities WHERE kind = 'tag' AND norm = $1",
+    );
+    let tag_canonical: Option<String> = match db.backend() {
+        Backend::Sqlite => sqlx::query_scalar(&canonical_sql)
+            .bind(tag_norm)
+            .fetch_optional(db.sqlite_pool().expect("sqlite"))
+            .await?,
+        Backend::Postgres => sqlx::query_scalar(&canonical_sql)
+            .bind(tag_norm)
+            .fetch_optional(db.postgres_pool().expect("postgres"))
+            .await?,
+    };
+    let Some(tag_canonical) = tag_canonical else {
+        return Ok(Vec::new());
+    };
+    let tag_count = *by_tag.get(&tag_canonical).unwrap_or(&0);
+    if tag_count <= 0 {
+        return Ok(Vec::new());
+    }
+
+    let total_f = total as f64;
+    let p_a = tag_count as f64 / total_f;
+    let mut scored: Vec<(String, f64, i64)> = Vec::with_capacity(pairs.len());
+    for (canonical, pair_count) in pairs {
+        if pair_count < 2 {
+            continue;
+        }
+        let other_count = *by_tag.get(&canonical).unwrap_or(&0);
+        if other_count <= 0 {
+            continue;
+        }
+        let p_ab = pair_count as f64 / total_f;
+        let p_b = other_count as f64 / total_f;
+        // p_ab < 1 whenever the pair is not the whole space, so the denominator is defined.
+        let denominator = -p_ab.ln();
+        if denominator <= 0.0 {
+            continue;
+        }
+        let npmi = ((p_ab / (p_a * p_b)).ln()) / denominator;
+        scored.push((canonical, npmi, pair_count));
+    }
+
+    scored.sort_by(|a, b| {
+        b.1.partial_cmp(&a.1)
+            .unwrap_or(std::cmp::Ordering::Equal)
+            .then_with(|| b.2.cmp(&a.2))
+            .then_with(|| a.0.cmp(&b.0))
+    });
+    scored.truncate(limit.clamp(1, 100) as usize);
+    Ok(scored)
+}
+
 /// Tag names plus their work-tag weights for a work, ordered by canonical name.
 pub async fn tag_weights_for_work(
     db: &Database,

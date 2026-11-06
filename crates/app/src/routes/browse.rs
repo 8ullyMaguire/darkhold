@@ -18,6 +18,9 @@ pub fn router() -> Router<AppState> {
         .route("/people", get(list_people))
         .route("/tags", get(list_tags))
         .route("/tags/{tag}", get(list_works_by_tag))
+        // M69-19: related tags ranked by NPMI, not by raw co-occurrence. A tag that is on everything relates to
+        // nothing, and raw counts cannot say that.
+        .route("/tags/{tag}/related", get(list_related_tags))
         .route("/fandoms", get(list_fandoms))
         .route("/fandoms/{fandom}", get(list_works_by_fandom))
 }
@@ -429,6 +432,29 @@ async fn list_works_by_tag(
         "filters": filters
             .iter()
             .map(|filter| serde_json::json!({ "kind": filter.kind, "value": filter.norm }))
+            .collect::<Vec<serde_json::Value>>(),
+    })))
+}
+
+/// Tags that co-occur with this one, ranked by NPMI (M69-19).
+async fn list_related_tags(
+    State(state): State<AppState>,
+    MaybeSession(_session): MaybeSession,
+    Path(tag): Path<String>,
+) -> ApiResult<Json<serde_json::Value>> {
+    let norm = darkhold_domain::exchange::normalise(&tag);
+    let related = darkhold_db::taxonomy::related_tags_by_npmi(state.db(), &norm, 20)
+        .await
+        .map_err(|e| ApiError(AppError::Internal(e)))?;
+    Ok(Json(serde_json::json!({
+        "tag": tag,
+        "items": related
+            .into_iter()
+            .map(|(name, npmi, count)| serde_json::json!({
+                "tag": name,
+                "npmi": npmi,
+                "cooccurrences": count,
+            }))
             .collect::<Vec<serde_json::Value>>(),
     })))
 }
