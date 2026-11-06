@@ -360,6 +360,130 @@ pub async fn clear_override(db: &Database, surface_id: &str) -> Result<()> {
     Ok(())
 }
 
+/// The guardrail readings the platform can actually measure, one entry per day, oldest first (M64-04).
+///
+/// The requirement asks for "every guardrail in bounds" and the tree had no guardrail source at all, which made the clause
+/// vacuously true and the demotion path unreachable in production. These two are derived from data the snapshots already
+/// hold, so they need no new table and no invented metric:
+///
+/// * **conversion_rate** — the challenger's events/impressions must stay at or above half the incumbent's rate. A challenger
+///   that ranks beautifully and converts half as well is the failure this experiment exists to catch, and no sample size
+///   makes it acceptable.
+/// * **traffic_share** — the challenger's impressions must stay at or above half the incumbent's. A set that quietly hides
+///   the surface is a regression that the conversion rate cannot see, because it has fewer chances to convert.
+///
+/// Ratios rather than absolute values, deliberately: an absolute floor cannot tell a quiet day from a broken arm, and this
+/// platform's traffic is not steady enough to pretend otherwise. A day where the incumbent had no impressions produces **no
+/// reading** rather than a passing one — nothing was measured, and a fabricated pass is worse than a missing day.
+pub async fn guardrail_history(
+    db: &Database,
+    surface_id: &str,
+    incumbent_arm: i64,
+    challenger_arm: i64,
+) -> Result<Vec<Vec<GuardrailReading>>> {
+    // One row per arm per day, oldest first: the history `decide` reads is ordered because consecutive breaches are a chain.
+    let sql = match db.backend() {
+        Backend::Sqlite => {
+            "SELECT day, arm, impressions, events FROM experiment_snapshots \
+             WHERE surface_id = ?1 AND arm IN (?2, ?3) ORDER BY day, arm"
+        }
+        Backend::Postgres => {
+            "SELECT day, arm, impressions, events FROM experiment_snapshots \
+             WHERE surface_id = $1 AND arm IN ($2, $3) ORDER BY day, arm"
+        }
+    };
+    type DayRow = (String, i64, i64, i64);
+    let rows: Vec<DayRow> = match db.backend() {
+        Backend::Sqlite => {
+            sqlx::query_as(sql)
+                .bind(surface_id)
+                .bind(incumbent_arm)
+                .bind(challenger_arm)
+                .fetch_all(db.sqlite_pool().expect("sqlite pool for sqlite backend"))
+                .await?
+        }
+        Backend::Postgres => {
+            sqlx::query_as(sql)
+                .bind(surface_id)
+                .bind(incumbent_arm)
+                .bind(challenger_arm)
+                .fetch_all(
+                    db.postgres_pool()
+                        .expect("postgres pool for postgres backend"),
+                )
+                .await?
+        }
+    };
+
+    // Group by day, keeping SQL's ordering rather than a map: a BTreeMap would sort by day string, which happens to be
+    // right for `YYYY-MM-DD` and wrong the first time anyone changes the format.
+    let mut history: Vec<Vec<GuardrailReading>> = Vec::new();
+    let mut current_day: Option<String> = None;
+    let mut incumbent: Option<(i64, i64)> = None;
+    let mut challenger: Option<(i64, i64)> = None;
+
+    for (day, arm, impressions, events) in rows {
+        if current_day.as_deref() != Some(day.as_str()) {
+            push_day(&mut history, incumbent, challenger);
+            current_day = Some(day);
+            incumbent = None;
+            challenger = None;
+        }
+        if arm == incumbent_arm {
+            incumbent = Some((impressions, events));
+        } else {
+            challenger = Some((impressions, events));
+        }
+    }
+    push_day(&mut history, incumbent, challenger);
+    Ok(history)
+}
+
+fn rate(impressions: i64, events: i64) -> f64 {
+    if impressions <= 0 {
+        0.0
+    } else {
+        events as f64 / impressions as f64
+    }
+}
+
+/// Append one day's readings, or nothing when the day measured nothing.
+fn push_day(
+    history: &mut Vec<Vec<GuardrailReading>>,
+    incumbent: Option<(i64, i64)>,
+    challenger: Option<(i64, i64)>,
+) {
+    let (Some((inc_impressions, inc_events)), Some((ch_impressions, ch_events))) =
+        (incumbent, challenger)
+    else {
+        return;
+    };
+    if inc_impressions <= 0 {
+        return;
+    }
+
+    let mut readings = Vec::new();
+
+    let conversion_ratio = rate(ch_impressions, ch_events) / rate(inc_impressions, inc_events);
+    readings.push(GuardrailReading {
+        name: "conversion_rate".to_owned(),
+        // `rate(...)` is 0/0 on a day where the incumbent converted nothing; the ratio is then infinite and the guardrail
+        // must not fail on that arithmetic, so a zero incumbent rate is a pass by definition (there is nothing to fall
+        // below).
+        in_bounds: rate(inc_impressions, inc_events) == 0.0 || conversion_ratio >= 0.5,
+        value: conversion_ratio,
+    });
+
+    let traffic_ratio = ch_impressions as f64 / inc_impressions as f64;
+    readings.push(GuardrailReading {
+        name: "traffic_share".to_owned(),
+        in_bounds: traffic_ratio >= 0.5,
+        value: traffic_ratio,
+    });
+
+    history.push(readings);
+}
+
 /// Whether a decision was already recorded for this surface and day.
 ///
 /// The sweep's idempotency key. A sweep that runs twice in one day must not evaluate twice: a second promotion for the same

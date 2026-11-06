@@ -179,6 +179,85 @@ async fn a_week_of_no_traffic_records_nothing() {
 }
 
 #[tokio::test]
+async fn a_conversion_collapse_on_two_days_demotes_without_anyone_passing_guardrails_in() {
+    // The whole M64-04 clause, end to end and with no hand-made guardrail input: the readings are derived from the snapshots
+    // the platform already stores. Eight days of a normal challenger, then a collapse — the sweeps on the last two days must
+    // demote it, because a challenger that converts at a third of the incumbent's rate is not a win at any sample size.
+    let (db, dir) = database("collapse").await;
+    // Incumbent: 1000 impressions and 100 conversions a day.
+    snapshots(&db, 0, 8, 1000, 100).await;
+    // Challenger: same traffic, then 30 conversions a day for the last two days.
+    for day in 1..=6 {
+        exec(
+            &db,
+            &format!(
+                "INSERT INTO experiment_snapshots \
+                 (id, surface_id, arm, day, impressions, readers, guest_readers, events, computed_at) \
+                 VALUES ('0195500{day}-0000-4000-8000-100000000000', 'discover.feed', 1, '2026-11-{day:02}', \
+                         1000, 10, 0, 100, '2026-11-01T00:00:00Z')"
+            ),
+        )
+        .await;
+    }
+    for day in 7..=8 {
+        exec(
+            &db,
+            &format!(
+                "INSERT INTO experiment_snapshots \
+                 (id, surface_id, arm, day, impressions, readers, guest_readers, events, computed_at) \
+                 VALUES ('0195500{day}-0000-4000-8000-100000000000', 'discover.feed', 1, '2026-11-{day:02}', \
+                         1000, 10, 0, 30, '2026-11-01T00:00:00Z')"
+            ),
+        )
+        .await;
+    }
+
+    let history =
+        darkhold_db::experiment_decisions::guardrail_history(&db, "discover.feed", 0, 1)
+            .await
+            .expect("read guardrails");
+    assert_eq!(history.len(), 8, "one entry per day both arms were measured");
+    assert!(
+        history[0].iter().all(|reading| reading.in_bounds),
+        "the early days are healthy: {history:?}"
+    );
+    assert!(
+        history[7]
+            .iter()
+            .any(|reading| reading.name == "conversion_rate" && !reading.in_bounds),
+        "a third of the incumbent's rate is out of bounds: {history:?}"
+    );
+
+    let decision = darkhold_db::experiment_decisions::evaluate_surface(
+        &db,
+        "discover.feed",
+        "2026-11-08",
+        0,
+        1,
+        (&["popular".to_owned()], &["popular".to_owned()]),
+        history,
+    )
+    .await
+    .expect("evaluate");
+    assert!(
+        matches!(
+            decision,
+            darkhold_domain::experiment_promotion::Decision::Demote { .. }
+        ),
+        "two consecutive collapsing days demote: {decision:?}"
+    );
+    assert_eq!(
+        darkhold_db::experiment_decisions::decisions_for(&db, "discover.feed")
+            .await
+            .expect("read back")
+            .len(),
+        1
+    );
+
+    let _ = std::fs::remove_dir_all(dir);
+}
+
+#[tokio::test]
 async fn two_breached_snapshots_are_recorded_as_a_demotion() {
     use darkhold_domain::experiment_promotion::GuardrailReading;
 

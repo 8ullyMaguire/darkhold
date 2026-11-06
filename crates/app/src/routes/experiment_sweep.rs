@@ -123,9 +123,17 @@ async fn sweep(
                 0,
                 1,
                 (&incumbent, &challenger),
-                // No guardrail source yet: the console (M64-15) owns the thresholds, and passing an empty history is the
-                // honest way to say that no guardrail was consulted rather than that every guardrail passed.
-                Vec::new(),
+                // The guardrails the platform can measure from its own snapshots: a conversion-rate collapse and a traffic
+                // collapse, both relative to the incumbent. Empty when the incumbent had no traffic on a day — nothing was
+                // measured, and a fabricated pass is worse than a missing day.
+                darkhold_db::experiment_decisions::guardrail_history(
+                    state.db(),
+                    &surface_id,
+                    0,
+                    1,
+                )
+                .await
+                .map_err(|error| ApiError(AppError::internal("reading guardrails", error)))?,
             )
             .await
             .map_err(|error| ApiError(AppError::internal("evaluating an experiment", error)))?;
