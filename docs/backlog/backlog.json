@@ -4,11 +4,11 @@
       "rows": 942,
       "by_status": {
         "implemented-verified-e2e": 139,
-        "implemented-locally-tested": 251,
+        "implemented-locally-tested": 252,
         "unsupported": 4,
         "implemented-fully-tested": 433,
         "implemented": 9,
-        "planned": 99,
+        "planned": 98,
         "evaluated-and-rejected": 7
       }
     },
@@ -547,12 +547,6 @@
       "notes": "Priority 2. The data exists (catalogue.source_key, provenance_json, library.source_display_name) but 'hosted' appears nowhere in crates/: the badge words are the brief's, not the API's. A single word cannot say both where the text lives and whether the reader may read it now (M70-04, corrected M70-12). Acceptance: list routes return the field; a test asserts it on works, search, library and media; the badge always carries its word, never colour alone."
     },
     {
-      "id": "M71-05",
-      "milestone": "M71",
-      "requirement": "A shared state contract makes 'absent, not empty' and 'name what is missing' enforceable: no section renders a heading with no content, and every degradation is a named, testable string (module off vs empty vs cold mood vs cached page vs stale position vs converter unavailable), asserted per surface.",
-      "notes": "Priority 2, text and tests rather than components \u2014 highest value per hour in the whole proposal. \u00a78.11-8.14 are product law and are violated today: a module that is off must be absent (a 404 MODULE_UNAVAILABLE at page level), never a locked or 'enable this' panel. Acceptance: a test helper that fails on an empty titled section, applied to landing, discover, browse, work, library, admin."
-    },
-    {
       "id": "M71-06",
       "milestone": "M71",
       "requirement": "Every recommendation anywhere in the interface carries its reason as a sentence from the closed vocabulary, and renders nothing at all where no explanation read exists \u2014 including rails outside Discover, where today only Discover's component renders reasons.",
@@ -622,8 +616,8 @@
   "open_by_milestone": {
     "M69": 24,
     "M63": 17,
-    "M71": 15,
     "M64": 14,
+    "M71": 14,
     "M45": 13,
     "M16": 7,
     "M66": 6,

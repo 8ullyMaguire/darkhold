@@ -1,6 +1,6 @@
 {
  "generated_by": "scripts/ideas_catalogue.py",
- "count": 195,
+ "count": 192,
  "ideas": [
   {
    "why_summary": "",
@@ -653,19 +653,6 @@
    "built": false
   },
   {
-   "why_summary": "docs/plans/m65-04-user-overrides.md Deferred from M65-04 with its reason: the gate currently does one indexed primary-key read per request to a per_user surface with a session. A p",
-   "id": "M65-09",
-   "title": "the module gate skips the per-user lookup when nobody holds an override",
-   "sources": [
-    "docs/requirements.csv"
-   ],
-   "milestone": "M65",
-   "relevance": 4,
-   "because": "a requirements row exists (+4)",
-   "default_on": false,
-   "built": false
-  },
-  {
    "why_summary": "-- Suki spec \u00a716.2. Two thresholds and one veto: similar enough to suggest, unrelated enough to ignore, and a hardcoded-filter collision is a block, not a warning. The veto is the ",
    "id": "M69-02",
    "title": "peering is suggested by cosine similarity over that fingerprint, and a colliding hardcoded filter blocks it outright",
@@ -965,19 +952,6 @@
    "built": false
   },
   {
-   "why_summary": "Priority 2, text and tests rather than components \u2014 highest value per hour in the whole proposal. \u00a78.11-8.14 are product law and are violated today: a module that is off must be ab",
-   "id": "M71-05",
-   "title": "A shared state contract makes 'absent, not empty' and 'name what is missing' enforceable",
-   "sources": [
-    "docs/requirements.csv"
-   ],
-   "milestone": "M71",
-   "relevance": 4,
-   "because": "a requirements row exists (+4)",
-   "default_on": false,
-   "built": false
-  },
-  {
    "why_summary": "Priority 2. WhyRecommended.svelte exists and is mounted by Discover.svelte only; the API already returns reasons with a closed vocabulary (\u00a78.3). A recommendation without a reason ",
    "id": "M71-06",
    "title": "Every recommendation anywhere in the interface carries its reason as a sentence from the closed vocabulary, and renders nothing at all where no explanation read exists \u2014 including rails outside Discover, where today only Discover's component renders reasons.",
@@ -1020,19 +994,6 @@
    "why_summary": "Priority 3. The anchor system exists; the honesty layer does not. \u00a78.14 and \u00a78.17 make silence and silent overwrite both bugs; \u00a711 forbids fake precision. Acceptance: three tests, ",
    "id": "M71-09",
    "title": "Reader position is honest",
-   "sources": [
-    "docs/requirements.csv"
-   ],
-   "milestone": "M71",
-   "relevance": 4,
-   "because": "a requirements row exists (+4)",
-   "default_on": false,
-   "built": false
-  },
-  {
-   "why_summary": "Priority 3. The reader is already server-rendered; the guarantee is untested, so it can regress silently. Acceptance: an app test that parses the HTML response and asserts no eleme",
-   "id": "M71-10",
-   "title": "The reader's no-JavaScript guarantee is tested rather than claimed",
    "sources": [
     "docs/requirements.csv"
    ],
