@@ -5627,6 +5627,13 @@ pub const ROUTE_TABLE: &[RouteEntry] = &[
         audience: Audience::Public,
     },
     RouteEntry {
+        file: "experiment_sweep.rs",
+        handler: "sweep",
+        method: "POST",
+        path: "/operator/experiments/sweep",
+        audience: Audience::Authenticated,
+    },
+    RouteEntry {
         file: "surfaces.rs",
         handler: "list_experiments",
         method: "GET",

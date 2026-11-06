@@ -56,6 +56,7 @@ pub mod health;
 pub mod identifiers;
 pub mod imports;
 pub mod inbox_proxy;
+pub mod experiment_sweep;
 pub mod inventory;
 pub mod jobs;
 pub mod lending;

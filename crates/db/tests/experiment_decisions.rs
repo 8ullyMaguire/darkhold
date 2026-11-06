@@ -87,6 +87,13 @@ async fn a_winning_challenger_is_recorded_once_with_the_swap_it_makes() {
     snapshots(&db, 0, 8, 1000, 100).await;
     snapshots(&db, 1, 8, 1000, 120).await;
 
+    assert!(
+        !darkhold_db::experiment_decisions::decided_on(&db, "discover.feed", "2026-11-08")
+            .await
+            .expect("read"),
+        "nothing has been decided for this day yet"
+    );
+
     let before = vec!["popular".to_owned(), "tag_jaccard".to_owned()];
     let after = vec!["popular".to_owned()];
     let decision = darkhold_db::experiment_decisions::evaluate_surface(
@@ -123,6 +130,13 @@ async fn a_winning_challenger_is_recorded_once_with_the_swap_it_makes() {
     assert_eq!(
         rows[0].algorithms_after, after,
         "the swap travels with the decision, or a rollback has to guess"
+    );
+
+    assert!(
+        darkhold_db::experiment_decisions::decided_on(&db, "discover.feed", "2026-11-08")
+            .await
+            .expect("read"),
+        "the sweep's key: this day now has a verdict, so a second run must not evaluate it again"
     );
 
     let _ = std::fs::remove_dir_all(dir);

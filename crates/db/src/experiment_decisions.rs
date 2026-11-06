@@ -360,6 +360,41 @@ pub async fn clear_override(db: &Database, surface_id: &str) -> Result<()> {
     Ok(())
 }
 
+/// Whether a decision was already recorded for this surface and day.
+///
+/// The sweep's idempotency key. A sweep that runs twice in one day must not evaluate twice: a second promotion for the same
+/// day would be a second row arguing from the same numbers, and the console would show two promotions where one happened.
+pub async fn decided_on(db: &Database, surface_id: &str, day: &str) -> Result<bool> {
+    let sql = match db.backend() {
+        Backend::Sqlite => {
+            "SELECT count(*) FROM experiment_decisions WHERE surface_id = ?1 AND day = ?2"
+        }
+        Backend::Postgres => {
+            "SELECT count(*) FROM experiment_decisions WHERE surface_id = $1 AND day = $2"
+        }
+    };
+    let count: i64 = match db.backend() {
+        Backend::Sqlite => {
+            sqlx::query_scalar(sql)
+                .bind(surface_id)
+                .bind(day)
+                .fetch_one(db.sqlite_pool().expect("sqlite pool for sqlite backend"))
+                .await?
+        }
+        Backend::Postgres => {
+            sqlx::query_scalar(sql)
+                .bind(surface_id)
+                .bind(day)
+                .fetch_one(
+                    db.postgres_pool()
+                        .expect("postgres pool for postgres backend"),
+                )
+                .await?
+        }
+    };
+    Ok(count > 0)
+}
+
 /// Every decision recorded for a surface, newest first.
 pub async fn decisions_for(db: &Database, surface_id: &str) -> Result<Vec<StoredDecision>> {
     let sql = match db.backend() {

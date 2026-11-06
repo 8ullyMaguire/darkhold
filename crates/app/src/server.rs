@@ -1088,6 +1088,9 @@ pub fn build_router(state: AppState) -> Router {
             routes::operator_hit_rate::router(),
             RouteClass::Default,
         ))
+        // The experiment sweep is not an extension: it acts on the ranking every instance has, and gating it behind a module
+        // would mean the platform could promote experiments on a surface it cannot rank.
+        .merge(routes::experiment_sweep::router())
         .merge(module_mount(
             &state,
             "flows",
