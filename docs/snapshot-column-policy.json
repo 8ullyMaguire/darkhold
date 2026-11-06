@@ -162,6 +162,21 @@
       "why": "FOREIGN KEY, and 'replace' was wrong: a CONSTANT here collapses every row of category_votes into one and destroys the join. Deterministically re-keyed so the graph survives. See 11.16.3 -- consistent pseudonymisation, not column destruction.",
       "reviewed_by": "alvaro, 2026-09-29, against spec 11.16.3"
     },
+    "finder_bounties.asker_account_id": {
+      "treatment": "rekey_account",
+      "why": "A UUID foreign key to accounts.id, so it must be re-keyed with snapshot_account -- the SAME derivation accounts.id uses, on the account salt, so the join survives (11.16.3b). rekey_text would emit a `snp_` TEXT hash that cannot be compared with a uuid: the relationship to accounts is destroyed while every behavioural column still reads as pseudonymous, so the snapshot LOOKS de-identified and is not. Here the account is the one that ASKED, so a dump that lost the join would leave bounties that nobody placed, and the asker's open/closed record is the only thing that explains why a proposal was made at all.",
+      "reviewed_by": "agent, 2026-11-05, against spec 11.16.3b (M69 finder bounties); awaiting the operator's review"
+    },
+    "finder_proposals.proposer_account_id": {
+      "treatment": "rekey_account",
+      "why": "A UUID foreign key to accounts.id, so it must be re-keyed with snapshot_account -- the SAME derivation accounts.id uses, on the account salt, so the join survives (11.16.3b). rekey_text would emit a `snp_` TEXT hash that cannot be compared with a uuid: the relationship to accounts is destroyed while every behavioural column still reads as pseudonymous, so the snapshot LOOKS de-identified and is not. This is the proposer's side of the same bounty; dropping it would make every proposal anonymous while every bounty stays attributed, which is worse than both being attributable because it looks like a decision about one group of people.",
+      "reviewed_by": "agent, 2026-11-05, against spec 11.16.3b (M69 finder proposals); awaiting the operator's review"
+    },
+    "marked_for_later.account_id": {
+      "treatment": "rekey_account",
+      "why": "A UUID foreign key to accounts.id, so it must be re-keyed with snapshot_account -- the SAME derivation accounts.id uses, on the account salt, so the join survives (11.16.3b). rekey_text would emit a `snp_` TEXT hash that cannot be compared with a uuid: the relationship to accounts is destroyed while every behavioural column still reads as pseudonymous, so the snapshot LOOKS de-identified and is not. (account_id, work_id) is the UNIQUE key of the queue, so a constant or a collapsed hash would merge every reader's queue into one row and destroy the property the constraint enforces. The queue is also *not* a taste signal (M70-07), so a dump that joined it to bookmarks would manufacture the very inference the table exists to avoid.",
+      "reviewed_by": "agent, 2026-11-05, against spec 11.16.3b (M70-07 migration 0158); awaiting the operator's review"
+    },
     "revisions.created_at": {
       "treatment": "offset_timestamps",
       "why": "11.16.5 event time. Shifted per snapshot, so consecutive dumps cannot be joined row-for-row on the timestamp, while every interval and ordering inside one dump survives -- which is the research value 11.16.5 says the dataset exists for ('how long do people keep a work before abandoning it').",
@@ -181,6 +196,11 @@
       "treatment": "keep_gated",
       "why": "The chapter body as rendered HTML. Same body, second shape -- masking plain_text alone would publish the whole text again.",
       "reviewed_by": "alvaro, 2026-09-29, against spec 11.16.6"
+    },
+    "sessions.acr": {
+      "treatment": "drop_column",
+      "why": "The assurance level the issuer asserted for one browser session (M70-08, migration 0163). It is authentication state, not behaviour: publishing it would expose which readers hold a second factor, which is a map of who is worth attacking, and it explains nothing about the corpus the dump exists to publish.",
+      "reviewed_by": "agent, 2026-11-05, against spec 11.16 (M70-08 migration 0163); awaiting the operator's review"
     },
     "units.created_at": {
       "treatment": "offset_timestamps",
