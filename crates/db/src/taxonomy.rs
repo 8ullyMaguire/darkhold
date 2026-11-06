@@ -934,7 +934,8 @@ pub async fn tag_names_for_work(db: &Database, work_id: &str) -> Result<Vec<Stri
             "SELECT tn.canonical
              FROM work_tags wt
              JOIN canonical_entities tn ON tn.id = wt.node_id
-             WHERE wt.work_id = ? AND tn.kind = 'tag'",
+             WHERE wt.work_id = ? AND tn.kind = 'tag'
+               AND NOT (wt.source = 'inferred' AND wt.confirmation = 'unconfirmed')",
         )
         .bind(work_id)
         .fetch_all(db.sqlite_pool().expect("sqlite"))
@@ -944,7 +945,8 @@ pub async fn tag_names_for_work(db: &Database, work_id: &str) -> Result<Vec<Stri
             "SELECT tn.canonical
              FROM work_tags wt
              JOIN canonical_entities tn ON tn.id = wt.node_id
-             WHERE wt.work_id = $1::uuid AND tn.kind = 'tag'",
+             WHERE wt.work_id = $1::uuid AND tn.kind = 'tag'
+               AND NOT (wt.source = 'inferred' AND wt.confirmation = 'unconfirmed')",
         )
         .bind(work_id)
         .fetch_all(db.postgres_pool().expect("postgres"))

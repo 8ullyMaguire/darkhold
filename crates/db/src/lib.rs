@@ -135,6 +135,7 @@ pub mod shelf_document;
 pub mod specialist;
 pub mod subscriptions;
 pub mod supply;
+pub mod tag_assertions;
 pub mod tag_confirmation;
 pub mod taste_brief;
 pub mod taste_explain;
