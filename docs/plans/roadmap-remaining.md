@@ -20,7 +20,7 @@ Two rules that decide the order:
 ## Batch 4 — ranking (M64 / M69)
 
 M64-09 first half (71adfa72): gravity is a bounded mixture `(1-g)*base + g*taste` with a per-surface strength, a load-refused
-ceiling and a published pull histogram; only `discover.feed` has a candidate pipeline to pull on, and the reader's dial shipped in c9e4527d (`/api/v1/discovery/gravity`, narrowing only).
+ceiling and a published pull histogram; `discover.feed` and the concierge (`home.curated`, 1f05deff) have a candidate pipeline to pull on, and the reader's dial shipped in c9e4527d (`/api/v1/discovery/gravity`, narrowing only).
 
 Shipped: M69-08 (blend decay, floor, score-first ordering, 0109d288), M69-19 (NPMI, da36de8e), M69-12 + M71-06 (reason +
 match percentage, e93f94e6), M64-01 (surface registry, load-time validation, refusals by name, be0aead0).
