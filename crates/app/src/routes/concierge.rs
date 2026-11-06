@@ -186,6 +186,21 @@ pub async fn render_queue(
     // because the mood filter narrows a set and preserves the order it is given — pulling afterwards would reorder a set that
     // has already been narrowed, which is fine, but pulling before keeps one place where order is decided.
     let blended = {
+        // The same signal as the feed: the reader's shelf, over the works this queue is about to offer.
+        let blended = {
+            let ids: Vec<uuid::Uuid> = blended.iter().map(|c| c.work_id.as_uuid()).collect();
+            match darkhold_db::taste_signal::for_account(db, &account, &ids).await {
+                Ok(Some(signals)) => blended
+                    .into_iter()
+                    .map(|mut candidate| {
+                        candidate.taste_signal =
+                            signals.get(&candidate.work_id.as_uuid()).copied().unwrap_or(0.0);
+                        candidate
+                    })
+                    .collect(),
+                _ => blended,
+            }
+        };
         let taste = &state.config().taste;
         let instance_strength = taste.strength_for("home.curated");
         let reader_strength = match viewer_pseud {

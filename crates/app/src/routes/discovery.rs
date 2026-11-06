@@ -880,6 +880,28 @@ async fn get_discovery(
     // It runs here — after the blend and after theme gravity, before the reader's personal ordering — because it is a pull on
     // an order that already exists. Running it earlier would let the algorithms blend against a taste-shaped set, and the
     // experiment arms (M64-02) would then be measuring gravity rather than the algorithms.
+    // M64-09: the signal the gravity layer pulls on, from the reader's own shelf. Computed here, once per page, after the
+    // blend and before the pull — the pull needs a number to move on, and until this existed `taste_signal` was 0.0 for every
+    // candidate, which made a mechanically complete layer inert.
+    let ranked = match account_id.as_deref() {
+        Some(account) => {
+            let ids: Vec<uuid::Uuid> = ranked.iter().map(|c| c.work_id.as_uuid()).collect();
+            match darkhold_db::taste_signal::for_account(state.db(), account, &ids).await {
+                Ok(Some(signals)) => ranked
+                    .into_iter()
+                    .map(|mut candidate| {
+                        candidate.taste_signal =
+                            signals.get(&candidate.work_id.as_uuid()).copied().unwrap_or(0.0);
+                        candidate
+                    })
+                    .collect(),
+                // No shelf, no signal, and the page runs unpulled rather than pulled by an invented zero.
+                _ => ranked,
+            }
+        }
+        None => ranked,
+    };
+
     let taste = &state.config().taste;
     let instance_strength = taste.strength_for("discover.feed");
     // The reader's dial, if they have one. Clamped on read by `effective`, so a stored value from before the operator lowered
