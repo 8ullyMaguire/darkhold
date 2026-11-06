@@ -172,3 +172,6 @@ inference cannot overwrite a person's row. Remaining: route every work_tags writ
 M69-20 (c6b253f9): tag scripts — a kept set of nodes applied to a work in one call, written through
 tag_assertions so the tags carry a human claimant (author on your own work, curator on another's).
 Batch apply and the browsing UI remain.
+
+M69-18 (ed5f1f6e): trope clusters + coverage checklist. Advisory and read-only; the public route answers
+404 until taxonomy.trope_coverage is switched on (decided OFF by default, noted in the ledger).
