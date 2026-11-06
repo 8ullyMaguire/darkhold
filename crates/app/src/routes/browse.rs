@@ -418,10 +418,26 @@ async fn list_works_by_tag(
             .to_owned();
     }
 
+    // M64-10: the facets over exactly this tag's works, so the reader narrows rather than starts over.
+    let facets = darkhold_db::facets::all_facets(
+        state.db(),
+        &darkhold_db::facets::FacetFilter {
+            tag: Some(tag.clone()),
+            tag_kind: Some("tag".to_owned()),
+            title_contains: None,
+            min_words: None,
+            max_words: None,
+            max_rating: None,
+        },
+    )
+    .await
+    .unwrap_or_default();
+
     Ok(Json(serde_json::json!({
         "items": items,
         "sort": sort,
         "tag": tag,
+        "facets": facets,
         // The count is the count of what SURVIVED the filter, not the count
         // before it. A reader told there are forty works and shown twelve,
         // with nothing saying which twelve, has been told a lie.
@@ -571,9 +587,27 @@ async fn list_works_by_fandom(
 
     apply_works_sort(&mut items, &sort);
 
-    Ok(Json(
-        serde_json::json!({ "items": items, "sort": sort, "fandom": fandom }),
-    ))
+    // M64-10: the same facets under the fandom, which is the same join with a different `kind`.
+    let facets = darkhold_db::facets::all_facets(
+        state.db(),
+        &darkhold_db::facets::FacetFilter {
+            tag: Some(fandom.clone()),
+            tag_kind: Some("fandom".to_owned()),
+            title_contains: None,
+            min_words: None,
+            max_words: None,
+            max_rating: None,
+        },
+    )
+    .await
+    .unwrap_or_default();
+
+    Ok(Json(serde_json::json!({
+        "items": items,
+        "sort": sort,
+        "fandom": fandom,
+        "facets": facets,
+    })))
 }
 
 // --- Works (shared) -----------------------------------------------------

@@ -386,6 +386,23 @@ async fn search(
     let provenance = super::provenance::for_work_ids(&state, &ids).await;
     super::provenance::attach(&mut items, "work_id", &provenance);
 
+    // M64-10: the facets the reader can narrow with, computed over the same word window and rating ceiling the search applied.
+    //
+    // They describe the **catalogue under these filters**, not this page of hits — a histogram of twenty hits is a histogram of
+    // a page, and the query language is not re-expressed here because a second spelling of it is how the two disagree. The
+    // response says so in `facets_over` rather than leaving the reader to assume the narrower set.
+    let facet_filter = darkhold_db::facets::FacetFilter {
+        tag: None,
+        tag_kind: None,
+        title_contains: None,
+        min_words,
+        max_words,
+        max_rating: max_rating.clone(),
+    };
+    let facets = darkhold_db::facets::all_facets(state.db(), &facet_filter)
+        .await
+        .unwrap_or_default();
+
     Ok(Json(serde_json::json!({
         "items": items,
         "filters": {
@@ -393,7 +410,9 @@ async fn search(
             "max_words": max_words,
             "sort": sort,
             "max_rating": max_rating,
-        }
+        },
+        "facets": facets,
+        "facets_over": "the catalogue under min_words, max_words and max_rating — not this page of hits",
     })))
 }
 

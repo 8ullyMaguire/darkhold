@@ -68,10 +68,20 @@ pub struct FacetAnswer {
 /// the set it can name.
 #[derive(Debug, Clone, Default)]
 pub struct FacetFilter {
-    /// Tag slug, as `/tags/{tag}` takes it.
+    /// Tag or fandom name, as `/tags/{tag}` and `/works/by-fandom/{fandom}` take it. Matched on the canonical entity's
+    /// canonical spelling, so a page and its facets resolve the same way.
     pub tag: Option<String>,
+    /// Which kind of entity `tag` names — `tag` when absent, because a tag is the common case and a fandom is the same join
+    /// with one word different.
+    pub tag_kind: Option<String>,
     /// Substring of the title, case-insensitive on both backends through `lower()`.
     pub title_contains: Option<String>,
+    /// The same word-count window the search applies (M47-05), so a facet can describe a narrowed catalogue.
+    pub min_words: Option<i64>,
+    pub max_words: Option<i64>,
+    /// The same rating ceiling the search applies. A facet computed without it would count works the search refuses to
+    /// return, which is a histogram of a different shelf.
+    pub max_rating: Option<String>,
 }
 
 /// One row of the scan, before bucketing.
@@ -117,16 +127,41 @@ async fn scan(db: &Database, filter: &FacetFilter) -> Result<Vec<Scanned>> {
     if filter.tag.is_some() {
         sql.push_str(
             " AND EXISTS (SELECT 1 FROM work_tags wt JOIN canonical_entities n ON n.id = wt.node_id \
-              WHERE wt.work_id = w.id AND lower(n.canonical) = lower(",
+              WHERE wt.work_id = w.id AND n.kind = ",
         );
         sql.push_str(&format!("?{next}"));
+        sql.push_str(" AND lower(n.canonical) = lower(");
+        sql.push_str(&format!("?{}", next + 1));
         sql.push_str("))");
-        next += 1;
+        next += 2;
     }
     if filter.title_contains.is_some() {
         sql.push_str(&format!(" AND lower(w.title) LIKE ?{next}"));
+        next += 1;
+    }
+    if filter.max_rating.is_some() {
+        // Rating order, not string order: `mature` outranks `general` alphabetically by accident, and a ceiling built from an
+        // accidental order lets explicit works through a `mature` ceiling.
+        sql.push_str(&format!(
+            " AND CASE lower(w.rating) WHEN 'general' THEN 0 WHEN 'teen' THEN 1 WHEN 'mature' THEN 2 WHEN 'explicit' THEN 3 ELSE 4 END <= ?{next}"
+        ));
+        next += 1;
+    }
+    // The word window is on the per-work sum, so it goes in the HAVING clause rather than the WHERE: filtering in WHERE would
+    // test individual revisions against a window meant for the whole work.
+    let mut having: Vec<String> = Vec::new();
+    if filter.min_words.is_some() {
+        having.push(format!("COALESCE(SUM(r.word_count), 0) >= ?{next}"));
+        next += 1;
+    }
+    if filter.max_words.is_some() {
+        having.push(format!("COALESCE(SUM(r.word_count), 0) <= ?{next}"));
     }
     sql.push_str(" GROUP BY w.id, w.rating, w.lifecycle, w.published_at, w.updated_at");
+    if !having.is_empty() {
+        sql.push_str(" HAVING ");
+        sql.push_str(&having.join(" AND "));
+    }
 
     type Row = (
         Option<String>,
@@ -141,10 +176,27 @@ async fn scan(db: &Database, filter: &FacetFilter) -> Result<Vec<Scanned>> {
         Backend::Sqlite => {
             let mut query = sqlx::query_as::<_, Row>(&sql);
             if let Some(tag) = filter.tag.as_deref() {
+                query = query.bind(
+                    filter
+                        .tag_kind
+                        .clone()
+                        .unwrap_or_else(|| "tag".to_owned()),
+                );
                 query = query.bind(tag);
             }
             if let Some(title) = filter.title_contains.as_deref() {
                 query = query.bind(format!("%{}%", title.to_lowercase()));
+            }
+            // Bind order follows SQL text order — tag, title, rating in WHERE, then the word window in HAVING — because a
+            // positional bind that disagrees with its placeholder is the same silent-empty-set bug as before.
+            if let Some(ceiling) = filter.max_rating.as_deref() {
+                query = query.bind(rating_rank(ceiling));
+            }
+            if let Some(min) = filter.min_words {
+                query = query.bind(min);
+            }
+            if let Some(max) = filter.max_words {
+                query = query.bind(max);
             }
             query
                 .fetch_all(db.sqlite_pool().expect("sqlite pool for sqlite backend"))
@@ -153,10 +205,27 @@ async fn scan(db: &Database, filter: &FacetFilter) -> Result<Vec<Scanned>> {
         Backend::Postgres => {
             let mut query = sqlx::query_as::<_, Row>(&sql);
             if let Some(tag) = filter.tag.as_deref() {
+                query = query.bind(
+                    filter
+                        .tag_kind
+                        .clone()
+                        .unwrap_or_else(|| "tag".to_owned()),
+                );
                 query = query.bind(tag);
             }
             if let Some(title) = filter.title_contains.as_deref() {
                 query = query.bind(format!("%{}%", title.to_lowercase()));
+            }
+            // Bind order follows SQL text order — tag, title, rating in WHERE, then the word window in HAVING — because a
+            // positional bind that disagrees with its placeholder is the same silent-empty-set bug as before.
+            if let Some(ceiling) = filter.max_rating.as_deref() {
+                query = query.bind(rating_rank(ceiling));
+            }
+            if let Some(min) = filter.min_words {
+                query = query.bind(min);
+            }
+            if let Some(max) = filter.max_words {
+                query = query.bind(max);
             }
             query
                 .fetch_all(
@@ -331,6 +400,17 @@ fn cadence_facet(rows: &[Scanned]) -> FacetAnswer {
             .or_insert((label.to_owned(), 1));
     }
     answer(Facet::Cadence, tally(buckets), known, rows.len() as i64)
+}
+
+/// The rank a rating ceiling compares against, matching the `CASE` in the statement.
+fn rating_rank(rating: &str) -> i64 {
+    match rating.to_ascii_lowercase().as_str() {
+        "general" => 0,
+        "teen" => 1,
+        "mature" => 2,
+        "explicit" => 3,
+        _ => 4,
+    }
 }
 
 /// Days since the Unix epoch for a `YYYY-MM-DD` prefix, UTC.

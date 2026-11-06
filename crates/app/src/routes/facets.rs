@@ -19,6 +19,10 @@ struct FacetsQuery {
     q: Option<String>,
     /// Narrow the answer to one facet; absent returns all four.
     facet: Option<String>,
+    /// The same word window and rating ceiling `/api/v1/search` takes, so a facet can describe a narrowed catalogue.
+    min_words: Option<i64>,
+    max_words: Option<i64>,
+    max_rating: Option<String>,
 }
 
 pub fn router() -> Router<AppState> {
@@ -44,6 +48,10 @@ async fn facets(
             .q
             .map(|text| text.trim().to_owned())
             .filter(|text| !text.is_empty()),
+        tag_kind: None,
+        min_words: params.min_words,
+        max_words: params.max_words,
+        max_rating: params.max_rating,
     };
 
     let answers = facets::all_facets(state.db(), &filter)
@@ -58,6 +66,9 @@ async fn facets(
         "filter": {
             "tag": filter.tag,
             "q": filter.title_contains,
+            "min_words": filter.min_words,
+            "max_words": filter.max_words,
+            "max_rating": filter.max_rating,
         },
         "facets": answers,
     })))

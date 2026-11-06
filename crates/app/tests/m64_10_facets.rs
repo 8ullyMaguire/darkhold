@@ -250,6 +250,14 @@ async fn the_four_facets_describe_the_public_catalogue_and_a_missing_measurement
     assert_eq!(tagged_length["known"], 1, "{tagged_length}");
     assert_eq!(tagged_length["unknown"], 0, "{tagged_length}");
 
+    // The browse surface carries the same facets under the tag it lists: the reader narrows from where they are.
+    let (status, browsed) = json_of(harness.client(), "/api/v1/tags/slow%20burn").await;
+    assert_eq!(status, StatusCode::OK, "{browsed}");
+    assert_eq!(
+        facet(&browsed, "length")["known"], 1,
+        "the by-tag page answers about its own works: {browsed}"
+    );
+
     // One facet on request.
     let (status, one) = json_of(harness.client(), "/api/v1/facets?facet=rating").await;
     assert_eq!(status, StatusCode::OK);
@@ -261,6 +269,45 @@ async fn the_four_facets_describe_the_public_catalogue_and_a_missing_measurement
         StatusCode::UNPROCESSABLE_ENTITY,
         "an unknown facet is refused by name, not answered with nothing"
     );
+}
+
+#[tokio::test]
+async fn a_search_response_carries_the_facets_of_the_catalogue_it_narrowed_and_says_which_set_they_describe() {
+    // The other half of M64-10: the facets must reach the surface a reader narrows from, and the response must not let anyone
+    // believe they describe the twenty hits on screen.
+    let harness = Harness::new("search").await;
+    harness.seed().await;
+
+    // A rating ceiling of `general` must exclude the mature long work from the facet as well as from the hits; a facet that
+    // counted it would offer a `mature` bucket the same search then refuses to fill.
+    let (status, body) = json_of(
+        harness.client(),
+        "/api/v1/search?q=one&max_rating=general",
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{body}");
+    assert!(
+        body["facets_over"]
+            .as_str()
+            .unwrap_or_default()
+            .contains("not this page of hits"),
+        "the response names the set the facets describe: {body}"
+    );
+    let rating = facet(&body, "rating");
+    assert_eq!(
+        rating["buckets"].as_array().expect("buckets").len(),
+        1,
+        "only the general works remain under the ceiling: {rating}"
+    );
+    assert_eq!(rating["buckets"][0]["key"], "general", "{rating}");
+
+    // The word window is on the per-work sum, so a 12,000-word work survives a 1,000-word floor even though its revisions are
+    // individually short — and the unmeasured work (0 words) does not.
+    let (status, body) = json_of(harness.client(), "/api/v1/search?q=one&min_words=1000").await;
+    assert_eq!(status, StatusCode::OK, "{body}");
+    let length = facet(&body, "length");
+    assert_eq!(length["known"], 1, "only the long work clears the floor: {length}");
+    assert_eq!(length["unknown"], 0, "the unmeasured work cannot clear a floor: {length}");
 }
 
 #[tokio::test]
