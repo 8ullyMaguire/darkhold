@@ -187,3 +187,125 @@ pub async fn published_uris(db: &Database, limit: i64) -> Result<Vec<(String, St
     };
     Ok(rows)
 }
+
+// ---------------------------------------------------------------------------
+// The feed generators (W6 §7.5, slice B)
+// ---------------------------------------------------------------------------
+
+/// Which skeleton is being asked for.
+///
+/// Three feeds, and none of them invents a ranking: each is an ordering the site already produces. There is deliberately
+/// no `top` — measured, the product's only ranked listing is `library_items ORDER BY likes DESC`, which is **per reader**,
+/// and `work_metric_aggregates` is counted but never ordered by. A `top` feed would have to invent that rule for Bluesky,
+/// which is a second ranking wearing a feed's clothes.
+#[derive(Copy, Clone, Debug, PartialEq, Eq)]
+pub enum Feed {
+    /// Newest publications.
+    Recent,
+    /// Most recently touched works — the ordering `chapter.revised` already implies.
+    Updated,
+    /// Works that carry at least one tag, by the same recency.
+    Tagged,
+}
+
+impl Feed {
+    /// The column the ordering and the cursor both live in.
+    ///
+    /// A static string chosen from a closed enum, so it is safe to interpolate — and it must be *one* column, because a
+    /// cursor that pages on one column while the sort uses another skips rows with no error.
+    fn column(self) -> &'static str {
+        match self {
+            Feed::Recent => "w.published_at",
+            Feed::Updated | Feed::Tagged => "w.updated_at",
+        }
+    }
+
+    /// The extra predicate, if the feed has one.
+    fn predicate(self) -> &'static str {
+        match self {
+            Feed::Recent | Feed::Updated => "",
+            Feed::Tagged => " AND EXISTS (SELECT 1 FROM work_tags wt WHERE wt.work_id = w.id)",
+        }
+    }
+}
+
+/// One entry in a skeleton: the record to show, and the value a cursor resumes from.
+#[derive(Debug, Clone)]
+pub struct SkeletonItem {
+    /// The `at://` URI the record bridge stored — never re-derived, or the skeleton would point at a record that may not
+    /// exist.
+    pub at_uri: String,
+    /// The ordering value, in the exact shape the column stores (`YYYY-MM-DDTHH:MM:SS`), so a lexicographic comparison
+    /// against the text column is the same comparison the database makes.
+    pub cursor: String,
+}
+
+/// One page of a skeleton, newest first.
+///
+/// `before` is the previous page's last cursor. Rows without an `at_uri` are excluded by the query rather than filtered
+/// here: a skeleton entry that does not resolve is worse than a shorter feed, and the database can say that with an index.
+pub async fn feed_page(
+    db: &Database,
+    feed: Feed,
+    limit: i64,
+    before: Option<&str>,
+) -> Result<Vec<SkeletonItem>, sqlx::Error> {
+    let column = feed.column();
+    let predicate = feed.predicate();
+    // `<> ''` as well as `IS NOT NULL`: measured on a scratch instance, a work inserted with an empty string published
+    // `{"post": ""}` to the skeleton — an entry that resolves to nothing, which is worse than a shorter feed. The column
+    // is TEXT, so "no record" has two spellings and both must be excluded.
+    let filter = "FROM works w
+         WHERE w.visibility = 'public' AND w.lifecycle = 'published' AND w.deleted_at IS NULL
+           AND w.at_uri IS NOT NULL AND w.at_uri <> ''";
+    // Bound to locals before `db.sql`, which borrows both strings: a `&format!()` temporary would be dropped while the
+    // returned `Cow` still pointed at it.
+    let (sqlite_sql, postgres_sql) = match before {
+        None => (
+            format!("SELECT w.at_uri, {column} {filter}{predicate} ORDER BY {column} DESC LIMIT ?"),
+            format!("SELECT w.at_uri, {column} {filter}{predicate} ORDER BY {column} DESC LIMIT $1"),
+        ),
+        Some(_) => (
+            format!("SELECT w.at_uri, {column} {filter}{predicate} AND {column} < ? ORDER BY {column} DESC LIMIT ?"),
+            format!("SELECT w.at_uri, {column} {filter}{predicate} AND {column} < $1 ORDER BY {column} DESC LIMIT $2"),
+        ),
+    };
+    let sql = db.sql(&sqlite_sql, &postgres_sql);
+    let limit = limit.clamp(1, 100);
+
+    // `SqliteRow` and `PgRow` are distinct types, so the mapping happens INSIDE each arm — a `match` cannot return one
+    // row type, and a `Row::get` on the wrong pool is a runtime panic rather than a compile error.
+    let rows: Vec<SkeletonItem> = match db.backend() {
+        Backend::Sqlite => {
+            let mut q = sqlx::query(&sql);
+            if let Some(before) = before {
+                q = q.bind(before);
+            }
+            q.bind(limit)
+                .fetch_all(db.sqlite_pool().ok_or_else(pool_err)?)
+                .await?
+                .into_iter()
+                .map(|r| SkeletonItem {
+                    at_uri: r.get::<String, _>("at_uri"),
+                    cursor: r.get::<String, _>(column.trim_start_matches("w.")),
+                })
+                .collect()
+        }
+        Backend::Postgres => {
+            let mut q = sqlx::query(&sql);
+            if let Some(before) = before {
+                q = q.bind(before);
+            }
+            q.bind(limit)
+                .fetch_all(db.postgres_pool().ok_or_else(pool_err)?)
+                .await?
+                .into_iter()
+                .map(|r| SkeletonItem {
+                    at_uri: r.get::<String, _>("at_uri"),
+                    cursor: r.get::<String, _>(column.trim_start_matches("w.")),
+                })
+                .collect()
+        }
+    };
+    Ok(rows)
+}
