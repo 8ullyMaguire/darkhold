@@ -1,10 +1,10 @@
 {
   "sources": {
     "requirements.csv": {
-      "rows": 941,
+      "rows": 942,
       "by_status": {
         "implemented-verified-e2e": 139,
-        "implemented-locally-tested": 249,
+        "implemented-locally-tested": 250,
         "unsupported": 4,
         "implemented-fully-tested": 433,
         "implemented": 9,
@@ -535,12 +535,6 @@
       "notes": "Found while implementing M70-12 and confirming it with a live probe. `content::list_public_works_by_freshness` is called by nothing in crates/app \u2014 its only callers are crates/app/tests/publication_events.rs and the M70-12 test \u2014 so the ordering guarantees it asserts (event-log `new` vs `updated`, NULL publish events sorting last) are proven about a function no reader can reach. Two honest ends: wire it into the home/freshness feed (and check whether the feed that exists today reproduces those guarantees), or delete it and move the ordering assertions onto the SQL that does serve. The probe that surfaced it: /api/v1/works?sort=new is the AUTHOR's list and answers AUTH_REQUIRED to a stranger, and the stranger's feed comes from browse.rs, not from this function."
     },
     {
-      "id": "M71-01",
-      "milestone": "M71",
-      "requirement": "An ADR decides which runtime owns HTML for the ~90 non-reader pages \u2014 Rust templates (extending what the reader already does), a Node SSR process, or a documented hybrid \u2014 and the decision is proved by one shipped page rendering its content, its links and its primary action with JavaScript disabled.",
-      "notes": "Priority 1, blocks M71-03..M71-16. Today: Vite + Svelte 5 SPA with a hand-rolled router; the reader alone is server-rendered (crates/app/src/routes/reader_page.rs). The design proposal demands no-JS for every page but never names a mechanism or its cost; 'one binary with embedded assets' is the deploy contract at risk. Rejected alternatives must be recorded: adapter-static cannot SSR; adapter-node adds a second runtime beside Rust. DECIDED 2026-11-06: docs/adr/0006-one-binary-two-renderers.md \u2014 one binary, Rust renders document-class pages in this order: work page, fandom/tag, search results, landing, author/collection/series; SPA keeps the application-class surfaces (editor, library, settings, forum, admin, governance, import/export). Rejected: adapter-node (second runtime, breaks the one-binary deploy), adapter-static prerender (cannot render per-request content), full Rust rewrite of 91 components, accepting the JS-only shell. Remaining acceptance: the first page migrated (work page) plus a server test that asserts its content with no script execution."
-    },
-    {
       "id": "M71-02",
       "milestone": "M71",
       "requirement": "Three named visual directions are written and one is chosen in an ADR that fixes the identity question \u2014 the site stops reading as another @polaris/ui dashboard \u2014 and the chosen direction ships as tokens applied to at least three pages, with measured contrast for every declared pair.",
@@ -629,6 +623,12 @@
       "milestone": "M71",
       "requirement": "Machine surfaces obey the same eligibility and provenance rules as pages: OPDS, Atom/RSS, JSON-LD and the sitemap never emit a restricted, unlisted or otherwise unreadable work, and every feed item states its provenance.",
       "notes": "Priority 4. The external design never mentions the e-reader client, which is the audience that most needs the reader to be a document; \u00a74814 already requires restricted works out of the sitemap. Acceptance: a feed test per surface with a restricted and an unlisted control."
+    },
+    {
+      "id": "M71-20",
+      "milestone": "M71",
+      "requirement": "The remaining document-class pages migrate in ADR 0006's order - work page /works/{id}, fandom and tag pages, search results, author and collection/series pages - each shipped as server-rendered HTML whose content, links and primary action work with no script, with its Svelte route deleted in the same commit and a server test asserting the no-JS content.",
+      "notes": "Opened by M71-01 (8a51f9de), which shipped the landing page. Order and reasons are in docs/adr/0006-one-binary-two-renderers.md. The work page is next and is the one that matters for link previews and crawlers: it needs the public view (works::public_view) plus a session-aware split, because the SPA work page carries the signed-in actions (bookmark, kudos, author tools) - a signed-in reader keeps the application, an anonymous one gets the document. Acceptance per page: a test that fetches the HTML, parses it and asserts the content with no script execution, plus a live probe; the Svelte route is removed in the same commit so the count only goes down."
     }
   ],
   "open_by_milestone": {
