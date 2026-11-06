@@ -796,6 +796,21 @@ async fn get_discovery(
         _ => ranked,
     };
 
+    // M71-06: the reason and the match percentage travel with the row, because an explanation the client has to
+    // reconstruct from a slot id is an explanation most readers will never see. `SlotReason::from_engine_reason`
+    // returns `None` for a reason outside the closed vocabulary, and that `None` is load-bearing: the row then carries
+    // no `reason` key at all rather than an invented sentence.
+    let top_score = ranked.iter().map(|c| c.score).max().unwrap_or(0);
+    let explanations: std::collections::HashMap<String, (Option<SlotReason>, i64)> = ranked
+        .iter()
+        .map(|c| {
+            (
+                c.work_id.to_string(),
+                (SlotReason::from_engine_reason(&c.reason), c.score),
+            )
+        })
+        .collect();
+
     let mut items: Vec<serde_json::Value> = ranked
         .into_iter()
         .map(|c| serde_json::json!({ "work_id": c.work_id.to_string() }))
@@ -854,10 +869,25 @@ async fn get_discovery(
         .await
         .map_err(|e| ApiError(AppError::Internal(e.into())))?;
     for item in &mut items {
-        if let Some(id) = item["work_id"].as_str() {
-            if let Some((title, author)) = details.get(id) {
-                item["title"] = serde_json::Value::String(title.clone());
-                item["author_handle"] = serde_json::Value::String(author.clone());
+        let Some(id) = item["work_id"].as_str().map(str::to_owned) else {
+            continue;
+        };
+        if let Some((title, author)) = details.get(&id) {
+            item["title"] = serde_json::Value::String(title.clone());
+            item["author_handle"] = serde_json::Value::String(author.clone());
+        }
+        if let Some((reason, score)) = explanations.get(&id) {
+            // Absent, not empty: a row with no mapped reason shows nothing, which is the honest rendering of "we
+            // cannot say why in the vocabulary".
+            if let Some(reason) = reason {
+                item["reason"] = serde_json::Value::String(reason.sentence().to_owned());
+                item["reason_code"] = serde_json::Value::String(reason.as_str().to_owned());
+            }
+            // Percentage of the best score on this page, so the first row is 100 and the rest are relative to it. An
+            // absolute score is meaningless to a reader; a relative one is checkable against the order they see.
+            if top_score > 0 && *score > 0 {
+                let percent = ((*score as f64 / top_score as f64) * 100.0).round() as i64;
+                item["match_percent"] = serde_json::Value::from(percent);
             }
         }
     }

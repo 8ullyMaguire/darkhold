@@ -180,6 +180,28 @@ impl SlotReason {
         }
     }
 
+    /// The sentence a reader is shown (M71-06).
+    ///
+    /// One per variant, in the second person, and checkable: "Its tags match your taste profile" can be verified
+    /// against the profile the reader can open; "popular on this instance" against the listing. A sentence that
+    /// cannot be checked is a claim, and a claim in an explanation is worse than no explanation.
+    ///
+    /// There is no `String` here for the same reason the enum has no free member: a sentence an operator could write
+    /// is a sentence an operator would eventually write, and then a boost would arrive disguised as a reason.
+    pub fn sentence(self) -> &'static str {
+        match self {
+            SlotReason::TasteTags => "Its tags match your taste profile.",
+            SlotReason::Popular => "It is popular on this instance.",
+            SlotReason::MediaReferenceCollaborative => {
+                "It shares references with something you saved."
+            }
+            SlotReason::Strategy => "A recommendation strategy picked it for you.",
+            SlotReason::ReadingHistory => "It follows something you bookmarked.",
+            SlotReason::SavedSearch => "It matches a saved search or alert.",
+            SlotReason::RatedByReaders => "Readers have rated it highly.",
+        }
+    }
+
     /// Every variant, for the exhaustive test that keeps the vocabulary honest.
     pub fn all() -> &'static [SlotReason] {
         &[
@@ -634,6 +656,25 @@ mod tests {
         // Last in `all()`, so a work matched by tags *and* rated highly leads with the personal
         // reason: `normalized` orders by this list.
         assert_eq!(SlotReason::all().last(), Some(&SlotReason::RatedByReaders));
+    }
+
+    #[test]
+    fn every_reason_has_one_sentence_and_it_is_checkable() {
+        // M71-06: the reader-facing sentence comes from the same closed set. A variant added without one is a compile
+        // error in `sentence()`; a variant whose sentence is empty or wears a number is caught here. No digits, because
+        // the percentage belongs in `match_percent` where it cannot drift from the score it describes.
+        for reason in SlotReason::all() {
+            let sentence = reason.sentence();
+            assert!(!sentence.is_empty(), "{reason:?} has no sentence");
+            assert!(
+                sentence.ends_with('.'),
+                "{reason:?}'s sentence is not a sentence: {sentence}"
+            );
+            assert!(
+                !sentence.chars().any(|c| c.is_ascii_digit()),
+                "{reason:?} spells a number into prose: {sentence}"
+            );
+        }
     }
 
     #[test]

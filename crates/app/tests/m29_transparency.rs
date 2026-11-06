@@ -1403,6 +1403,59 @@ async fn a_served_recommendation_carries_a_slot_id_that_explains_itself() {
 }
 
 #[tokio::test]
+async fn a_served_recommendation_carries_its_reason_and_match_percentage() {
+    // M71-06 / M69-12: the explanation travels with the row. A reader who has to fetch a slot id to learn why a work
+    // was shown mostly will not; the sentence is on the item, from the closed vocabulary, and absent when the engine's
+    // reason does not map.
+    let harness = Harness::new("reason").await;
+    let mut reader = harness.reader("Reasoned").await;
+    let account = account_of(&harness.db, "Reasoned").await;
+    let pseud = pseud_of(&harness.db, &account.to_string()).await;
+    for n in 0..3 {
+        make_published_work(&harness.db, &pseud.to_string(), &format!("Reasoned {n}")).await;
+    }
+
+    let (status, body) = reader.get("/api/v1/discovery").await;
+    assert_eq!(status, StatusCode::OK, "body: {body}");
+    let items = body["items"].as_array().expect("items");
+    assert!(!items.is_empty(), "three published works are served: {body}");
+
+    let vocabulary = [
+        "taste_tags",
+        "popular",
+        "media_ref_collab",
+        "strategy",
+        "reading_history",
+        "saved_search",
+        "rated_by_readers",
+    ];
+    for (position, item) in items.iter().enumerate() {
+        let reason = item["reason"].as_str().unwrap_or("");
+        assert!(
+            !reason.is_empty(),
+            "every served row says why, in words: {item}"
+        );
+        assert!(
+            reason.ends_with('.'),
+            "the reason is a sentence: {item}"
+        );
+        let code = item["reason_code"].as_str().expect("reason_code");
+        assert!(
+            vocabulary.contains(&code),
+            "the code comes from the closed set, not from the engine: {item}"
+        );
+        let percent = item["match_percent"].as_i64().expect("match_percent");
+        if position == 0 {
+            assert_eq!(percent, 100, "the top row is the whole of the scale: {item}");
+        }
+        assert!(
+            (1..=100).contains(&percent),
+            "a percentage between 1 and 100: {item}"
+        );
+    }
+}
+
+#[tokio::test]
 async fn an_anonymous_recommendation_carries_no_slot_id() {
     // A slot is a record of what a *reader* was shown, so there is nothing to
     // record for someone who is not one. Emitting an id nobody can later
