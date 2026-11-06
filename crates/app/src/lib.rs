@@ -11,6 +11,7 @@
 
 pub mod ai;
 pub mod assets;
+pub mod atproto;
 pub mod auth;
 pub mod bulk_export;
 pub mod cli;

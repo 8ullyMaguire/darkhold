@@ -138,7 +138,8 @@ pub async fn serve(config: Config, db: Database, args: &ServeArgs) -> Result<()>
     // `darkhold worker` process is the better one when the queue is busy. Both
     // are supported and both stop on the same signal.
     if args.with_worker {
-        let worker = crate::worker::Worker::new(crate::worker::WorkerOptions::default())
+        // Rebound as `mut` because the ATProto handler is registered *conditionally*: see below.
+        let mut worker = crate::worker::Worker::new(crate::worker::WorkerOptions::default())
             .with_topic("publish.index", {
                 let handler: crate::worker::TopicHandler = Arc::new(|_state: &AppState, event: &outbox::OutboxEvent| {
                     let work_id = event.payload.split("\"work_id\":\"").nth(1)
@@ -218,6 +219,26 @@ pub async fn serve(config: Config, db: Database, args: &ServeArgs) -> Result<()>
                 });
                 handler
             });
+
+        // W6 §2: ATProto is outbound only, so this handler has no moderation surface and no inbound path.
+        //
+        // It is registered **only when the bridge is configured**, and that is the whole design rather than a
+        // convenience. The worker claims only the topics it has handlers for (`deliver_outbox` builds its topic list
+        // from the registry, and a topic with no handler is *left alone*), so with no `[atproto]` table the 40,641
+        // undelivered `work.published` rows are not touched at all — no attempts, no `last_error`, no warning per row
+        // per pass. Registering the handler with the bridge off would either mark those events delivered (losing the
+        // backfill the day it is switched on) or churn forty thousand rows through the backoff and a warn line each.
+        // Conditional registration defers them by *not asking for them*, which is the mechanism the outbox already has.
+        if state.config().atproto.as_ref().is_some_and(|c| c.enabled) {
+            worker = worker.with_topic("work.published", {
+                let handler: crate::worker::TopicHandler = Arc::new(|_state: &AppState, event: &outbox::OutboxEvent| {
+                    let state = _state.clone();
+                    let payload = event.payload.clone();
+                    Box::pin(async move { crate::atproto::publish_work(&state, &payload).await })
+                });
+                handler
+            });
+        }
         let worker_state = state.clone();
         tracing::info!(worker = %worker.options().id, "worker running in this process");
         tokio::spawn(async move {
