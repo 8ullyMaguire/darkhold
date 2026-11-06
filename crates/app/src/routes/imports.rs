@@ -42,13 +42,15 @@
 //! is safe because the fetch goes through the same guard the worker uses, with a
 //! tighter timeout because somebody is waiting for it.
 
-use axum::extract::{Path, Query, State};
+use axum::body::Bytes;
+use axum::extract::{DefaultBodyLimit, Path, Query, State};
 use axum::http::StatusCode;
 use axum::routing::{get, post};
 use axum::{Json, Router};
 use serde::{Deserialize, Serialize};
 
 use darkhold_db::imports::CredentialEvent;
+use darkhold_db::storage::BlobStore;
 use darkhold_db::{imports, library, revisions, secrets};
 use darkhold_domain::imports::{plan_import, ImportedWork, UnitIdentity};
 use darkhold_domain::library::ReadingStatus;
@@ -56,6 +58,7 @@ use darkhold_domain::{AppError, PseudId};
 use darkhold_scrapers::{SafeFetcher, SourceAdapter, SourceKey};
 
 use crate::auth::{MaybeSession, RequireActorScoped, RequirePseud, RequireSession};
+use crate::imports::BUNDLE_SOURCE_KEY;
 use crate::http::{ApiError, ApiResult};
 use crate::state::AppState;
 use darkhold_domain::api_scopes::Scope;
@@ -67,6 +70,14 @@ pub fn router() -> Router<AppState> {
         .route("/imports/preview", post(preview_import))
         .route("/imports", get(list_imports).post(start_import))
         .route("/imports/batch", post(start_import_batch))
+        // A bundle is a body, not an address: it gets its own route because it
+        // is the one endpoint on this instance that may carry an archive, and
+        // the limit is on the route rather than on the server (see
+        // BUNDLE_MAX_BYTES).
+        .route(
+            "/imports/bundle",
+            post(import_bundle).layer(DefaultBodyLimit::max(BUNDLE_MAX_BYTES)),
+        )
         .route("/imports/{id}", get(get_import))
         .route("/imports/{id}/cancel", post(cancel_import))
         .route("/library/imports/csv", post(import_shelf_csv))
@@ -1047,6 +1058,161 @@ async fn start_import(
             // worker will pick up, and `pending` was never a state it has.
             "state": import.state,
             "created_at": import.created_at,
+        })),
+    ))
+}
+
+// ---------------------------------------------------------------------------
+// Bundle import (W5 task 9)
+// ---------------------------------------------------------------------------
+
+/// The estate's own ceiling, and the reason this route exists at all.
+///
+/// `server.max_body_bytes` is 2 MiB on the instance, and one work's bundle is ~9 MB before any encoding — measured, not
+/// assumed: `tools/export_bundle.py --kind work --id 78eb8d57-… --zip` writes 8,995,753 bytes. So the archive cannot
+/// arrive as a JSON string (base64 makes it a third larger again) and the global limit must not be raised for every route
+/// on the instance to serve one feature. The limit is on this route, at the module ceiling `config.rs` already accepts.
+const BUNDLE_MAX_BYTES: usize = 64 * 1024 * 1024;
+
+#[derive(Debug, Deserialize)]
+struct BundleImportQuery {
+    /// Only `library`, for the same reason [`StartImportRequest`] allows it.
+    #[serde(default = "default_destination")]
+    destination: String,
+    #[serde(default)]
+    dry_run: bool,
+    #[serde(default)]
+    pseud_id: Option<String>,
+}
+
+/// Import one bundle: `POST /api/v1/imports/bundle?destination=library`, body = the archive.
+///
+/// **One request, deliberately.** The two-request shape (create the job, then upload into it) needs a job row that exists
+/// before its archive does — and `import_jobs.job_id` is a foreign key to the queue, so a placeholder import cannot be
+/// written without also queueing a job that would be claimed while it points at nothing. Attaching the archive *before*
+/// queueing removes the race instead of describing it.
+///
+/// The order below is the contract:
+///
+/// 1. **Verify.** `BundleItem::open` checks the version, the kind and every checksum. A refused bundle leaves no row.
+/// 2. **Store the archive** as a blob and reference it to the import, so the worker reads the same bytes this request
+///    verified rather than the client re-sending them.
+/// 3. **Record the import and its single unit**, then queue it. The worker's bundle branch is what creates the library
+///    item and stores the body — this route must not, because a second writer beside the worker is the mistake this
+///    product refuses everywhere else.
+async fn import_bundle(
+    State(state): State<AppState>,
+    RequireActorScoped { actor }: RequireActorScoped,
+    Query(query): Query<BundleImportQuery>,
+    body: Bytes,
+) -> ApiResult<(StatusCode, Json<serde_json::Value>)> {
+    let actor = actor.require(Scope::ContentWrite)?;
+    let account_id = actor.account_id;
+    let pseud = match &query.pseud_id {
+        Some(raw) => {
+            let requested = parse_pseud(raw)?;
+            let owned = darkhold_db::identity::find_pseud(state.db(), requested)
+                .await?
+                .filter(|p| p.account_id == account_id)
+                .ok_or_else(|| ApiError(AppError::NotFound { resource: "pseud" }))?;
+            owned.id
+        }
+        None => actor.pseud_id,
+    };
+    if query.destination != "library" {
+        return Err(ApiError(AppError::Validation {
+            message: format!(
+                "{} is not a destination this build can import into; only \"library\" is",
+                query.destination
+            ),
+            field_errors: Default::default(),
+        }));
+    }
+
+    let item = darkhold_domain::bundle::BundleItem::open(&body).map_err(|error| {
+        // The reader's message names the file and both digests when a checksum disagrees; passing it through is the point
+        // of having written it that way.
+        ApiError(AppError::Validation {
+            message: error.to_string(),
+            field_errors: Default::default(),
+        })
+    })?;
+
+    let store = BlobStore::new(state.config().storage.root.clone());
+    let (archive_checksum, _key) = store.put(state.db(), &body, "application/zip").await?;
+
+    let id = darkhold_domain::ImportJobId::new().to_string();
+    let job_id = darkhold_db::jobs::enqueue(
+        state.db(),
+        darkhold_domain::jobs::JobKind::Import,
+        &serde_json::json!({ "import_job_id": id }).to_string(),
+        None,
+        Some(account_id),
+        0,
+        &darkhold_domain::jobs::RetryPolicy::default(),
+    )
+    .await?;
+
+    // `source_url` is the work's canonical address when the manifest carries one, and `bundle:<id>` otherwise. It is not
+    // where the bytes came from — that is the archive — and saying so would make the job's history a lie about its own
+    // transport.
+    let source_url = item
+        .manifest
+        .canonical_url
+        .clone()
+        .unwrap_or_else(|| format!("bundle:{}", item.manifest.id));
+    let import = imports::create_import_job(
+        state.db(),
+        &id,
+        &job_id.to_string(),
+        &account_id.to_string(),
+        &pseud.to_string(),
+        BUNDLE_SOURCE_KEY,
+        &source_url,
+        &query.destination,
+        query.dry_run,
+    )
+    .await?;
+
+    store
+        .reference(state.db(), &archive_checksum, "import_archive", &import.id)
+        .await?;
+    // One unit per bundle, in state `pending`: it becomes `stored` when the worker has written the body, and a failure
+    // records why on this row rather than in a log line.
+    imports::upsert_import_unit(
+        state.db(),
+        &import.id,
+        None,
+        &imports::ImportUnitInput {
+            source_unit_key: item.manifest.id.clone(),
+            // ONE, not zero: `import_units.ordinal` carries `CHECK (ordinal >= 1)` and the first run of this route
+            // answered 500 with `CHECK constraint failed: ordinal >= 1` after the archive had already been written.
+            ordinal: 1,
+            title: item.manifest.title.clone(),
+            state: "pending".to_owned(),
+            content_blob_checksum: Some(archive_checksum),
+            note: None,
+        },
+    )
+    .await?;
+
+    Ok((
+        StatusCode::ACCEPTED,
+        Json(serde_json::json!({
+            "import_id": import.id,
+            "job_id": job_id.to_string(),
+            "source_key": BUNDLE_SOURCE_KEY,
+            "destination": query.destination,
+            "dry_run": query.dry_run,
+            "state": import.state,
+            "created_at": import.created_at,
+            "bundle": {
+                "title": item.manifest.title,
+                "id": item.manifest.id,
+                "tags": item.manifest.tags,
+                "body_bytes": item.body.len(),
+                "attachments": item.files.len(),
+            },
         })),
     ))
 }

@@ -249,6 +249,13 @@ pub async fn run(
         .map_err(transient)?
         .ok_or_else(|| fatal(format!("import {import_job_id} no longer exists")))?;
 
+    // A bundle names no adapter. Its archive was verified and stored by `POST /imports/bundle`, and this worker reads the
+    // same bytes back — so the branch is here, before the registry is consulted, rather than a fake adapter that would
+    // have to pretend to fetch something it already holds.
+    if row.source_key == BUNDLE_SOURCE_KEY {
+        return process_bundle(state, &row, import_job_id).await;
+    }
+
     let source_key = SourceKey::new(row.source_key.clone());
     let adapter = registry.by_key(&source_key).map_err(|error| {
         fatal(format!(
@@ -1217,6 +1224,167 @@ async fn store_units(
     }
 
     Ok(outcomes)
+}
+
+/// The `source_key` a bundle job carries. Defined here rather than in the route because the worker is what has to
+/// recognise it; the route imports this constant so the two cannot drift.
+pub const BUNDLE_SOURCE_KEY: &str = "bundle";
+
+/// Import one verified bundle.
+///
+/// The route has already refused anything that is not a well-formed archive and stored it as a blob; this function's job
+/// is to write the library item and the body through the *same* writers a fetched unit goes through. It reads the archive
+/// back from storage instead of taking it through the queue payload for two reasons: a queue payload carrying 9 MB is a
+/// payload every worker listing has to move, and a retry then re-reads exactly the bytes the upload verified.
+///
+/// **What a bundle does not carry, measured from a real export** (`tools/export_bundle.py`, 2026-11-06): no author, no
+/// summary, no language, no word count and no status. Only `title`, `tags`, `audience`, `canonical_url`, `created_at` and
+/// the body. So the item is written with an empty author and summary and `status = "unknown"` — inventing them from the
+/// body would be the importer guessing, which §11.2 refuses — and the reader fills them in. This is the honest shape of a
+/// restore: the words are exact, the metadata is a stub.
+async fn process_bundle(
+    state: &AppState,
+    row: &imports::ImportJob,
+    import_job_id: &str,
+) -> Result<(), HandlerError> {
+    let units = imports::list_import_units(state.db(), &row.id)
+        .await
+        .map_err(transient)?;
+    // A missing unit is a race the route CAN produce, and it did on the first live run: `import_jobs.job_id` is a
+    // foreign key to the queue, so the route has to enqueue before it can write the import row — which means a worker may
+    // claim the job while the archive is still being attached (`error=a bundle import has no unit; the archive was never
+    // attached` was the terminal failure). The fix is not to reorder what the schema forbids reordering, and not to hide
+    // the condition: it is to say what is happening and let the queue's own retry policy bound it. The route's writes take
+    // ~130 ms, so one retry succeeds; a row that never gets its unit exhausts the retry budget and fails with this text.
+    let unit = units.first().ok_or_else(|| {
+        HandlerError::Transient(
+            "the archive is still being attached to this import; the request writes it after it queues the job".to_owned(),
+        )
+    })?;
+    let checksum = unit
+        .content_blob_checksum
+        .clone()
+        .ok_or_else(|| fatal("the bundle unit carries no archive checksum"))?;
+
+    let store = BlobStore::new(state.config().storage.root.clone());
+    let archive = store
+        .get(state.db(), &checksum)
+        .await
+        .map_err(transient)?
+        .ok_or_else(|| {
+            fatal(format!(
+                "the archive {checksum} is referenced by this import and absent from storage"
+            ))
+        })?;
+    let item = darkhold_domain::bundle::BundleItem::open(&archive)
+        .map_err(|error| fatal(error.to_string()))?;
+
+    // The item exists before the body so the blob has an owner, exactly as the URL path does it — and a cancelled import
+    // then leaves a readable stub rather than orphaned content.
+    let library_input = imports::LibraryItemInput {
+        title: item.manifest.title.clone(),
+        author_text: String::new(),
+        author_url: None,
+        summary: String::new(),
+        language: None,
+        word_count: None,
+        status: "unknown".to_owned(),
+        source_url: row.source_url.clone(),
+        source_updated_at: item.manifest.created_at.clone(),
+        provenance_json: serde_json::json!({
+            "source": row.source_key,
+            "source_url": row.source_url,
+            "import_job_id": row.id,
+            // The one line that makes a restored work distinguishable from an imported one, and the reason a reader can
+            // tell what they are looking at.
+            "restored_from": {
+                "site": item.manifest.site,
+                "bundle_id": item.manifest.id,
+                "exported_at": item.manifest.exported_at,
+                "generator": item.manifest.generator,
+            },
+        })
+        .to_string(),
+    };
+    let library_item = imports::upsert_library_item(
+        state.db(),
+        &row.account_id,
+        &row.source_key,
+        &item.manifest.id,
+        &library_input,
+    )
+    .await
+    .map_err(transient)?;
+
+    if row.dry_run {
+        imports::upsert_import_unit(
+            state.db(),
+            &row.id,
+            Some(&library_item.id),
+            &imports::ImportUnitInput {
+                source_unit_key: item.manifest.id.clone(),
+                ordinal: 1,
+                title: item.manifest.title.clone(),
+                state: "pending".to_owned(),
+                content_blob_checksum: Some(checksum.clone()),
+                note: Some("dry run: the body was verified and not stored".to_owned()),
+            },
+        )
+        .await
+        .map_err(transient)?;
+        let report = serde_json::json!({
+            "dry_run": true,
+            "title": item.manifest.title,
+            "body_bytes": item.body.len(),
+            "attachments": item.files.keys().collect::<Vec<_>>(),
+        })
+        .to_string();
+        return finish(state, row, import_job_id, "completed", &report).await;
+    }
+
+    // The body, through the same store → reference → record sequence a fetched unit uses. `text/markdown` because that is
+    // what the exporter writes; the product renders it, so converting it here would be a second renderer.
+    let body_bytes = item.body.as_bytes();
+    let (body_checksum, _key) = match store.put(state.db(), body_bytes, "text/markdown").await {
+        Ok(put) => put,
+        Err(error) => {
+            // The item exists and the body does not. That is a failed import with a code a reader can act on, not a log
+            // line — and the error still propagates so the queue retries.
+            fail_import(state, import_job_id, "bundle_store_failed", &error.to_string()).await?;
+            return Err(transient(error));
+        }
+    };
+    store
+        .reference(state.db(), &body_checksum, UNIT_OWNER_TYPE, &library_item.id)
+        .await
+        .map_err(transient)?;
+    imports::upsert_import_unit(
+        state.db(),
+        &row.id,
+        Some(&library_item.id),
+        &imports::ImportUnitInput {
+            source_unit_key: item.manifest.id.clone(),
+            ordinal: 1,
+            title: item.manifest.title.clone(),
+            state: "stored".to_owned(),
+            content_blob_checksum: Some(body_checksum.clone()),
+            note: None,
+        },
+    )
+    .await
+    .map_err(transient)?;
+
+    let report = serde_json::json!({
+        "restored": true,
+        "title": item.manifest.title,
+        "bundle_id": item.manifest.id,
+        "site": item.manifest.site,
+        "body_bytes": item.body.len(),
+        "body_checksum": body_checksum,
+        "attachments": item.files.keys().collect::<Vec<_>>(),
+    })
+    .to_string();
+    finish(state, row, import_job_id, "completed", &report).await
 }
 
 /// Write the import's final state and report.
