@@ -1305,6 +1305,11 @@ pub fn build_router(state: AppState) -> Router {
         // fallback below would otherwise answer it with HTML and a 200 (measured 2026-11-05 — a status-code
         // monitor called that "published").
         .merge(crate::metrics::router())
+        // W6 §7.5 — the ATProto feed-generator method. At the root, in the `xrpc` namespace, and before the fallback:
+        // measured, `/xrpc/…` was answered by the SPA with `404 text/html`, which a protocol consumer cannot tell from
+        // a broken generator. Only this method is mounted — `/xrpc/anything-else` must still fall through to the SPA,
+        // because a namespace that swallows unknown paths is a different bug than the one being fixed.
+        .merge(routes::atproto_feed::router())
         .fallback(assets::serve)
         .layer(RequestBodyLimitLayer::new(config.server.max_body_bytes))
         .layer(TimeoutLayer::with_status_code(
