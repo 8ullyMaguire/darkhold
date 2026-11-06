@@ -28,8 +28,9 @@ empty". Three callers still pass `None` with the reason written at the call site
 the draw (`draw.hand`, not yet a registry surface) and recipe runs (recipes compose, they do not read a surface set).
 
 **M64-04 decision half shipped** (91a27078): `domain::experiment_promotion::decide` — mixture martingale, guardrails,
-sample floor, seven-day floor, demotion on two consecutive breaches of the same guardrail. Missing and named: the
-`experiment_decisions` record table, the algorithm swap that acts on a promotion, and the console (M64-15).
+sample floor, seven-day floor, demotion on two consecutive breaches of the same guardrail. The record table shipped in a231f678
+(`experiment_decisions` + `evaluate_surface`, promote/demote only, swap written on the row). Missing: the nightly caller,
+the algorithm swap that acts, and the console (M64-15).
 
 **M64-03 shipped** (3d40065f): `experiment_snapshots` (surface, arm, day) with impressions / readers / guest_readers /
 events, `snapshot_day` idempotent so a re-run repairs a day, `GET /api/v1/recommendation/experiments[?day=]`, and `null`
