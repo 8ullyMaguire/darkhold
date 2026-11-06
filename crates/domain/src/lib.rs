@@ -8,6 +8,7 @@ pub mod api_scopes;
 pub mod badges;
 pub mod blocking;
 pub mod browse;
+pub mod bundle;
 pub mod canon;
 pub mod capacity;
 pub mod caps;
