@@ -5594,4 +5594,13 @@ pub const ROUTE_TABLE: &[RouteEntry] = &[
         path: "/",
         audience: Audience::Public,
     },
+    // ADR 0006 / M71-20: the work page as a document. Public audience because an anonymous reader is the audience the
+    // page exists for; a denial is a 404 page, never a sign-in wall (spec 8.9).
+    RouteEntry {
+        file: "work_page.rs",
+        handler: "work_page",
+        method: "GET",
+        path: "/works/{id}",
+        audience: Audience::Public,
+    },
 ];
