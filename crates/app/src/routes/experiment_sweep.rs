@@ -51,7 +51,7 @@ struct SurfaceOutcome {
 /// The comparison is `administration.operator_account_id`, exactly as `operator_hit_rate` and `decision_service` do it. Three
 /// copies of six lines is two too many — they should become one `auth::require_operator` — but a helper nobody has refactored
 /// is not a reason to add a fourth spelling of "operator" here today.
-fn require_operator(state: &AppState, user: &crate::auth::SessionUser) -> ApiResult<()> {
+pub(crate) fn require_operator(state: &AppState, user: &crate::auth::SessionUser) -> ApiResult<()> {
     if state.config().administration.operator_account_id == Some(user.account_id) {
         Ok(())
     } else {

@@ -3002,6 +3002,7 @@ impl Config {
                 None => RetentionGovernanceConfig::default(),
             },
             taxonomy: TaxonomyConfig {
+                trope_coverage: false,
                 // `and_then`: an absent value yields the default, which is the
                 // same shape as the retention section's -- a typo looks like a
                 // setting that did not apply rather than like a broken
@@ -4494,6 +4495,15 @@ pub struct TaxonomyConfig {
     /// A warning is worth a node at one work and a freeform tag is not worth
     /// one at one work, so the kinds do not share a floor by default.
     pub entity_floor_by_kind: std::collections::BTreeMap<String, i64>,
+    /// Whether a work's trope-coverage checklist is readable (M69-18).
+    ///
+    /// **Off by default.** The checklist is advisory and says only what a work does not name, but it is a claim the instance makes
+    /// about somebody's work, and "this work lacks hurt/comfort" shown to a stranger reads as a deficiency however carefully it is
+    /// worded. Operators build the clusters first and switch this on when they are ready to stand behind them.
+    ///
+    /// The switch has exactly one reader: `routes::trope_coverage::for_work`, which answers `404` when it is off — the same shape as
+    /// a module that was never installed, because "the operator has not published this checklist" is not an error a reader can act on.
+    pub trope_coverage: bool,
 }
 
 impl Default for TaxonomyConfig {
@@ -4501,6 +4511,7 @@ impl Default for TaxonomyConfig {
         Self {
             entity_floor: darkhold_db::entity_floor::DEFAULT_FLOOR,
             entity_floor_by_kind: std::collections::BTreeMap::new(),
+            trope_coverage: false,
         }
     }
 }

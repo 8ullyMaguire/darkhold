@@ -121,6 +121,7 @@ pub mod work_page;
 pub mod surfaces;
 pub mod tag_page;
 pub mod tag_scripts;
+pub mod trope_coverage;
 pub mod works;
 
 pub mod well_known;

@@ -743,6 +743,14 @@ pub fn build_router(state: AppState) -> Router {
             routes::tag_scripts::router(),
             RouteClass::Write,
         ))
+        // M69-18 — trope coverage: advisory, and silent until an operator switches it on (the route answers 404 with the
+        // switch off, so the mount is unconditional and the decision lives in `taxonomy.trope_coverage`).
+        .merge(module_mount(
+            &state,
+            "taxonomy",
+            routes::trope_coverage::router(),
+            RouteClass::Write,
+        ))
         // M70-06 — the reader's own stylesheet. CSS only, and `reader_skin::check` refuses @import, remote url(),
         // stylesheet code paths and `</style` before anything is stored.
         .merge(module_mount(
