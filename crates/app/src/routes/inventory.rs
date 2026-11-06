@@ -1014,6 +1014,20 @@ pub const ROUTE_TABLE: &[RouteEntry] = &[
     },
     RouteEntry {
         file: "library.rs",
+        handler: "get_saved_view_by_slug",
+        method: "GET",
+        path: "/saved-views/by-slug/{slug}",
+        audience: Audience::Authenticated,
+    },
+    RouteEntry {
+        file: "library.rs",
+        handler: "set_saved_view_slug",
+        method: "PUT",
+        path: "/saved-views/{id}/slug",
+        audience: Audience::Authenticated,
+    },
+    RouteEntry {
+        file: "library.rs",
         handler: "because_you_shelved",
         method: "GET",
         path: "/library/because-you-shelved",

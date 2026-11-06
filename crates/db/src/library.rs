@@ -1788,6 +1788,113 @@ pub async fn update_saved_view(
     Ok(affected > 0)
 }
 
+/// Whether `slug` is a legal name for a saved view.
+///
+/// Lowercase letters, digits and single hyphens, 1–64 characters, not starting or ending with a hyphen. Refused rather than
+/// normalised: a reader who types `To Read` and gets `to-read` has a view whose address they did not choose, and the next person
+/// asking for `to-read` finds somebody else's guess. The rule matches handles and route segments elsewhere in this tree.
+pub fn valid_slug(slug: &str) -> bool {
+    !slug.is_empty()
+        && slug.len() <= 64
+        && !slug.starts_with('-')
+        && !slug.ends_with('-')
+        && !slug.contains("--")
+        && slug
+            .chars()
+            .all(|c| c.is_ascii_lowercase() || c.is_ascii_digit() || c == '-')
+}
+
+/// Name a saved view, or clear its name with `None`.
+///
+/// Returns `Ok(false)` when the view is not this account's, and `Err` when the name is taken by another of the account's views —
+/// the unique index is the authority, and its violation is turned into a message naming the slug rather than a database error,
+/// because the reader can fix it by choosing another one.
+pub async fn set_saved_view_slug(
+    db: &Database,
+    account_id: &str,
+    id: &str,
+    slug: Option<&str>,
+) -> Result<bool> {
+    if let Some(slug) = slug {
+        if !valid_slug(slug) {
+            anyhow::bail!("a saved view's name is lowercase letters, digits and single hyphens, up to 64 characters");
+        }
+    }
+    let now = now_rfc3339();
+    let sql = db.sql(
+        "UPDATE saved_views SET slug = ?, updated_at = ?, version = version + 1 \
+         WHERE id = ? AND account_id = ?",
+        "UPDATE saved_views SET slug = ?, updated_at = ?, version = version + 1 \
+         WHERE id::text = ? AND account_id::text = ?",
+    );
+    let taken = db.sql(
+        "SELECT COUNT(*) FROM saved_views WHERE account_id = ? AND slug = ? AND id <> ?",
+        "SELECT COUNT(*) FROM saved_views WHERE account_id::text = ? AND slug = ? AND id::text <> ?",
+    );
+    if let Some(slug) = slug {
+        let count: i64 = match db.backend() {
+            Backend::Sqlite => {
+                sqlx::query_scalar(&taken)
+                    .bind(account_id)
+                    .bind(slug)
+                    .bind(id)
+                    .fetch_one(db.sqlite_pool().expect("sqlite handle"))
+                    .await?
+            }
+            Backend::Postgres => {
+                sqlx::query_scalar(&taken)
+                    .bind(account_id)
+                    .bind(slug)
+                    .bind(id)
+                    .fetch_one(db.postgres_pool().expect("postgres handle"))
+                    .await?
+            }
+        };
+        if count > 0 {
+            anyhow::bail!("you already have a saved view named `{slug}`");
+        }
+    }
+    let affected = run!(db, sql, |q| q
+        .bind(slug)
+        .bind(&now)
+        .bind(id)
+        .bind(account_id))
+    .await?;
+    Ok(affected > 0)
+}
+
+/// Resolve a slug to the id of this account's saved view.
+///
+/// Account-scoped on purpose: slugs are unique per account, not globally, so a global lookup would let one reader address
+/// another reader's view — and a view carries the filter someone built, which is close to a description of what they read.
+pub async fn saved_view_id_for_slug(
+    db: &Database,
+    account_id: &str,
+    slug: &str,
+) -> Result<Option<String>> {
+    let sql = db.sql(
+        "SELECT CAST(id AS TEXT) FROM saved_views WHERE account_id = ? AND slug = ?",
+        "SELECT id::text FROM saved_views WHERE account_id::text = ? AND slug = ?",
+    );
+    let row: Option<String> = match db.backend() {
+        Backend::Sqlite => {
+            sqlx::query_scalar(&sql)
+                .bind(account_id)
+                .bind(slug)
+                .fetch_optional(db.sqlite_pool().expect("sqlite handle"))
+                .await?
+        }
+        Backend::Postgres => {
+            sqlx::query_scalar(&sql)
+                .bind(account_id)
+                .bind(slug)
+                .fetch_optional(db.postgres_pool().expect("postgres handle"))
+                .await?
+        }
+    };
+    Ok(row)
+}
+
 /// Delete a view. Returns whether one was removed.
 pub async fn delete_saved_view(db: &Database, account_id: &str, id: &str) -> Result<bool> {
     let sql = db.sql(

@@ -14,6 +14,8 @@
 //! GET                    /library/items?<filters>            envelope
 //! GET/PUT/DELETE         /library/items/:id/tags[/:tag]
 //! PUT/DELETE             /library/items/:id/status
+//! GET                    /saved-views/by-slug/:slug
+//! PUT                    /saved-views/:id/slug
 //! GET/POST               /saved-views
 //! GET/PATCH/DELETE       /saved-views/:id
 //! POST                   /saved-views/:id/runs
@@ -107,6 +109,14 @@ pub fn router() -> Router<AppState> {
             get(read_status).put(set_status).delete(clear_status),
         )
         .route("/saved-views", get(list_views).post(create_view))
+        .route(
+            "/saved-views/by-slug/{slug}",
+            get(get_saved_view_by_slug),
+        )
+        .route(
+            "/saved-views/{id}/slug",
+            axum::routing::put(set_saved_view_slug),
+        )
         .route(
             "/saved-views/{id}",
             get(get_view).patch(patch_view).delete(delete_view_route),
@@ -1261,6 +1271,76 @@ async fn patch_view(
         }));
     }
     Ok(StatusCode::NO_CONTENT)
+}
+
+/// Name a saved view (M69-21), or clear its name with `{"slug": null}`.
+async fn set_saved_view_slug(
+    State(state): State<AppState>,
+    RequireSession(user): RequireSession,
+    Path(id): Path<String>,
+    Json(body): Json<serde_json::Value>,
+) -> ApiResult<StatusCode> {
+    // `null` clears the name; a missing key is a client bug and says so, because a PATCH that silently means "clear" would let a
+    // typo unpublish a reader's address.
+    let Some(value) = body.get("slug") else {
+        return Err(ApiError(AppError::Validation {
+            message: "send `slug` as a string, or null to clear it".to_owned(),
+            field_errors: BTreeMap::new(),
+        }));
+    };
+    let slug = match value {
+        serde_json::Value::Null => None,
+        serde_json::Value::String(text) if darkhold_db::library::valid_slug(text) => {
+            Some(text.as_str())
+        }
+        serde_json::Value::String(text) => {
+            return Err(ApiError(AppError::Validation {
+                message: format!(
+                    "`{text}` is not a usable name: lowercase letters, digits and single hyphens, up to 64 characters"
+                ),
+                field_errors: BTreeMap::new(),
+            }))
+        }
+        _ => {
+            return Err(ApiError(AppError::Validation {
+                message: "`slug` must be a string or null".to_owned(),
+                field_errors: BTreeMap::new(),
+            }))
+        }
+    };
+    let changed =
+        darkhold_db::library::set_saved_view_slug(state.db(), &user.account_id.to_string(), &id, slug)
+            .await
+            .map_err(|error| ApiError(AppError::Validation {
+                message: error.to_string(),
+                field_errors: BTreeMap::new(),
+            }))?;
+    if !changed {
+        return Err(ApiError(AppError::NotFound {
+            resource: "saved view",
+        }));
+    }
+    Ok(StatusCode::NO_CONTENT)
+}
+
+/// One saved view by the name its reader gave it.
+async fn get_saved_view_by_slug(
+    State(state): State<AppState>,
+    RequireSession(user): RequireSession,
+    Path(slug): Path<String>,
+) -> ApiResult<Json<serde_json::Value>> {
+    let account = user.account_id.to_string();
+    let id = darkhold_db::library::saved_view_id_for_slug(state.db(), &account, &slug)
+        .await?
+        .ok_or_else(|| ApiError(AppError::NotFound {
+            resource: "saved view",
+        }))?;
+    let row = darkhold_db::library::find_saved_view(state.db(), &account, &id)
+        .await?
+        .ok_or_else(|| ApiError(AppError::NotFound {
+            resource: "saved view",
+        }))?;
+    Ok(Json(view_json(&row)))
 }
 
 /// Delete a view.
