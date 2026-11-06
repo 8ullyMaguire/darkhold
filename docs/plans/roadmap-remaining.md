@@ -27,6 +27,11 @@ does not run and costs no query, and the surfaces endpoint separates "no engine 
 empty". Three callers still pass `None` with the reason written at the call site: the concierge queue (`home.curated`),
 the draw (`draw.hand`, not yet a registry surface) and recipe runs (recipes compose, they do not read a surface set).
 
+**M64-03 shipped** (3d40065f): `experiment_snapshots` (surface, arm, day) with impressions / readers / guest_readers /
+events, `snapshot_day` idempotent so a re-run repairs a day, `GET /api/v1/recommendation/experiments[?day=]`, and `null`
+vs `[]` distinguishing "never computed" from "computed with no traffic". The nightly scheduler and M64-04's sequential
+test are the next pieces; the latter computes from these counts rather than from the log, which is the row's whole point.
+
 **M64-02 pseud half shipped** (cc6cab63): migration 0166 `experiment_assignments`, `bucket_for` insert-if-absent with
 FNV-1a, `algorithms_for_bucket` splitting by position, `[discovery] experiment_buckets`. Still missing from that row and
 written in its ledger: **anonymous session arms and the capped share** — a session is not a pseud, so it needs a
