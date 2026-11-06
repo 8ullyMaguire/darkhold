@@ -392,6 +392,51 @@
       "why": "FOREIGN KEY, and 'replace' was wrong: a CONSTANT here collapses every row of exchange_signals into one and destroys the join. Deterministically re-keyed so the graph survives. See 11.16.3 -- consistent pseudonymisation, not column destruction.",
       "reviewed_by": "alvaro, 2026-09-29, against spec 11.16.3"
     },
+    "experiment_snapshots.arm": {
+      "treatment": "keep",
+      "why": "An arm index, one of a handful of integers; it identifies an arm, not a person.",
+      "reviewed_by": "alvaro, 2026-11-06, against spec 11.16"
+    },
+    "experiment_snapshots.computed_at": {
+      "treatment": "keep",
+      "why": "When the snapshot was computed, not when anyone read anything: a property of the job, not of a person.",
+      "reviewed_by": "alvaro, 2026-11-06, against spec 11.16"
+    },
+    "experiment_snapshots.day": {
+      "treatment": "keep",
+      "why": "The calendar day a snapshot covers. A date in the aggregate is not a communication-surrogate identity (11.16).",
+      "reviewed_by": "alvaro, 2026-11-06, against spec 11.16"
+    },
+    "experiment_snapshots.events": {
+      "treatment": "keep",
+      "why": "A count of followed impressions, aggregated with no reader in the row.",
+      "reviewed_by": "alvaro, 2026-11-06, against spec 11.16"
+    },
+    "experiment_snapshots.id": {
+      "treatment": "keep",
+      "why": "An opaque row id that joins nothing outside the table.",
+      "reviewed_by": "alvaro, 2026-11-06, against spec 11.16"
+    },
+    "experiment_snapshots.impressions": {
+      "treatment": "keep",
+      "why": "A count of served slots, aggregated with no reader in the row.",
+      "reviewed_by": "alvaro, 2026-11-06, against spec 11.16"
+    },
+    "experiment_snapshots.guest_readers": {
+      "treatment": "keep",
+      "why": "A COUNT(DISTINCT pseud_id) of guest readers: a number, not a pseud. Kept because the capped share cannot be evaluated without it, and it names nobody.",
+      "reviewed_by": "alvaro, 2026-11-06, against spec 11.16"
+    },
+    "experiment_snapshots.readers": {
+      "treatment": "keep",
+      "why": "A COUNT(DISTINCT pseud_id), the same shape as guest_readers: an aggregate, not an identifier.",
+      "reviewed_by": "alvaro, 2026-11-06, against spec 11.16"
+    },
+    "experiment_snapshots.surface_id": {
+      "treatment": "keep",
+      "why": "A canonical surface id from the closed registry, identical for every reader: schema vocabulary.",
+      "reviewed_by": "alvaro, 2026-11-06, against spec 11.16"
+    },
     "experiment_assignments.assigned_at": {
       "treatment": "keep",
       "why": "When an arm was assigned. Retained because an arm without its start time cannot be attributed to a window, and it is not a communication-surrogate identity (11.16).",

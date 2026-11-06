@@ -17,13 +17,15 @@
 
 use std::collections::BTreeMap;
 
-use axum::extract::State;
+use axum::extract::{Query, State};
 use axum::routing::get;
 use axum::{Json, Router};
 use serde_json::Value;
 
 use crate::auth::MaybeSession;
-use crate::http::ApiResult;
+use darkhold_domain::error::AppError;
+
+use crate::http::{ApiError, ApiResult};
 use crate::state::AppState;
 
 async fn count_rows(state: &AppState, table: &str) -> Option<i64> {
@@ -49,7 +51,47 @@ async fn count_rows(state: &AppState, table: &str) -> Option<i64> {
 }
 
 pub fn router() -> Router<AppState> {
-    Router::new().route("/recommendation/surfaces", get(list_surfaces))
+    Router::new()
+        .route("/recommendation/surfaces", get(list_surfaces))
+        .route("/recommendation/experiments", get(list_experiments))
+}
+
+/// Per-arm numbers for one day (M64-03).
+///
+/// A promotion reads these, not the raw log: the numbers were fixed when the day was computed, so an argument about a
+/// promotion is an argument about a record rather than about a query whose answer moves while it is being discussed.
+#[derive(serde::Deserialize)]
+struct ExperimentsQuery {
+    /// `YYYY-MM-DD`. Absent means the most recent day with a snapshot.
+    day: Option<String>,
+}
+
+async fn list_experiments(
+    State(state): State<AppState>,
+    MaybeSession(_viewer): MaybeSession,
+    Query(params): Query<ExperimentsQuery>,
+) -> ApiResult<Json<Value>> {
+    let snapshots = match params.day.as_deref() {
+        Some(day) => {
+            if day.len() != 10 {
+                return Err(ApiError(AppError::field("day", "is YYYY-MM-DD")));
+            }
+            let rows = darkhold_db::experiment_snapshots::day_snapshots(state.db(), day)
+                .await
+                .map_err(|error| ApiError(AppError::internal("reading experiment snapshots", error)))?;
+            Some(rows)
+        }
+        None => darkhold_db::experiment_snapshots::latest_snapshots(state.db())
+            .await
+            .map_err(|error| ApiError(AppError::internal("reading experiment snapshots", error)))?,
+    };
+
+    // `null` and `[]` are different answers on purpose: `null` means no snapshot has ever been computed, `[]` means one
+    // was computed and no arm had a single impression. Collapsing them would hide a broken job behind an empty list.
+    Ok(Json(match snapshots {
+        None => serde_json::json!({ "snapshots": Value::Null }),
+        Some(rows) => serde_json::json!({ "snapshots": rows }),
+    }))
 }
 
 async fn list_surfaces(
