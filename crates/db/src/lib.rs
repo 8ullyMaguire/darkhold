@@ -139,6 +139,7 @@ pub mod tag_confirmation;
 pub mod taste_brief;
 pub mod taste_explain;
 pub mod taste_health;
+pub mod content_policy;
 pub mod shelf_follows;
 pub mod taste_signal;
 pub mod taste_import;

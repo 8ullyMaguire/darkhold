@@ -229,11 +229,27 @@ pub async fn for_pseud(
     db: &Database,
     pseud_id: Option<uuid::Uuid>,
 ) -> crate::Result<Vec<FilterRule>> {
+    // M69-16 layer two: the instance's policy blocks apply to **every** reader, signed in or not. Reading them here rather than in
+    // each surface's handler is what makes them unbypassable — the same reasoning as §46.7.1, one layer up. A reader with no
+    // pseud still gets the policy; only the third layer (their own filters) needs one.
+    let policy = crate::content_policy::live(db).await?;
+    let mut rules: Vec<FilterRule> = policy
+        .into_iter()
+        .map(|block| FilterRule::new(block.filter_type, block.value))
+        .collect();
+
     let Some(pseud_id) = pseud_id else {
-        return Ok(Vec::new());
+        return Ok(rules);
     };
     let rows = crate::settings::list_content_filters(db, pseud_id).await?;
-    Ok(rows.into_iter().map(FilterRule::from).collect())
+    rules.extend(rows.into_iter().map(FilterRule::from));
+    // Deduplicated: a reader who blocked the same value the instance blocked must not get two clauses, and the rendered SQL is
+    // shorter by one correlated subquery per duplicate.
+    rules.sort_by(|a, b| {
+        (a.filter_type.as_str(), a.value.as_str()).cmp(&(b.filter_type.as_str(), b.value.as_str()))
+    });
+    rules.dedup();
+    Ok(rules)
 }
 
 /// Splice helper: the aliased exclusion, ready to bind.

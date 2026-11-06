@@ -21,7 +21,8 @@
 //! promotion mechanism is itself a disclosure. The check is `decision_service::require_operator`, which the rest of the
 //! operator surface already uses.
 
-use axum::extract::{Query, State};
+use axum::extract::{Path, Query, State};
+use axum::http::StatusCode;
 use axum::routing::{get, post};
 use axum::{Json, Router};
 use serde::Deserialize;
@@ -67,6 +68,19 @@ pub fn router() -> Router<AppState> {
         .route("/operator/experiments/{surface}/hold", post(hold_surface).delete(release_surface))
         .route("/operator/experiments/{surface}/promote", post(promote_by_hand))
         .route("/operator/experiments/{surface}/demote", post(demote_by_hand))
+        // M69-16 layer two: the instance's content policy, with a reason on every block and a revocation rather than a delete.
+        .route(
+            "/operator/content-policy",
+            get(content_policy_blocks).post(add_content_policy_block),
+        )
+        .route(
+            "/operator/content-policy/{filter_type}/{value}",
+            axum::routing::delete(revoke_content_policy_block),
+        )
+        .route(
+            "/operator/content-policy/history",
+            get(content_policy_history),
+        )
 }
 
 #[derive(Deserialize)]
@@ -419,4 +433,122 @@ async fn sweep(
             .map(|outcome| json!({ "surface": outcome.surface_id, "outcome": outcome.outcome }))
             .collect::<Vec<_>>(),
     })))
+}
+
+/// Every live policy block (M69-16).
+async fn content_policy_blocks(
+    State(state): State<AppState>,
+    RequireSession(session): RequireSession,
+) -> ApiResult<Json<serde_json::Value>> {
+    require_operator(&state, &session)?;
+    let blocks = darkhold_db::content_policy::live(state.db()).await?;
+    let items: Vec<serde_json::Value> = blocks
+        .into_iter()
+        .map(|block| {
+            serde_json::json!({
+                "filter_type": block.filter_type,
+                "value": block.value,
+                "reason": block.reason,
+            })
+        })
+        .collect();
+    Ok(Json(serde_json::json!({ "items": items })))
+}
+
+/// The whole trail, revocations included and their reasons with them.
+async fn content_policy_history(
+    State(state): State<AppState>,
+    RequireSession(session): RequireSession,
+) -> ApiResult<Json<serde_json::Value>> {
+    require_operator(&state, &session)?;
+    let rows = darkhold_db::content_policy::history(state.db()).await?;
+    let items: Vec<serde_json::Value> = rows
+        .into_iter()
+        .map(|(filter_type, value, reason, revoked_at, revoked_reason)| {
+            serde_json::json!({
+                "filter_type": filter_type,
+                "value": value,
+                "reason": reason,
+                "revoked_at": revoked_at,
+                "revoked_reason": revoked_reason,
+            })
+        })
+        .collect();
+    Ok(Json(serde_json::json!({ "items": items })))
+}
+
+/// Block a taxonomy value for the whole instance. A reason is required; the refusals name what to fix.
+async fn add_content_policy_block(
+    State(state): State<AppState>,
+    RequireSession(session): RequireSession,
+    Json(body): Json<PolicyBlockRequest>,
+) -> ApiResult<StatusCode> {
+    require_operator(&state, &session)?;
+    use darkhold_db::content_policy::BlockRefusal;
+    let operator = session.account_id.to_string();
+    match darkhold_db::content_policy::block(
+        state.db(),
+        &body.filter_type,
+        &body.value,
+        &body.reason,
+        &operator,
+    )
+    .await?
+    {
+        Ok(()) => Ok(StatusCode::CREATED),
+        Err(BlockRefusal::EmptyReason) => Err(ApiError(AppError::Validation {
+            message: "a policy block needs a reason: a row that cannot say why cannot be defended or revoked"
+                .to_owned(),
+            field_errors: Default::default(),
+        })),
+        Err(BlockRefusal::EmptyTarget) => Err(ApiError(AppError::Validation {
+            message: "name a filter type and a value".to_owned(),
+            field_errors: Default::default(),
+        })),
+        Err(BlockRefusal::AlreadyBlocked) => Err(ApiError(AppError::Validation {
+            message: "this value is already blocked for the instance".to_owned(),
+            field_errors: Default::default(),
+        })),
+    }
+}
+
+/// Revoke a block. The row stays, with who revoked it and why.
+async fn revoke_content_policy_block(
+    State(state): State<AppState>,
+    RequireSession(session): RequireSession,
+    Path((filter_type, value)): Path<(String, String)>,
+    Json(body): Json<HoldRequest>,
+) -> ApiResult<StatusCode> {
+    require_operator(&state, &session)?;
+    use darkhold_db::content_policy::BlockRefusal;
+    let operator = session.account_id.to_string();
+    match darkhold_db::content_policy::revoke(
+        state.db(),
+        &filter_type,
+        &value,
+        &body.reason,
+        &operator,
+    )
+    .await?
+    {
+        Ok(true) => Ok(StatusCode::NO_CONTENT),
+        Ok(false) => Err(ApiError(AppError::NotFound {
+            resource: "policy block",
+        })),
+        Err(BlockRefusal::EmptyReason) => Err(ApiError(AppError::Validation {
+            message: "a revocation needs a reason".to_owned(),
+            field_errors: Default::default(),
+        })),
+        Err(_) => Err(ApiError(AppError::Validation {
+            message: "that block cannot be revoked".to_owned(),
+            field_errors: Default::default(),
+        })),
+    }
+}
+
+#[derive(Deserialize)]
+struct PolicyBlockRequest {
+    filter_type: String,
+    value: String,
+    reason: String,
 }
