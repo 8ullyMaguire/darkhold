@@ -27,6 +27,7 @@ pub mod coordinates;
 pub mod derivative;
 pub mod directory;
 pub mod discovery;
+pub mod gravity_dial;
 pub mod dnf;
 pub mod document;
 // §16.10a: the draw slot's deal.

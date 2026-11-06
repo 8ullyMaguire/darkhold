@@ -881,9 +881,20 @@ async fn get_discovery(
     // an order that already exists. Running it earlier would let the algorithms blend against a taste-shaped set, and the
     // experiment arms (M64-02) would then be measuring gravity rather than the algorithms.
     let taste = &state.config().taste;
+    let instance_strength = taste.strength_for("discover.feed");
+    // The reader's dial, if they have one. Clamped on read by `effective`, so a stored value from before the operator lowered
+    // the instance cannot keep a reader above the new number.
+    let reader_strength = match viewer_pseud {
+        Some(pseud) => darkhold_db::gravity_prefs::read(state.db(), pseud)
+            .await
+            .ok()
+            .flatten(),
+        None => None,
+    };
+    let strength = darkhold_domain::gravity_dial::effective(instance_strength, reader_strength);
     let (ranked, pull) = darkhold_domain::discovery::apply_taste_gravity(
         ranked,
-        taste.strength_for("discover.feed"),
+        strength,
         &taste.signal_weight_mode,
     );
 
@@ -1102,7 +1113,8 @@ async fn get_discovery(
         // show. `strength` is the strength actually in force after the ceiling, not the configured wish.
         "gravity": {
             "mode": taste.signal_weight_mode,
-            "strength": taste.strength_for("discover.feed"),
+            "strength": strength,
+            "instance": instance_strength,
             "moved_up": pull.moved_up,
             "moved_down": pull.moved_down,
             "unchanged": pull.unchanged,

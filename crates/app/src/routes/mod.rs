@@ -58,6 +58,7 @@ pub mod imports;
 pub mod inbox_proxy;
 pub mod experiment_sweep;
 pub mod facets;
+pub mod gravity_dial;
 pub mod inventory;
 pub mod jobs;
 pub mod lending;

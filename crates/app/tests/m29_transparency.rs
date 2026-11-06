@@ -1796,6 +1796,80 @@ async fn a_held_surface_is_skipped_and_a_hand_promotion_is_recorded_as_manual() 
 }
 
 #[tokio::test]
+async fn the_reader_gravity_dial_narrows_never_widens_and_cannot_move_a_locked_instance() {
+    let mut harness = Harness::new("gravity-dial").await;
+    harness.config.taste.gravity_strength = 0.2;
+    harness.config.taste.gravity_ceiling = 0.5;
+    harness.config.taste.gravity_locked = false;
+
+    let mut reader = harness.reader("DialReader").await;
+    // Registering creates the account; the session cookie comes from signing in, which is what a real reader does next.
+    let (status, login_body) = reader
+        .post(
+            "/api/v1/auth/login",
+            json!({ "email": "DialReader@example.com", "password": GOOD_PASSWORD }),
+        )
+        .await;
+    assert_eq!(status, StatusCode::OK, "the reader signs in: {login_body}");
+    assert!(
+        reader.cookie("darkhold_session").is_some(),
+        "the sign-in set a session cookie: {login_body}"
+    );
+    let (status, body) = reader.get("/api/v1/discovery/gravity").await;
+    assert_eq!(status, StatusCode::OK, "body: {body}");
+    assert_eq!(body["instance"], 0.2, "{body}");
+    assert!(body["yours"].is_null(), "no stored choice yet: {body}");
+    assert_eq!(body["effective"], 0.2, "{body}");
+
+    // Narrowing is allowed, all the way to zero.
+    let (status, body) = reader
+        .put("/api/v1/discovery/gravity", json!({ "strength": 0.0 }))
+        .await;
+    assert_eq!(status, StatusCode::OK, "body: {body}");
+    let (status, body) = reader.get("/api/v1/discovery/gravity").await;
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(body["yours"], 0.0, "zero is a choice, not an absence: {body}");
+    assert_eq!(body["effective"], 0.0, "{body}");
+
+    // Widening is refused, and the refusal says what would have been accepted.
+    let (status, body) = reader
+        .put("/api/v1/discovery/gravity", json!({ "strength": 0.4 }))
+        .await;
+    assert_eq!(status, StatusCode::UNPROCESSABLE_ENTITY, "body: {body}");
+    let message = body["error"]["message"].as_str().unwrap_or_default().to_lowercase();
+    assert!(
+        message.contains("narrows"),
+        "the refusal explains the rule rather than saying 'invalid': {body}"
+    );
+
+    // A locked instance refuses even a request it would otherwise accept — and the refusal says it is the lock, not the
+    // number, so a reader is not left guessing which of the two rules they broke.
+    harness.config.taste.gravity_locked = true;
+    let mut locked = harness.client();
+    let (status, _) = locked
+        .post(
+            "/api/v1/auth/login",
+            json!({ "email": "DialReader@example.com", "password": GOOD_PASSWORD }),
+        )
+        .await;
+    assert_eq!(status, StatusCode::OK, "the same reader on the locked instance");
+    let (status, body) = locked
+        .put("/api/v1/discovery/gravity", json!({ "strength": 0.0 }))
+        .await;
+    assert_eq!(status, StatusCode::UNPROCESSABLE_ENTITY, "body: {body}");
+    let message = body["error"]["message"].as_str().unwrap_or_default().to_lowercase();
+    assert!(message.contains("locked"), "the refusal names the lock: {body}");
+
+    // And clearing returns the reader to the instance's number rather than to zero.
+    let (status, body) = reader
+        .request("DELETE", "/api/v1/discovery/gravity", Some(json!({})))
+        .await;
+    assert_eq!(status, StatusCode::OK, "body: {body}");
+    assert_eq!(body["cleared"], true, "{body}");
+    assert_eq!(body["effective"], 0.2, "back to the instance, not to zero: {body}");
+}
+
+#[tokio::test]
 async fn an_anonymous_recommendation_carries_no_slot_id() {
     // A slot is a record of what a *reader* was shown, so there is nothing to
     // record for someone who is not one. Emitting an id nobody can later

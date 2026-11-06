@@ -422,6 +422,21 @@
       "why": "'automatic' or 'manual': who decided, not who was affected.",
       "reviewed_by": "alvaro, 2026-11-06, against spec 11.16"
     },
+    "reader_gravity.pseud_id": {
+      "treatment": "rekey_pseud",
+      "why": "A pseud id carries the reader; on erasure it rekeys like every other pseud reference, so a leftover dial row cannot re-identify the account it belonged to.",
+      "reviewed_by": "alvaro, 2026-11-06, against spec 11.16"
+    },
+    "reader_gravity.strength": {
+      "treatment": "keep",
+      "why": "A number between 0 and 1: it says a reader has a dial, not who they are.",
+      "reviewed_by": "alvaro, 2026-11-06, against spec 11.16"
+    },
+    "reader_gravity.updated_at": {
+      "treatment": "offset_timestamps",
+      "why": "When the dial moved; a time is behavioural and is offset with the rest of the row's times.",
+      "reviewed_by": "alvaro, 2026-11-06, against spec 11.16"
+    },
     "experiment_holds.surface_id": {
       "treatment": "keep",
       "why": "A canonical registry surface id, identical for every reader.",

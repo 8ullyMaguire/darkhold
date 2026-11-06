@@ -5664,6 +5664,27 @@ pub const ROUTE_TABLE: &[RouteEntry] = &[
         audience: Audience::Authenticated,
     },
     RouteEntry {
+        file: "gravity_dial.rs",
+        handler: "read",
+        method: "GET",
+        path: "/discovery/gravity",
+        audience: Audience::Authenticated,
+    },
+    RouteEntry {
+        file: "gravity_dial.rs",
+        handler: "write",
+        method: "PUT",
+        path: "/discovery/gravity",
+        audience: Audience::Authenticated,
+    },
+    RouteEntry {
+        file: "gravity_dial.rs",
+        handler: "reset",
+        method: "DELETE",
+        path: "/discovery/gravity",
+        audience: Audience::Authenticated,
+    },
+    RouteEntry {
         file: "facets.rs",
         handler: "facets",
         method: "GET",
