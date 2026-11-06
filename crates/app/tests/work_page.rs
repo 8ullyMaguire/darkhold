@@ -230,6 +230,7 @@ async fn a_public_work_renders_as_a_readable_document() {
         body.contains(&format!("/works/{PUBLIC_WORK}/units/{UNIT_TWO}")),
         "every readable unit is listed: {body}"
     );
+    test_support::assert_no_empty_section(&body, "work page");
 }
 
 #[tokio::test]

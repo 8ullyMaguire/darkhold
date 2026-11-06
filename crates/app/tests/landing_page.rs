@@ -237,6 +237,7 @@ async fn the_landing_page_is_a_document_with_no_script() {
         body.contains("120 words"),
         "the word count comes from the readable revision: {body}"
     );
+    test_support::assert_no_empty_section(&body, "landing");
 }
 
 #[tokio::test]

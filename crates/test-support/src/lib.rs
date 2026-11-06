@@ -151,6 +151,10 @@ const SWEEP_MIN_AGE_SECS: u64 = 300;
 /// PostgreSQL scratch databases use. The label is kept because a failing run's
 /// directory is then readable: `darkhold-test-<tag>-<n>` says which test
 /// left it behind, which is the whole reason the tag was there.
+pub mod absent;
+
+pub use absent::{assert_names_degradation, assert_no_empty_section};
+
 pub fn scratch_dir(tag: &str) -> PathBuf {
     let dir = std::env::temp_dir().join(format!("darkhold-test-{}-{}", tag, unique_suffix()));
     let _ = std::fs::remove_dir_all(&dir);

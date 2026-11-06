@@ -151,6 +151,7 @@ async fn a_tag_lists_its_reachable_works_without_a_script() {
         "each entry links the work page: {body}"
     );
     assert!(body.contains("2 works"), "the count is what it lists: {body}");
+    test_support::assert_no_empty_section(&body, "tag page");
 }
 
 #[tokio::test]
