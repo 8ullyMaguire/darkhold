@@ -169,10 +169,23 @@ fn render(rules: &[FilterRule], work_id_expr: &str) -> String {
     // on SQLite. Read the migrations, do not infer a column's type from its
     // neighbours -- `work_tags` holds one of each.
     let correlation = format!("{}.work_id = {}", WORK_TAG_ALIAS, work_id_expr);
+    // M69-16 override clause. An instance may allow a **specific work** past a **specific block** — a recorded exception, with its
+    // own reason, instead of silently deleting the block for everything else. It correlates on the node being examined
+    // (`cf_tn.kind` / `cf_tn.canonical`), so an exception for one block cannot become an exception for every future block on the
+    // same work: that is the difference between an exception and a loophole. It adds no binds, and it is inside the NOT EXISTS
+    // body so the row is excluded only when a matching node exists **and** no live override covers it.
+    let exemption = format!(
+        "NOT EXISTS (SELECT 1 FROM content_policy_overrides {ov} \
+          WHERE {ov}.work_id = {wt}.work_id AND {ov}.filter_type = {tn}.kind \
+            AND {ov}.value = {tn}.canonical AND {ov}.revoked_at IS NULL)",
+        ov = "cf_ov",
+        wt = WORK_TAG_ALIAS,
+        tn = TAXONOMY_ALIAS
+    );
     format!(
         "NOT EXISTS (SELECT 1 FROM work_tags {wt} \
          JOIN canonical_entities {tn} ON {tn}.id = {wt}.node_id \
-         WHERE {correlation} AND ({ors}))",
+         WHERE {correlation} AND ({ors}) AND {exemption})",
         wt = WORK_TAG_ALIAS,
         tn = TAXONOMY_ALIAS,
     )

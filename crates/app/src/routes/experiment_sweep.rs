@@ -81,6 +81,15 @@ pub fn router() -> Router<AppState> {
             "/operator/content-policy/history",
             get(content_policy_history),
         )
+        // A recorded exception for one work against one block (M69-16's last clause).
+        .route(
+            "/operator/content-policy/overrides",
+            post(grant_policy_override),
+        )
+        .route(
+            "/operator/content-policy/overrides/{work_id}/{filter_type}/{value}",
+            axum::routing::delete(revoke_policy_override),
+        )
 }
 
 #[derive(Deserialize)]
@@ -509,6 +518,11 @@ async fn add_content_policy_block(
             message: "this value is already blocked for the instance".to_owned(),
             field_errors: Default::default(),
         })),
+        // `block` cannot return this: it is the override's "there is no such live block". Named rather than caught by a
+        // wildcard so a future refusal has to be considered here.
+        Err(BlockRefusal::NotFound) => Err(ApiError(AppError::NotFound {
+            resource: "policy block",
+        })),
     }
 }
 
@@ -551,4 +565,85 @@ struct PolicyBlockRequest {
     filter_type: String,
     value: String,
     reason: String,
+}
+
+#[derive(Deserialize)]
+struct OverrideRequest {
+    work_id: String,
+    filter_type: String,
+    value: String,
+    reason: String,
+}
+
+/// Grant one work an exception to one live policy block, with a reason.
+async fn grant_policy_override(
+    State(state): State<AppState>,
+    RequireSession(session): RequireSession,
+    Json(body): Json<OverrideRequest>,
+) -> ApiResult<StatusCode> {
+    require_operator(&state, &session)?;
+    use darkhold_db::content_policy::BlockRefusal;
+    let operator = session.account_id.to_string();
+    match darkhold_db::content_policy::grant_override(
+        state.db(),
+        &body.work_id,
+        &body.filter_type,
+        &body.value,
+        &body.reason,
+        &operator,
+    )
+    .await?
+    {
+        Ok(()) => Ok(StatusCode::CREATED),
+        Err(BlockRefusal::NotFound) => Err(ApiError(AppError::NotFound {
+            resource: "policy block",
+        })),
+        Err(BlockRefusal::EmptyReason) => Err(ApiError(AppError::Validation {
+            message: "an override needs a reason: it is a recorded exception, not a quiet one".to_owned(),
+            field_errors: Default::default(),
+        })),
+        Err(BlockRefusal::EmptyTarget) => Err(ApiError(AppError::Validation {
+            message: "name the work and the block it is exempt from".to_owned(),
+            field_errors: Default::default(),
+        })),
+        Err(BlockRefusal::AlreadyBlocked) => Err(ApiError(AppError::Validation {
+            message: "this work already has a live exception to that block".to_owned(),
+            field_errors: Default::default(),
+        })),
+    }
+}
+
+/// Revoke a work's exception, keeping the record.
+async fn revoke_policy_override(
+    State(state): State<AppState>,
+    RequireSession(session): RequireSession,
+    Path((work_id, filter_type, value)): Path<(String, String, String)>,
+    Json(body): Json<HoldRequest>,
+) -> ApiResult<StatusCode> {
+    require_operator(&state, &session)?;
+    use darkhold_db::content_policy::BlockRefusal;
+    let operator = session.account_id.to_string();
+    match darkhold_db::content_policy::revoke_override(
+        state.db(),
+        &work_id,
+        &filter_type,
+        &value,
+        &body.reason,
+        &operator,
+    )
+    .await?
+    {
+        Ok(true) => Ok(StatusCode::NO_CONTENT),
+        Ok(false) => Err(ApiError(AppError::NotFound {
+            resource: "policy override",
+        })),
+        Err(BlockRefusal::EmptyReason) => Err(ApiError(AppError::Validation {
+            message: "a revocation needs a reason".to_owned(),
+            field_errors: Default::default(),
+        })),
+        Err(_) => Err(ApiError(AppError::Validation {
+            message: "that override cannot be revoked".to_owned(),
+            field_errors: Default::default(),
+        })),
+    }
 }

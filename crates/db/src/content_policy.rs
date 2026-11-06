@@ -32,6 +32,8 @@ pub struct PolicyBlock {
 pub enum BlockRefusal {
     /// The reason was blank or missing.
     EmptyReason,
+    /// There is no live block for the rule an override would exempt.
+    NotFound,
     /// The type or value was blank.
     EmptyTarget,
     /// A live block already covers this (type, value).
@@ -222,4 +224,145 @@ pub async fn history(db: &Database) -> Result<Vec<TrailRow>> {
         }
     };
     Ok(rows)
+}
+
+/// Grant a work an exception to one live policy block (M69-16's last clause).
+///
+/// The override names the block it exempts, so an exception for one rule cannot silently cover a later block on the same work.
+/// A reason is required for the same reason the block's is; and there must **be** a live block to exempt, otherwise the row would
+/// authorise something nobody blocked and would sit in the trail looking like a decision.
+pub async fn grant_override(
+    db: &Database,
+    work_id: &str,
+    filter_type: &str,
+    value: &str,
+    reason: &str,
+    granted_by: &str,
+) -> Result<std::result::Result<(), BlockRefusal>> {
+    let reason = reason.trim();
+    if reason.is_empty() {
+        return Ok(Err(BlockRefusal::EmptyReason));
+    }
+    if work_id.trim().is_empty() || filter_type.trim().is_empty() || value.trim().is_empty() {
+        return Ok(Err(BlockRefusal::EmptyTarget));
+    }
+    let live_check = db.sql(
+        "SELECT COUNT(*) FROM content_policy_blocks
+          WHERE filter_type = ? AND value = ? AND revoked_at IS NULL",
+        "SELECT COUNT(*) FROM content_policy_blocks
+          WHERE filter_type = $1 AND value = $2 AND revoked_at IS NULL",
+    );
+    let blocks: i64 = match db.backend() {
+        Backend::Sqlite => {
+            sqlx::query_scalar(&live_check)
+                .bind(filter_type)
+                .bind(value)
+                .fetch_one(db.sqlite_pool().expect("sqlite handle"))
+                .await?
+        }
+        Backend::Postgres => {
+            sqlx::query_scalar(&live_check)
+                .bind(filter_type)
+                .bind(value)
+                .fetch_one(db.postgres_pool().expect("postgres handle"))
+                .await?
+        }
+    };
+    if blocks == 0 {
+        return Ok(Err(BlockRefusal::NotFound));
+    }
+
+    let id = uuid::Uuid::new_v4().to_string();
+    let now = now_rfc3339();
+    let sql = db.sql(
+        "INSERT INTO content_policy_overrides (id, work_id, filter_type, value, reason, granted_by, created_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?)
+         ON CONFLICT (work_id, filter_type, value) WHERE revoked_at IS NULL DO NOTHING",
+        "INSERT INTO content_policy_overrides (id, work_id, filter_type, value, reason, granted_by, created_at)
+         VALUES (?::uuid, ?::uuid, ?, ?, ?, ?::uuid, ?)
+         ON CONFLICT (work_id, filter_type, value) WHERE revoked_at IS NULL DO NOTHING",
+    );
+    let affected = match db.backend() {
+        Backend::Sqlite => {
+            sqlx::query(&sql)
+                .bind(&id)
+                .bind(work_id)
+                .bind(filter_type)
+                .bind(value)
+                .bind(reason)
+                .bind(granted_by)
+                .bind(&now)
+                .execute(db.sqlite_pool().expect("sqlite handle"))
+                .await?
+                .rows_affected()
+        }
+        Backend::Postgres => {
+            sqlx::query(&sql)
+                .bind(&id)
+                .bind(work_id)
+                .bind(filter_type)
+                .bind(value)
+                .bind(reason)
+                .bind(granted_by)
+                .bind(&now)
+                .execute(db.postgres_pool().expect("postgres handle"))
+                .await?
+                .rows_affected()
+        }
+    };
+    if affected == 0 {
+        return Ok(Err(BlockRefusal::AlreadyBlocked));
+    }
+    Ok(Ok(()))
+}
+
+/// Revoke a work's exception. Returns whether a live one matched.
+pub async fn revoke_override(
+    db: &Database,
+    work_id: &str,
+    filter_type: &str,
+    value: &str,
+    reason: &str,
+    revoked_by: &str,
+) -> Result<std::result::Result<bool, BlockRefusal>> {
+    let reason = reason.trim();
+    if reason.is_empty() {
+        return Ok(Err(BlockRefusal::EmptyReason));
+    }
+    let now = now_rfc3339();
+    let sql = db.sql(
+        "UPDATE content_policy_overrides
+            SET revoked_at = ?, revoked_by = ?, revoked_reason = ?
+          WHERE work_id = ? AND filter_type = ? AND value = ? AND revoked_at IS NULL",
+        "UPDATE content_policy_overrides
+            SET revoked_at = $1, revoked_by = $2::uuid, revoked_reason = $3
+          WHERE work_id = $4::uuid AND filter_type = $5 AND value = $6 AND revoked_at IS NULL",
+    );
+    let affected = match db.backend() {
+        Backend::Sqlite => {
+            sqlx::query(&sql)
+                .bind(&now)
+                .bind(revoked_by)
+                .bind(reason)
+                .bind(work_id)
+                .bind(filter_type)
+                .bind(value)
+                .execute(db.sqlite_pool().expect("sqlite handle"))
+                .await?
+                .rows_affected()
+        }
+        Backend::Postgres => {
+            sqlx::query(&sql)
+                .bind(&now)
+                .bind(revoked_by)
+                .bind(reason)
+                .bind(work_id)
+                .bind(filter_type)
+                .bind(value)
+                .execute(db.postgres_pool().expect("postgres handle"))
+                .await?
+                .rows_affected()
+        }
+    };
+    Ok(Ok(affected > 0))
 }

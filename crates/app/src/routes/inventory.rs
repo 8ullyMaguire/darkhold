@@ -1041,6 +1041,20 @@ pub const ROUTE_TABLE: &[RouteEntry] = &[
         audience: Audience::Authenticated,
     },
     RouteEntry {
+        file: "experiment_sweep.rs",
+        handler: "grant_policy_override",
+        method: "POST",
+        path: "/operator/content-policy/overrides",
+        audience: Audience::Authenticated,
+    },
+    RouteEntry {
+        file: "experiment_sweep.rs",
+        handler: "revoke_policy_override",
+        method: "DELETE",
+        path: "/operator/content-policy/overrides/{work_id}/{filter_type}/{value}",
+        audience: Audience::Authenticated,
+    },
+    RouteEntry {
         file: "library.rs",
         handler: "get_saved_view_by_slug",
         method: "GET",
