@@ -536,7 +536,7 @@
    "built": false
   },
   {
-   "why_summary": "docs/design/2026-11-01-ranking-signals-and-surfaces.md P11, the endgame signal and the one with the longest lead time: it needs lists to exist and to be used before it has any rows",
+   "why_summary": "ee413789 P11, the endgame signal and the one with the longest lead time: it needs lists to exist and to be used before it has any rows. Design lists first so the data accumulates f",
    "id": "M64-11",
    "title": "co_shelving",
    "sources": [

@@ -591,7 +591,7 @@ pub const IDEAS: &[Module] = &[
     Module {
         id: "M64-11",
         name: "co_shelving",
-        summary: "docs/design/2026-11-01-ranking-signals-and-surfaces.md P11, the endgame signal and the one with the longest lead time: it needs lists to exist and to be used before it has any rows",
+        summary: "ee413789 P11, the endgame signal and the one with the longest lead time: it needs lists to exist and to be used before it has any rows. Design lists first so the data accumulates f",
         default_on: false,
         stability: Stability::Planned,
         toggle: Toggle::Operator,

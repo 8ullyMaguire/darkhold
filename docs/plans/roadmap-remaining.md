@@ -147,3 +147,7 @@ routes of the pages already migrated).
 
 Nothing is dropped. Four rows are `unsupported` for reasons already recorded in the ledger (M2-06, M6-10, M7-03,
 M6-15), and six are `evaluated-and-rejected` with their reasons in the row.
+
+
+M64-11 first half (ee413789): `co_shelving` is an engine over public shelves only (mutated predicate reddens the test);
+following a list and the per-surface pipelines remain.

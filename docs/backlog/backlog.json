@@ -220,7 +220,7 @@
       "id": "M64-11",
       "milestone": "M64",
       "requirement": "co_shelving: reading lists are first-class (create, curate, publish, follow) and list co-occurrence feeds story.similar and library.because_you_shelved",
-      "notes": "P11, the endgame signal and the one with the longest lead time: it needs lists to exist and to be used before it has any rows. Design lists first so the data accumulates from the day the feature ships."
+      "notes": "P11, the endgame signal and the one with the longest lead time: it needs lists to exist and to be used before it has any rows. Design lists first so the data accumulates from the day the feature ships. PARTIAL ee413789: co_shelving is an engine (db::discovery::co_shelving_recommendations) reading PUBLIC shelves only - readers who shelved what you shelved; own shelved works excluded; published/public targets only; engine_reason now maps co_shelving and the slot reason is ReadingHistory. Lists already create/curate/publish (library.rs shelves + is_public). NOT DONE: following a list (no table, no route), and story.similar / library.because_you_shelved / story.lists_containing have no candidate pipeline, so the engine is reachable from the discover feed only."
     },
     {
       "id": "M64-12",
