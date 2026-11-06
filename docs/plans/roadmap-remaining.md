@@ -151,3 +151,6 @@ M6-15), and six are `evaluated-and-rejected` with their reasons in the row.
 
 M64-11 first half (ee413789): `co_shelving` is an engine over public shelves only (mutated predicate reddens the test);
 following a list shipped in e62ab963 (0172_shelf_follows, refusals pinned by mutation); story.similar now reads its configured set and has a co-shelving arm (5dc85eae); library.because_you_shelved shipped its route (6bc3a869); story.also_enjoyed still has no route and no engine for co_read/engagement_overlap.
+
+M69-21 first half (de8fb809): saved views take a per-account slug with PUT /saved-views/{id}/slug and GET
+/saved-views/by-slug/{slug}; subscriptions, keybind and the blend half remain.
