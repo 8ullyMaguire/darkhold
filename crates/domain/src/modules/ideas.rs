@@ -577,7 +577,7 @@ pub const IDEAS: &[Module] = &[
     Module {
         id: "M64-09",
         name: "taste gravity applies at every recommendation surface as a bounded influence…",
-        summary: "docs/design/2026-11-01-ranking-signals-and-surfaces.md P9. served = (1-g)*algorithm + g*taste_match, taste_match from the operator profile (§16.2) over fandom/tag/author/source. De",
+        summary: "71adfa72 PARTIAL 71adfa72 (first half): taste gravity is now a convex mixture served=(1-g)*base+g*taste, both terms normalised to 0..=1 over the page; unbounded multiplier replaced",
         default_on: false,
         stability: Stability::Planned,
         toggle: Toggle::Operator,

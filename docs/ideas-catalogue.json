@@ -523,7 +523,7 @@
    "built": false
   },
   {
-   "why_summary": "docs/design/2026-11-01-ranking-signals-and-surfaces.md P9. served = (1-g)*algorithm + g*taste_match, taste_match from the operator profile (\u00a716.2) over fandom/tag/author/source. De",
+   "why_summary": "71adfa72 PARTIAL 71adfa72 (first half): taste gravity is now a convex mixture served=(1-g)*base+g*taste, both terms normalised to 0..=1 over the page; unbounded multiplier replaced",
    "id": "M64-09",
    "title": "taste gravity applies at every recommendation surface as a bounded influence layer after the blend, with a per-surface strength, reordering and never filtering",
    "sources": [
