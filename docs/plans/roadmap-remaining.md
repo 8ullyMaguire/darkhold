@@ -150,4 +150,4 @@ M6-15), and six are `evaluated-and-rejected` with their reasons in the row.
 
 
 M64-11 first half (ee413789): `co_shelving` is an engine over public shelves only (mutated predicate reddens the test);
-following a list and the per-surface pipelines remain.
+following a list shipped in e62ab963 (0172_shelf_follows, refusals pinned by mutation); the per-surface pipelines remain.
