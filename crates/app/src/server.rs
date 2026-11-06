@@ -32,7 +32,7 @@ use darkhold_db::outbox;
 use darkhold_db::Database;
 use darkhold_domain::ids::RequestId;
 use tower_http::cors::{AllowOrigin, CorsLayer};
-use tower_http::limit::RequestBodyLimitLayer;
+use axum::extract::DefaultBodyLimit;
 use tower_http::timeout::TimeoutLayer;
 use tracing::Instrument;
 
@@ -1324,7 +1324,13 @@ pub fn build_router(state: AppState) -> Router {
         // because a namespace that swallows unknown paths is a different bug than the one being fixed.
         .merge(routes::atproto_feed::router())
         .fallback(assets::serve)
-        .layer(RequestBodyLimitLayer::new(config.server.max_body_bytes))
+        // `DefaultBodyLimit` and not `RequestBodyLimitLayer`, and the difference is measured: the tower-http layer wraps
+        // the request body outside every route, so a route that sets its own ceiling can never raise it — the bundle
+        // upload answered `413` for an 8.99 MB archive even with `DefaultBodyLimit::max(64 MiB)` on the route, because
+        // this outer layer had already refused it. `DefaultBodyLimit` is an extension that the extractor reads, the
+        // innermost one winning, which is exactly what a per-route ceiling needs. Every extractor-built handler keeps the
+        // configured limit; the one route that carries an archive raises its own.
+        .layer(DefaultBodyLimit::max(config.server.max_body_bytes))
         .layer(TimeoutLayer::with_status_code(
             StatusCode::REQUEST_TIMEOUT,
             config.server.request_timeout,
