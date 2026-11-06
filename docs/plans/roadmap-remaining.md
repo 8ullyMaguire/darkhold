@@ -38,7 +38,8 @@ M64-15 read half 7e58e239
 `preview-as-persona` remains: it is a reader-shaped view, not a write.
 
 Batch 4 also has M64-10's first half (7e746375): `GET /api/v1/facets` answers length, status, rating and cadence from one
-scan, reporting `unknown` beside `known` and a sentence instead of an empty histogram. Browse and search do not embed it yet.
+scan, reporting `unknown` beside `known` and a sentence instead of an empty histogram. It is embedded in `/api/v1/search` (with `facets_over` naming the set), `/api/v1/tags/{tag}` and
+`/api/v1/fandoms/{fandom}` as of b870d6e4, which closes the row.
 
 **M64-03 shipped** (3d40065f): `experiment_snapshots` (surface, arm, day) with impressions / readers / guest_readers /
 events, `snapshot_day` idempotent so a re-run repairs a day, `GET /api/v1/recommendation/experiments[?day=]`, and `null`

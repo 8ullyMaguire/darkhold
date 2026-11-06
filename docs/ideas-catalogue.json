@@ -1,6 +1,6 @@
 {
  "generated_by": "scripts/ideas_catalogue.py",
- "count": 180,
+ "count": 179,
  "ideas": [
   {
    "why_summary": "",
@@ -526,19 +526,6 @@
    "why_summary": "docs/design/2026-11-01-ranking-signals-and-surfaces.md P9. served = (1-g)*algorithm + g*taste_match, taste_match from the operator profile (\u00a716.2) over fandom/tag/author/source. De",
    "id": "M64-09",
    "title": "taste gravity applies at every recommendation surface as a bounded influence layer after the blend, with a per-surface strength, reordering and never filtering",
-   "sources": [
-    "docs/requirements.csv"
-   ],
-   "milestone": "M64",
-   "relevance": 4,
-   "because": "a requirements row exists (+4)",
-   "default_on": false,
-   "built": false
-  },
-  {
-   "why_summary": "7e746375 PARTIAL 7e746375: GET /api/v1/facets?tag=&q=&facet= - length/status/rating/cadence from one scan of the filtered rows, unknown vs known reported per facet, and `when_unkno",
-   "id": "M64-10",
-   "title": "length, status, rating and cadence are first-class facets on every browse and search surface, and a facet whose column is null on the filtered rows says so instead of returning an empty page",
    "sources": [
     "docs/requirements.csv"
    ],

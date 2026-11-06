@@ -4,11 +4,11 @@
       "rows": 942,
       "by_status": {
         "implemented-verified-e2e": 139,
-        "implemented-locally-tested": 261,
+        "implemented-locally-tested": 262,
         "unsupported": 4,
         "implemented-fully-tested": 435,
         "implemented": 11,
-        "planned": 85,
+        "planned": 84,
         "evaluated-and-rejected": 7
       }
     },
@@ -215,12 +215,6 @@
       "milestone": "M64",
       "requirement": "taste gravity applies at every recommendation surface as a bounded influence layer after the blend, with a per-surface strength, reordering and never filtering",
       "notes": "P9. served = (1-g)*algorithm + g*taste_match, taste_match from the operator profile (\u00a716.2) over fandom/tag/author/source. Default g = 0.15; story.more_by_author = 0.0, story.similar = 0.10, home.trending = 0.35. Constraints: reorders never filters (M43-02), floor/ceiling are configuration (\u00a716.16's shape), the reader's dial reaches zero unless locked (\u00a716.5), no per-item reason is printed and no score is exposed (\u00a70.3) while the mode and a coarse pull histogram are published, and gravity is measured as its own experimental arm so 'it helped' is a number."
-    },
-    {
-      "id": "M64-10",
-      "milestone": "M64",
-      "requirement": "length, status, rating and cadence are first-class facets on every browse and search surface, and a facet whose column is null on the filtered rows says so instead of returning an empty page",
-      "notes": "PARTIAL 7e746375: GET /api/v1/facets?tag=&q=&facet= - length/status/rating/cadence from one scan of the filtered rows, unknown vs known reported per facet, and `when_unknown` carrying the sentence a page shows ('N of M works in this view have no known length' / 'no work in this view has a known length yet ... a gap in the catalogue, not an empty shelf'). No null bucket on purpose: a bucket invites a filter that can never work. Words come from revisions via units.current_revision_id (units has no word_count); a work with no revision is unknown, NOT zero words - mutation (measured >= 0) reddens. NOT DONE: browse and search responses do not embed these facets, and search filters (author, kind) are not accepted by the endpoint. The endpoint is the source they should call. Original note kept: P10. Depends on data more than code: word_count is null on every engaged board row and views is null on all 141,317, so a length facet today filters on a column that is almost entirely null. The refusal is the deliverable until M63-04 (catalogue) and M63-32 land."
     },
     {
       "id": "M64-11",
@@ -539,8 +533,8 @@
     "M69": 20,
     "M63": 17,
     "M45": 12,
-    "M64": 10,
     "M71": 10,
+    "M64": 9,
     "M16": 7,
     "M66": 6,
     "M29": 1,
