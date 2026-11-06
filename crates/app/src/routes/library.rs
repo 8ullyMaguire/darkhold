@@ -6,6 +6,8 @@
 //! GET/POST               /shelves
 //! GET/PATCH/DELETE       /shelves/:id
 //! POST/DELETE            /shelves/:id/items/:libraryItemId
+//! GET                    /shelves/following
+//! POST/DELETE            /shelves/:id/follow
 //! GET/POST               /bookmarks
 //! GET/PATCH/DELETE       /bookmarks/:id
 //! GET                    /library/items?<filters>            envelope
@@ -57,6 +59,8 @@ use axum::response::IntoResponse;
 
 use crate::auth::{RequireActorScoped, RequireSession};
 use crate::http::{ApiError, ApiResult};
+use std::collections::BTreeMap;
+
 use crate::state::AppState;
 use darkhold_domain::api_scopes::Scope;
 
@@ -71,6 +75,13 @@ pub fn router() -> Router<AppState> {
         .route(
             "/shelves/{id}/items/{item_id}",
             post(add_to_shelf).delete(remove_from_shelf),
+        )
+        // Following a shelf (M64-11). The static segment has to be declared beside `/shelves/{id}`; axum matches a literal
+        // segment before a parameter, so `/shelves/following` never reaches `get_shelf`.
+        .route("/shelves/following", get(list_followed_shelves))
+        .route(
+            "/shelves/{id}/follow",
+            post(follow_shelf).delete(unfollow_shelf),
         )
         .route("/bookmarks", get(list_bookmarks).post(create_bookmark))
         .route(
@@ -299,6 +310,56 @@ async fn create_shelf(
     )
     .await?;
     Ok((StatusCode::CREATED, Json(shelf_json(&shelf, Some(0)))))
+}
+
+/// The shelves this reader follows.
+async fn list_followed_shelves(
+    State(state): State<AppState>,
+    RequireSession(user): RequireSession,
+) -> ApiResult<Json<serde_json::Value>> {
+    let shelves = darkhold_db::shelf_follows::followed_shelves(state.db(), &user.account_id.to_string())
+        .await?;
+    Ok(Json(serde_json::json!({
+        "items": shelves,
+        "next_cursor": null,
+    })))
+}
+
+/// Follow a shelf another reader published.
+///
+/// Refusals name what the caller can act on: a shelf they cannot see is `404` (it is not their business whether it exists), their
+/// own shelf is `422` naming that, and an unpublished shelf is `422` naming publicity — the last two because a reader who owns the
+/// list can fix both, and "not found" for a shelf they can see in their own sidebar would be a lie they could disprove.
+async fn follow_shelf(
+    State(state): State<AppState>,
+    RequireSession(user): RequireSession,
+    Path(id): Path<String>,
+) -> ApiResult<StatusCode> {
+    use darkhold_db::shelf_follows::FollowRefusal;
+    let account = user.account_id.to_string();
+    match darkhold_db::shelf_follows::follow(state.db(), &account, &id).await? {
+        Ok(()) => Ok(StatusCode::NO_CONTENT),
+        Err(FollowRefusal::NotFound) => Err(ApiError(AppError::NotFound { resource: "shelf" })),
+        Err(FollowRefusal::OwnShelf) => Err(ApiError(AppError::Validation {
+            message: "this shelf is already yours".to_owned(),
+            field_errors: BTreeMap::new(),
+        })),
+        Err(FollowRefusal::NotPublic) => Err(ApiError(AppError::Validation {
+            message: "this shelf is not published, so it cannot be followed".to_owned(),
+            field_errors: BTreeMap::new(),
+        })),
+    }
+}
+
+/// Stop following a shelf. Idempotent the other way too: unfollowing what you do not follow is `204`, not an error, because the
+/// client's intent ("I do not follow this") is already true.
+async fn unfollow_shelf(
+    State(state): State<AppState>,
+    RequireSession(user): RequireSession,
+    Path(id): Path<String>,
+) -> ApiResult<StatusCode> {
+    darkhold_db::shelf_follows::unfollow(state.db(), &user.account_id.to_string(), &id).await?;
+    Ok(StatusCode::NO_CONTENT)
 }
 
 /// One shelf, with the items on it.

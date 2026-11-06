@@ -1007,6 +1007,27 @@ pub const ROUTE_TABLE: &[RouteEntry] = &[
     },
     RouteEntry {
         file: "library.rs",
+        handler: "list_followed_shelves",
+        method: "GET",
+        path: "/shelves/following",
+        audience: Audience::Authenticated,
+    },
+    RouteEntry {
+        file: "library.rs",
+        handler: "follow_shelf",
+        method: "POST",
+        path: "/shelves/{id}/follow",
+        audience: Audience::Authenticated,
+    },
+    RouteEntry {
+        file: "library.rs",
+        handler: "unfollow_shelf",
+        method: "DELETE",
+        path: "/shelves/{id}/follow",
+        audience: Audience::Authenticated,
+    },
+    RouteEntry {
+        file: "library.rs",
         handler: "list_bookmarks",
         method: "GET",
         path: "/bookmarks",
