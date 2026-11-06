@@ -392,6 +392,81 @@
       "why": "FOREIGN KEY, and 'replace' was wrong: a CONSTANT here collapses every row of exchange_signals into one and destroys the join. Deterministically re-keyed so the graph survives. See 11.16.3 -- consistent pseudonymisation, not column destruction.",
       "reviewed_by": "alvaro, 2026-09-29, against spec 11.16.3"
     },
+    "experiment_decisions.id": {
+      "treatment": "keep",
+      "why": "An opaque row id that joins nothing outside the table.",
+      "reviewed_by": "alvaro, 2026-11-06, against spec 11.16"
+    },
+    "experiment_decisions.surface_id": {
+      "treatment": "keep",
+      "why": "A canonical registry surface id, identical for every reader.",
+      "reviewed_by": "alvaro, 2026-11-06, against spec 11.16"
+    },
+    "experiment_decisions.day": {
+      "treatment": "keep",
+      "why": "The day the snapshot covered; a date in a record, not an identity (11.16).",
+      "reviewed_by": "alvaro, 2026-11-06, against spec 11.16"
+    },
+    "experiment_decisions.decision": {
+      "treatment": "keep",
+      "why": "One of promote/demote/rolled_back: a closed word, nothing about a person.",
+      "reviewed_by": "alvaro, 2026-11-06, against spec 11.16"
+    },
+    "experiment_decisions.incumbent_arm": {
+      "treatment": "keep",
+      "why": "An arm index, one of a handful of integers.",
+      "reviewed_by": "alvaro, 2026-11-06, against spec 11.16"
+    },
+    "experiment_decisions.challenger_arm": {
+      "treatment": "keep",
+      "why": "An arm index, one of a handful of integers.",
+      "reviewed_by": "alvaro, 2026-11-06, against spec 11.16"
+    },
+    "experiment_decisions.lift": {
+      "treatment": "keep",
+      "why": "A difference of two rates over aggregates; no reader appears in it.",
+      "reviewed_by": "alvaro, 2026-11-06, against spec 11.16"
+    },
+    "experiment_decisions.evidence": {
+      "treatment": "keep",
+      "why": "The martingale value the decision was made on; a number, not a person.",
+      "reviewed_by": "alvaro, 2026-11-06, against spec 11.16"
+    },
+    "experiment_decisions.guardrail_name": {
+      "treatment": "keep",
+      "why": "The name of a guardrail metric, instance vocabulary.",
+      "reviewed_by": "alvaro, 2026-11-06, against spec 11.16"
+    },
+    "experiment_decisions.guardrail_value": {
+      "treatment": "keep",
+      "why": "A measurement of the instance, not of a reader.",
+      "reviewed_by": "alvaro, 2026-11-06, against spec 11.16"
+    },
+    "experiment_decisions.consecutive": {
+      "treatment": "keep",
+      "why": "How many snapshots in a row a guardrail breached: a count.",
+      "reviewed_by": "alvaro, 2026-11-06, against spec 11.16"
+    },
+    "experiment_decisions.algorithms_before": {
+      "treatment": "keep",
+      "why": "Algorithm names from the closed registry.",
+      "reviewed_by": "alvaro, 2026-11-06, against spec 11.16"
+    },
+    "experiment_decisions.algorithms_after": {
+      "treatment": "keep",
+      "why": "Algorithm names from the closed registry.",
+      "reviewed_by": "alvaro, 2026-11-06, against spec 11.16"
+    },
+    "experiment_decisions.created_at": {
+      "treatment": "keep",
+      "why": "When the decision row was written; a property of the job.",
+      "reviewed_by": "alvaro, 2026-11-06, against spec 11.16"
+    },
+    "experiment_decisions.rolled_back_at": {
+      "treatment": "keep",
+      "why": "When a promotion was undone, if it was; a property of the job.",
+      "reviewed_by": "alvaro, 2026-11-06, against spec 11.16"
+    },
     "experiment_snapshots.arm": {
       "treatment": "keep",
       "why": "An arm index, one of a handful of integers; it identifies an arm, not a person.",
