@@ -1289,6 +1289,7 @@ pub fn build_router(state: AppState) -> Router {
         // The sitemap (M71-16). No session layer: the file a crawler gets must be the file everyone gets, which is why
         // its audience is `Anonymous` rather than a `MaybeSession` nobody reads.
         .merge(routes::sitemap::router())
+            .merge(routes::facets::router())
         // The work page (ADR 0006, M71-20): the most-linked page on an archive, as a document. Registered before the
         // SPA fallback so `/works/{id}` is HTML for a reader, a crawler and a preview; the application keeps the routes
         // that are only meaningful with a session.

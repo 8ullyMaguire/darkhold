@@ -54,6 +54,7 @@ pub mod entity_floor;
 pub mod erasure;
 pub mod events;
 pub mod experiment_decisions;
+pub mod facets;
 pub mod experiment_snapshots;
 pub mod experiments;
 pub mod exchange;

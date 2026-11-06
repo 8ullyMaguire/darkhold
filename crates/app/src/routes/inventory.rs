@@ -5664,6 +5664,13 @@ pub const ROUTE_TABLE: &[RouteEntry] = &[
         audience: Audience::Authenticated,
     },
     RouteEntry {
+        file: "facets.rs",
+        handler: "facets",
+        method: "GET",
+        path: "/api/v1/facets",
+        audience: Audience::Public,
+    },
+    RouteEntry {
         file: "experiment_sweep.rs",
         handler: "overview",
         method: "GET",
