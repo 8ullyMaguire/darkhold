@@ -4,11 +4,11 @@
       "rows": 942,
       "by_status": {
         "implemented-verified-e2e": 139,
-        "implemented-locally-tested": 253,
+        "implemented-locally-tested": 254,
         "unsupported": 4,
         "implemented-fully-tested": 433,
         "implemented": 9,
-        "planned": 97,
+        "planned": 96,
         "evaluated-and-rejected": 7
       }
     },
@@ -421,12 +421,6 @@
       "notes": "Suki spec \u00a76.5. darkhold has tag families and a canonical taxonomy but no notion of coverage \u2014 the closest thing is a tag count, which says nothing about what is missing. Clusters are operator-editable and priority-ordered, and the checklist is advisory: a work is not incomplete for lacking a trope, it simply knows it has none. Default off: it changes what a stranger sees or what the instance claims about itself, so it waits for a decision rather than a default."
     },
     {
-      "id": "M69-19",
-      "milestone": "M69",
-      "requirement": "related tags ranked by NPMI rather than by raw co-occurrence",
-      "notes": "Suki spec \u00a76.6; extends M64-06, which computes jaccard and raw co-occurrence. Raw counts reward ubiquitous tags \u2014 'angst' co-occurs with everything and therefore relates to nothing. NPMI is precomputed in the same nightly job, so this is an ordering change rather than a new pipeline. Default off: it changes what a stranger sees or what the instance claims about itself, so it waits for a decision rather than a default."
-    },
-    {
       "id": "M69-20",
       "milestone": "M69",
       "requirement": "a tag script: a persistent set of assertions applied to works while browsing, so gardening is a mode rather than a form",
@@ -608,7 +602,7 @@
     }
   ],
   "open_by_milestone": {
-    "M69": 24,
+    "M69": 23,
     "M63": 17,
     "M64": 14,
     "M45": 13,

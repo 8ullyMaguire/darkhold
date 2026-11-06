@@ -37,7 +37,7 @@ Two rules that decide the order:
 
 | row | approach |
 |---|---|
-| M69-19 | NPMI instead of raw co-occurrence for related tags. Pure function over the nightly tag matrix; ordering change, no new pipeline. |
+| ~~M69-19~~ | **DONE da36de8e.** `taxonomy::related_tags_by_npmi` (log in Rust, one grouped count query, pairs seen once excluded), `GET /api/v1/tags/{tag}/related`, and a Related tags section on the tag page. No nightly matrix needed at this size. |
 | M69-08 | one blend function (interaction decay + floor) used by every ranking surface; the existing per-surface multipliers become inputs. |
 | M69-09 | affinity as a stored 0..1 score per reader, recomputed nightly, replacing the per-work multiplier. |
 | M69-10, M69-11 | Glicko-2 for the arena (deviation, volatility, divergence flag) and pairing that prefers similar rating with high deviation. The arena already stores per-match outcomes; this is a rating model swap plus a pairing policy. |
