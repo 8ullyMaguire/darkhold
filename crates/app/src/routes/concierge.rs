@@ -182,6 +182,23 @@ pub async fn render_queue(
             .collect::<Vec<darkhold_domain::discovery::Candidate>>()
     };
 
+    // M64-09: the same bounded gravity layer, at this surface's own strength. It runs on the blend and before the mood filter,
+    // because the mood filter narrows a set and preserves the order it is given — pulling afterwards would reorder a set that
+    // has already been narrowed, which is fine, but pulling before keeps one place where order is decided.
+    let blended = {
+        let taste = &state.config().taste;
+        let instance_strength = taste.strength_for("home.curated");
+        let reader_strength = match viewer_pseud {
+            Some(pseud) => darkhold_db::gravity_prefs::read(state.db(), pseud)
+                .await
+                .ok()
+                .flatten(),
+            None => None,
+        };
+        let strength = darkhold_domain::gravity_dial::effective(instance_strength, reader_strength);
+        darkhold_domain::discovery::apply_taste_gravity(blended, strength, &taste.signal_weight_mode).0
+    };
+
     // The mood filter works on ids — `filter_by_mood(db, &[String], mood)` — so it
     // is handed the id list, in the ranked order, rather than being taught about
     // Candidates. The order it receives IS the order it preserves.
