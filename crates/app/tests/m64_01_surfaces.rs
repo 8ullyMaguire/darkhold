@@ -204,6 +204,14 @@ async fn a_surface_stops_refusing_once_its_table_has_rows() {
             "INSERT INTO work_tags (work_id, node_id, prominence, added_at)
              VALUES ('{work}','01954000-0000-4000-8000-0000000009f1',1,'2026-01-01T00:00:00Z')"
         ),
+        // M64-06 changed what "has rows" means for a tag surface: a tag on a work nobody has touched is a tag with nothing to rank
+        // against, and the surface now refuses in that state. This test is about the rows reaching the response, so it seeds an
+        // engaged work too — the disjoint case has its own test below, and the two must not be able to pass at once.
+        format!(
+            "INSERT INTO work_metric_aggregates (work_id, views, complete_reads, reactions, kudos,
+                     bookmarks, collection_adds, reviews, updated_at)
+             VALUES ('{work}', 3, 0, 0, 1, 0, 0, 0, '2026-01-01T00:00:00Z')"
+        ),
     ] {
         sqlx::query(&statement)
             .execute(harness.tdb.db().sqlite_pool().expect("sqlite"))
@@ -220,7 +228,7 @@ async fn a_surface_stops_refusing_once_its_table_has_rows() {
         .expect("tag.adjacent is registered");
     assert!(
         tag_surface["refused"].as_array().expect("refused").is_empty(),
-        "one tagged work is enough for the surface to answer: {tag_surface}"
+        "one tagged, engaged work is enough for the surface to answer: {tag_surface}"
     );
 }
 
@@ -245,5 +253,92 @@ async fn a_configured_surface_set_reaches_the_response() {
         tag_surface["algorithms"],
         serde_json::json!(["npmi"]),
         "the configured set is what the surface runs, not the default: {tag_surface}"
+    );
+}
+
+/// M64-06 — the refusal a tag surface needs is not "the table is empty".
+///
+/// `work_tags` and `work_metric_aggregates` can both be full and still share nothing: every tagged work is an import nobody read. In
+/// that state a "no rows yet" refusal never fires and the surface reports that it is ranking with `tag_jaccard` while returning
+/// nothing. The three states are distinguishable, and this drives all three through the route:
+///
+/// 1. no tags at all       -> "has no rows yet"
+/// 2. tags, no engagement  -> "no work carries both" (the live instance's state on 2026-11-01)
+/// 3. one work both        -> no data refusal at all
+#[tokio::test]
+async fn a_tag_surface_refuses_when_tags_and_engagement_never_meet() {
+    let harness = Harness::new("disjoint").await;
+    let db = harness.tdb.db();
+
+    async fn exec(db: &darkhold_db::Database, statement: &str) {
+        sqlx::query(statement)
+            .execute(db.sqlite_pool().expect("sqlite"))
+            .await
+            .unwrap_or_else(|error| panic!("{statement}\n{error}"));
+    }
+
+    // Seed a work, an author and two tags: plenty of rows, none of them engaged.
+    exec(db, "INSERT INTO accounts (id, status, email, age_state, created_at, updated_at, version)
+              VALUES ('01955a00-0000-4000-8000-000000000001','active','t@example.invalid','adult',
+                      '2026-01-01T00:00:00Z','2026-01-01T00:00:00Z',1)").await;
+    exec(db, "INSERT INTO pseuds (id, account_id, handle, display_name, discoverability, created_at, updated_at, version)
+              VALUES ('01955a00-0000-4000-8000-000000000002','01955a00-0000-4000-8000-000000000001',
+                      'tagger','Tagger','listed','2026-01-01T00:00:00Z','2026-01-01T00:00:00Z',1)").await;
+    exec(db, "INSERT INTO works (id, owner_pseud_id, title, visibility, lifecycle, created_at, updated_at, version)
+              VALUES ('01955a00-0000-4000-8000-000000000003','01955a00-0000-4000-8000-000000000002',
+                      'Tagged','public','published','2026-01-01T00:00:00Z','2026-01-01T00:00:00Z',1)").await;
+    for (node, name) in [
+        ("01955a00-0000-4000-8000-000000000004", "slow burn"),
+        ("01955a00-0000-4000-8000-000000000005", "angst"),
+    ] {
+        exec(db, &format!(
+            "INSERT INTO canonical_entities (id, kind, canonical, norm, created_at)
+             VALUES ('{node}','tag','{name}','{name}','2026-01-01T00:00:00Z')")).await;
+        exec(db, &format!(
+            "INSERT INTO work_tags (work_id, node_id, prominence, added_at)
+             VALUES ('01955a00-0000-4000-8000-000000000003','{node}',1,'2026-01-01T00:00:00Z')")).await;
+    }
+
+    let find = |body: &Value, id: &str| -> Value {
+        body["surfaces"]
+            .as_array()
+            .expect("surfaces")
+            .iter()
+            .find(|surface| surface["id"] == id)
+            .cloned()
+            .unwrap_or_else(|| panic!("{id} is in the registry"))
+    };
+
+    // 2. Tags present, nobody engaged: the refusal names the overlap, not an empty table.
+    let (status, body) = get(harness.client(), "/api/v1/recommendation/surfaces").await;
+    assert_eq!(status, StatusCode::OK, "{body}");
+    let similar = find(&body, "story.similar");
+    let refused = similar["refused"].as_array().expect("refused");
+    let jaccard = refused
+        .iter()
+        .find(|entry| entry["algorithm"] == "tag_jaccard")
+        .unwrap_or_else(|| panic!("tag_jaccard is refused while disjoint: {refused:?}"));
+    let reason = jaccard["reason"].as_str().expect("reason");
+    assert!(
+        reason.contains("no work carries both"),
+        "the refusal must name the real gap, not an empty table: {reason}"
+    );
+    assert!(
+        !reason.contains("no rows yet"),
+        "the table is not empty and saying so would send an operator to the wrong fix: {reason}"
+    );
+
+    // 3. One engaged tagged work makes the surface usable again.
+    exec(db, "INSERT INTO work_metric_aggregates (work_id, views, complete_reads, reactions, kudos,
+                     bookmarks, collection_adds, reviews, updated_at)
+              VALUES ('01955a00-0000-4000-8000-000000000003', 5, 1, 0, 2, 0, 0, 0,
+                      '2026-01-01T00:00:00Z')").await;
+    let (status, body) = get(harness.client(), "/api/v1/recommendation/surfaces").await;
+    assert_eq!(status, StatusCode::OK, "{body}");
+    let similar = find(&body, "story.similar");
+    let refused = similar["refused"].as_array().expect("refused");
+    assert!(
+        !refused.iter().any(|entry| entry["algorithm"] == "tag_jaccard"),
+        "with one tagged, engaged work there is something to rank: {refused:?}"
     );
 }

@@ -113,6 +113,25 @@ async fn list_surfaces(
         }
     }
 
+    // M64-06: tags and engagement can both be plentiful and still **disjoint** — on the live instance `work_tags` joins none of
+    // the engaged works, so a "table is empty" refusal never fires while the surface claims to rank. Measured once, not per
+    // surface, and only when a WorkTags surface is actually in the registry.
+    let tag_overlap = if SURFACES.iter().any(|s| s.need == DataNeed::WorkTags) {
+        darkhold_db::tag_coverage::tag_engagement(state.db())
+            .await
+            .unwrap_or(darkhold_db::tag_coverage::TagEngagement {
+                tagged: 0,
+                engaged: 0,
+                tagged_and_engaged: 0,
+            })
+    } else {
+        darkhold_db::tag_coverage::TagEngagement {
+            tagged: 0,
+            engaged: 0,
+            tagged_and_engaged: 0,
+        }
+    };
+
     let surfaces: Vec<Value> = SURFACES
         .iter()
         .map(|surface| {
@@ -145,7 +164,23 @@ async fn list_surfaces(
                 })
                 .collect();
 
-            let refused: Vec<Value> = if empty {
+            // A tag surface has a second way to be unusable that is not emptiness: rows exist on both sides and never meet.
+            let disjoint_tags = surface.need == DataNeed::WorkTags && !tag_overlap.usable();
+            let refused: Vec<Value> = if disjoint_tags && !empty {
+                algorithms
+                    .iter()
+                    .map(|name| {
+                        serde_json::json!({
+                            "algorithm": name,
+                            "reason": format!(
+                                "`{}` has tags and engagement but no work carries both: {} tagged, {} engaged, 0 in common; M64-06 fills it",
+                                name, tag_overlap.tagged, tag_overlap.engaged
+                            ),
+                            "milestone": surface.need.milestone(),
+                        })
+                    })
+                    .collect()
+            } else if empty {
                 algorithms
                     .iter()
                     .map(|name| {
