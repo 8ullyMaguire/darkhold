@@ -23,6 +23,7 @@ thiserror.workspace = true
 time.workspace = true
 uuid.workspace = true
 url = "2"
+zip = { version = "5.0.1", default-features = false, features = ["deflate-flate2"] }
 
 [lints]
 workspace = true
