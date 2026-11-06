@@ -19,6 +19,8 @@ Two rules that decide the order:
 
 ## Batch 2 — the visible contract
 
+Triage of all 96 rows, and the order it implies: `docs/plans/planned-triage.md`.
+
 | row | approach | blocker |
 |---|---|---|
 | ~~M71-04~~ | **DONE 7b3e8f5f.** `routes/provenance.rs`: four words (`hosted`, `hosted_locked`, `referenced`, `known`), one grouped query per list. Wired into tag browse, search, library bookmarks, work page and tag page. Media and the author's own works list are excluded with the reason in the ledger row. |
@@ -94,7 +96,7 @@ board, and close M29-08 by pointing at it — a second implementation would be t
 
 M71-06 (reasons on every rail), M71-07 (console register), M71-08 (auto-hiding reader bar + typography panel), M71-09
 (honest stale position), M71-11 (facet counts endpoint), M71-12 (ten-bucket histogram), M71-13 (coverage statements),
-M71-14 (settings provenance), M71-15 (facet/query equivalence), M71-16 (machine surfaces obey the same rules), M71-20
+M71-14 (settings provenance), M71-15 (facet/query equivalence), M71-20  — M71-16 shipped as 4a7f8839 (sitemap + Audience::Anonymous)
 (search, author, collection and series pages as documents — the last of ADR 0006's order, plus deleting the Svelte
 routes of the pages already migrated).
 
