@@ -330,6 +330,25 @@ pub struct PullHistogram {
     pub unchanged: usize,
 }
 
+impl PullHistogram {
+    /// How each id in `before` moved by the time the page reached `after`.
+    ///
+    /// The pull is measured **at the end of the pipeline**, against the order the algorithms produced, because a later
+    /// ordering operator can move rows too: a histogram computed at the end of gravity alone said "nothing moved" on a page
+    /// whose order had in fact changed.
+    pub fn between(before: &[WorkId], after: &[WorkId]) -> Self {
+        let mut pile = Self::default();
+        for (was, id) in before.iter().enumerate() {
+            match after.iter().position(|other| other == id) {
+                Some(now) if now < was => pile.moved_up += 1,
+                Some(now) if now > was => pile.moved_down += 1,
+                _ => pile.unchanged += 1,
+            }
+        }
+        pile
+    }
+}
+
 /// Apply taste gravity as a bounded mixture (spec §9.7.3, M64-09).
 ///
 /// `served = (1 - g) * base + g * taste`, both terms normalised to `0..=1` over the page: the base score scaled by the best
@@ -391,14 +410,7 @@ pub fn apply_taste_gravity(
 
     let ranked: Vec<Candidate> = served.into_iter().map(|(_, candidate)| candidate).collect();
     let order: Vec<WorkId> = ranked.iter().map(|candidate| candidate.work_id).collect();
-    let mut pile = PullHistogram::default();
-    for (before, id) in incoming.iter().enumerate() {
-        match order.iter().position(|other| other == id) {
-            Some(after) if after < before => pile.moved_up += 1,
-            Some(after) if after > before => pile.moved_down += 1,
-            _ => pile.unchanged += 1,
-        }
-    }
+    let pile = PullHistogram::between(&incoming, &order);
     (ranked, pile)
 }
 

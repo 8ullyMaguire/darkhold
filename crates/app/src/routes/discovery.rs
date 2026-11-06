@@ -914,7 +914,11 @@ async fn get_discovery(
         None => None,
     };
     let strength = darkhold_domain::gravity_dial::effective(instance_strength, reader_strength);
-    let (ranked, pull) = darkhold_domain::discovery::apply_taste_gravity(
+    // The order the algorithms produced, kept so the published pull can be measured against the page the reader finally
+    // receives — later operators (the reader's own taste ordering) move rows too, and a histogram taken mid-pipeline reported
+    // "nothing moved" on pages whose order had changed.
+    let order_before_pull: Vec<WorkId> = ranked.iter().map(|candidate| candidate.work_id).collect();
+    let (ranked, _pull) = darkhold_domain::discovery::apply_taste_gravity(
         ranked,
         strength,
         &taste.signal_weight_mode,
@@ -930,6 +934,11 @@ async fn get_discovery(
         }
         _ => ranked,
     };
+
+    let pull = darkhold_domain::discovery::PullHistogram::between(
+        &order_before_pull,
+        &ranked.iter().map(|candidate| candidate.work_id).collect::<Vec<_>>(),
+    );
 
     // M71-06: the reason and the match percentage travel with the row, because an explanation the client has to
     // reconstruct from a slot id is an explanation most readers will never see. `SlotReason::from_engine_reason`

@@ -1795,6 +1795,151 @@ async fn a_held_surface_is_skipped_and_a_hand_promotion_is_recorded_as_manual() 
     );
 }
 
+/// Run one statement with string binds on whichever backend this harness is.
+async fn bind_exec(db: &Database, sqlite: &str, postgres: &str, binds: &[String]) {
+    let sql = db.sql(sqlite, postgres);
+    match db.backend() {
+        darkhold_db::Backend::Sqlite => {
+            let mut query = sqlx::query(&sql);
+            for bind in binds {
+                query = query.bind(bind);
+            }
+            query
+                .execute(db.sqlite_pool().expect("sqlite"))
+                .await
+                .unwrap_or_else(|error| panic!("{sql}\n{error}"));
+        }
+        darkhold_db::Backend::Postgres => {
+            let mut query = sqlx::query(&sql);
+            for bind in binds {
+                query = query.bind(bind);
+            }
+            query
+                .execute(db.postgres_pool().expect("postgres"))
+                .await
+                .unwrap_or_else(|error| panic!("{sql}\n{error}"));
+        }
+    }
+}
+
+#[tokio::test]
+async fn a_shelved_reader_feed_pulls_toward_what_they_already_know() {
+    // The end-to-end version of M64-09: not "the mixture is arithmetic" (the domain proves that) but "the feed the reader
+    // actually receives is ordered by the shelf they actually kept". Before the signal existed this test could not be
+    // written, because every candidate's taste_signal was 0.0 and the pull could not move a row.
+    let mut harness = Harness::new("gravity-e2e").await;
+    // Full pull, so the mixture is taste alone and the assertion does not depend on how the engines scored anything.
+    harness.config.taste.gravity_strength = 1.0;
+    harness.config.taste.gravity_ceiling = 1.0;
+    harness.config.taste.signal_weight_mode = "taste_weighted".to_owned();
+
+    let mut reader = harness.reader("Pulled").await;
+    let (status, _) = reader
+        .post(
+            "/api/v1/auth/login",
+            json!({ "email": "Pulled@example.com", "password": GOOD_PASSWORD }),
+        )
+        .await;
+    assert_eq!(status, StatusCode::OK);
+    let account = account_of(&harness.db, "Pulled").await;
+    let pseud = pseud_of(&harness.db, &account.to_string()).await;
+
+    let seeded = make_published_work(&harness.db, &pseud.to_string(), "Already Shelved").await;
+    let aligned = make_published_work(&harness.db, &pseud.to_string(), "Aligned").await;
+    let cold = make_published_work(&harness.db, &pseud.to_string(), "Cold").await;
+
+    let warm_tag = uuid::Uuid::new_v4().to_string();
+    let cold_tag = uuid::Uuid::new_v4().to_string();
+    for (id, name) in [(&warm_tag, "warm trope"), (&cold_tag, "cold trope")] {
+        bind_exec(
+            &harness.db,
+            "INSERT INTO canonical_entities (id, kind, canonical, norm, created_at)
+             VALUES (?, 'tag', ?, ?, '2026-01-01T00:00:00Z')",
+            "INSERT INTO canonical_entities (id, kind, canonical, norm, created_at)
+             VALUES (?::uuid, 'tag', ?, ?, '2026-01-01T00:00:00Z'::timestamptz)",
+            &[id.clone(), name.to_owned(), name.to_owned()],
+        )
+        .await;
+    }
+    // The shelved work and the aligned candidate share a tag; the cold one carries a tag the reader has never touched.
+    for (work, tag) in [(&seeded, &warm_tag), (&aligned, &warm_tag), (&cold, &cold_tag)] {
+        bind_exec(
+            &harness.db,
+            "INSERT INTO work_tags (work_id, node_id, prominence, added_at)
+             VALUES (?, ?, 1, '2026-01-01T00:00:00Z')",
+            "INSERT INTO work_tags (work_id, node_id, prominence, added_at)
+             VALUES (?::uuid, ?::uuid, 1, '2026-01-01T00:00:00Z'::timestamptz)",
+            &[work.clone(), tag.clone()],
+        )
+        .await;
+    }
+
+    let shelf = uuid::Uuid::new_v4().to_string();
+    let item = uuid::Uuid::new_v4().to_string();
+    bind_exec(
+        &harness.db,
+        "INSERT INTO shelves (id, account_id, name, created_at, updated_at, version)
+         VALUES (?, ?, 'To read', '2026-01-01T00:00:00Z', '2026-01-01T00:00:00Z', 1)",
+        "INSERT INTO shelves (id, account_id, name, created_at, updated_at, version)
+         VALUES (?::uuid, ?::uuid, 'To read', '2026-01-01T00:00:00Z'::timestamptz,
+                 '2026-01-01T00:00:00Z'::timestamptz, 1)",
+        &[shelf.clone(), account.to_string()],
+    )
+    .await;
+    bind_exec(
+        &harness.db,
+        "INSERT INTO library_items (id, account_id, work_id, source_key, source_work_key, title,
+                                    source_url, created_at, updated_at, version)
+         VALUES (?, ?, ?, 'manual', ?, 'Already Shelved', 'https://example.invalid/s',
+                 '2026-01-01T00:00:00Z', '2026-01-01T00:00:00Z', 1)",
+        "INSERT INTO library_items (id, account_id, work_id, source_key, source_work_key, title,
+                                    source_url, created_at, updated_at, version)
+         VALUES (?::uuid, ?::uuid, ?::uuid, 'manual', ?, 'Already Shelved', 'https://example.invalid/s',
+                 '2026-01-01T00:00:00Z'::timestamptz, '2026-01-01T00:00:00Z'::timestamptz, 1)",
+        &[item.clone(), account.to_string(), seeded.clone(), seeded.clone()],
+    )
+    .await;
+    bind_exec(
+        &harness.db,
+        "INSERT INTO shelf_items (id, shelf_id, library_item_id, created_at)
+         VALUES (?, ?, ?, '2026-01-01T00:00:00Z')",
+        "INSERT INTO shelf_items (id, shelf_id, library_item_id, created_at)
+         VALUES (?::uuid, ?::uuid, ?::uuid, '2026-01-01T00:00:00Z'::timestamptz)",
+        &[uuid::Uuid::new_v4().to_string(), shelf.clone(), item.clone()],
+    )
+    .await;
+
+    let (status, body) = reader.get("/api/v1/discovery").await;
+    assert_eq!(status, StatusCode::OK, "body: {body}");
+    assert_eq!(
+        body["gravity"]["strength"], 1.0,
+        "the response says the pull in force, not the configured wish: {body}"
+    );
+    let items = body["items"].as_array().expect("items");
+    assert!(items.len() >= 2, "three published works are served: {body}");
+
+    let position = |id: &str| {
+        items
+            .iter()
+            .position(|item| item["work_id"].as_str() == Some(id))
+    };
+    let aligned_at = position(&aligned).unwrap_or_else(|| panic!("the aligned work is served: {body}"));
+    let cold_at = position(&cold).unwrap_or_else(|| panic!("the cold work is served: {body}"));
+    assert!(
+        aligned_at < cold_at,
+        "at full pull the work sharing the shelf's tag ranks above the one that shares nothing: {body}"
+    );
+    // The published pull must describe what happened to the page. It is measured against the algorithm's own order at the end
+    // of the pipeline, not at the end of the gravity call: the reader's taste ordering runs after gravity and moves rows too,
+    // and a histogram taken mid-pipeline once reported "nothing moved" on a page whose order had changed.
+    let moved = body["gravity"]["moved_up"].as_u64().unwrap_or(0)
+        + body["gravity"]["moved_down"].as_u64().unwrap_or(0);
+    assert!(
+        moved > 0,
+        "a page whose order differs from the algorithms' must report movement: {body}"
+    );
+}
+
 #[tokio::test]
 async fn the_reader_gravity_dial_narrows_never_widens_and_cannot_move_a_locked_instance() {
     let mut harness = Harness::new("gravity-dial").await;
