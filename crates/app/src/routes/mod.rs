@@ -120,6 +120,7 @@ pub mod work_discussion;
 pub mod work_page;
 pub mod surfaces;
 pub mod tag_page;
+pub mod tag_scripts;
 pub mod works;
 
 pub mod well_known;

@@ -735,6 +735,14 @@ pub fn build_router(state: AppState) -> Router {
             routes::collection_tags::router(),
             RouteClass::Write,
         ))
+        // M69-20 — tag scripts: a kept set of assertions applied while browsing. Its own module mount because it is a tagging
+        // tool with its own off switch, not a part of collection tags (which never reach a work at all).
+        .merge(module_mount(
+            &state,
+            "taxonomy",
+            routes::tag_scripts::router(),
+            RouteClass::Write,
+        ))
         // M70-06 — the reader's own stylesheet. CSS only, and `reader_skin::check` refuses @import, remote url(),
         // stylesheet code paths and `</style` before anything is stored.
         .merge(module_mount(

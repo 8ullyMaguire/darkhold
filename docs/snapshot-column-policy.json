@@ -1647,6 +1647,11 @@
       "why": "M45-70: which signals a reader switched off, which is a preference with nothing to say once the reader is gone.",
       "reviewed_by": "alvaro, 2026-11-04, against spec 11.16"
     },
+    "tag_scripts.account_id": {
+      "treatment": "rekey_account",
+      "why": "M69-20: a UUID foreign key to accounts.id, the reader who keeps the script. Re-key with snapshot_account -- the SAME derivation accounts.id uses, on the account salt -- so a script still joins to the account that made it. The script's name and node set are the reader's own tags-to-apply, which are already public vocabulary; it is the owner link that carries the person.",
+      "reviewed_by": "alvaro, 2026-11-06, against spec 11.16.3b"
+    },
     "shelf_follows.follower_account_id": {
       "treatment": "rekey_account",
       "why": "M64-11: a UUID foreign key to accounts.id on the follower side. It must be re-keyed with snapshot_account -- the SAME derivation accounts.id uses, on the account salt -- so a follow still joins to the account that made it. Same failure mode as shelves.account_id: rekey_text emits a `snp_` TEXT hash that cannot be compared with a uuid, so the relationship is destroyed while the column reads as pseudonymous.",
