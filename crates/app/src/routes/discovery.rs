@@ -370,18 +370,53 @@ fn reason_for(stage: &str) -> darkhold_domain::recommendation_transparency::Slot
 /// The mapping is `recommendation_surfaces::engine_reason`, which is the one place the registry's names meet the
 /// blend's. An algorithm with no engine is dropped here and reported as a refusal by the surfaces endpoint, so a
 /// surface cannot appear to run something that does not exist.
-pub(crate) fn enabled_engines_for(
+/// The engines a surface runs, narrowed to one experiment arm when the caller has one (M64-02).
+///
+/// `arm` is `None` when the instance is not experimenting or the caller is anonymous.
+///
+/// A reader whose stored arm is out of range — because the operator reduced the arm count after assigning — gets the
+/// whole surface, not a narrowed one: a moved reader is a broken measurement, a full feed is a working page.
+pub(crate) fn enabled_engines_for_bucket(
     state: &AppState,
     surface_id: &str,
+    arm: Option<(i64, i64)>,
 ) -> std::collections::BTreeSet<&'static str> {
-    use darkhold_domain::recommendation_surfaces::{algorithms_for, engine_reason, surface};
+    use darkhold_domain::recommendation_surfaces::{
+        algorithms_for, algorithms_for_bucket, engine_reason, surface,
+    };
     let Some(surface) = surface(surface_id) else {
         return std::collections::BTreeSet::new();
     };
-    algorithms_for(surface, &state.config().discovery.surfaces)
+    let configured = &state.config().discovery.surfaces;
+    let algorithms = match arm {
+        Some((bucket, buckets)) => algorithms_for_bucket(surface, configured, bucket, buckets),
+        None => algorithms_for(surface, configured),
+    };
+    algorithms
         .iter()
         .filter_map(|algorithm| engine_reason(algorithm))
         .collect()
+}
+
+/// The stored arm for this reader on this surface, or `None` when the instance is not experimenting.
+async fn experiment_arm(
+    state: &AppState,
+    viewer_pseud: Option<uuid::Uuid>,
+    surface_id: &str,
+) -> ApiResult<Option<(i64, i64)>> {
+    let buckets = state.config().discovery.experiment_buckets;
+    let Some(pseud) = viewer_pseud.filter(|_| buckets > 1) else {
+        return Ok(None);
+    };
+    let bucket = darkhold_db::experiments::bucket_for(
+        state.db(),
+        &pseud.to_string(),
+        surface_id,
+        buckets,
+    )
+    .await
+    .map_err(|error| ApiError(AppError::Internal(error)))?;
+    Ok(Some((bucket, buckets)))
 }
 
 pub(crate) async fn build_candidate_engines(
@@ -625,7 +660,12 @@ async fn get_discovery(
 
     // The feed is the one surface wired to the registry so far (M64-01): its configured set decides which engines
     // run, and the default set is exactly the four engines this function implements.
-    let enabled = enabled_engines_for(&state, "discover.feed");
+    //
+    // M64-02: with `discovery.experiment_buckets > 1`, a signed-in reader is assigned a stored arm once and runs that
+    // arm's half of the surface. The assignment happens here, on the read path, because the impression that follows is
+    // the event the arm exists to be measured against — assigning at sign-in would be a bucket with no exposure yet.
+    let arm = experiment_arm(&state, viewer_pseud, "discover.feed").await?;
+    let enabled = enabled_engines_for_bucket(&state, "discover.feed", arm);
     let engines = build_candidate_engines(
         &state,
         account_id.as_deref(),

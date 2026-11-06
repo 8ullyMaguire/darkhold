@@ -307,6 +307,51 @@ impl Client {
 ///
 /// The pseud is the row the slot is recorded against, so the tests that need to
 /// record a slot have to know which one the session is acting as.
+/// Force a reader's arm, so a test asserts a specific arm instead of whichever one the hash produced.
+///
+/// This writes the same row `experiments::bucket_for` writes, on the same key, which is also the check that the storage
+/// contract is what the route reads: if the route looked anywhere else, these assertions would fail.
+async fn assign_arm(db: &Database, pseud: &str, surface: &str, bucket: i64) {
+    let statements = match db.backend() {
+        darkhold_db::Backend::Sqlite => vec![
+            format!(
+                "DELETE FROM experiment_assignments WHERE pseud_id = '{pseud}' AND surface_id = '{surface}'"
+            ),
+            format!(
+                "INSERT INTO experiment_assignments (id, pseud_id, surface_id, bucket, assigned_at, version) \
+                 VALUES ('01955000-0000-4000-8000-0000000000ff', '{pseud}', '{surface}', {bucket}, \
+                 datetime('now'), 1)"
+            ),
+        ],
+        darkhold_db::Backend::Postgres => vec![
+            format!(
+                "DELETE FROM experiment_assignments WHERE pseud_id = '{pseud}'::uuid AND surface_id = '{surface}'"
+            ),
+            format!(
+                "INSERT INTO experiment_assignments (id, pseud_id, surface_id, bucket, assigned_at, version) \
+                 VALUES ('01955000-0000-4000-8000-0000000000ff', '{pseud}'::uuid, '{surface}', {bucket}, \
+                 now(), 1)"
+            ),
+        ],
+    };
+    for statement in statements {
+        match db.backend() {
+            darkhold_db::Backend::Sqlite => {
+                sqlx::query(&statement)
+                    .execute(db.sqlite_pool().expect("sqlite"))
+                    .await
+                    .unwrap_or_else(|error| panic!("{statement}\n{error}"));
+            }
+            darkhold_db::Backend::Postgres => {
+                sqlx::query(&statement)
+                    .execute(db.postgres_pool().expect("postgres"))
+                    .await
+                    .unwrap_or_else(|error| panic!("{statement}\n{error}"));
+            }
+        }
+    }
+}
+
 async fn pseud_of(db: &Database, account: &str) -> uuid::Uuid {
     let sql = match db.backend() {
         darkhold_db::Backend::Sqlite => {
@@ -1500,6 +1545,48 @@ async fn a_surface_runs_only_the_algorithms_it_is_configured_with() {
         body["items"].as_array().expect("items").is_empty(),
         "the media engine has no references to work from and popularity is switched off, so nothing is served: {body}"
     );
+}
+
+#[tokio::test]
+async fn the_arm_a_reader_is_assigned_decides_which_algorithms_run() {
+    // M64-02 end to end: the stored arm narrows the surface's algorithms, and the feed proves it by serving only what its
+    // arm could find. Two algorithms that cannot both serve are chosen deliberately — `popular` finds the three works,
+    // `media_ref_collab` finds nothing without references — so the assertion can tell which arm ran from the body alone.
+    let mut harness = Harness::new("arm-split").await;
+    harness.config.discovery.experiment_buckets = 2;
+    harness.config.discovery.surfaces.insert(
+        "discover.feed".to_owned(),
+        vec!["popular".to_owned(), "media_ref_collab".to_owned()],
+    );
+
+    let mut reader = harness.reader("ArmSplit").await;
+    let account = account_of(&harness.db, "ArmSplit").await;
+    let pseud = pseud_of(&harness.db, &account.to_string()).await;
+    for n in 0..3 {
+        make_published_work(&harness.db, &pseud.to_string(), &format!("Arm {n}")).await;
+    }
+
+    // Force the arm rather than hoping the hash gives an interesting one: an assignment of 1 runs `media_ref_collab`
+    // (index 1), which has no references to read, so a feed that honours its arm is empty while three published works
+    // are waiting. Without the wiring, `popular` would run and serve them — a false claim this assertion cannot make.
+    assign_arm(&harness.db, &pseud.to_string(), "discover.feed", 1).await;
+    let (status, body) = reader.get("/api/v1/discovery").await;
+    assert_eq!(status, StatusCode::OK, "body: {body}");
+    assert!(
+        body["items"].as_array().expect("items").is_empty(),
+        "arm 1 runs the media engine, which has nothing to read: {body}"
+    );
+
+    // The stored value is read on every request, not cached at first sight: move the same reader to arm 0 and the feed
+    // must switch to `popular` without a restart.
+    assign_arm(&harness.db, &pseud.to_string(), "discover.feed", 0).await;
+    let (status, body) = reader.get("/api/v1/discovery").await;
+    assert_eq!(status, StatusCode::OK, "body: {body}");
+    let items = body["items"].as_array().expect("items");
+    assert_eq!(items.len(), 3, "arm 0 runs popularity, which finds all three: {body}");
+    for item in items {
+        assert_eq!(item["reason_code"], "popular", "{item}");
+    }
 }
 
 #[tokio::test]

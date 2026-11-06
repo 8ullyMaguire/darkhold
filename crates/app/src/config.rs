@@ -577,6 +577,14 @@ pub struct DiscoveryConfig {
     /// **A mood is a trust gate, not a payment gate** (spec §18), so this is
     /// configured separately from the Supporter tier even when both are enabled.
     pub moods: MoodsConfig,
+    /// How many experiment arms each signed-in surface assignment is split into (M64-02). `0` (the default) disables
+    /// the split: every configured algorithm runs for every reader, which is the behaviour of an instance that has not
+    /// decided to experiment.
+    ///
+    /// The bucket is stored per `(pseud, surface)` on first use, so raising this number later does **not** move a reader
+    /// already assigned — it leaves their stored arm in place, out of range, and the split treats an out-of-range arm as
+    /// the control. Moving readers mid-experiment would invalidate the comparison the arms exist for.
+    pub experiment_buckets: i64,
     /// Per-surface algorithm choice (M64-01). Absent entirely when the instance runs the registry's defaults.
     ///
     /// Validated at load — an unknown surface, a wrong count, an unknown algorithm or a duplicate is refused — because
@@ -598,6 +606,7 @@ impl Default for DiscoveryConfig {
             rec_per_strategy_cap: 100,
             rec_enabled_strategies: Vec::new(),
             moods: MoodsConfig::default(),
+            experiment_buckets: 0,
             surfaces: std::collections::BTreeMap::new(),
         }
     }
@@ -3093,6 +3102,13 @@ impl Config {
                 if let Some(strategies) = d.enabled_strategies {
                     cfg.rec_enabled_strategies = strategies;
                 }
+                if let Some(buckets) = d.experiment_buckets {
+                    anyhow::ensure!(
+                        (0..=8).contains(&buckets),
+                        "discovery.experiment_buckets must be between 0 and 8, not {buckets}"
+                    );
+                    cfg.experiment_buckets = buckets;
+                }
                 if let Some(surfaces) = d.surfaces {
                     // Refused at load rather than at the first request: a per-surface choice that cannot be honoured is
                     // a configuration error, and finding it at boot is the difference between a deploy that fails and
@@ -4557,6 +4573,8 @@ struct DiscoverySection {
     /// algorithm names. Absent means the registry's defaults, which is what every instance starts with.
     #[serde(default)]
     surfaces: Option<std::collections::BTreeMap<String, Vec<String>>>,
+    /// Experiment arms per surface (M64-02). `0` or absent means no split.
+    experiment_buckets: Option<i64>,
 }
 
 /// The `[theme]` table (spec §0.4.6): theme mode and gravity settings.
@@ -6226,6 +6244,31 @@ mode = "quantum"
             .expect("a named rec mode loads");
             assert_eq!(config.discovery.rec_mode, expected);
         }
+    }
+
+    #[test]
+    fn an_arm_count_outside_the_range_is_refused_at_load() {
+        // M64-02: nine arms is not an experiment, it is a rounding error per arm. Refused at load like every other
+        // number that would make the measurement meaningless.
+        let error = load_from(
+            "buckets-out-of-range",
+            "[discovery]\nexperiment_buckets = 9\n",
+        )
+        .expect_err("nine arms is refused");
+        assert!(
+            format!("{error:#}").contains("experiment_buckets"),
+            "{error:#}"
+        );
+
+        let config = load_from("buckets-valid", "[discovery]\nexperiment_buckets = 2\n")
+            .expect("two arms load");
+        assert_eq!(config.discovery.experiment_buckets, 2);
+
+        let config = load_from("buckets-absent", "").expect("absent means off");
+        assert_eq!(
+            config.discovery.experiment_buckets, 0,
+            "an instance that has not decided to experiment runs no split"
+        );
     }
 
     #[test]

@@ -392,6 +392,36 @@
       "why": "FOREIGN KEY, and 'replace' was wrong: a CONSTANT here collapses every row of exchange_signals into one and destroys the join. Deterministically re-keyed so the graph survives. See 11.16.3 -- consistent pseudonymisation, not column destruction.",
       "reviewed_by": "alvaro, 2026-09-29, against spec 11.16.3"
     },
+    "experiment_assignments.assigned_at": {
+      "treatment": "keep",
+      "why": "When an arm was assigned. Retained because an arm without its start time cannot be attributed to a window, and it is not a communication-surrogate identity (11.16).",
+      "reviewed_by": "alvaro, 2026-11-06, against spec 11.16"
+    },
+    "experiment_assignments.bucket": {
+      "treatment": "keep",
+      "why": "A small integer arm index with no reader-side meaning on its own: it identifies an arm, not a person.",
+      "reviewed_by": "alvaro, 2026-11-06, against spec 11.16"
+    },
+    "experiment_assignments.id": {
+      "treatment": "keep",
+      "why": "An opaque row id that joins nothing outside the table; a snapshot needs it to stay a primary key.",
+      "reviewed_by": "alvaro, 2026-11-06, against spec 11.16"
+    },
+    "experiment_assignments.pseud_id": {
+      "treatment": "rekey_pseud",
+      "why": "The arm belongs to a reader, so the snapshot must keep the arm and lose the reader: rekeyed with the pseud set (11.16.3), which preserves one pseud's assignments without naming anyone.",
+      "reviewed_by": "alvaro, 2026-11-06, against spec 11.16/11.16.3"
+    },
+    "experiment_assignments.surface_id": {
+      "treatment": "keep",
+      "why": "A canonical surface id from the closed registry (`discover.feed`), identical for every reader: schema vocabulary, not a person.",
+      "reviewed_by": "alvaro, 2026-11-06, against spec 11.16"
+    },
+    "experiment_assignments.version": {
+      "treatment": "keep",
+      "why": "A row version counter, not data about anyone.",
+      "reviewed_by": "alvaro, 2026-11-06, against spec 11.16"
+    },
     "export_jobs.account_id": {
       "treatment": "rekey_account",
       "why": "A UUID foreign key to accounts.id, so it must be re-keyed with snapshot_account -- the SAME derivation accounts.id uses, on the account salt, so the join survives. 11.16.3b, and this is the failure the requirement is 'most likely to be implemented backwards': rekey_text emits a `snp_` TEXT hash, which cannot be compared with a uuid, so the relationship to accounts is destroyed while every behavioural column still reads as pseudonymous. The snapshot LOOKS de-identified and is not.",

@@ -111,6 +111,30 @@ pub const SURFACES: &[Surface] = &[
     Surface { id: "tag.facets", label: "A tag's facets", need: DataNeed::None, defaults: &["text_relevance"] },
 ];
 
+/// The algorithms one arm of a surface runs (M64-02).
+///
+/// The split is by **position in the surface's list**, not by hashing the algorithm name: the list is ordered by how much
+/// each algorithm contributes, so arm 0 takes the strongest half and arm 1 the rest — a split that reads as a real
+/// comparison rather than an arbitrary one. With `buckets <= 1`, or a bucket out of range, every algorithm runs: an
+/// instance that is not experimenting, and a reader whose stored arm no longer exists, both get the full surface rather
+/// than a silently narrowed feed.
+pub fn algorithms_for_bucket(
+    surface: &'static Surface,
+    configured: &BTreeMap<String, Vec<String>>,
+    bucket: i64,
+    buckets: i64,
+) -> Vec<String> {
+    let all = algorithms_for(surface, configured);
+    if buckets <= 1 || bucket < 0 || bucket >= buckets {
+        return all;
+    }
+    all.into_iter()
+        .enumerate()
+        .filter(|(index, _)| (*index as i64) % buckets == bucket)
+        .map(|(_, algorithm)| algorithm)
+        .collect()
+}
+
 /// The engine reason a registered algorithm runs as, or `None` when no engine implements it yet.
 ///
 /// The blend's engines name themselves with short strings (`"tags"`, `"ladder"`), while the registry names algorithms
@@ -196,6 +220,55 @@ pub fn validate_configured(configured: &BTreeMap<String, Vec<String>>) -> Result
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    fn configured(names: &[&str]) -> BTreeMap<String, Vec<String>> {
+        let mut map = BTreeMap::new();
+        map.insert(
+            "discover.feed".to_owned(),
+            names.iter().map(|name| (*name).to_owned()).collect(),
+        );
+        map
+    }
+
+    #[test]
+    fn an_arm_takes_every_nth_algorithm_by_position() {
+        // M64-02: the split is by position in the surface's ordered list, so the arms are complements of each other and
+        // together cover the surface — which is what makes the comparison fair. Hashing the algorithm name instead would
+        // give arms of different sizes and a lopsided result nobody could read.
+        let surface = surface("discover.feed").expect("the feed is registered");
+        let set = configured(&["popular", "tag_jaccard", "media_ref_collab", "rated_by_readers"]);
+
+        let first = algorithms_for_bucket(surface, &set, 0, 2);
+        let second = algorithms_for_bucket(surface, &set, 1, 2);
+        assert_eq!(first, vec!["popular", "media_ref_collab"]);
+        assert_eq!(second, vec!["tag_jaccard", "rated_by_readers"]);
+
+        let mut together = first;
+        together.extend(second);
+        assert_eq!(together.len(), 4, "the arms partition the surface");
+    }
+
+    #[test]
+    fn an_arm_out_of_range_gets_the_whole_surface() {
+        // The operator reduced the arm count after assigning this reader. A moved reader is a broken measurement; a full
+        // feed is a working page, so the reader gets everything rather than a silently narrowed surface.
+        let surface = surface("discover.feed").expect("the feed is registered");
+        let set = configured(&["popular", "tag_jaccard"]);
+        assert_eq!(
+            algorithms_for_bucket(surface, &set, 5, 2),
+            vec!["popular", "tag_jaccard"]
+        );
+        assert_eq!(
+            algorithms_for_bucket(surface, &set, 0, 1),
+            vec!["popular", "tag_jaccard"],
+            "one arm is not a split"
+        );
+        assert_eq!(
+            algorithms_for_bucket(surface, &set, 0, 0),
+            vec!["popular", "tag_jaccard"],
+            "an instance that is not experimenting runs the whole surface"
+        );
+    }
 
     #[test]
     fn every_surface_is_configurable_and_within_bounds() {
