@@ -492,7 +492,9 @@ pub fn build_router(state: AppState) -> Router {
         .merge(module_mount(
             &state,
             "discovery",
-            routes::discovery::router(),
+            // M64-01's surface registry rides the discovery module: its algorithms are the recommendation
+            // strategies this module resolves, and a second module gate would gate the same feature twice.
+            routes::discovery::router().merge(routes::surfaces::router()),
             RouteClass::Default,
         ))
         // §16.10a: the draw. Default class, like discovery: two reads and one

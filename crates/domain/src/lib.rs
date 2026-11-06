@@ -82,6 +82,7 @@ pub mod reading;
 pub mod reading_goal;
 pub mod reading_position;
 pub mod reasons;
+pub mod recommendation_surfaces;
 pub mod recommendation_transparency;
 pub mod retention;
 pub mod retention_quorum;

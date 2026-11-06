@@ -577,6 +577,12 @@ pub struct DiscoveryConfig {
     /// **A mood is a trust gate, not a payment gate** (spec §18), so this is
     /// configured separately from the Supporter tier even when both are enabled.
     pub moods: MoodsConfig,
+    /// Per-surface algorithm choice (M64-01). Absent entirely when the instance runs the registry's defaults.
+    ///
+    /// Validated at load — an unknown surface, a wrong count, an unknown algorithm or a duplicate is refused — because
+    /// the alternative is a settings file that says a surface ranks with three algorithms while the surface ranks with
+    /// two, and nothing tells anybody.
+    pub surfaces: std::collections::BTreeMap<String, Vec<String>>,
 }
 
 impl Default for DiscoveryConfig {
@@ -592,6 +598,7 @@ impl Default for DiscoveryConfig {
             rec_per_strategy_cap: 100,
             rec_enabled_strategies: Vec::new(),
             moods: MoodsConfig::default(),
+            surfaces: std::collections::BTreeMap::new(),
         }
     }
 }
@@ -3086,6 +3093,14 @@ impl Config {
                 if let Some(strategies) = d.enabled_strategies {
                     cfg.rec_enabled_strategies = strategies;
                 }
+                if let Some(surfaces) = d.surfaces {
+                    // Refused at load rather than at the first request: a per-surface choice that cannot be honoured is
+                    // a configuration error, and finding it at boot is the difference between a deploy that fails and
+                    // a deploy that serves something nobody chose.
+                    darkhold_domain::recommendation_surfaces::validate_configured(&surfaces)
+                        .map_err(|error| anyhow::anyhow!("{error}"))?;
+                    cfg.surfaces = surfaces;
+                }
                 cfg
             },
             tts,
@@ -4538,6 +4553,10 @@ struct DiscoverySection {
     rrf_k: Option<f64>,
     /// Restrict the enabled strategy set. Empty means all enabled.
     enabled_strategies: Option<Vec<String>>,
+    /// Per-surface algorithm choice (M64-01): `[discovery.surfaces]` with a key per surface id and one to four
+    /// algorithm names. Absent means the registry's defaults, which is what every instance starts with.
+    #[serde(default)]
+    surfaces: Option<std::collections::BTreeMap<String, Vec<String>>>,
 }
 
 /// The `[theme]` table (spec §0.4.6): theme mode and gravity settings.
@@ -6207,6 +6226,44 @@ mode = "quantum"
             .expect("a named rec mode loads");
             assert_eq!(config.discovery.rec_mode, expected);
         }
+    }
+
+    #[test]
+    fn a_misspelled_surface_id_is_refused_at_load() {
+        // M64-01: a per-surface setting that names a surface nothing serves is a setting that lies. Refused at load,
+        // where a deploy fails, rather than at the first request, where it silently means the default.
+        let error = crate::config::tests::load_from(
+            "surface-bad-id",
+            "[discovery.surfaces]\n\"story.smilar\" = [\"tag_jaccard\"]\n",
+        )
+        .expect_err("a typo is refused");
+        let message = format!("{error:#}");
+        assert!(message.contains("story.smilar"), "{message}");
+        assert!(message.contains("registry is closed"), "{message}");
+    }
+
+    #[test]
+    fn five_algorithms_on_a_surface_are_refused_at_load() {
+        let error = load_from(
+            "surface-five",
+            "[discovery.surfaces]\n\"tag.adjacent\" = [\"npmi\", \"tag_cooccurrence\", \"popular\", \"time_decay\", \"fandom_graph\"]\n",
+        )
+        .expect_err("five is refused");
+        let message = format!("{error:#}");
+        assert!(message.contains("between 1 and 4"), "{message}");
+    }
+
+    #[test]
+    fn a_valid_surface_set_loads_and_is_kept() {
+        let config = load_from(
+            "surface-ok",
+            "[discovery.surfaces]\n\"tag.adjacent\" = [\"npmi\"]\n",
+        )
+        .expect("one algorithm is legal");
+        assert_eq!(
+            config.discovery.surfaces.get("tag.adjacent"),
+            Some(&vec!["npmi".to_owned()])
+        );
     }
 
     #[test]

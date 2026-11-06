@@ -115,6 +115,7 @@ pub mod welcome;
 pub mod wip_adoption;
 pub mod work_discussion;
 pub mod work_page;
+pub mod surfaces;
 pub mod tag_page;
 pub mod works;
 

@@ -5620,6 +5620,13 @@ pub const ROUTE_TABLE: &[RouteEntry] = &[
     // handler takes no session extractor, so the door is public — a skeleton is a list of post references, and the
     // records behind them are public by the nature of ATProto.
     RouteEntry {
+        file: "surfaces.rs",
+        handler: "list_surfaces",
+        method: "GET",
+        path: "/recommendation/surfaces",
+        audience: Audience::Public,
+    },
+    RouteEntry {
         file: "sitemap.rs",
         handler: "sitemap",
         method: "GET",
