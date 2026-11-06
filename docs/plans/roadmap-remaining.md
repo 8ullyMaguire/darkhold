@@ -164,3 +164,7 @@ eligibility through one is_settled() rule; the arithmetic stays in the service p
 M69-16 closed (cdeac9dc + b13fe04b): three layers — hardcoded SQL invariants, content_policy_blocks with a
 required reason and recorded revocation, reader filters — plus per-work overrides that name the rule they
 exempt and are rendered inside the single exclusion, so every surface inherits them.
+
+M69-17 (ee606f1c): tags carry their claimant through the existing source/confirmation vocabulary — model=
+inferred+unconfirmed is invisible to readers, a confirmation by a reader or wrangler reveals it, and an
+inference cannot overwrite a person's row. Remaining: route every work_tags writer through assert_tag.

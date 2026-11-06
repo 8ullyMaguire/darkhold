@@ -4,11 +4,11 @@
       "rows": 942,
       "by_status": {
         "implemented-verified-e2e": 139,
-        "implemented-locally-tested": 263,
+        "implemented-locally-tested": 264,
         "unsupported": 4,
         "implemented-fully-tested": 435,
         "implemented": 11,
-        "planned": 83,
+        "planned": 82,
         "evaluated-and-rejected": 7
       }
     },
@@ -355,12 +355,6 @@
       "notes": "Suki spec \u00a74.3. The row with the most ways to be cruel, so it is written with its exits: probation is time-bounded, the floor is configurable, existing readers are grandfathered, and a reader who does not graduate is redirected with a passport rather than deleted. Default off: it changes what a stranger sees or what the instance claims about itself, so it waits for a decision rather than a default."
     },
     {
-      "id": "M69-17",
-      "milestone": "M69",
-      "requirement": "a tag assertion records who asserted it \u2014 human, source, model, community \u2014 and a model may only propose",
-      "notes": "Suki spec \u00a76.3 and \u00a76.4. darkhold's resolution hierarchy carries provenance for VALUES (M47-01) but a tag link does not say whether a person or an importer put it there, which is what decides whether it may be silently corrected. The write order is the invariant: provenance is set before anything can overwrite it. Default off: it changes what a stranger sees or what the instance claims about itself, so it waits for a decision rather than a default."
-    },
-    {
       "id": "M69-18",
       "milestone": "M69",
       "requirement": "trope clusters with a coverage checklist, so a work knows which trope families it never names",
@@ -524,7 +518,7 @@
     }
   ],
   "open_by_milestone": {
-    "M69": 19,
+    "M69": 18,
     "M63": 17,
     "M45": 12,
     "M71": 10,
