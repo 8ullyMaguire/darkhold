@@ -4,12 +4,12 @@
       "rows": 922,
       "by_status": {
         "implemented-verified-e2e": 139,
-        "implemented-locally-tested": 250,
+        "implemented-locally-tested": 249,
         "unsupported": 4,
         "implemented-fully-tested": 433,
         "implemented": 9,
         "planned": 85,
-        "evaluated-and-rejected": 2
+        "evaluated-and-rejected": 3
       }
     },
     "concord": {
