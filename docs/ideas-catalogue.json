@@ -848,19 +848,6 @@
    "built": false
   },
   {
-   "why_summary": "-- Suki spec \u00a719.2. darkhold's settings are operator-owned with a few per-reader preferences beside them; the cascade is not a rule, so each new setting re-decides it. A shape rath",
-   "id": "M69-26",
-   "title": "every setting is platform default, operator override, reader personalisation \u2014 with the bounds stated once",
-   "sources": [
-    "docs/requirements.csv"
-   ],
-   "milestone": "M69",
-   "relevance": 4,
-   "because": "a requirements row exists (+4)",
-   "default_on": false,
-   "built": false
-  },
-  {
    "why_summary": "f19ecf18 Found while implementing M70-12 and confirming it with a live probe. `content::list_public_works_by_freshness` is called by nothing in crates/app \u2014 its only callers are cr",
    "id": "M70-13",
    "title": "Every db listing query that a reader surface depends on is either wired to a route or deleted",
@@ -1468,6 +1455,19 @@
    "milestone": "unassigned",
    "relevance": 2,
    "because": "in an idea sweep (+2)",
+   "default_on": false,
+   "built": false
+  },
+  {
+   "why_summary": "",
+   "id": "idea.preference-ladder",
+   "title": "Preference Ladder",
+   "sources": [
+    "docs/design/PREFERENCE-LADDER.md"
+   ],
+   "milestone": "unassigned",
+   "relevance": 2,
+   "because": "in a design (+2)",
    "default_on": false,
    "built": false
   },
