@@ -37,6 +37,9 @@ M64-15 read half 7e58e239
 (`GET /operator/experiments`), write half 0612cdf7 (hold/release, promote and demote by hand, `source` on the record).
 `preview-as-persona` remains: it is a reader-shaped view, not a write.
 
+Batch 4 also has M64-10's first half (7e746375): `GET /api/v1/facets` answers length, status, rating and cadence from one
+scan, reporting `unknown` beside `known` and a sentence instead of an empty histogram. Browse and search do not embed it yet.
+
 **M64-03 shipped** (3d40065f): `experiment_snapshots` (surface, arm, day) with impressions / readers / guest_readers /
 events, `snapshot_day` idempotent so a re-run repairs a day, `GET /api/v1/recommendation/experiments[?day=]`, and `null`
 vs `[]` distinguishing "never computed" from "computed with no traffic". The nightly scheduler and M64-04's sequential

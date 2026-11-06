@@ -220,7 +220,7 @@
       "id": "M64-10",
       "milestone": "M64",
       "requirement": "length, status, rating and cadence are first-class facets on every browse and search surface, and a facet whose column is null on the filtered rows says so instead of returning an empty page",
-      "notes": "P10. Depends on data more than code: word_count is null on every engaged board row and views is null on all 141,317, so a length facet today filters on a column that is almost entirely null. The refusal is the deliverable until M63-04 (catalogue) and M63-32 land."
+      "notes": "PARTIAL 7e746375: GET /api/v1/facets?tag=&q=&facet= - length/status/rating/cadence from one scan of the filtered rows, unknown vs known reported per facet, and `when_unknown` carrying the sentence a page shows ('N of M works in this view have no known length' / 'no work in this view has a known length yet ... a gap in the catalogue, not an empty shelf'). No null bucket on purpose: a bucket invites a filter that can never work. Words come from revisions via units.current_revision_id (units has no word_count); a work with no revision is unknown, NOT zero words - mutation (measured >= 0) reddens. NOT DONE: browse and search responses do not embed these facets, and search filters (author, kind) are not accepted by the endpoint. The endpoint is the source they should call. Original note kept: P10. Depends on data more than code: word_count is null on every engaged board row and views is null on all 141,317, so a length facet today filters on a column that is almost entirely null. The refusal is the deliverable until M63-04 (catalogue) and M63-32 land."
     },
     {
       "id": "M64-11",

@@ -591,7 +591,7 @@ pub const IDEAS: &[Module] = &[
     Module {
         id: "M64-10",
         name: "length, status, rating and cadence are first-class facets on every browse and…",
-        summary: "docs/design/2026-11-01-ranking-signals-and-surfaces.md P10. Depends on data more than code: word_count is null on every engaged board row and views is null on all 141,317, so a len",
+        summary: "7e746375 PARTIAL 7e746375: GET /api/v1/facets?tag=&q=&facet= - length/status/rating/cadence from one scan of the filtered rows, unknown vs known reported per facet, and `when_unkno",
         default_on: false,
         stability: Stability::Planned,
         toggle: Toggle::Operator,
