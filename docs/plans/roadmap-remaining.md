@@ -17,12 +17,12 @@ Two rules that decide the order:
 |---|---|
 | M71-10 | the reader's no-JavaScript guarantee as one test (`crates/app/tests/reader_page.rs::the_reader_needs_no_javascript_at_all`), plus the mutation that proves it bites. The position form it asserts already existed; the attempt to add one was a duplicate and was removed. |
 
-## Batch 2 — the visible contract (next)
+## Batch 2 — the visible contract
 
 | row | approach | blocker |
 |---|---|---|
-| M71-04 | one `provenance` word on every payload that names a work: `hosted` (a readable unit exists), `hosted_locked` (units exist, the body is withheld), `referenced` (a catalogue row with a `source_url`), `known` (neither). Derived in one place (`crates/app/src/routes/provenance.rs`), fed by one grouped query per list (`SELECT DISTINCT work_id FROM units WHERE current_revision_id IS NOT NULL AND work_id IN …`), not one query per row. Applied to works list, tag browse, search, library, media; each asserted. | none |
-| M71-05 | a test helper (`assert_no_empty_section`) that fails when a heading has no content, applied to landing, discover, browse, work, library, admin; then the named degradation strings (`module_off`, `empty`, `cold_mood`, `cached`, `stale_position`, `converter_unavailable`) asserted per surface. | none |
+| ~~M71-04~~ | **DONE 7b3e8f5f.** `routes/provenance.rs`: four words (`hosted`, `hosted_locked`, `referenced`, `known`), one grouped query per list. Wired into tag browse, search, library bookmarks, work page and tag page. Media and the author's own works list are excluded with the reason in the ledger row. |
+| ~~M71-05~~ | **DONE 97d28354.** `test_support::{assert_no_empty_section, assert_names_degradation}`, applied to the three document surfaces; SPA surfaces take it as they migrate (M71-20). |
 | M71-03 | dense list rows on browse, search, library, rails. Depends on M71-04's field existing (the row carries provenance, rating, length, status). | M71-04 |
 
 ## Batch 3 — audits that can only shrink the tree

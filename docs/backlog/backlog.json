@@ -4,11 +4,11 @@
       "rows": 942,
       "by_status": {
         "implemented-verified-e2e": 139,
-        "implemented-locally-tested": 252,
+        "implemented-locally-tested": 253,
         "unsupported": 4,
         "implemented-fully-tested": 433,
         "implemented": 9,
-        "planned": 98,
+        "planned": 97,
         "evaluated-and-rejected": 7
       }
     },
@@ -541,12 +541,6 @@
       "notes": "Priority 2, no new backend. 141,317 catalogue rows behind a card grid is the strongest finding in the external design and the cheapest. Sorts stay the closed vocabulary; sort changes order and never hides results (\u00a78.1). Row height consistent; quick actions on hover/focus, always visible on mobile."
     },
     {
-      "id": "M71-04",
-      "milestone": "M71",
-      "requirement": "Every list payload that names a work carries a provenance value, and the vocabulary is decided in the API rather than coined in the UI: the three words (hosted / referenced / known) plus a fourth state for a hosted work whose body is not currently readable, because a restricted work publishes no record by default and can still be reached by link under gated metadata.",
-      "notes": "Priority 2. The data exists (catalogue.source_key, provenance_json, library.source_display_name) but 'hosted' appears nowhere in crates/: the badge words are the brief's, not the API's. A single word cannot say both where the text lives and whether the reader may read it now (M70-04, corrected M70-12). Acceptance: list routes return the field; a test asserts it on works, search, library and media; the badge always carries its word, never colour alone."
-    },
-    {
       "id": "M71-06",
       "milestone": "M71",
       "requirement": "Every recommendation anywhere in the interface carries its reason as a sentence from the closed vocabulary, and renders nothing at all where no explanation read exists \u2014 including rails outside Discover, where today only Discover's component renders reasons.",
@@ -617,8 +611,8 @@
     "M69": 24,
     "M63": 17,
     "M64": 14,
-    "M71": 14,
     "M45": 13,
+    "M71": 13,
     "M16": 7,
     "M66": 6,
     "M29": 1,
