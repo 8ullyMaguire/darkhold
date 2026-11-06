@@ -175,3 +175,6 @@ Batch apply and the browsing UI remain.
 
 M69-18 (ed5f1f6e): trope clusters + coverage checklist. Advisory and read-only; the public route answers
 404 until taxonomy.trope_coverage is switched on (decided OFF by default, noted in the ledger).
+
+M64-06 (61f4da13): the refusal half shipped — a tag surface now refuses by name when tags and engagement
+never meet, with the counts, instead of claiming to rank. Row stays planned on M63-32's backfill.
