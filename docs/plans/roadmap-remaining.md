@@ -27,10 +27,11 @@ does not run and costs no query, and the surfaces endpoint separates "no engine 
 empty". Three callers still pass `None` with the reason written at the call site: the concierge queue (`home.curated`),
 the draw (`draw.hand`, not yet a registry surface) and recipe runs (recipes compose, they do not read a surface set).
 
-Next M64 step: **M64-02**, and it is a schema change — a sticky bucket assignment per pseud needs its own table, because
-a bucket recomputed from a hash each request is not sticky once the algorithm list changes. The logging it complements
-already exists in `recommendation_slots` (pseud, work, request, position, reasons, mechanism, recipe_stage, propensity,
-chosen_at).
+**M64-02 pseud half shipped** (cc6cab63): migration 0166 `experiment_assignments`, `bucket_for` insert-if-absent with
+FNV-1a, `algorithms_for_bucket` splitting by position, `[discovery] experiment_buckets`. Still missing from that row and
+written in its ledger: **anonymous session arms and the capped share** — a session is not a pseud, so it needs a
+session-keyed assignment rather than a row in the same table. That is the next M64 piece, and it is also what M64-03's
+per-arm metrics need before an experiment can be run on logged-out readers.
 
 ## Batch 2 — the visible contract
 

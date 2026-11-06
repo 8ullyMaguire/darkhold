@@ -1,6 +1,6 @@
 {
  "generated_by": "scripts/ideas_catalogue.py",
- "count": 183,
+ "count": 182,
  "ideas": [
   {
    "why_summary": "",
@@ -1427,19 +1427,6 @@
     "docs/requirements.csv"
    ],
    "milestone": "M63",
-   "relevance": 2,
-   "because": "a requirements row exists (+4); needs a third party or an external client (-2)",
-   "default_on": false,
-   "built": false
-  },
-  {
-   "why_summary": "docs/design/2026-11-01-ranking-signals-and-surfaces.md P2. Events: open, read_threshold (50% of the first chapter), bookmark, kudos, negative (hide / not interested). Assignment is",
-   "id": "M64-02",
-   "title": "impressions and the events that follow them are logged append-only per (surface, algorithm, position, item), with a sticky bucket assignment per pseud or session",
-   "sources": [
-    "docs/requirements.csv"
-   ],
-   "milestone": "M64",
    "relevance": 2,
    "because": "a requirements row exists (+4); needs a third party or an external client (-2)",
    "default_on": false,
