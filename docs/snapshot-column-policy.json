@@ -1042,6 +1042,11 @@
       "why": "Operational or content metadata; carries no personal data.",
       "reviewed_by": "alvaro, 2026-09-29, against spec 11.16"
     },
+    "works.at_uri": {
+      "treatment": "keep",
+      "why": "The ATProto record URI is a public identifier of a record this instance already publishes to the network. It identifies the record, not the reader, and withholding it from a snapshot would make a federation lineage unresolvable while the same string stays public in the ATProto repo. Keep (spec 11.16).",
+      "reviewed_by": "alvaro, 2026-11-06, against spec 11.16"
+    },
     "works.title": {
       "treatment": "keep_gated",
       "why": "The dataset's reason to exist, and gated on aggregate retention mode (11.16.6).",
