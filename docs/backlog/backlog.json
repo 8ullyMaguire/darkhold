@@ -4,11 +4,11 @@
       "rows": 942,
       "by_status": {
         "implemented-verified-e2e": 139,
-        "implemented-locally-tested": 260,
+        "implemented-locally-tested": 261,
         "unsupported": 4,
         "implemented-fully-tested": 435,
         "implemented": 11,
-        "planned": 86,
+        "planned": 85,
         "evaluated-and-rejected": 7
       }
     },
@@ -191,12 +191,6 @@
       "milestone": "M63",
       "requirement": "the quality weights are per-operator and per-surface rather than compiled in",
       "notes": "Renumbered from `M63-05` on 2026-11-02: that id was assigned to two rows, so a citation of it landed on whichever row sorted first. Belongs with M63-30's taste layer, not before it: a weight nobody can explain is worse than a constant. The registry shape is already there \u2014 each metric is addressable by name, so a profile is a weight vector over names."
-    },
-    {
-      "id": "M64-04",
-      "milestone": "M64",
-      "requirement": "a challenger is promoted automatically only on a sequential-test win with every guardrail in bounds, at minimum sample and after seven days, and demoted automatically when a guardrail breaches on two consecutive snapshots",
-      "notes": "P4. The four conditions are all required: confidence sequence valid under continuous monitoring (not a peeked fixed-horizon p-value), guardrails in bounds, >= 1000 impressions and >= 50 conversions per arm plus >= 7 days, and a written record (experiment id, arms, metric values, guardrail values, algorithms swapped, previous incumbent) so rollback is one row. Rollback restores the previous incumbent and marks the experiment rolled_back with the numbers. PARTIAL 91a27078 + a231f678: the decision function exists and is tested - darkhold_domain::experiment_promotion::decide over PromotionInput{incumbent, challenger, days, guardrails} returning Promote/Undecided/InsufficientSample/TooYoung/GuardrailBreached/Demote with the numbers, using Robbins' normal mixture (a martingale, valid under continuous monitoring) rather than a peeked fixed-horizon p-value; demotion needs two CONSECUTIVE snapshots with the SAME guardrail out of bounds and is checked before promotion. 8/8 domain tests, mutation BREACHES_TO_DEMOTE=1 reddens. RECORD SHIPPED a231f678: migration 0168 experiment_decisions + evaluate_surface (sums snapshots per arm, calls decide, stores promote/demote only, with algorithms_before/after as JSON, lift, evidence, guardrail name/value, consecutive; days counted as days OBSERVED). WRITE-BACK SHIPPED 111b7d00 + 5c9053df: migration 0169 surface_algorithm_overrides (one row per surface, decision_id nullable for hand-installed overrides); promote installs algorithms_after, demote clears; discover.feed reads the override BEFORE the configured set and the arm. SWEEP SHIPPED 5434fc26: POST /operator/experiments/sweep?day= walks every surface the operator split into arms, calls evaluate_surface for arms 0/1, keyed on (surface, day) via decided_on, 404 for a non-operator. CHAIN IS COMPLETE for promotion. THE ONE REAL GAP: NO GUARDRAIL SOURCE EXISTS - evaluate_surface is called with an empty guardrail history, so 'every guardrail in bounds' is vacuously true and the auto-demotion path cannot fire in production (it is exercised by tests only). Guardrails need a metric source (latency, error rate, complaint rate) that this tree does not compute yet; that plus M64-15's console are what remain."
     },
     {
       "id": "M64-06",
@@ -545,7 +539,7 @@
     "M69": 20,
     "M63": 17,
     "M45": 12,
-    "M64": 11,
+    "M64": 10,
     "M71": 10,
     "M16": 7,
     "M66": 6,
