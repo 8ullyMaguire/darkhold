@@ -318,41 +318,88 @@ pub fn apply_theme_gravity(
     results
 }
 
-/// Apply taste gravity to a ranked candidate list (spec §9.7.3).
+/// What taste gravity moved, coarse enough to publish without exposing a score or a per-item reason.
 ///
-/// `strength` controls influence (0.0 = off, 1.0 = full taste gravity).
-/// `mode` determines weighting strategy: "egalitarian" (equal), "taste_weighted"
-/// (multiply score by taste_signal × weight), "admin_only" (only admin-aligned).
-/// `admin_weight` multiplies the final boost for admin-aligned works.
+/// §0.3 forbids printing a per-item reason or a score; §9.7.3 still wants the reader to know the shelf was pulled toward
+/// their taste. Three counts about the page as a whole is the compromise: an item that rose, one that fell, one that did not
+/// move. That says "this is not the order a neutral reader would see" without turning the shelf into a scoreboard.
+#[derive(Debug, Clone, Default, PartialEq, Eq, serde::Serialize)]
+pub struct PullHistogram {
+    pub moved_up: usize,
+    pub moved_down: usize,
+    pub unchanged: usize,
+}
+
+/// Apply taste gravity as a bounded mixture (spec §9.7.3, M64-09).
+///
+/// `served = (1 - g) * base + g * taste`, both terms normalised to `0..=1` over the page: the base score scaled by the best
+/// candidate, the taste signal as the engine supplied it.
+///
+/// Why a mixture and not a multiplier. `base * (1 + taste * g)` is unbounded: at `g = 1` it doubles an aligned row and still
+/// lets a strongly-aligned weak row sit below a strongly-aligned strong one, so `g = 1` never actually means "order by taste".
+/// The requirement calls this a bounded influence layer, and the convex combination is the form where both ends of the dial
+/// mean what they say: `g = 0` is the algorithm's own order, `g = 1` is order by taste alone, and nothing in between can
+/// double a score.
+///
+/// It reorders and never filters: same length, same elements, different order (M43-02). A gravity layer that could drop a row
+/// would hide works for being off-taste, which is a different and much worse product.
+///
+/// Ties keep their incoming order — `sort_by` is stable — so gravity cannot shuffle a page it has nothing to say about.
 pub fn apply_taste_gravity(
     candidates: Vec<Candidate>,
     strength: f64,
     mode: &str,
-    admin_weight: f64,
-) -> Vec<Candidate> {
-    if strength <= 0.0 || mode == "egalitarian" {
-        return candidates;
+) -> (Vec<Candidate>, PullHistogram) {
+    // `mode` is the instance's policy, kept from §9.7.3 because an operator sets it: `egalitarian` means no shelf is pulled
+    // for anybody, which is a decision a strength of 0.15 cannot express. The other two modes differ in whose target the
+    // signal comes from, and that is decided before this function — the mixture only needs the strength they resolve to.
+    let g = if mode == "egalitarian" {
+        0.0
+    } else {
+        strength.clamp(0.0, 1.0)
+    };
+    if g <= 0.0 || candidates.is_empty() {
+        let unchanged = candidates.len();
+        return (
+            candidates,
+            PullHistogram {
+                unchanged,
+                ..PullHistogram::default()
+            },
+        );
     }
-    let mut results: Vec<Candidate> = candidates
+
+    // Normalise by the best base score, not the sum: a page's top row is its unit, and dividing every score by the same
+    // positive constant preserves the order exactly.
+    let best = candidates
+        .iter()
+        .map(|candidate| candidate.score)
+        .max()
+        .unwrap_or(0);
+    let scale = if best > 0 { best as f64 } else { 1.0 };
+
+    let incoming: Vec<WorkId> = candidates.iter().map(|candidate| candidate.work_id).collect();
+    let mut served: Vec<(f64, Candidate)> = candidates
         .into_iter()
-        .map(|mut c| {
-            let boost = match mode {
-                "admin_only" => {
-                    if c.taste_signal > 0.5 {
-                        1.0 + (c.taste_signal * admin_weight * strength)
-                    } else {
-                        1.0
-                    }
-                }
-                "taste_weighted" => 1.0 + (c.taste_signal * admin_weight * strength),
-                _ => 1.0,
-            };
-            c.score = (c.score as f64 * boost) as i64;
-            c
+        .map(|candidate| {
+            let base = (candidate.score as f64 / scale).clamp(0.0, 1.0);
+            let taste = candidate.taste_signal.clamp(0.0, 1.0);
+            ((1.0 - g) * base + g * taste, candidate)
         })
         .collect();
-    results.sort_by_key(|c| -c.score);
-    results
+    served.sort_by(|a, b| b.0.partial_cmp(&a.0).unwrap_or(std::cmp::Ordering::Equal));
+
+    let ranked: Vec<Candidate> = served.into_iter().map(|(_, candidate)| candidate).collect();
+    let order: Vec<WorkId> = ranked.iter().map(|candidate| candidate.work_id).collect();
+    let mut pile = PullHistogram::default();
+    for (before, id) in incoming.iter().enumerate() {
+        match order.iter().position(|other| other == id) {
+            Some(after) if after < before => pile.moved_up += 1,
+            Some(after) if after > before => pile.moved_down += 1,
+            _ => pile.unchanged += 1,
+        }
+    }
+    (ranked, pile)
 }
 
 /// Inject taste-distant content into discovery results (spec §0.4.1).
@@ -771,99 +818,116 @@ mod tests {
         assert!(result.is_empty());
     }
 
-    #[test]
-    fn apply_taste_gravity_egalitarian_noop() {
-        let w1 = WorkId::new();
-        let w2 = WorkId::new();
-        let candidates = vec![
-            Candidate {
-                work_id: w1,
-                score: 10,
-                reason: "base".into(),
-                taste_signal: 0.9,
-                diversity_class: 0.0,
-            },
-            Candidate {
-                work_id: w2,
-                score: 5,
-                reason: "base".into(),
-                taste_signal: 0.1,
-                diversity_class: 0.0,
-            },
-        ];
-        let result = apply_taste_gravity(candidates, 1.0, "egalitarian", 1.0);
-        assert_eq!(result[0].score, 10);
-        assert_eq!(result[1].score, 5);
-    }
-
-    #[test]
-    fn apply_taste_gravity_zero_strength_noop() {
-        let w1 = WorkId::new();
-        let candidates = vec![Candidate {
-            work_id: w1,
-            score: 10,
+    fn tasted(score: i64, taste: f64) -> Candidate {
+        Candidate {
+            work_id: WorkId::new(),
+            score,
             reason: "base".into(),
-            taste_signal: 0.9,
+            taste_signal: taste,
             diversity_class: 0.0,
-        }];
-        let result = apply_taste_gravity(candidates, 0.0, "taste_weighted", 1.0);
-        assert_eq!(result[0].score, 10);
+        }
     }
 
     #[test]
-    fn apply_taste_gravity_boosts_aligned() {
-        let w1 = WorkId::new();
-        let w2 = WorkId::new();
-        let candidates = vec![
-            Candidate {
-                work_id: w1,
-                score: 10,
-                reason: "base".into(),
-                taste_signal: 0.9,
-                diversity_class: 0.0,
-            },
-            Candidate {
-                work_id: w2,
-                score: 10,
-                reason: "base".into(),
-                taste_signal: 0.1,
-                diversity_class: 0.0,
-            },
-        ];
-        let result = apply_taste_gravity(candidates, 1.0, "taste_weighted", 1.0);
-        // w1: 10 * (1 + 0.9 * 1 * 1) = 19
-        // w2: 10 * (1 + 0.1 * 1 * 1) = 11
-        assert_eq!(result[0].work_id, w1);
-        assert_eq!(result[0].score, 19);
-        assert_eq!(result[1].score, 11);
+    fn taste_gravity_is_a_mixture_whose_ends_mean_what_they_say() {
+        // Two rows a target reader would call equally good, one of which matches their taste. At g = 0 the algorithm's order
+        // stands; at g = 1 taste decides alone; halfway is halfway.
+        let strong = tasted(10, 0.0);
+        let aligned = tasted(10, 1.0);
+        let (ranked, pile) = apply_taste_gravity(
+            vec![strong.clone(), aligned.clone()],
+            0.0,
+            "taste_weighted",
+        );
+        assert_eq!(ranked[0].work_id, strong.work_id, "g = 0 keeps the algorithm's order");
+        assert_eq!(pile.unchanged, 2);
+
+        let (ranked, _) = apply_taste_gravity(
+            vec![strong.clone(), aligned.clone()],
+            1.0,
+            "taste_weighted",
+        );
+        assert_eq!(ranked[0].work_id, aligned.work_id, "g = 1 is order by taste alone");
+
+        // A row that is 30% better but has no taste signal against one that is 10% worse and perfectly aligned: halfway,
+        // the mixture is 0.5*1.0 + 0.5*0.0 = 0.5 vs 0.5*(10/13) + 0.5*1.0 = 0.885 — the aligned row wins, and it won because
+        // of the mixture, not because the base was ignored.
+        let better = tasted(13, 0.0);
+        let aligned_weaker = tasted(10, 1.0);
+        let (ranked, _) = apply_taste_gravity(
+            vec![better.clone(), aligned_weaker.clone()],
+            0.5,
+            "taste_weighted",
+        );
+        assert_eq!(ranked[0].work_id, aligned_weaker.work_id);
+        // …and at g = 0 the better row is back in front.
+        let (ranked, _) = apply_taste_gravity(
+            vec![better.clone(), aligned_weaker.clone()],
+            0.0,
+            "taste_weighted",
+        );
+        assert_eq!(ranked[0].work_id, better.work_id);
     }
 
     #[test]
-    fn apply_taste_gravity_admin_only() {
-        let w1 = WorkId::new();
-        let w2 = WorkId::new();
-        let candidates = vec![
-            Candidate {
-                work_id: w1,
-                score: 10,
-                reason: "base".into(),
-                taste_signal: 0.6,
-                diversity_class: 0.0,
-            },
-            Candidate {
-                work_id: w2,
-                score: 10,
-                reason: "base".into(),
-                taste_signal: 0.3,
-                diversity_class: 0.0,
-            },
+    fn taste_gravity_reorders_and_never_filters_however_hard_it_pulls() {
+        let rows = vec![
+            tasted(10, 0.0),
+            tasted(9, 0.0),
+            tasted(8, 0.0),
+            tasted(1, 1.0),
         ];
-        let result = apply_taste_gravity(candidates, 1.0, "admin_only", 1.0);
-        // w1: 10 * (1 + 0.6 * 1 * 1) = 16
-        // w2: 10 (no boost, taste_signal <= 0.5)
-        assert_eq!(result[0].work_id, w1);
-        assert_eq!(result[0].score, 16);
-        assert_eq!(result[1].score, 10);
+        let ids: Vec<WorkId> = rows.iter().map(|row| row.work_id).collect();
+        let (ranked, pile) = apply_taste_gravity(rows, 1.0, "taste_weighted");
+        assert_eq!(ranked.len(), ids.len(), "a gravity layer may not drop a row");
+        for id in &ids {
+            assert!(
+                ranked.iter().any(|row| row.work_id == *id),
+                "every incoming row is still there"
+            );
+        }
+        assert_eq!(
+            ranked[0].work_id,
+            *ids.last().expect("the aligned row"),
+            "even a weak row leads when the dial is all the way to taste"
+        );
+        assert_eq!(pile.moved_up, 1, "one row rose above three others: {pile:?}");
+        // The three that were passed each drop a single place — a histogram that reported them unchanged would be counting
+        // positions rather than movement.
+        assert_eq!(pile.moved_down, 3, "{pile:?}");
+        assert_eq!(pile.unchanged, 0, "{pile:?}");
+        let passed: Vec<WorkId> = ranked.iter().skip(1).map(|row| row.work_id).collect();
+        assert_eq!(passed, ids[..3].to_vec(), "their relative order is untouched");
+        // The algorithm's own score is not rewritten: gravity decides the order the reader sees, not what the engine
+        // measured. A row's score that changed under a display setting would make every later diagnosis wrong.
+        assert_eq!(ranked[0].score, 1);
+    }
+
+    #[test]
+    fn egalitarian_policy_switches_gravity_off_whatever_the_strength_says() {
+        let weak = tasted(10, 0.0);
+        let aligned = tasted(1, 1.0);
+        let (ranked, pile) = apply_taste_gravity(
+            vec![weak.clone(), aligned.clone()],
+            1.0,
+            "egalitarian",
+        );
+        assert_eq!(ranked[0].work_id, weak.work_id);
+        assert_eq!(pile.moved_up, 0);
+        assert_eq!(pile.moved_down, 0);
+    }
+
+    #[test]
+    fn a_page_gravity_has_nothing_to_say_about_keeps_its_order() {
+        let rows = vec![tasted(5, 0.4), tasted(5, 0.4), tasted(5, 0.4)];
+        let ids: Vec<WorkId> = rows.iter().map(|row| row.work_id).collect();
+        let (ranked, pile) = apply_taste_gravity(rows, 0.9, "taste_weighted");
+        assert_eq!(
+            ranked.iter().map(|row| row.work_id).collect::<Vec<_>>(),
+            ids,
+            "equal rows keep their incoming order"
+        );
+        assert_eq!(pile.unchanged, 3);
     }
 
     #[test]

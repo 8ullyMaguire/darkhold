@@ -1218,6 +1218,23 @@ pub struct TasteConfig {
     pub admin_weight: f64,
     /// Diversity injection percentage (0.0..1.0, 0.0 = monoculture).
     pub diversity_injection_percent: f64,
+    /// Per-surface gravity strength (M64-09). A surface absent here uses `gravity_strength`, so an instance that sets only
+    /// the global value behaves exactly as before; a surface that should stay untouched — `story.more_by_author`, the shelf
+    /// under one author's name — names `0.0` rather than relying on the global being small.
+    ///
+    /// [taste.gravity_per_surface]
+    /// "story.similar" = 0.10
+    /// "home.trending" = 0.35
+    /// "story.more_by_author" = 0.0
+    pub gravity_per_surface: std::collections::BTreeMap<String, f64>,
+    /// The most any surface may be pulled, whatever the global value or a per-surface entry says. The ceiling is what makes
+    /// this a bounded layer: an operator cannot configure a surface to be ordered by taste and nothing else by accident.
+    pub gravity_ceiling: f64,
+    /// Whether the reader's own dial may reach zero. `false` (the default) honours `gravity = 0` from a reader; `true` pins
+    /// their feed to the instance's pull, which is the difference between a default and a diet. M64-09 calls this "unless
+    /// locked" and the lock is per instance, not per reader: a reader cannot lock themselves into a corpus they did not
+    /// choose.
+    pub gravity_locked: bool,
     /// Taste dimensions (names only; vectors are computed at runtime).
     pub dimensions: Vec<String>,
     /// Whether the taste engine runs **inside** the archive or as its own process
@@ -1233,6 +1250,22 @@ pub struct TasteConfig {
     pub mode: String,
 }
 
+impl TasteConfig {
+    /// The pull one surface gets: its own entry if it has one, the global value otherwise, never above the ceiling.
+    ///
+    /// The ceiling applies to the global value too. A global 0.9 with a ceiling of 0.5 is 0.5 on every surface — otherwise
+    /// the ceiling bounds the per-surface settings and not the number that is actually in force, which is the opposite of a
+    /// bound.
+    pub fn strength_for(&self, surface: &str) -> f64 {
+        let wanted = self
+            .gravity_per_surface
+            .get(surface)
+            .copied()
+            .unwrap_or(self.gravity_strength);
+        wanted.clamp(0.0, self.gravity_ceiling)
+    }
+}
+
 impl Default for TasteConfig {
     fn default() -> Self {
         Self {
@@ -1240,6 +1273,9 @@ impl Default for TasteConfig {
             signal_weight_mode: "taste_weighted".to_string(),
             admin_weight: 1.0,
             diversity_injection_percent: 0.1,
+            gravity_per_surface: std::collections::BTreeMap::new(),
+            gravity_ceiling: 0.5,
+            gravity_locked: false,
             dimensions: vec![
                 "angst".to_string(),
                 "pacing".to_string(),
@@ -3192,6 +3228,20 @@ impl Config {
                         .unwrap_or_else(|| "taste_weighted".to_string()),
                     admin_weight: t.admin_weight.unwrap_or(1.0),
                     diversity_injection_percent: t.diversity_injection_percent.unwrap_or(0.1),
+                    gravity_per_surface: t.gravity_per_surface.unwrap_or_default(),
+                    // A ceiling above 1.0 cannot bound anything, and a negative one would silently switch the layer off, so
+                    // both are refused at load rather than clamped: an operator who typed 2.0 meant something, and the
+                    // something is not "0.5".
+                    gravity_ceiling: match t.gravity_ceiling {
+                        Some(ceiling) if !(0.0..=1.0).contains(&ceiling) => {
+                            return Err(anyhow::anyhow!(
+                                "taste.gravity_ceiling must be between 0.0 and 1.0, got {ceiling}"
+                            ));
+                        }
+                        Some(ceiling) => ceiling,
+                        None => 0.5,
+                    },
+                    gravity_locked: t.gravity_locked.unwrap_or(false),
                     dimensions: t.dimensions.unwrap_or_else(|| {
                         vec![
                             "angst".to_string(),
@@ -4607,6 +4657,9 @@ struct TasteSection {
     signal_weight_mode: Option<String>,
     admin_weight: Option<f64>,
     diversity_injection_percent: Option<f64>,
+    gravity_per_surface: Option<std::collections::BTreeMap<String, f64>>,
+    gravity_ceiling: Option<f64>,
+    gravity_locked: Option<bool>,
     dimensions: Option<Vec<String>>,
 }
 
@@ -6652,6 +6705,38 @@ mode = "private"
     /// A `NaN` posterior is never worth asking about, because it fails every
     /// comparison in the bracket above and would otherwise be waved through by
     /// a test that only checks the range.
+    #[test]
+    fn gravity_strength_is_per_surface_and_the_ceiling_bounds_the_global_value_too() {
+        let mut taste = TasteConfig {
+            gravity_strength: 0.15,
+            gravity_ceiling: 0.5,
+            ..TasteConfig::default()
+        };
+        taste
+            .gravity_per_surface
+            .insert("story.more_by_author".to_owned(), 0.0);
+        taste
+            .gravity_per_surface
+            .insert("home.trending".to_owned(), 0.35);
+
+        assert_eq!(taste.strength_for("story.similar"), 0.15, "a surface with no entry uses the global");
+        assert_eq!(
+            taste.strength_for("story.more_by_author"),
+            0.0,
+            "a surface the operator exempted stays exempt, even with a global pull of 0.15"
+        );
+        assert_eq!(taste.strength_for("home.trending"), 0.35);
+
+        // The ceiling is a bound on the number in force, not only on the entries: a global of 0.9 with a ceiling of 0.5 must
+        // be 0.5 everywhere, or the setting that is actually in force escapes the bound.
+        taste.gravity_strength = 0.9;
+        assert_eq!(taste.strength_for("story.similar"), 0.5);
+        taste
+            .gravity_per_surface
+            .insert("home.trending".to_owned(), 2.0);
+        assert_eq!(taste.strength_for("home.trending"), 0.5, "an over-eager entry is bounded too");
+    }
+
     #[test]
     fn a_nan_posterior_is_never_worth_a_request() {
         let config = DecisionsConfig::default();

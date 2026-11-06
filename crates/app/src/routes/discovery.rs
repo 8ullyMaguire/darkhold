@@ -875,13 +875,16 @@ async fn get_discovery(
         _ => ranked,
     };
 
-    // Apply taste gravity (spec §9.7.3): weight by taste alignment.
+    // Taste gravity (spec §9.7.3, M64-09): a bounded mixture over the blended ranking, at this surface's own strength.
+    //
+    // It runs here — after the blend and after theme gravity, before the reader's personal ordering — because it is a pull on
+    // an order that already exists. Running it earlier would let the algorithms blend against a taste-shaped set, and the
+    // experiment arms (M64-02) would then be measuring gravity rather than the algorithms.
     let taste = &state.config().taste;
-    let ranked = darkhold_domain::discovery::apply_taste_gravity(
+    let (ranked, pull) = darkhold_domain::discovery::apply_taste_gravity(
         ranked,
-        taste.gravity_strength,
+        taste.strength_for("discover.feed"),
         &taste.signal_weight_mode,
-        taste.admin_weight,
     );
 
     // M45 / spec §47: taste-based ordering plus impression logging, for a
@@ -1094,6 +1097,16 @@ async fn get_discovery(
         "items": items,
         "sort": effective_sort,
         "request_id": request_id.to_string(),
+        // The mode and a coarse pull, never a score and never a per-item reason (§0.3, §9.7.3): the reader learns that the
+        // shelf was pulled toward their taste and how much of the page moved, which is the honest amount of the mechanism to
+        // show. `strength` is the strength actually in force after the ceiling, not the configured wish.
+        "gravity": {
+            "mode": taste.signal_weight_mode,
+            "strength": taste.strength_for("discover.feed"),
+            "moved_up": pull.moved_up,
+            "moved_down": pull.moved_down,
+            "unchanged": pull.unchanged,
+        },
     })))
 }
 
