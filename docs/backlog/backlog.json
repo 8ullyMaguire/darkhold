@@ -1,10 +1,10 @@
 {
   "sources": {
     "requirements.csv": {
-      "rows": 920,
+      "rows": 921,
       "by_status": {
         "implemented-verified-e2e": 139,
-        "implemented-locally-tested": 248,
+        "implemented-locally-tested": 249,
         "unsupported": 4,
         "implemented-fully-tested": 433,
         "implemented": 9,
@@ -487,12 +487,6 @@
       "notes": "Reserved section, specified in docs/spec/44-roadmap-consensus-an-elo-ranked-community-voted.md. Registered 2026-11-02 for the same reason as M29-08: an idea the coverage gate named with no home."
     },
     {
-      "id": "M70-04",
-      "milestone": "M70",
-      "requirement": "A work can be restricted to signed-in accounts: metadata visible to all, body and comments only to a session, with the refusal indistinguishable from a work that does not exist.",
-      "notes": "The `restricted` audience is a fourth visibility tier, not a flag on the existing private one, because the metadata stays public. The refusal shape follows the existing rule (M59-26): an anonymous reader learns nothing from the response that distinguishes restricted from missing."
-    },
-    {
       "id": "M16-06",
       "milestone": "M16",
       "requirement": "\u00a721.4's execution sandbox: `wasmi` with fuel, memory ceilings, output limits, host-call limits, bounded concurrency, hard wall-clock termination, host-I/O timeouts, and revocation that stops a running package.",
@@ -533,6 +527,12 @@
       "milestone": "M16",
       "requirement": "\u00a721.8's operational half: rotating secrets, a per-subscription rate limit, and auto-disable of a subscription that keeps failing.",
       "notes": "NOT BUILT. Delivery retries and records, but nothing rotates a secret, nothing limits a subscriber's request rate, and a permanently failing endpoint keeps being tried \u2014 which is both a resource leak and a way to keep probing an endpoint that has moved."
+    },
+    {
+      "id": "M70-12",
+      "milestone": "M70",
+      "requirement": "A restricted work is LISTED with a lock marker: it appears in the catalogue, search and the feeds a reader browses, labelled as needing a session, rather than only being reachable by a URL somebody already had.",
+      "notes": "The decision of 2026-11-05 that made M70-04 'listed but locked' is only half built: the record and the body behave, but 'listed' is still false. 42 query sites filter `visibility = 'public'` (media.rs 8, discovery.rs 8, taxonomy.rs 6, content.rs 4, search.rs 3, tasting.rs 2, taste_vectors.rs 2, series_recs.rs 2, and the rest). This is NOT a sed to `IN ('public','restricted')`: each site has to be read, because a locked work must not feed a taste vector, a kudos count or a 'readers like you also read' edge \u2014 the taster could not have read it, so the edge is a claim about content nobody in the pair has seen. The sites that only LIST (catalogue, search, taxonomy browse, series index) take the change; the sites that INFER (taste_vectors, tasting, series_recs, media counts) keep the strict filter and get a one-line comment saying why. Also unbuilt: the reader page's locked rendering (the SPA shows an empty work today when the record returns content_withheld) and comment gating on restricted works."
     }
   ],
   "open_by_milestone": {
