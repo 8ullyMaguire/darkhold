@@ -1329,7 +1329,7 @@ pub async fn works_by_tag_filtered(
          JOIN work_tags wt ON wt.work_id = w.id
          JOIN canonical_entities tn ON tn.id = wt.node_id
          JOIN pseuds p ON p.id = w.owner_pseud_id
-         WHERE tn.norm = ? AND w.lifecycle = 'published' AND w.visibility IN ('public', 'restricted'){sqlite_clause_text}
+         WHERE tn.norm = ? AND w.lifecycle = 'published' AND w.visibility = 'public'{sqlite_clause_text}
          ORDER BY w.updated_at DESC
          LIMIT ? OFFSET ?"
     );
@@ -1339,7 +1339,7 @@ pub async fn works_by_tag_filtered(
          JOIN work_tags wt ON wt.work_id = w.id
          JOIN canonical_entities tn ON tn.id = wt.node_id
          JOIN pseuds p ON p.id = w.owner_pseud_id
-         WHERE tn.norm = $1 AND w.lifecycle = 'published' AND w.visibility IN ('public', 'restricted'){postgres_clause_text}
+         WHERE tn.norm = $1 AND w.lifecycle = 'published' AND w.visibility = 'public'{postgres_clause_text}
          ORDER BY w.updated_at DESC
          LIMIT ${} OFFSET ${}",
         binds.len() + 2,
@@ -1411,7 +1411,7 @@ pub async fn works_by_tag(
          JOIN work_tags wt ON wt.work_id = w.id
          JOIN canonical_entities tn ON tn.id = wt.node_id
          JOIN pseuds p ON p.id = w.owner_pseud_id
-         WHERE tn.norm = ? AND w.lifecycle = 'published' AND w.visibility IN ('public', 'restricted')
+         WHERE tn.norm = ? AND w.lifecycle = 'published' AND w.visibility = 'public'
          ORDER BY w.updated_at DESC
          LIMIT ? OFFSET ?",
         "SELECT w.id::text, w.title, p.handle, w.updated_at
@@ -1419,7 +1419,7 @@ pub async fn works_by_tag(
          JOIN work_tags wt ON wt.work_id = w.id
          JOIN canonical_entities tn ON tn.id = wt.node_id
          JOIN pseuds p ON p.id = w.owner_pseud_id
-         WHERE tn.norm = $1 AND w.lifecycle = 'published' AND w.visibility IN ('public', 'restricted')
+         WHERE tn.norm = $1 AND w.lifecycle = 'published' AND w.visibility = 'public'
          ORDER BY w.updated_at DESC
          LIMIT $2 OFFSET $3",
     );
@@ -1457,7 +1457,7 @@ pub async fn works_by_fandom(
          JOIN work_tags wt ON wt.work_id = w.id
          JOIN canonical_entities tn ON tn.id = wt.node_id
          JOIN pseuds p ON p.id = w.owner_pseud_id
-         WHERE tn.norm = ? AND w.lifecycle = 'published' AND w.visibility IN ('public', 'restricted')
+         WHERE tn.norm = ? AND w.lifecycle = 'published' AND w.visibility = 'public'
          ORDER BY w.updated_at DESC
          LIMIT ? OFFSET ?",
         "SELECT w.id::text, w.title, p.handle, w.updated_at
@@ -1465,7 +1465,7 @@ pub async fn works_by_fandom(
          JOIN work_tags wt ON wt.work_id = w.id
          JOIN canonical_entities tn ON tn.id = wt.node_id
          JOIN pseuds p ON p.id = w.owner_pseud_id
-         WHERE tn.norm = $1 AND w.lifecycle = 'published' AND w.visibility IN ('public', 'restricted')
+         WHERE tn.norm = $1 AND w.lifecycle = 'published' AND w.visibility = 'public'
          ORDER BY w.updated_at DESC
          LIMIT $2 OFFSET $3",
     );

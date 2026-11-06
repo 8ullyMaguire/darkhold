@@ -504,6 +504,8 @@ pub async fn get_arena_pool(
     account_id: &str,
     limit: i64,
 ) -> Result<Vec<ArenaPoolRow>, sqlx::Error> {
+// INFER: no surface concludes from a restricted work. Nobody could have read a work they were never shown,
+// so an edge or a count built on one is a claim about people made from a non-event. See `db::visibility`.
     match db.backend() {
         Backend::Sqlite => {
             let _pool = db.sqlite_pool().ok_or(pool_err())?;
@@ -525,8 +527,6 @@ pub async fn get_arena_pool(
                      JOIN revisions cr ON cr.id = c.current_revision_id
                      GROUP BY c.work_id
                  ) wc ON w.id = wc.work_id
-    // INFER (M70-12): a locked work is invisible on purpose — nobody could have read it while signed out, so a pool
-    // built from it would calibrate against text the reader was never shown. See `db::visibility`.
                  WHERE w.lifecycle = 'published'
                    AND w.visibility = 'public'
                    AND w.deleted_at IS NULL

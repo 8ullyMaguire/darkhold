@@ -185,9 +185,8 @@ async fn rebuild_work_index_postgres(
 /// Search published public works by a free-text term (simple body search).
 ///
 /// This is the anonymous door (`GET /api/v1/public/search`), so the predicate
-/// is the anonymous one from `ast_search`: published works that are *listed*, which since M70-12 means `public` **and**
-/// `restricted` — a locked work's record is public and its text is not, so it is findable and then refused. Unlisted is
-/// never a hit. The term index is not a visibility boundary — the
+/// is the anonymous one from `ast_search`: only `published` works with
+/// `visibility = 'public'`. The term index is not a visibility boundary — the
 /// worker fills it from unit text regardless of lifecycle, and a deindex
 /// event can lag or be overtaken by a `Reindex` that lands after a withdrawal,
 /// so the route is what keeps an unpublished work out of the results (§3.3).
@@ -223,7 +222,7 @@ pub async fn search_works(db: &Database, needle: &str, limit: i64) -> Result<Vec
                  FROM works_index_terms t \
                  JOIN works w ON w.id = t.work_id \
                  JOIN pseuds a ON a.id = w.owner_pseud_id \
-                 WHERE ({}) AND w.lifecycle = 'published' AND w.visibility IN ('public', 'restricted') \
+                 WHERE ({}) AND w.lifecycle = 'published' AND w.visibility = 'public' \
                    AND w.deleted_at IS NULL \
                  GROUP BY w.id \
                  ORDER BY score DESC \
@@ -269,7 +268,7 @@ pub async fn search_works(db: &Database, needle: &str, limit: i64) -> Result<Vec
                  FROM works_index_terms t \
                  JOIN works w ON w.id = t.work_id \
                  JOIN pseuds a ON a.id = w.owner_pseud_id::uuid \
-                 WHERE ({}) AND w.lifecycle = 'published' AND w.visibility IN ('public', 'restricted') \
+                 WHERE ({}) AND w.lifecycle = 'published' AND w.visibility = 'public' \
                    AND w.deleted_at IS NULL \
                  GROUP BY w.id, w.title, a.handle \
                  ORDER BY score DESC \

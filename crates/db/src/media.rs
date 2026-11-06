@@ -162,8 +162,8 @@ fn eligibility_filter(account_id: Option<&str>) -> (String, String, Vec<String>)
             (sql.clone(), sql, vec![account.to_owned()])
         },
         None => (
-            "(w.lifecycle = 'published' AND w.visibility IN ('public', 'restricted') AND w.rating IN ('general', 'teen'))".to_string(),
-            "(w.lifecycle = 'published' AND w.visibility IN ('public', 'restricted') AND w.rating IN ('general', 'teen'))".to_string(),
+            "(w.lifecycle = 'published' AND w.visibility = 'public' AND w.rating IN ('general', 'teen'))".to_string(),
+            "(w.lifecycle = 'published' AND w.visibility = 'public' AND w.rating IN ('general', 'teen'))".to_string(),
             Vec::new(),
         ),
     }
@@ -812,9 +812,9 @@ async fn read_collections(
     id: Option<&str>,
     account_id: Option<&str>,
 ) -> Result<Vec<MediaCollection>> {
-    let sqlite = "SELECT id, collection_kind AS kind, title, description, owning_account_id,\n        visibility, created_at, updated_at, version FROM media_collections\n        WHERE (? IS NULL OR id = ?) AND\n        (visibility IN ('public', 'restricted') OR owning_account_id = ? OR\n         (visibility = 'restricted' AND ? IS NOT NULL) OR\n         (visibility = 'unlisted' AND ? IS NOT NULL))\n        ORDER BY created_at ASC, id ASC LIMIT 200";
+    let sqlite = "SELECT id, collection_kind AS kind, title, description, owning_account_id,\n        visibility, created_at, updated_at, version FROM media_collections\n        WHERE (? IS NULL OR id = ?) AND\n        (visibility = 'public' OR owning_account_id = ? OR\n         (visibility = 'restricted' AND ? IS NOT NULL) OR\n         (visibility = 'unlisted' AND ? IS NOT NULL))\n        ORDER BY created_at ASC, id ASC LIMIT 200";
     let postgres =
-        "SELECT id::text, collection_kind AS kind, title, description, owning_account_id::text,\n        visibility, created_at, updated_at, version::bigint FROM media_collections\n        WHERE (?::text IS NULL OR id = ?::uuid) AND\n        (visibility IN ('public', 'restricted') OR owning_account_id = ?::uuid OR\n         (visibility = 'restricted' AND ?::text IS NOT NULL) OR\n         (visibility = 'unlisted' AND ?::text IS NOT NULL))\n        ORDER BY created_at ASC, id ASC LIMIT 200";
+        "SELECT id::text, collection_kind AS kind, title, description, owning_account_id::text,\n        visibility, created_at, updated_at, version::bigint FROM media_collections\n        WHERE (?::text IS NULL OR id = ?::uuid) AND\n        (visibility = 'public' OR owning_account_id = ?::uuid OR\n         (visibility = 'restricted' AND ?::text IS NOT NULL) OR\n         (visibility = 'unlisted' AND ?::text IS NOT NULL))\n        ORDER BY created_at ASC, id ASC LIMIT 200";
     let sql = db.sql(sqlite, postgres);
     match db.backend() {
         Backend::Sqlite => Ok(sqlx::query_as::<_, MediaCollection>(&sql)
@@ -842,9 +842,9 @@ async fn read_collections_by_kind(
     kind: &str,
     account_id: Option<&str>,
 ) -> Result<Vec<MediaCollection>> {
-    let sqlite = "SELECT id, collection_kind AS kind, title, description, owning_account_id,\n        visibility, created_at, updated_at, version FROM media_collections\n        WHERE collection_kind = ? AND\n        (visibility IN ('public', 'restricted') OR owning_account_id = ? OR\n         (visibility = 'restricted' AND ? IS NOT NULL) OR\n         (visibility = 'unlisted' AND ? IS NOT NULL))\n        ORDER BY created_at ASC, id ASC LIMIT 200";
+    let sqlite = "SELECT id, collection_kind AS kind, title, description, owning_account_id,\n        visibility, created_at, updated_at, version FROM media_collections\n        WHERE collection_kind = ? AND\n        (visibility = 'public' OR owning_account_id = ? OR\n         (visibility = 'restricted' AND ? IS NOT NULL) OR\n         (visibility = 'unlisted' AND ? IS NOT NULL))\n        ORDER BY created_at ASC, id ASC LIMIT 200";
     let postgres =
-        "SELECT id::text, collection_kind AS kind, title, description, owning_account_id::text,\n        visibility, created_at, updated_at, version::bigint FROM media_collections\n        WHERE collection_kind = ? AND\n        (visibility IN ('public', 'restricted') OR owning_account_id = ?::uuid OR\n         (visibility = 'restricted' AND ?::text IS NOT NULL) OR\n         (visibility = 'unlisted' AND ?::text IS NOT NULL))\n        ORDER BY created_at ASC, id ASC LIMIT 200";
+        "SELECT id::text, collection_kind AS kind, title, description, owning_account_id::text,\n        visibility, created_at, updated_at, version::bigint FROM media_collections\n        WHERE collection_kind = ? AND\n        (visibility = 'public' OR owning_account_id = ?::uuid OR\n         (visibility = 'restricted' AND ?::text IS NOT NULL) OR\n         (visibility = 'unlisted' AND ?::text IS NOT NULL))\n        ORDER BY created_at ASC, id ASC LIMIT 200";
     let sql = db.sql(sqlite, postgres);
     match db.backend() {
         Backend::Sqlite => Ok(sqlx::query_as::<_, MediaCollection>(&sql)
@@ -1115,21 +1115,17 @@ mod tests {
         assert_eq!(rec.version, 1);
     }
 
-    /// M70-12: an anonymous viewer is offered a *listed* work even when its body is locked — the delete is "sign in",
-    /// not "no such work" — and is never offered an unlisted one, which is link-reachable only.
     #[test]
-    fn eligibility_filter_anonymous_lists_locked_works_and_never_unlisted() {
+    fn eligibility_filter_no_session_public_published_only() {
         let (sqlite, postgres, values) = eligibility_filter(None);
         assert_eq!(
             sqlite,
-            "(w.lifecycle = 'published' AND w.visibility IN ('public', 'restricted') AND w.rating IN ('general', 'teen'))"
+            "(w.lifecycle = 'published' AND w.visibility = 'public' AND w.rating IN ('general', 'teen'))"
         );
         assert_eq!(
             postgres,
-            "(w.lifecycle = 'published' AND w.visibility IN ('public', 'restricted') AND w.rating IN ('general', 'teen'))"
+            "(w.lifecycle = 'published' AND w.visibility = 'public' AND w.rating IN ('general', 'teen'))"
         );
-        assert!(!sqlite.contains("unlisted"));
-        assert!(!postgres.contains("unlisted"));
         assert!(values.is_empty());
     }
 

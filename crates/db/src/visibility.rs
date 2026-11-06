@@ -1,39 +1,38 @@
-//! Which `works` rows a surface may show, and which it may learn from.
+//! Which `works` rows a surface may enumerate, and which it may learn from.
 //!
-//! `restricted` is a *listed but locked* tier (M70-04, decision of 2026-11-05): a work's record — title, summary, tags,
-//! author — is public, while its text and comments need a session. That one sentence splits every query in this crate
-//! into two classes, and the split is a rule rather than a preference:
+//! **Restricted is not listed.** This module exists because that sentence was briefly wrong here, and the correction is
+//! worth keeping next to the code rather than only in a commit message.
 //!
-//! * **LIST** surfaces show the work. Catalogue and freshness feeds, search, tag and fandom browse, collections, "more
-//!   by this author", "new in your fandoms". The predicate is `visibility IN ('public', 'restricted')`. A stranger may
-//!   find a locked work and be told why they cannot read it; that is the whole point of the tier, and a refusal they
-//!   never reach is a refusal they cannot act on.
+//! `restricted` withholds the record from enumeration. Existence is itself a disclosure (spec §8.9), so a stranger is
+//! not told the work exists at all: search, tag and fandom browse, freshness feeds, collection contents, "more by this
+//! author" and the catalogue all filter `visibility = 'public'`. Spec §4814 is explicit — "private, unlisted and
+//! restricted works are never included" in indexing — and §5888 requires that a restricted work render no card and
+//! answer exactly as a non-existent one, "so the endpoint is not an existence oracle".
 //!
-//! * **INFER** surfaces must not. Taste vectors, tasting candidate pools, the recommendation ladder, blind dates and
-//!   "surprise me", personalised and public recommendations, "is this pseud discoverable", arena pools. The predicate
-//!   stays `visibility = 'public'`, and the reason is not secrecy but *evidence*: nobody could have read a locked work
-//!   without signing in, so an edge drawn from it says two readers share a taste for text neither of them was shown,
-//!   and a kudos or reader count drawn from it is a number nobody could have contributed to. Inference from a locked
-//!   work is not a leak of the work; it is a claim about people made from a non-event.
+//! The one door is a direct link plus the operator's opt-in. `works.gated_metadata_public` (default **off**) is what may
+//! let a restricted work's record render with `content_withheld`; the body still needs a session (M70-04). With the
+//! default configuration a restricted work answers `404` to a stranger — which is why listing it would hand the reader a
+//! link that dies on click, the failure §8.13 names.
 //!
-//! The distinction is not "public vs private" and it is not "anonymous vs signed in": a signed-in reader may also be
-//! refused a locked work (by audience, rating or block), so an inference built on it would be wrong for them too. The
-//! line is whether the surface *shows* the work or *concludes* from it.
+//! The second rule is unchanged and was always right: **no surface infers from a restricted work.** Taste vectors,
+//! tasting pools, the recommendation ladder, blind dates and "surprise me", public and personalised recommendations,
+//! arena pools and the works count on a pseud's row all stay `visibility = 'public'`. The reason is evidence, not
+//! secrecy: nobody could have read a work they were never shown, so a similarity edge, a kudos count or a "3 works"
+//! line built on it is a claim about people made from a non-event. A signed-in reader can also be refused a restricted
+//! work (by audience, rating or block), so "the work exists" never implies "the work was read".
 //!
-//! Unlisted works are invisible to both classes, and `private`-style words that this build does not recognise are
-//! refused as absent (see `routes::works::parse_visibility`), because an unknown state must never become the most
-//! open one.
+//! Unlisted works are invisible to both classes. An unrecognised visibility word is refused as absent rather than
+//! treated as the most open state (see `routes::works::parse_visibility`).
 //!
-//! When adding a query, the question is not "which filter is stricter" but "does this surface show the work, or does
-//! it conclude from it". `crates/db/tests/m70_12_visibility_surfaces.rs` asserts one of each in both directions, with an
-//! unlisted work as the control that must stay invisible everywhere.
+//! `crates/db/tests/m70_12_visibility_surfaces.rs` asserts both directions with an unlisted work as the control, and
+//! records what the earlier version of this module claimed, so the same mistake is not re-derived as a good idea.
 
-/// Whether a stored visibility word makes a work **listed**.
+/// Whether a stored visibility word makes a work **listable**.
 ///
-/// The same rule as the SQL predicates above, in Rust, for the call sites that reason about a transition rather than
-/// query a table (the deindex on a visibility change). An unrecognised word is not listable: the state nobody
-/// understands must never be the open one.
+/// Only `public`. Call sites that reason about a transition rather than query a table (the deindex on a visibility
+/// change) use this so that "listed" has one definition in Rust and one in SQL. An unrecognised word is not listable:
+/// the state nobody understands must never be the open one.
 #[must_use]
 pub fn is_listable(stored: &str) -> bool {
-    matches!(stored, "public" | "restricted")
+    stored == "public"
 }

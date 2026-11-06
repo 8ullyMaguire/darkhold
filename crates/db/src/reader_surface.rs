@@ -269,7 +269,7 @@ pub async fn new_in_your_fandoms(
          JOIN work_tags wt ON wt.work_id = w.id
          WHERE wt.node_id IN ({nodes_sqlite})
            AND w.lifecycle = 'published'
-           AND w.visibility IN ('public', 'restricted')
+           AND w.visibility = 'public'
            AND w.deleted_at IS NULL
            {excl_sqlite}
          ORDER BY w.published_at DESC, w.title ASC
@@ -287,7 +287,7 @@ pub async fn new_in_your_fandoms(
          JOIN work_tags wt ON wt.work_id = w.id
          WHERE wt.node_id IN ({nodes_pg})
            AND w.lifecycle = 'published'
-           AND w.visibility IN ('public', 'restricted')
+           AND w.visibility = 'public'
            AND w.deleted_at IS NULL
            {excl_pg}
          ORDER BY w.published_at DESC, w.title ASC

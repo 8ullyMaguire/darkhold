@@ -1,17 +1,15 @@
-//! M70-12 — which surfaces a restricted work may appear on.
+//! M70-12 — where a restricted work may appear, and where it may never be inferred from.
 //!
-//! The decision of 2026-11-05 made `restricted` a *listed but locked* tier: the record is public, the body needs a
-//! session. That splits the database's queries into two classes, and the split is a rule rather than a preference:
+//! The first version of this test asserted the opposite of what follows, on the theory that `restricted` was a *listed
+//! but locked* tier. It is not: existence is itself a disclosure (spec §8.9), §4814 says private, unlisted and
+//! restricted works are never indexed, and §5888 requires a restricted work to render no card and answer exactly as a
+//! non-existent one. With `works.gated_metadata_public` off by default, a listed restricted work is a link that 404s on
+//! click — the dead-location failure §8.13 names.
 //!
-//! * **LIST** surfaces show the work — catalogue, search, tag browse — because a stranger is allowed to find it and be
-//!   told why they cannot read it.
-//! * **INFER** surfaces must not — taste vectors, tasting pools, the recommendation ladder, "is this pseud
-//!   discoverable". A locked work cannot have been read by anyone who was not signed in, so an edge built on it is a
-//!   claim about content neither side of the edge has seen, and a kudos or reader count built on it is a number
-//!   nobody could have contributed to.
-//!
-//! The test asserts one of each, in both directions, with an unlisted work as the control that must stay invisible to
-//! every surface — including the listing ones, because "listed" is the whole difference between the two tiers.
+//! So the rule is one word wide: **listable means public**. The test proves it on the three listing surfaces a reader
+//! actually browses (freshness, tag browse, search) with a public work as the positive control and an unlisted work as
+//! the second control, and then proves the inference half on the one surface that both lists a pseud and counts their
+//! works.
 
 use test_support::TestDb;
 
@@ -57,7 +55,7 @@ async fn seed(tdb: &TestDb) {
     }
 
     for (index, (id, owner, title, visibility)) in [
-        (PUBLIC_WORK, AUTHOR, "A public work", "public"),
+        (PUBLIC_WORK, AUTHOR, "Held open", "public"),
         (RESTRICTED_WORK, AUTHOR, "Held close", "restricted"),
         (UNLISTED_WORK, AUTHOR, "A link somebody sent", "unlisted"),
         // The quiet author's ONLY work is restricted: nothing about this person is knowable to a stranger.
@@ -90,7 +88,10 @@ async fn seed(tdb: &TestDb) {
         .await;
     }
 
-    // One tag on every work, canonicalised once: the tag browse surface is the third listing.
+    // Every work carries the same search token in its title and the same tag, so each listing surface sees all four
+    // candidates and the predicate is the only thing that decides.
+
+    // One tag on every work, canonicalised once: the tag browse surface is the second listing.
     exec(
         tdb,
         &format!(
@@ -113,7 +114,7 @@ async fn seed(tdb: &TestDb) {
     // Search reads `works_index_terms`, which the indexer fills for whatever it is given: the exclusion being tested
     // is the query's, not the indexer's.
     for (work, title) in [
-        (PUBLIC_WORK, "A public work"),
+        (PUBLIC_WORK, "Held open"),
         (RESTRICTED_WORK, "Held close"),
         (UNLISTED_WORK, "A link somebody sent"),
         (QUIET_WORK, "Held quiet"),
@@ -126,13 +127,17 @@ async fn seed(tdb: &TestDb) {
 }
 
 #[tokio::test]
-async fn a_locked_work_is_listed_and_never_inferred_from() {
+async fn a_restricted_work_is_never_listed_and_never_inferred_from() {
     let dir = test_support::scratch_dir("m7012");
     let tdb = TestDb::connect_with_dir("m7012", &dir).await;
     seed(&tdb).await;
     let db = tdb.db();
 
-    // --- LIST: the catalogue, the tag browse and the search all show a restricted work -------------
+    let public: darkhold_domain::ids::WorkId = PUBLIC_WORK.parse().expect("id");
+    let restricted: darkhold_domain::ids::WorkId = RESTRICTED_WORK.parse().expect("id");
+    let unlisted: darkhold_domain::ids::WorkId = UNLISTED_WORK.parse().expect("id");
+
+    // --- LIST: freshness ---------------------------------------------------------------------------
     let fresh = darkhold_db::content::list_public_works_by_freshness(
         db,
         darkhold_db::content::FreshnessSort::New,
@@ -140,35 +145,43 @@ async fn a_locked_work_is_listed_and_never_inferred_from() {
     )
     .await
     .expect("freshness");
+    assert!(fresh.contains(&public), "the positive control: {fresh:?}");
     assert!(
-        fresh.contains(&RESTRICTED_WORK.parse().expect("id")),
-        "a locked work is listed, or the tier means nothing: {fresh:?}"
+        !fresh.contains(&restricted),
+        "a restricted work is not enumerated: {fresh:?}"
     );
-    assert!(
-        !fresh.contains(&UNLISTED_WORK.parse().expect("id")),
-        "unlisted is not listed: {fresh:?}"
-    );
+    assert!(!fresh.contains(&unlisted), "unlisted is not listed: {fresh:?}");
 
+    // --- LIST: tag browse --------------------------------------------------------------------------
     let tagged = darkhold_db::taxonomy::works_by_tag(db, "held close", 50, 0)
         .await
         .expect("tag browse");
     let tagged_ids: Vec<&str> = tagged.iter().map(|(id, ..)| id.as_str()).collect();
     assert!(
-        tagged_ids.contains(&RESTRICTED_WORK),
-        "a locked work keeps its tag: {tagged_ids:?}"
+        tagged_ids.contains(&PUBLIC_WORK),
+        "the positive control: {tagged_ids:?}"
+    );
+    assert!(
+        !tagged_ids.contains(&RESTRICTED_WORK),
+        "a locked work is not browsable: {tagged_ids:?}"
     );
     assert!(
         !tagged_ids.contains(&UNLISTED_WORK),
         "unlisted is not browsable: {tagged_ids:?}"
     );
 
+    // --- LIST: search ------------------------------------------------------------------------------
     let hits = darkhold_db::search::search_works(db, "held", 50)
         .await
         .expect("search");
     let hit_ids: Vec<&str> = hits.iter().map(|hit| hit.work_id.as_str()).collect();
     assert!(
-        hit_ids.contains(&RESTRICTED_WORK),
-        "search must find what a stranger may see: {hit_ids:?}"
+        hit_ids.contains(&PUBLIC_WORK),
+        "the positive control: {hit_ids:?}"
+    );
+    assert!(
+        !hit_ids.contains(&RESTRICTED_WORK),
+        "search must not be an existence oracle: {hit_ids:?}"
     );
     assert!(
         !hit_ids.contains(&UNLISTED_WORK),
@@ -178,8 +191,8 @@ async fn a_locked_work_is_listed_and_never_inferred_from() {
     // --- INFER: the work COUNT on the people surface ------------------------------------------------
     //
     // Presence on `/people` is the reader's own opt-in (`discoverability = 'listed'`), so hiding a person because their
-    // only work is locked would punish them for using the tier. The *number* is the inference: a count of works a
-    // stranger may read, which a locked work must not inflate — otherwise the surface says "3 works" about someone
+    // only work is restricted would punish them for using the tier. The *number* is the inference: a count of works a
+    // stranger may open, which a locked work must not inflate — otherwise the surface says "2 works" about someone
     // whose page shows one.
     let pseuds = darkhold_db::identity::list_discoverable_pseuds(db, 50, 0)
         .await

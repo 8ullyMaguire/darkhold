@@ -819,8 +819,8 @@ pub async fn list_discoverable_pseuds(
     limit: i64,
     offset: i64,
 ) -> Result<Vec<(String, String, String, i64)>> {
-    // INFER (M70-12): a locked work is invisible on purpose — nobody could have read it while signed out, so a pool
-    // built from it would calibrate against text the reader was never shown. See `db::visibility`.
+// INFER: no surface concludes from a restricted work. Nobody could have read a work they were never shown,
+// so an edge or a count built on one is a claim about people made from a non-event. See `db::visibility`.
     let sql = db.sql(
         "SELECT p.id, p.handle, p.display_name, (
             SELECT COUNT(*) FROM works w
