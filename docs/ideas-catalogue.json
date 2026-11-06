@@ -1,6 +1,6 @@
 {
  "generated_by": "scripts/ideas_catalogue.py",
- "count": 184,
+ "count": 183,
  "ideas": [
   {
    "why_summary": "",
@@ -478,19 +478,6 @@
     "docs/requirements.csv"
    ],
    "milestone": "M63",
-   "relevance": 4,
-   "because": "a requirements row exists (+4)",
-   "default_on": false,
-   "built": false
-  },
-  {
-   "why_summary": "docs/design/2026-11-01-ranking-signals-and-surfaces.md P1 of the ranking design. Surfaces: story.similar, story.also_enjoyed, story.more_by_author, story.lists_containing, search.r",
-   "id": "M64-01",
-   "title": "every recommendation surface has a canonical id and a field of two to four named algorithms chosen by config, and an algorithm whose data is empty refuses by name instead of serving a page",
-   "sources": [
-    "docs/requirements.csv"
-   ],
-   "milestone": "M64",
    "relevance": 4,
    "because": "a requirements row exists (+4)",
    "default_on": false,

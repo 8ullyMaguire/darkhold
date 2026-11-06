@@ -4,11 +4,11 @@
       "rows": 942,
       "by_status": {
         "implemented-verified-e2e": 139,
-        "implemented-locally-tested": 258,
+        "implemented-locally-tested": 259,
         "unsupported": 4,
         "implemented-fully-tested": 434,
         "implemented": 10,
-        "planned": 90,
+        "planned": 89,
         "evaluated-and-rejected": 7
       }
     },
@@ -191,12 +191,6 @@
       "milestone": "M63",
       "requirement": "the quality weights are per-operator and per-surface rather than compiled in",
       "notes": "Renumbered from `M63-05` on 2026-11-02: that id was assigned to two rows, so a citation of it landed on whichever row sorted first. Belongs with M63-30's taste layer, not before it: a weight nobody can explain is worse than a constant. The registry shape is already there \u2014 each metric is addressable by name, so a profile is a weight vector over names."
-    },
-    {
-      "id": "M64-01",
-      "milestone": "M64",
-      "requirement": "every recommendation surface has a canonical id and a field of two to four named algorithms chosen by config, and an algorithm whose data is empty refuses by name instead of serving a page",
-      "notes": "P1 of the ranking design. Surfaces: story.similar, story.also_enjoyed, story.more_by_author, story.lists_containing, search.results, search.facets, author.works, author.similar, author.colists, author.fandoms, home.trending, home.hidden_gems, home.popular_in_fandom, home.recently_updated, home.new_this_week, home.curated, library.because_you_shelved, library.fill_the_gap, library.authors_updated, tag.default_sort, tag.adjacent, tag.cross_fandom, tag.facets. The registry is closed and each algorithm declares its data dependency (needs = [work_tags]) so a missing dependency is a refusal naming the milestone, exactly as ?sort=velocity refuses today. A surface with one algorithm is legal and is where every surface starts. A recipe (M11-05) composes algorithms rather than being a fourth kind of thing. \u00a743's ordering contract and M43-02 hold: an algorithm reorders, never filters."
     },
     {
       "id": "M64-02",
@@ -568,7 +562,7 @@
   "open_by_milestone": {
     "M69": 21,
     "M63": 17,
-    "M64": 14,
+    "M64": 13,
     "M45": 12,
     "M71": 10,
     "M16": 7,

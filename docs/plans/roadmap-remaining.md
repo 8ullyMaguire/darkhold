@@ -17,6 +17,15 @@ Two rules that decide the order:
 |---|---|
 | M71-10 | the reader's no-JavaScript guarantee as one test (`crates/app/tests/reader_page.rs::the_reader_needs_no_javascript_at_all`), plus the mutation that proves it bites. The position form it asserts already existed; the attempt to add one was a duplicate and was removed. |
 
+## Batch 4 — ranking (M64 / M69)
+
+Shipped: M69-08 (blend decay, floor, score-first ordering, 0109d288), M69-19 (NPMI, da36de8e), M69-12 + M71-06 (reason +
+match percentage, e93f94e6), M64-01 (surface registry, load-time validation, refusals by name, be0aead0).
+
+M64-01 remains open on one point, recorded in its ledger row: the surfaces' **routes** still call the legacy path, so the
+registry is the source of truth and the endpoint exposes it, but the feed does not yet read its configured algorithm set.
+That wiring is the next M64 step and it is also what makes M64-02's per-algorithm logging meaningful.
+
 ## Batch 2 — the visible contract
 
 Shipped from this batch: M69-08 (blend decay/floor/ordering), M69-12 + M71-06 (reason and match percentage on
