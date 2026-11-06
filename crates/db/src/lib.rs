@@ -145,6 +145,7 @@ pub mod translation;
 pub mod trend;
 pub mod trust_events;
 pub mod typed_votes;
+pub mod visibility;
 pub mod welcome;
 pub mod wip_adoption;
 pub mod work_backlink;

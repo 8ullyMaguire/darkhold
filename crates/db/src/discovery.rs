@@ -90,6 +90,8 @@ pub async fn blind_date_work(db: &Database, account: &str, today: &str) -> Resul
         crate::Backend::Postgres => "::text",
         crate::Backend::Sqlite => "",
     };
+    // INFER (M70-12): a locked work is invisible here on purpose — nobody could have read it while signed out, so an
+    // edge or a count drawn from it would be a claim about content nobody was shown. See `db::visibility`.
     let sql = format!(
         r#"
         SELECT w.id{id_cast} AS id
@@ -329,6 +331,8 @@ pub async fn surprise_me_work(db: &Database, account: &str, today: &str) -> Resu
     // The profile node ids come from `json_each(signals).value` on SQLite and
     // `json_array_elements_text(signals::json)` on PostgreSQL, mirroring the existing
     // `recommend_for_account` query rather than inventing a second reading of the column.
+    // INFER (M70-12): a locked work is invisible here on purpose — nobody could have read it while signed out, so an
+    // edge or a count drawn from it would be a claim about content nobody was shown. See `db::visibility`.
     let sql = match db.backend() {
         crate::Backend::Sqlite => format!(
             r#"
@@ -608,6 +612,8 @@ pub async fn public_recommendations(
     // `sql_owned`, so it has to be bound in the position it appears in the text:
     // here inside the WHERE, ahead of `LIMIT ?`. Binding order is positional and
     // unchecked, so a swapped pair is a wrong answer, not an error.
+    // INFER (M70-12): a locked work is invisible here on purpose — nobody could have read it while signed out, so an
+    // edge or a count drawn from it would be a claim about content nobody was shown. See `db::visibility`.
     let sqlite = format!(
         "SELECT w.id FROM works w
          WHERE w.lifecycle = 'published' AND w.visibility = 'public'
@@ -683,6 +689,8 @@ pub async fn personalized_recommendations(
             // account, and a pseud-scoped rule is not reachable from it.
             let rules = content_filter_sql::for_pseud(db, viewer_pseud).await?;
             let filter = content_filter_sql::exclusion_for(&rules, "w.id");
+            // INFER (M70-12): a locked work is invisible here on purpose — nobody could have read it while signed out, so an
+            // edge or a count drawn from it would be a claim about content nobody was shown. See `db::visibility`.
             let sqlite = format!(
                 "SELECT w.id FROM works w
                  JOIN work_tags wt ON wt.work_id = w.id

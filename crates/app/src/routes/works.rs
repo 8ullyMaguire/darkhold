@@ -663,8 +663,11 @@ async fn update_work(
     // deindexing is enqueued, not performed here: the request that changes a
     // work is not the request that should spend time on a search cluster.
     if let Some(visibility) = &request.visibility {
-        let was_listable = work.visibility == "public";
-        let now_listable = visibility == "public";
+        // Listed means public OR restricted (M70-12): a locked work stays findable and keeps its place in the index, so
+        // moving a work from `public` to `restricted` is not a removal and must not deindex it. Only unlisted — and a
+        // word this build does not recognise — take a work out.
+        let was_listable = darkhold_db::visibility::is_listable(&work.visibility);
+        let now_listable = darkhold_db::visibility::is_listable(visibility);
         if was_listable && !now_listable {
             darkhold_db::outbox::enqueue(
                 state.db(),

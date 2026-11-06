@@ -525,6 +525,8 @@ pub async fn get_arena_pool(
                      JOIN revisions cr ON cr.id = c.current_revision_id
                      GROUP BY c.work_id
                  ) wc ON w.id = wc.work_id
+    // INFER (M70-12): a locked work is invisible on purpose — nobody could have read it while signed out, so a pool
+    // built from it would calibrate against text the reader was never shown. See `db::visibility`.
                  WHERE w.lifecycle = 'published'
                    AND w.visibility = 'public'
                    AND w.deleted_at IS NULL

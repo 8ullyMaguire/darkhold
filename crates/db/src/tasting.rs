@@ -696,6 +696,8 @@ async fn titles_and_summaries(
 /// it, and §49.5's queue is a *calibration* queue rather than a recommendation
 /// surface — offering a known work back would be a recommendation wearing a
 /// calibration hat.
+// INFER (M70-12): a locked work is invisible on purpose — nobody could have read it while signed out, so a pool
+// built from it would calibrate against text the reader was never shown. See `db::visibility`.
 pub async fn candidate_works(db: &Database, account_id: &str, limit: i64) -> Result<Vec<String>> {
     let sql = db.sql(
         "SELECT w.id

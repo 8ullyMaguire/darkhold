@@ -403,7 +403,7 @@ fn render_statement(
         )
     } else {
         format!(
-            "WHERE (works.lifecycle = 'published' AND works.visibility = 'public') \
+            "WHERE (works.lifecycle = 'published' AND works.visibility IN ('public', 'restricted')) \
          AND ({user_where})"
         )
     };

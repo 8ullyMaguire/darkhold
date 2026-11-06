@@ -53,6 +53,8 @@ pub async fn eligible_top(
     let filter = crate::search::content_filter_sql::exclusion_for(&rules, "w.id");
 
     // Bind order is positional: the filter's own binds, then the ids, then the account.
+    // INFER (M70-12): a locked work is invisible here on purpose — nobody could have read it while signed out, so an
+    // edge or a count drawn from it would be a claim about content nobody was shown. See `db::visibility`.
     let sqlite = format!(
         "SELECT CAST(w.id AS TEXT)
          FROM works w

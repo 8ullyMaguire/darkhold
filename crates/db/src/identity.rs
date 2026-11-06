@@ -819,6 +819,8 @@ pub async fn list_discoverable_pseuds(
     limit: i64,
     offset: i64,
 ) -> Result<Vec<(String, String, String, i64)>> {
+    // INFER (M70-12): a locked work is invisible on purpose — nobody could have read it while signed out, so a pool
+    // built from it would calibrate against text the reader was never shown. See `db::visibility`.
     let sql = db.sql(
         "SELECT p.id, p.handle, p.display_name, (
             SELECT COUNT(*) FROM works w

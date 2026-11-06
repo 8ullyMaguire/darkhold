@@ -496,7 +496,7 @@ pub async fn same_author_works(
           WHERE w.owner_pseud_id = (SELECT owner_pseud_id FROM works WHERE id = ?)
             AND w.id <> ?
             AND w.lifecycle = 'published'
-            AND w.visibility = 'public'
+            AND w.visibility IN ('public', 'restricted')
             AND w.deleted_at IS NULL
           ORDER BY CASE
                      WHEN EXISTS (SELECT 1 FROM reading_status rs
@@ -517,7 +517,7 @@ pub async fn same_author_works(
           WHERE w.owner_pseud_id = (SELECT owner_pseud_id FROM works WHERE id = $1::uuid)
             AND w.id <> $2::uuid
             AND w.lifecycle = 'published'
-            AND w.visibility = 'public'
+            AND w.visibility IN ('public', 'restricted')
             AND w.deleted_at IS NULL
           ORDER BY CASE
                      WHEN EXISTS (SELECT 1 FROM reading_status rs

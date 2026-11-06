@@ -973,7 +973,7 @@ pub async fn list_public_works_by_freshness(
     let (sqlite, postgres) = match sort {
         FreshnessSort::New => (
             "SELECT w.id FROM works w
-               WHERE w.lifecycle = 'published' AND w.visibility = 'public'
+               WHERE w.lifecycle = 'published' AND w.visibility IN ('public', 'restricted')
                  AND w.deleted_at IS NULL
                ORDER BY (SELECT MAX(e.occurred_at) FROM publication_events e
                           WHERE e.work_id = w.id AND e.action = 'publish') IS NULL ASC,
@@ -982,7 +982,7 @@ pub async fn list_public_works_by_freshness(
                         w.id DESC
                LIMIT ?",
             "SELECT w.id::text FROM works w
-               WHERE w.lifecycle = 'published' AND w.visibility = 'public'
+               WHERE w.lifecycle = 'published' AND w.visibility IN ('public', 'restricted')
                  AND w.deleted_at IS NULL
                ORDER BY (SELECT MAX(e.occurred_at) FROM publication_events e
                           WHERE e.work_id = w.id AND e.action = 'publish') IS NULL ASC,
@@ -993,7 +993,7 @@ pub async fn list_public_works_by_freshness(
         ),
         FreshnessSort::Updated => (
             "SELECT w.id FROM works w
-               WHERE w.lifecycle = 'published' AND w.visibility = 'public'
+               WHERE w.lifecycle = 'published' AND w.visibility IN ('public', 'restricted')
                  AND w.deleted_at IS NULL
                ORDER BY (SELECT MAX(e.occurred_at) FROM publication_events e
                           WHERE e.work_id = w.id
@@ -1004,7 +1004,7 @@ pub async fn list_public_works_by_freshness(
                         w.id DESC
                LIMIT ?",
             "SELECT w.id::text FROM works w
-               WHERE w.lifecycle = 'published' AND w.visibility = 'public'
+               WHERE w.lifecycle = 'published' AND w.visibility IN ('public', 'restricted')
                  AND w.deleted_at IS NULL
                ORDER BY (SELECT MAX(e.occurred_at) FROM publication_events e
                           WHERE e.work_id = w.id
