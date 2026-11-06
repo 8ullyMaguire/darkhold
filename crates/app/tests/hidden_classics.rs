@@ -515,7 +515,11 @@ async fn account(tdb: &TestDb, email: &str) -> String {
         &[
             &uuid::Uuid::new_v4().to_string(),
             &id.clone(),
-            &format!("h{}", &uuid::Uuid::new_v4().to_string()[..8]),
+            // Sixteen hex characters, not eight: the wide fixture makes thousands of accounts in one
+            // test, and eight characters put the birthday probability at ~1/700 per full run -- a
+            // failure that reads as a data bug (`UNIQUE constraint failed: pseuds_handle_normalized`)
+            // and reproduces once in ten runs. The handle is only ever an opaque label here.
+            &format!("h{}", &uuid::Uuid::new_v4().simple().to_string()[..16]),
         ],
     )
     .await;
