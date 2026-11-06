@@ -25,6 +25,7 @@ use axum::Router;
 use crate::assets;
 use crate::auth::MaybeSession;
 use crate::routes::document as docs;
+use crate::routes::provenance::Provenance;
 use crate::routes::works::{actor_for, parse_work_id, reading_decision_publishing_metadata, Reading};
 use crate::state::AppState;
 
@@ -156,6 +157,25 @@ async fn document(state: &AppState, work: &darkhold_db::content::Work) -> Respon
             .text(&status.join(" · "))
             .close("p");
     }
+
+    // ── where the text lives (M71-04) ────────────────────────────────────
+    //
+    // One sentence, in the same vocabulary the API uses, because a reader deciding whether to click deserves to know
+    // whether the click opens a chapter here or sends them elsewhere.
+    let word = crate::routes::provenance::for_work_ids(state, &[work.id.to_string()])
+        .await
+        .get(&work.id.to_string())
+        .copied()
+        .unwrap_or(Provenance::Known);
+    let sentence = match word {
+        Provenance::Hosted => "The text is here.",
+        Provenance::HostedLocked => "The text is held by this instance.",
+        Provenance::Referenced => "This instance catalogues the work; the text is not stored here.",
+        Provenance::Known => "Catalogued here; no text yet.",
+    };
+    page.open("p", &[("class", "provenance")])
+        .text(sentence)
+        .close("p");
 
     // ── the primary action, before the summary: a reader who already knows what this is should not scroll ──
     if let Some(first) = readable.first() {

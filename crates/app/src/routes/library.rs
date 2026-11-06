@@ -475,8 +475,33 @@ async fn list_bookmarks(
         query.subject_id.as_deref(),
     )
     .await?;
+    // M71-04: a bookmark on a work carries where that work's text lives. A bookmark on a library item does not: the
+    // item IS the pointer, and asking which work it points at would answer a different question.
+    let mut items: Vec<serde_json::Value> = rows.iter().map(bookmark_json).collect();
+    let works: Vec<String> = items
+        .iter()
+        .filter(|item| item.get("subject_type").and_then(|v| v.as_str()) == Some("work"))
+        .filter_map(|item| item.get("subject_id").and_then(|v| v.as_str()).map(str::to_owned))
+        .collect();
+    if !works.is_empty() {
+        let provenance = super::provenance::for_work_ids(&state, &works).await;
+        for item in items.iter_mut() {
+            if item.get("subject_type").and_then(|v| v.as_str()) != Some("work") {
+                continue;
+            }
+            let Some(id) = item.get("subject_id").and_then(|v| v.as_str()).map(str::to_owned) else {
+                continue;
+            };
+            if let (Some(word), Some(object)) = (provenance.get(&id), item.as_object_mut()) {
+                object.insert(
+                    "provenance".to_owned(),
+                    serde_json::Value::String(word.as_str().to_owned()),
+                );
+            }
+        }
+    }
     Ok(Json(serde_json::json!({
-        "items": rows.iter().map(bookmark_json).collect::<Vec<_>>(),
+        "items": items,
         "next_cursor": null,
     })))
 }

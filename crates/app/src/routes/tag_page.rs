@@ -58,6 +58,10 @@ async fn tag_page(
     let more = rows.len() as i64 > PAGE;
     rows.truncate(PAGE as usize);
 
+    // M71-04: one query for the page, and each entry says where its text lives — the same word the API returns.
+    let ids: Vec<String> = rows.iter().map(|(id, _, _, _)| id.clone()).collect();
+    let provenance = crate::routes::provenance::for_work_ids(&state, &ids).await;
+
     let mut page = docs::shell(&site, &format!("{shown} — {site}"), stylesheet.as_deref());
     page.open("main", &[]);
     page.open("h1", &[]).text(shown).close("h1");
@@ -77,8 +81,22 @@ async fn tag_page(
         page.open("a", &[("href", &format!("/works/{id}"))])
             .text(title)
             .close("a");
+        let word = provenance
+            .get(id)
+            .copied()
+            .unwrap_or(crate::routes::provenance::Provenance::Known);
+        let label = match word {
+            crate::routes::provenance::Provenance::Hosted => "readable here",
+            crate::routes::provenance::Provenance::HostedLocked => "held",
+            crate::routes::provenance::Provenance::Referenced => "elsewhere",
+            crate::routes::provenance::Provenance::Known => "no text yet",
+        };
         page.open("div", &[("class", "meta")])
-            .text(&format!("by {handle} · updated {}", &updated[..10.min(updated.len())]))
+            .text(&format!(
+                "by {handle} · {} · updated {}",
+                label,
+                &updated[..10.min(updated.len())]
+            ))
             .close("div");
         page.close("li");
     }

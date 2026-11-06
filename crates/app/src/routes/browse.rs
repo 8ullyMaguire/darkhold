@@ -358,6 +358,9 @@ struct WorksByTagItem {
     title: String,
     author_handle: String,
     updated_at: String,
+    /// Where the text lives, in the API's own vocabulary (M71-04). Filled after the list is built, in one grouped
+    /// query, so the badge a reader sees and the word an API client reads are the same fact.
+    provenance: String,
 }
 
 async fn list_works_by_tag(
@@ -393,11 +396,24 @@ async fn list_works_by_tag(
                 title,
                 author_handle,
                 updated_at,
+                provenance: "known".to_owned(),
             },
         )
         .collect();
 
     apply_works_sort(&mut items, &sort);
+
+    // One query for the page, not one per row (M71-04).
+    let ids: Vec<String> = items.iter().map(|item| item.work_id.clone()).collect();
+    let provenance = super::provenance::for_work_ids(&state, &ids).await;
+    for item in items.iter_mut() {
+        item.provenance = provenance
+            .get(&item.work_id)
+            .copied()
+            .unwrap_or(super::provenance::Provenance::Known)
+            .as_str()
+            .to_owned();
+    }
 
     Ok(Json(serde_json::json!({
         "items": items,
@@ -522,6 +538,7 @@ async fn list_works_by_fandom(
                 title,
                 author_handle,
                 updated_at,
+                provenance: "known".to_owned(),
             },
         )
         .collect();

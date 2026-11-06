@@ -81,6 +81,7 @@ pub mod quiz;
 pub mod rating_integrity;
 pub mod reader_body_copies;
 pub mod reader_body_fetch;
+pub mod provenance;
 pub mod reader_page;
 pub mod reader_surface;
 pub mod reading;

@@ -377,8 +377,17 @@ async fn search(
         }
     }
 
+    // M71-04: a search hit names a work, so it carries where that work's text lives. One grouped query for the page.
+    let mut items = serde_json::to_value(&results)
+        .ok()
+        .and_then(|value| value.as_array().cloned())
+        .unwrap_or_default();
+    let ids = super::provenance::ids_in(&items, "work_id");
+    let provenance = super::provenance::for_work_ids(&state, &ids).await;
+    super::provenance::attach(&mut items, "work_id", &provenance);
+
     Ok(Json(serde_json::json!({
-        "items": results,
+        "items": items,
         "filters": {
             "min_words": min_words,
             "max_words": max_words,
