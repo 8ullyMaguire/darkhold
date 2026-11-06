@@ -22,9 +22,15 @@ Two rules that decide the order:
 Shipped: M69-08 (blend decay, floor, score-first ordering, 0109d288), M69-19 (NPMI, da36de8e), M69-12 + M71-06 (reason +
 match percentage, e93f94e6), M64-01 (surface registry, load-time validation, refusals by name, be0aead0).
 
-M64-01 remains open on one point, recorded in its ledger row: the surfaces' **routes** still call the legacy path, so the
-registry is the source of truth and the endpoint exposes it, but the feed does not yet read its configured algorithm set.
-That wiring is the next M64 step and it is also what makes M64-02's per-algorithm logging meaningful.
+M64-01 is now **fully tested** (0debecd9): `discover.feed` reads its configured engine set, an engine outside the set
+does not run and costs no query, and the surfaces endpoint separates "no engine implements this" from "its table is
+empty". Three callers still pass `None` with the reason written at the call site: the concierge queue (`home.curated`),
+the draw (`draw.hand`, not yet a registry surface) and recipe runs (recipes compose, they do not read a surface set).
+
+Next M64 step: **M64-02**, and it is a schema change — a sticky bucket assignment per pseud needs its own table, because
+a bucket recomputed from a hash each request is not sticky once the algorithm list changes. The logging it complements
+already exists in `recommendation_slots` (pseud, work, request, position, reasons, mechanism, recipe_stage, propensity,
+chosen_at).
 
 ## Batch 2 — the visible contract
 

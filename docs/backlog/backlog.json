@@ -4,9 +4,9 @@
       "rows": 942,
       "by_status": {
         "implemented-verified-e2e": 139,
-        "implemented-locally-tested": 259,
+        "implemented-locally-tested": 258,
         "unsupported": 4,
-        "implemented-fully-tested": 434,
+        "implemented-fully-tested": 435,
         "implemented": 10,
         "planned": 89,
         "evaluated-and-rejected": 7
