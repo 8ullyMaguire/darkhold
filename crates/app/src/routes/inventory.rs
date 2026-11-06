@@ -5628,6 +5628,13 @@ pub const ROUTE_TABLE: &[RouteEntry] = &[
     },
     RouteEntry {
         file: "experiment_sweep.rs",
+        handler: "overview",
+        method: "GET",
+        path: "/operator/experiments",
+        audience: Audience::Authenticated,
+    },
+    RouteEntry {
+        file: "experiment_sweep.rs",
         handler: "sweep",
         method: "POST",
         path: "/operator/experiments/sweep",

@@ -1631,6 +1631,63 @@ async fn a_promoted_surface_runs_the_algorithms_the_experiment_installed() {
 }
 
 #[tokio::test]
+async fn the_experiment_console_is_an_operator_door_and_the_sweep_is_invisible_to_readers() {
+    // M64-15's read surface, and M64-04's operator gate, in one test because they share the gate: a ride-or-die pair of
+    // claims — the operator sees the numbers, a reader's probe learns the endpoints do not exist.
+    let harness = Harness::with_operator("experiment-console", "Operator").await;
+    let mut operator = harness.client();
+    let (status, _) = operator
+        .post(
+            "/api/v1/auth/login",
+            json!({ "email": "operator@example.com", "password": GOOD_PASSWORD }),
+        )
+        .await;
+    assert_eq!(status, StatusCode::OK, "the operator signs in");
+
+    // Seed one arm with numbers, so the console has something to show rather than an empty list.
+    let seed = "INSERT INTO experiment_snapshots \
+         (id, surface_id, arm, day, impressions, readers, guest_readers, events, computed_at) \
+         VALUES ('01955000-0000-4000-8000-00000000c001', 'discover.feed', 0, '2026-11-08', 1000, 10, 0, 100, \
+                 '2026-11-08T00:00:00Z')";
+    match harness.db.backend() {
+        darkhold_db::Backend::Sqlite => {
+            sqlx::query(seed)
+                .execute(harness.db.sqlite_pool().expect("sqlite"))
+                .await
+                .expect("seed a snapshot");
+        }
+        darkhold_db::Backend::Postgres => {
+            sqlx::query(seed)
+                .execute(harness.db.postgres_pool().expect("postgres"))
+                .await
+                .expect("seed a snapshot");
+        }
+    }
+
+    let (status, body) = operator.get("/api/v1/operator/experiments").await;
+    assert_eq!(status, StatusCode::OK, "body: {body}");
+    let surfaces = body["surfaces"].as_array().expect("surfaces");
+    let feed = surfaces
+        .iter()
+        .find(|entry| entry["surface"] == "discover.feed")
+        .expect("the feed's experiment is listed");
+    assert_eq!(feed["numbers"][0]["impressions"], 1000, "{feed}");
+    assert_eq!(
+        feed["numbers"][0]["conversion_rate"].as_f64().unwrap_or_default(),
+        0.1,
+        "the console shows the rate the snapshot measured, not a recomputation: {feed}"
+    );
+    // A reader — no operator account id — gets 404 from both doors, not 403: confirmation of existence is the disclosure.
+    let mut reader = harness.reader("ConsoleProbe").await;
+    let (status, _) = reader.get("/api/v1/operator/experiments").await;
+    assert_eq!(status, StatusCode::NOT_FOUND);
+    let (status, _) = reader
+        .post("/api/v1/operator/experiments/sweep?day=2026-11-08", json!({}))
+        .await;
+    assert_eq!(status, StatusCode::NOT_FOUND);
+}
+
+#[tokio::test]
 async fn an_anonymous_recommendation_carries_no_slot_id() {
     // A slot is a record of what a *reader* was shown, so there is nothing to
     // record for someone who is not one. Emitting an id nobody can later

@@ -22,7 +22,7 @@
 //! operator surface already uses.
 
 use axum::extract::{Query, State};
-use axum::routing::post;
+use axum::routing::{get, post};
 use axum::{Json, Router};
 use serde::Deserialize;
 use serde_json::{json, Value};
@@ -61,7 +61,108 @@ fn require_operator(state: &AppState, user: &crate::auth::SessionUser) -> ApiRes
 }
 
 pub fn router() -> Router<AppState> {
-    Router::new().route("/operator/experiments/sweep", post(sweep))
+    Router::new()
+        .route("/operator/experiments/sweep", post(sweep))
+        .route("/operator/experiments", get(overview))
+}
+
+#[derive(Deserialize)]
+struct OverviewQuery {
+    /// `YYYY-MM-DD`. Absent means the most recent day that has a snapshot.
+    day: Option<String>,
+}
+
+/// Every live experiment, with its numbers — M64-15's read surface.
+///
+/// The console is not a new system: the numbers are the snapshot rows, the swap is the override row, and the argument is the
+/// decision row written when it happened. This composes the three rather than restating them, so the console cannot show a
+/// surface running one set of algorithms while the feed runs another.
+async fn overview(
+    State(state): State<AppState>,
+    session: RequireSession,
+    Query(params): Query<OverviewQuery>,
+) -> ApiResult<Json<Value>> {
+    require_operator(&state, &session.0)?;
+    if let Some(day) = params.day.as_deref() {
+        if day.len() != 10 {
+            return Err(ApiError(AppError::field("day", "is YYYY-MM-DD")));
+        }
+    }
+
+    let snapshots = match params.day.as_deref() {
+        Some(day) => darkhold_db::experiment_snapshots::day_snapshots(state.db(), day)
+            .await
+            .map_err(|error| ApiError(AppError::internal("reading snapshots", error)))?,
+        None => darkhold_db::experiment_snapshots::latest_snapshots(state.db())
+            .await
+            .map_err(|error| ApiError(AppError::internal("reading snapshots", error)))?
+            .unwrap_or_default(),
+    };
+
+    // One entry per surface that has any arm with numbers, plus the arms' aggregates. `BTreeMap` keeps the response ordered
+    // by surface id, so a console diff between two days is readable.
+    let mut by_surface: std::collections::BTreeMap<String, Vec<Value>> =
+        std::collections::BTreeMap::new();
+    let mut arms_by_surface: std::collections::BTreeMap<String, i64> =
+        std::collections::BTreeMap::new();
+    for snapshot in &snapshots {
+        let rate = if snapshot.impressions > 0 {
+            snapshot.events as f64 / snapshot.impressions as f64
+        } else {
+            0.0
+        };
+        by_surface
+            .entry(snapshot.surface_id.clone())
+            .or_default()
+            .push(json!({
+                "arm": snapshot.arm,
+                "impressions": snapshot.impressions,
+                "readers": snapshot.readers,
+                "guest_readers": snapshot.guest_readers,
+                "events": snapshot.events,
+                "conversion_rate": rate,
+            }));
+        arms_by_surface
+            .entry(snapshot.surface_id.clone())
+            .and_modify(|count| *count = (*count).max(snapshot.arm + 1))
+            .or_insert(snapshot.arm + 1);
+    }
+
+    let mut surfaces = Vec::new();
+    for (surface_id, arms) in by_surface {
+        let override_algorithms =
+            darkhold_db::experiment_decisions::override_for(state.db(), &surface_id)
+                .await
+                .map_err(|error| ApiError(AppError::internal("reading an override", error)))?;
+        let last_decision = darkhold_db::experiment_decisions::decisions_for(state.db(), &surface_id)
+            .await
+            .map_err(|error| ApiError(AppError::internal("reading decisions", error)))?
+            .into_iter()
+            .next();
+
+        surfaces.push(json!({
+            "surface": surface_id,
+            "arms": arms_by_surface.get(&surface_id).copied().unwrap_or(0),
+            "numbers": arms,
+            "override": override_algorithms,
+            // The argument, verbatim from the row that made it — a console that recomputed the reason could disagree with the
+            // record it is displaying.
+            "last_decision": last_decision.map(|decision| json!({
+                "decision": decision.decision,
+                "day": decision.day,
+                "lift": decision.lift,
+                "evidence": decision.evidence,
+                "algorithms_before": decision.algorithms_before,
+                "algorithms_after": decision.algorithms_after,
+            })),
+        }));
+    }
+
+    Ok(Json(json!({
+        "day": params.day,
+        "configured_arms": state.config().discovery.experiment_buckets,
+        "surfaces": surfaces,
+    })))
 }
 
 async fn sweep(
