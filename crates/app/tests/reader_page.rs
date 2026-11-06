@@ -577,3 +577,70 @@ async fn a_signed_out_visitor_may_read() {
         "a signed-out reader reads: {body}"
     );
 }
+
+/// M71-10 — the reader's no-JavaScript guarantee, tested rather than claimed.
+///
+/// The reader is server-rendered, and that has been asserted piece by piece (the text is in the body, the navigation
+/// is a link, the position save degrades). This states the whole claim in one place, because the guarantee is only
+/// worth what its weakest element is: a page that renders prose but needs a script to turn a chapter is not a page a
+/// no-JavaScript reader can use.
+///
+/// It also asserts the two form posts a reader without a script needs and that the page did not have before this
+/// test: **the position save**. Scrolling is the enhancement; recording a place is the mechanism, and a reader with
+/// JavaScript off must be able to say where they are.
+#[tokio::test]
+async fn the_reader_needs_no_javascript_at_all() {
+    let harness = Harness::new("nojs").await;
+    let mut client = harness.client();
+    let (work_id, first_unit, second_unit) = published_work_with_two_units(&mut client, "nojsreader").await;
+
+    let (status, body, _) = client
+        .get(&format!("/works/{work_id}/units/{first_unit}"))
+        .await;
+    assert_eq!(status, StatusCode::OK, "{body}");
+
+    assert!(
+        !body.contains("<script"),
+        "no element the reader needs may be script-inserted: {body}"
+    );
+    assert!(
+        body.contains("The body of unit number 1."),
+        "the prose is in the response: {body}"
+    );
+
+    // The table of contents is links to every unit.
+    assert!(
+        body.contains(&format!("href=\"/works/{work_id}/units/{first_unit}\"")),
+        "the contents lists this unit: {body}"
+    );
+    assert!(
+        body.contains(&format!("href=\"/works/{work_id}/units/{second_unit}\"")),
+        "the contents lists the other unit, and the navigation links it: {body}"
+    );
+
+    // The forms the page offers are form posts, not fetches.
+    assert!(
+        body.contains(&format!(
+            "action=\"/works/{work_id}/units/{first_unit}/position\""
+        )),
+        "a reader without a script can record their place: {body}"
+    );
+    assert!(
+        body.contains(&format!("action=\"/works/{work_id}/units/{first_unit}/dnf\"")),
+        "and can say they did not finish: {body}"
+    );
+
+    // And the position form works as a form post: no JSON, no CSRF header, just a submission with the field names
+    // the page actually renders (`position_permille`, `unit_id`, `content_revision`).
+    let (status, _, headers) = client
+        .post_form(
+            &format!("/works/{work_id}/units/{first_unit}/position"),
+            &format!("position_permille=0&unit_id={first_unit}&content_revision="),
+        )
+        .await;
+    assert!(
+        status.is_redirection(),
+        "a plain form post is answered with a redirect back to the reader, not an error: {status} {:?}",
+        headers
+    );
+}
