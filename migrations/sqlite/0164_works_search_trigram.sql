@@ -1,0 +1,12 @@
+-- Postgres-only accelerator: nothing to run here.
+--
+-- The Postgres arm of this migration installs `pg_trgm` and two trigram GIN indexes so that `title ILIKE '%term%'`
+-- and `summary ILIKE '%term%'` can be answered by a bitmap index scan instead of a sequential scan. SQLite has no
+-- trigram operator class and no GIN, so the same statement is a table scan on this engine — 58k rows in tens of
+-- milliseconds, which is why the dev engine never needed the accelerator and why its absence here is not a
+-- regression: the two engines are not required to be equally fast, only equally correct.
+--
+-- The SQLite answer would be FTS5, but the search statement is shared between the engines and FTS5 needs a different
+-- query shape (`MATCH` against a scoring table). That is a change in the store, not a migration, and it belongs to
+-- whoever makes the search statement engine-conditional.
+select 1;
