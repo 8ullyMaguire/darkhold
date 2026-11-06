@@ -22,6 +22,7 @@ use axum::{Json, Router};
 use serde::Deserialize;
 use serde_json::json;
 
+use crate::auth::MaybeSession;
 use crate::state::AppState;
 
 #[derive(Debug, Deserialize)]
@@ -40,7 +41,14 @@ pub fn router() -> Router<AppState> {
 ///
 /// `feed` absent is `UnknownFeed` rather than a bare bad request: the lexicon marks the parameter required, but a
 /// consumer that omits it is asking for a feed by no name, and `UnknownFeed` says that in one word.
-async fn get_feed_skeleton(State(_state): State<AppState>, Query(_q): Query<SkeletonQuery>) -> Response {
+/// `MaybeSession` rather than nothing: the route is public, and taking the extractor is what makes that a claim the
+/// route table can check (`every_route_has_correct_audience`). The viewer is unused until a slice needs to filter a
+/// skeleton by blocks or mutes — at which point the door already carries the answer.
+async fn get_feed_skeleton(
+    State(_state): State<AppState>,
+    MaybeSession(_viewer): MaybeSession,
+    Query(_q): Query<SkeletonQuery>,
+) -> Response {
     (
         StatusCode::BAD_REQUEST,
         Json(json!({ "error": "UnknownFeed", "message": "this generator serves no such feed" })),

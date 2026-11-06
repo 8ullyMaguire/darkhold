@@ -5603,4 +5603,14 @@ pub const ROUTE_TABLE: &[RouteEntry] = &[
         path: "/works/{id}",
         audience: Audience::Public,
     },
+    // W6 §7.5a, merged from the thinkcentre line: the ATProto feed skeleton an AppView asks for by feed URI. The
+    // handler takes no session extractor, so the door is public — a skeleton is a list of post references, and the
+    // records behind them are public by the nature of ATProto.
+    RouteEntry {
+        file: "atproto_feed.rs",
+        handler: "get_feed_skeleton",
+        method: "GET",
+        path: "/xrpc/app.bsky.feed.getFeedSkeleton",
+        audience: Audience::Public,
+    },
 ];
