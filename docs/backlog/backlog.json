@@ -4,12 +4,12 @@
       "rows": 942,
       "by_status": {
         "implemented-verified-e2e": 139,
-        "implemented-locally-tested": 250,
+        "implemented-locally-tested": 251,
         "unsupported": 4,
         "implemented-fully-tested": 433,
         "implemented": 9,
-        "planned": 101,
-        "evaluated-and-rejected": 6
+        "planned": 99,
+        "evaluated-and-rejected": 7
       }
     },
     "concord": {
@@ -281,12 +281,6 @@
       "milestone": "M45",
       "requirement": "erasure reaches the supply routing record: \u00a758.3 keeps a routing row forever, and GDPR erasure must still remove the account from it",
       "notes": "Found while building M45-25. \u00a758.3 says a routing row is never deleted because an abandoned routing is evidence the reader was asked; \u00a751's cascade (M45-51) has to reach supply_routing.account_id anyway, because it is personal data. The two are compatible (keep the row, replace the account with a per-snapshot key) but the cascade list has to be told, and nothing today enumerates which tables carry an account column. Already recorded as drop_table in docs/snapshot-column-policy.json so the row never reaches a published dataset."
-    },
-    {
-      "id": "M65-09",
-      "milestone": "M65",
-      "requirement": "the module gate skips the per-user lookup when nobody holds an override",
-      "notes": "Deferred from M65-04 with its reason: the gate currently does one indexed primary-key read per request to a per_user surface with a session. A process-wide 'any overrides exist' flag would skip it, but the flag must be initialised from the table at startup, bumped on every PATCH, cleared when the last row is deleted, and would be wrong for a second process sharing the database. Worth doing when a per_user surface is hot enough for the read to appear in a profile, not before."
     },
     {
       "id": "GS-1",
@@ -583,12 +577,6 @@
       "notes": "Priority 3. The anchor system exists; the honesty layer does not. \u00a78.14 and \u00a78.17 make silence and silent overwrite both bugs; \u00a711 forbids fake precision. Acceptance: three tests, one per state, each asserting the choice text and that no percentage is fabricated."
     },
     {
-      "id": "M71-10",
-      "milestone": "M71",
-      "requirement": "The reader's no-JavaScript guarantee is tested rather than claimed: fetching a unit's HTML with no script execution yields the prose, chapter navigation as links, the table of contents, and working form posts for reveal, position and DNF.",
-      "notes": "Priority 3. The reader is already server-rendered; the guarantee is untested, so it can regress silently. Acceptance: an app test that parses the HTML response and asserts no element needed for reading is script-inserted, plus a mutation that breaks one link and reddens it."
-    },
-    {
       "id": "M71-11",
       "milestone": "M71",
       "requirement": "Facet counts are a server capability with a latency budget: one endpoint returns counts per facet value under the current filter set, the UI renders them per group and shows '\u2014' while they update, and the p95 stays inside the budget on the 141k-row catalogue.",
@@ -634,12 +622,11 @@
   "open_by_milestone": {
     "M69": 24,
     "M63": 17,
-    "M71": 16,
+    "M71": 15,
     "M64": 14,
     "M45": 13,
     "M16": 7,
     "M66": 6,
-    "M65": 1,
     "M29": 1,
     "M44": 1,
     "M70": 1
