@@ -535,7 +535,7 @@ pub const IDEAS: &[Module] = &[
     Module {
         id: "M64-04",
         name: "a challenger is promoted automatically only on a sequential-test win with every…",
-        summary: "5c9053df P4. The four conditions are all required: confidence sequence valid under continuous monitoring (not a peeked fixed-horizon p-value), guardrails in bounds, >= 1000 impress",
+        summary: "5434fc26 P4. The four conditions are all required: confidence sequence valid under continuous monitoring (not a peeked fixed-horizon p-value), guardrails in bounds, >= 1000 impress",
         default_on: false,
         stability: Stability::Planned,
         toggle: Toggle::Operator,

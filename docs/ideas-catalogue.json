@@ -484,7 +484,7 @@
    "built": false
   },
   {
-   "why_summary": "5c9053df P4. The four conditions are all required: confidence sequence valid under continuous monitoring (not a peeked fixed-horizon p-value), guardrails in bounds, >= 1000 impress",
+   "why_summary": "5434fc26 P4. The four conditions are all required: confidence sequence valid under continuous monitoring (not a peeked fixed-horizon p-value), guardrails in bounds, >= 1000 impress",
    "id": "M64-04",
    "title": "a challenger is promoted automatically only on a sequential-test win with every guardrail in bounds, at minimum sample and after seven days, and demoted automatically when a guardrail breaches on two consecutive snapshots",
    "sources": [
