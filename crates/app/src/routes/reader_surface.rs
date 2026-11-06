@@ -156,9 +156,34 @@ async fn similar(
     MaybeSession(_session): MaybeSession,
     Path(work_id): Path<String>,
 ) -> ApiResult<Json<WorksResponse<darkhold_db::reader_surface::SurfaceWork>>> {
-    let works = darkhold_db::reader_surface::similar_works(state.db(), &work_id, SIMILAR)
-        .await
-        .map_err(|e| crate::http::ApiError(darkhold_domain::AppError::Internal(e)))?;
+    // M64-11: this surface reads its configured algorithm set (M64-01) instead of running the tag engine unconditionally.
+    // Before this, an operator override on `story.similar` changed the registry, the console and the sweep while the page kept
+    // serving tag Jaccard — a surface that reports one thing and does another. The tag engines share one implementation here,
+    // so `tag_jaccard`, `tag_cooccurrence` and `npmi` all turn it on together.
+    let engines = crate::routes::discovery::enabled_engines_for_bucket(&state, "story.similar", None);
+    let runs = |reason: &str| engines.is_empty() || engines.contains(reason);
+
+    let mut works = Vec::new();
+    if runs("tags") {
+        works = darkhold_db::reader_surface::similar_works(state.db(), &work_id, SIMILAR)
+            .await
+            .map_err(|e| crate::http::ApiError(darkhold_domain::AppError::Internal(e)))?;
+    }
+    if runs("co_shelving") {
+        let co_shelved =
+            darkhold_db::reader_surface::co_shelved_works(state.db(), &work_id, SIMILAR)
+                .await
+                .map_err(|e| crate::http::ApiError(darkhold_domain::AppError::Internal(e)))?;
+        // Tag-first, co-shelving after, deduplicated by id: the tag engine's score is a similarity and the co-shelving score is
+        // a shelf-count share, so interleaving them by numeric score would compare two different quantities. A work both
+        // engines name keeps the tag position and is not repeated.
+        for work in co_shelved {
+            if !works.iter().any(|existing| existing.id == work.id) {
+                works.push(work);
+            }
+        }
+        works.truncate(SIMILAR.max(0) as usize);
+    }
 
     Ok(Json(WorksResponse::new(works)))
 }

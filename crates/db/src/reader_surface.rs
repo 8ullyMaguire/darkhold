@@ -504,6 +504,15 @@ pub async fn similar_works(db: &Database, work_id: &str, limit: i64) -> Result<V
     });
     scored.truncate(limit.max(0) as usize);
 
+    hydrate_scored(db, scored).await
+}
+
+/// Load the works for `(id, score)` pairs and hand them back in score order.
+///
+/// Extracted so the co-shelving engine (`co_shelved_works`) hydrates its rows with the same statement, the same UUID binding and
+/// the same tie-break as the tag engine: two hydrations of the same table is how one of them ends up with a `::uuid` cast the
+/// other lacks, and the two-engine run is the only place that shows up.
+async fn hydrate_scored(db: &Database, scored: Vec<(String, f64)>) -> Result<Vec<SurfaceWork>> {
     if scored.is_empty() {
         return Ok(Vec::new());
     }
@@ -595,6 +604,75 @@ pub async fn similar_works(db: &Database, work_id: &str, limit: i64) -> Result<V
             .then_with(|| a.id.cmp(&b.id))
     });
     Ok(out)
+}
+
+/// Works that share a **public** shelf with this one (M64-11, `co_shelving` on `story.similar`).
+///
+/// The seed is the work page's subject: readers who shelved it also shelved these. Public shelves only, published and public
+/// targets only, the subject itself excluded — the same three rules as `discovery::co_shelving_recommendations`, and for the
+/// same reasons (a private list is not a source; an unreachable work is not evidence).
+///
+/// The score is the count divided by the busiest co-shelved work, so `similarity` on this route stays comparable with the tag
+/// engine's `0..=1` rather than being a raw shelf count in a field whose other producer is a Jaccard coefficient.
+pub async fn co_shelved_works(
+    db: &Database,
+    work_id: &str,
+    limit: i64,
+) -> Result<Vec<SurfaceWork>> {
+    let sqlite = "SELECT CAST(li2.work_id AS TEXT), COUNT(*) AS shared \
+         FROM shelf_items seed \
+         JOIN library_items liseed ON liseed.id = seed.library_item_id AND liseed.work_id = ?1 \
+         JOIN shelves sseed ON sseed.id = seed.shelf_id AND sseed.is_public = 1 \
+         JOIN shelf_items other ON other.shelf_id = seed.shelf_id AND other.library_item_id <> seed.library_item_id \
+         JOIN library_items li2 ON li2.id = other.library_item_id \
+         JOIN works w ON w.id = li2.work_id \
+         WHERE li2.work_id IS NOT NULL AND li2.work_id <> ?1 \
+           AND w.lifecycle = 'published' AND w.visibility = 'public' AND w.deleted_at IS NULL \
+         GROUP BY li2.work_id ORDER BY shared DESC, li2.work_id LIMIT ?2";
+    let postgres = "SELECT li2.work_id::text, COUNT(*) AS shared \
+         FROM shelf_items seed \
+         JOIN library_items liseed ON liseed.id = seed.library_item_id AND liseed.work_id = $1 \
+         JOIN shelves sseed ON sseed.id = seed.shelf_id AND sseed.is_public = 1 \
+         JOIN shelf_items other ON other.shelf_id = seed.shelf_id AND other.library_item_id <> seed.library_item_id \
+         JOIN library_items li2 ON li2.id = other.library_item_id \
+         JOIN works w ON w.id = li2.work_id \
+         WHERE li2.work_id IS NOT NULL AND li2.work_id <> $1 \
+           AND w.lifecycle = 'published' AND w.visibility = 'public' AND w.deleted_at IS NULL \
+         GROUP BY li2.work_id ORDER BY shared DESC, li2.work_id LIMIT $2";
+    let sql = db.sql(sqlite, postgres);
+    // The seed is a uuid on PostgreSQL and TEXT on SQLite: binding the parsed uuid on one and the string on the other is what
+    // keeps `work_id = $1` typed, and the alternative (`'{}'::uuid` interpolation) is the bug the hydration above documents.
+    let seed_uuid = uuid::Uuid::parse_str(work_id).ok();
+
+    let rows: Vec<(String, i64)> = match db.backend() {
+        Backend::Sqlite => {
+            sqlx::query_as(&sql)
+                .bind(work_id)
+                .bind(limit)
+                .fetch_all(db.sqlite_pool().expect("sqlite handle"))
+                .await?
+        }
+        Backend::Postgres => {
+            let Some(seed_uuid) = seed_uuid else {
+                return Ok(Vec::new());
+            };
+            sqlx::query_as(&sql)
+                .bind(seed_uuid)
+                .bind(limit)
+                .fetch_all(db.postgres_pool().expect("postgres handle"))
+                .await?
+        }
+    };
+
+    let busiest = rows.iter().map(|(_, shared)| *shared).max().unwrap_or(0);
+    if busiest == 0 {
+        return Ok(Vec::new());
+    }
+    let scored: Vec<(String, f64)> = rows
+        .into_iter()
+        .map(|(id, shared)| (id, shared as f64 / busiest as f64))
+        .collect();
+    hydrate_scored(db, scored).await
 }
 
 /// `work_id -> (node_id, evidence weight)` for the subject and everything sharing a node.

@@ -368,6 +368,125 @@ async fn similar_is_public_and_returns_scored_matches() {
     );
 }
 
+/// M64-11: `story.similar` reads its **configured** algorithm set, so `co_shelving` reaches the page — and stops reaching it
+/// when the configuration says so. Two halves, because either one alone passes for the wrong reason: a page that ignores the
+/// config is a page whose operator console lies, and a page that ignores the shelves is a page that never needed the engine.
+#[tokio::test]
+async fn similar_follows_its_configured_algorithms() {
+    let h = Harness::new("sim-config").await;
+    // Tagged, but with a tag nothing shares — the tag engine has an opinion and it is "nothing matches".
+    let subject = h.work("Subject").await;
+    let lonely = h.node("fandom", "Only Subject Has This").await;
+    h.tag(&subject, &lonely).await;
+
+    // A work with no tag in common, on a public shelf alongside the subject.
+    let alongside = h.work("Shelved alongside").await;
+    let other_tag = h.node("mood", "unrelated").await;
+    h.tag(&alongside, &other_tag).await;
+
+    let shelf_owner = h.account().await;
+    let shelf = uuid::Uuid::new_v4().to_string();
+    h.exec(
+        "INSERT INTO shelves (id, account_id, name, is_public, created_at, updated_at, version)
+         VALUES (?1, ?2, 'Both of these', 1, ?3, ?3, 1)",
+        &[&shelf, &shelf_owner, T0],
+    )
+    .await;
+    for work in [&subject, &alongside] {
+        let item = uuid::Uuid::new_v4().to_string();
+        h.exec(
+            "INSERT INTO library_items (id, account_id, work_id, source_key, source_work_key, title,
+                                        source_url, created_at, updated_at, version)
+             VALUES (?1, ?2, ?3, 'manual', ?1, 'x', 'https://example.invalid/x', ?4, ?4, 1)",
+            &[&item, &shelf_owner, work, T0],
+        )
+        .await;
+        h.exec(
+            "INSERT INTO shelf_items (id, shelf_id, library_item_id, created_at)
+             VALUES (?1, ?2, ?3, ?4)",
+            &[&uuid::Uuid::new_v4().to_string(), &shelf, &item, T0],
+        )
+        .await;
+    }
+
+    // The same shelf shape, private, holding the subject and a third work: the engine must not read it. Without this half the
+    // test would pass on a query that opens every shelf in the instance.
+    let secret = h.work("On a private shelf").await;
+    let private_shelf = uuid::Uuid::new_v4().to_string();
+    h.exec(
+        "INSERT INTO shelves (id, account_id, name, is_public, created_at, updated_at, version)
+         VALUES (?1, ?2, 'Kept to myself', 0, ?3, ?3, 1)",
+        &[&private_shelf, &shelf_owner, T0],
+    )
+    .await;
+    for work in [&subject, &secret] {
+        let item = uuid::Uuid::new_v4().to_string();
+        h.exec(
+            "INSERT INTO library_items (id, account_id, work_id, source_key, source_work_key, title,
+                                        source_url, created_at, updated_at, version)
+             VALUES (?1, ?2, ?3, 'manual', ?1, 'x', 'https://example.invalid/x', ?4, ?4, 1)",
+            &[&item, &shelf_owner, work, T0],
+        )
+        .await;
+        h.exec(
+            "INSERT INTO shelf_items (id, shelf_id, library_item_id, created_at)
+             VALUES (?1, ?2, ?3, ?4)",
+            &[&uuid::Uuid::new_v4().to_string(), &private_shelf, &item, T0],
+        )
+        .await;
+    }
+
+    let (status, json) = h
+        .get_json(&format!("/api/v1/works/{subject}/similar"))
+        .await;
+    assert_eq!(status, StatusCode::OK);
+    let ids: Vec<&str> = json["works"]
+        .as_array()
+        .expect("array")
+        .iter()
+        .filter_map(|work| work["id"].as_str())
+        .collect();
+    assert!(
+        ids.contains(&alongside.as_str()),
+        "a work sharing no tag but a public shelf is a similar work: {json}"
+    );
+    assert!(
+        !ids.contains(&secret.as_str()),
+        "a private shelf is not a source for a rail: {json}"
+    );
+
+    // Now the same data with `co_shelving` taken out of the surface's configured set.
+    let mut config = h.config.clone();
+    config.discovery.surfaces.insert(
+        "story.similar".to_owned(),
+        vec!["tag_jaccard".to_owned()],
+    );
+    let router = server::build_router(AppState::new(config, h.db.clone()));
+    let response = router
+        .oneshot(
+            axum::http::Request::builder()
+                .uri(format!("/api/v1/works/{subject}/similar"))
+                .body(axum::body::Body::empty())
+                .expect("request"),
+        )
+        .await
+        .expect("response");
+    let body = axum::body::to_bytes(response.into_body(), usize::MAX)
+        .await
+        .expect("body");
+    let json: serde_json::Value = serde_json::from_slice(&body).expect("json");
+    let ids: Vec<&str> = json["works"]
+        .as_array()
+        .expect("array")
+        .iter()
+        .filter_map(|work| work["id"].as_str())
+        .collect();
+    assert!(
+        !ids.contains(&alongside.as_str()),
+        "with co_shelving unconfigured the shelf must not reach the page: {json}"
+    );
+}
+
 /// The work itself never appears on its own rail, even over HTTP.
 #[tokio::test]
 async fn similar_never_recommends_the_work_itself() {
