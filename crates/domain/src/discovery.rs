@@ -166,36 +166,76 @@ pub struct Candidate {
 }
 
 /// Blend candidates from multiple engines deterministically.
+/// How the blend treats repeated contributions and the tail (M69-08).
+///
+/// **Decay** is per work, not per engine position: the first engine that names a work contributes its full score, the
+/// second `decay`, the third `decay²`. Two engines agreeing is evidence; five engines agreeing is not five times the
+/// evidence, and a plain sum says it is. Position-based decay was rejected because it punishes the third engine's
+/// *entire* list, including the works only it found.
+///
+/// **Floor** is a score below which a candidate is not served at all. Zero keeps everything, which is what a surface
+/// that ranks a short list wants; a surface that pads a page out of a weak tail wants a real number.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct BlendOptions {
+    /// Multiplier applied to each repeated contribution after the first. 1.0 disables decay.
+    pub decay: f64,
+    /// Candidates scoring below this are dropped. 0 keeps everything with a non-negative score.
+    pub floor: i64,
+}
+
+impl Default for BlendOptions {
+    fn default() -> Self {
+        // 0.8 keeps consensus worth having without letting one work that four engines happened to name outrank a work
+        // that two named twice as highly. Measured on the fixture in the unit tests; not a tuned constant.
+        Self {
+            decay: 0.8,
+            floor: 0,
+        }
+    }
+}
+
 pub fn blend(engines: &[Vec<Candidate>]) -> Vec<Candidate> {
+    blend_with(engines, BlendOptions::default())
+}
+
+/// Blend candidates from multiple engines, with decay on repeated contributions and a score floor (M69-08).
+pub fn blend_with(engines: &[Vec<Candidate>], options: BlendOptions) -> Vec<Candidate> {
     let mut merged: std::collections::HashMap<String, Candidate> = std::collections::HashMap::new();
+    // How many times this work has already been contributed, per work. The multiplier is `decay^count`.
+    let mut contributions: std::collections::HashMap<String, u32> = std::collections::HashMap::new();
     for engine_results in engines {
         for candidate in engine_results {
-            let entry = merged
-                .entry(candidate.work_id.to_canonical_string())
-                .or_insert_with(|| Candidate {
-                    work_id: candidate.work_id,
-                    score: 0,
-                    reason: candidate.reason.clone(),
-                    taste_signal: 0.0,
-                    diversity_class: 0.0,
-                });
-            entry.score += candidate.score;
+            let key = candidate.work_id.to_canonical_string();
+            let seen = contributions.entry(key.clone()).or_insert(0);
+            let weight = options.decay.powi(*seen as i32);
+            *seen += 1;
+            let entry = merged.entry(key).or_insert_with(|| Candidate {
+                work_id: candidate.work_id,
+                score: 0,
+                reason: candidate.reason.clone(),
+                taste_signal: 0.0,
+                diversity_class: 0.0,
+            });
+            entry.score += (candidate.score as f64 * weight).round() as i64;
         }
     }
     // Collect from the map WITHOUT losing the order the engines produced.
     //
     // `merged.into_values()` is HashMap iteration order, which SipHash randomises
-    // per process. `sort_by_key` below is stable, so candidates with equal scores
+    // per process. The sort below is stable, so candidates with equal scores
     // came out in that random order -- and the route's taste ranker received a
     // genuinely different list on every run. That was the source of a 2-in-6
     // flake, and it was invisible here because every test that exercised blend
     // used candidates whose scores all differed.
     //
-    // Order is reconstructed by recording each work's first appearance across
-    // the engines, then sorting on that. First-appearance order is a property of
-    // the input rather than of the hash seed, so two calls on the same engines
-    // agree -- which is what §47.2 asks for -- while `sort_by_key`'s stability
-    // makes the result a deterministic function of (scores, appearance order).
+    // Ties are broken by first appearance across the engines, which is a
+    // property of the input rather than of the hash seed, so two calls on the
+    // same engines agree -- which is what §47.2 asks for.
+    //
+    // Score first, appearance second. The first version of this ordered by appearance first, which made the blend
+    // return engine order with a score attached: a work one engine ranked first beat a work another ranked a hundred
+    // points higher, and the ordering guarantee §47.2 asks for was empty. M69-08 made the score the key and kept
+    // appearance as the tie-break it always was.
     let mut first_seen: std::collections::HashMap<String, usize> = std::collections::HashMap::new();
     for (position, engine_results) in engines.iter().enumerate() {
         for candidate in engine_results {
@@ -204,19 +244,21 @@ pub fn blend(engines: &[Vec<Candidate>]) -> Vec<Candidate> {
                 .or_insert(position);
         }
     }
-    let mut results: Vec<Candidate> = merged.into_values().collect();
+    let mut results: Vec<Candidate> = merged
+        .into_values()
+        .filter(|candidate| candidate.score >= options.floor)
+        .collect();
     results.sort_by_key(|c| {
         (
+            -c.score,
             first_seen
                 .get(&c.work_id.to_canonical_string())
                 .copied()
                 .unwrap_or(usize::MAX),
-            -c.score,
         )
     });
     results
 }
-
 /// Apply operator affinity multipliers to candidates, silently.
 ///
 /// affinity_bp is in base points (range -5000..=10000). The multiplier is
@@ -473,9 +515,78 @@ mod tests {
         let result = blend(&engines);
         assert_eq!(result.len(), 2);
         assert_eq!(result[0].work_id, w1);
-        assert_eq!(result[0].score, 30);
+        // The second engine's contribution is decayed (M69-08): 10 + round(20 * 0.8) = 26, not 30. A work named by
+        // two engines is evidence, not twice the evidence.
+        assert_eq!(result[0].score, 26);
         assert_eq!(result[1].work_id, w2);
         assert_eq!(result[1].score, 5);
+    }
+
+    fn candidate(id: WorkId, score: i64) -> Candidate {
+        Candidate {
+            work_id: id,
+            score,
+            reason: "engine".into(),
+            taste_signal: 0.0,
+            diversity_class: 0.0,
+        }
+    }
+
+    #[test]
+    fn a_third_engine_contributes_less_than_the_second() {
+        let w = WorkId::new();
+        let engines = vec![vec![candidate(w, 100)], vec![candidate(w, 100)], vec![candidate(w, 100)]];
+        let result = blend(&engines);
+        assert_eq!(result.len(), 1);
+        // 100 + 80 + 64: consenting engines add diminishing weight rather than stacking linearly.
+        assert_eq!(result[0].score, 244);
+    }
+
+    #[test]
+    fn decay_of_one_is_the_plain_sum() {
+        let w = WorkId::new();
+        let engines = vec![vec![candidate(w, 10)], vec![candidate(w, 10)], vec![candidate(w, 10)]];
+        let result = blend_with(
+            &engines,
+            BlendOptions { decay: 1.0, floor: 0 },
+        );
+        assert_eq!(result[0].score, 30, "1.0 must disable the decay exactly");
+    }
+
+    #[test]
+    fn a_candidate_below_the_floor_is_not_served() {
+        let strong = WorkId::new();
+        let weak = WorkId::new();
+        let engines = vec![vec![candidate(strong, 20), candidate(weak, 14)]];
+        let result = blend_with(&engines, BlendOptions { decay: 0.8, floor: 15 });
+        assert_eq!(result.len(), 1, "a 14 under a floor of 15 is dropped");
+        assert_eq!(result[0].work_id, strong);
+
+        // The floor is inclusive on the boundary: a candidate exactly at it is served.
+        let result = blend_with(&engines, BlendOptions { decay: 0.8, floor: 14 });
+        assert_eq!(result.len(), 2);
+    }
+
+    #[test]
+    fn a_higher_score_from_a_later_engine_still_ranks_first() {
+        let early = WorkId::new();
+        let late = WorkId::new();
+        let engines = vec![vec![candidate(early, 5)], vec![candidate(late, 100)]];
+        let result = blend(&engines);
+        assert_eq!(
+            result[0].work_id, late,
+            "ordering by engine position would have served the 5 first"
+        );
+    }
+
+    #[test]
+    fn equal_scores_keep_first_appearance_order() {
+        let first = WorkId::new();
+        let second = WorkId::new();
+        let engines = vec![vec![candidate(first, 10), candidate(second, 10)]];
+        let result = blend(&engines);
+        assert_eq!(result[0].work_id, first);
+        assert_eq!(result[1].work_id, second);
     }
 
     #[test]

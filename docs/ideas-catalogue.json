@@ -1,6 +1,6 @@
 {
  "generated_by": "scripts/ideas_catalogue.py",
- "count": 192,
+ "count": 187,
  "ideas": [
   {
    "why_summary": "",
@@ -279,19 +279,6 @@
    "why_summary": "-- Gaps review G6. Operators are legally responsible for their own instance.",
    "id": "M45-55",
    "title": "Built-in compliance tooling",
-   "sources": [
-    "docs/requirements.csv"
-   ],
-   "milestone": "M45",
-   "relevance": 4,
-   "because": "a requirements row exists (+4)",
-   "default_on": false,
-   "built": false
-  },
-  {
-   "why_summary": "docs/plans/m45-25-supply-keystones.md Found while building M45-25. \u00a758.3 says a routing row is never deleted because an abandoned routing is evidence the reader was asked; \u00a751's ca",
-   "id": "M45-58",
-   "title": "erasure reaches the supply routing record",
    "sources": [
     "docs/requirements.csv"
    ],
@@ -835,19 +822,6 @@
    "built": false
   },
   {
-   "why_summary": "-- Suki spec \u00a76.6; extends M64-06, which computes jaccard and raw co-occurrence. Raw counts reward ubiquitous tags \u2014 'angst' co-occurs with everything and therefore relates to noth",
-   "id": "M69-19",
-   "title": "related tags ranked by NPMI rather than by raw co-occurrence",
-   "sources": [
-    "docs/requirements.csv"
-   ],
-   "milestone": "M69",
-   "relevance": 4,
-   "because": "a requirements row exists (+4)",
-   "default_on": false,
-   "built": false
-  },
-  {
    "why_summary": "-- Suki spec \u00a715.2. darkhold has batch operations (M53-01) and a single-work editor; neither makes repeated judgement cheap. The script is visible in the header whenever it is arme",
    "id": "M69-20",
    "title": "a tag script",
@@ -926,26 +900,13 @@
    "built": false
   },
   {
-   "why_summary": "-- Found while implementing M70-12 and confirming it with a live probe. `content::list_public_works_by_freshness` is called by nothing in crates/app \u2014 its only callers are crates/a",
+   "why_summary": "f19ecf18 Found while implementing M70-12 and confirming it with a live probe. `content::list_public_works_by_freshness` is called by nothing in crates/app \u2014 its only callers are cr",
    "id": "M70-13",
    "title": "Every db listing query that a reader surface depends on is either wired to a route or deleted",
    "sources": [
     "docs/requirements.csv"
    ],
    "milestone": "M70",
-   "relevance": 4,
-   "because": "a requirements row exists (+4)",
-   "default_on": false,
-   "built": false
-  },
-  {
-   "why_summary": "Priority 2. The data exists (catalogue.source_key, provenance_json, library.source_display_name) but 'hosted' appears nowhere in crates/: the badge words are the brief's, not the A",
-   "id": "M71-04",
-   "title": "Every list payload that names a work carries a provenance value, and the vocabulary is decided in the API rather than coined in the UI",
-   "sources": [
-    "docs/requirements.csv"
-   ],
-   "milestone": "M71",
    "relevance": 4,
    "because": "a requirements row exists (+4)",
    "default_on": false,
@@ -1059,19 +1020,6 @@
    "why_summary": "Priority 3. The query grammar has no fields for provenance, source or language; a design that presents the string as the state would silently drop those filters, which is hidden st",
    "id": "M71-15",
    "title": "The query string and the facet panel are one state",
-   "sources": [
-    "docs/requirements.csv"
-   ],
-   "milestone": "M71",
-   "relevance": 4,
-   "because": "a requirements row exists (+4)",
-   "default_on": false,
-   "built": false
-  },
-  {
-   "why_summary": "Priority 4. The external design never mentions the e-reader client, which is the audience that most needs the reader to be a document; \u00a74814 already requires restricted works out o",
-   "id": "M71-16",
-   "title": "Machine surfaces obey the same eligibility and provenance rules as pages",
    "sources": [
     "docs/requirements.csv"
    ],
@@ -1544,19 +1492,6 @@
     "docs/requirements.csv"
    ],
    "milestone": "M64",
-   "relevance": 2,
-   "because": "a requirements row exists (+4); needs a third party or an external client (-2)",
-   "default_on": false,
-   "built": false
-  },
-  {
-   "why_summary": "Priority 1, and the actual answer to 'I don't like how it turned out': 43 Svelte files import @polaris/ui, which is why darkhold looks like the other fifteen polarisocial sites. Th",
-   "id": "M71-02",
-   "title": "Three named visual directions are written and one is chosen in an ADR that fixes the identity question \u2014 the site stops reading as another @polaris/ui dashboard \u2014 and the chosen direction ships as tokens applied to at least three pages, with measured contrast for every declared pair.",
-   "sources": [
-    "docs/requirements.csv"
-   ],
-   "milestone": "M71",
    "relevance": 2,
    "because": "a requirements row exists (+4); needs a third party or an external client (-2)",
    "default_on": false,
