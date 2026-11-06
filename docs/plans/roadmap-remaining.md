@@ -154,3 +154,6 @@ following a list shipped in e62ab963 (0172_shelf_follows, refusals pinned by mut
 
 M69-21 first half (de8fb809): saved views take a per-account slug with PUT /saved-views/{id}/slug and GET
 /saved-views/by-slug/{slug}; subscriptions, keybind and the blend half remain.
+
+M69-16 layer two (cdeac9dc): content_policy_blocks with a required reason, revocation as a record, merged into
+content_filter_sql::for_pseud so it reaches signed-out readers; per-work overrides remain.

@@ -65,6 +65,13 @@ pub struct Rating {
     pub rating: f64,
     pub deviation: f64,
     pub matches: i64,
+    /// Glicko-2's third number, when the service sends it. Optional because an older service that omits it is a service this
+    /// client can still talk to — and because an absent volatility is not `0.06`, it is "not reported".
+    #[serde(default)]
+    pub volatility: Option<f64>,
+    /// The service's own "readers disagree about this work" flag, when it sends one. Absent means the service did not say.
+    #[serde(default)]
+    pub divergence: Option<bool>,
 }
 
 #[derive(Debug, Deserialize)]

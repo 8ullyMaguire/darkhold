@@ -499,6 +499,8 @@ pub(crate) async fn build_candidate_engines(
                     rating: rating.rating,
                     deviation: rating.deviation,
                     matches: rating.matches,
+                    volatility: rating.volatility,
+                    divergence: rating.divergence,
                 })
                 .collect();
             match darkhold_db::ladder::eligible_top(
