@@ -673,6 +673,82 @@ pub async fn public_recommendations(
 /// a tie-break, then the work id so two calls on the same state agree (§47.9). Before this, the
 /// order was `updated_at DESC` over a tag-filtered set: a tag filter wired to a recency sort, which
 /// is the shape §12.7a rules 1 and 2 both name.
+/// Works other readers put on the same **public** shelves as something this account shelved (M64-11, `co_shelving`).
+///
+/// The signal is co-location: readers who shelved a work you shelved also shelved these. That is the classic co-occurrence
+/// signal and it needs other readers, which fixes the privacy rule rather than leaving it to taste.
+///
+/// * **public shelves only.** A private shelf is a reading list someone did not publish, and a recommendation built on one
+///   would report what they collected. The `is_public` predicate is the whole of that decision, so it is in the query rather
+///   than in a caller that could forget it;
+/// * **the account's own shelved works are excluded** — a shelf recommending its own contents is not a recommendation;
+/// * **published, public targets only**: a co-shelving edge is still an inference, and inferring from a work nobody could
+///   reach would be a claim about readers made from a non-event (the same INFER doctrine as `db::visibility`).
+///
+/// The count is how many public shelves carry both. Ordering is `shared DESC, work_id` so a page is stable when counts tie.
+pub async fn co_shelving_recommendations(
+    db: &Database,
+    account: &str,
+    limit: i64,
+) -> Result<Vec<WorkId>> {
+    let sqlite = "SELECT CAST(li2.work_id AS TEXT), COUNT(*) AS shared \
+         FROM shelf_items mine \
+         JOIN library_items lim ON lim.id = mine.library_item_id \
+         JOIN shelves sm ON sm.id = mine.shelf_id AND sm.account_id = ?1 \
+         JOIN shelf_items other ON other.library_item_id <> mine.library_item_id \
+         JOIN shelves s ON s.id = other.shelf_id AND s.is_public = 1 \
+         JOIN library_items li2 ON li2.id = other.library_item_id \
+         JOIN works w ON w.id = li2.work_id \
+         WHERE li2.work_id IS NOT NULL AND lim.work_id IS NOT NULL \
+           AND w.lifecycle = 'published' AND w.visibility = 'public' \
+           AND li2.work_id NOT IN (SELECT li3.work_id FROM shelf_items si3 \
+                                      JOIN shelves s3 ON s3.id = si3.shelf_id AND s3.account_id = ?1 \
+                                      JOIN library_items li3 ON li3.id = si3.library_item_id \
+                                     WHERE li3.work_id IS NOT NULL) \
+         GROUP BY li2.work_id ORDER BY shared DESC, li2.work_id LIMIT ?2";
+    let postgres = "SELECT li2.work_id::text, COUNT(*) AS shared \
+         FROM shelf_items mine \
+         JOIN library_items lim ON lim.id = mine.library_item_id \
+         JOIN shelves sm ON sm.id = mine.shelf_id AND sm.account_id = $1 \
+         JOIN shelf_items other ON other.library_item_id <> mine.library_item_id \
+         JOIN shelves s ON s.id = other.shelf_id AND s.is_public = 1 \
+         JOIN library_items li2 ON li2.id = other.library_item_id \
+         JOIN works w ON w.id = li2.work_id \
+         WHERE li2.work_id IS NOT NULL AND lim.work_id IS NOT NULL \
+           AND w.lifecycle = 'published' AND w.visibility = 'public' \
+           AND li2.work_id NOT IN (SELECT li3.work_id FROM shelf_items si3 \
+                                      JOIN shelves s3 ON s3.id = si3.shelf_id AND s3.account_id = $1 \
+                                      JOIN library_items li3 ON li3.id = si3.library_item_id \
+                                     WHERE li3.work_id IS NOT NULL) \
+         GROUP BY li2.work_id ORDER BY shared DESC, li2.work_id LIMIT $2";
+    let sql = db.sql(sqlite, postgres);
+
+    let rows: Vec<(String, i64)> = match db.backend() {
+        Backend::Sqlite => {
+            sqlx::query_as(&sql)
+                .bind(account)
+                .bind(limit)
+                .fetch_all(db.sqlite_pool().expect("sqlite pool for sqlite backend"))
+                .await?
+        }
+        Backend::Postgres => {
+            sqlx::query_as(&sql)
+                .bind(account)
+                .bind(limit)
+                .fetch_all(
+                    db.postgres_pool()
+                        .expect("postgres pool for postgres backend"),
+                )
+                .await?
+        }
+    };
+    Ok(rows
+        .into_iter()
+        .filter_map(|(id, _)| uuid::Uuid::parse_str(&id).ok())
+        .map(WorkId::from_uuid)
+        .collect())
+}
+
 pub async fn personalized_recommendations(
     db: &Database,
     account: &str,

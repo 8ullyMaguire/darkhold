@@ -346,6 +346,8 @@ fn reason_for(stage: &str) -> darkhold_domain::recommendation_transparency::Slot
     match stage {
         "popular" => SlotReason::Popular,
         "media_ref_collab" => SlotReason::MediaReferenceCollaborative,
+        // A shelf is the reader's own library, so "another work on a shelf you built" is reading history, not a model's guess.
+        "co_shelving" => SlotReason::ReadingHistory,
         "strategy" => SlotReason::Strategy,
         _ => SlotReason::TasteTags,
     }
@@ -622,6 +624,30 @@ pub(crate) async fn build_candidate_engines(
                         work_id: id,
                         score: (limit - idx as i64),
                         reason: "media_ref_collab".into(),
+                        taste_signal: 0.0,
+                        diversity_class: 0.5,
+                    })
+                    .collect(),
+            );
+        }
+    }
+
+    // Engine 5: co-shelving (M64-11). The reader's own shelves, as a recommendation source — nothing here reads another
+    // reader's shelf, so the engine cannot leak what somebody else collected.
+    if let Some(account_id) = account_id {
+        if runs("co_shelving") {
+            let co_shelved =
+                darkhold_db::discovery::co_shelving_recommendations(state.db(), account_id, limit)
+                    .await
+                    .map_err(|e| ApiError(AppError::Internal(e)))?;
+            engines.push(
+                co_shelved
+                    .into_iter()
+                    .enumerate()
+                    .map(|(idx, id)| darkhold_domain::discovery::Candidate {
+                        work_id: id,
+                        score: (limit - idx as i64),
+                        reason: "co_shelving".into(),
                         taste_signal: 0.0,
                         diversity_class: 0.5,
                     })

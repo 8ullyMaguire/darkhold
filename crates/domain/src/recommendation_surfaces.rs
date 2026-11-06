@@ -141,9 +141,9 @@ pub fn algorithms_for_bucket(
 /// by what they do (`"tag_jaccard"`, `"rated_by_readers"`). This is the one place the two vocabularies are joined, so a
 /// configured algorithm either maps to a running engine or is refused at load — it cannot quietly do nothing.
 ///
-/// `None` is a real answer for algorithms the tree has not built (`npmi` is a query, not a blend engine; `co_shelving`
-/// needs shelves). A surface configured with only unbuilt algorithms serves no engines, which is exactly the refusal the
-/// route reports.
+/// `None` is a real answer for algorithms the tree has not built — `npmi` is a query, not a blend engine. A surface
+/// configured with only unbuilt algorithms serves no engines, which is exactly the refusal the route reports.
+/// (`co_shelving` was on that list until M64-11 built it over the reader's own shelves.)
 pub fn engine_reason(algorithm: &str) -> Option<&'static str> {
     Some(match algorithm {
         // Two tag algorithms, one engine: the feed's tag engine blends both signals already.
@@ -151,6 +151,8 @@ pub fn engine_reason(algorithm: &str) -> Option<&'static str> {
         "popular" | "time_decay" => "popular",
         "rated_by_readers" | "ladder" => "ladder",
         "media_ref_collab" => "media_ref_collab",
+        // M64-11: implemented in `db::discovery::co_shelving_recommendations`, over the reader's own shelves only.
+        "co_shelving" => "co_shelving",
         "strategy" => "strategy",
         _ => return None,
     })
