@@ -170,6 +170,10 @@ fn every_route_has_correct_audience() {
                         actual_str
                     ));
                 }
+                // `Audience::Anonymous` is the one audience that *must* have no extractor: its whole claim is that the
+                // body does not vary by caller. Anything else taking none is the silent-anonymous fault §2.3 exists
+                // to catch.
+                None if entry.audience == Audience::Anonymous => {}
                 None => {
                     failures.push(format!(
                         "{}:{} — {} has no audience extractor (expected {})",

@@ -23,6 +23,14 @@ use serde::Serialize;
 pub enum Audience {
     /// Public door — `MaybeSession` (anonymous may reach it).
     Public,
+    /// A machine surface whose body never varies by caller — no extractor at all.
+    ///
+    /// This variant exists because the absence of a session was being spelled `MaybeSession(_unused)`, and an unused
+    /// parameter is a claim nobody can check: it says "a caller may be signed in" about a route that ignores them.
+    /// `/sitemap.xml` is the honest case — a crawler is not a reader, and the file it gets must be the file everyone
+    /// else gets. A route may take this audience only if personalisation would be a privacy fault, not merely a
+    /// feature nobody has built yet.
+    Anonymous,
     /// Authenticated door — `RequireSession`.
     Authenticated,
     /// Pseudonymous door — `RequirePseud`.
@@ -74,6 +82,9 @@ impl Audience {
             Audience::Operator => "operator",
             Audience::Actor => "actor",
             Audience::Scoped => "scoped",
+            // Not a reader door: the body is the same for every caller, which is the whole contract of a machine
+            // surface. Publishing it as `public` would promise personalisation it must never have.
+            Audience::Anonymous => "anonymous",
         }
     }
 
@@ -86,6 +97,8 @@ impl Audience {
             Audience::Operator => "RequireSession",
             Audience::Actor => "RequireActor",
             Audience::Scoped => "RequireActorScoped",
+            // No extractor: the inventory test accepts `None` only for this audience.
+            Audience::Anonymous => "",
         }
     }
 }
@@ -5606,6 +5619,13 @@ pub const ROUTE_TABLE: &[RouteEntry] = &[
     // W6 §7.5a, merged from the thinkcentre line: the ATProto feed skeleton an AppView asks for by feed URI. The
     // handler takes no session extractor, so the door is public — a skeleton is a list of post references, and the
     // records behind them are public by the nature of ATProto.
+    RouteEntry {
+        file: "sitemap.rs",
+        handler: "sitemap",
+        method: "GET",
+        path: "/sitemap.xml",
+        audience: Audience::Anonymous,
+    },
     RouteEntry {
         file: "browse.rs",
         handler: "list_related_tags",

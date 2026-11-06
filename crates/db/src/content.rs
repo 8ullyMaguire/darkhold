@@ -965,6 +965,73 @@ pub async fn work_freshness(db: &Database, id: WorkId) -> Result<WorkFreshness> 
 /// from the event log rather than from the row's timestamp. A work edited
 /// today but published a year ago sorts *late* under `new` and *early* under
 /// `updated` — which is the whole point of having two questions.
+/// Every work a crawler may index, newest change first (M71-16).
+///
+/// The predicate is the same one the anonymous browse door uses — published, public, not deleted — and it is written
+/// here rather than as a parameter because a sitemap that could be asked for a wider set is a sitemap that will be. An
+/// unlisted work is deliberately absent: it is reachable by link, which is what "unlisted" promises, and a sitemap is
+/// the one surface that would turn that promise into an index entry.
+///
+/// Returns `(work id, updated_at)`; the caller builds the URL from the id because the route is `/works/{id}` and
+/// nothing about that path belongs in the database layer.
+pub async fn sitemap_works(db: &Database, limit: i64) -> Result<Vec<(String, String)>> {
+    let sqlite = "SELECT w.id, w.updated_at FROM works w \
+                   WHERE w.lifecycle = 'published' AND w.visibility = 'public' \
+                     AND w.deleted_at IS NULL \
+                   ORDER BY w.updated_at DESC, w.id DESC LIMIT ?";
+    let postgres = "SELECT w.id::text, w.updated_at FROM works w \
+                     WHERE w.lifecycle = 'published' AND w.visibility = 'public' \
+                       AND w.deleted_at IS NULL \
+                     ORDER BY w.updated_at DESC, w.id::text DESC LIMIT $1";
+    match db.backend() {
+        Backend::Sqlite => {
+            Ok(sqlx::query_as(sqlite)
+                .bind(limit)
+                .fetch_all(db.sqlite_pool().expect("sqlite"))
+                .await?)
+        }
+        Backend::Postgres => {
+            Ok(sqlx::query_as(postgres)
+                .bind(limit)
+                .fetch_all(db.postgres_pool().expect("postgres"))
+                .await?)
+        }
+    }
+}
+
+/// Every tag a crawler may index: the ones carried by at least one published public work (M71-16).
+///
+/// A tag whose only works are unlisted, private or drafts is a page that answers 404, and a sitemap that lists 404s
+/// teaches a crawler to distrust the whole file.
+pub async fn sitemap_tags(db: &Database, limit: i64) -> Result<Vec<String>> {
+    let sqlite = "SELECT tn.canonical FROM canonical_entities tn \
+                   WHERE tn.kind = 'tag' AND EXISTS ( \
+                       SELECT 1 FROM work_tags wt JOIN works w ON w.id = wt.work_id \
+                        WHERE wt.node_id = tn.id AND w.lifecycle = 'published' \
+                          AND w.visibility = 'public' AND w.deleted_at IS NULL) \
+                   ORDER BY tn.canonical LIMIT ?";
+    let postgres = "SELECT tn.canonical FROM canonical_entities tn \
+                     WHERE tn.kind = 'tag' AND EXISTS ( \
+                         SELECT 1 FROM work_tags wt JOIN works w ON w.id = wt.work_id \
+                          WHERE wt.node_id = tn.id AND w.lifecycle = 'published' \
+                            AND w.visibility = 'public' AND w.deleted_at IS NULL) \
+                     ORDER BY tn.canonical LIMIT $1";
+    match db.backend() {
+        Backend::Sqlite => {
+            Ok(sqlx::query_scalar(sqlite)
+                .bind(limit)
+                .fetch_all(db.sqlite_pool().expect("sqlite"))
+                .await?)
+        }
+        Backend::Postgres => {
+            Ok(sqlx::query_scalar(postgres)
+                .bind(limit)
+                .fetch_all(db.postgres_pool().expect("postgres"))
+                .await?)
+        }
+    }
+}
+
 pub async fn list_public_works_by_freshness(
     db: &Database,
     sort: FreshnessSort,

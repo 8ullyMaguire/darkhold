@@ -93,6 +93,7 @@ pub mod retention_settle;
 pub mod roadmap;
 pub mod search;
 pub mod settings;
+pub mod sitemap;
 pub mod source_adapters;
 pub mod spoilers;
 pub mod subscriptions;
