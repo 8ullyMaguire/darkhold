@@ -160,3 +160,7 @@ content_filter_sql::for_pseud so it reaches signed-out readers; per-work overrid
 
 M69-10 consumer half (48da17e2): volatility and divergence are carried from polaris-taste and gate ladder
 eligibility through one is_settled() rule; the arithmetic stays in the service per ADR 0001.
+
+M69-16 closed (cdeac9dc + b13fe04b): three layers — hardcoded SQL invariants, content_policy_blocks with a
+required reason and recorded revocation, reader filters — plus per-work overrides that name the rule they
+exempt and are rendered inside the single exclusion, so every surface inherits them.

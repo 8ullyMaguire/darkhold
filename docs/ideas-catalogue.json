@@ -1,6 +1,6 @@
 {
  "generated_by": "scripts/ideas_catalogue.py",
- "count": 179,
+ "count": 178,
  "ideas": [
   {
    "why_summary": "",
@@ -1007,19 +1007,6 @@
    "why_summary": "-- Suki spec \u00a716.3. A reader leaving for a peer takes a signed document \u2014 taste vector, favourite source URLs, edit counts, affinity at origin. darkhold already recomputes from beh",
    "id": "M69-03",
    "title": "a signed taste passport moves a reader's taste and contribution history between instances, suki and darkhold alike",
-   "sources": [
-    "docs/requirements.csv"
-   ],
-   "milestone": "M69",
-   "relevance": 3,
-   "because": "a requirements row exists (+4); needs a model or heavy compute (-1)",
-   "default_on": false,
-   "built": false
-  },
-  {
-   "why_summary": "-- Suki spec \u00a711.1 and \u00a711.2. darkhold has per-reader content filters and reader-warning preferences but no layer model, so every filter is equally overridable and the one that mus",
-   "id": "M69-16",
-   "title": "content filtering in three layers \u2014 hardcoded, policy, taste \u2014 with overrides that carry a reason and an audit trail",
    "sources": [
     "docs/requirements.csv"
    ],
