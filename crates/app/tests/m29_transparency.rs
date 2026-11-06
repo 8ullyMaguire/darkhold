@@ -1688,6 +1688,114 @@ async fn the_experiment_console_is_an_operator_door_and_the_sweep_is_invisible_t
 }
 
 #[tokio::test]
+async fn a_held_surface_is_skipped_and_a_hand_promotion_is_recorded_as_manual() {
+    // M64-15's write half: the two actions that change the machine, and the one thing that must not change — an automatic
+    // decision and a hand decision are the same row in the same table, distinguished only by `source`.
+    let mut harness = Harness::with_operator("experiment-actions", "Operator").await;
+    harness.config.discovery.experiment_buckets = 2;
+    harness
+        .config
+        .discovery
+        .surfaces
+        .insert("discover.feed".to_owned(), vec!["popular".to_owned()]);
+
+    let mut operator = harness.client();
+    let (status, _) = operator
+        .post(
+            "/api/v1/auth/login",
+            json!({ "email": "operator@example.com", "password": GOOD_PASSWORD }),
+        )
+        .await;
+    assert_eq!(status, StatusCode::OK);
+
+    // Hold, then sweep: the sweep must report the hold instead of deciding anything.
+    let (status, body) = operator
+        .post(
+            "/api/v1/operator/experiments/discover.feed/hold",
+            json!({ "reason": "guardrail drifting" }),
+        )
+        .await;
+    assert_eq!(status, StatusCode::OK, "body: {body}");
+
+    let (status, body) = operator
+        .post("/api/v1/operator/experiments/sweep?day=2026-11-08", json!({}))
+        .await;
+    assert_eq!(status, StatusCode::OK, "body: {body}");
+    let outcomes = body["surfaces"].as_array().expect("surfaces");
+    let feed = outcomes
+        .iter()
+        .find(|entry| entry["surface"] == "discover.feed")
+        .expect("the feed is listed");
+    assert!(
+        feed["outcome"]
+            .as_str()
+            .unwrap_or_default()
+            .starts_with("held"),
+        "a held surface is reported, not decided: {feed}"
+    );
+    assert!(
+        darkhold_db::experiment_decisions::decisions_for(&harness.db, "discover.feed")
+            .await
+            .expect("read")
+            .is_empty(),
+        "no decision may be written for a held surface"
+    );
+
+    // Release, then promote by hand. The override goes in, and the row says a person ordered it.
+    let (status, _) = operator
+        .request(
+            "DELETE",
+            "/api/v1/operator/experiments/discover.feed/hold",
+            Some(json!({})),
+        )
+        .await;
+    assert_eq!(status, StatusCode::OK);
+
+    let (status, body) = operator
+        .post(
+            "/api/v1/operator/experiments/discover.feed/promote",
+            json!({ "algorithms": ["media_ref_collab"] }),
+        )
+        .await;
+    assert_eq!(status, StatusCode::OK, "body: {body}");
+    assert_eq!(
+        darkhold_db::experiment_decisions::override_for(&harness.db, "discover.feed")
+            .await
+            .expect("read the override")
+            .as_deref(),
+        Some(&["media_ref_collab".to_owned()][..]),
+        "a hand promotion installs what it names"
+    );
+    let manual: i64 = {
+        let sql = "SELECT count(*) FROM experiment_decisions WHERE source = 'manual'";
+        match harness.db.backend() {
+            darkhold_db::Backend::Sqlite => sqlx::query_scalar(sql)
+                .fetch_one(harness.db.sqlite_pool().expect("sqlite"))
+                .await
+                .expect("count"),
+            darkhold_db::Backend::Postgres => sqlx::query_scalar(sql)
+                .fetch_one(harness.db.postgres_pool().expect("postgres"))
+                .await
+                .expect("count"),
+        }
+    };
+    assert_eq!(manual, 1, "the row says a person decided this, not the sweep");
+
+    // A set nothing implements is refused by name, because the surface would otherwise serve nothing.
+    let (status, _) = operator
+        .post(
+            "/api/v1/operator/experiments/discover.feed/promote",
+            json!({ "algorithms": ["not_an_algorithm"] }),
+        )
+        .await;
+    assert_eq!(
+        status,
+        StatusCode::UNPROCESSABLE_ENTITY,
+        "a field error is 422 in this API, not 400"
+    );
+}
+
+#[tokio::test]
 async fn an_anonymous_recommendation_carries_no_slot_id() {
     // A slot is a record of what a *reader* was shown, so there is nothing to
     // record for someone who is not one. Emitting an id nobody can later

@@ -142,6 +142,7 @@ pub async fn evaluate_surface(
                 0,
                 algorithms_before,
                 algorithms_after,
+                "automatic",
             )
             .await?;
             // The swap the row describes, made real. A promotion that only writes a row is a note, not a promotion.
@@ -162,6 +163,7 @@ pub async fn evaluate_surface(
                 *consecutive,
                 algorithms_before,
                 algorithms_after,
+                "automatic",
             )
             .await?;
             // Demotion restores what was configured before any promotion: the override exists to hold a *challenger* in
@@ -188,18 +190,19 @@ async fn record(
     consecutive: usize,
     algorithms_before: &[String],
     algorithms_after: &[String],
+    source: &str,
 ) -> Result<String> {
     let sql = sql_owned(
         db,
         "INSERT INTO experiment_decisions \
          (id, surface_id, day, decision, incumbent_arm, challenger_arm, lift, evidence, guardrail_name, \
-          guardrail_value, consecutive, algorithms_before, algorithms_after, created_at) \
-         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, datetime('now'))"
+          guardrail_value, consecutive, algorithms_before, algorithms_after, created_at, source) \
+         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, datetime('now'), ?14)"
             .into(),
         "INSERT INTO experiment_decisions \
          (id, surface_id, day, decision, incumbent_arm, challenger_arm, lift, evidence, guardrail_name, \
-          guardrail_value, consecutive, algorithms_before, algorithms_after, created_at) \
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, now())"
+          guardrail_value, consecutive, algorithms_before, algorithms_after, created_at, source) \
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, now(), $14)"
             .into(),
     );
     let id = uuid::Uuid::new_v4().to_string();
@@ -222,6 +225,7 @@ async fn record(
                 .bind(consecutive)
                 .bind(&before)
                 .bind(&after)
+                .bind(source)
                 .execute(db.sqlite_pool().expect("sqlite pool for sqlite backend"))
                 .await?;
         }
@@ -240,6 +244,7 @@ async fn record(
                 .bind(consecutive)
                 .bind(&before)
                 .bind(&after)
+                .bind(source)
                 .execute(
                     db.postgres_pool()
                         .expect("postgres pool for postgres backend"),
@@ -517,6 +522,130 @@ pub async fn decided_on(db: &Database, surface_id: &str, day: &str) -> Result<bo
         }
     };
     Ok(count > 0)
+}
+
+/// Hold a surface: the sweep skips it and reports the hold rather than a decision.
+pub async fn hold(db: &Database, surface_id: &str, reason: &str) -> Result<()> {
+    let sql = sql_owned(
+        db,
+        "INSERT INTO experiment_holds (surface_id, reason, held_at) VALUES (?1, ?2, datetime('now')) \
+         ON CONFLICT (surface_id) DO UPDATE SET reason = excluded.reason, held_at = excluded.held_at"
+            .into(),
+        "INSERT INTO experiment_holds (surface_id, reason, held_at) VALUES ($1, $2, now()) \
+         ON CONFLICT (surface_id) DO UPDATE SET reason = EXCLUDED.reason, held_at = EXCLUDED.held_at"
+            .into(),
+    );
+    match db.backend() {
+        Backend::Sqlite => {
+            sqlx::query(&sql)
+                .bind(surface_id)
+                .bind(reason)
+                .execute(db.sqlite_pool().expect("sqlite pool for sqlite backend"))
+                .await?;
+        }
+        Backend::Postgres => {
+            sqlx::query(&sql)
+                .bind(surface_id)
+                .bind(reason)
+                .execute(
+                    db.postgres_pool()
+                        .expect("postgres pool for postgres backend"),
+                )
+                .await?;
+        }
+    }
+    Ok(())
+}
+
+/// Release a hold. Returns whether there was one, so the caller can say "released" rather than "released (nothing was held)".
+pub async fn release(db: &Database, surface_id: &str) -> Result<bool> {
+    let sql = match db.backend() {
+        Backend::Sqlite => "DELETE FROM experiment_holds WHERE surface_id = ?1",
+        Backend::Postgres => "DELETE FROM experiment_holds WHERE surface_id = $1",
+    };
+    let affected = match db.backend() {
+        Backend::Sqlite => {
+            sqlx::query(sql)
+                .bind(surface_id)
+                .execute(db.sqlite_pool().expect("sqlite pool for sqlite backend"))
+                .await?
+                .rows_affected()
+        }
+        Backend::Postgres => {
+            sqlx::query(sql)
+                .bind(surface_id)
+                .execute(
+                    db.postgres_pool()
+                        .expect("postgres pool for postgres backend"),
+                )
+                .await?
+                .rows_affected()
+        }
+    };
+    Ok(affected > 0)
+}
+
+/// The reason a surface is held, if it is.
+pub async fn hold_reason(db: &Database, surface_id: &str) -> Result<Option<String>> {
+    let sql = match db.backend() {
+        Backend::Sqlite => "SELECT reason FROM experiment_holds WHERE surface_id = ?1",
+        Backend::Postgres => "SELECT reason FROM experiment_holds WHERE surface_id = $1",
+    };
+    Ok(match db.backend() {
+        Backend::Sqlite => {
+            sqlx::query_scalar(sql)
+                .bind(surface_id)
+                .fetch_optional(db.sqlite_pool().expect("sqlite pool for sqlite backend"))
+                .await?
+        }
+        Backend::Postgres => {
+            sqlx::query_scalar(sql)
+                .bind(surface_id)
+                .fetch_optional(
+                    db.postgres_pool()
+                        .expect("postgres pool for postgres backend"),
+                )
+                .await?
+        }
+    })
+}
+
+/// An operator's promotion or demotion, recorded exactly as the automatic one is.
+///
+/// The difference is the `source` column and nothing else: same table, same fields, same override installed afterwards. A
+/// manual action that took a different path would produce a record the automatic machinery cannot read, and the console would
+/// have to special-case it.
+pub async fn record_manual(
+    db: &Database,
+    surface_id: &str,
+    day: &str,
+    decision: &str,
+    algorithms_before: &[String],
+    algorithms_after: &[String],
+) -> Result<String> {
+    let id = record(
+        db,
+        surface_id,
+        day,
+        decision,
+        0,
+        1,
+        0.0,
+        0.0,
+        None,
+        None,
+        0,
+        algorithms_before,
+        algorithms_after,
+        "manual",
+    )
+    .await?;
+    if decision == "promote" {
+        install_override(db, surface_id, algorithms_after, Some(&id)).await?;
+    } else {
+        clear_override(db, surface_id).await?;
+    }
+    Ok(id)
 }
 
 /// Every decision recorded for a surface, newest first.

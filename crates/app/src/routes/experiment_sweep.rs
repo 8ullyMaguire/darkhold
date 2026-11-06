@@ -64,6 +64,147 @@ pub fn router() -> Router<AppState> {
     Router::new()
         .route("/operator/experiments/sweep", post(sweep))
         .route("/operator/experiments", get(overview))
+        .route("/operator/experiments/{surface}/hold", post(hold_surface).delete(release_surface))
+        .route("/operator/experiments/{surface}/promote", post(promote_by_hand))
+        .route("/operator/experiments/{surface}/demote", post(demote_by_hand))
+}
+
+#[derive(Deserialize)]
+struct HoldRequest {
+    reason: String,
+}
+
+#[derive(Deserialize)]
+struct PromoteRequest {
+    /// The algorithms the operator is installing. Named explicitly rather than taken from an arm: a hand promotion is a
+    /// decision about *which set*, and inferring it from an arm index would make the operator's intent a guess.
+    algorithms: Vec<String>,
+}
+
+async fn hold_surface(
+    State(state): State<AppState>,
+    session: RequireSession,
+    axum::extract::Path(surface): axum::extract::Path<String>,
+    Json(body): Json<HoldRequest>,
+) -> ApiResult<Json<Value>> {
+    require_operator(&state, &session.0)?;
+    if body.reason.trim().is_empty() {
+        return Err(ApiError(AppError::field(
+            "reason",
+            "is required, and is why the hold exists",
+        )));
+    }
+    darkhold_db::experiment_decisions::hold(state.db(), &surface, body.reason.trim())
+        .await
+        .map_err(|error| ApiError(AppError::internal("holding a surface", error)))?;
+    Ok(Json(json!({ "surface": surface, "held": true })))
+}
+
+async fn release_surface(
+    State(state): State<AppState>,
+    session: RequireSession,
+    axum::extract::Path(surface): axum::extract::Path<String>,
+) -> ApiResult<Json<Value>> {
+    require_operator(&state, &session.0)?;
+    let released = darkhold_db::experiment_decisions::release(state.db(), &surface)
+        .await
+        .map_err(|error| ApiError(AppError::internal("releasing a hold", error)))?;
+    Ok(Json(json!({ "surface": surface, "released": released })))
+}
+
+async fn promote_by_hand(
+    State(state): State<AppState>,
+    session: RequireSession,
+    axum::extract::Path(surface): axum::extract::Path<String>,
+    Json(body): Json<PromoteRequest>,
+) -> ApiResult<Json<Value>> {
+    require_operator(&state, &session.0)?;
+    decide_by_hand(&state, &surface, &body.algorithms, "promote").await
+}
+
+async fn demote_by_hand(
+    State(state): State<AppState>,
+    session: RequireSession,
+    axum::extract::Path(surface): axum::extract::Path<String>,
+) -> ApiResult<Json<Value>> {
+    require_operator(&state, &session.0)?;
+    decide_by_hand(&state, &surface, &[], "demote").await
+}
+
+/// A hand decision goes through the same door as an automatic one: a row in `experiment_decisions` with `source = 'manual'`,
+/// and the override installed or cleared exactly as an automatic verdict would.
+async fn decide_by_hand(
+    state: &AppState,
+    surface_id: &str,
+    algorithms: &[String],
+    decision: &str,
+) -> ApiResult<Json<Value>> {
+    // A promoted set that no engine implements would install an override the feed cannot honour and the surface would serve
+    // nothing. Refused here, by name, rather than at the first request — and the same check `[discovery.surfaces]` gets at
+    // load, because a hand action is a second way to write the same setting.
+    if decision == "promote" {
+        if algorithms.is_empty() {
+            return Err(ApiError(AppError::field(
+                "algorithms",
+                "cannot be empty on a promotion",
+            )));
+        }
+        for algorithm in algorithms {
+            if darkhold_domain::recommendation_surfaces::engine_reason(algorithm).is_none() {
+                return Err(ApiError(AppError::field(
+                    "algorithms",
+                    format!("no engine implements `{algorithm}`"),
+                )));
+            }
+        }
+    }
+
+    let before = state
+        .config()
+        .discovery
+        .surfaces
+        .get(surface_id)
+        .cloned()
+        .unwrap_or_default();
+
+    let id = darkhold_db::experiment_decisions::record_manual(
+        state.db(),
+        surface_id,
+        &today(),
+        decision,
+        &before,
+        algorithms,
+    )
+    .await
+    .map_err(|error| ApiError(AppError::internal("recording a hand decision", error)))?;
+
+    Ok(Json(json!({
+        "decision": decision,
+        "id": id,
+        "algorithms": algorithms,
+    })))
+}
+
+/// The day the hand action is recorded against. UTC, because every snapshot day is UTC and a local date would file a decision
+/// under a day whose numbers it was not read from.
+fn today() -> String {
+    let now = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map(|elapsed| elapsed.as_secs())
+        .unwrap_or(0);
+    let days = now / 86_400;
+    // Civil-from-days (Howard Hinnant's algorithm), which avoids a chrono dependency for one line.
+    let z = days as i64 + 719_468;
+    let era = z.div_euclid(146_097);
+    let doe = z.rem_euclid(146_097);
+    let yoe = (doe - doe / 1460 + doe / 36_524 - doe / 146_096) / 365;
+    let y = yoe + era * 400;
+    let doy = doe - (365 * yoe + yoe / 4 - yoe / 100);
+    let mp = (5 * doy + 2) / 153;
+    let d = doy - (153 * mp + 2) / 5 + 1;
+    let m = if mp < 10 { mp + 3 } else { mp - 9 };
+    let y = if m <= 2 { y + 1 } else { y };
+    format!("{y:04}-{m:02}-{d:02}")
 }
 
 #[derive(Deserialize)]
@@ -189,6 +330,18 @@ async fn sweep(
             .cloned()
             .collect();
         for surface_id in surfaces {
+            // A held surface is skipped and said so: an operator who paused an experiment must not see the sweep quietly
+            // deciding it a minute later.
+            if let Some(reason) = darkhold_db::experiment_decisions::hold_reason(state.db(), &surface_id)
+                .await
+                .map_err(|error| ApiError(AppError::internal("reading a hold", error)))?
+            {
+                outcomes.push(SurfaceOutcome {
+                    surface_id,
+                    outcome: format!("held: {reason}"),
+                });
+                continue;
+            }
             if darkhold_db::experiment_decisions::decided_on(state.db(), &surface_id, &params.day)
                 .await
                 .map_err(|error| ApiError(AppError::internal("reading decisions", error)))?

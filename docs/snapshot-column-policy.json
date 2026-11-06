@@ -417,6 +417,26 @@
       "why": "When the override was installed; a property of the job.",
       "reviewed_by": "alvaro, 2026-11-06, against spec 11.16"
     },
+    "experiment_decisions.source": {
+      "treatment": "keep",
+      "why": "'automatic' or 'manual': who decided, not who was affected.",
+      "reviewed_by": "alvaro, 2026-11-06, against spec 11.16"
+    },
+    "experiment_holds.surface_id": {
+      "treatment": "keep",
+      "why": "A canonical registry surface id, identical for every reader.",
+      "reviewed_by": "alvaro, 2026-11-06, against spec 11.16"
+    },
+    "experiment_holds.reason": {
+      "treatment": "keep",
+      "why": "An operator's short note about a surface, not about a person.",
+      "reviewed_by": "alvaro, 2026-11-06, against spec 11.16"
+    },
+    "experiment_holds.held_at": {
+      "treatment": "keep",
+      "why": "When the hold was placed; a property of the job.",
+      "reviewed_by": "alvaro, 2026-11-06, against spec 11.16"
+    },
     "experiment_decisions.surface_id": {
       "treatment": "keep",
       "why": "A canonical registry surface id, identical for every reader.",
