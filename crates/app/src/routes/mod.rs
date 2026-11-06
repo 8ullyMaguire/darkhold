@@ -35,6 +35,7 @@ pub mod decision_service;
 pub mod derivative;
 pub mod directory;
 pub mod discovery;
+pub mod document;
 // §16.10a: the draw slot.
 pub mod dnf;
 pub mod draw;
@@ -112,6 +113,7 @@ pub mod welcome;
 pub mod wip_adoption;
 pub mod work_discussion;
 pub mod work_page;
+pub mod tag_page;
 pub mod works;
 
 pub mod well_known;

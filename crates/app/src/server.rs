@@ -1288,6 +1288,9 @@ pub fn build_router(state: AppState) -> Router {
             state.clone(),
             auth::load_session,
         )))
+        // A tag's page (ADR 0006, M71-20): the archive's second door, and the one a search result or a shared link
+        // arrives at. Its listing comes from a query that already filters to published public works.
+        .merge(routes::tag_page::router())
         // The OpenSearch description document (M69-25). At the root, because the
         // browser reads it as a URL it stores, not as an API call — and gated on
         // the `search` extension, because a document advertising a search that
