@@ -206,6 +206,13 @@ async fn two_breached_snapshots_are_recorded_as_a_demotion() {
         .expect("read back");
     assert_eq!(rows.len(), 1, "{rows:?}");
     assert_eq!(rows[0].decision, "demote");
+    assert!(
+        darkhold_db::experiment_decisions::override_for(&db, "discover.feed")
+            .await
+            .expect("read the override")
+            .is_none(),
+        "a demoted challenger must not keep the surface"
+    );
 
     let _ = std::fs::remove_dir_all(dir);
 }

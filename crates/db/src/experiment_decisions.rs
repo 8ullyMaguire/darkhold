@@ -128,7 +128,7 @@ pub async fn evaluate_surface(
 
     match &decision {
         Decision::Promote { lift, evidence } => {
-            record(
+            let decision_id = record(
                 db,
                 surface_id,
                 day,
@@ -144,6 +144,8 @@ pub async fn evaluate_surface(
                 algorithms_after,
             )
             .await?;
+            // The swap the row describes, made real. A promotion that only writes a row is a note, not a promotion.
+            install_override(db, surface_id, algorithms_after, &decision_id).await?;
         }
         Decision::Demote { name, consecutive } => {
             record(
@@ -162,6 +164,9 @@ pub async fn evaluate_surface(
                 algorithms_after,
             )
             .await?;
+            // Demotion restores what was configured before any promotion: the override exists to hold a *challenger* in
+            // place, and a demoted challenger must not keep the surface.
+            clear_override(db, surface_id).await?;
         }
         _ => {}
     }
@@ -183,7 +188,7 @@ async fn record(
     consecutive: usize,
     algorithms_before: &[String],
     algorithms_after: &[String],
-) -> Result<()> {
+) -> Result<String> {
     let sql = sql_owned(
         db,
         "INSERT INTO experiment_decisions \
@@ -235,6 +240,114 @@ async fn record(
                 .bind(consecutive)
                 .bind(&before)
                 .bind(&after)
+                .execute(
+                    db.postgres_pool()
+                        .expect("postgres pool for postgres backend"),
+                )
+                .await?;
+        }
+    }
+    Ok(id)
+}
+
+/// Install the algorithms a promotion won with, as an override over the configured set.
+///
+/// One row per surface, replaced in place: the surface runs one set at a time, and a history of overrides would leave the
+/// reader to work out which one is live. The history lives in `experiment_decisions`, where a rollback reads it.
+pub async fn install_override(
+    db: &Database,
+    surface_id: &str,
+    algorithms: &[String],
+    decision_id: &str,
+) -> Result<()> {
+    let sql = sql_owned(
+        db,
+        "INSERT INTO surface_algorithm_overrides (surface_id, algorithms, decision_id, created_at) \
+         VALUES (?1, ?2, ?3, datetime('now')) \
+         ON CONFLICT (surface_id) DO UPDATE SET algorithms = excluded.algorithms, \
+             decision_id = excluded.decision_id, created_at = excluded.created_at"
+            .into(),
+        "INSERT INTO surface_algorithm_overrides (surface_id, algorithms, decision_id, created_at) \
+         VALUES ($1, $2, $3, now()) \
+         ON CONFLICT (surface_id) DO UPDATE SET algorithms = EXCLUDED.algorithms, \
+             decision_id = EXCLUDED.decision_id, created_at = EXCLUDED.created_at"
+            .into(),
+    );
+    let list = serde_json::to_string(algorithms)?;
+    match db.backend() {
+        Backend::Sqlite => {
+            sqlx::query(&sql)
+                .bind(surface_id)
+                .bind(&list)
+                .bind(decision_id)
+                .execute(db.sqlite_pool().expect("sqlite pool for sqlite backend"))
+                .await?;
+        }
+        Backend::Postgres => {
+            sqlx::query(&sql)
+                .bind(surface_id)
+                .bind(&list)
+                .bind(decision_id)
+                .execute(
+                    db.postgres_pool()
+                        .expect("postgres pool for postgres backend"),
+                )
+                .await?;
+        }
+    }
+    Ok(())
+}
+
+/// The algorithms a promoted experiment installed for this surface, if any.
+///
+/// The read path takes this in precedence over the configured set — that precedence is the whole point of the table, and it
+/// belongs to the caller that builds the engine list, not here.
+pub async fn override_for(db: &Database, surface_id: &str) -> Result<Option<Vec<String>>> {
+    let sql = match db.backend() {
+        Backend::Sqlite => {
+            "SELECT algorithms FROM surface_algorithm_overrides WHERE surface_id = ?1"
+        }
+        Backend::Postgres => {
+            "SELECT algorithms FROM surface_algorithm_overrides WHERE surface_id = $1"
+        }
+    };
+    let row: Option<String> = match db.backend() {
+        Backend::Sqlite => {
+            sqlx::query_scalar(sql)
+                .bind(surface_id)
+                .fetch_optional(db.sqlite_pool().expect("sqlite pool for sqlite backend"))
+                .await?
+        }
+        Backend::Postgres => {
+            sqlx::query_scalar(sql)
+                .bind(surface_id)
+                .fetch_optional(
+                    db.postgres_pool()
+                        .expect("postgres pool for postgres backend"),
+                )
+                .await?
+        }
+    };
+    Ok(row.and_then(|text| serde_json::from_str(&text).ok()))
+}
+
+/// Remove a surface's override, returning the algorithms to the configured set. Rollback is this call plus the row that
+/// says who asked for it.
+pub async fn clear_override(db: &Database, surface_id: &str) -> Result<()> {
+    let sql = match db.backend() {
+        Backend::Sqlite => "DELETE FROM surface_algorithm_overrides WHERE surface_id = ?1",
+        Backend::Postgres => "DELETE FROM surface_algorithm_overrides WHERE surface_id = $1",
+    };
+    match db.backend() {
+        Backend::Sqlite => {
+            sqlx::query(sql)
+                .bind(surface_id)
+                .execute(db.sqlite_pool().expect("sqlite pool for sqlite backend"))
+                .await?;
+        }
+        Backend::Postgres => {
+            sqlx::query(sql)
+                .bind(surface_id)
                 .execute(
                     db.postgres_pool()
                         .expect("postgres pool for postgres backend"),

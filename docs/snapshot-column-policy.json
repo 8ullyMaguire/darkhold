@@ -397,6 +397,26 @@
       "why": "An opaque row id that joins nothing outside the table.",
       "reviewed_by": "alvaro, 2026-11-06, against spec 11.16"
     },
+    "surface_algorithm_overrides.surface_id": {
+      "treatment": "keep",
+      "why": "A canonical registry surface id, identical for every reader.",
+      "reviewed_by": "alvaro, 2026-11-06, against spec 11.16"
+    },
+    "surface_algorithm_overrides.algorithms": {
+      "treatment": "keep",
+      "why": "Algorithm names from the closed registry.",
+      "reviewed_by": "alvaro, 2026-11-06, against spec 11.16"
+    },
+    "surface_algorithm_overrides.decision_id": {
+      "treatment": "keep",
+      "why": "The id of the decision row that installed this override; a record id, not a person.",
+      "reviewed_by": "alvaro, 2026-11-06, against spec 11.16"
+    },
+    "surface_algorithm_overrides.created_at": {
+      "treatment": "keep",
+      "why": "When the override was installed; a property of the job.",
+      "reviewed_by": "alvaro, 2026-11-06, against spec 11.16"
+    },
     "experiment_decisions.surface_id": {
       "treatment": "keep",
       "why": "A canonical registry surface id, identical for every reader.",
