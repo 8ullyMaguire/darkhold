@@ -1518,6 +1518,15 @@ pub const ROUTE_TABLE: &[RouteEntry] = &[
     },
     RouteEntry {
         file: "imports.rs",
+        handler: "import_bundle",
+        method: "POST",
+        path: "/imports/bundle",
+        // The door takes `RequireActorScoped` and checks `Scope::ContentWrite` itself: a pseud is necessary and not
+        // sufficient, which is exactly what `Scoped` names.
+        audience: Audience::Scoped,
+    },
+    RouteEntry {
+        file: "imports.rs",
         handler: "preview_import",
         method: "POST",
         path: "/imports/preview",
