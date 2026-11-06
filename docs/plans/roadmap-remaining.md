@@ -33,7 +33,8 @@ sample floor, seven-day floor, demotion on two consecutive breaches of the same 
 discover.feed reads the override before the configured set. The sweep shipped in 5434fc26
 (`POST /operator/experiments/sweep?day=`, keyed on (surface, day)). Guardrails shipped in 17e84537: `conversion_rate`
 (challenger ≥ 50% of the incumbent) and `traffic_share` derived per day from the snapshots, so demotion fires for real.
-Remaining: M64-15's console, and a route-level test of the sweep's operator gate.
+M64-15's read half shipped in
+7e58e239 (`GET /operator/experiments`); the write half (hold, promote/demote by hand, preview-as-persona) remains.
 
 **M64-03 shipped** (3d40065f): `experiment_snapshots` (surface, arm, day) with impressions / readers / guest_readers /
 events, `snapshot_day` idempotent so a re-run repairs a day, `GET /api/v1/recommendation/experiments[?day=]`, and `null`
