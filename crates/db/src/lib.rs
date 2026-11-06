@@ -18,6 +18,7 @@
 pub mod admin;
 pub mod analytics;
 pub mod archive;
+pub mod atproto;
 pub mod badges;
 pub mod bounties;
 pub mod browse;

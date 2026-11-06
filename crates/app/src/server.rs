@@ -138,13 +138,25 @@ pub async fn serve(config: Config, db: Database, args: &ServeArgs) -> Result<()>
     // `darkhold worker` process is the better one when the queue is busy. Both
     // are supported and both stop on the same signal.
     if args.with_worker {
-        let worker = crate::worker::Worker::new(crate::worker::WorkerOptions::default())
+    /// The `work_id` an outbox event carries.
+    ///
+    /// Parsed as JSON, not by splitting on a byte sequence. The previous form was
+    /// `payload.split("\"work_id\":\"").nth(1)`, which is correct only for serde_json's *compact* output: a producer that
+    /// pretty-printed, reordered keys, or emitted `{"work_id": "…"}` with a space would make every deindex fail with
+    /// "missing work_id in payload" — measured, not hypothesised: a spaced payload inserted into a scratch instance was
+    /// retried twice and the withdrawal never ran.
+    fn payload_work_id(payload: &str) -> String {
+        serde_json::from_str::<serde_json::Value>(payload)
+            .ok()
+            .and_then(|v| v.get("work_id").and_then(|w| w.as_str()).map(str::to_owned))
+            .unwrap_or_default()
+    }
+
+        // Rebound as `mut` because the ATProto handler is registered *conditionally*: see below.
+        let mut worker = crate::worker::Worker::new(crate::worker::WorkerOptions::default())
             .with_topic("publish.index", {
                 let handler: crate::worker::TopicHandler = Arc::new(|_state: &AppState, event: &outbox::OutboxEvent| {
-                    let work_id = event.payload.split("\"work_id\":\"").nth(1)
-                        .and_then(|s| s.split('"').next())
-                        .unwrap_or("")
-                        .to_owned();
+                    let work_id = payload_work_id(&event.payload);
                     let state = _state.clone();
                     Box::pin(async move {
                         if work_id.is_empty() {
@@ -167,10 +179,7 @@ pub async fn serve(config: Config, db: Database, args: &ServeArgs) -> Result<()>
             })
             .with_topic("withdraw.deindex", {
                 let handler: crate::worker::TopicHandler = Arc::new(|_state: &AppState, event: &outbox::OutboxEvent| {
-                    let work_id = event.payload.split("\"work_id\":\"").nth(1)
-                        .and_then(|s| s.split('"').next())
-                        .unwrap_or("")
-                        .to_owned();
+                    let work_id = payload_work_id(&event.payload);
                     let state = _state.clone();
                     Box::pin(async move {
                         if work_id.is_empty() {
@@ -187,6 +196,13 @@ pub async fn serve(config: Config, db: Database, args: &ServeArgs) -> Result<()>
                             darkhold_db::Backend::Postgres => {
                                 sqlx::query(&sql).bind(&work_id).bind(&work_id).execute(state.db().postgres_pool().expect("postgres")).await?;
                             }
+                        }
+                        // W6 §5: a withdrawn work must not leave a dangling `at://`. Only one handler per topic exists
+                        // in this registry, so the bridge's purge rides the withdrawal that already exists rather than
+                        // adding a second topic that would have to be produced somewhere. A failure here fails the
+                        // event, and the retry is what makes the purge eventually consistent.
+                        if state.config().atproto.is_some() {
+                            crate::atproto::withdraw_work(&state, &work_id).await?;
                         }
                         Ok(())
                     })
@@ -218,6 +234,26 @@ pub async fn serve(config: Config, db: Database, args: &ServeArgs) -> Result<()>
                 });
                 handler
             });
+
+        // W6 §2: ATProto is outbound only, so this handler has no moderation surface and no inbound path.
+        //
+        // It is registered **only when the bridge is configured**, and that is the whole design rather than a
+        // convenience. The worker claims only the topics it has handlers for (`deliver_outbox` builds its topic list
+        // from the registry, and a topic with no handler is *left alone*), so with no `[atproto]` table the 40,641
+        // undelivered `work.published` rows are not touched at all — no attempts, no `last_error`, no warning per row
+        // per pass. Registering the handler with the bridge off would either mark those events delivered (losing the
+        // backfill the day it is switched on) or churn forty thousand rows through the backoff and a warn line each.
+        // Conditional registration defers them by *not asking for them*, which is the mechanism the outbox already has.
+        if state.config().atproto.as_ref().is_some_and(|c| c.enabled) {
+            worker = worker.with_topic("work.published", {
+                let handler: crate::worker::TopicHandler = Arc::new(|_state: &AppState, event: &outbox::OutboxEvent| {
+                    let state = _state.clone();
+                    let payload = event.payload.clone();
+                    Box::pin(async move { crate::atproto::publish_work(&state, &payload).await })
+                });
+                handler
+            });
+        }
         let worker_state = state.clone();
         tracing::info!(worker = %worker.options().id, "worker running in this process");
         tokio::spawn(async move {

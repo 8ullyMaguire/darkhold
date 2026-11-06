@@ -132,6 +132,10 @@ pub struct Config {
     pub imports: ImportsConfig,
     /// M67-03: the periodic walk over external sources. Off unless an operator says otherwise.
     pub syndication: SyndicationConfig,
+    /// W6 §2: outbound ATProto. `None` (or `enabled = false`) means the bridge does not publish, and the worker
+    /// **defers** the `work.published` events rather than delivering them — see `server.rs`. Delivering an event with
+    /// the bridge off would mark the backlog done and lose it for the day the bridge is switched on.
+    pub atproto: Option<AtprotoConfig>,
     pub retention: RetentionConfig,
     /// The taxonomy's floors (spec §6.4, R-23).
     pub taxonomy: TaxonomyConfig,
@@ -2697,6 +2701,17 @@ impl Config {
                 account_email: raw.account_email.unwrap_or(defaults.account_email),
             }
         };
+        // W6 §2. Absent table = no bridge at all, which is the kill switch; a table with `enabled = false` is a bridge
+        // that is configured and deliberately off, and the worker defers rather than delivers in both cases.
+        let atproto = file.atproto.map(|raw| {
+            let defaults = AtprotoConfig::default();
+            AtprotoConfig {
+                enabled: raw.enabled.unwrap_or(defaults.enabled),
+                pds: raw.pds.unwrap_or(defaults.pds),
+                handle: raw.handle.unwrap_or(defaults.handle),
+                password_env: raw.password_env.unwrap_or(defaults.password_env),
+            }
+        });
         let imports_file = file.imports.unwrap_or_default();
         let imports = ImportsConfig {
             // An empty string in a config file means "unset", not "the solver is
@@ -2914,6 +2929,7 @@ impl Config {
             rate_limits,
             imports,
             syndication,
+            atproto,
             // Present on the struct and reachable from the file, or neither. The
             // `retention:` line below documents this exact trap having happened once
             // already, in the other direction.
@@ -3532,6 +3548,7 @@ impl Config {
             // depend on which escalations happened to be configured.
             imports: ImportsConfig::default(),
             syndication: SyndicationConfig::default(),
+            atproto: None,
             taxonomy: TaxonomyConfig::default(),
             retention: RetentionConfig::default(),
             decisions: DecisionsConfig::default(),
@@ -4067,6 +4084,41 @@ impl Config {
 // File representation
 // ---------------------------------------------------------------------------
 
+/// Outbound ATProto (W6 §2, `docs/FEDERATION.md`).
+#[derive(Debug, Clone)]
+pub struct AtprotoConfig {
+    /// Whether the bridge publishes. The kill switch is this flag *and* the absence of the table.
+    pub enabled: bool,
+    /// The PDS to write to, e.g. `https://bsky.social`.
+    pub pds: String,
+    /// The publishing identity, e.g. `darkhold.polarisocial.xyz`.
+    pub handle: String,
+    /// The **name** of the environment variable holding the app password — never the value. A config file that carried
+    /// the value would be a secret in git, which is the mistake `estate-secrets` exists to stop.
+    pub password_env: String,
+}
+
+impl Default for AtprotoConfig {
+    fn default() -> Self {
+        Self {
+            enabled: false,
+            pds: "https://bsky.social".to_owned(),
+            handle: String::new(),
+            password_env: "DARKHOLD_ATPROTO_PASSWORD".to_owned(),
+        }
+    }
+}
+
+/// The `[atproto]` table. Every field optional, so a config file written before this section existed still parses.
+#[derive(Debug, Default, Deserialize)]
+#[serde(deny_unknown_fields)]
+struct AtprotoSection {
+    enabled: Option<bool>,
+    pds: Option<String>,
+    handle: Option<String>,
+    password_env: Option<String>,
+}
+
 /// The `[syndication]` table (M67-03). Every field optional, so a config file written before this
 /// section existed still parses — and so an operator can set one field without restating the rest.
 #[derive(Debug, Default, Deserialize)]
@@ -4099,6 +4151,8 @@ struct FileConfig {
     imports: Option<ImportsSection>,
     /// M67-03: `[syndication]`.
     syndication: Option<SyndicationSection>,
+    /// W6 §2: `[atproto]`. Absent = the bridge is off.
+    atproto: Option<AtprotoSection>,
     tts: Option<TtsSection>,
     bulk_export: Option<BulkExportSection>,
     forum: Option<ForumSection>,
