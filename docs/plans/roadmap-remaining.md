@@ -150,4 +150,4 @@ M6-15), and six are `evaluated-and-rejected` with their reasons in the row.
 
 
 M64-11 first half (ee413789): `co_shelving` is an engine over public shelves only (mutated predicate reddens the test);
-following a list shipped in e62ab963 (0172_shelf_follows, refusals pinned by mutation); story.similar now reads its configured set and has a co-shelving arm (5dc85eae); library.because_you_shelved and story.also_enjoyed still have no route.
+following a list shipped in e62ab963 (0172_shelf_follows, refusals pinned by mutation); story.similar now reads its configured set and has a co-shelving arm (5dc85eae); library.because_you_shelved shipped its route (6bc3a869); story.also_enjoyed still has no route and no engine for co_read/engagement_overlap.
