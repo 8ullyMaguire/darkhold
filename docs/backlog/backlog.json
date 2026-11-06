@@ -4,11 +4,11 @@
       "rows": 942,
       "by_status": {
         "implemented-verified-e2e": 139,
-        "implemented-locally-tested": 255,
+        "implemented-locally-tested": 258,
         "unsupported": 4,
         "implemented-fully-tested": 434,
         "implemented": 10,
-        "planned": 93,
+        "planned": 90,
         "evaluated-and-rejected": 7
       }
     },
@@ -349,12 +349,6 @@
       "notes": "Suki spec \u00a716.4. M45-39 has the switch; this has the recipient list and the receipt. The receipt matters when two peers both claim the same work \u2014 the author's page must not fork. Default off: it changes what a stranger sees or what the instance claims about itself, so it waits for a decision rather than a default."
     },
     {
-      "id": "M69-08",
-      "milestone": "M69",
-      "requirement": "one blend function with an interaction decay and a floor, used by every surface that ranks",
-      "notes": "Suki spec \u00a73.1. darkhold blends engines (M11-01), applies operator affinity (M11-03) and theme gravity (M11-10), and each carries its own weighting; nothing states the mixture as one formula with a guarantee that operator taste never disappears. alpha = alpha_min + (alpha_max - alpha_min) * exp(-lambda * interactions), plus a test that a reader with ten thousand interactions still sees a non-zero operator term. Default off: it changes what a stranger sees or what the instance claims about itself, so it waits for a decision rather than a default."
-    },
-    {
       "id": "M69-09",
       "milestone": "M69",
       "requirement": "affinity is a stored 0..1 score per reader, recomputed nightly, not a per-work multiplier",
@@ -371,12 +365,6 @@
       "milestone": "M69",
       "requirement": "arena pairing prefers similar ratings with high deviation, explores occasionally, and calibrates new works without moving the global rank",
       "notes": "Suki spec \u00a710.3 and \u00a710.4. Proximate pairing plus epsilon-greedy exploration, and a first-N-votes calibration window recorded but not applied to the global ladder. Without the calibration window a new work inherits its first voter's taste as a fact. Default off: it changes what a stranger sees or what the instance claims about itself, so it waits for a decision rather than a default."
-    },
-    {
-      "id": "M69-12",
-      "milestone": "M69",
-      "requirement": "every recommendation carries a match percentage and a reason sentence a reader can check",
-      "notes": "Suki spec \u00a79.2. darkhold's explain surfaces are operator-facing (M63-01, DM3-02); the reader sees a ranked feed with no account of itself. The reason is generated from the same terms that produced the score, and a test refuses a reason naming a term the score did not use. Default off: it changes what a stranger sees or what the instance claims about itself, so it waits for a decision rather than a default."
     },
     {
       "id": "M69-13",
@@ -523,12 +511,6 @@
       "notes": "Priority 2, no new backend. 141,317 catalogue rows behind a card grid is the strongest finding in the external design and the cheapest. Sorts stay the closed vocabulary; sort changes order and never hides results (\u00a78.1). Row height consistent; quick actions on hover/focus, always visible on mobile."
     },
     {
-      "id": "M71-06",
-      "milestone": "M71",
-      "requirement": "Every recommendation anywhere in the interface carries its reason as a sentence from the closed vocabulary, and renders nothing at all where no explanation read exists \u2014 including rails outside Discover, where today only Discover's component renders reasons.",
-      "notes": "Priority 2. WhyRecommended.svelte exists and is mounted by Discover.svelte only; the API already returns reasons with a closed vocabulary (\u00a78.3). A recommendation without a reason is an advertisement, and a placeholder reason is worse. Acceptance: a test that walks every rail-producing route and asserts each item either has a reason or is not rendered."
-    },
-    {
       "id": "M71-07",
       "milestone": "M71",
       "requirement": "The operator console becomes its own visual register: dense rows, monospace values, red/amber/green status with a word, an alert bar naming every red state with a 'fix' link, 404 for non-operators, and no component shared with the reader-facing site that would soften a failure.",
@@ -584,11 +566,11 @@
     }
   ],
   "open_by_milestone": {
-    "M69": 23,
+    "M69": 21,
     "M63": 17,
     "M64": 14,
     "M45": 12,
-    "M71": 11,
+    "M71": 10,
     "M16": 7,
     "M66": 6,
     "M29": 1,

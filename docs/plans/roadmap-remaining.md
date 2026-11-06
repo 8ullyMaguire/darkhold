@@ -19,6 +19,11 @@ Two rules that decide the order:
 
 ## Batch 2 — the visible contract
 
+Shipped from this batch: M69-08 (blend decay/floor/ordering), M69-12 + M71-06 (reason and match percentage on
+recommendation rows), M71-16 (sitemap), M71-04 (provenance), M71-05 (absent-not-empty), M71-10 (no-JS reader),
+M71-02 and M45-58 (closed by triage).
+
+
 Triage of all 96 rows, and the order it implies: `docs/plans/planned-triage.md`.
 
 | row | approach | blocker |
@@ -40,10 +45,10 @@ Triage of all 96 rows, and the order it implies: `docs/plans/planned-triage.md`.
 | row | approach |
 |---|---|
 | ~~M69-19~~ | **DONE da36de8e.** `taxonomy::related_tags_by_npmi` (log in Rust, one grouped count query, pairs seen once excluded), `GET /api/v1/tags/{tag}/related`, and a Related tags section on the tag page. No nightly matrix needed at this size. |
-| M69-08 | one blend function (interaction decay + floor) used by every ranking surface; the existing per-surface multipliers become inputs. |
+| ~~M69-08~~ | **DONE 0109d288.** `BlendOptions{decay 0.8, floor 0}` + `blend_with()`; ordering fixed to score-first. The floor is a parameter no surface sets yet — that is M64-01's per-surface config. |
 | M69-09 | affinity as a stored 0..1 score per reader, recomputed nightly, replacing the per-work multiplier. |
 | M69-10, M69-11 | Glicko-2 for the arena (deviation, volatility, divergence flag) and pairing that prefers similar rating with high deviation. The arena already stores per-match outcomes; this is a rating model swap plus a pairing policy. |
-| M69-12 | match percentage and a reason sentence from a closed vocabulary on every recommendation. Depends on M69-08/09 to have something honest to report. |
+| ~~M69-12~~ | **DONE e93f94e6 on discovery.** `match_percent` + `reason` + `reason_code` per row; `SlotReason::sentence()` is the vocabulary. Draw, concierge and similar-to-shelf still emit bare ids — three call sites left. |
 | M69-13, M69-14 | trust velocity and a live badge that is gained and lost, both derived from karma terms already stored. |
 | M69-15 | probation above a configured population. Governance knob, default off. |
 | M69-16 | three-layer content filtering (hardcoded, policy, taste) with reasoned overrides and an audit row. |
@@ -94,7 +99,7 @@ board, and close M29-08 by pointing at it — a second implementation would be t
 
 ## Batch 9 — the remaining frontend (M71)
 
-M71-06 (reasons on every rail), M71-07 (console register), M71-08 (auto-hiding reader bar + typography panel), M71-09
+~~M71-06~~ (reasons shipped on the discovery feed, e93f94e6; rails take them as they migrate), M71-07 (console register), M71-08 (auto-hiding reader bar + typography panel), M71-09
 (honest stale position), M71-11 (facet counts endpoint), M71-12 (ten-bucket histogram), M71-13 (coverage statements),
 M71-14 (settings provenance), M71-15 (facet/query equivalence), M71-20  — M71-16 shipped as 4a7f8839 (sitemap + Audience::Anonymous)
 (search, author, collection and series pages as documents — the last of ADR 0006's order, plus deleting the Svelte

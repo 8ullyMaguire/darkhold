@@ -1,6 +1,6 @@
 {
  "generated_by": "scripts/ideas_catalogue.py",
- "count": 187,
+ "count": 184,
  "ideas": [
   {
    "why_summary": "",
@@ -705,19 +705,6 @@
    "built": false
   },
   {
-   "why_summary": "-- Suki spec \u00a73.1. darkhold blends engines (M11-01), applies operator affinity (M11-03) and theme gravity (M11-10), and each carries its own weighting; nothing states the mixture a",
-   "id": "M69-08",
-   "title": "one blend function with an interaction decay and a floor, used by every surface that ranks",
-   "sources": [
-    "docs/requirements.csv"
-   ],
-   "milestone": "M69",
-   "relevance": 4,
-   "because": "a requirements row exists (+4)",
-   "default_on": false,
-   "built": false
-  },
-  {
    "why_summary": "-- Suki spec \u00a73.3. darkhold stores operator affinity per WORK (M11-03) and a resonance score (M45-51); neither answers how close a reader is to the operator, which is what gates tr",
    "id": "M69-09",
    "title": "affinity is a stored 0..1 score per reader, recomputed nightly, not a per-work multiplier",
@@ -747,19 +734,6 @@
    "why_summary": "-- Suki spec \u00a710.3 and \u00a710.4. Proximate pairing plus epsilon-greedy exploration, and a first-N-votes calibration window recorded but not applied to the global ladder. Without the c",
    "id": "M69-11",
    "title": "arena pairing prefers similar ratings with high deviation, explores occasionally, and calibrates new works without moving the global rank",
-   "sources": [
-    "docs/requirements.csv"
-   ],
-   "milestone": "M69",
-   "relevance": 4,
-   "because": "a requirements row exists (+4)",
-   "default_on": false,
-   "built": false
-  },
-  {
-   "why_summary": "-- Suki spec \u00a79.2. darkhold's explain surfaces are operator-facing (M63-01, DM3-02); the reader sees a ranked feed with no account of itself. The reason is generated from the same ",
-   "id": "M69-12",
-   "title": "every recommendation carries a match percentage and a reason sentence a reader can check",
    "sources": [
     "docs/requirements.csv"
    ],
@@ -907,19 +881,6 @@
     "docs/requirements.csv"
    ],
    "milestone": "M70",
-   "relevance": 4,
-   "because": "a requirements row exists (+4)",
-   "default_on": false,
-   "built": false
-  },
-  {
-   "why_summary": "Priority 2. WhyRecommended.svelte exists and is mounted by Discover.svelte only; the API already returns reasons with a closed vocabulary (\u00a78.3). A recommendation without a reason ",
-   "id": "M71-06",
-   "title": "Every recommendation anywhere in the interface carries its reason as a sentence from the closed vocabulary, and renders nothing at all where no explanation read exists \u2014 including rails outside Discover, where today only Discover's component renders reasons.",
-   "sources": [
-    "docs/requirements.csv"
-   ],
-   "milestone": "M71",
    "relevance": 4,
    "because": "a requirements row exists (+4)",
    "default_on": false,
