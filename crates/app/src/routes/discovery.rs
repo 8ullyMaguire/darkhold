@@ -665,7 +665,21 @@ async fn get_discovery(
     // arm's half of the surface. The assignment happens here, on the read path, because the impression that follows is
     // the event the arm exists to be measured against — assigning at sign-in would be a bucket with no exposure yet.
     let arm = experiment_arm(&state, viewer_pseud, "discover.feed").await?;
-    let enabled = enabled_engines_for_bucket(&state, "discover.feed", arm);
+    // A promoted experiment's algorithms win over both the configured set and the reader's arm: the arm existed to decide
+    // between two sets, and once one has won there is nothing left to split. This is the precedence the overrides table
+    // documents, and it is read here rather than in `enabled_engines_for_bucket` so the two cannot drift.
+    let enabled = match darkhold_db::experiment_decisions::override_for(state.db(), "discover.feed")
+        .await
+        .map_err(|error| ApiError(AppError::internal("reading a surface override", error)))?
+    {
+        Some(algorithms) => algorithms
+            .iter()
+            .filter_map(|algorithm| {
+                darkhold_domain::recommendation_surfaces::engine_reason(algorithm)
+            })
+            .collect(),
+        None => enabled_engines_for_bucket(&state, "discover.feed", arm),
+    };
     let engines = build_candidate_engines(
         &state,
         account_id.as_deref(),

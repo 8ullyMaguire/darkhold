@@ -1590,6 +1590,47 @@ async fn the_arm_a_reader_is_assigned_decides_which_algorithms_run() {
 }
 
 #[tokio::test]
+async fn a_promoted_surface_runs_the_algorithms_the_experiment_installed() {
+    // M64-04's precedence, proved from the reader's side: the configured set says popularity, a promotion installed the
+    // media engine, and the feed must serve what the promotion installed — not what the file says, and not the arm split,
+    // which existed to choose between sets the experiment has now decided.
+    let mut harness = Harness::new("promoted").await;
+    harness
+        .config
+        .discovery
+        .surfaces
+        .insert("discover.feed".to_owned(), vec!["popular".to_owned()]);
+
+    let mut reader = harness.reader("Promoted").await;
+    let account = account_of(&harness.db, "Promoted").await;
+    let pseud = pseud_of(&harness.db, &account.to_string()).await;
+    for n in 0..3 {
+        make_published_work(&harness.db, &pseud.to_string(), &format!("Promoted {n}")).await;
+    }
+
+    // Before the promotion the file wins.
+    let (status, body) = reader.get("/api/v1/discovery").await;
+    assert_eq!(status, StatusCode::OK, "body: {body}");
+    assert_eq!(body["items"].as_array().expect("items").len(), 3, "{body}");
+
+    darkhold_db::experiment_decisions::install_override(
+        &harness.db,
+        "discover.feed",
+        &["media_ref_collab".to_owned()],
+        None,
+    )
+    .await
+    .expect("install the override a promotion would install");
+
+    let (status, body) = reader.get("/api/v1/discovery").await;
+    assert_eq!(status, StatusCode::OK, "body: {body}");
+    assert!(
+        body["items"].as_array().expect("items").is_empty(),
+        "the installed set is the media engine, which has nothing to read: {body}"
+    );
+}
+
+#[tokio::test]
 async fn an_anonymous_recommendation_carries_no_slot_id() {
     // A slot is a record of what a *reader* was shown, so there is nothing to
     // record for someone who is not one. Emitting an id nobody can later

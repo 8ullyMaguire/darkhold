@@ -145,7 +145,7 @@ pub async fn evaluate_surface(
             )
             .await?;
             // The swap the row describes, made real. A promotion that only writes a row is a note, not a promotion.
-            install_override(db, surface_id, algorithms_after, &decision_id).await?;
+            install_override(db, surface_id, algorithms_after, Some(&decision_id)).await?;
         }
         Decision::Demote { name, consecutive } => {
             record(
@@ -258,7 +258,9 @@ pub async fn install_override(
     db: &Database,
     surface_id: &str,
     algorithms: &[String],
-    decision_id: &str,
+    // `None` for an override an operator installs by hand: not every swap is argued for by a decision row, and inventing one
+    // would put a promotion in the history that never happened.
+    decision_id: Option<&str>,
 ) -> Result<()> {
     let sql = sql_owned(
         db,
