@@ -1770,9 +1770,24 @@ async fn reading_decision_with(
             .unwrap_or(state.config().retention.default_body_audience),
     );
 
+    let Some(visibility) = parse_visibility(&work.visibility) else {
+        // A value nobody recognises is a data fault, and the safe reading of it is "not public". A contributor keeps
+        // access to their own work — a bad column must not lock an author out of their draft — and everybody else is
+        // answered exactly as they would be for a work that does not exist.
+        if actor_is_contributor {
+            return Reading::Contributor;
+        }
+        tracing::warn!(
+            work = %work.id,
+            raw = %work.visibility,
+            "unrecognised visibility word; refusing as absent"
+        );
+        return Reading::Denied(AppError::NotFound { resource: "work" });
+    };
+
     let facts = ContentFacts {
         lifecycle: work.lifecycle_state(),
-        visibility: parse_visibility(&work.visibility),
+        visibility,
         rating: darkhold_db::sessions::parse_rating(&work.rating),
         body_audience,
         actor_is_contributor,
@@ -1857,8 +1872,19 @@ async fn reading_decision_with(
 /// `metadata_public` is the operator's opt-in (`works.gated_metadata_public`)
 /// and applies to `BodyNotInAudience` alone — the one denial that is about the
 /// text and not about the reader, the rating ceiling, the sign-in state or the
-/// paywall.
+/// paywall. The single exception is `SignInRequired`, which is M70-04's
+/// restricted tier and publishes the record without an opt-in, because that
+/// tier's meaning is "listed and locked".
 fn denial(reason: DenyReason, metadata_public: bool, publish_gated: bool) -> Reading {
+    // M70-04, decision of 2026-11-05: a **restricted** work is listed but locked. Its record is public and its text
+    // needs a session, so `SignInRequired` publishes the record with no operator opt-in — the whole point of the
+    // tier is that a stranger can find the work and be told why they cannot read it. That is a *narrow* exception
+    // and it is narrow by construction: `SignInRequired` is produced in exactly one place (`can_access_content`,
+    // for `Visibility::Restricted`). An instance-wide ban on anonymous reading is `AnonymousReadingDisabled`, a
+    // different reason, and it still answers exactly as an absent work does.
+    if metadata_public && matches!(reason, DenyReason::SignInRequired) {
+        return Reading::MetadataOnly;
+    }
     if metadata_public && publish_gated && matches!(reason, DenyReason::BodyNotInAudience) {
         return Reading::MetadataOnly;
     }
@@ -2557,11 +2583,17 @@ pub(crate) fn parse_unit_id(raw: &str) -> ApiResult<UnitId> {
         .map_err(|_| ApiError(AppError::NotFound { resource: "unit" }))
 }
 
-fn parse_visibility(raw: &str) -> Visibility {
+/// The stored word, or `None` for a value this build does not know.
+///
+/// `None` rather than a default, because the two ways to be wrong are not symmetric: defaulting to `Public` serves a
+/// work whose state nobody understands to everyone, and a typo in a migration, a hand-written row or a value from a
+/// build that has since been rolled back all reach this function. Callers refuse `None`.
+fn parse_visibility(raw: &str) -> Option<Visibility> {
     match raw {
-        "unlisted" => Visibility::Unlisted,
-        "restricted" => Visibility::Restricted,
-        _ => Visibility::Public,
+        "public" => Some(Visibility::Public),
+        "unlisted" => Some(Visibility::Unlisted),
+        "restricted" => Some(Visibility::Restricted),
+        _ => None,
     }
 }
 
@@ -3132,8 +3164,11 @@ mod tests {
         // `parse_visibility` defaults to Public for the *stored* value, which is
         // safe because the column default is public; the risk it guards against
         // is a *narrower* value being read as a wider one, and it never is.
-        assert_eq!(parse_visibility("public"), Visibility::Public);
-        assert_eq!(parse_visibility("unlisted"), Visibility::Unlisted);
-        assert_eq!(parse_visibility("restricted"), Visibility::Restricted);
+        assert_eq!(parse_visibility("public"), Some(Visibility::Public));
+        assert_eq!(parse_visibility("unlisted"), Some(Visibility::Unlisted));
+        assert_eq!(parse_visibility("restricted"), Some(Visibility::Restricted));
+        // A word this build does not know must not become the most open state.
+        assert_eq!(parse_visibility("private"), None);
+        assert_eq!(parse_visibility(""), None);
     }
 }
