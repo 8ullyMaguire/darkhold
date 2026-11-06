@@ -168,3 +168,7 @@ exempt and are rendered inside the single exclusion, so every surface inherits t
 M69-17 (ee606f1c): tags carry their claimant through the existing source/confirmation vocabulary — model=
 inferred+unconfirmed is invisible to readers, a confirmation by a reader or wrangler reveals it, and an
 inference cannot overwrite a person's row. Remaining: route every work_tags writer through assert_tag.
+
+M69-20 (c6b253f9): tag scripts — a kept set of nodes applied to a work in one call, written through
+tag_assertions so the tags carry a human claimant (author on your own work, curator on another's).
+Batch apply and the browsing UI remain.
