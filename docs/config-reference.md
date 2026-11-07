@@ -278,6 +278,40 @@ weight vector that cannot rank (negative, `NaN`, or all zero). Weights need not 
 0.25, 0.15, 0.1, 0.1)` and `(4, 2.5, 1.5, 1, 1)` rank identically. `balanced` resolves even when `[profiles]` never mentions it, because a
 TOML table replaces the map rather than merging into it.
 
+## `[fandom_graph]`
+
+The operator's fandom adjacency map (M64-08). Declared, never inferred: some fandoms are one community under two names — *Worm* and
+*Ward*, *Naruto* and *Boruto*, the MCU films and the 616 comics — and no co-occurrence count will say so on a catalogue where those
+fandoms have never appeared side by side.
+
+| Key | Type | Default | Purpose |
+|-----|------|---------|---------|
+| `version` | `string` | `"unpublished"` | Identity of the map; travels on every response that used it |
+| `edges` | `list<{from, to, weight}>` | `[]` | The declared relationships |
+
+```toml
+[fandom_graph]
+version = "2026-11-07"
+
+[[fandom_graph.edges]]
+from = "Worm"
+to = "Ward"
+weight = 0.9
+
+[[fandom_graph.edges]]
+from = "SpaceBattles"
+to = "SufficientVelocity"
+weight = 0.6
+```
+
+Edges are **undirected** — write `Worm <-> Ward` once. Weight is `0 < weight <= 1` and is carried through to the ranking rather than
+multiplied into a popularity count, so "40 likes in a fandom the operator called 0.9 related" and "400 likes behind a 0.4 edge" stay
+two different claims. A self-loop, a weight outside `(0, 1]`, an unnamed end, or an empty `version` is refused at load with the edge
+named. A duplicated pair keeps the strongest weight and its spelling, so the map does not depend on line order.
+
+Served at `GET /api/v1/fandoms/{fandom}/related` — the map version, the neighbours with their weights, and the readable works they
+reach. An unmapped fandom answers with empty lists rather than a 404: "nothing is declared next to this" is a true answer.
+
 ## `[forum]`
 
 Forum, vote budget, and karma settings (spec §35).

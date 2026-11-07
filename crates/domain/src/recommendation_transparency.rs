@@ -38,6 +38,12 @@ pub enum SlotReason {
     ReadingHistory,
     /// The work matches a saved search or alert.
     SavedSearch,
+    /// The work is in a fandom an operator declared adjacent to one the reader reads (M64-08).
+    ///
+    /// A community claim, not a taste claim: *Worm* and *Ward* share readers because they are one serial in two halves, and that is the
+    /// operator's judgement, published with a weight. The sentence says the fandom, because "related" alone is the kind of word that
+    /// explains nothing.
+    RelatedFandom,
     /// Readers have compared this work against others and it came out ahead
     /// (spec §12.4a, the works ladder).
     ///
@@ -143,6 +149,7 @@ impl SlotReason {
             SlotReason::ReadingHistory => "reading_history",
             SlotReason::SavedSearch => "saved_search",
             SlotReason::RatedByReaders => "rated_by_readers",
+            SlotReason::RelatedFandom => "related_fandom",
         }
     }
 
@@ -157,6 +164,7 @@ impl SlotReason {
             "reading_history" => SlotReason::ReadingHistory,
             "saved_search" => SlotReason::SavedSearch,
             "rated_by_readers" => SlotReason::RatedByReaders,
+            "related_fandom" => SlotReason::RelatedFandom,
             _ => return None,
         })
     }
@@ -199,6 +207,7 @@ impl SlotReason {
             SlotReason::ReadingHistory => "It follows something you bookmarked.",
             SlotReason::SavedSearch => "It matches a saved search or alert.",
             SlotReason::RatedByReaders => "Readers have rated it highly.",
+            SlotReason::RelatedFandom => "It is in a fandom this instance relates to one you read.",
         }
     }
 
@@ -211,6 +220,7 @@ impl SlotReason {
             SlotReason::Strategy,
             SlotReason::ReadingHistory,
             SlotReason::SavedSearch,
+            SlotReason::RelatedFandom,
             // Last, deliberately: `SlotExplanation::normalized` orders reasons by this
             // list, and a work matched by tags *and* rated highly should lead with the
             // personal reason. Appending keeps every existing order unchanged.
@@ -234,6 +244,7 @@ impl SlotReason {
             SlotReason::ReadingHistory => "similar to something you read",
             SlotReason::SavedSearch => "matches a search you saved",
             SlotReason::RatedByReaders => "readers rated this highly against others",
+            SlotReason::RelatedFandom => "in a fandom this instance relates to one you read",
         }
     }
 }

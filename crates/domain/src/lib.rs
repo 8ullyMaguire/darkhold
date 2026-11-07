@@ -42,6 +42,7 @@ pub mod exchanges;
 pub mod exports;
 pub mod extension;
 pub mod external_seed;
+pub mod fandom_graph;
 pub mod fairqueue;
 pub mod finishers;
 pub mod flows;

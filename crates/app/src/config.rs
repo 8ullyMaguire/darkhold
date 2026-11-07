@@ -148,6 +148,8 @@ pub struct Config {
     pub discovery: DiscoveryConfig,
     /// Operator-chosen quality weights, per surface (M63-38).
     pub quality: QualityConfig,
+    /// The operator's fandom adjacency map (M64-08). Declared, never inferred.
+    pub fandom_graph: darkhold_domain::fandom_graph::FandomGraph,
     /// TTS narration settings.
     pub tts: TtsConfig,
     /// Bulk export settings.
@@ -3260,6 +3262,14 @@ impl Config {
             // here, where the operator can see it, rather than reaching the
             // route and silently meaning `legacy`.
             quality: file.quality.unwrap_or_default(),
+            fandom_graph: file.fandom_graph.unwrap_or_else(|| {
+                darkhold_domain::fandom_graph::FandomGraph {
+                    // An instance that publishes no map says so rather than claiming an empty one: `version` travels on every
+                    // response that used the map, and "unpublished" is the honest string for a map with no edges.
+                    version: "unpublished".to_owned(),
+                    edges: Vec::new(),
+                }
+            }),
             discovery: {
                 let d = file.discovery.unwrap_or_default();
                 let mut cfg = DiscoveryConfig::default();
@@ -3781,6 +3791,10 @@ impl Config {
             theme: ThemeConfig::default(),
             discovery: DiscoveryConfig::default(),
             quality: QualityConfig::default(),
+            fandom_graph: darkhold_domain::fandom_graph::FandomGraph {
+                version: "unpublished".to_owned(),
+                edges: Vec::new(),
+            },
             tts: TtsConfig::default(),
             bulk_export: BulkExportConfig::default(),
             forum: ForumConfig::default(),
@@ -4150,6 +4164,9 @@ impl Config {
         self.quality
             .validate()
             .map_err(|message| anyhow::anyhow!(message))?;
+        self.fandom_graph
+            .validate()
+            .map_err(|message| anyhow::anyhow!(message))?;
         if !(1024..=64 * 1024 * 1024).contains(&self.server.max_body_bytes) {
             anyhow::bail!(
                 "server.max_body_bytes must be between 1024 and 67108864, got {}",
@@ -4402,6 +4419,8 @@ struct FileConfig {
     theme: Option<ThemeSection>,
     /// Operator-chosen quality weights per surface (M63-38).
     quality: Option<QualityConfig>,
+    /// The fandom adjacency map (M64-08).
+    fandom_graph: Option<darkhold_domain::fandom_graph::FandomGraph>,
     /// Taste gravity settings (spec §0.4, §16.17).
     taste: Option<TasteSection>,
     /// Flexible bounty settings (spec §20.3.2).

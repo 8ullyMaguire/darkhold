@@ -126,6 +126,8 @@ async fn a_session_records_the_acr_it_was_signed_in_with_or_none() {
             active_pseud_id: None,
             expires_at: later,
             acr: Some("urn:example:aal2"),
+            // No roles asserted: this test is about the assurance level, and an empty claim is the state it must not disturb.
+            roles: &[],
         },
     )
     .await
@@ -153,6 +155,7 @@ async fn a_session_records_the_acr_it_was_signed_in_with_or_none() {
             active_pseud_id: None,
             expires_at: later,
             acr: None,
+            roles: &[],
         },
     )
     .await

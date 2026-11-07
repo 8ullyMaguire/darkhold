@@ -155,6 +155,8 @@ pub fn engine_reason(algorithm: &str) -> Option<&'static str> {
         "media_ref_collab" => "media_ref_collab",
         // M64-11: implemented in `db::discovery::co_shelving_recommendations`, over the reader's own shelves only.
         "co_shelving" => "co_shelving",
+        // M64-08: the operator's declared fandom adjacency, read before any reader exists — which is the point of declaring it.
+        "fandom_graph" => "fandom_graph",
         "strategy" => "strategy",
         _ => return None,
     })

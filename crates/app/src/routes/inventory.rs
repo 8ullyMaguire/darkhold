@@ -1056,6 +1056,13 @@ pub const ROUTE_TABLE: &[RouteEntry] = &[
         audience: Audience::Authenticated,
     },
     RouteEntry {
+        file: "fandom_graph.rs",
+        handler: "related",
+        method: "GET",
+        path: "/api/v1/fandoms/{fandom}/related",
+        audience: Audience::Anonymous,
+    },
+    RouteEntry {
         file: "source_engagement.rs",
         handler: "list",
         method: "GET",

@@ -1323,6 +1323,9 @@ pub fn build_router(state: AppState) -> Router {
         // its audience is `Anonymous` rather than a `MaybeSession` nobody reads.
         .merge(routes::sitemap::router())
             .merge(routes::facets::router())
+        // M64-08: a fandom's declared neighbours. The map is the operator's, so every caller gets the same answer and no session
+        // layer is needed — the same reason the sitemap is `Anonymous`.
+        .merge(routes::fandom_graph::router())
         // The work page (ADR 0006, M71-20): the most-linked page on an archive, as a document. Registered before the
         // SPA fallback so `/works/{id}` is HTML for a reader, a crawler and a preview; the application keeps the routes
         // that are only meaningful with a session.
