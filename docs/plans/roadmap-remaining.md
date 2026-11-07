@@ -230,3 +230,10 @@ privacy_settings.origin because onboarding-written defaults were indistinguishab
 the reader's own six decisions. Remaining: per-work level, deep links, and typography/gravity in the same vocabulary.
 
 MERGED thinkcentre 9e65ab8b + 5375d879 (W7 task 2 step 5 batches 2-3: succession and retention move to the cross-site door, a fourth operator predicate dies) as c6d1a65f — no migration, no collision; route_inventory 5/5, admin_scope 1/1, clippy clean.
+
+M71-15 (6c35aee9): the query grammar gained a third order — ValueKind::Rank — so `rating:<=mature` parses and renders as a
+CASE rank; RATING_RANKS in query.rs is the single table (general<teen<mature<explicit). domain::filter_state holds the one state
+{text, word window, ceiling, sort, pinned} and renders it twice: canonical query_string() and chips() (pinned ones neither
+editable nor removable, with the reason) plus unexpressed_note(). GET /api/v1/search returns state{query,chips,unexpressed_note}.
+Ideas rows M63-37/M63-38 removed because ideas_catalogue.py cannot run on this machine (two vault files absent).
+Remaining: the panel UI, and provenance/source as real filters.
