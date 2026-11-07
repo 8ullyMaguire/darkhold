@@ -106,7 +106,12 @@ async fn get_collection(
             let items = darkhold_db::events::list_collection_items(state.db(), &c.id)
                 .await
                 .map_err(|e| ApiError(darkhold_domain::AppError::Internal(e)))?;
-            Ok(Json(json!({ "collection": c, "items": items })))
+            // M71-13: how much of the list a visitor can actually open. A collection page that publishes its entry count alone invites the
+            // reader to think every entry is one of them.
+            let coverage = darkhold_db::events::collection_coverage(state.db(), &c.id)
+                .await
+                .map_err(|e| ApiError(darkhold_domain::AppError::Internal(e)))?;
+            Ok(Json(json!({ "collection": c, "items": items, "coverage": coverage })))
         }
         None => Err(ApiError(darkhold_domain::AppError::NotFound {
             resource: "collection",

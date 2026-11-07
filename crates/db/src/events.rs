@@ -1175,3 +1175,82 @@ pub async fn work_word_count(db: &Database, work_id: &str) -> Result<i64> {
     };
     Ok(n)
 }
+
+/// What a collection actually offers (M71-13, collection half).
+///
+/// A collection's member list is a promise: "these fifteen works belong together". Some of those works are private, drafts, or deleted, and a
+/// visitor who is shown twelve of fifteen has been told a smaller truth than the one the page implies. So the count states both halves —
+/// entries listed, entries readable by the caller's own rules (published, public, not deleted) — rather than publishing a bare member count
+/// that a reader will read as "twelve works you can open".
+///
+/// This is deliberately **not** the archive share that `taxonomy::dimension_coverage` computes: a collection is a hand-picked set, and the
+/// interesting ratio is *inside* it, not against a denominator nobody chose.
+#[derive(Debug, Clone, Serialize)]
+pub struct CollectionCoverage {
+    /// Entries the collection lists.
+    pub entries: i64,
+    /// Entries that are published, public and undeleted.
+    pub readable: i64,
+    /// `entries - readable`, kept as its own number so a page does not have to subtract to describe the gap.
+    pub hidden: i64,
+    /// One sentence a page can print verbatim.
+    pub sentence: String,
+}
+
+/// The coverage of one collection's member list.
+pub async fn collection_coverage(db: &Database, collection_id: &str) -> Result<CollectionCoverage> {
+    let sql = db.sql(
+        "SELECT COUNT(*),
+                COALESCE(SUM(CASE WHEN w.lifecycle = 'published' AND w.visibility = 'public' AND w.deleted_at IS NULL
+                                  THEN 1 ELSE 0 END), 0)
+           FROM collection_items ci
+           LEFT JOIN works w ON w.id = ci.work_id
+          WHERE ci.collection_id = ?1",
+        "SELECT COUNT(*),
+                COALESCE(SUM(CASE WHEN w.lifecycle = 'published' AND w.visibility = 'public' AND w.deleted_at IS NULL
+                                  THEN 1 ELSE 0 END), 0)
+           FROM collection_items ci
+           LEFT JOIN works w ON w.id = ci.work_id
+          WHERE ci.collection_id = $1",
+    );
+    let (entries, readable): (i64, i64) = match db.backend() {
+        Backend::Sqlite => {
+            sqlx::query_as(&sql)
+                .bind(collection_id)
+                .fetch_one(db.sqlite_pool().expect("sqlite"))
+                .await?
+        }
+        Backend::Postgres => {
+            sqlx::query_as(&sql)
+                .bind(collection_id)
+                .fetch_one(db.postgres_pool().expect("postgres"))
+                .await?
+        }
+    };
+    Ok(CollectionCoverage {
+        entries,
+        readable,
+        hidden: entries - readable,
+        sentence: collection_sentence(entries, readable),
+    })
+}
+
+fn collection_sentence(entries: i64, readable: i64) -> String {
+    if entries == 0 {
+        return "This collection has no entries yet.".to_owned();
+    }
+    if readable == entries {
+        return if entries == 1 {
+            "1 entry, and it is readable.".to_owned()
+        } else {
+            format!("{entries} entries, all of them readable.")
+        };
+    }
+    // The gap is named with its number, always with the same words, because "some entries are private" leaves the reader guessing whether
+    // it is one or twelve and whether they are missing something worth opening.
+    let hidden = entries - readable;
+    let noun = if hidden == 1 { "entry is" } else { "entries are" };
+    format!(
+        "{readable} of {entries} entries are readable; {hidden} {noun} private, unpublished or deleted."
+    )
+}
