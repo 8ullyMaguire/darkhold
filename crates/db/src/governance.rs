@@ -1738,6 +1738,15 @@ async fn account_pseud(db: &Database, account: &str) -> Result<Option<String>, s
 /// contract — actor, action, target, reason, timestamp — is why the actor and
 /// the reason are columns and not something a caller can leave out.
 pub async fn audit_append(db: &Database, entry: &AuditEntry<'_>) -> Result<(), sqlx::Error> {
+    audit_append_id(db, entry).await.map(|_| ())
+}
+
+/// The same insert, handing back the row's id.
+///
+/// `audit_append` throws the id away because most callers do not need it. A one-click action does: the id **is** the undo
+/// handle the operator presses, and reconstructing it by querying for "the row this actor just wrote" would be a race with
+/// the next action. So the id is returned from the insert rather than looked for afterwards.
+pub async fn audit_append_id(db: &Database, entry: &AuditEntry<'_>) -> Result<String, sqlx::Error> {
     let id = uuid::Uuid::new_v4().to_string();
     let now = crate::identity::now_rfc3339();
     match db.backend() {
@@ -1776,7 +1785,62 @@ pub async fn audit_append(db: &Database, entry: &AuditEntry<'_>) -> Result<(), s
             .execute(db.postgres_pool().expect("postgres")).await?;
         }
     }
-    Ok(())
+    Ok(id)
+}
+
+/// One audit row by id: `(action, subject_type, subject_id, document)`.
+///
+/// The document comes back as text on both engines so that callers parse one shape and neither has to know how the column is
+/// stored — the same reason `document` is bound as text on the way in.
+pub async fn audit_find(
+    db: &Database,
+    id: &str,
+) -> Result<Option<(String, String, String, String)>, sqlx::Error> {
+    match db.backend() {
+        Backend::Sqlite => {
+            sqlx::query_as::<_, (String, String, String, String)>(
+                "SELECT action, subject_type, subject_id, CAST(document AS TEXT) FROM audit_log WHERE id = ?",
+            )
+            .bind(id)
+            .fetch_optional(db.sqlite_pool().expect("sqlite"))
+            .await
+        }
+        Backend::Postgres => {
+            sqlx::query_as::<_, (String, String, String, String)>(
+                "SELECT action, subject_type, subject_id, document::text FROM audit_log WHERE id = $1",
+            )
+            .bind(id)
+            .fetch_optional(db.postgres_pool().expect("postgres"))
+            .await
+        }
+    }
+}
+
+/// The id of the row that undid `id`, if any.
+///
+/// Audit rows are append-only, so "was this undone?" is answered by looking for a row pointing at it — never by rewriting the
+/// original. `None` means it stands; `Some(undo_row)` means pressing undo again would restore a state nobody asked for.
+pub async fn audit_undone_by(db: &Database, id: &str) -> Result<Option<String>, sqlx::Error> {
+    match db.backend() {
+        Backend::Sqlite => {
+            let row: Option<(String,)> = sqlx::query_as(
+                "SELECT id FROM audit_log WHERE json_extract(document, '$.undo_of') = ? LIMIT 1",
+            )
+            .bind(id)
+            .fetch_optional(db.sqlite_pool().expect("sqlite"))
+            .await?;
+            Ok(row.map(|r| r.0))
+        }
+        Backend::Postgres => {
+            let row: Option<(String,)> = sqlx::query_as(
+                "SELECT id FROM audit_log WHERE document->>'undo_of' = $1 LIMIT 1",
+            )
+            .bind(id)
+            .fetch_optional(db.postgres_pool().expect("postgres"))
+            .await?;
+            Ok(row.map(|r| r.0))
+        }
+    }
 }
 
 pub async fn has_operator_role(db: &Database, account: &str) -> Result<bool, sqlx::Error> {

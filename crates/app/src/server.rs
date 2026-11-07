@@ -1040,6 +1040,13 @@ pub fn build_router(state: AppState) -> Router {
             routes::exchanges::router(),
             RouteClass::Write,
         ))
+        // One-click admin actions with a linked inverse — W7 task 3.
+        .merge(module_mount(
+            &state,
+            "admin_actions",
+            routes::admin_actions::router(),
+            RouteClass::Write,
+        ))
         // Governance (reports, moderation, sanctions, appeals, trust) — M14.
         .merge(module_mount(
             &state,
