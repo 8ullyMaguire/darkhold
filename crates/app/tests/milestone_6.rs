@@ -2958,3 +2958,109 @@ async fn a_vanished_origin_is_recorded_and_a_transient_one_is_not() {
 
     harness.cleanup().await;
 }
+
+// ---------------------------------------------------------------------------
+// M69-04 — a tombstone stops the import, and cites itself
+// ---------------------------------------------------------------------------
+
+/// A tombstone stops an import **before anything is written**, and the report says why.
+///
+/// The tombstone is filed against the identity the fixture page parses to — title and author as the source shows them, no
+/// URL — which is the claim: the same story served by another host is the same story.
+#[tokio::test]
+async fn a_tombstoned_work_is_refused_before_anything_is_written() {
+    let harness = Harness::new("import-tombstone").await;
+    let (client, account, pseud) = signed_in(&harness, "reader@example.org", "reader").await;
+    let _ = client;
+
+    // File the tombstone the way the door does, against the parsed identity.
+    let filed = darkhold_db::tombstones::file(
+        harness.tdb.db(),
+        &darkhold_db::tombstones::Filing {
+            title: "Vampiric Concerto",
+            author: "ashenthea",
+            language: None,
+            reason: "author request",
+            origin_url: Some(WORK_URL),
+            dmca_id: None,
+            filed_by: "operator",
+            note: "",
+            now: "2026-11-07T00:00:00Z",
+        },
+    )
+    .await
+    .expect("file tombstone");
+
+    let mut config = config_for(&harness.dir);
+    config.discovery.work_tombstones = true;
+    harness.seed_source(true, None).await;
+    let state = harness.state_with_config(FixtureArchive::new(), config);
+    let import_id = queue_import(&harness, account, &pseud, false).await;
+    run_passes(&state, 6).await;
+
+    let row = import_row(&harness, &import_id).await;
+    assert_eq!(row.state, "failed", "a refusal is a permanent failure, not a retry: {:?}", row.report_json);
+    let report: Value = serde_json::from_str(row.report_json.as_deref().expect("a report")).expect("json");
+    assert_eq!(report["error"], "tombstoned");
+    let message = report["message"].as_str().expect("a message");
+    assert!(
+        message.contains(&filed.id),
+        "the report cites the tombstone ({message})"
+    );
+    assert!(message.contains("author request"), "and why it was filed ({message})");
+    assert!(
+        message.contains("will not be retried"),
+        "the queue must not keep asking ({message})"
+    );
+
+    // Nothing was written: no library row, no units.
+    let item = imports::find_library_item(harness.tdb.db(), &account.to_string(), SOURCE, WORK_KEY)
+        .await
+        .expect("find");
+    assert!(item.is_none(), "a refused import leaves no library row");
+    assert!(
+        imports::list_import_units(harness.tdb.db(), &import_id).await.expect("units").is_empty(),
+        "a refused import stores no units"
+    );
+
+    // The refusal was counted, which is how an operator knows the key matched what the source serves.
+    let listed = darkhold_db::tombstones::list(harness.tdb.db(), 10).await.expect("list");
+    assert_eq!(listed[0].refusals, 1);
+
+    harness.cleanup().await;
+}
+
+/// The same instance with the switch off imports the work: a tombstone is a decision, and an undecided instance keeps the
+/// behaviour it had before the feature existed.
+#[tokio::test]
+async fn with_tombstones_off_the_same_work_imports() {
+    let harness = Harness::new("import-tombstone-off").await;
+    let (_client, account, pseud) = signed_in(&harness, "reader@example.org", "reader").await;
+
+    darkhold_db::tombstones::file(
+        harness.tdb.db(),
+        &darkhold_db::tombstones::Filing {
+            title: "Vampiric Concerto",
+            author: "ashenthea",
+            language: None,
+            reason: "author request",
+            origin_url: None,
+            dmca_id: None,
+            filed_by: "operator",
+            note: "",
+            now: "2026-11-07T00:00:00Z",
+        },
+    )
+    .await
+    .expect("file tombstone");
+
+    let import_id = run_import(&harness, account, &pseud, FixtureArchive::new(), false).await;
+    let row = import_row(&harness, &import_id).await;
+    assert_eq!(row.state, "completed", "{:?}", row.report_json);
+    let item = imports::find_library_item(harness.tdb.db(), &account.to_string(), SOURCE, WORK_KEY)
+        .await
+        .expect("find");
+    assert!(item.is_some(), "no refusal without a decision to enforce tombstones");
+
+    harness.cleanup().await;
+}

@@ -749,6 +749,8 @@ pub struct DiscoveryConfig {
     pub enforced_rules: Vec<String>,
     /// Whether readers can export and present signed taste passports (M69-03). Default: off.
     pub taste_passports: bool,
+    /// Whether work tombstones are enforced and their doors are open (M69-04). Default: off.
+    pub work_tombstones: bool,
     /// This instance's ed25519 passport signing key, hex-encoded, when configured (M69-03).
     pub passport_key: Option<String>,
     /// Per-surface algorithm choice (M64-01). Absent entirely when the instance runs the registry's defaults.
@@ -778,6 +780,7 @@ impl Default for DiscoveryConfig {
             peering_suggestions: false,
             enforced_rules: Vec::new(),
             taste_passports: false,
+            work_tombstones: false,
             passport_key: None,
             surfaces: std::collections::BTreeMap::new(),
         }
@@ -3344,6 +3347,9 @@ impl Config {
                 if let Some(passports) = d.taste_passports {
                     cfg.taste_passports = passports;
                 }
+                if let Some(tombstones) = d.work_tombstones {
+                    cfg.work_tombstones = tombstones;
+                }
                 if let Some(key) = &d.passport_key {
                     let text = key.trim();
                     // Refused at load rather than at first export: a mistyped key that fails when a reader asks for their
@@ -4914,6 +4920,10 @@ struct DiscoverySection {
     /// reader's taste and contribution counts off this instance, and a default-on transfer is one nobody agreed to.
     #[serde(default)]
     taste_passports: Option<bool>,
+    /// Whether work tombstones are enforced and their doors are open (M69-04). Off by default: a tombstone changes what an
+    /// import may bring in, and a default-on refusal is one nobody chose.
+    #[serde(default)]
+    work_tombstones: Option<bool>,
     /// This instance's ed25519 passport signing key, hex-encoded 32 bytes (M69-03).
     ///
     /// Required only for export. Signing without a key would produce a document nobody can check, and generating one

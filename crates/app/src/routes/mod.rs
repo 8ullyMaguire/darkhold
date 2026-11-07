@@ -122,6 +122,7 @@ pub mod finishers;
 pub mod specialists;
 pub mod tasting;
 pub mod taxonomy;
+pub mod tombstones;
 pub mod taxonomy_export;
 pub mod thread_modes;
 pub mod translation;

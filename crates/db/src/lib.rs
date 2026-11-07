@@ -648,3 +648,5 @@ mod tests {
         assert!(sqlite_path("sqlite://?mode=memory").is_err());
     }
 }
+
+pub mod tombstones;

@@ -194,6 +194,25 @@ fn fatal(message: impl Into<String>) -> HandlerError {
     HandlerError::Fatal(message.into())
 }
 
+/// M69-04: is this work tombstoned, and only if the instance turned tombstones on?
+///
+/// The switch is read here rather than at the route because this is the place a refusal happens: an instance with
+/// `[discovery] work_tombstones` off must import exactly what it imported before the feature existed, even if somebody
+/// filed a row by hand.
+async fn tombstones_enabled(
+    state: &AppState,
+    title: &str,
+    author: &str,
+    now: &str,
+) -> Result<Option<darkhold_db::tombstones::Refusal>, HandlerError> {
+    if !state.config().discovery.work_tombstones {
+        return Ok(None);
+    }
+    darkhold_db::tombstones::refuse(state.db(), title, author, None, now)
+        .await
+        .map_err(transient)
+}
+
 /// Recompute the source catalogue's health from the import history (spec §11.8).
 ///
 /// Called by the worker after every import attempt and by an operator route on
@@ -494,6 +513,22 @@ pub async fn run(
     // The item exists before its units so that the blobs have an owner to be
     // referenced by, and so a cancelled import leaves a readable stub rather
     // than orphaned content.
+    // M69-04: a taken-down work does not come back through this door. The check is before the item is written, so a refused
+    // import leaves nothing behind, and it is keyed by identity (title, author, language) rather than by URL — a re-import
+    // from a mirror is the same work, and that is exactly the case a takedown exists to stop.
+    //
+    // This is a **permanent** failure, not a retryable one: the queue must not keep asking. The report cites the tombstone by
+    // id, the reason it was filed, and when, because "import refused" with no citation is a support ticket.
+    let tombstone_now = darkhold_db::identity::now_rfc3339();
+    if let Some(refusal) = tombstones_enabled(state, &work.title, &work.author_text, &tombstone_now).await? {
+        let message = format!(
+            "\"{}\" is taken down (tombstone {}, filed {} for: {}); the import was refused and will not be retried",
+            work.title, refusal.tombstone, refusal.filed_at, refusal.reason
+        );
+        fail_import(state, import_job_id, "tombstoned", &message).await?;
+        return Ok(());
+    }
+
     let item_id = row
         .library_item_id
         .clone()
@@ -1278,6 +1313,19 @@ async fn process_bundle(
         })?;
     let item = darkhold_domain::bundle::BundleItem::open(&archive)
         .map_err(|error| fatal(error.to_string()))?;
+
+    // M69-04, the same guard as the URL path: a bundle restore is another way the same work arrives, and a takedown that
+    // only stopped the scraper would be half a takedown. A bundle carries no author, so the key is (title, "", unknown) —
+    // which is why the tombstone is keyed on what the importer actually has rather than on what a filing form wished for.
+    let tombstone_now = darkhold_db::identity::now_rfc3339();
+    if let Some(refusal) = tombstones_enabled(state, &item.manifest.title, "", &tombstone_now).await? {
+        let message = format!(
+            "\"{}\" is taken down (tombstone {}, filed {} for: {}); the restore was refused",
+            item.manifest.title, refusal.tombstone, refusal.filed_at, refusal.reason
+        );
+        fail_import(state, import_job_id, "tombstoned", &message).await?;
+        return Ok(());
+    }
 
     // The item exists before the body so the blob has an owner, exactly as the URL path does it — and a cancelled import
     // then leaves a readable stub rather than orphaned content.

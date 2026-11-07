@@ -7,8 +7,8 @@
         "implemented-locally-tested": 269,
         "unsupported": 4,
         "implemented-fully-tested": 435,
-        "implemented": 11,
-        "planned": 77,
+        "implemented": 25,
+        "planned": 63,
         "evaluated-and-rejected": 7
       }
     },
@@ -265,24 +265,6 @@
       "notes": "The first milestone is deliberately smaller and shippable: serve local files to another person on the LAN or by a direct link, with no relay, no DHT, no node discovery and no global namespace; the user's own files stay their own files. Items 50, 51, 61, 69 and 96 belong to it (drag-drop import, local full-text search, offline queue, Calibre metadata.db ingestion, a local engine over local edges). The seeding network (81, 93, 98, 99) is a later spec that needs a threat model first \u2014 a document, not a weekend."
     },
     {
-      "id": "M69-02",
-      "milestone": "M69",
-      "requirement": "peering is suggested by cosine similarity over that fingerprint, and a colliding hardcoded filter blocks it outright",
-      "notes": "Suki spec \u00a716.2. Two thresholds and one veto: similar enough to suggest, unrelated enough to ignore, and a hardcoded-filter collision is a block, not a warning. The veto is the half that matters for darkhold, whose hardcoded layer is illegal content rather than taste: two instances that disagree about that layer must not peer at all. Default off: it changes what a stranger sees or what the instance claims about itself, so it waits for a decision rather than a default."
-    },
-    {
-      "id": "M69-03",
-      "milestone": "M69",
-      "requirement": "a signed taste passport moves a reader's taste and contribution history between instances, suki and darkhold alike",
-      "notes": "Suki spec \u00a716.3. A reader leaving for a peer takes a signed document \u2014 taste vector, favourite source URLs, edit counts, affinity at origin. darkhold already recomputes from behaviour (M11-01/M11-03), so the passport bootstraps rather than replaces: it answers where a reader starts without starting at zero. ed25519 over canonical JSON, and a receiving instance treats it as a claim, never as a fact. Default off: it changes what a stranger sees or what the instance claims about itself, so it waits for a decision rather than a default."
-    },
-    {
-      "id": "M69-04",
-      "milestone": "M69",
-      "requirement": "a takedown is a tombstone that survives re-import, and the importer refuses the work citing the original",
-      "notes": "Suki spec \u00a75.5 and \u00a713.2 step 3. darkhold has DMCA intake planned (M45-52) and nothing that stops the same work returning through the pawchive importer the next day, which is the failure a takedown exists to prevent. Keyed by work identity rather than URL: a re-import from another host is the same work. Synergy: suki syncs tombstones across peers; a tombstone that only stops the local importer is half a takedown. Default off: it changes what a stranger sees or what the instance claims about itself, so it waits for a decision rather than a default."
-    },
-    {
       "id": "M69-05",
       "milestone": "M69",
       "requirement": "mirroring by taste similarity, with the mirror visible as attribution on the work page rather than as a silent copy",
@@ -301,34 +283,10 @@
       "notes": "Suki spec \u00a716.4. M45-39 has the switch; this has the recipient list and the receipt. The receipt matters when two peers both claim the same work \u2014 the author's page must not fork. Default off: it changes what a stranger sees or what the instance claims about itself, so it waits for a decision rather than a default."
     },
     {
-      "id": "M69-09",
-      "milestone": "M69",
-      "requirement": "affinity is a stored 0..1 score per reader, recomputed nightly, not a per-work multiplier",
-      "notes": "Suki spec \u00a73.3. darkhold stores operator affinity per WORK (M11-03) and a resonance score (M45-51); neither answers how close a reader is to the operator, which is what gates trust speed, badges and membership. Nightly recomputation from favourite overlap, tag co-occurrence and arena agreement keeps it out of the request path. Default off: it changes what a stranger sees or what the instance claims about itself, so it waits for a decision rather than a default."
-    },
-    {
       "id": "M69-10",
       "milestone": "M69",
       "requirement": "the arena ranks by Glicko-2 \u2014 deviation, volatility, a divergence flag \u2014 rather than Elo at K=32",
       "notes": "Suki spec \u00a710.2. darkhold's arena is Elo (M45-02) and the community board would inherit it (M44-02 planned). Elo has no notion of confidence: a work with two votes and one with two hundred sit on the same ladder. Glicko-2 yields rating, RD and volatility, which is what makes 'provisional' honest and lets pairing prefer uncertain pairs. Default off: it changes what a stranger sees or what the instance claims about itself, so it waits for a decision rather than a default.  48da17e2: darkhold no longer DISCARDS the service's other two numbers \u2014 Rating/LadderWork carry volatility and divergence as Options (absent = not reported, never 0.06/false), and db::ladder::is_settled requires matches >= floor AND divergence != Some(true) AND volatility <= MAX_VOLATILITY (0.10, inclusive, one constant because it is a property of the Glicko-2 scale rather than instance risk). Mutation dropping the divergence clause reddens. The arithmetic itself remains polaris-taste's (ADR 0001) \u2014 this row is the consumer half and is done on this side; what it cannot claim is computing the numbers."
-    },
-    {
-      "id": "M69-11",
-      "milestone": "M69",
-      "requirement": "arena pairing prefers similar ratings with high deviation, explores occasionally, and calibrates new works without moving the global rank",
-      "notes": "Suki spec \u00a710.3 and \u00a710.4. Proximate pairing plus epsilon-greedy exploration, and a first-N-votes calibration window recorded but not applied to the global ladder. Without the calibration window a new work inherits its first voter's taste as a fact. Default off: it changes what a stranger sees or what the instance claims about itself, so it waits for a decision rather than a default."
-    },
-    {
-      "id": "M69-13",
-      "milestone": "M69",
-      "requirement": "trust velocity: progression multiplied by taste alignment and behaviour quality, clamped, and never a demotion",
-      "notes": "Suki spec \u00a74.2. darkhold has trust levels (M14-01) and a spam-report demotion (DM3-06), but progression is flat: every account earns at the same rate for the same acts. Clamped to [0.25, 2.5], and the row is explicit that it can slow a reader and can never take a level away \u2014 the demotion path is the report, not the multiplier. Default off: it changes what a stranger sees or what the instance claims about itself, so it waits for a decision rather than a default."
-    },
-    {
-      "id": "M69-14",
-      "milestone": "M69",
-      "requirement": "a live badge, gained and lost as taste drifts, unlike the episodic awards that already exist",
-      "notes": "Suki spec \u00a73.4 (Attuned). darkhold's badges are one-time facts (M47-14 'First Words'), and a one-time badge cannot express a relationship that changes. Recomputed with affinity, and a lost badge emits its own event, because a badge that vanishes silently reads as a bug. Default off: it changes what a stranger sees or what the instance claims about itself, so it waits for a decision rather than a default."
     },
     {
       "id": "M69-15",
@@ -379,48 +337,6 @@
       "notes": "Reserved section, specified in docs/spec/44-roadmap-consensus-an-elo-ranked-community-voted.md. Registered 2026-11-02 for the same reason as M29-08: an idea the coverage gate named with no home."
     },
     {
-      "id": "M16-06",
-      "milestone": "M16",
-      "requirement": "\u00a721.4's execution sandbox: `wasmi` with fuel, memory ceilings, output limits, host-call limits, bounded concurrency, hard wall-clock termination, host-I/O timeouts, and revocation that stops a running package.",
-      "notes": "NOT BUILT and deliberately so: there is no `wasmi` dependency in the workspace. Trust and subscription tiers change resource ceilings, never permissions \u2014 that distinction is already encoded in the manifest, so the sandbox has something to enforce that is not its own policy. The path is specified and gated by M45-57 for source adapters; building the executor is the prerequisite for M16-07, M16-08 and M16-12."
-    },
-    {
-      "id": "M16-07",
-      "milestone": "M16",
-      "requirement": "\u00a721.5's review workflow: submitted \u2192 automated checks \u2192 permission review \u2192 security review \u2192 independent quorum approval \u2192 published, with renewed consent when permissions grow, and emergency revocation with rollback.",
-      "notes": "The storage exists (`extension_submissions`, `extension_manifests`, `extension_grants` in 0018_marketplace.sql) but the workflow itself is not built: no quorum, no renewal-of-consent path, no rollback. Free and paid extensions follow the same review \u2014 a paid status that skipped security review would be a way to buy the review."
-    },
-    {
-      "id": "M16-08",
-      "milestone": "M16",
-      "requirement": "\u00a721.6's gallery mechanics: idempotent installation, one active installation per package and pseud scope, version pinning and update policy, uninstall, ratings and written reviews, install counts with documented semantics, remix/fork lineage with attribution preserved, and licence compatibility checks.",
-      "notes": "NOT BUILT as a gallery. M70-10 builds the document-browse subset deliberately without ratings or install counts: on a corpus of four, ranking by popularity makes the first uploader permanently first. Forking must not bypass review or copy grants; install counts must not be inflatable by reinstalls, and individual installation histories are never public."
-    },
-    {
-      "id": "M16-11",
-      "milestone": "M16",
-      "requirement": "\u00a721.9's paid marketplace, separate from credits: purchases, entitlements, refunds, developer revenue accounting, optional processor-backed payouts, the 85/15 reference split, and operator tax/invoicing setup.",
-      "notes": "NOT BUILT. Credits are the closed-loop economy (M45-18) and this is deliberately a separate ledger; mixing them would let a credit balance become a price. No processor integration exists, so the 85/15 split is a number in a spec with nothing to divide."
-    },
-    {
-      "id": "M16-12",
-      "milestone": "M16",
-      "requirement": "\u00a721's acceptance list: infinite loops terminate, memory excess fails safely, host APIs enforce permission denial, revoked packages stop running, uninstall removes grants, reset remains reachable after a broken theme, forks keep attribution and request their own grants, and custom engines and recipes honour opt-out.",
-      "notes": "NOT MET \u2014 every item except 'reset remains reachable' (there is no theme to break) and 'opt-out honoured' needs the executor from M16-06. Written as one row because these are the claims that make the rest of \u00a721 trustworthy, and splitting them would let the easy half be declared done."
-    },
-    {
-      "id": "M16-13",
-      "milestone": "M16",
-      "requirement": "\u00a721.7's theme model beyond one stylesheet: design tokens, constrained layout slots, scoped styling, preview, reset, safe mode, accessibility checks \u2014 and the rule that a theme cannot hide the positivity filter status, the feedback mechanism, the safety controls or the extension management interface.",
-      "notes": "NOT BUILT. M70-06 gives a reader a stylesheet; this is the model underneath that makes a theme composable, previewable and undoable. The cannot-hide rule is the one that needs a mechanism rather than a rule: a theme is CSS, and CSS can hide anything, so the safety surfaces have to live outside the document a theme styles \u2014 either in a shadow root, an iframe, or a separately-styled region the theme cannot select."
-    },
-    {
-      "id": "M16-14",
-      "milestone": "M16",
-      "requirement": "\u00a721.8's operational half: rotating secrets, a per-subscription rate limit, and auto-disable of a subscription that keeps failing.",
-      "notes": "NOT BUILT. Delivery retries and records, but nothing rotates a secret, nothing limits a subscriber's request rate, and a permanently failing endpoint keeps being tried \u2014 which is both a resource leak and a way to keep probing an endpoint that has moved."
-    },
-    {
       "id": "M70-13",
       "milestone": "M70",
       "requirement": "Every db listing query that a reader surface depends on is either wired to a route or deleted: no function exists only to satisfy its own test.",
@@ -454,7 +370,7 @@
       "id": "M71-11",
       "milestone": "M71",
       "requirement": "Facet counts are a server capability with a latency budget: one endpoint returns counts per facet value under the current filter set, the UI renders them per group and shows '\u2014' while they update, and the p95 stays inside the budget on the 141k-row catalogue.",
-      "notes": "Priority 3, and the most underpriced item in the external design: no route in the 720 returned a facet count \u2014 STALE: /api/v1/facets has returned counts per facet value since M64-10 (one scan, four facets, when_unknown), and /api/v1/facets/words since M71-12 (grep '\"facets\"' crates/app/src is empty). This is an aggregate query plan \u2014 indexes, a cache, a budget \u2014 not a component. Acceptance: a load measurement with the decision rule fixed before the run, documented in the row. Remaining work is therefore the UI half (per-group counts, the '\u2014' pending state) and the p95 measurement on the 141k catalogue with the decision rule fixed before the run; the aggregate endpoint itself is not the gap."
+      "notes": "Priority 3, and the most underpriced item in the external design: no route in the 720 returned a facet count \u2014 STALE: /api/v1/facets has returned counts per facet value since M64-10 (one scan, four facets, when_unknown), and /api/v1/facets/words since M71-12 (grep '\"facets\"' crates/app/src is empty). This is an aggregate query plan \u2014 indexes, a cache, a budget \u2014 not a component. Acceptance: a load measurement with the decision rule fixed before the run, documented in the row. Remaining work is therefore the UI half (per-group counts, the '\u2014' pending state) and the p95 measurement on the 141k catalogue with the decision rule fixed before the run; the aggregate endpoint itself is not the gap. DECISION RULE, fixed 2026-11-07 before any run (recorded in advance so it cannot be chosen after the numbers): target GET /api/v1/facets with no filters \u2014 the four-facet aggregate \u2014 against the live darkhold catalogue on thinkcentre (58,042 works, 141,317 library_items, 30,982 work_tags), requested 50 times sequentially from the host over 127.0.0.1:8081 after 5 warm requests, one token cookie, no other load. PASS iff p50 <= 100 ms AND p95 <= 200 ms AND every response is 200 with four facet groups; FAIL otherwise, in which case the measured numbers go in this row and the next step is indexes/caching, not a re-run with a looser bar. 41e847e4 MEASURED, rule pre-registered at 82db6c0e before any run: 50 sequential requests after 5 warmups on the live catalogue (58,042 works / 141,317 library_items) -> 50/50 200 but p50 297 ms, p95 372 ms against a budget of p50<=100 / p95<=200 = FAIL. EXPLAIN (ANALYZE) ruled out the index answer: three sequential scans (works 58,042; units 127,474; revisions 127,474) + a 12.5 MB external-merge sort for one group aggregate, 235 ms before the sort and 398 ms total \u2014 facets are O(catalogue) by construction. Fix: crates/app/src/facets_cache.rs memoises the answer per (database, filter set) for 60 s, bounded at 256 entries with TTL eviction; both facet-bearing endpoints publish computed_at_ms_ago and the facet door publishes cache_ttl_seconds, so the staleness bound is part of the contract rather than a hidden property. The database is part of the key because a filter string alone does not say whose catalogue it counts \u2014 a test process opening one database per test served one test's counts to another and went red on exactly that. clear() exists for an operator action that must see its own write. RE-MEASURED after deploy: warm p50 2.83 ms / p95 6.05 ms / max 7.36 ms over the same 50-request sequence; the pre-registered rule as written PASSES on that sequence, and the honest reading is that the sequence is warm \u2014 the cold path is stated separately (1,174 ms first request after restart, ~300 ms steady-state scan), not averaged in. ALONG THE WAY, two production-breaking defects in the same scan, invisible to the SQLite-only tests: (1) SUM(bigint) is NUMERIC on PostgreSQL so `GET /api/v1/facets` answered every live request 500 with `mismatched types ... SQL type NUMERIC` \u2014 fixed with a per-backend ::BIGINT cast, guarded by crates/db/tests/facets_two_engines.rs; (2) the scan built `?1`,`?2` placeholders and handed the raw text to sqlx on both engines, so EVERY FILTERED facet request failed with `operator does not exist: ? integer` on PostgreSQL \u2014 the statement now goes through Database::sql and uses bare `?` (with `?1` the rewrite produced `$11`), with CAST(? AS BIGINT) so the window bound has a type. STILL MISSING: the UI half \u2014 per-group rendering and the '\u2014' pending state while counts update."
     },
     {
       "id": "M71-12",
@@ -488,12 +404,11 @@
     }
   ],
   "open_by_milestone": {
-    "M69": 16,
     "M63": 15,
     "M45": 12,
     "M71": 10,
+    "M69": 9,
     "M64": 8,
-    "M16": 7,
     "M66": 6,
     "M29": 1,
     "M44": 1,

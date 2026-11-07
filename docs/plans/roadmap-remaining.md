@@ -515,3 +515,34 @@ Found on the way: two renames the store had left behind — `chapter_revisions` 
 
 Limits: nothing fetches a peer's passport; no UI; not linked to polaris-id, so "same person" rests on the reader presenting it;
 `favourite_sources` is exported but unconsumed.
+
+### M69-04 — a tombstone that survives re-import (implemented 2026-11-07)
+
+Keyed by **work identity**, not URL: title + author + language, normalised (NFKD, lowercase, marks dropped, punctuation and
+spacing collapsed) and hashed. A takedown that stops one string stops one import; the work comes back from a mirror
+tomorrow, which is the failure a takedown exists to prevent. The body is not the key — imports arrive without one, a body
+legitimately changes, and two mirrors rarely match byte for byte. `text_key` exists for a later second key, unused today.
+
+Normalisation is deliberately conservative: "The Storm, part 2" is a different work from "The Storm" (an over-matching
+tombstone removes a sequel nobody complained about), and an empty author is not a wildcard. A retitled copy escapes — the
+cheaper failure.
+
+The refusal is checked **before the library row is written**, in both the URL import and the bundle restore, so a refused
+import leaves no item and no units. The queue row is `failed` with code `tombstoned` and a message citing the tombstone id,
+its reason and its filing date — permanent, so the worker does not keep asking.
+
+Every refusal increments `refusals` / `last_refused_at`: a tombstone with a zero is a mistyped title, and that is the only
+way an operator can tell.
+
+Withdrawal writes `withdrawn_at` + reason rather than deleting, because the row is the answer to "why did my work vanish?".
+Re-filing re-arms it and keeps the paperwork reference.
+
+    POST /api/v1/admin/tombstones                 # file by identity; the response echoes the key it derived
+    GET  /api/v1/admin/tombstones                 # withdrawn ones included, with refusal counts
+    POST /api/v1/admin/tombstones/{id}/withdraw   # needs a reason
+
+Off by default (`[discovery] work_tombstones`), read at the point of refusal. Doors answer 404 while off, 403 for a
+non-operator while on.
+
+Found on the way: dropping combining marks **without decomposing** split `Á` from `A`+acute into two keys — caught by the
+accent test; NFKD before lowercasing is the fix.

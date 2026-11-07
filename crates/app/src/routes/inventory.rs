@@ -6231,6 +6231,27 @@ pub const ROUTE_TABLE: &[RouteEntry] = &[
         audience: Audience::Authenticated,
     },
     RouteEntry {
+        file: "tombstones.rs",
+        handler: "file",
+        method: "POST",
+        path: "/admin/tombstones",
+        audience: Audience::Operator,
+    },
+    RouteEntry {
+        file: "tombstones.rs",
+        handler: "list",
+        method: "GET",
+        path: "/admin/tombstones",
+        audience: Audience::Operator,
+    },
+    RouteEntry {
+        file: "tombstones.rs",
+        handler: "withdraw",
+        method: "POST",
+        path: "/admin/tombstones/{id}/withdraw",
+        audience: Audience::Operator,
+    },
+    RouteEntry {
         file: "passport.rs",
         handler: "export",
         method: "GET",
