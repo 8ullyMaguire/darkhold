@@ -491,3 +491,27 @@ Order is the answer: suggestions, then vetoes, then near misses.
 
 Limits: nothing fetches peer documents; the list does not write `federation_peers_v2`; the veto matches rule *names* only, so
 differently-spelled rules collide spuriously — the fix is a controlled vocabulary, not a fuzzy match.
+
+### M69-03 — a signed taste passport (implemented 2026-11-07)
+
+ed25519 over canonical JSON (sorted keys, no whitespace, integers only in the signed surface — the tag vector is basis points,
+because float formatting is the part of JCS that fails intermittently rather than loudly). Both doors sign/verify through one
+function, so the round-trip test (export → import) is the real assertion.
+
+The document is a **claim**: signed by the instance, not the reader. Its taste lands as `origin = 'imported'` taste signals, so
+local evidence outvotes it as it accumulates. Unknown `version` refused rather than partially read; 180-day expiry checked in
+both directions; caps on tags, sources and weights.
+
+    GET    /api/v1/me/passport           # export, signed by this instance (needs [discovery] passport_key)
+    POST   /api/v1/me/passport           # present one: verify, receipt, seed imported taste
+    GET    /api/v1/me/passports          # receipts
+    DELETE /api/v1/me/passport?origin=…  # receipt and the taste it seeded
+
+Off by default (`[discovery] taste_passports`). The export carries canonical tag names (not local node ids) and only the
+**public** key.
+
+Found on the way: two renames the store had left behind — `chapter_revisions` → `revisions` (0122) and `taxonomy_nodes` →
+`canonical_entities` (0124). Both queries compiled green and would have failed on any live instance.
+
+Limits: nothing fetches a peer's passport; no UI; not linked to polaris-id, so "same person" rests on the reader presenting it;
+`favourite_sources` is exported but unconsumed.

@@ -77,6 +77,7 @@ pub mod operator_theme;
 pub mod orphan;
 pub mod orphaning;
 pub mod payouts;
+pub mod passport;
 pub mod peering;
 pub mod permission;
 pub mod policy;

@@ -12,6 +12,11 @@
   ],
   "amends": "spec 11.16",
   "columns": {
+    "taste_passports.account_id": {
+      "treatment": "drop_table",
+      "why": "The row is a reader's taste profile as another instance measured it, plus the handle they used there: nothing in it survives its subject, and keeping the taste of a gone account would be keeping a claim about a person who asked to be removed. The imported taste_signals it seeded go with the account by their own foreign key.",
+      "reviewed_by": "alvaro, 2026-11-07, against spec 11.16"
+    },
     "peer_fingerprints.instance_id": {
       "treatment": "drop_column",
       "why": "A peer instance's own published base URL, not a person: it is public by definition, since the document it came from is served at /.well-known. Dropping the column on erasure would delete the row a veto depends on, so the treatment is a column drop only -- an erasure that reaches a peer still leaves the peer's own public identity out of this store.",

@@ -747,6 +747,10 @@ pub struct DiscoveryConfig {
     pub peering_suggestions: bool,
     /// The rules this instance enforces unconditionally, as declared in config (M69-02).
     pub enforced_rules: Vec<String>,
+    /// Whether readers can export and present signed taste passports (M69-03). Default: off.
+    pub taste_passports: bool,
+    /// This instance's ed25519 passport signing key, hex-encoded, when configured (M69-03).
+    pub passport_key: Option<String>,
     /// Per-surface algorithm choice (M64-01). Absent entirely when the instance runs the registry's defaults.
     ///
     /// Validated at load — an unknown surface, a wrong count, an unknown algorithm or a duplicate is refused — because
@@ -773,6 +777,8 @@ impl Default for DiscoveryConfig {
             live_badges: false,
             peering_suggestions: false,
             enforced_rules: Vec::new(),
+            taste_passports: false,
+            passport_key: None,
             surfaces: std::collections::BTreeMap::new(),
         }
     }
@@ -3335,6 +3341,23 @@ impl Config {
                 if let Some(peering) = d.peering_suggestions {
                     cfg.peering_suggestions = peering;
                 }
+                if let Some(passports) = d.taste_passports {
+                    cfg.taste_passports = passports;
+                }
+                if let Some(key) = &d.passport_key {
+                    let text = key.trim();
+                    // Refused at load rather than at first export: a mistyped key that fails when a reader asks for their
+                    // passport is a bug report, and one that fails at startup is a fix.
+                    let bytes = hex::decode(text)
+                        .map_err(|_| anyhow::anyhow!("discovery.passport_key must be hex-encoded"))?;
+                    if bytes.len() != 32 {
+                        return Err(anyhow::anyhow!(
+                            "discovery.passport_key must be 32 bytes (64 hex characters), not {}",
+                            bytes.len()
+                        ));
+                    }
+                    cfg.passport_key = Some(text.to_owned());
+                }
                 if let Some(rules) = &d.enforced_rules {
                     cfg.enforced_rules = rules
                         .iter()
@@ -4887,6 +4910,16 @@ struct DiscoverySection {
     /// therefore collides with nothing — absence on both sides is agreement, not a claim.
     #[serde(default)]
     enforced_rules: Option<Vec<String>>,
+    /// Whether readers can export and present signed taste passports (M69-03). Off by default: a passport carries a
+    /// reader's taste and contribution counts off this instance, and a default-on transfer is one nobody agreed to.
+    #[serde(default)]
+    taste_passports: Option<bool>,
+    /// This instance's ed25519 passport signing key, hex-encoded 32 bytes (M69-03).
+    ///
+    /// Required only for export. Signing without a key would produce a document nobody can check, and generating one
+    /// silently would hand every instance a key its operator never saw.
+    #[serde(default)]
+    passport_key: Option<String>,
 }
 
 /// The `[theme]` table (spec §0.4.6): theme mode and gravity settings.
