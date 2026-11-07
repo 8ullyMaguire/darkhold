@@ -6239,6 +6239,13 @@ pub const ROUTE_TABLE: &[RouteEntry] = &[
     },
     RouteEntry {
         file: "affinity.rs",
+        handler: "my_badges",
+        method: "GET",
+        path: "/me/badges",
+        audience: Audience::Authenticated,
+    },
+    RouteEntry {
+        file: "affinity.rs",
         handler: "operator_view",
         method: "GET",
         path: "/operator/affinity",

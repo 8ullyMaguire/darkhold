@@ -741,6 +741,8 @@ pub struct DiscoveryConfig {
     /// tells it where a work sits versus one that confirms where it already is — and because a test that could not set
     /// it to zero could only assert "sometimes", which is not an assertion.
     pub arena_epsilon: f64,
+    /// Whether live badges are decided and shown (M69-14). Default: off.
+    pub live_badges: bool,
     /// Per-surface algorithm choice (M64-01). Absent entirely when the instance runs the registry's defaults.
     ///
     /// Validated at load — an unknown surface, a wrong count, an unknown algorithm or a duplicate is refused — because
@@ -764,6 +766,7 @@ impl Default for DiscoveryConfig {
             moods: MoodsConfig::default(),
             experiment_buckets: 0,
             arena_epsilon: default_arena_epsilon(),
+            live_badges: false,
             surfaces: std::collections::BTreeMap::new(),
         }
     }
@@ -3320,6 +3323,9 @@ impl Config {
                 if let Some(strategies) = d.enabled_strategies {
                     cfg.rec_enabled_strategies = strategies;
                 }
+                if let Some(live) = d.live_badges {
+                    cfg.live_badges = live;
+                }
                 if let Some(epsilon) = d.arena_epsilon {
                     // Refused at load, not clamped: a value outside the interval is a typo in a probability, and quietly
                     // making it 0.15 would leave an instance believing it configured exploration.
@@ -4850,6 +4856,10 @@ struct DiscoverySection {
     /// How often the arena explores instead of pairing proximate works (M69-11). Absent means 0.15.
     #[serde(default)]
     arena_epsilon: Option<f64>,
+    /// Whether live badges are decided and shown (M69-14). Off unless an instance says otherwise: a badge is a claim the
+    /// instance makes about a reader, and a default-on claim is one nobody chose.
+    #[serde(default)]
+    live_badges: Option<bool>,
 }
 
 /// The `[theme]` table (spec §0.4.6): theme mode and gravity settings.

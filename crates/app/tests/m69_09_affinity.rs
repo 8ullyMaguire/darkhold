@@ -375,7 +375,7 @@ async fn an_instance_with_no_operator_scores_nobody_rather_than_scoring_everybod
     op.register("not-the-operator").await;
 
     // The sweep still runs; it just has no operator to measure against.
-    let report = darkhold_db::reader_affinity::recompute_all(h.tdb.db(), None, "2026-11-07T00:00:00Z")
+    let report = darkhold_db::reader_affinity::recompute_all(h.tdb.db(), None, "2026-11-07T00:00:00Z", false)
         .await
         .expect("sweep");
     assert_eq!(report.initialised, 0);

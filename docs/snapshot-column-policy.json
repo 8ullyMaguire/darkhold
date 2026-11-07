@@ -12,6 +12,16 @@
   ],
   "amends": "spec 11.16",
   "columns": {
+    "live_badge_events.account_id": {
+      "treatment": "drop_table",
+      "why": "A live badge is a reading about a pseudonymous reader: the row says this account's taste is close to the instance's. Removing the account leaves a claim about a person who is gone, and the claim is the whole content of the row -- so the events go with the account, and with it the reason sentence that quotes their affinity.",
+      "reviewed_by": "alvaro, 2026-11-07, against spec 11.16"
+    },
+    "live_badge_state.account_id": {
+      "treatment": "drop_table",
+      "why": "Holds a current affinity reading and whether the badge is held for one account: nothing in the row survives its subject, so the row goes with the account.",
+      "reviewed_by": "alvaro, 2026-11-07, against spec 11.16"
+    },
     "accounts.age_state": {
       "treatment": "keep",
       "why": "Operational or content metadata; carries no personal data.",
