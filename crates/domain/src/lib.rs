@@ -44,6 +44,7 @@ pub mod extension;
 pub mod external_seed;
 pub mod fandom_graph;
 pub mod fairqueue;
+pub mod filter_state;
 pub mod finishers;
 pub mod flows;
 pub mod generated_content;

@@ -403,6 +403,30 @@ async fn search(
         .await
         .unwrap_or_default();
 
+    // M71-15: the string and the panel are one state, so the response carries both halves of it.
+    //
+    // The reader's content filters have no field in the grammar, so they are pinned chips: a page that treated `q` as the state would lose
+    // them the moment somebody edited the string, and nothing would say so. `unexpressed_note` exists so the page can say it in words.
+    let mut filter_state = darkhold_domain::filter_state::FilterState {
+        text: params.q.clone(),
+        min_words,
+        max_words,
+        max_rating: max_rating.clone(),
+        sort: sort.clone(),
+        pinned: filters
+            .iter()
+            .map(|(kind, value)| darkhold_domain::filter_state::PinnedFilter {
+                // The filter's own type, so the panel can group `tag` apart from `warning` without a second mapping.
+                kind: kind.clone(),
+                value: value.clone(),
+                label: format!("not showing {value}"),
+                reason: "the query grammar has no field for a content filter",
+            })
+            .collect(),
+    };
+    // Sorted so two searches that differ only in filter order produce the same chips.
+    filter_state.pinned.sort_by(|a, b| a.value.cmp(&b.value));
+
     Ok(Json(serde_json::json!({
         "items": items,
         "filters": {
@@ -410,6 +434,11 @@ async fn search(
             "max_words": max_words,
             "sort": sort,
             "max_rating": max_rating,
+        },
+        "state": {
+            "query": filter_state.query_string(),
+            "chips": filter_state.chips(),
+            "unexpressed_note": filter_state.unexpressed_note(),
         },
         "facets": facets,
         "facets_over": "the catalogue under min_words, max_words and max_rating — not this page of hits",

@@ -642,6 +642,35 @@ fn render_comparison(
         );
     }
 
+    // A ranked vocabulary (M71-15). `rating:<=mature` is a ceiling — the one facet the search panel has always had and the string could
+    // never carry, so a shared link silently dropped it. The rank is rendered as a CASE over the closed vocabulary rather than compared
+    // as text, because `'teen' <= 'mature'` is true by accident of spelling and `'explicit' <= 'mature'` would be false for the same
+    // reason rather than for the product's reason.
+    if matches!(field, QueryField::Rating) {
+        let rank = crate::query::rating_rank(value).ok_or_else(|| {
+            QueryError::new(
+                format!(
+                    "rating {} takes a rating name, got {:?} (known: {})",
+                    op.as_str(),
+                    value,
+                    crate::query::RATING_RANKS
+                        .iter()
+                        .map(|(name, _)| *name)
+                        .collect::<Vec<&str>>()
+                        .join(", ")
+                ),
+                0,
+            )
+        })?;
+        return Ok(
+            SqlFragment::new(format!(
+                "(CASE works.rating WHEN 'general' THEN 0 WHEN 'teen' THEN 1 WHEN 'mature' THEN 2 WHEN 'explicit' THEN 3 ELSE 99 END {} ?)",
+                op.sql()
+            ))
+            .with_bind(rank.to_string()),
+        );
+    }
+
     // Re-validate: the parser checks the value is an integer, but
     // `render_query` is public and can be handed an AST built by hand.
     let n = value.parse::<i64>().map_err(|_| {
@@ -1295,6 +1324,24 @@ mod tests {
                 frag.sql
             );
         }
+    }
+
+    #[test]
+    fn a_rating_comparison_renders_as_a_rank_not_as_text() {
+        // M71-15. The ceiling is a rank over a closed vocabulary: `'explicit' <= 'mature'` is false because of spelling, not because of
+        // the product's order, so the SQL must compare CASE ranks.
+        let ast = parse_query("rating:<=mature").unwrap();
+        let frag = render_query(&ast).unwrap();
+        assert!(
+            frag.sql.contains("CASE works.rating"),
+            "expected a rank CASE, got: {}",
+            frag.sql
+        );
+        assert_eq!(frag.binds, vec!["2".to_owned()], "mature is rank 2");
+
+        let ast = parse_query("rating:>general").unwrap();
+        let frag = render_query(&ast).unwrap();
+        assert_eq!(frag.binds, vec!["0".to_owned()], "general is rank 0");
     }
 
     #[test]

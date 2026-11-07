@@ -248,6 +248,8 @@ impl QueryField {
                 | QueryField::Updated
                 | QueryField::Joined
                 | QueryField::Bookmarked
+                // A rating is orderable by rank, not by number (M71-15).
+                | QueryField::Rating
         )
     }
 
@@ -261,6 +263,7 @@ impl QueryField {
     /// knows what is behind the name.
     pub fn comparison_value(self) -> ValueKind {
         match self {
+            Self::Rating => ValueKind::Rank,
             Self::Active | Self::Published | Self::Updated | Self::Joined | Self::Bookmarked => {
                 ValueKind::Date
             }
@@ -277,6 +280,11 @@ pub enum ValueKind {
     Number,
     /// An ordered comparison on a timestamp: `active:>2026-01-15`.
     Date,
+    /// An ordered comparison on a fixed vocabulary whose terms have an order the product defines: `rating:<=mature`.
+    ///
+    /// Not `Text`: the field *is* orderable, just not numerically. `general < teen < mature < explicit`, and the rank is the product's
+    /// judgement rather than a property of the strings, which is why the table lives in this module and every surface reads it.
+    Rank,
     /// Not orderable. A comparison on one of these is a category error.
     Text,
 }
@@ -320,11 +328,43 @@ fn unsplit_comparison(term: &str) -> Option<String> {
     None
 }
 
+/// The rating vocabulary, lowest first, with the rank every ordered comparison uses.
+///
+/// The order is the product's: `general` < `teen` < `mature` < `explicit`. It is here — in the domain, next to the grammar — because
+/// three implementations of the same ladder is how `rating:<=mature` and the catalogue's ceiling end up disagreeing about whether
+/// an `explicit` work is above a `mature` one.
+pub const RATING_RANKS: [(&str, i64); 4] = [
+    ("general", 0),
+    ("teen", 1),
+    ("mature", 2),
+    ("explicit", 3),
+];
+
+/// The rank of a rating name, case-insensitively; `None` when the name is not in the vocabulary.
+#[must_use]
+pub fn rating_rank(name: &str) -> Option<i64> {
+    let needle = name.trim().to_ascii_lowercase();
+    RATING_RANKS
+        .iter()
+        .find(|(rating, _)| *rating == needle)
+        .map(|(_, rank)| *rank)
+}
+
+/// The rating name at a rank, for rendering a refusal that names what is allowed.
+#[must_use]
+pub fn rating_at(rank: i64) -> Option<&'static str> {
+    RATING_RANKS
+        .iter()
+        .find(|(_, value)| *value == rank)
+        .map(|(name, _)| *name)
+}
+
 /// The noun a field's value kind takes in an error message.
 fn describe_kind(kind: ValueKind) -> &'static str {
     match kind {
         ValueKind::Number => "numeric",
         ValueKind::Date => "date",
+        ValueKind::Rank => "ranked",
         ValueKind::Text => "single-value",
     }
 }
@@ -334,6 +374,7 @@ fn valid_bound(kind: ValueKind, value: &str) -> bool {
     match kind {
         ValueKind::Number => value.parse::<i64>().is_ok(),
         ValueKind::Date => is_iso_dateish(value),
+        ValueKind::Rank => rating_rank(value).is_some(),
         ValueKind::Text => false,
     }
 }
@@ -448,6 +489,10 @@ fn bounds_descend(kind: ValueKind, low: &str, high: &str) -> bool {
         // sort before everything inside them -- which is why a bare `2026-01`
         // behaves as "January 2026" against a stored `2026-01-15 09:00:00`.
         ValueKind::Date | ValueKind::Text => low > high,
+        // A rank compares by position in the vocabulary, and a range whose low end is above its high end is the same empty window.
+        ValueKind::Rank => {
+            rating_rank(low).unwrap_or(0) > rating_rank(high).unwrap_or(i64::MAX)
+        }
     }
 }
 
@@ -1168,7 +1213,23 @@ impl<'a> Parser<'a> {
                                 self.pos,
                             ));
                         }
-                        ValueKind::Number | ValueKind::Date => {}
+                        ValueKind::Rank if rating_rank(value).is_none() => {
+                            return Err(QueryError::new(
+                                format!(
+                                    "{} {} takes a rating name, got {:?} (known: {})",
+                                    f.as_str(),
+                                    op.as_str(),
+                                    value,
+                                    RATING_RANKS
+                                        .iter()
+                                        .map(|(name, _)| *name)
+                                        .collect::<Vec<&str>>()
+                                        .join(", ")
+                                ),
+                                self.pos,
+                            ));
+                        }
+                        ValueKind::Number | ValueKind::Date | ValueKind::Rank => {}
                     }
                     return Ok(QueryAst::Comparison(f, op, value.to_owned()));
                 }

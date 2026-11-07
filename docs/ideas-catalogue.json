@@ -1,2268 +1,2242 @@
 {
- "generated_by": "scripts/ideas_catalogue.py",
- "count": 174,
- "ideas": [
-  {
-   "why_summary": "",
-   "id": "idea.ultimate-fanfiction-site",
-   "title": "Ultimate Fanfiction Site",
-   "sources": [
-    "docs/spec-amendments/ultimate-fanfiction-site.md"
-   ],
-   "milestone": "unassigned",
-   "relevance": 5,
-   "because": "specified by an amendment (+3); named in the spec (+2)",
-   "default_on": false,
-   "built": false
-  },
-  {
-   "why_summary": "docs/ROADMAP-guest-trust-governance.md Adopted from the estate standard (secondbrain 2026-10-16-guest-access-trust-and-self-governance.md). Config delta for this site: guest.mau_li",
-   "id": "GS-1",
-   "title": "guest access with consent",
-   "sources": [
-    "docs/requirements.csv"
-   ],
-   "milestone": "M66",
-   "relevance": 4,
-   "because": "a requirements row exists (+4)",
-   "default_on": false,
-   "built": false
-  },
-  {
-   "why_summary": "docs/ROADMAP-guest-trust-governance.md Measured 2026-11-02: consent appears only in crates/app/tests/milestone_16.rs; no guest identity and no fold exist in this tree. The standard",
-   "id": "GS-3",
-   "title": "guest identity as a first-class pseudonym",
-   "sources": [
-    "docs/requirements.csv"
-   ],
-   "milestone": "M66",
-   "relevance": 4,
-   "because": "a requirements row exists (+4)",
-   "default_on": false,
-   "built": false
-  },
-  {
-   "why_summary": "docs/ROADMAP-guest-trust-governance.md An upgrade of machinery that exists rather than new machinery: karma (99 references) and trust_level (52) are already here. Two trust numbers",
-   "id": "GS-4",
-   "title": "elastic trust from karma, not a parallel score",
-   "sources": [
-    "docs/requirements.csv"
-   ],
-   "milestone": "M66",
-   "relevance": 4,
-   "because": "a requirements row exists (+4)",
-   "default_on": false,
-   "built": false
-  },
-  {
-   "why_summary": "docs/ROADMAP-guest-trust-governance.md The other item nothing in this repo has. Same caution as GS-4: the numbers belong in the roadmap file when they are real.",
-   "id": "GS-5",
-   "title": "a jury drawn from the eligible pool",
-   "sources": [
-    "docs/requirements.csv"
-   ],
-   "milestone": "M66",
-   "relevance": 4,
-   "because": "a requirements row exists (+4)",
-   "default_on": false,
-   "built": false
-  },
-  {
-   "why_summary": "NOT BUILT and deliberately so: there is no `wasmi` dependency in the workspace. Trust and subscription tiers change resource ceilings, never permissions \u2014 that distinction is alrea",
-   "id": "M16-06",
-   "title": "\u00a721.4's execution sandbox",
-   "sources": [
-    "docs/requirements.csv"
-   ],
-   "milestone": "M16",
-   "relevance": 4,
-   "because": "a requirements row exists (+4)",
-   "default_on": false,
-   "built": false
-  },
-  {
-   "why_summary": "The storage exists (`extension_submissions`, `extension_manifests`, `extension_grants` in 0018_marketplace.sql) but the workflow itself is not built: no quorum, no renewal-of-conse",
-   "id": "M16-07",
-   "title": "\u00a721.5's review workflow",
-   "sources": [
-    "docs/requirements.csv"
-   ],
-   "milestone": "M16",
-   "relevance": 4,
-   "because": "a requirements row exists (+4)",
-   "default_on": false,
-   "built": false
-  },
-  {
-   "why_summary": "NOT BUILT as a gallery. M70-10 builds the document-browse subset deliberately without ratings or install counts: on a corpus of four, ranking by popularity makes the first uploader",
-   "id": "M16-08",
-   "title": "\u00a721.6's gallery mechanics",
-   "sources": [
-    "docs/requirements.csv"
-   ],
-   "milestone": "M16",
-   "relevance": 4,
-   "because": "a requirements row exists (+4)",
-   "default_on": false,
-   "built": false
-  },
-  {
-   "why_summary": "NOT BUILT. Credits are the closed-loop economy (M45-18) and this is deliberately a separate ledger; mixing them would let a credit balance become a price. No processor integration ",
-   "id": "M16-11",
-   "title": "\u00a721.9's paid marketplace, separate from credits",
-   "sources": [
-    "docs/requirements.csv"
-   ],
-   "milestone": "M16",
-   "relevance": 4,
-   "because": "a requirements row exists (+4)",
-   "default_on": false,
-   "built": false
-  },
-  {
-   "why_summary": "NOT MET \u2014 every item except 'reset remains reachable' (there is no theme to break) and 'opt-out honoured' needs the executor from M16-06. Written as one row because these are the c",
-   "id": "M16-12",
-   "title": "\u00a721's acceptance list",
-   "sources": [
-    "docs/requirements.csv"
-   ],
-   "milestone": "M16",
-   "relevance": 4,
-   "because": "a requirements row exists (+4)",
-   "default_on": false,
-   "built": false
-  },
-  {
-   "why_summary": "NOT BUILT. Delivery retries and records, but nothing rotates a secret, nothing limits a subscriber's request rate, and a permanently failing endpoint keeps being tried \u2014 which is b",
-   "id": "M16-14",
-   "title": "\u00a721.8's operational half",
-   "sources": [
-    "docs/requirements.csv"
-   ],
-   "milestone": "M16",
-   "relevance": 4,
-   "because": "a requirements row exists (+4)",
-   "default_on": false,
-   "built": false
-  },
-  {
-   "why_summary": "docs/spec/29-community-roadmap-feature-consensus-and.md Reserved section, specified in docs/spec/29-community-roadmap-feature-consensus-and.md. Registered 2026-11-02 while making t",
-   "id": "M29-08",
-   "title": "29 community roadmap feature consensus",
-   "sources": [
-    "docs/requirements.csv"
-   ],
-   "milestone": "M29",
-   "relevance": 4,
-   "because": "a requirements row exists (+4)",
-   "default_on": false,
-   "built": false
-  },
-  {
-   "why_summary": "docs/spec/44-roadmap-consensus-an-elo-ranked-community-voted.md Reserved section, specified in docs/spec/44-roadmap-consensus-an-elo-ranked-community-voted.md. Registered 2026-11-0",
-   "id": "M44-02",
-   "title": "44 roadmap consensus an elo ranked community voted board",
-   "sources": [
-    "docs/requirements.csv"
-   ],
-   "milestone": "M44",
-   "relevance": 4,
-   "because": "a requirements row exists (+4)",
-   "default_on": false,
-   "built": false
-  },
-  {
-   "why_summary": "-- Gaps review D4. Persistent work IDs; ActivityPub Move for accounts.",
-   "id": "M45-39",
-   "title": "Instance-death protection",
-   "sources": [
-    "docs/requirements.csv"
-   ],
-   "milestone": "M45",
-   "relevance": 4,
-   "because": "a requirements row exists (+4)",
-   "default_on": false,
-   "built": false
-  },
-  {
-   "why_summary": "-- Gaps review E3.",
-   "id": "M45-41",
-   "title": "Rec-post attribution",
-   "sources": [
-    "docs/requirements.csv"
-   ],
-   "milestone": "M45",
-   "relevance": 4,
-   "because": "a requirements row exists (+4)",
-   "default_on": false,
-   "built": false
-  },
-  {
-   "why_summary": "-- Gaps review E4. AO3-profile code verification; exclusion registry for opt-outs.",
-   "id": "M45-42",
-   "title": "Claim your works",
-   "sources": [
-    "docs/requirements.csv"
-   ],
-   "milestone": "M45",
-   "relevance": 4,
-   "because": "a requirements row exists (+4)",
-   "default_on": false,
-   "built": false
-  },
-  {
-   "why_summary": "-- Gaps review E6. Directory searchable by public topics (\u00a70.4).",
-   "id": "M45-44",
-   "title": "Sister instances",
-   "sources": [
-    "docs/requirements.csv"
-   ],
-   "milestone": "M45",
-   "relevance": 4,
-   "because": "a requirements row exists (+4)",
-   "default_on": false,
-   "built": false
-  },
-  {
-   "why_summary": "-- Gaps review F1. Operator/council/community-vote lens ownership; succession plan.",
-   "id": "M45-45",
-   "title": "Taste as versioned blendable object with governance mode",
-   "sources": [
-    "docs/requirements.csv"
-   ],
-   "milestone": "M45",
-   "relevance": 4,
-   "because": "a requirements row exists (+4)",
-   "default_on": false,
-   "built": false
-  },
-  {
-   "why_summary": "-- Gaps review F2. Config history and rollback.",
-   "id": "M45-46",
-   "title": "Preview before apply",
-   "sources": [
-    "docs/requirements.csv"
-   ],
-   "milestone": "M45",
-   "relevance": 4,
-   "because": "a requirements row exists (+4)",
-   "default_on": false,
-   "built": false
-  },
-  {
-   "why_summary": "-- Gaps review G2. Art. 17 covers demotion \u2014 collides with shadow sanction tier; DMCA intake kept for US claimants.",
-   "id": "M45-52",
-   "title": "DSA notice-and-action flow and statements of reasons",
-   "sources": [
-    "docs/requirements.csv"
-   ],
-   "milestone": "M45",
-   "relevance": 4,
-   "because": "a requirements row exists (+4)",
-   "default_on": false,
-   "built": false
-  },
-  {
-   "why_summary": "-- Gaps review G5. LO 1/1982.",
-   "id": "M45-54",
-   "title": "RPF instance policy knob; Spain honor/image rights awareness",
-   "sources": [
-    "docs/requirements.csv"
-   ],
-   "milestone": "M45",
-   "relevance": 4,
-   "because": "a requirements row exists (+4)",
-   "default_on": false,
-   "built": false
-  },
-  {
-   "why_summary": "-- Gaps review G6. Operators are legally responsible for their own instance.",
-   "id": "M45-55",
-   "title": "Built-in compliance tooling",
-   "sources": [
-    "docs/requirements.csv"
-   ],
-   "milestone": "M45",
-   "relevance": 4,
-   "because": "a requirements row exists (+4)",
-   "default_on": false,
-   "built": false
-  },
-  {
-   "why_summary": "-- Measured 2026-11-02 while closing M45-62, from the migrations rather than from memory: 68 identity-carrying columns sit outside the foreign-key graph, and neither gate can see 3",
-   "id": "M45-65",
-   "title": "both identity gates see the spellings the schema actually uses",
-   "sources": [
-    "docs/requirements.csv"
-   ],
-   "milestone": "M45",
-   "relevance": 4,
-   "because": "a requirements row exists (+4)",
-   "default_on": false,
-   "built": false
-  },
-  {
-   "why_summary": "-- Split out of M63-05 on 2026-11-02: that row asked for `--link md|epub|url` and there is no export route to point at, so the flag refuses with its reason rather than printing a 4",
-   "id": "M63-05b",
-   "title": "`dh rec --link epub`",
-   "sources": [
-    "docs/requirements.csv"
-   ],
-   "milestone": "M63",
-   "relevance": 4,
-   "because": "a requirements row exists (+4)",
-   "default_on": false,
-   "built": false
-  },
-  {
-   "why_summary": "docs/ideas/2026-11-01-idea-sweep-power-users.md Power-user sweep P10. Enables sub-millisecond dh q, true --offline, and dh bench; the same download machinery a mirror instance need",
-   "id": "M63-10",
-   "title": "dh lib sync --since",
-   "sources": [
-    "docs/requirements.csv"
-   ],
-   "milestone": "M63",
-   "relevance": 4,
-   "because": "a requirements row exists (+4)",
-   "default_on": false,
-   "built": false
-  },
-  {
-   "why_summary": "docs/ideas/2026-11-01-idea-sweep-power-users.md Power-user sweep P11. Batch editorial work on 500 rows must be resumable and reversible; a partial failure that cannot be resumed is",
-   "id": "M63-11",
-   "title": "dh lib tag --from-csv with a per-row error report and a rollback file; dh lib diff and push --dry-run before any bulk write",
-   "sources": [
-    "docs/requirements.csv"
-   ],
-   "milestone": "M63",
-   "relevance": 4,
-   "because": "a requirements row exists (+4)",
-   "default_on": false,
-   "built": false
-  },
-  {
-   "why_summary": "docs/ideas/2026-11-01-idea-sweep-power-users.md Power-user sweep P15. The first command anyone runs when something feels wrong; turns a support thread into a paste.",
-   "id": "M63-15",
-   "title": "dh doctor",
-   "sources": [
-    "docs/requirements.csv"
-   ],
-   "milestone": "M63",
-   "relevance": 4,
-   "because": "a requirements row exists (+4)",
-   "default_on": false,
-   "built": false
-  },
-  {
-   "why_summary": "docs/ideas/2026-11-01-idea-sweep-power-users.md Power-user sweep P18. One user, two instances, without exporting variables per shell; every knob settable from the tool that reads i",
-   "id": "M63-18",
-   "title": "Config profiles (--profile, DARKHOLD_PROFILE) with per-profile instance URL and token; dh config get/set with dotted keys",
-   "sources": [
-    "docs/requirements.csv"
-   ],
-   "milestone": "M63",
-   "relevance": 4,
-   "because": "a requirements row exists (+4)",
-   "default_on": false,
-   "built": false
-  },
-  {
-   "why_summary": "docs/ideas/2026-11-01-idea-sweep-power-users.md Power-user sweep P22. The operator's microscope for 'why is this ranked first' \u2014 the debugging counterpart of the shipped slot expla",
-   "id": "M63-22",
-   "title": "dh admin explain-rec <work>",
-   "sources": [
-    "docs/requirements.csv"
-   ],
-   "milestone": "M63",
-   "relevance": 4,
-   "because": "a requirements row exists (+4)",
-   "default_on": false,
-   "built": false
-  },
-  {
-   "why_summary": "docs/ideas/2026-11-01-idea-sweep-power-users.md Power-user sweep P23. `ssh host dh admin backup | zstd > backup.zst`, and monitoring is a cron job rather than a dashboard.",
-   "id": "M63-23",
-   "title": "dh admin backup --to - streams a consistent dump to stdout; dh admin health emits machine-readable checks with per-check exit codes",
-   "sources": [
-    "docs/requirements.csv"
-   ],
-   "milestone": "M63",
-   "relevance": 4,
-   "because": "a requirements row exists (+4)",
-   "default_on": false,
-   "built": false
-  },
-  {
-   "why_summary": "docs/ideas/2026-11-01-idea-sweep-power-users.md Power-user sweep P24. A performance regression visible from a user's machine, not only in CI, and a shared language for 'the instanc",
-   "id": "M63-24",
-   "title": "dh bench",
-   "sources": [
-    "docs/requirements.csv"
-   ],
-   "milestone": "M63",
-   "relevance": 4,
-   "because": "a requirements row exists (+4)",
-   "default_on": false,
-   "built": false
-  },
-  {
-   "why_summary": "docs/ideas/2026-11-01-idea-sweep-power-users.md Power-user sweep P25. Automation is accountable to the person it acts for; the operation log already records the writes.",
-   "id": "M63-25",
-   "title": "dh audit --since 7d",
-   "sources": [
-    "docs/requirements.csv"
-   ],
-   "milestone": "M63",
-   "relevance": 4,
-   "because": "a requirements row exists (+4)",
-   "default_on": false,
-   "built": false
-  },
-  {
-   "why_summary": "docs/ideas/2026-11-01-idea-sweep-power-users.md Power-user sweep P26. Recognition for the engine: contribution score from the operation log (imports, tags applied, reports filed) s",
-   "id": "M63-26",
-   "title": "dh stats --by week --year",
-   "sources": [
-    "docs/requirements.csv"
-   ],
-   "milestone": "M63",
-   "relevance": 4,
-   "because": "a requirements row exists (+4)",
-   "default_on": false,
-   "built": false
-  },
-  {
-   "why_summary": "docs/plans/cli-placement.md Same verbs, same window grammar, same saved queries, same snapshot cache; only the output layer differs. A separate TUI project would duplicate the pars",
-   "id": "M63-29",
-   "title": "dh tui",
-   "sources": [
-    "docs/requirements.csv"
-   ],
-   "milestone": "M63",
-   "relevance": 4,
-   "because": "a requirements row exists (+4)",
-   "default_on": false,
-   "built": false
-  },
-  {
-   "why_summary": "live information_schema vs migrations/postgres: missing chapters, bodies, chapter_revisions, import_chapters, ship_participants, taxonomy_aliases, taxonomy_closure, taxonomy_edges,",
-   "id": "M63-33",
-   "title": "reconcile the live database with the workspace migrations",
-   "sources": [
-    "docs/requirements.csv"
-   ],
-   "milestone": "M63",
-   "relevance": 4,
-   "because": "a requirements row exists (+4)",
-   "default_on": false,
-   "built": false
-  },
-  {
-   "why_summary": "measured 2026-11-01: library_items.views is NULL on all 141,317 rows; likes exist on 1,247 of them; the crawler sums XenForo threadmark likes into one integer, which is total engag",
-   "id": "M63-37",
-   "title": "per-source engagement is stored as the source reports it (likes, hits, replies, bookmarks) instead of one normalised `likes`, so a rate metric can be computed per archive",
-   "sources": [
-    "docs/requirements.csv"
-   ],
-   "milestone": "M63",
-   "relevance": 4,
-   "because": "a requirements row exists (+4)",
-   "default_on": false,
-   "built": false
-  },
-  {
-   "why_summary": "docs/design/2026-11-01-ranking-signals-and-surfaces.md P6, blocked on M63-32. Measured 2026-11-01: work_tags joins 0 of the 1,247 rows that carry likes; all 7,626 tagged rows are p",
-   "id": "M64-06",
-   "title": "tag_jaccard and tag_cooccurrence over the normalised tag taxonomy with synonym mapping, refused by name while no engaged row carries a tag",
-   "sources": [
-    "docs/requirements.csv"
-   ],
-   "milestone": "M64",
-   "relevance": 4,
-   "because": "a requirements row exists (+4)",
-   "default_on": false,
-   "built": false
-  },
-  {
-   "why_summary": "docs/design/2026-11-01-ranking-signals-and-surfaces.md P8. Static by nature and that is the point: it works before any reader exists. Managed as data (an operator file or admin sur",
-   "id": "M64-08",
-   "title": "fandom_graph",
-   "sources": [
-    "docs/requirements.csv"
-   ],
-   "milestone": "M64",
-   "relevance": 4,
-   "because": "a requirements row exists (+4)",
-   "default_on": false,
-   "built": false
-  },
-  {
-   "why_summary": "71adfa72 PARTIAL 71adfa72 (first half): taste gravity is now a convex mixture served=(1-g)*base+g*taste, both terms normalised to 0..=1 over the page; unbounded multiplier replaced",
-   "id": "M64-09",
-   "title": "taste gravity applies at every recommendation surface as a bounded influence layer after the blend, with a per-surface strength, reordering and never filtering",
-   "sources": [
-    "docs/requirements.csv"
-   ],
-   "milestone": "M64",
-   "relevance": 4,
-   "because": "a requirements row exists (+4)",
-   "default_on": false,
-   "built": false
-  },
-  {
-   "why_summary": "ee413789 P11, the endgame signal and the one with the longest lead time: it needs lists to exist and to be used before it has any rows. Design lists first so the data accumulates f",
-   "id": "M64-11",
-   "title": "co_shelving",
-   "sources": [
-    "docs/requirements.csv"
-   ],
-   "milestone": "M64",
-   "relevance": 4,
-   "because": "a requirements row exists (+4)",
-   "default_on": false,
-   "built": false
-  },
-  {
-   "why_summary": "docs/design/2026-11-01-ranking-signals-and-surfaces.md P12. Needs M64-02's logging. Noisy by nature; the threshold is a minimum transitions-per-item before an edge is usable.",
-   "id": "M64-12",
-   "title": "co_read",
-   "sources": [
-    "docs/requirements.csv"
-   ],
-   "milestone": "M64",
-   "relevance": 4,
-   "because": "a requirements row exists (+4)",
-   "default_on": false,
-   "built": false
-  },
-  {
-   "why_summary": "docs/design/2026-11-01-ranking-signals-and-surfaces.md P13. Feeds author.similar, library.fill_the_gap and story.similar. The privacy floor is the gate: below the threshold the alg",
-   "id": "M64-13",
-   "title": "engagement_overlap at reader-cluster level with k-anonymity (a minimum number of readers per cluster) and aggregation thresholds, exposing no per-reader signal",
-   "sources": [
-    "docs/requirements.csv"
-   ],
-   "milestone": "M64",
-   "relevance": 4,
-   "because": "a requirements row exists (+4)",
-   "default_on": false,
-   "built": false
-  },
-  {
-   "why_summary": "0612cdf7 P15. Promotion is automatic (M64-04); this is the surface where the operator can disagree without editing a table. preview-as-persona reuses M45-46 (preview before apply).",
-   "id": "M64-15",
-   "title": "the operator console lists every live experiment per surface with its numbers, allows hold, promote and preview-as-persona, and shows why each promotion happened",
-   "sources": [
-    "docs/requirements.csv"
-   ],
-   "milestone": "M64",
-   "relevance": 4,
-   "because": "a requirements row exists (+4)",
-   "default_on": false,
-   "built": false
-  },
-  {
-   "why_summary": "-- Suki spec \u00a716.2. Two thresholds and one veto: similar enough to suggest, unrelated enough to ignore, and a hardcoded-filter collision is a block, not a warning. The veto is the ",
-   "id": "M69-02",
-   "title": "peering is suggested by cosine similarity over that fingerprint, and a colliding hardcoded filter blocks it outright",
-   "sources": [
-    "docs/requirements.csv"
-   ],
-   "milestone": "M69",
-   "relevance": 4,
-   "because": "a requirements row exists (+4)",
-   "default_on": false,
-   "built": false
-  },
-  {
-   "why_summary": "-- Suki spec \u00a75.5 and \u00a713.2 step 3. darkhold has DMCA intake planned (M45-52) and nothing that stops the same work returning through the pawchive importer the next day, which is th",
-   "id": "M69-04",
-   "title": "a takedown is a tombstone that survives re-import, and the importer refuses the work citing the original",
-   "sources": [
-    "docs/requirements.csv"
-   ],
-   "milestone": "M69",
-   "relevance": 4,
-   "because": "a requirements row exists (+4)",
-   "default_on": false,
-   "built": false
-  },
-  {
-   "why_summary": "-- Suki spec \u00a716.4 ('preserved by'). M45-39 covers instance-death protection as paperwork (mutual backup, dead-man's switch); this is the reader-visible half. Attribution is not de",
-   "id": "M69-05",
-   "title": "mirroring by taste similarity, with the mirror visible as attribution on the work page rather than as a silent copy",
-   "sources": [
-    "docs/requirements.csv"
-   ],
-   "milestone": "M69",
-   "relevance": 4,
-   "because": "a requirements row exists (+4)",
-   "default_on": false,
-   "built": false
-  },
-  {
-   "why_summary": "-- Suki spec \u00a716.4. darkhold already computes perceptual hashes for media (M32-07a/07b), so the join exists: (pHash, dimensions, duration) against a surviving peer. Recovery is pro",
-   "id": "M69-06",
-   "title": "a perceptual-hash rescue ring",
-   "sources": [
-    "docs/requirements.csv"
-   ],
-   "milestone": "M69",
-   "relevance": 4,
-   "because": "a requirements row exists (+4)",
-   "default_on": false,
-   "built": false
-  },
-  {
-   "why_summary": "-- Suki spec \u00a716.4. M45-39 has the switch; this has the recipient list and the receipt. The receipt matters when two peers both claim the same work \u2014 the author's page must not for",
-   "id": "M69-07",
-   "title": "an evacuation protocol",
-   "sources": [
-    "docs/requirements.csv"
-   ],
-   "milestone": "M69",
-   "relevance": 4,
-   "because": "a requirements row exists (+4)",
-   "default_on": false,
-   "built": false
-  },
-  {
-   "why_summary": "-- Suki spec \u00a73.3. darkhold stores operator affinity per WORK (M11-03) and a resonance score (M45-51); neither answers how close a reader is to the operator, which is what gates tr",
-   "id": "M69-09",
-   "title": "affinity is a stored 0..1 score per reader, recomputed nightly, not a per-work multiplier",
-   "sources": [
-    "docs/requirements.csv"
-   ],
-   "milestone": "M69",
-   "relevance": 4,
-   "because": "a requirements row exists (+4)",
-   "default_on": false,
-   "built": false
-  },
-  {
-   "why_summary": "-- Suki spec \u00a710.2. darkhold's arena is Elo (M45-02) and the community board would inherit it (M44-02 planned). Elo has no notion of confidence: a work with two votes and one with ",
-   "id": "M69-10",
-   "title": "the arena ranks by Glicko-2 \u2014 deviation, volatility, a divergence flag \u2014 rather than Elo at K=32",
-   "sources": [
-    "docs/requirements.csv"
-   ],
-   "milestone": "M69",
-   "relevance": 4,
-   "because": "a requirements row exists (+4)",
-   "default_on": false,
-   "built": false
-  },
-  {
-   "why_summary": "-- Suki spec \u00a710.3 and \u00a710.4. Proximate pairing plus epsilon-greedy exploration, and a first-N-votes calibration window recorded but not applied to the global ladder. Without the c",
-   "id": "M69-11",
-   "title": "arena pairing prefers similar ratings with high deviation, explores occasionally, and calibrates new works without moving the global rank",
-   "sources": [
-    "docs/requirements.csv"
-   ],
-   "milestone": "M69",
-   "relevance": 4,
-   "because": "a requirements row exists (+4)",
-   "default_on": false,
-   "built": false
-  },
-  {
-   "why_summary": "-- Suki spec \u00a74.2. darkhold has trust levels (M14-01) and a spam-report demotion (DM3-06), but progression is flat: every account earns at the same rate for the same acts. Clamped ",
-   "id": "M69-13",
-   "title": "trust velocity",
-   "sources": [
-    "docs/requirements.csv"
-   ],
-   "milestone": "M69",
-   "relevance": 4,
-   "because": "a requirements row exists (+4)",
-   "default_on": false,
-   "built": false
-  },
-  {
-   "why_summary": "-- Suki spec \u00a73.4 (Attuned). darkhold's badges are one-time facts (M47-14 'First Words'), and a one-time badge cannot express a relationship that changes. Recomputed with affinity,",
-   "id": "M69-14",
-   "title": "a live badge, gained and lost as taste drifts, unlike the episodic awards that already exist",
-   "sources": [
-    "docs/requirements.csv"
-   ],
-   "milestone": "M69",
-   "relevance": 4,
-   "because": "a requirements row exists (+4)",
-   "default_on": false,
-   "built": false
-  },
-  {
-   "why_summary": "-- Suki spec \u00a74.3. The row with the most ways to be cruel, so it is written with its exits: probation is time-bounded, the floor is configurable, existing readers are grandfathered",
-   "id": "M69-15",
-   "title": "taste-gated membership",
-   "sources": [
-    "docs/requirements.csv"
-   ],
-   "milestone": "M69",
-   "relevance": 4,
-   "because": "a requirements row exists (+4)",
-   "default_on": false,
-   "built": false
-  },
-  {
-   "why_summary": "-- Suki spec \u00a78.2\u2013\u00a78.5, renamed on 2026-11-02. The mechanism already exists in this archive's own vocabulary: a saved view (\u00a714.2 'Saved searches and named views'), a versioned JSO",
-   "id": "M69-21",
-   "title": "Saved Filters",
-   "sources": [
-    "docs/requirements.csv"
-   ],
-   "milestone": "M69",
-   "relevance": 4,
-   "because": "a requirements row exists (+4)",
-   "default_on": false,
-   "built": false
-  },
-  {
-   "why_summary": "-- Suki spec \u00a714.6, renamed 2026-11-02 (was 'lenses'). darkhold has a Blind Date (M66-04) and hidden classics (M66-05); the morning queue is the missing half \u2014 a small, bounded, de",
-   "id": "M69-22",
-   "title": "the morning queue and the daily surprise, expressed as Saved Filters over surfaces that already exist",
-   "sources": [
-    "docs/requirements.csv"
-   ],
-   "milestone": "M69",
-   "relevance": 4,
-   "because": "a requirements row exists (+4)",
-   "default_on": false,
-   "built": false
-  },
-  {
-   "why_summary": "-- Suki spec \u00a78.4 (import filter) and \u00a711.4, renamed 2026-11-02 (was 'lens'). darkhold's importers decide by host and by rule (M67-03/04); a Saved Filter makes the policy a shareab",
-   "id": "M69-23",
-   "title": "an import source can carry a Saved Filter as intake policy",
-   "sources": [
-    "docs/requirements.csv"
-   ],
-   "milestone": "M69",
-   "relevance": 4,
-   "because": "a requirements row exists (+4)",
-   "default_on": false,
-   "built": false
-  },
-  {
-   "why_summary": "-- The synergy row, and the one that keeps the others honest: two products that each implement the blend will disagree within a month, and a passport whose semantics differ between",
-   "id": "M69-24",
-   "title": "one shared taste crate and one JSON schema set, so darkhold and suki compute blend, affinity and the passport identically",
-   "sources": [
-    "docs/requirements.csv"
-   ],
-   "milestone": "M69",
-   "relevance": 4,
-   "because": "a requirements row exists (+4)",
-   "default_on": false,
-   "built": false
-  },
-  {
-   "why_summary": "f19ecf18 Found while implementing M70-12 and confirming it with a live probe. `content::list_public_works_by_freshness` is called by nothing in crates/app \u2014 its only callers are cr",
-   "id": "M70-13",
-   "title": "Every db listing query that a reader surface depends on is either wired to a route or deleted",
-   "sources": [
-    "docs/requirements.csv"
-   ],
-   "milestone": "M70",
-   "relevance": 4,
-   "because": "a requirements row exists (+4)",
-   "default_on": false,
-   "built": false
-  },
-  {
-   "why_summary": "Priority 3. \u00a78.20 made operational: the console is allowed to be less beautiful than the reader and is not allowed to hide a red state. Today the ~30 admin surfaces use the same co",
-   "id": "M71-07",
-   "title": "The operator console becomes its own visual register",
-   "sources": [
-    "docs/requirements.csv"
-   ],
-   "milestone": "M71",
-   "relevance": 4,
-   "because": "a requirements row exists (+4)",
-   "default_on": false,
-   "built": false
-  },
-  {
-   "why_summary": "Priority 2, additive to the existing server-rendered reader. Typography must stay independent of the site theme (\u00a74.11 of the proposal); the panel offers font family including a dy",
-   "id": "M71-08",
-   "title": "The reader gains an auto-hiding bar (back, unit navigation, position, typography, bookmark, in-work search) and a typography panel whose settings are per reader and per work, with provenance shown ('your default' / 'instance default' / 'this work') and a reset at each level.",
-   "sources": [
-    "docs/requirements.csv"
-   ],
-   "milestone": "M71",
-   "relevance": 4,
-   "because": "a requirements row exists (+4)",
-   "default_on": false,
-   "built": false
-  },
-  {
-   "why_summary": "Priority 3. The anchor system exists; the honesty layer does not. \u00a78.14 and \u00a78.17 make silence and silent overwrite both bugs; \u00a711 forbids fake precision. Acceptance: three tests, ",
-   "id": "M71-09",
-   "title": "Reader position is honest",
-   "sources": [
-    "docs/requirements.csv"
-   ],
-   "milestone": "M71",
-   "relevance": 4,
-   "because": "a requirements row exists (+4)",
-   "default_on": false,
-   "built": false
-  },
-  {
-   "why_summary": "Priority 3, and the most underpriced item in the external design: no route in the 720 returns a facet count (grep '\"facets\"' crates/app/src is empty). This is an aggregate query pl",
-   "id": "M71-11",
-   "title": "Facet counts are a server capability with a latency budget",
-   "sources": [
-    "docs/requirements.csv"
-   ],
-   "milestone": "M71",
-   "relevance": 4,
-   "because": "a requirements row exists (+4)",
-   "default_on": false,
-   "built": false
-  },
-  {
-   "why_summary": "Priority 4, depends on M71-11's aggregate surface \u2014 same query shape, different grouping. Decorative bars fed by invented data are forbidden (the proposal is right that the histogr",
-   "id": "M71-12",
-   "title": "The word-count filter is a real histogram",
-   "sources": [
-    "docs/requirements.csv"
-   ],
-   "milestone": "M71",
-   "relevance": 4,
-   "because": "a requirements row exists (+4)",
-   "default_on": false,
-   "built": false
-  },
-  {
-   "why_summary": "Priority 3. 5.4% fandom coverage is a fact the CLI already prints and the UI hides; a catalogue that hides it is claiming a completeness it does not have. Acceptance: the numbers o",
-   "id": "M71-13",
-   "title": "Every surface that enumerates a partially covered dimension states its coverage",
-   "sources": [
-    "docs/requirements.csv"
-   ],
-   "milestone": "M71",
-   "relevance": 4,
-   "because": "a requirements row exists (+4)",
-   "default_on": false,
-   "built": false
-  },
-  {
-   "why_summary": "Priority 4. The product already has per-work reader overrides and content filters enforced server-side; the settings surface does not explain where a value came from, so an overrid",
-   "id": "M71-14",
-   "title": "Settings show inheritance with provenance at every level (instance, account, pseud, per-work), deep-link to the exact control, offer a reset at each level that overrides, and reflect inline changes made elsewhere with a 'set as default' affordance.",
-   "sources": [
-    "docs/requirements.csv"
-   ],
-   "milestone": "M71",
-   "relevance": 4,
-   "because": "a requirements row exists (+4)",
-   "default_on": false,
-   "built": false
-  },
-  {
-   "why_summary": "Priority 3. The query grammar has no fields for provenance, source or language; a design that presents the string as the state would silently drop those filters, which is hidden st",
-   "id": "M71-15",
-   "title": "The query string and the facet panel are one state",
-   "sources": [
-    "docs/requirements.csv"
-   ],
-   "milestone": "M71",
-   "relevance": 4,
-   "because": "a requirements row exists (+4)",
-   "default_on": false,
-   "built": false
-  },
-  {
-   "why_summary": "Opened by M71-01 (8a51f9de), which shipped the landing page. Order and reasons are in docs/adr/0006-one-binary-two-renderers.md. The work page is next and is the one that matters f",
-   "id": "M71-20",
-   "title": "The remaining document-class pages migrate in ADR 0006's order - work page /works/{id}, fandom and tag pages, search results, author and collection/series pages - each shipped as server-rendered HTML whose content, links and primary action work with no script, with its Svelte route deleted in the same commit and a server test asserting the no-JS content.",
-   "sources": [
-    "docs/requirements.csv"
-   ],
-   "milestone": "M71",
-   "relevance": 4,
-   "because": "a requirements row exists (+4)",
-   "default_on": false,
-   "built": false
-  },
-  {
-   "why_summary": "docs/ROADMAP-guest-trust-governance.md Firewall specific to this site: reader-visible data is the guest's most valuable and most private artifact, and nothing may be published abou",
-   "id": "GS-2",
-   "title": "the guest fold moves reading progress and bookmarks with the guest",
-   "sources": [
-    "docs/requirements.csv"
-   ],
-   "milestone": "M66",
-   "relevance": 3,
-   "because": "a requirements row exists (+4); the source hedges (-1)",
-   "default_on": false,
-   "built": false
-  },
-  {
-   "why_summary": "NOT BUILT. M70-06 gives a reader a stylesheet; this is the model underneath that makes a theme composable, previewable and undoable. The cannot-hide rule is the one that needs a me",
-   "id": "M16-13",
-   "title": "\u00a721.7's theme model beyond one stylesheet",
-   "sources": [
-    "docs/requirements.csv"
-   ],
-   "milestone": "M16",
-   "relevance": 3,
-   "because": "a requirements row exists (+4); needs a model or heavy compute (-1)",
-   "default_on": false,
-   "built": false
-  },
-  {
-   "why_summary": "-- Gaps review E2. Browse archive through X's eyes; operator's own lens stays invisible. Renamed 2026-11-02: 'curator lenses' borrowed the same word as the saved-filter feature, wh",
-   "id": "M45-40",
-   "title": "Curator views",
-   "sources": [
-    "docs/requirements.csv"
-   ],
-   "milestone": "M45",
-   "relevance": 3,
-   "because": "a requirements row exists (+4); needs a model or heavy compute (-1)",
-   "default_on": false,
-   "built": false
-  },
-  {
-   "why_summary": "measured 2026-11-01: 7,626 of 141,317 catalogue rows carry a fandom tag; all 7,626 are source_key='pawchive' and 0 have likes > 0 Found while shipping M63-01. The filter works and ",
-   "id": "M63-32",
-   "title": "fandom tags cover the whole catalogue and can be ranked",
-   "sources": [
-    "docs/requirements.csv"
-   ],
-   "milestone": "M63",
-   "relevance": 3,
-   "because": "a requirements row exists (+4); needs a model or heavy compute (-1)",
-   "default_on": false,
-   "built": false
-  },
-  {
-   "why_summary": "crates/domain/src/quality.rs score_of(): the four weights are constants; an operator who trusts length more than consensus has no way to say so Renumbered from `M63-05` on 2026-11-",
-   "id": "M63-38",
-   "title": "the quality weights are per-operator and per-surface rather than compiled in",
-   "sources": [
-    "docs/requirements.csv"
-   ],
-   "milestone": "M63",
-   "relevance": 3,
-   "because": "a requirements row exists (+4); needs a model or heavy compute (-1)",
-   "default_on": false,
-   "built": false
-  },
-  {
-   "why_summary": "docs/design/2026-11-01-ranking-signals-and-surfaces.md P14. The spec already names embedding and matrix-factorisation strategies as provider-gated (\u00a716). Summary embeddings are the",
-   "id": "M64-14",
-   "title": "embedding similarity for summaries first and full text last, feature-gated on a configured AI provider and degrading to disabled rather than erroring",
-   "sources": [
-    "docs/requirements.csv"
-   ],
-   "milestone": "M64",
-   "relevance": 3,
-   "because": "a requirements row exists (+4); needs a model or heavy compute (-1)",
-   "default_on": false,
-   "built": false
-  },
-  {
-   "why_summary": "-- Suki spec \u00a716.3. A reader leaving for a peer takes a signed document \u2014 taste vector, favourite source URLs, edit counts, affinity at origin. darkhold already recomputes from beh",
-   "id": "M69-03",
-   "title": "a signed taste passport moves a reader's taste and contribution history between instances, suki and darkhold alike",
-   "sources": [
-    "docs/requirements.csv"
-   ],
-   "milestone": "M69",
-   "relevance": 3,
-   "because": "a requirements row exists (+4); needs a model or heavy compute (-1)",
-   "default_on": false,
-   "built": false
-  },
-  {
-   "why_summary": "",
-   "id": "idea.advanced-search-phase2",
-   "title": "Advanced Search Phase2",
-   "sources": [
-    "docs/spec-amendments/advanced-search-phase2.md"
-   ],
-   "milestone": "unassigned",
-   "relevance": 3,
-   "because": "specified by an amendment (+3)",
-   "default_on": false,
-   "built": false
-  },
-  {
-   "why_summary": "",
-   "id": "idea.arena-work-ladder",
-   "title": "Arena Work Ladder",
-   "sources": [
-    "docs/spec-amendments/arena-work-ladder.md"
-   ],
-   "milestone": "unassigned",
-   "relevance": 3,
-   "because": "specified by an amendment (+3)",
-   "default_on": false,
-   "built": false
-  },
-  {
-   "why_summary": "",
-   "id": "idea.beta-reader-marketplace",
-   "title": "Beta Reader Marketplace",
-   "sources": [
-    "vault:2026-09-20T183349+0200-darkhold-growth-ideas.md"
-   ],
-   "milestone": "unassigned",
-   "relevance": 3,
-   "because": "in a vault note (+1); named in the spec (+2)",
-   "default_on": false,
-   "built": false
-  },
-  {
-   "why_summary": "",
-   "id": "idea.calibrated-decision-models",
-   "title": "Calibrated Decision Models",
-   "sources": [
-    "docs/spec-amendments/calibrated-decision-models.md"
-   ],
-   "milestone": "unassigned",
-   "relevance": 3,
-   "because": "specified by an amendment (+3)",
-   "default_on": false,
-   "built": false
-  },
-  {
-   "why_summary": "",
-   "id": "idea.community-gift-exchanges",
-   "title": "Community Gift Exchanges",
-   "sources": [
-    "vault:2026-09-20T183349+0200-darkhold-growth-ideas.md"
-   ],
-   "milestone": "unassigned",
-   "relevance": 3,
-   "because": "in a vault note (+1); named in the spec (+2)",
-   "default_on": false,
-   "built": false
-  },
-  {
-   "why_summary": "",
-   "id": "idea.composer-positivity-indicator",
-   "title": "Composer Positivity Indicator",
-   "sources": [
-    "docs/spec-amendments/composer-positivity-indicator.md"
-   ],
-   "milestone": "unassigned",
-   "relevance": 3,
-   "because": "specified by an amendment (+3)",
-   "default_on": false,
-   "built": false
-  },
-  {
-   "why_summary": "",
-   "id": "idea.crawling-retention-and-preservation",
-   "title": "Crawling Retention And Preservation",
-   "sources": [
-    "docs/spec-amendments/crawling-retention-and-preservation.md"
-   ],
-   "milestone": "unassigned",
-   "relevance": 3,
-   "because": "specified by an amendment (+3)",
-   "default_on": false,
-   "built": false
-  },
-  {
-   "why_summary": "",
-   "id": "idea.cross-posting",
-   "title": "Cross-Posting",
-   "sources": [
-    "vault:2026-09-20T183349+0200-darkhold-growth-ideas.md"
-   ],
-   "milestone": "unassigned",
-   "relevance": 3,
-   "because": "in a vault note (+1); named in the spec (+2)",
-   "default_on": false,
-   "built": false
-  },
-  {
-   "why_summary": "",
-   "id": "idea.draw-slot",
-   "title": "Draw Slot",
-   "sources": [
-    "docs/spec-amendments/draw-slot.md"
-   ],
-   "milestone": "unassigned",
-   "relevance": 3,
-   "because": "specified by an amendment (+3)",
-   "default_on": false,
-   "built": false
-  },
-  {
-   "why_summary": "",
-   "id": "idea.fan-art-gallery",
-   "title": "Fan Art Gallery",
-   "sources": [
-    "vault:2026-09-20T183349+0200-darkhold-growth-ideas.md"
-   ],
-   "milestone": "unassigned",
-   "relevance": 3,
-   "because": "in a vault note (+1); named in the spec (+2)",
-   "default_on": false,
-   "built": false
-  },
-  {
-   "why_summary": "",
-   "id": "idea.fandom-landing-pages",
-   "title": "Fandom Landing Pages",
-   "sources": [
-    "vault:2026-09-20T183349+0200-darkhold-growth-ideas.md"
-   ],
-   "milestone": "unassigned",
-   "relevance": 3,
-   "because": "in a vault note (+1); named in the spec (+2)",
-   "default_on": false,
-   "built": false
-  },
-  {
-   "why_summary": "",
-   "id": "idea.mood-journal",
-   "title": "Mood Journal",
-   "sources": [
-    "vault:2026-09-20T183349+0200-darkhold-growth-ideas.md"
-   ],
-   "milestone": "unassigned",
-   "relevance": 3,
-   "because": "in a vault note (+1); named in the spec (+2)",
-   "default_on": false,
-   "built": false
-  },
-  {
-   "why_summary": "",
-   "id": "idea.periodic-deidentified-dataset",
-   "title": "Periodic Deidentified Dataset",
-   "sources": [
-    "docs/spec-amendments/periodic-deidentified-dataset.md"
-   ],
-   "milestone": "unassigned",
-   "relevance": 3,
-   "because": "specified by an amendment (+3)",
-   "default_on": false,
-   "built": false
-  },
-  {
-   "why_summary": "",
-   "id": "idea.reading-challenges",
-   "title": "Reading Challenges",
-   "sources": [
-    "vault:2026-09-20T183349+0200-darkhold-growth-ideas.md"
-   ],
-   "milestone": "unassigned",
-   "relevance": 3,
-   "because": "in a vault note (+1); named in the spec (+2)",
-   "default_on": false,
-   "built": false
-  },
-  {
-   "why_summary": "",
-   "id": "idea.recommendation-threads",
-   "title": "Recommendation Threads",
-   "sources": [
-    "vault:2026-09-20T183349+0200-darkhold-growth-ideas.md"
-   ],
-   "milestone": "unassigned",
-   "relevance": 3,
-   "because": "in a vault note (+1); named in the spec (+2)",
-   "default_on": false,
-   "built": false
-  },
-  {
-   "why_summary": "",
-   "id": "idea.roadmap-card-bodies",
-   "title": "Roadmap Card Bodies",
-   "sources": [
-    "docs/spec-amendments/roadmap-card-bodies.md"
-   ],
-   "milestone": "unassigned",
-   "relevance": 3,
-   "because": "specified by an amendment (+3)",
-   "default_on": false,
-   "built": false
-  },
-  {
-   "why_summary": "",
-   "id": "idea.scheduled-publishing",
-   "title": "Scheduled Publishing",
-   "sources": [
-    "vault:2026-09-20T183349+0200-darkhold-growth-ideas.md"
-   ],
-   "milestone": "unassigned",
-   "relevance": 3,
-   "because": "in a vault note (+1); named in the spec (+2)",
-   "default_on": false,
-   "built": false
-  },
-  {
-   "why_summary": "",
-   "id": "idea.shareable-quote-cards",
-   "title": "Shareable Quote Cards",
-   "sources": [
-    "vault:2026-09-20T183349+0200-darkhold-growth-ideas.md"
-   ],
-   "milestone": "unassigned",
-   "relevance": 3,
-   "because": "in a vault note (+1); named in the spec (+2)",
-   "default_on": false,
-   "built": false
-  },
-  {
-   "why_summary": "",
-   "id": "idea.taste-gravitational-system",
-   "title": "Taste Gravitational System",
-   "sources": [
-    "docs/spec-amendments/taste-gravitational-system.md"
-   ],
-   "milestone": "unassigned",
-   "relevance": 3,
-   "because": "specified by an amendment (+3)",
-   "default_on": false,
-   "built": false
-  },
-  {
-   "why_summary": "",
-   "id": "idea.trust-gated-analytics",
-   "title": "Trust Gated Analytics",
-   "sources": [
-    "docs/spec-amendments/trust-gated-analytics.md"
-   ],
-   "milestone": "unassigned",
-   "relevance": 3,
-   "because": "specified by an amendment (+3)",
-   "default_on": false,
-   "built": false
-  },
-  {
-   "why_summary": "",
-   "id": "idea.vote-decay",
-   "title": "Vote Decay",
-   "sources": [
-    "docs/spec-amendments/vote-decay.md"
-   ],
-   "milestone": "unassigned",
-   "relevance": 3,
-   "because": "specified by an amendment (+3)",
-   "default_on": false,
-   "built": false
-  },
-  {
-   "why_summary": "",
-   "id": "idea.writing-prompts-engine",
-   "title": "Writing Prompts Engine",
-   "sources": [
-    "vault:2026-09-20T183349+0200-darkhold-growth-ideas.md"
-   ],
-   "milestone": "unassigned",
-   "relevance": 3,
-   "because": "in a vault note (+1); named in the spec (+2)",
-   "default_on": false,
-   "built": false
-  },
-  {
-   "why_summary": "",
-   "id": "idea.year-in-review-wrapped",
-   "title": "Year in Review / Wrapped",
-   "sources": [
-    "vault:2026-09-20T183349+0200-darkhold-growth-ideas.md"
-   ],
-   "milestone": "unassigned",
-   "relevance": 3,
-   "because": "in a vault note (+1); named in the spec (+2)",
-   "default_on": false,
-   "built": false
-  },
-  {
-   "why_summary": "-- Gaps review E5. Extends \u00a737 companion bot.",
-   "id": "M45-43",
-   "title": "Discord bot with rec commands, per-fandom feeds, account linking",
-   "sources": [
-    "docs/requirements.csv"
-   ],
-   "milestone": "M45",
-   "relevance": 2,
-   "because": "a requirements row exists (+4); needs a third party or an external client (-2)",
-   "default_on": false,
-   "built": false
-  },
-  {
-   "why_summary": "docs/ideas/2026-11-01-idea-sweep-power-users.md Power-user sweep P12. The difference between a saved search and a workflow. Pluggable sinks so the notification path is not tied to ",
-   "id": "M63-12",
-   "title": "dh watch <saved-query> --exec '<cmd>' --notify ntfy|desktop|webhook",
-   "sources": [
-    "docs/requirements.csv"
-   ],
-   "milestone": "M63",
-   "relevance": 2,
-   "because": "a requirements row exists (+4); needs a third party or an external client (-2)",
-   "default_on": false,
-   "built": false
-  },
-  {
-   "why_summary": "docs/plans/cli-placement.md The honest interop direction between the two products: same file format, no dependency (the Ascend file-handshake precedent applied to a database). Read",
-   "id": "M63-30",
-   "title": "dh lib --calibre <path>",
-   "sources": [
-    "docs/requirements.csv"
-   ],
-   "milestone": "M63",
-   "relevance": 2,
-   "because": "a requirements row exists (+4); needs a third party or an external client (-2)",
-   "default_on": false,
-   "built": false
-  },
-  {
-   "why_summary": "Priority 2, no new backend. 141,317 catalogue rows behind a card grid is the strongest finding in the external design and the cheapest. Sorts stay the closed vocabulary; sort chang",
-   "id": "M71-03",
-   "title": "Browse, search, library and the overflow view of every recommendation rail render results as dense list rows \u2014 title, author, provenance word, word count, unit count, completion, rating, date, metrics \u2014 with a stated total and cursor pagination, never a card grid and never infinite scroll.",
-   "sources": [
-    "docs/requirements.csv"
-   ],
-   "milestone": "M71",
-   "relevance": 2,
-   "because": "a requirements row exists (+4); needs a third party or an external client (-2)",
-   "default_on": false,
-   "built": false
-  },
-  {
-   "why_summary": "",
-   "id": "idea.instance-topics-premise",
-   "title": "Instance Topics Premise",
-   "sources": [
-    "docs/design/instance-topics-premise.md"
-   ],
-   "milestone": "unassigned",
-   "relevance": 2,
-   "because": "in a design (+2)",
-   "default_on": false,
-   "built": false
-  },
-  {
-   "why_summary": "",
-   "id": "idea.need-fleshing-out",
-   "title": "Need fleshing out",
-   "sources": [
-    "docs/ideas/preservation-brainstorm.md"
-   ],
-   "milestone": "unassigned",
-   "relevance": 2,
-   "because": "in an idea sweep (+2)",
-   "default_on": false,
-   "built": false
-  },
-  {
-   "why_summary": "",
-   "id": "idea.preference-ladder",
-   "title": "Preference Ladder",
-   "sources": [
-    "docs/design/PREFERENCE-LADDER.md"
-   ],
-   "milestone": "unassigned",
-   "relevance": 2,
-   "because": "in a design (+2)",
-   "default_on": false,
-   "built": false
-  },
-  {
-   "why_summary": "",
-   "id": "idea.ranking-signals-and-surfaces",
-   "title": "Ranking Signals And Surfaces",
-   "sources": [
-    "docs/design/2026-11-01-ranking-signals-and-surfaces.md"
-   ],
-   "milestone": "unassigned",
-   "relevance": 2,
-   "because": "in a design (+2)",
-   "default_on": false,
-   "built": false
-  },
-  {
-   "why_summary": "",
-   "id": "idea.accessibility-audit-and-wcag-compliance",
-   "title": "Accessibility Audit & WCAG Compliance",
-   "sources": [
-    "vault:2026-09-20T183349+0200-darkhold-growth-ideas.md"
-   ],
-   "milestone": "unassigned",
-   "relevance": 1,
-   "because": "in a vault note (+1)",
-   "default_on": false,
-   "built": false
-  },
-  {
-   "why_summary": "",
-   "id": "idea.account-migration-between-instances",
-   "title": "Account Migration Between Instances",
-   "sources": [
-    "vault:2026-09-20T183349+0200-darkhold-growth-ideas.md"
-   ],
-   "milestone": "unassigned",
-   "relevance": 1,
-   "because": "in a vault note (+1)",
-   "default_on": false,
-   "built": false
-  },
-  {
-   "why_summary": "",
-   "id": "idea.ai-writing-assistant",
-   "title": "AI Writing Assistant",
-   "sources": [
-    "vault:2026-09-20T183349+0200-darkhold-growth-ideas.md"
-   ],
-   "milestone": "unassigned",
-   "relevance": 1,
-   "because": "in a vault note (+1)",
-   "default_on": false,
-   "built": false
-  },
-  {
-   "why_summary": "",
-   "id": "idea.analytics-dashboard-for-authors",
-   "title": "Analytics Dashboard for Authors",
-   "sources": [
-    "vault:2026-09-20T183349+0200-darkhold-growth-ideas.md"
-   ],
-   "milestone": "unassigned",
-   "relevance": 1,
-   "because": "in a vault note (+1)",
-   "default_on": false,
-   "built": false
-  },
-  {
-   "why_summary": "",
-   "id": "idea.author-playlists-soundtracks",
-   "title": "Author Playlists / Soundtracks",
-   "sources": [
-    "vault:2026-09-20T183349+0200-darkhold-growth-ideas.md"
-   ],
-   "milestone": "unassigned",
-   "relevance": 1,
-   "because": "in a vault note (+1)",
-   "default_on": false,
-   "built": false
-  },
-  {
-   "why_summary": "",
-   "id": "idea.author-q-and-a-ama",
-   "title": "Author Q&A / AMA",
-   "sources": [
-    "vault:2026-09-20T183349+0200-darkhold-growth-ideas.md"
-   ],
-   "milestone": "unassigned",
-   "relevance": 1,
-   "because": "in a vault note (+1)",
-   "default_on": false,
-   "built": false
-  },
-  {
-   "why_summary": "",
-   "id": "idea.bingo-cards",
-   "title": "Bingo Cards",
-   "sources": [
-    "vault:2026-09-20T183349+0200-darkhold-growth-ideas.md"
-   ],
-   "milestone": "unassigned",
-   "relevance": 1,
-   "because": "in a vault note (+1)",
-   "default_on": false,
-   "built": false
-  },
-  {
-   "why_summary": "",
-   "id": "idea.bookmark-collections",
-   "title": "bookmark collections",
-   "sources": [
-    "docs/audit-100-reader-ideas-2026-10-04.md"
-   ],
-   "milestone": "unassigned",
-   "relevance": 1,
-   "because": "in the reader audit (+1)",
-   "default_on": false,
-   "built": false
-  },
-  {
-   "why_summary": "",
-   "id": "idea.character-and-ship-popularity-polls",
-   "title": "Character & Ship Popularity Polls",
-   "sources": [
-    "vault:2026-09-20T183349+0200-darkhold-growth-ideas.md"
-   ],
-   "milestone": "unassigned",
-   "relevance": 1,
-   "because": "in a vault note (+1)",
-   "default_on": false,
-   "built": false
-  },
-  {
-   "why_summary": "",
-   "id": "idea.cli-tui-client",
-   "title": "CLI / TUI Client",
-   "sources": [
-    "vault:2026-09-20T183349+0200-darkhold-growth-ideas.md"
-   ],
-   "milestone": "unassigned",
-   "relevance": 1,
-   "because": "in a vault note (+1)",
-   "default_on": false,
-   "built": false
-  },
-  {
-   "why_summary": "",
-   "id": "idea.complete-works-under-10k-filter",
-   "title": "Complete works under 10k filter",
-   "sources": [
-    "docs/audit-100-reader-ideas-2026-10-04.md"
-   ],
-   "milestone": "unassigned",
-   "relevance": 1,
-   "because": "in the reader audit (+1)",
-   "default_on": false,
-   "built": false
-  },
-  {
-   "why_summary": "",
-   "id": "idea.completion-status-badges-on-work-cards",
-   "title": "completion status badges on work cards",
-   "sources": [
-    "docs/audit-100-reader-ideas-2026-10-04.md"
-   ],
-   "milestone": "unassigned",
-   "relevance": 1,
-   "because": "in the reader audit (+1)",
-   "default_on": false,
-   "built": false
-  },
-  {
-   "why_summary": "",
-   "id": "idea.content-delivery-optimization",
-   "title": "Content Delivery Optimization",
-   "sources": [
-    "vault:2026-09-20T183349+0200-darkhold-growth-ideas.md"
-   ],
-   "milestone": "unassigned",
-   "relevance": 1,
-   "because": "in a vault note (+1)",
-   "default_on": false,
-   "built": false
-  },
-  {
-   "why_summary": "",
-   "id": "idea.darkhold-zine-platform",
-   "title": "Darkhold Zine Platform",
-   "sources": [
-    "vault:2026-09-20T183349+0200-darkhold-growth-ideas.md"
-   ],
-   "milestone": "unassigned",
-   "relevance": 1,
-   "because": "in a vault note (+1)",
-   "default_on": false,
-   "built": false
-  },
-  {
-   "why_summary": "",
-   "id": "idea.discord-bot",
-   "title": "Discord Bot",
-   "sources": [
-    "vault:2026-09-20T183349+0200-darkhold-growth-ideas.md"
-   ],
-   "milestone": "unassigned",
-   "relevance": 1,
-   "because": "in a vault note (+1); named in the spec (+2); needs a third party or an external client (-2)",
-   "default_on": false,
-   "built": false
-  },
-  {
-   "why_summary": "",
-   "id": "idea.education-and-workshop-mode",
-   "title": "Education & Workshop Mode",
-   "sources": [
-    "vault:2026-09-20T183349+0200-darkhold-growth-ideas.md"
-   ],
-   "milestone": "unassigned",
-   "relevance": 1,
-   "because": "in a vault note (+1)",
-   "default_on": false,
-   "built": false
-  },
-  {
-   "why_summary": "",
-   "id": "idea.email-digest",
-   "title": "Email Digest",
-   "sources": [
-    "vault:2026-09-20T183349+0200-darkhold-growth-ideas.md"
-   ],
-   "milestone": "unassigned",
-   "relevance": 1,
-   "because": "in a vault note (+1); named in the spec (+2); needs a third party or an external client (-2)",
-   "default_on": false,
-   "built": false
-  },
-  {
-   "why_summary": "",
-   "id": "idea.embeddable-widgets",
-   "title": "Embeddable Widgets",
-   "sources": [
-    "vault:2026-09-20T183349+0200-darkhold-growth-ideas.md"
-   ],
-   "milestone": "unassigned",
-   "relevance": 1,
-   "because": "in a vault note (+1)",
-   "default_on": false,
-   "built": false
-  },
-  {
-   "why_summary": "",
-   "id": "idea.fandom-specific-reaction-labels",
-   "title": "fandom-specific reaction labels",
-   "sources": [
-    "docs/audit-100-reader-ideas-2026-10-04.md"
-   ],
-   "milestone": "unassigned",
-   "relevance": 1,
-   "because": "in the reader audit (+1)",
-   "default_on": false,
-   "built": false
-  },
-  {
-   "why_summary": "",
-   "id": "idea.federated-search-across-instances",
-   "title": "Federated Search Across Instances",
-   "sources": [
-    "vault:2026-09-20T183349+0200-darkhold-growth-ideas.md"
-   ],
-   "milestone": "unassigned",
-   "relevance": 1,
-   "because": "in a vault note (+1)",
-   "default_on": false,
-   "built": false
-  },
-  {
-   "why_summary": "",
-   "id": "idea.ffn-import-adapter",
-   "title": "FFN Import Adapter",
-   "sources": [
-    "vault:2026-09-20T183349+0200-darkhold-growth-ideas.md"
-   ],
-   "milestone": "unassigned",
-   "relevance": 1,
-   "because": "in a vault note (+1)",
-   "default_on": false,
-   "built": false
-  },
-  {
-   "why_summary": "",
-   "id": "idea.import-progress-bar-import-job-status-is-abs",
-   "title": "import progress bar (import job status is absent, not the progress UI)",
-   "sources": [
-    "docs/audit-100-reader-ideas-2026-10-04.md"
-   ],
-   "milestone": "unassigned",
-   "relevance": 1,
-   "because": "in the reader audit (+1)",
-   "default_on": false,
-   "built": false
-  },
-  {
-   "why_summary": "",
-   "id": "idea.instance-discovery-directory",
-   "title": "Instance Discovery Directory",
-   "sources": [
-    "vault:2026-09-20T183349+0200-darkhold-growth-ideas.md"
-   ],
-   "milestone": "unassigned",
-   "relevance": 1,
-   "because": "in a vault note (+1)",
-   "default_on": false,
-   "built": false
-  },
-  {
-   "why_summary": "",
-   "id": "idea.interactive-fiction-support",
-   "title": "Interactive Fiction Support",
-   "sources": [
-    "vault:2026-09-20T183349+0200-darkhold-growth-ideas.md"
-   ],
-   "milestone": "unassigned",
-   "relevance": 1,
-   "because": "in a vault note (+1)",
-   "default_on": false,
-   "built": false
-  },
-  {
-   "why_summary": "",
-   "id": "idea.invite-system-with-incentives",
-   "title": "Invite System With Incentives",
-   "sources": [
-    "vault:2026-09-20T183349+0200-darkhold-growth-ideas.md"
-   ],
-   "milestone": "unassigned",
-   "relevance": 1,
-   "because": "in a vault note (+1)",
-   "default_on": false,
-   "built": false
-  },
-  {
-   "why_summary": "",
-   "id": "idea.language-auto-detection-on-import",
-   "title": "language auto-detection on import",
-   "sources": [
-    "docs/audit-100-reader-ideas-2026-10-04.md"
-   ],
-   "milestone": "unassigned",
-   "relevance": 1,
-   "because": "in the reader audit (+1)",
-   "default_on": false,
-   "built": false
-  },
-  {
-   "why_summary": "",
-   "id": "idea.link-preview-open-graph-optimization",
-   "title": "Link Preview / Open Graph Optimization",
-   "sources": [
-    "vault:2026-09-20T183349+0200-darkhold-growth-ideas.md"
-   ],
-   "milestone": "unassigned",
-   "relevance": 1,
-   "because": "in a vault note (+1)",
-   "default_on": false,
-   "built": false
-  },
-  {
-   "why_summary": "",
-   "id": "idea.local-full-text-search-client-side",
-   "title": "local full-text search (client-side)",
-   "sources": [
-    "docs/audit-100-reader-ideas-2026-10-04.md"
-   ],
-   "milestone": "unassigned",
-   "relevance": 1,
-   "because": "in the reader audit (+1)",
-   "default_on": false,
-   "built": false
-  },
-  {
-   "why_summary": "",
-   "id": "idea.marketplace-for-commissions",
-   "title": "Marketplace for Commissions",
-   "sources": [
-    "vault:2026-09-20T183349+0200-darkhold-growth-ideas.md"
-   ],
-   "milestone": "unassigned",
-   "relevance": 1,
-   "because": "in a vault note (+1)",
-   "default_on": false,
-   "built": false
-  },
-  {
-   "why_summary": "",
-   "id": "idea.mentorship-matching",
-   "title": "Mentorship Matching",
-   "sources": [
-    "vault:2026-09-20T183349+0200-darkhold-growth-ideas.md"
-   ],
-   "milestone": "unassigned",
-   "relevance": 1,
-   "because": "in a vault note (+1)",
-   "default_on": false,
-   "built": false
-  },
-  {
-   "why_summary": "",
-   "id": "idea.moderation-tooling-at-scale",
-   "title": "Moderation Tooling at Scale",
-   "sources": [
-    "vault:2026-09-20T183349+0200-darkhold-growth-ideas.md"
-   ],
-   "milestone": "unassigned",
-   "relevance": 1,
-   "because": "in a vault note (+1)",
-   "default_on": false,
-   "built": false
-  },
-  {
-   "why_summary": "",
-   "id": "idea.multi-language-tag-aliases",
-   "title": "multi-language tag aliases",
-   "sources": [
-    "docs/audit-100-reader-ideas-2026-10-04.md"
-   ],
-   "milestone": "unassigned",
-   "relevance": 1,
-   "because": "in the reader audit (+1)",
-   "default_on": false,
-   "built": false
-  },
-  {
-   "why_summary": "",
-   "id": "idea.new-author-debut-badge",
-   "title": "New author debut badge",
-   "sources": [
-    "docs/audit-100-reader-ideas-2026-10-04.md"
-   ],
-   "milestone": "unassigned",
-   "relevance": 1,
-   "because": "in the reader audit (+1)",
-   "default_on": false,
-   "built": false
-  },
-  {
-   "why_summary": "",
-   "id": "idea.offline-reading-queue",
-   "title": "offline reading queue",
-   "sources": [
-    "docs/audit-100-reader-ideas-2026-10-04.md"
-   ],
-   "milestone": "unassigned",
-   "relevance": 1,
-   "because": "in the reader audit (+1)",
-   "default_on": false,
-   "built": false
-  },
-  {
-   "why_summary": "",
-   "id": "idea.on-this-day-feature",
-   "title": "On This Day Feature",
-   "sources": [
-    "vault:2026-09-20T183349+0200-darkhold-growth-ideas.md"
-   ],
-   "milestone": "unassigned",
-   "relevance": 1,
-   "because": "in a vault note (+1)",
-   "default_on": false,
-   "built": false
-  },
-  {
-   "why_summary": "",
-   "id": "idea.one-click-import-from-ao3",
-   "title": "One-Click Import From AO3",
-   "sources": [
-    "vault:2026-09-20T183349+0200-darkhold-growth-ideas.md"
-   ],
-   "milestone": "unassigned",
-   "relevance": 1,
-   "because": "in a vault note (+1)",
-   "default_on": false,
-   "built": false
-  },
-  {
-   "why_summary": "",
-   "id": "idea.opds-catalog",
-   "title": "OPDS Catalog",
-   "sources": [
-    "vault:2026-09-20T183349+0200-darkhold-growth-ideas.md"
-   ],
-   "milestone": "unassigned",
-   "relevance": 1,
-   "because": "in a vault note (+1); named in the spec (+2); needs a third party or an external client (-2)",
-   "default_on": false,
-   "built": false
-  },
-  {
-   "why_summary": "",
-   "id": "idea.open-to-requests-badge",
-   "title": "open to requests badge",
-   "sources": [
-    "docs/audit-100-reader-ideas-2026-10-04.md"
-   ],
-   "milestone": "unassigned",
-   "relevance": 1,
-   "because": "in the reader audit (+1)",
-   "default_on": false,
-   "built": false
-  },
-  {
-   "why_summary": "",
-   "id": "idea.per-chapter-quick-reactions",
-   "title": "per-chapter quick reactions",
-   "sources": [
-    "docs/audit-100-reader-ideas-2026-10-04.md"
-   ],
-   "milestone": "unassigned",
-   "relevance": 1,
-   "because": "in the reader audit (+1)",
-   "default_on": false,
-   "built": false
-  },
-  {
-   "why_summary": "",
-   "id": "idea.plugin-extension-system",
-   "title": "Plugin / Extension System",
-   "sources": [
-    "vault:2026-09-20T183349+0200-darkhold-growth-ideas.md"
-   ],
-   "milestone": "unassigned",
-   "relevance": 1,
-   "because": "in a vault note (+1)",
-   "default_on": false,
-   "built": false
-  },
-  {
-   "why_summary": "",
-   "id": "idea.podfic-audio-support",
-   "title": "Podfic / Audio Support",
-   "sources": [
-    "vault:2026-09-20T183349+0200-darkhold-growth-ideas.md"
-   ],
-   "milestone": "unassigned",
-   "relevance": 1,
-   "because": "in a vault note (+1)",
-   "default_on": false,
-   "built": false
-  },
-  {
-   "why_summary": "",
-   "id": "idea.print-on-demand-integration",
-   "title": "Print-on-Demand Integration",
-   "sources": [
-    "vault:2026-09-20T183349+0200-darkhold-growth-ideas.md"
-   ],
-   "milestone": "unassigned",
-   "relevance": 1,
-   "because": "in a vault note (+1)",
-   "default_on": false,
-   "built": false
-  },
-  {
-   "why_summary": "",
-   "id": "idea.private-search-history",
-   "title": "private search history",
-   "sources": [
-    "docs/audit-100-reader-ideas-2026-10-04.md"
-   ],
-   "milestone": "unassigned",
-   "relevance": 1,
-   "because": "in the reader audit (+1)",
-   "default_on": false,
-   "built": false
-  },
-  {
-   "why_summary": "",
-   "id": "idea.reader-to-reader-also-read",
-   "title": "reader-to-reader also read",
-   "sources": [
-    "docs/audit-100-reader-ideas-2026-10-04.md"
-   ],
-   "milestone": "unassigned",
-   "relevance": 1,
-   "because": "in the reader audit (+1)",
-   "default_on": false,
-   "built": false
-  },
-  {
-   "why_summary": "",
-   "id": "idea.reading-goal-progress-ring",
-   "title": "reading-goal progress ring",
-   "sources": [
-    "docs/audit-100-reader-ideas-2026-10-04.md"
-   ],
-   "milestone": "unassigned",
-   "relevance": 1,
-   "because": "in the reader audit (+1)",
-   "default_on": false,
-   "built": false
-  },
-  {
-   "why_summary": "",
-   "id": "idea.recommended-by-curator-label-curator-rs-exis",
-   "title": "Recommended by [curator] label \u2014 curator.rs exists, the label does not",
-   "sources": [
-    "docs/audit-100-reader-ideas-2026-10-04.md"
-   ],
-   "milestone": "unassigned",
-   "relevance": 1,
-   "because": "in the reader audit (+1)",
-   "default_on": false,
-   "built": false
-  },
-  {
-   "why_summary": "",
-   "id": "idea.relationship-graph-svg",
-   "title": "relationship graph SVG",
-   "sources": [
-    "docs/audit-100-reader-ideas-2026-10-04.md"
-   ],
-   "milestone": "unassigned",
-   "relevance": 1,
-   "because": "in the reader audit (+1)",
-   "default_on": false,
-   "built": false
-  },
-  {
-   "why_summary": "",
-   "id": "idea.research-and-data-access",
-   "title": "Research & Data Access",
-   "sources": [
-    "vault:2026-09-20T183349+0200-darkhold-growth-ideas.md"
-   ],
-   "milestone": "unassigned",
-   "relevance": 1,
-   "because": "in a vault note (+1)",
-   "default_on": false,
-   "built": false
-  },
-  {
-   "why_summary": "",
-   "id": "idea.rss-power-features",
-   "title": "RSS Power Features",
-   "sources": [
-    "vault:2026-09-20T183349+0200-darkhold-growth-ideas.md"
-   ],
-   "milestone": "unassigned",
-   "relevance": 1,
-   "because": "in a vault note (+1)",
-   "default_on": false,
-   "built": false
-  },
-  {
-   "why_summary": "",
-   "id": "idea.seo-optimization-program",
-   "title": "SEO Optimization Program",
-   "sources": [
-    "vault:2026-09-20T183349+0200-darkhold-growth-ideas.md"
-   ],
-   "milestone": "unassigned",
-   "relevance": 1,
-   "because": "in a vault note (+1)",
-   "default_on": false,
-   "built": false
-  },
-  {
-   "why_summary": "",
-   "id": "idea.similar-works-section",
-   "title": "Similar works section",
-   "sources": [
-    "docs/audit-100-reader-ideas-2026-10-04.md"
-   ],
-   "milestone": "unassigned",
-   "relevance": 1,
-   "because": "in the reader audit (+1)",
-   "default_on": false,
-   "built": false
-  },
-  {
-   "why_summary": "",
-   "id": "idea.specific-held-comment-reason",
-   "title": "specific held-comment reason",
-   "sources": [
-    "docs/audit-100-reader-ideas-2026-10-04.md"
-   ],
-   "milestone": "unassigned",
-   "relevance": 1,
-   "because": "in the reader audit (+1)",
-   "default_on": false,
-   "built": false
-  },
-  {
-   "why_summary": "",
-   "id": "idea.telegram-bot",
-   "title": "Telegram Bot",
-   "sources": [
-    "vault:2026-09-20T183349+0200-darkhold-growth-ideas.md"
-   ],
-   "milestone": "unassigned",
-   "relevance": 1,
-   "because": "in a vault note (+1); named in the spec (+2); needs a third party or an external client (-2)",
-   "default_on": false,
-   "built": false
-  },
-  {
-   "why_summary": "",
-   "id": "idea.translation-coordination",
-   "title": "Translation Coordination",
-   "sources": [
-    "vault:2026-09-20T183349+0200-darkhold-growth-ideas.md"
-   ],
-   "milestone": "unassigned",
-   "relevance": 1,
-   "because": "in a vault note (+1)",
-   "default_on": false,
-   "built": false
-  },
-  {
-   "why_summary": "",
-   "id": "idea.virtual-reading-events",
-   "title": "Virtual Reading Events",
-   "sources": [
-    "vault:2026-09-20T183349+0200-darkhold-growth-ideas.md"
-   ],
-   "milestone": "unassigned",
-   "relevance": 1,
-   "because": "in a vault note (+1)",
-   "default_on": false,
-   "built": false
-  },
-  {
-   "why_summary": "",
-   "id": "idea.wattpad-import-adapter",
-   "title": "Wattpad Import Adapter",
-   "sources": [
-    "vault:2026-09-20T183349+0200-darkhold-growth-ideas.md"
-   ],
-   "milestone": "unassigned",
-   "relevance": 1,
-   "because": "in a vault note (+1)",
-   "default_on": false,
-   "built": false
-  },
-  {
-   "why_summary": "",
-   "id": "idea.work-comparison-view",
-   "title": "work comparison view",
-   "sources": [
-    "docs/audit-100-reader-ideas-2026-10-04.md"
-   ],
-   "milestone": "unassigned",
-   "relevance": 1,
-   "because": "in the reader audit (+1)",
-   "default_on": false,
-   "built": false
-  },
-  {
-   "why_summary": "",
-   "id": "idea.work-of-the-day-spotlight",
-   "title": "Work of the day spotlight",
-   "sources": [
-    "docs/audit-100-reader-ideas-2026-10-04.md"
-   ],
-   "milestone": "unassigned",
-   "relevance": 1,
-   "because": "in the reader audit (+1)",
-   "default_on": false,
-   "built": false
-  },
-  {
-   "why_summary": "",
-   "id": "idea.writing-circles-critique-groups",
-   "title": "Writing Circles / Critique Groups",
-   "sources": [
-    "vault:2026-09-20T183349+0200-darkhold-growth-ideas.md"
-   ],
-   "milestone": "unassigned",
-   "relevance": 1,
-   "because": "in a vault note (+1)",
-   "default_on": false,
-   "built": false
-  },
-  {
-   "why_summary": "",
-   "id": "idea.writing-sprints-and-word-wars",
-   "title": "Writing Sprints & Word Wars",
-   "sources": [
-    "vault:2026-09-20T183349+0200-darkhold-growth-ideas.md"
-   ],
-   "milestone": "unassigned",
-   "relevance": 1,
-   "because": "in a vault note (+1)",
-   "default_on": false,
-   "built": false
-  },
-  {
-   "why_summary": "docs/plans/100-ideas-scope.md The first milestone is deliberately smaller and shippable: serve local files to another person on the LAN or by a direct link, with no relay, no DHT, ",
-   "id": "M66-08",
-   "title": "P2P local file sharing over the LAN and by direct link, with a seeding network later",
-   "sources": [
-    "docs/requirements.csv"
-   ],
-   "milestone": "M66",
-   "relevance": 0,
-   "because": "a requirements row exists (+4); needs a third party or an external client (-2); needs a model or heavy compute (-1); the source hedges (-1)",
-   "default_on": false,
-   "built": false
-  },
-  {
-   "why_summary": "",
-   "id": "idea.bluesky-bot-labeler",
-   "title": "Bluesky Bot / Labeler",
-   "sources": [
-    "vault:2026-09-20T183349+0200-darkhold-growth-ideas.md"
-   ],
-   "milestone": "unassigned",
-   "relevance": 0,
-   "because": "in a vault note (+1); needs a third party or an external client (-2)",
-   "default_on": false,
-   "built": false
-  },
-  {
-   "why_summary": "",
-   "id": "idea.calibre-plugin",
-   "title": "Calibre Plugin",
-   "sources": [
-    "vault:2026-09-20T183349+0200-darkhold-growth-ideas.md"
-   ],
-   "milestone": "unassigned",
-   "relevance": 0,
-   "because": "in a vault note (+1); needs a third party or an external client (-2)",
-   "default_on": false,
-   "built": false
-  },
-  {
-   "why_summary": "",
-   "id": "idea.desktop-app",
-   "title": "Desktop App",
-   "sources": [
-    "vault:2026-09-20T183349+0200-darkhold-growth-ideas.md"
-   ],
-   "milestone": "unassigned",
-   "relevance": 0,
-   "because": "in a vault note (+1); needs a third party or an external client (-2)",
-   "default_on": false,
-   "built": false
-  },
-  {
-   "why_summary": "",
-   "id": "idea.ipfs-powered-desktop-distribution",
-   "title": "IPFS-Powered Desktop Distribution",
-   "sources": [
-    "vault:2026-09-20T183349+0200-darkhold-growth-ideas.md"
-   ],
-   "milestone": "unassigned",
-   "relevance": 0,
-   "because": "in a vault note (+1); needs a third party or an external client (-2)",
-   "default_on": false,
-   "built": false
-  },
-  {
-   "why_summary": "",
-   "id": "idea.mastodon-fediverse-bot",
-   "title": "Mastodon / Fediverse Bot",
-   "sources": [
-    "vault:2026-09-20T183349+0200-darkhold-growth-ideas.md"
-   ],
-   "milestone": "unassigned",
-   "relevance": 0,
-   "because": "in a vault note (+1); needs a third party or an external client (-2)",
-   "default_on": false,
-   "built": false
-  },
-  {
-   "why_summary": "",
-   "id": "idea.mobile-app",
-   "title": "Mobile App",
-   "sources": [
-    "vault:2026-09-20T183349+0200-darkhold-growth-ideas.md"
-   ],
-   "milestone": "unassigned",
-   "relevance": 0,
-   "because": "in a vault note (+1); needs a third party or an external client (-2)",
-   "default_on": false,
-   "built": false
-  },
-  {
-   "why_summary": "",
-   "id": "idea.tumblr-integration",
-   "title": "Tumblr Integration",
-   "sources": [
-    "vault:2026-09-20T183349+0200-darkhold-growth-ideas.md"
-   ],
-   "milestone": "unassigned",
-   "relevance": 0,
-   "because": "in a vault note (+1); needs a third party or an external client (-2)",
-   "default_on": false,
-   "built": false
-  }
- ]
+  "generated_by": "scripts/ideas_catalogue.py",
+  "count": 174,
+  "ideas": [
+    {
+      "why_summary": "",
+      "id": "idea.ultimate-fanfiction-site",
+      "title": "Ultimate Fanfiction Site",
+      "sources": [
+        "docs/spec-amendments/ultimate-fanfiction-site.md"
+      ],
+      "milestone": "unassigned",
+      "relevance": 5,
+      "because": "specified by an amendment (+3); named in the spec (+2)",
+      "default_on": false,
+      "built": false
+    },
+    {
+      "why_summary": "docs/ROADMAP-guest-trust-governance.md Adopted from the estate standard (secondbrain 2026-10-16-guest-access-trust-and-self-governance.md). Config delta for this site: guest.mau_li",
+      "id": "GS-1",
+      "title": "guest access with consent",
+      "sources": [
+        "docs/requirements.csv"
+      ],
+      "milestone": "M66",
+      "relevance": 4,
+      "because": "a requirements row exists (+4)",
+      "default_on": false,
+      "built": false
+    },
+    {
+      "why_summary": "docs/ROADMAP-guest-trust-governance.md Measured 2026-11-02: consent appears only in crates/app/tests/milestone_16.rs; no guest identity and no fold exist in this tree. The standard",
+      "id": "GS-3",
+      "title": "guest identity as a first-class pseudonym",
+      "sources": [
+        "docs/requirements.csv"
+      ],
+      "milestone": "M66",
+      "relevance": 4,
+      "because": "a requirements row exists (+4)",
+      "default_on": false,
+      "built": false
+    },
+    {
+      "why_summary": "docs/ROADMAP-guest-trust-governance.md An upgrade of machinery that exists rather than new machinery: karma (99 references) and trust_level (52) are already here. Two trust numbers",
+      "id": "GS-4",
+      "title": "elastic trust from karma, not a parallel score",
+      "sources": [
+        "docs/requirements.csv"
+      ],
+      "milestone": "M66",
+      "relevance": 4,
+      "because": "a requirements row exists (+4)",
+      "default_on": false,
+      "built": false
+    },
+    {
+      "why_summary": "docs/ROADMAP-guest-trust-governance.md The other item nothing in this repo has. Same caution as GS-4: the numbers belong in the roadmap file when they are real.",
+      "id": "GS-5",
+      "title": "a jury drawn from the eligible pool",
+      "sources": [
+        "docs/requirements.csv"
+      ],
+      "milestone": "M66",
+      "relevance": 4,
+      "because": "a requirements row exists (+4)",
+      "default_on": false,
+      "built": false
+    },
+    {
+      "why_summary": "NOT BUILT and deliberately so: there is no `wasmi` dependency in the workspace. Trust and subscription tiers change resource ceilings, never permissions — that distinction is alrea",
+      "id": "M16-06",
+      "title": "§21.4's execution sandbox",
+      "sources": [
+        "docs/requirements.csv"
+      ],
+      "milestone": "M16",
+      "relevance": 4,
+      "because": "a requirements row exists (+4)",
+      "default_on": false,
+      "built": false
+    },
+    {
+      "why_summary": "The storage exists (`extension_submissions`, `extension_manifests`, `extension_grants` in 0018_marketplace.sql) but the workflow itself is not built: no quorum, no renewal-of-conse",
+      "id": "M16-07",
+      "title": "§21.5's review workflow",
+      "sources": [
+        "docs/requirements.csv"
+      ],
+      "milestone": "M16",
+      "relevance": 4,
+      "because": "a requirements row exists (+4)",
+      "default_on": false,
+      "built": false
+    },
+    {
+      "why_summary": "NOT BUILT as a gallery. M70-10 builds the document-browse subset deliberately without ratings or install counts: on a corpus of four, ranking by popularity makes the first uploader",
+      "id": "M16-08",
+      "title": "§21.6's gallery mechanics",
+      "sources": [
+        "docs/requirements.csv"
+      ],
+      "milestone": "M16",
+      "relevance": 4,
+      "because": "a requirements row exists (+4)",
+      "default_on": false,
+      "built": false
+    },
+    {
+      "why_summary": "NOT BUILT. Credits are the closed-loop economy (M45-18) and this is deliberately a separate ledger; mixing them would let a credit balance become a price. No processor integration ",
+      "id": "M16-11",
+      "title": "§21.9's paid marketplace, separate from credits",
+      "sources": [
+        "docs/requirements.csv"
+      ],
+      "milestone": "M16",
+      "relevance": 4,
+      "because": "a requirements row exists (+4)",
+      "default_on": false,
+      "built": false
+    },
+    {
+      "why_summary": "NOT MET — every item except 'reset remains reachable' (there is no theme to break) and 'opt-out honoured' needs the executor from M16-06. Written as one row because these are the c",
+      "id": "M16-12",
+      "title": "§21's acceptance list",
+      "sources": [
+        "docs/requirements.csv"
+      ],
+      "milestone": "M16",
+      "relevance": 4,
+      "because": "a requirements row exists (+4)",
+      "default_on": false,
+      "built": false
+    },
+    {
+      "why_summary": "NOT BUILT. Delivery retries and records, but nothing rotates a secret, nothing limits a subscriber's request rate, and a permanently failing endpoint keeps being tried — which is b",
+      "id": "M16-14",
+      "title": "§21.8's operational half",
+      "sources": [
+        "docs/requirements.csv"
+      ],
+      "milestone": "M16",
+      "relevance": 4,
+      "because": "a requirements row exists (+4)",
+      "default_on": false,
+      "built": false
+    },
+    {
+      "why_summary": "docs/spec/29-community-roadmap-feature-consensus-and.md Reserved section, specified in docs/spec/29-community-roadmap-feature-consensus-and.md. Registered 2026-11-02 while making t",
+      "id": "M29-08",
+      "title": "29 community roadmap feature consensus",
+      "sources": [
+        "docs/requirements.csv"
+      ],
+      "milestone": "M29",
+      "relevance": 4,
+      "because": "a requirements row exists (+4)",
+      "default_on": false,
+      "built": false
+    },
+    {
+      "why_summary": "docs/spec/44-roadmap-consensus-an-elo-ranked-community-voted.md Reserved section, specified in docs/spec/44-roadmap-consensus-an-elo-ranked-community-voted.md. Registered 2026-11-0",
+      "id": "M44-02",
+      "title": "44 roadmap consensus an elo ranked community voted board",
+      "sources": [
+        "docs/requirements.csv"
+      ],
+      "milestone": "M44",
+      "relevance": 4,
+      "because": "a requirements row exists (+4)",
+      "default_on": false,
+      "built": false
+    },
+    {
+      "why_summary": "-- Gaps review D4. Persistent work IDs; ActivityPub Move for accounts.",
+      "id": "M45-39",
+      "title": "Instance-death protection",
+      "sources": [
+        "docs/requirements.csv"
+      ],
+      "milestone": "M45",
+      "relevance": 4,
+      "because": "a requirements row exists (+4)",
+      "default_on": false,
+      "built": false
+    },
+    {
+      "why_summary": "-- Gaps review E3.",
+      "id": "M45-41",
+      "title": "Rec-post attribution",
+      "sources": [
+        "docs/requirements.csv"
+      ],
+      "milestone": "M45",
+      "relevance": 4,
+      "because": "a requirements row exists (+4)",
+      "default_on": false,
+      "built": false
+    },
+    {
+      "why_summary": "-- Gaps review E4. AO3-profile code verification; exclusion registry for opt-outs.",
+      "id": "M45-42",
+      "title": "Claim your works",
+      "sources": [
+        "docs/requirements.csv"
+      ],
+      "milestone": "M45",
+      "relevance": 4,
+      "because": "a requirements row exists (+4)",
+      "default_on": false,
+      "built": false
+    },
+    {
+      "why_summary": "-- Gaps review E6. Directory searchable by public topics (§0.4).",
+      "id": "M45-44",
+      "title": "Sister instances",
+      "sources": [
+        "docs/requirements.csv"
+      ],
+      "milestone": "M45",
+      "relevance": 4,
+      "because": "a requirements row exists (+4)",
+      "default_on": false,
+      "built": false
+    },
+    {
+      "why_summary": "-- Gaps review F1. Operator/council/community-vote lens ownership; succession plan.",
+      "id": "M45-45",
+      "title": "Taste as versioned blendable object with governance mode",
+      "sources": [
+        "docs/requirements.csv"
+      ],
+      "milestone": "M45",
+      "relevance": 4,
+      "because": "a requirements row exists (+4)",
+      "default_on": false,
+      "built": false
+    },
+    {
+      "why_summary": "-- Gaps review F2. Config history and rollback.",
+      "id": "M45-46",
+      "title": "Preview before apply",
+      "sources": [
+        "docs/requirements.csv"
+      ],
+      "milestone": "M45",
+      "relevance": 4,
+      "because": "a requirements row exists (+4)",
+      "default_on": false,
+      "built": false
+    },
+    {
+      "why_summary": "-- Gaps review G2. Art. 17 covers demotion — collides with shadow sanction tier; DMCA intake kept for US claimants.",
+      "id": "M45-52",
+      "title": "DSA notice-and-action flow and statements of reasons",
+      "sources": [
+        "docs/requirements.csv"
+      ],
+      "milestone": "M45",
+      "relevance": 4,
+      "because": "a requirements row exists (+4)",
+      "default_on": false,
+      "built": false
+    },
+    {
+      "why_summary": "-- Gaps review G5. LO 1/1982.",
+      "id": "M45-54",
+      "title": "RPF instance policy knob; Spain honor/image rights awareness",
+      "sources": [
+        "docs/requirements.csv"
+      ],
+      "milestone": "M45",
+      "relevance": 4,
+      "because": "a requirements row exists (+4)",
+      "default_on": false,
+      "built": false
+    },
+    {
+      "why_summary": "-- Gaps review G6. Operators are legally responsible for their own instance.",
+      "id": "M45-55",
+      "title": "Built-in compliance tooling",
+      "sources": [
+        "docs/requirements.csv"
+      ],
+      "milestone": "M45",
+      "relevance": 4,
+      "because": "a requirements row exists (+4)",
+      "default_on": false,
+      "built": false
+    },
+    {
+      "why_summary": "-- Measured 2026-11-02 while closing M45-62, from the migrations rather than from memory: 68 identity-carrying columns sit outside the foreign-key graph, and neither gate can see 3",
+      "id": "M45-65",
+      "title": "both identity gates see the spellings the schema actually uses",
+      "sources": [
+        "docs/requirements.csv"
+      ],
+      "milestone": "M45",
+      "relevance": 4,
+      "because": "a requirements row exists (+4)",
+      "default_on": false,
+      "built": false
+    },
+    {
+      "why_summary": "-- Split out of M63-05 on 2026-11-02: that row asked for `--link md|epub|url` and there is no export route to point at, so the flag refuses with its reason rather than printing a 4",
+      "id": "M63-05b",
+      "title": "`dh rec --link epub`",
+      "sources": [
+        "docs/requirements.csv"
+      ],
+      "milestone": "M63",
+      "relevance": 4,
+      "because": "a requirements row exists (+4)",
+      "default_on": false,
+      "built": false
+    },
+    {
+      "why_summary": "docs/ideas/2026-11-01-idea-sweep-power-users.md Power-user sweep P10. Enables sub-millisecond dh q, true --offline, and dh bench; the same download machinery a mirror instance need",
+      "id": "M63-10",
+      "title": "dh lib sync --since",
+      "sources": [
+        "docs/requirements.csv"
+      ],
+      "milestone": "M63",
+      "relevance": 4,
+      "because": "a requirements row exists (+4)",
+      "default_on": false,
+      "built": false
+    },
+    {
+      "why_summary": "docs/ideas/2026-11-01-idea-sweep-power-users.md Power-user sweep P11. Batch editorial work on 500 rows must be resumable and reversible; a partial failure that cannot be resumed is",
+      "id": "M63-11",
+      "title": "dh lib tag --from-csv with a per-row error report and a rollback file; dh lib diff and push --dry-run before any bulk write",
+      "sources": [
+        "docs/requirements.csv"
+      ],
+      "milestone": "M63",
+      "relevance": 4,
+      "because": "a requirements row exists (+4)",
+      "default_on": false,
+      "built": false
+    },
+    {
+      "why_summary": "docs/ideas/2026-11-01-idea-sweep-power-users.md Power-user sweep P15. The first command anyone runs when something feels wrong; turns a support thread into a paste.",
+      "id": "M63-15",
+      "title": "dh doctor",
+      "sources": [
+        "docs/requirements.csv"
+      ],
+      "milestone": "M63",
+      "relevance": 4,
+      "because": "a requirements row exists (+4)",
+      "default_on": false,
+      "built": false
+    },
+    {
+      "why_summary": "docs/ideas/2026-11-01-idea-sweep-power-users.md Power-user sweep P18. One user, two instances, without exporting variables per shell; every knob settable from the tool that reads i",
+      "id": "M63-18",
+      "title": "Config profiles (--profile, DARKHOLD_PROFILE) with per-profile instance URL and token; dh config get/set with dotted keys",
+      "sources": [
+        "docs/requirements.csv"
+      ],
+      "milestone": "M63",
+      "relevance": 4,
+      "because": "a requirements row exists (+4)",
+      "default_on": false,
+      "built": false
+    },
+    {
+      "why_summary": "docs/ideas/2026-11-01-idea-sweep-power-users.md Power-user sweep P22. The operator's microscope for 'why is this ranked first' — the debugging counterpart of the shipped slot expla",
+      "id": "M63-22",
+      "title": "dh admin explain-rec <work>",
+      "sources": [
+        "docs/requirements.csv"
+      ],
+      "milestone": "M63",
+      "relevance": 4,
+      "because": "a requirements row exists (+4)",
+      "default_on": false,
+      "built": false
+    },
+    {
+      "why_summary": "docs/ideas/2026-11-01-idea-sweep-power-users.md Power-user sweep P23. `ssh host dh admin backup | zstd > backup.zst`, and monitoring is a cron job rather than a dashboard.",
+      "id": "M63-23",
+      "title": "dh admin backup --to - streams a consistent dump to stdout; dh admin health emits machine-readable checks with per-check exit codes",
+      "sources": [
+        "docs/requirements.csv"
+      ],
+      "milestone": "M63",
+      "relevance": 4,
+      "because": "a requirements row exists (+4)",
+      "default_on": false,
+      "built": false
+    },
+    {
+      "why_summary": "docs/ideas/2026-11-01-idea-sweep-power-users.md Power-user sweep P24. A performance regression visible from a user's machine, not only in CI, and a shared language for 'the instanc",
+      "id": "M63-24",
+      "title": "dh bench",
+      "sources": [
+        "docs/requirements.csv"
+      ],
+      "milestone": "M63",
+      "relevance": 4,
+      "because": "a requirements row exists (+4)",
+      "default_on": false,
+      "built": false
+    },
+    {
+      "why_summary": "docs/ideas/2026-11-01-idea-sweep-power-users.md Power-user sweep P25. Automation is accountable to the person it acts for; the operation log already records the writes.",
+      "id": "M63-25",
+      "title": "dh audit --since 7d",
+      "sources": [
+        "docs/requirements.csv"
+      ],
+      "milestone": "M63",
+      "relevance": 4,
+      "because": "a requirements row exists (+4)",
+      "default_on": false,
+      "built": false
+    },
+    {
+      "why_summary": "docs/ideas/2026-11-01-idea-sweep-power-users.md Power-user sweep P26. Recognition for the engine: contribution score from the operation log (imports, tags applied, reports filed) s",
+      "id": "M63-26",
+      "title": "dh stats --by week --year",
+      "sources": [
+        "docs/requirements.csv"
+      ],
+      "milestone": "M63",
+      "relevance": 4,
+      "because": "a requirements row exists (+4)",
+      "default_on": false,
+      "built": false
+    },
+    {
+      "why_summary": "docs/plans/cli-placement.md Same verbs, same window grammar, same saved queries, same snapshot cache; only the output layer differs. A separate TUI project would duplicate the pars",
+      "id": "M63-29",
+      "title": "dh tui",
+      "sources": [
+        "docs/requirements.csv"
+      ],
+      "milestone": "M63",
+      "relevance": 4,
+      "because": "a requirements row exists (+4)",
+      "default_on": false,
+      "built": false
+    },
+    {
+      "why_summary": "live information_schema vs migrations/postgres: missing chapters, bodies, chapter_revisions, import_chapters, ship_participants, taxonomy_aliases, taxonomy_closure, taxonomy_edges,",
+      "id": "M63-33",
+      "title": "reconcile the live database with the workspace migrations",
+      "sources": [
+        "docs/requirements.csv"
+      ],
+      "milestone": "M63",
+      "relevance": 4,
+      "because": "a requirements row exists (+4)",
+      "default_on": false,
+      "built": false
+    },
+    {
+      "why_summary": "docs/design/2026-11-01-ranking-signals-and-surfaces.md P6, blocked on M63-32. Measured 2026-11-01: work_tags joins 0 of the 1,247 rows that carry likes; all 7,626 tagged rows are p",
+      "id": "M64-06",
+      "title": "tag_jaccard and tag_cooccurrence over the normalised tag taxonomy with synonym mapping, refused by name while no engaged row carries a tag",
+      "sources": [
+        "docs/requirements.csv"
+      ],
+      "milestone": "M64",
+      "relevance": 4,
+      "because": "a requirements row exists (+4)",
+      "default_on": false,
+      "built": false
+    },
+    {
+      "why_summary": "docs/design/2026-11-01-ranking-signals-and-surfaces.md P8. Static by nature and that is the point: it works before any reader exists. Managed as data (an operator file or admin sur",
+      "id": "M64-08",
+      "title": "fandom_graph",
+      "sources": [
+        "docs/requirements.csv"
+      ],
+      "milestone": "M64",
+      "relevance": 4,
+      "because": "a requirements row exists (+4)",
+      "default_on": false,
+      "built": false
+    },
+    {
+      "why_summary": "71adfa72 PARTIAL 71adfa72 (first half): taste gravity is now a convex mixture served=(1-g)*base+g*taste, both terms normalised to 0..=1 over the page; unbounded multiplier replaced",
+      "id": "M64-09",
+      "title": "taste gravity applies at every recommendation surface as a bounded influence layer after the blend, with a per-surface strength, reordering and never filtering",
+      "sources": [
+        "docs/requirements.csv"
+      ],
+      "milestone": "M64",
+      "relevance": 4,
+      "because": "a requirements row exists (+4)",
+      "default_on": false,
+      "built": false
+    },
+    {
+      "why_summary": "ee413789 P11, the endgame signal and the one with the longest lead time: it needs lists to exist and to be used before it has any rows. Design lists first so the data accumulates f",
+      "id": "M64-11",
+      "title": "co_shelving",
+      "sources": [
+        "docs/requirements.csv"
+      ],
+      "milestone": "M64",
+      "relevance": 4,
+      "because": "a requirements row exists (+4)",
+      "default_on": false,
+      "built": false
+    },
+    {
+      "why_summary": "docs/design/2026-11-01-ranking-signals-and-surfaces.md P12. Needs M64-02's logging. Noisy by nature; the threshold is a minimum transitions-per-item before an edge is usable.",
+      "id": "M64-12",
+      "title": "co_read",
+      "sources": [
+        "docs/requirements.csv"
+      ],
+      "milestone": "M64",
+      "relevance": 4,
+      "because": "a requirements row exists (+4)",
+      "default_on": false,
+      "built": false
+    },
+    {
+      "why_summary": "docs/design/2026-11-01-ranking-signals-and-surfaces.md P13. Feeds author.similar, library.fill_the_gap and story.similar. The privacy floor is the gate: below the threshold the alg",
+      "id": "M64-13",
+      "title": "engagement_overlap at reader-cluster level with k-anonymity (a minimum number of readers per cluster) and aggregation thresholds, exposing no per-reader signal",
+      "sources": [
+        "docs/requirements.csv"
+      ],
+      "milestone": "M64",
+      "relevance": 4,
+      "because": "a requirements row exists (+4)",
+      "default_on": false,
+      "built": false
+    },
+    {
+      "why_summary": "0612cdf7 P15. Promotion is automatic (M64-04); this is the surface where the operator can disagree without editing a table. preview-as-persona reuses M45-46 (preview before apply).",
+      "id": "M64-15",
+      "title": "the operator console lists every live experiment per surface with its numbers, allows hold, promote and preview-as-persona, and shows why each promotion happened",
+      "sources": [
+        "docs/requirements.csv"
+      ],
+      "milestone": "M64",
+      "relevance": 4,
+      "because": "a requirements row exists (+4)",
+      "default_on": false,
+      "built": false
+    },
+    {
+      "why_summary": "-- Suki spec §16.2. Two thresholds and one veto: similar enough to suggest, unrelated enough to ignore, and a hardcoded-filter collision is a block, not a warning. The veto is the ",
+      "id": "M69-02",
+      "title": "peering is suggested by cosine similarity over that fingerprint, and a colliding hardcoded filter blocks it outright",
+      "sources": [
+        "docs/requirements.csv"
+      ],
+      "milestone": "M69",
+      "relevance": 4,
+      "because": "a requirements row exists (+4)",
+      "default_on": false,
+      "built": false
+    },
+    {
+      "why_summary": "-- Suki spec §5.5 and §13.2 step 3. darkhold has DMCA intake planned (M45-52) and nothing that stops the same work returning through the pawchive importer the next day, which is th",
+      "id": "M69-04",
+      "title": "a takedown is a tombstone that survives re-import, and the importer refuses the work citing the original",
+      "sources": [
+        "docs/requirements.csv"
+      ],
+      "milestone": "M69",
+      "relevance": 4,
+      "because": "a requirements row exists (+4)",
+      "default_on": false,
+      "built": false
+    },
+    {
+      "why_summary": "-- Suki spec §16.4 ('preserved by'). M45-39 covers instance-death protection as paperwork (mutual backup, dead-man's switch); this is the reader-visible half. Attribution is not de",
+      "id": "M69-05",
+      "title": "mirroring by taste similarity, with the mirror visible as attribution on the work page rather than as a silent copy",
+      "sources": [
+        "docs/requirements.csv"
+      ],
+      "milestone": "M69",
+      "relevance": 4,
+      "because": "a requirements row exists (+4)",
+      "default_on": false,
+      "built": false
+    },
+    {
+      "why_summary": "-- Suki spec §16.4. darkhold already computes perceptual hashes for media (M32-07a/07b), so the join exists: (pHash, dimensions, duration) against a surviving peer. Recovery is pro",
+      "id": "M69-06",
+      "title": "a perceptual-hash rescue ring",
+      "sources": [
+        "docs/requirements.csv"
+      ],
+      "milestone": "M69",
+      "relevance": 4,
+      "because": "a requirements row exists (+4)",
+      "default_on": false,
+      "built": false
+    },
+    {
+      "why_summary": "-- Suki spec §16.4. M45-39 has the switch; this has the recipient list and the receipt. The receipt matters when two peers both claim the same work — the author's page must not for",
+      "id": "M69-07",
+      "title": "an evacuation protocol",
+      "sources": [
+        "docs/requirements.csv"
+      ],
+      "milestone": "M69",
+      "relevance": 4,
+      "because": "a requirements row exists (+4)",
+      "default_on": false,
+      "built": false
+    },
+    {
+      "why_summary": "-- Suki spec §3.3. darkhold stores operator affinity per WORK (M11-03) and a resonance score (M45-51); neither answers how close a reader is to the operator, which is what gates tr",
+      "id": "M69-09",
+      "title": "affinity is a stored 0..1 score per reader, recomputed nightly, not a per-work multiplier",
+      "sources": [
+        "docs/requirements.csv"
+      ],
+      "milestone": "M69",
+      "relevance": 4,
+      "because": "a requirements row exists (+4)",
+      "default_on": false,
+      "built": false
+    },
+    {
+      "why_summary": "-- Suki spec §10.2. darkhold's arena is Elo (M45-02) and the community board would inherit it (M44-02 planned). Elo has no notion of confidence: a work with two votes and one with ",
+      "id": "M69-10",
+      "title": "the arena ranks by Glicko-2 — deviation, volatility, a divergence flag — rather than Elo at K=32",
+      "sources": [
+        "docs/requirements.csv"
+      ],
+      "milestone": "M69",
+      "relevance": 4,
+      "because": "a requirements row exists (+4)",
+      "default_on": false,
+      "built": false
+    },
+    {
+      "why_summary": "-- Suki spec §10.3 and §10.4. Proximate pairing plus epsilon-greedy exploration, and a first-N-votes calibration window recorded but not applied to the global ladder. Without the c",
+      "id": "M69-11",
+      "title": "arena pairing prefers similar ratings with high deviation, explores occasionally, and calibrates new works without moving the global rank",
+      "sources": [
+        "docs/requirements.csv"
+      ],
+      "milestone": "M69",
+      "relevance": 4,
+      "because": "a requirements row exists (+4)",
+      "default_on": false,
+      "built": false
+    },
+    {
+      "why_summary": "-- Suki spec §4.2. darkhold has trust levels (M14-01) and a spam-report demotion (DM3-06), but progression is flat: every account earns at the same rate for the same acts. Clamped ",
+      "id": "M69-13",
+      "title": "trust velocity",
+      "sources": [
+        "docs/requirements.csv"
+      ],
+      "milestone": "M69",
+      "relevance": 4,
+      "because": "a requirements row exists (+4)",
+      "default_on": false,
+      "built": false
+    },
+    {
+      "why_summary": "-- Suki spec §3.4 (Attuned). darkhold's badges are one-time facts (M47-14 'First Words'), and a one-time badge cannot express a relationship that changes. Recomputed with affinity,",
+      "id": "M69-14",
+      "title": "a live badge, gained and lost as taste drifts, unlike the episodic awards that already exist",
+      "sources": [
+        "docs/requirements.csv"
+      ],
+      "milestone": "M69",
+      "relevance": 4,
+      "because": "a requirements row exists (+4)",
+      "default_on": false,
+      "built": false
+    },
+    {
+      "why_summary": "-- Suki spec §4.3. The row with the most ways to be cruel, so it is written with its exits: probation is time-bounded, the floor is configurable, existing readers are grandfathered",
+      "id": "M69-15",
+      "title": "taste-gated membership",
+      "sources": [
+        "docs/requirements.csv"
+      ],
+      "milestone": "M69",
+      "relevance": 4,
+      "because": "a requirements row exists (+4)",
+      "default_on": false,
+      "built": false
+    },
+    {
+      "why_summary": "-- Suki spec §8.2–§8.5, renamed on 2026-11-02. The mechanism already exists in this archive's own vocabulary: a saved view (§14.2 'Saved searches and named views'), a versioned JSO",
+      "id": "M69-21",
+      "title": "Saved Filters",
+      "sources": [
+        "docs/requirements.csv"
+      ],
+      "milestone": "M69",
+      "relevance": 4,
+      "because": "a requirements row exists (+4)",
+      "default_on": false,
+      "built": false
+    },
+    {
+      "why_summary": "-- Suki spec §14.6, renamed 2026-11-02 (was 'lenses'). darkhold has a Blind Date (M66-04) and hidden classics (M66-05); the morning queue is the missing half — a small, bounded, de",
+      "id": "M69-22",
+      "title": "the morning queue and the daily surprise, expressed as Saved Filters over surfaces that already exist",
+      "sources": [
+        "docs/requirements.csv"
+      ],
+      "milestone": "M69",
+      "relevance": 4,
+      "because": "a requirements row exists (+4)",
+      "default_on": false,
+      "built": false
+    },
+    {
+      "why_summary": "-- Suki spec §8.4 (import filter) and §11.4, renamed 2026-11-02 (was 'lens'). darkhold's importers decide by host and by rule (M67-03/04); a Saved Filter makes the policy a shareab",
+      "id": "M69-23",
+      "title": "an import source can carry a Saved Filter as intake policy",
+      "sources": [
+        "docs/requirements.csv"
+      ],
+      "milestone": "M69",
+      "relevance": 4,
+      "because": "a requirements row exists (+4)",
+      "default_on": false,
+      "built": false
+    },
+    {
+      "why_summary": "-- The synergy row, and the one that keeps the others honest: two products that each implement the blend will disagree within a month, and a passport whose semantics differ between",
+      "id": "M69-24",
+      "title": "one shared taste crate and one JSON schema set, so darkhold and suki compute blend, affinity and the passport identically",
+      "sources": [
+        "docs/requirements.csv"
+      ],
+      "milestone": "M69",
+      "relevance": 4,
+      "because": "a requirements row exists (+4)",
+      "default_on": false,
+      "built": false
+    },
+    {
+      "why_summary": "f19ecf18 Found while implementing M70-12 and confirming it with a live probe. `content::list_public_works_by_freshness` is called by nothing in crates/app — its only callers are cr",
+      "id": "M70-13",
+      "title": "Every db listing query that a reader surface depends on is either wired to a route or deleted",
+      "sources": [
+        "docs/requirements.csv"
+      ],
+      "milestone": "M70",
+      "relevance": 4,
+      "because": "a requirements row exists (+4)",
+      "default_on": false,
+      "built": false
+    },
+    {
+      "why_summary": "Priority 3. §8.20 made operational: the console is allowed to be less beautiful than the reader and is not allowed to hide a red state. Today the ~30 admin surfaces use the same co",
+      "id": "M71-07",
+      "title": "The operator console becomes its own visual register",
+      "sources": [
+        "docs/requirements.csv"
+      ],
+      "milestone": "M71",
+      "relevance": 4,
+      "because": "a requirements row exists (+4)",
+      "default_on": false,
+      "built": false
+    },
+    {
+      "why_summary": "Priority 2, additive to the existing server-rendered reader. Typography must stay independent of the site theme (§4.11 of the proposal); the panel offers font family including a dy",
+      "id": "M71-08",
+      "title": "The reader gains an auto-hiding bar (back, unit navigation, position, typography, bookmark, in-work search) and a typography panel whose settings are per reader and per work, with provenance shown ('your default' / 'instance default' / 'this work') and a reset at each level.",
+      "sources": [
+        "docs/requirements.csv"
+      ],
+      "milestone": "M71",
+      "relevance": 4,
+      "because": "a requirements row exists (+4)",
+      "default_on": false,
+      "built": false
+    },
+    {
+      "why_summary": "Priority 3. The anchor system exists; the honesty layer does not. §8.14 and §8.17 make silence and silent overwrite both bugs; §11 forbids fake precision. Acceptance: three tests, ",
+      "id": "M71-09",
+      "title": "Reader position is honest",
+      "sources": [
+        "docs/requirements.csv"
+      ],
+      "milestone": "M71",
+      "relevance": 4,
+      "because": "a requirements row exists (+4)",
+      "default_on": false,
+      "built": false
+    },
+    {
+      "why_summary": "Priority 3, and the most underpriced item in the external design: no route in the 720 returns a facet count (grep '\"facets\"' crates/app/src is empty). This is an aggregate query pl",
+      "id": "M71-11",
+      "title": "Facet counts are a server capability with a latency budget",
+      "sources": [
+        "docs/requirements.csv"
+      ],
+      "milestone": "M71",
+      "relevance": 4,
+      "because": "a requirements row exists (+4)",
+      "default_on": false,
+      "built": false
+    },
+    {
+      "why_summary": "Priority 4, depends on M71-11's aggregate surface — same query shape, different grouping. Decorative bars fed by invented data are forbidden (the proposal is right that the histogr",
+      "id": "M71-12",
+      "title": "The word-count filter is a real histogram",
+      "sources": [
+        "docs/requirements.csv"
+      ],
+      "milestone": "M71",
+      "relevance": 4,
+      "because": "a requirements row exists (+4)",
+      "default_on": false,
+      "built": false
+    },
+    {
+      "why_summary": "Priority 3. 5.4% fandom coverage is a fact the CLI already prints and the UI hides; a catalogue that hides it is claiming a completeness it does not have. Acceptance: the numbers o",
+      "id": "M71-13",
+      "title": "Every surface that enumerates a partially covered dimension states its coverage",
+      "sources": [
+        "docs/requirements.csv"
+      ],
+      "milestone": "M71",
+      "relevance": 4,
+      "because": "a requirements row exists (+4)",
+      "default_on": false,
+      "built": false
+    },
+    {
+      "why_summary": "Priority 4. The product already has per-work reader overrides and content filters enforced server-side; the settings surface does not explain where a value came from, so an overrid",
+      "id": "M71-14",
+      "title": "Settings show inheritance with provenance at every level (instance, account, pseud, per-work), deep-link to the exact control, offer a reset at each level that overrides, and reflect inline changes made elsewhere with a 'set as default' affordance.",
+      "sources": [
+        "docs/requirements.csv"
+      ],
+      "milestone": "M71",
+      "relevance": 4,
+      "because": "a requirements row exists (+4)",
+      "default_on": false,
+      "built": false
+    },
+    {
+      "why_summary": "Priority 3. The query grammar has no fields for provenance, source or language; a design that presents the string as the state would silently drop those filters, which is hidden st",
+      "id": "M71-15",
+      "title": "The query string and the facet panel are one state",
+      "sources": [
+        "docs/requirements.csv"
+      ],
+      "milestone": "M71",
+      "relevance": 4,
+      "because": "a requirements row exists (+4)",
+      "default_on": false,
+      "built": false
+    },
+    {
+      "why_summary": "Opened by M71-01 (8a51f9de), which shipped the landing page. Order and reasons are in docs/adr/0006-one-binary-two-renderers.md. The work page is next and is the one that matters f",
+      "id": "M71-20",
+      "title": "The remaining document-class pages migrate in ADR 0006's order - work page /works/{id}, fandom and tag pages, search results, author and collection/series pages - each shipped as server-rendered HTML whose content, links and primary action work with no script, with its Svelte route deleted in the same commit and a server test asserting the no-JS content.",
+      "sources": [
+        "docs/requirements.csv"
+      ],
+      "milestone": "M71",
+      "relevance": 4,
+      "because": "a requirements row exists (+4)",
+      "default_on": false,
+      "built": false
+    },
+    {
+      "why_summary": "docs/ROADMAP-guest-trust-governance.md Firewall specific to this site: reader-visible data is the guest's most valuable and most private artifact, and nothing may be published abou",
+      "id": "GS-2",
+      "title": "the guest fold moves reading progress and bookmarks with the guest",
+      "sources": [
+        "docs/requirements.csv"
+      ],
+      "milestone": "M66",
+      "relevance": 3,
+      "because": "a requirements row exists (+4); the source hedges (-1)",
+      "default_on": false,
+      "built": false
+    },
+    {
+      "why_summary": "NOT BUILT. M70-06 gives a reader a stylesheet; this is the model underneath that makes a theme composable, previewable and undoable. The cannot-hide rule is the one that needs a me",
+      "id": "M16-13",
+      "title": "§21.7's theme model beyond one stylesheet",
+      "sources": [
+        "docs/requirements.csv"
+      ],
+      "milestone": "M16",
+      "relevance": 3,
+      "because": "a requirements row exists (+4); needs a model or heavy compute (-1)",
+      "default_on": false,
+      "built": false
+    },
+    {
+      "why_summary": "-- Gaps review E2. Browse archive through X's eyes; operator's own lens stays invisible. Renamed 2026-11-02: 'curator lenses' borrowed the same word as the saved-filter feature, wh",
+      "id": "M45-40",
+      "title": "Curator views",
+      "sources": [
+        "docs/requirements.csv"
+      ],
+      "milestone": "M45",
+      "relevance": 3,
+      "because": "a requirements row exists (+4); needs a model or heavy compute (-1)",
+      "default_on": false,
+      "built": false
+    },
+    {
+      "why_summary": "measured 2026-11-01: 7,626 of 141,317 catalogue rows carry a fandom tag; all 7,626 are source_key='pawchive' and 0 have likes > 0 Found while shipping M63-01. The filter works and ",
+      "id": "M63-32",
+      "title": "fandom tags cover the whole catalogue and can be ranked",
+      "sources": [
+        "docs/requirements.csv"
+      ],
+      "milestone": "M63",
+      "relevance": 3,
+      "because": "a requirements row exists (+4); needs a model or heavy compute (-1)",
+      "default_on": false,
+      "built": false
+    },
+    {
+      "why_summary": "docs/design/2026-11-01-ranking-signals-and-surfaces.md P14. The spec already names embedding and matrix-factorisation strategies as provider-gated (§16). Summary embeddings are the",
+      "id": "M64-14",
+      "title": "embedding similarity for summaries first and full text last, feature-gated on a configured AI provider and degrading to disabled rather than erroring",
+      "sources": [
+        "docs/requirements.csv"
+      ],
+      "milestone": "M64",
+      "relevance": 3,
+      "because": "a requirements row exists (+4); needs a model or heavy compute (-1)",
+      "default_on": false,
+      "built": false
+    },
+    {
+      "why_summary": "-- Suki spec §16.3. A reader leaving for a peer takes a signed document — taste vector, favourite source URLs, edit counts, affinity at origin. darkhold already recomputes from beh",
+      "id": "M69-03",
+      "title": "a signed taste passport moves a reader's taste and contribution history between instances, suki and darkhold alike",
+      "sources": [
+        "docs/requirements.csv"
+      ],
+      "milestone": "M69",
+      "relevance": 3,
+      "because": "a requirements row exists (+4); needs a model or heavy compute (-1)",
+      "default_on": false,
+      "built": false
+    },
+    {
+      "why_summary": "",
+      "id": "idea.advanced-search-phase2",
+      "title": "Advanced Search Phase2",
+      "sources": [
+        "docs/spec-amendments/advanced-search-phase2.md"
+      ],
+      "milestone": "unassigned",
+      "relevance": 3,
+      "because": "specified by an amendment (+3)",
+      "default_on": false,
+      "built": false
+    },
+    {
+      "why_summary": "",
+      "id": "idea.arena-work-ladder",
+      "title": "Arena Work Ladder",
+      "sources": [
+        "docs/spec-amendments/arena-work-ladder.md"
+      ],
+      "milestone": "unassigned",
+      "relevance": 3,
+      "because": "specified by an amendment (+3)",
+      "default_on": false,
+      "built": false
+    },
+    {
+      "why_summary": "",
+      "id": "idea.beta-reader-marketplace",
+      "title": "Beta Reader Marketplace",
+      "sources": [
+        "vault:2026-09-20T183349+0200-darkhold-growth-ideas.md"
+      ],
+      "milestone": "unassigned",
+      "relevance": 3,
+      "because": "in a vault note (+1); named in the spec (+2)",
+      "default_on": false,
+      "built": false
+    },
+    {
+      "why_summary": "",
+      "id": "idea.calibrated-decision-models",
+      "title": "Calibrated Decision Models",
+      "sources": [
+        "docs/spec-amendments/calibrated-decision-models.md"
+      ],
+      "milestone": "unassigned",
+      "relevance": 3,
+      "because": "specified by an amendment (+3)",
+      "default_on": false,
+      "built": false
+    },
+    {
+      "why_summary": "",
+      "id": "idea.community-gift-exchanges",
+      "title": "Community Gift Exchanges",
+      "sources": [
+        "vault:2026-09-20T183349+0200-darkhold-growth-ideas.md"
+      ],
+      "milestone": "unassigned",
+      "relevance": 3,
+      "because": "in a vault note (+1); named in the spec (+2)",
+      "default_on": false,
+      "built": false
+    },
+    {
+      "why_summary": "",
+      "id": "idea.composer-positivity-indicator",
+      "title": "Composer Positivity Indicator",
+      "sources": [
+        "docs/spec-amendments/composer-positivity-indicator.md"
+      ],
+      "milestone": "unassigned",
+      "relevance": 3,
+      "because": "specified by an amendment (+3)",
+      "default_on": false,
+      "built": false
+    },
+    {
+      "why_summary": "",
+      "id": "idea.crawling-retention-and-preservation",
+      "title": "Crawling Retention And Preservation",
+      "sources": [
+        "docs/spec-amendments/crawling-retention-and-preservation.md"
+      ],
+      "milestone": "unassigned",
+      "relevance": 3,
+      "because": "specified by an amendment (+3)",
+      "default_on": false,
+      "built": false
+    },
+    {
+      "why_summary": "",
+      "id": "idea.cross-posting",
+      "title": "Cross-Posting",
+      "sources": [
+        "vault:2026-09-20T183349+0200-darkhold-growth-ideas.md"
+      ],
+      "milestone": "unassigned",
+      "relevance": 3,
+      "because": "in a vault note (+1); named in the spec (+2)",
+      "default_on": false,
+      "built": false
+    },
+    {
+      "why_summary": "",
+      "id": "idea.draw-slot",
+      "title": "Draw Slot",
+      "sources": [
+        "docs/spec-amendments/draw-slot.md"
+      ],
+      "milestone": "unassigned",
+      "relevance": 3,
+      "because": "specified by an amendment (+3)",
+      "default_on": false,
+      "built": false
+    },
+    {
+      "why_summary": "",
+      "id": "idea.fan-art-gallery",
+      "title": "Fan Art Gallery",
+      "sources": [
+        "vault:2026-09-20T183349+0200-darkhold-growth-ideas.md"
+      ],
+      "milestone": "unassigned",
+      "relevance": 3,
+      "because": "in a vault note (+1); named in the spec (+2)",
+      "default_on": false,
+      "built": false
+    },
+    {
+      "why_summary": "",
+      "id": "idea.fandom-landing-pages",
+      "title": "Fandom Landing Pages",
+      "sources": [
+        "vault:2026-09-20T183349+0200-darkhold-growth-ideas.md"
+      ],
+      "milestone": "unassigned",
+      "relevance": 3,
+      "because": "in a vault note (+1); named in the spec (+2)",
+      "default_on": false,
+      "built": false
+    },
+    {
+      "why_summary": "",
+      "id": "idea.mood-journal",
+      "title": "Mood Journal",
+      "sources": [
+        "vault:2026-09-20T183349+0200-darkhold-growth-ideas.md"
+      ],
+      "milestone": "unassigned",
+      "relevance": 3,
+      "because": "in a vault note (+1); named in the spec (+2)",
+      "default_on": false,
+      "built": false
+    },
+    {
+      "why_summary": "",
+      "id": "idea.periodic-deidentified-dataset",
+      "title": "Periodic Deidentified Dataset",
+      "sources": [
+        "docs/spec-amendments/periodic-deidentified-dataset.md"
+      ],
+      "milestone": "unassigned",
+      "relevance": 3,
+      "because": "specified by an amendment (+3)",
+      "default_on": false,
+      "built": false
+    },
+    {
+      "why_summary": "",
+      "id": "idea.reading-challenges",
+      "title": "Reading Challenges",
+      "sources": [
+        "vault:2026-09-20T183349+0200-darkhold-growth-ideas.md"
+      ],
+      "milestone": "unassigned",
+      "relevance": 3,
+      "because": "in a vault note (+1); named in the spec (+2)",
+      "default_on": false,
+      "built": false
+    },
+    {
+      "why_summary": "",
+      "id": "idea.recommendation-threads",
+      "title": "Recommendation Threads",
+      "sources": [
+        "vault:2026-09-20T183349+0200-darkhold-growth-ideas.md"
+      ],
+      "milestone": "unassigned",
+      "relevance": 3,
+      "because": "in a vault note (+1); named in the spec (+2)",
+      "default_on": false,
+      "built": false
+    },
+    {
+      "why_summary": "",
+      "id": "idea.roadmap-card-bodies",
+      "title": "Roadmap Card Bodies",
+      "sources": [
+        "docs/spec-amendments/roadmap-card-bodies.md"
+      ],
+      "milestone": "unassigned",
+      "relevance": 3,
+      "because": "specified by an amendment (+3)",
+      "default_on": false,
+      "built": false
+    },
+    {
+      "why_summary": "",
+      "id": "idea.scheduled-publishing",
+      "title": "Scheduled Publishing",
+      "sources": [
+        "vault:2026-09-20T183349+0200-darkhold-growth-ideas.md"
+      ],
+      "milestone": "unassigned",
+      "relevance": 3,
+      "because": "in a vault note (+1); named in the spec (+2)",
+      "default_on": false,
+      "built": false
+    },
+    {
+      "why_summary": "",
+      "id": "idea.shareable-quote-cards",
+      "title": "Shareable Quote Cards",
+      "sources": [
+        "vault:2026-09-20T183349+0200-darkhold-growth-ideas.md"
+      ],
+      "milestone": "unassigned",
+      "relevance": 3,
+      "because": "in a vault note (+1); named in the spec (+2)",
+      "default_on": false,
+      "built": false
+    },
+    {
+      "why_summary": "",
+      "id": "idea.taste-gravitational-system",
+      "title": "Taste Gravitational System",
+      "sources": [
+        "docs/spec-amendments/taste-gravitational-system.md"
+      ],
+      "milestone": "unassigned",
+      "relevance": 3,
+      "because": "specified by an amendment (+3)",
+      "default_on": false,
+      "built": false
+    },
+    {
+      "why_summary": "",
+      "id": "idea.trust-gated-analytics",
+      "title": "Trust Gated Analytics",
+      "sources": [
+        "docs/spec-amendments/trust-gated-analytics.md"
+      ],
+      "milestone": "unassigned",
+      "relevance": 3,
+      "because": "specified by an amendment (+3)",
+      "default_on": false,
+      "built": false
+    },
+    {
+      "why_summary": "",
+      "id": "idea.vote-decay",
+      "title": "Vote Decay",
+      "sources": [
+        "docs/spec-amendments/vote-decay.md"
+      ],
+      "milestone": "unassigned",
+      "relevance": 3,
+      "because": "specified by an amendment (+3)",
+      "default_on": false,
+      "built": false
+    },
+    {
+      "why_summary": "",
+      "id": "idea.writing-prompts-engine",
+      "title": "Writing Prompts Engine",
+      "sources": [
+        "vault:2026-09-20T183349+0200-darkhold-growth-ideas.md"
+      ],
+      "milestone": "unassigned",
+      "relevance": 3,
+      "because": "in a vault note (+1); named in the spec (+2)",
+      "default_on": false,
+      "built": false
+    },
+    {
+      "why_summary": "",
+      "id": "idea.year-in-review-wrapped",
+      "title": "Year in Review / Wrapped",
+      "sources": [
+        "vault:2026-09-20T183349+0200-darkhold-growth-ideas.md"
+      ],
+      "milestone": "unassigned",
+      "relevance": 3,
+      "because": "in a vault note (+1); named in the spec (+2)",
+      "default_on": false,
+      "built": false
+    },
+    {
+      "why_summary": "-- Gaps review E5. Extends §37 companion bot.",
+      "id": "M45-43",
+      "title": "Discord bot with rec commands, per-fandom feeds, account linking",
+      "sources": [
+        "docs/requirements.csv"
+      ],
+      "milestone": "M45",
+      "relevance": 2,
+      "because": "a requirements row exists (+4); needs a third party or an external client (-2)",
+      "default_on": false,
+      "built": false
+    },
+    {
+      "why_summary": "docs/ideas/2026-11-01-idea-sweep-power-users.md Power-user sweep P12. The difference between a saved search and a workflow. Pluggable sinks so the notification path is not tied to ",
+      "id": "M63-12",
+      "title": "dh watch <saved-query> --exec '<cmd>' --notify ntfy|desktop|webhook",
+      "sources": [
+        "docs/requirements.csv"
+      ],
+      "milestone": "M63",
+      "relevance": 2,
+      "because": "a requirements row exists (+4); needs a third party or an external client (-2)",
+      "default_on": false,
+      "built": false
+    },
+    {
+      "why_summary": "docs/plans/cli-placement.md The honest interop direction between the two products: same file format, no dependency (the Ascend file-handshake precedent applied to a database). Read",
+      "id": "M63-30",
+      "title": "dh lib --calibre <path>",
+      "sources": [
+        "docs/requirements.csv"
+      ],
+      "milestone": "M63",
+      "relevance": 2,
+      "because": "a requirements row exists (+4); needs a third party or an external client (-2)",
+      "default_on": false,
+      "built": false
+    },
+    {
+      "why_summary": "Priority 2, no new backend. 141,317 catalogue rows behind a card grid is the strongest finding in the external design and the cheapest. Sorts stay the closed vocabulary; sort chang",
+      "id": "M71-03",
+      "title": "Browse, search, library and the overflow view of every recommendation rail render results as dense list rows — title, author, provenance word, word count, unit count, completion, rating, date, metrics — with a stated total and cursor pagination, never a card grid and never infinite scroll.",
+      "sources": [
+        "docs/requirements.csv"
+      ],
+      "milestone": "M71",
+      "relevance": 2,
+      "because": "a requirements row exists (+4); needs a third party or an external client (-2)",
+      "default_on": false,
+      "built": false
+    },
+    {
+      "why_summary": "",
+      "id": "idea.instance-topics-premise",
+      "title": "Instance Topics Premise",
+      "sources": [
+        "docs/design/instance-topics-premise.md"
+      ],
+      "milestone": "unassigned",
+      "relevance": 2,
+      "because": "in a design (+2)",
+      "default_on": false,
+      "built": false
+    },
+    {
+      "why_summary": "",
+      "id": "idea.need-fleshing-out",
+      "title": "Need fleshing out",
+      "sources": [
+        "docs/ideas/preservation-brainstorm.md"
+      ],
+      "milestone": "unassigned",
+      "relevance": 2,
+      "because": "in an idea sweep (+2)",
+      "default_on": false,
+      "built": false
+    },
+    {
+      "why_summary": "",
+      "id": "idea.preference-ladder",
+      "title": "Preference Ladder",
+      "sources": [
+        "docs/design/PREFERENCE-LADDER.md"
+      ],
+      "milestone": "unassigned",
+      "relevance": 2,
+      "because": "in a design (+2)",
+      "default_on": false,
+      "built": false
+    },
+    {
+      "why_summary": "",
+      "id": "idea.ranking-signals-and-surfaces",
+      "title": "Ranking Signals And Surfaces",
+      "sources": [
+        "docs/design/2026-11-01-ranking-signals-and-surfaces.md"
+      ],
+      "milestone": "unassigned",
+      "relevance": 2,
+      "because": "in a design (+2)",
+      "default_on": false,
+      "built": false
+    },
+    {
+      "why_summary": "",
+      "id": "idea.accessibility-audit-and-wcag-compliance",
+      "title": "Accessibility Audit & WCAG Compliance",
+      "sources": [
+        "vault:2026-09-20T183349+0200-darkhold-growth-ideas.md"
+      ],
+      "milestone": "unassigned",
+      "relevance": 1,
+      "because": "in a vault note (+1)",
+      "default_on": false,
+      "built": false
+    },
+    {
+      "why_summary": "",
+      "id": "idea.account-migration-between-instances",
+      "title": "Account Migration Between Instances",
+      "sources": [
+        "vault:2026-09-20T183349+0200-darkhold-growth-ideas.md"
+      ],
+      "milestone": "unassigned",
+      "relevance": 1,
+      "because": "in a vault note (+1)",
+      "default_on": false,
+      "built": false
+    },
+    {
+      "why_summary": "",
+      "id": "idea.ai-writing-assistant",
+      "title": "AI Writing Assistant",
+      "sources": [
+        "vault:2026-09-20T183349+0200-darkhold-growth-ideas.md"
+      ],
+      "milestone": "unassigned",
+      "relevance": 1,
+      "because": "in a vault note (+1)",
+      "default_on": false,
+      "built": false
+    },
+    {
+      "why_summary": "",
+      "id": "idea.analytics-dashboard-for-authors",
+      "title": "Analytics Dashboard for Authors",
+      "sources": [
+        "vault:2026-09-20T183349+0200-darkhold-growth-ideas.md"
+      ],
+      "milestone": "unassigned",
+      "relevance": 1,
+      "because": "in a vault note (+1)",
+      "default_on": false,
+      "built": false
+    },
+    {
+      "why_summary": "",
+      "id": "idea.author-playlists-soundtracks",
+      "title": "Author Playlists / Soundtracks",
+      "sources": [
+        "vault:2026-09-20T183349+0200-darkhold-growth-ideas.md"
+      ],
+      "milestone": "unassigned",
+      "relevance": 1,
+      "because": "in a vault note (+1)",
+      "default_on": false,
+      "built": false
+    },
+    {
+      "why_summary": "",
+      "id": "idea.author-q-and-a-ama",
+      "title": "Author Q&A / AMA",
+      "sources": [
+        "vault:2026-09-20T183349+0200-darkhold-growth-ideas.md"
+      ],
+      "milestone": "unassigned",
+      "relevance": 1,
+      "because": "in a vault note (+1)",
+      "default_on": false,
+      "built": false
+    },
+    {
+      "why_summary": "",
+      "id": "idea.bingo-cards",
+      "title": "Bingo Cards",
+      "sources": [
+        "vault:2026-09-20T183349+0200-darkhold-growth-ideas.md"
+      ],
+      "milestone": "unassigned",
+      "relevance": 1,
+      "because": "in a vault note (+1)",
+      "default_on": false,
+      "built": false
+    },
+    {
+      "why_summary": "",
+      "id": "idea.bookmark-collections",
+      "title": "bookmark collections",
+      "sources": [
+        "docs/audit-100-reader-ideas-2026-10-04.md"
+      ],
+      "milestone": "unassigned",
+      "relevance": 1,
+      "because": "in the reader audit (+1)",
+      "default_on": false,
+      "built": false
+    },
+    {
+      "why_summary": "",
+      "id": "idea.character-and-ship-popularity-polls",
+      "title": "Character & Ship Popularity Polls",
+      "sources": [
+        "vault:2026-09-20T183349+0200-darkhold-growth-ideas.md"
+      ],
+      "milestone": "unassigned",
+      "relevance": 1,
+      "because": "in a vault note (+1)",
+      "default_on": false,
+      "built": false
+    },
+    {
+      "why_summary": "",
+      "id": "idea.cli-tui-client",
+      "title": "CLI / TUI Client",
+      "sources": [
+        "vault:2026-09-20T183349+0200-darkhold-growth-ideas.md"
+      ],
+      "milestone": "unassigned",
+      "relevance": 1,
+      "because": "in a vault note (+1)",
+      "default_on": false,
+      "built": false
+    },
+    {
+      "why_summary": "",
+      "id": "idea.complete-works-under-10k-filter",
+      "title": "Complete works under 10k filter",
+      "sources": [
+        "docs/audit-100-reader-ideas-2026-10-04.md"
+      ],
+      "milestone": "unassigned",
+      "relevance": 1,
+      "because": "in the reader audit (+1)",
+      "default_on": false,
+      "built": false
+    },
+    {
+      "why_summary": "",
+      "id": "idea.completion-status-badges-on-work-cards",
+      "title": "completion status badges on work cards",
+      "sources": [
+        "docs/audit-100-reader-ideas-2026-10-04.md"
+      ],
+      "milestone": "unassigned",
+      "relevance": 1,
+      "because": "in the reader audit (+1)",
+      "default_on": false,
+      "built": false
+    },
+    {
+      "why_summary": "",
+      "id": "idea.content-delivery-optimization",
+      "title": "Content Delivery Optimization",
+      "sources": [
+        "vault:2026-09-20T183349+0200-darkhold-growth-ideas.md"
+      ],
+      "milestone": "unassigned",
+      "relevance": 1,
+      "because": "in a vault note (+1)",
+      "default_on": false,
+      "built": false
+    },
+    {
+      "why_summary": "",
+      "id": "idea.darkhold-zine-platform",
+      "title": "Darkhold Zine Platform",
+      "sources": [
+        "vault:2026-09-20T183349+0200-darkhold-growth-ideas.md"
+      ],
+      "milestone": "unassigned",
+      "relevance": 1,
+      "because": "in a vault note (+1)",
+      "default_on": false,
+      "built": false
+    },
+    {
+      "why_summary": "",
+      "id": "idea.discord-bot",
+      "title": "Discord Bot",
+      "sources": [
+        "vault:2026-09-20T183349+0200-darkhold-growth-ideas.md"
+      ],
+      "milestone": "unassigned",
+      "relevance": 1,
+      "because": "in a vault note (+1); named in the spec (+2); needs a third party or an external client (-2)",
+      "default_on": false,
+      "built": false
+    },
+    {
+      "why_summary": "",
+      "id": "idea.education-and-workshop-mode",
+      "title": "Education & Workshop Mode",
+      "sources": [
+        "vault:2026-09-20T183349+0200-darkhold-growth-ideas.md"
+      ],
+      "milestone": "unassigned",
+      "relevance": 1,
+      "because": "in a vault note (+1)",
+      "default_on": false,
+      "built": false
+    },
+    {
+      "why_summary": "",
+      "id": "idea.email-digest",
+      "title": "Email Digest",
+      "sources": [
+        "vault:2026-09-20T183349+0200-darkhold-growth-ideas.md"
+      ],
+      "milestone": "unassigned",
+      "relevance": 1,
+      "because": "in a vault note (+1); named in the spec (+2); needs a third party or an external client (-2)",
+      "default_on": false,
+      "built": false
+    },
+    {
+      "why_summary": "",
+      "id": "idea.embeddable-widgets",
+      "title": "Embeddable Widgets",
+      "sources": [
+        "vault:2026-09-20T183349+0200-darkhold-growth-ideas.md"
+      ],
+      "milestone": "unassigned",
+      "relevance": 1,
+      "because": "in a vault note (+1)",
+      "default_on": false,
+      "built": false
+    },
+    {
+      "why_summary": "",
+      "id": "idea.fandom-specific-reaction-labels",
+      "title": "fandom-specific reaction labels",
+      "sources": [
+        "docs/audit-100-reader-ideas-2026-10-04.md"
+      ],
+      "milestone": "unassigned",
+      "relevance": 1,
+      "because": "in the reader audit (+1)",
+      "default_on": false,
+      "built": false
+    },
+    {
+      "why_summary": "",
+      "id": "idea.federated-search-across-instances",
+      "title": "Federated Search Across Instances",
+      "sources": [
+        "vault:2026-09-20T183349+0200-darkhold-growth-ideas.md"
+      ],
+      "milestone": "unassigned",
+      "relevance": 1,
+      "because": "in a vault note (+1)",
+      "default_on": false,
+      "built": false
+    },
+    {
+      "why_summary": "",
+      "id": "idea.ffn-import-adapter",
+      "title": "FFN Import Adapter",
+      "sources": [
+        "vault:2026-09-20T183349+0200-darkhold-growth-ideas.md"
+      ],
+      "milestone": "unassigned",
+      "relevance": 1,
+      "because": "in a vault note (+1)",
+      "default_on": false,
+      "built": false
+    },
+    {
+      "why_summary": "",
+      "id": "idea.import-progress-bar-import-job-status-is-abs",
+      "title": "import progress bar (import job status is absent, not the progress UI)",
+      "sources": [
+        "docs/audit-100-reader-ideas-2026-10-04.md"
+      ],
+      "milestone": "unassigned",
+      "relevance": 1,
+      "because": "in the reader audit (+1)",
+      "default_on": false,
+      "built": false
+    },
+    {
+      "why_summary": "",
+      "id": "idea.instance-discovery-directory",
+      "title": "Instance Discovery Directory",
+      "sources": [
+        "vault:2026-09-20T183349+0200-darkhold-growth-ideas.md"
+      ],
+      "milestone": "unassigned",
+      "relevance": 1,
+      "because": "in a vault note (+1)",
+      "default_on": false,
+      "built": false
+    },
+    {
+      "why_summary": "",
+      "id": "idea.interactive-fiction-support",
+      "title": "Interactive Fiction Support",
+      "sources": [
+        "vault:2026-09-20T183349+0200-darkhold-growth-ideas.md"
+      ],
+      "milestone": "unassigned",
+      "relevance": 1,
+      "because": "in a vault note (+1)",
+      "default_on": false,
+      "built": false
+    },
+    {
+      "why_summary": "",
+      "id": "idea.invite-system-with-incentives",
+      "title": "Invite System With Incentives",
+      "sources": [
+        "vault:2026-09-20T183349+0200-darkhold-growth-ideas.md"
+      ],
+      "milestone": "unassigned",
+      "relevance": 1,
+      "because": "in a vault note (+1)",
+      "default_on": false,
+      "built": false
+    },
+    {
+      "why_summary": "",
+      "id": "idea.language-auto-detection-on-import",
+      "title": "language auto-detection on import",
+      "sources": [
+        "docs/audit-100-reader-ideas-2026-10-04.md"
+      ],
+      "milestone": "unassigned",
+      "relevance": 1,
+      "because": "in the reader audit (+1)",
+      "default_on": false,
+      "built": false
+    },
+    {
+      "why_summary": "",
+      "id": "idea.link-preview-open-graph-optimization",
+      "title": "Link Preview / Open Graph Optimization",
+      "sources": [
+        "vault:2026-09-20T183349+0200-darkhold-growth-ideas.md"
+      ],
+      "milestone": "unassigned",
+      "relevance": 1,
+      "because": "in a vault note (+1)",
+      "default_on": false,
+      "built": false
+    },
+    {
+      "why_summary": "",
+      "id": "idea.local-full-text-search-client-side",
+      "title": "local full-text search (client-side)",
+      "sources": [
+        "docs/audit-100-reader-ideas-2026-10-04.md"
+      ],
+      "milestone": "unassigned",
+      "relevance": 1,
+      "because": "in the reader audit (+1)",
+      "default_on": false,
+      "built": false
+    },
+    {
+      "why_summary": "",
+      "id": "idea.marketplace-for-commissions",
+      "title": "Marketplace for Commissions",
+      "sources": [
+        "vault:2026-09-20T183349+0200-darkhold-growth-ideas.md"
+      ],
+      "milestone": "unassigned",
+      "relevance": 1,
+      "because": "in a vault note (+1)",
+      "default_on": false,
+      "built": false
+    },
+    {
+      "why_summary": "",
+      "id": "idea.mentorship-matching",
+      "title": "Mentorship Matching",
+      "sources": [
+        "vault:2026-09-20T183349+0200-darkhold-growth-ideas.md"
+      ],
+      "milestone": "unassigned",
+      "relevance": 1,
+      "because": "in a vault note (+1)",
+      "default_on": false,
+      "built": false
+    },
+    {
+      "why_summary": "",
+      "id": "idea.moderation-tooling-at-scale",
+      "title": "Moderation Tooling at Scale",
+      "sources": [
+        "vault:2026-09-20T183349+0200-darkhold-growth-ideas.md"
+      ],
+      "milestone": "unassigned",
+      "relevance": 1,
+      "because": "in a vault note (+1)",
+      "default_on": false,
+      "built": false
+    },
+    {
+      "why_summary": "",
+      "id": "idea.multi-language-tag-aliases",
+      "title": "multi-language tag aliases",
+      "sources": [
+        "docs/audit-100-reader-ideas-2026-10-04.md"
+      ],
+      "milestone": "unassigned",
+      "relevance": 1,
+      "because": "in the reader audit (+1)",
+      "default_on": false,
+      "built": false
+    },
+    {
+      "why_summary": "",
+      "id": "idea.new-author-debut-badge",
+      "title": "New author debut badge",
+      "sources": [
+        "docs/audit-100-reader-ideas-2026-10-04.md"
+      ],
+      "milestone": "unassigned",
+      "relevance": 1,
+      "because": "in the reader audit (+1)",
+      "default_on": false,
+      "built": false
+    },
+    {
+      "why_summary": "",
+      "id": "idea.offline-reading-queue",
+      "title": "offline reading queue",
+      "sources": [
+        "docs/audit-100-reader-ideas-2026-10-04.md"
+      ],
+      "milestone": "unassigned",
+      "relevance": 1,
+      "because": "in the reader audit (+1)",
+      "default_on": false,
+      "built": false
+    },
+    {
+      "why_summary": "",
+      "id": "idea.on-this-day-feature",
+      "title": "On This Day Feature",
+      "sources": [
+        "vault:2026-09-20T183349+0200-darkhold-growth-ideas.md"
+      ],
+      "milestone": "unassigned",
+      "relevance": 1,
+      "because": "in a vault note (+1)",
+      "default_on": false,
+      "built": false
+    },
+    {
+      "why_summary": "",
+      "id": "idea.one-click-import-from-ao3",
+      "title": "One-Click Import From AO3",
+      "sources": [
+        "vault:2026-09-20T183349+0200-darkhold-growth-ideas.md"
+      ],
+      "milestone": "unassigned",
+      "relevance": 1,
+      "because": "in a vault note (+1)",
+      "default_on": false,
+      "built": false
+    },
+    {
+      "why_summary": "",
+      "id": "idea.opds-catalog",
+      "title": "OPDS Catalog",
+      "sources": [
+        "vault:2026-09-20T183349+0200-darkhold-growth-ideas.md"
+      ],
+      "milestone": "unassigned",
+      "relevance": 1,
+      "because": "in a vault note (+1); named in the spec (+2); needs a third party or an external client (-2)",
+      "default_on": false,
+      "built": false
+    },
+    {
+      "why_summary": "",
+      "id": "idea.open-to-requests-badge",
+      "title": "open to requests badge",
+      "sources": [
+        "docs/audit-100-reader-ideas-2026-10-04.md"
+      ],
+      "milestone": "unassigned",
+      "relevance": 1,
+      "because": "in the reader audit (+1)",
+      "default_on": false,
+      "built": false
+    },
+    {
+      "why_summary": "",
+      "id": "idea.per-chapter-quick-reactions",
+      "title": "per-chapter quick reactions",
+      "sources": [
+        "docs/audit-100-reader-ideas-2026-10-04.md"
+      ],
+      "milestone": "unassigned",
+      "relevance": 1,
+      "because": "in the reader audit (+1)",
+      "default_on": false,
+      "built": false
+    },
+    {
+      "why_summary": "",
+      "id": "idea.plugin-extension-system",
+      "title": "Plugin / Extension System",
+      "sources": [
+        "vault:2026-09-20T183349+0200-darkhold-growth-ideas.md"
+      ],
+      "milestone": "unassigned",
+      "relevance": 1,
+      "because": "in a vault note (+1)",
+      "default_on": false,
+      "built": false
+    },
+    {
+      "why_summary": "",
+      "id": "idea.podfic-audio-support",
+      "title": "Podfic / Audio Support",
+      "sources": [
+        "vault:2026-09-20T183349+0200-darkhold-growth-ideas.md"
+      ],
+      "milestone": "unassigned",
+      "relevance": 1,
+      "because": "in a vault note (+1)",
+      "default_on": false,
+      "built": false
+    },
+    {
+      "why_summary": "",
+      "id": "idea.print-on-demand-integration",
+      "title": "Print-on-Demand Integration",
+      "sources": [
+        "vault:2026-09-20T183349+0200-darkhold-growth-ideas.md"
+      ],
+      "milestone": "unassigned",
+      "relevance": 1,
+      "because": "in a vault note (+1)",
+      "default_on": false,
+      "built": false
+    },
+    {
+      "why_summary": "",
+      "id": "idea.private-search-history",
+      "title": "private search history",
+      "sources": [
+        "docs/audit-100-reader-ideas-2026-10-04.md"
+      ],
+      "milestone": "unassigned",
+      "relevance": 1,
+      "because": "in the reader audit (+1)",
+      "default_on": false,
+      "built": false
+    },
+    {
+      "why_summary": "",
+      "id": "idea.reader-to-reader-also-read",
+      "title": "reader-to-reader also read",
+      "sources": [
+        "docs/audit-100-reader-ideas-2026-10-04.md"
+      ],
+      "milestone": "unassigned",
+      "relevance": 1,
+      "because": "in the reader audit (+1)",
+      "default_on": false,
+      "built": false
+    },
+    {
+      "why_summary": "",
+      "id": "idea.reading-goal-progress-ring",
+      "title": "reading-goal progress ring",
+      "sources": [
+        "docs/audit-100-reader-ideas-2026-10-04.md"
+      ],
+      "milestone": "unassigned",
+      "relevance": 1,
+      "because": "in the reader audit (+1)",
+      "default_on": false,
+      "built": false
+    },
+    {
+      "why_summary": "",
+      "id": "idea.recommended-by-curator-label-curator-rs-exis",
+      "title": "Recommended by [curator] label — curator.rs exists, the label does not",
+      "sources": [
+        "docs/audit-100-reader-ideas-2026-10-04.md"
+      ],
+      "milestone": "unassigned",
+      "relevance": 1,
+      "because": "in the reader audit (+1)",
+      "default_on": false,
+      "built": false
+    },
+    {
+      "why_summary": "",
+      "id": "idea.relationship-graph-svg",
+      "title": "relationship graph SVG",
+      "sources": [
+        "docs/audit-100-reader-ideas-2026-10-04.md"
+      ],
+      "milestone": "unassigned",
+      "relevance": 1,
+      "because": "in the reader audit (+1)",
+      "default_on": false,
+      "built": false
+    },
+    {
+      "why_summary": "",
+      "id": "idea.research-and-data-access",
+      "title": "Research & Data Access",
+      "sources": [
+        "vault:2026-09-20T183349+0200-darkhold-growth-ideas.md"
+      ],
+      "milestone": "unassigned",
+      "relevance": 1,
+      "because": "in a vault note (+1)",
+      "default_on": false,
+      "built": false
+    },
+    {
+      "why_summary": "",
+      "id": "idea.rss-power-features",
+      "title": "RSS Power Features",
+      "sources": [
+        "vault:2026-09-20T183349+0200-darkhold-growth-ideas.md"
+      ],
+      "milestone": "unassigned",
+      "relevance": 1,
+      "because": "in a vault note (+1)",
+      "default_on": false,
+      "built": false
+    },
+    {
+      "why_summary": "",
+      "id": "idea.seo-optimization-program",
+      "title": "SEO Optimization Program",
+      "sources": [
+        "vault:2026-09-20T183349+0200-darkhold-growth-ideas.md"
+      ],
+      "milestone": "unassigned",
+      "relevance": 1,
+      "because": "in a vault note (+1)",
+      "default_on": false,
+      "built": false
+    },
+    {
+      "why_summary": "",
+      "id": "idea.similar-works-section",
+      "title": "Similar works section",
+      "sources": [
+        "docs/audit-100-reader-ideas-2026-10-04.md"
+      ],
+      "milestone": "unassigned",
+      "relevance": 1,
+      "because": "in the reader audit (+1)",
+      "default_on": false,
+      "built": false
+    },
+    {
+      "why_summary": "",
+      "id": "idea.specific-held-comment-reason",
+      "title": "specific held-comment reason",
+      "sources": [
+        "docs/audit-100-reader-ideas-2026-10-04.md"
+      ],
+      "milestone": "unassigned",
+      "relevance": 1,
+      "because": "in the reader audit (+1)",
+      "default_on": false,
+      "built": false
+    },
+    {
+      "why_summary": "",
+      "id": "idea.telegram-bot",
+      "title": "Telegram Bot",
+      "sources": [
+        "vault:2026-09-20T183349+0200-darkhold-growth-ideas.md"
+      ],
+      "milestone": "unassigned",
+      "relevance": 1,
+      "because": "in a vault note (+1); named in the spec (+2); needs a third party or an external client (-2)",
+      "default_on": false,
+      "built": false
+    },
+    {
+      "why_summary": "",
+      "id": "idea.translation-coordination",
+      "title": "Translation Coordination",
+      "sources": [
+        "vault:2026-09-20T183349+0200-darkhold-growth-ideas.md"
+      ],
+      "milestone": "unassigned",
+      "relevance": 1,
+      "because": "in a vault note (+1)",
+      "default_on": false,
+      "built": false
+    },
+    {
+      "why_summary": "",
+      "id": "idea.virtual-reading-events",
+      "title": "Virtual Reading Events",
+      "sources": [
+        "vault:2026-09-20T183349+0200-darkhold-growth-ideas.md"
+      ],
+      "milestone": "unassigned",
+      "relevance": 1,
+      "because": "in a vault note (+1)",
+      "default_on": false,
+      "built": false
+    },
+    {
+      "why_summary": "",
+      "id": "idea.wattpad-import-adapter",
+      "title": "Wattpad Import Adapter",
+      "sources": [
+        "vault:2026-09-20T183349+0200-darkhold-growth-ideas.md"
+      ],
+      "milestone": "unassigned",
+      "relevance": 1,
+      "because": "in a vault note (+1)",
+      "default_on": false,
+      "built": false
+    },
+    {
+      "why_summary": "",
+      "id": "idea.work-comparison-view",
+      "title": "work comparison view",
+      "sources": [
+        "docs/audit-100-reader-ideas-2026-10-04.md"
+      ],
+      "milestone": "unassigned",
+      "relevance": 1,
+      "because": "in the reader audit (+1)",
+      "default_on": false,
+      "built": false
+    },
+    {
+      "why_summary": "",
+      "id": "idea.work-of-the-day-spotlight",
+      "title": "Work of the day spotlight",
+      "sources": [
+        "docs/audit-100-reader-ideas-2026-10-04.md"
+      ],
+      "milestone": "unassigned",
+      "relevance": 1,
+      "because": "in the reader audit (+1)",
+      "default_on": false,
+      "built": false
+    },
+    {
+      "why_summary": "",
+      "id": "idea.writing-circles-critique-groups",
+      "title": "Writing Circles / Critique Groups",
+      "sources": [
+        "vault:2026-09-20T183349+0200-darkhold-growth-ideas.md"
+      ],
+      "milestone": "unassigned",
+      "relevance": 1,
+      "because": "in a vault note (+1)",
+      "default_on": false,
+      "built": false
+    },
+    {
+      "why_summary": "",
+      "id": "idea.writing-sprints-and-word-wars",
+      "title": "Writing Sprints & Word Wars",
+      "sources": [
+        "vault:2026-09-20T183349+0200-darkhold-growth-ideas.md"
+      ],
+      "milestone": "unassigned",
+      "relevance": 1,
+      "because": "in a vault note (+1)",
+      "default_on": false,
+      "built": false
+    },
+    {
+      "why_summary": "docs/plans/100-ideas-scope.md The first milestone is deliberately smaller and shippable: serve local files to another person on the LAN or by a direct link, with no relay, no DHT, ",
+      "id": "M66-08",
+      "title": "P2P local file sharing over the LAN and by direct link, with a seeding network later",
+      "sources": [
+        "docs/requirements.csv"
+      ],
+      "milestone": "M66",
+      "relevance": 0,
+      "because": "a requirements row exists (+4); needs a third party or an external client (-2); needs a model or heavy compute (-1); the source hedges (-1)",
+      "default_on": false,
+      "built": false
+    },
+    {
+      "why_summary": "",
+      "id": "idea.bluesky-bot-labeler",
+      "title": "Bluesky Bot / Labeler",
+      "sources": [
+        "vault:2026-09-20T183349+0200-darkhold-growth-ideas.md"
+      ],
+      "milestone": "unassigned",
+      "relevance": 0,
+      "because": "in a vault note (+1); needs a third party or an external client (-2)",
+      "default_on": false,
+      "built": false
+    },
+    {
+      "why_summary": "",
+      "id": "idea.calibre-plugin",
+      "title": "Calibre Plugin",
+      "sources": [
+        "vault:2026-09-20T183349+0200-darkhold-growth-ideas.md"
+      ],
+      "milestone": "unassigned",
+      "relevance": 0,
+      "because": "in a vault note (+1); needs a third party or an external client (-2)",
+      "default_on": false,
+      "built": false
+    },
+    {
+      "why_summary": "",
+      "id": "idea.desktop-app",
+      "title": "Desktop App",
+      "sources": [
+        "vault:2026-09-20T183349+0200-darkhold-growth-ideas.md"
+      ],
+      "milestone": "unassigned",
+      "relevance": 0,
+      "because": "in a vault note (+1); needs a third party or an external client (-2)",
+      "default_on": false,
+      "built": false
+    },
+    {
+      "why_summary": "",
+      "id": "idea.ipfs-powered-desktop-distribution",
+      "title": "IPFS-Powered Desktop Distribution",
+      "sources": [
+        "vault:2026-09-20T183349+0200-darkhold-growth-ideas.md"
+      ],
+      "milestone": "unassigned",
+      "relevance": 0,
+      "because": "in a vault note (+1); needs a third party or an external client (-2)",
+      "default_on": false,
+      "built": false
+    },
+    {
+      "why_summary": "",
+      "id": "idea.mastodon-fediverse-bot",
+      "title": "Mastodon / Fediverse Bot",
+      "sources": [
+        "vault:2026-09-20T183349+0200-darkhold-growth-ideas.md"
+      ],
+      "milestone": "unassigned",
+      "relevance": 0,
+      "because": "in a vault note (+1); needs a third party or an external client (-2)",
+      "default_on": false,
+      "built": false
+    },
+    {
+      "why_summary": "",
+      "id": "idea.mobile-app",
+      "title": "Mobile App",
+      "sources": [
+        "vault:2026-09-20T183349+0200-darkhold-growth-ideas.md"
+      ],
+      "milestone": "unassigned",
+      "relevance": 0,
+      "because": "in a vault note (+1); needs a third party or an external client (-2)",
+      "default_on": false,
+      "built": false
+    },
+    {
+      "why_summary": "",
+      "id": "idea.tumblr-integration",
+      "title": "Tumblr Integration",
+      "sources": [
+        "vault:2026-09-20T183349+0200-darkhold-growth-ideas.md"
+      ],
+      "milestone": "unassigned",
+      "relevance": 0,
+      "because": "in a vault note (+1); needs a third party or an external client (-2)",
+      "default_on": false,
+      "built": false
+    }
+  ]
 }
