@@ -139,3 +139,55 @@ async fn a_contribution_after_the_cutoff_counts_and_one_before_it_does_not() {
 
     db.close().await;
 }
+
+/// The sweep must be idempotent: a second pass over unchanged data writes nothing.
+///
+/// Measured by counting `trust_events` rows, not by the absence of an error — a job that "runs cleanly" while writing a duplicate
+/// row every minute is exactly the failure this catches.
+#[tokio::test]
+async fn a_second_sweep_writes_no_event() {
+    let db = connect("idempotent").await;
+    seed(&db).await;
+    let settings = darkhold_db::governance::TrustSettings {
+        ladder: &darkhold_domain::trust::TrustLadder::default_ladder(),
+        axes: &darkhold_domain::trust::TrustAxes::default(),
+        requirements: &darkhold_domain::trust::TrustRequirements::default(),
+        policy: darkhold_domain::trust::ElasticPolicy::default(),
+        guest_level: 1,
+        accepted_since: Some("2026-01-01T00:00:00Z"),
+    };
+
+    async fn events(db: &darkhold_db::Database) -> i64 {
+        match db.backend() {
+            darkhold_db::Backend::Sqlite => sqlx::query_scalar("SELECT COUNT(*) FROM trust_events")
+                .fetch_one(db.sqlite_pool().expect("sqlite"))
+                .await
+                .expect("count"),
+            darkhold_db::Backend::Postgres => sqlx::query_scalar("SELECT COUNT(*) FROM trust_events")
+                .fetch_one(db.postgres_pool().expect("pg"))
+                .await
+                .expect("count"),
+        }
+    }
+
+    darkhold_db::moderation_ladder::sweep(&db, &settings)
+        .await
+        .expect("first sweep");
+    let after_first = events(&db).await;
+
+    let second = darkhold_db::moderation_ladder::sweep(&db, &settings)
+        .await
+        .expect("second sweep");
+    let after_second = events(&db).await;
+
+    assert_eq!(
+        after_first, after_second,
+        "a second sweep over unchanged data must not write another event"
+    );
+    assert!(
+        second.changes.is_empty(),
+        "a second sweep reported changes it did not make: {:?}",
+        second.changes
+    );
+    db.close().await;
+}
