@@ -268,6 +268,13 @@ async fn run(
                 0,
             )
             .await?;
+            if metric.needs_views() && page.views_rows == 0 {
+                return Err(invalid(format!(
+                    "sort: \"{}\" needs a per-archive view count and none of the {} rows matched carries one",
+                    metric.refusal_name(sort_word.unwrap_or_default()),
+                    page.population
+                )));
+            }
             let mut scores: std::collections::HashMap<String, f64> =
                 std::collections::HashMap::new();
             let mut rows = Vec::new();

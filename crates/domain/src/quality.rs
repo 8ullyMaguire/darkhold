@@ -258,9 +258,10 @@ impl Metric {
             Self::UpdaterReliability => Support::Blocked(
                 "needs the author's update history, which nothing records yet; the recheck (M63-32) starts it",
             ),
-            Self::LikesPerView | Self::Wilson => Support::Blocked(
-                "per-archive views live in library_item_engagement (M63-37) and this sort does not join it yet",
-            ),
+            // Ranked, with a data-time refusal: the metric is computable (M63-37 records per-archive views), so what can stop
+            // it is a population where no row carries a view count — decided by the store against the loaded rows rather than
+            // guessed here, where no data is in scope.
+            Self::LikesPerView | Self::Wilson => Support::Ranked,
             Self::Quality
             | Self::SourcePct
             | Self::SourceZ
@@ -274,6 +275,14 @@ impl Metric {
             | Self::Confidence
             | Self::FreshnessWeightedQuality => Support::Ranked,
         }
+    }
+
+    /// Whether this metric cannot answer without a view count.
+    ///
+    /// The store asks this of the loaded rows: a metric that needs views, asked for a population where none carries one, must refuse
+    /// by name rather than rank the catalogue by an all-zero signal.
+    pub fn needs_views(self) -> bool {
+        matches!(self, Self::LikesPerView | Self::Wilson)
     }
 
     /// The name a refusal should use: the word the caller typed, plus the
@@ -347,6 +356,11 @@ pub struct Candidate {
     pub total_likes: i64,
     /// Days since the author last touched it.
     pub freshness_days: Option<f64>,
+    /// The view/hit count **that same archive** published (M63-37), or `None`
+    /// when it publishes none. Absent is not zero: a board that reports likes and
+    /// no views has no rate, and treating that as `0` would rank it below every
+    /// story whose archive happens to publish hits.
+    pub views: Option<i64>,
 }
 
 /// The individual signals behind one row's score.
@@ -390,6 +404,12 @@ pub struct Signals {
     /// [`Metric::Unmeasured`].
     #[serde(skip_serializing_if = "Option::is_none")]
     pub triage: Option<f64>,
+    /// [`Metric::LikesPerView`]: endorsements per view, from one archive's own pair.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub rate: Option<f64>,
+    /// [`Metric::Wilson`]: the lower bound of that rate's 95% interval.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub wilson: Option<f64>,
 }
 
 /// One ranked row.
@@ -558,6 +578,16 @@ pub fn rank(metric: Metric, candidates: &[Candidate], limit: usize, offset: usiz
             ..Signals::default()
         };
 
+        // A rate exists when this archive published both halves and the
+        // denominator is real. `Wilson` is the point estimate's lower bound, so a
+        // 3-kudos-over-20-views row cannot outrank 400 over 9,000 on a fluke.
+        if let (Some(views), likes) = (candidate.views.filter(|v| *v > 0), candidate.likes.max(0)) {
+            if views > 0 && likes >= 0 {
+                signals.rate = Some(likes as f64 / views as f64);
+                signals.wilson = wilson_lower_bound(likes as u64, views as u64);
+            }
+        }
+
         if candidate.likes > 0 {
             if let Some(s) = s {
                 signals.source_pct = percentile_of(candidate.likes as f64, &s.raw);
@@ -670,6 +700,34 @@ pub fn rank(metric: Metric, candidates: &[Candidate], limit: usize, offset: usiz
     }
 }
 
+
+/// Wilson score interval lower bound for `successes` out of `trials`, at 95%.
+///
+/// Why a bound and not the plain ratio: 1 kudos over 10 hits is a 10% rate and 400 over 9,000 is 4.4%, and a reader told the first is
+/// "twice as well received" has been told a story about one person clicking. The 95% lower bound puts them at 1.8% and 4.0% — the
+/// ordering reverses, because the interval around ten views is enormous.
+///
+/// **Where it is not enough, measured:** 3/20 bounds to 5.2%, still above 400/9,000's 4.0%. A 95% bound does not rescue every thin ratio,
+/// only ones whose absolute count is small enough for the interval to swallow the point estimate. That is pinned by a test rather than
+/// assumed, because a bound that quietly fails to reorder is a metric a caller will trust for the wrong reason.
+///
+/// `None` when `trials` is zero: a rate over no views is undefined, not zero. Successes are clamped to trials, because a 1,001st kudos
+/// on 1,000 views is a source bug and a bound computed from it would be a fabricated number rather than a refused one.
+pub fn wilson_lower_bound(successes: u64, trials: u64) -> Option<f64> {
+    if trials == 0 {
+        return None;
+    }
+    const Z: f64 = 1.959_963_984_540_054;
+    let n = trials as f64;
+    let successes = successes.min(trials);
+    let p = successes as f64 / n;
+    let z2 = Z * Z;
+    let denominator = 1.0 + z2 / n;
+    let centre = p + z2 / (2.0 * n);
+    let margin = Z * ((p * (1.0 - p) / n) + z2 / (4.0 * n * n)).sqrt();
+    Some(((centre - margin) / denominator).clamp(0.0, 1.0))
+}
+
 /// The composite: source-relative quality, renormalised over what the row has.
 fn score_of(metric: Metric, signals: &Signals) -> f64 {
     match metric {
@@ -712,6 +770,8 @@ fn score_of(metric: Metric, signals: &Signals) -> f64 {
         Metric::FreshnessWeightedQuality => {
             score_of(Metric::Quality, signals) * signals.recency.unwrap_or(0.0)
         }
+        Metric::LikesPerView => signals.rate.unwrap_or(0.0),
+        Metric::Wilson => signals.wilson.unwrap_or(0.0),
         Metric::Likes
         | Metric::Aggregate
         | Metric::Views
@@ -721,9 +781,7 @@ fn score_of(metric: Metric, signals: &Signals) -> f64 {
         | Metric::Velocity
         | Metric::HiddenGem
         | Metric::KudosPerHour
-        | Metric::UpdaterReliability
-        | Metric::LikesPerView
-        | Metric::Wilson => 0.0,
+        | Metric::UpdaterReliability => 0.0,
     }
 }
 
@@ -740,7 +798,70 @@ mod tests {
             source_count: 1,
             total_likes: likes,
             freshness_days: Some(30.0),
+            views: None,
         }
+    }
+
+    /// A row whose archive published both halves of the rate.
+    fn viewed(id: &str, source: &str, likes: i64, views: i64) -> Candidate {
+        Candidate {
+            views: Some(views),
+            ..candidate(id, source, likes, Some(20_000))
+        }
+    }
+
+    /// The bound, not the point estimate: 1 kudos over 10 hits is a 10% rate and the weakest evidence there is, so the 95% bound puts it
+    /// *below* 400 over 9,000 (4.4%).
+    #[test]
+    fn the_wilson_bound_ranks_evidence_over_a_lucky_ratio() {
+        let lucky = wilson_lower_bound(1, 10).expect("a bound");
+        let solid = wilson_lower_bound(400, 9_000).expect("a bound");
+        assert!(lucky < 0.02, "1/10 bounds to 1.8%, was {lucky}");
+        assert!(solid > 0.04, "400/9000 bounds above 4%, was {solid}");
+        assert!(lucky < solid, "the thin arm ranks below the evidenced one");
+        // And the case the bound does NOT rescue, pinned so nobody assumes it does: 3/20 is 5.2%, still above 4.0%. A 95% bound saves
+        // ratios whose absolute count is tiny, not every ratio above the incumbent.
+        let thin_but_not_tiny = wilson_lower_bound(3, 20).expect("a bound");
+        assert!(
+            thin_but_not_tiny > solid,
+            "3/20 ({thin_but_not_tiny}) outranks 400/9000 ({solid}) on the bound — documented, not wished away"
+        );
+        // The ratio says the opposite, which is the whole reason for the bound.
+        fn ratio(successes: i64, trials: i64) -> f64 {
+            successes as f64 / trials as f64
+        }
+        assert!(
+            ratio(1, 10) > ratio(400, 9_000),
+            "the point estimate prefers the lucky row; the bound reverses it"
+        );
+        // More views at the same rate moves the bound up: the interval narrows toward the estimate.
+        assert!(wilson_lower_bound(40, 900).unwrap() > wilson_lower_bound(4, 90).unwrap());
+        // No views is undefined, not zero — a rate over nothing is not a bad rate.
+        assert_eq!(wilson_lower_bound(0, 0), None);
+        // Successes above trials are a source bug clamped to certainty, not a fabricated above-100% bound.
+        assert_eq!(wilson_lower_bound(1_001, 1_000), wilson_lower_bound(1_000, 1_000));
+    }
+
+    /// A rate is only computed from a row whose archive published both halves; the metric then scores it, and a row with no view count
+    /// scores zero and lands in the triage block rather than being ranked as if it had no readers.
+    #[test]
+    fn a_rate_needs_both_halves_from_the_same_archive() {
+        let mut population = vec![
+            viewed("a", "ao3", 50, 1_000),
+            viewed("b", "ao3", 5, 1_000),
+            candidate("c", "sb", 30, Some(20_000)),
+        ];
+        for i in 0..6 {
+            population.push(candidate(&format!("s{i}"), "sb", 10 + i * 5, Some(30_000)));
+        }
+        let ranking = rank(Metric::LikesPerView, &population, 10, 0);
+        let first = ranking.hits.first().expect("a hit");
+        assert_eq!(first.id, "a", "5% beats 0.5% and beats a row with no views");
+        let c = ranking.hits.iter().find(|hit| hit.id == "c").expect("c ranked");
+        assert_eq!(c.signals.rate, None, "no views published, no rate invented");
+        // Wilson orders the same pair the same way, with a tighter gap.
+        let wilson = rank(Metric::Wilson, &population, 10, 0);
+        assert_eq!(wilson.hits.first().unwrap().id, "a");
     }
 
     /// The case that motivates the module, with the live population sizes: the
@@ -1063,10 +1184,18 @@ mod tests {
                 other => panic!("{metric:?} should be blocked, was {other:?}"),
             }
         }
-        match Metric::LikesPerView.support() {
-            Support::Blocked(reason) => assert!(reason.contains("views")),
-            other => panic!("likes_per_view should be blocked, was {other:?}"),
+        // `likes_per_view` and `wilson` are no longer blocked by the data model: M63-37 records per-archive views, so the metric is
+        // computable. What can still stop them is a *population* where no row carries a view count, and that is decided against the
+        // loaded rows (the store's `views_rows`), not guessed here where no rows are in scope.
+        for metric in [Metric::LikesPerView, Metric::Wilson] {
+            assert!(metric.needs_views(), "{metric:?} ranks on a view count");
+            assert!(
+                matches!(metric.support(), Support::Ranked),
+                "{metric:?} is computable: {:?}",
+                metric.support()
+            );
         }
+        assert!(!Metric::Likes.needs_views(), "likes need no denominator");
     }
 
     #[test]

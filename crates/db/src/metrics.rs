@@ -54,6 +54,11 @@ pub struct CandidateRow {
     pub summary: String,
     /// The author's pseud, for the same-author bonus.
     pub author_text: String,
+    /// The view/hit count the archive published (M63-37), or `None` when it
+    /// publishes none. Read from `library_item_engagement` first — that table
+    /// holds the metric under the source's own name — and from the imported
+    /// `library_items.views` column when nothing was recorded.
+    pub views: Option<i64>,
 }
 
 /// One ranked row: the stored row the caller asked for, plus why it is where it
@@ -86,6 +91,14 @@ pub struct RankedPage {
     pub total: i64,
     /// The page.
     pub items: Vec<RankedRow>,
+    /// How many rows in the population carry a view count.
+    ///
+    /// Travels with the page because `likes_per_view` and `wilson` are computable only when this is non-zero: a caller that ranks a
+    /// population where no row has views gets an all-zero signal, and a sort that returns every row at zero looks like an answer. The
+    /// gate is in the data, so it has to be decided against the data.
+    pub views_rows: usize,
+    /// How many rows the ranking considered.
+    pub population: usize,
 }
 
 /// Days between the source's last update and now; `None` when the row has no
@@ -144,13 +157,15 @@ pub async fn candidates(db: &Database, query: &CatalogueQuery) -> Result<Vec<Can
         Backend::Sqlite => format!(
             "id, source_key, likes, word_count, source_updated_at, title, \
              coalesce(summary, '') AS summary, author_text, \
-             {TOTAL_LIKES_SQLITE} AS total_likes, {SOURCE_COUNT_SQLITE} AS source_count"
+             {TOTAL_LIKES_SQLITE} AS total_likes, {SOURCE_COUNT_SQLITE} AS source_count, \
+             {VIEWS_SQLITE} AS views"
         ),
         Backend::Postgres => format!(
             "id::text AS id, source_key, likes::bigint AS likes, word_count::bigint AS word_count, \
              source_updated_at, title, coalesce(summary, '')::text AS summary, author_text, \
              {TOTAL_LIKES_PG}::bigint AS total_likes, \
-             {SOURCE_COUNT_PG}::bigint AS source_count"
+             {SOURCE_COUNT_PG}::bigint AS source_count, \
+             {VIEWS_PG}::bigint AS views"
         ),
     };
     let (sqlite, postgres) = (
@@ -396,6 +411,7 @@ pub async fn ranked(
             source_count: row.source_count,
             total_likes: row.total_likes,
             freshness_days: freshness_days(row.source_updated_at.as_deref()),
+            views: row.views,
         })
         .collect();
 
@@ -421,6 +437,8 @@ pub async fn ranked(
         }
     }
 
+    let views_rows = population.iter().filter(|c| c.views.is_some()).count();
+    let population_size = population.len();
     Ok(RankedPage {
         metric,
         // The filter's own engaged count, not the capped candidate set's: with a
@@ -429,6 +447,8 @@ pub async fn ranked(
         ranked: engaged,
         total,
         items,
+        views_rows,
+        population: population_size,
     })
 }
 
@@ -756,6 +776,29 @@ pub async fn similar(
         items,
     })
 }
+
+/// The view count for one imported item (M63-37).
+///
+/// `library_item_engagement` is where an importer records what the archive said, under the archive's own word — `views` where it says
+/// views, `hits` where it says hits (AO3). `library_items.views` is the column the older importer filled. The order matters: a
+/// recorded metric is a fresh reading with a date, so it wins; the column is the fallback that keeps rows imported before this table
+/// existed rateable. `views: ''` or a NULL column yields NULL, which the caller reads as "not measured", never as zero.
+const VIEWS_SQLITE: &str = "coalesce(
+        (SELECT e.value FROM library_item_engagement e
+          WHERE e.library_item_id = library_items.id AND e.metric = 'views'),
+        (SELECT h.value FROM library_item_engagement h
+          WHERE h.library_item_id = library_items.id AND h.metric = 'hits'),
+        views
+     )";
+
+/// The same, for PostgreSQL.
+const VIEWS_PG: &str = "coalesce(
+        (SELECT e.value FROM library_item_engagement e
+          WHERE e.library_item_id = library_items.id AND e.metric = 'views'),
+        (SELECT h.value FROM library_item_engagement h
+          WHERE h.library_item_id = library_items.id AND h.metric = 'hits'),
+        views
+     )";
 
 #[cfg(test)]
 mod tests {

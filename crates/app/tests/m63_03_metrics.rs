@@ -425,18 +425,20 @@ async fn a_freshness_weighted_quality_answers_as_a_metric_page() {
     );
 }
 
-/// The two names the catalogue cannot compute yet say so, and name the work that
-/// unblocks them — never `unknown sort`.
+/// Every blocked name says so, and says why — never `unknown sort`.
+///
+/// Two different kinds of refusal now live here, and the difference matters:
+///
+/// * `kudos_per_hour` and `updater_reliability` cannot be computed by this build at all — the data they need is not recorded anywhere,
+///   so the refusal is static and survives every catalogue;
+/// * `kudos_per_1k_views` (= `likes_per_view`) **is** computable since M63-37 records per-archive views, so its refusal is about the
+///   population in front of it: an empty catalogue has no row carrying a view count, and ranking nothing at zero would be an answer
+///   shaped like a ranking.
 #[tokio::test]
 async fn a_rate_without_snapshots_is_refused_by_name() {
     let harness = Harness::new("rates").await;
     let mut client = harness.client();
-    for word in [
-        "kudos_per_hour",
-        "updater_reliability",
-        // An alias answers in its own words, not the canonical name's.
-        "kudos_per_1k_views",
-    ] {
+    for word in ["kudos_per_hour", "updater_reliability"] {
         let (status, body) = client.get(&format!("/api/v1/catalogue?sort={word}")).await;
         assert_eq!(status, StatusCode::UNPROCESSABLE_ENTITY, "{word}: {body}");
         let message = body["error"]["message"].as_str().unwrap_or_default();
@@ -449,6 +451,21 @@ async fn a_rate_without_snapshots_is_refused_by_name() {
             "{word} names what unblocks it: {message}"
         );
     }
+
+    // An alias answers in its own words, and the refusal counts the population rather than repeating a static sentence.
+    let (status, body) = client
+        .get("/api/v1/catalogue?sort=kudos_per_1k_views")
+        .await;
+    assert_eq!(status, StatusCode::UNPROCESSABLE_ENTITY, "{body}");
+    let message = body["error"]["message"].as_str().unwrap_or_default();
+    assert!(
+        message.contains("kudos_per_1k_views (= likes_per_view)"),
+        "the alias is echoed: {message}"
+    );
+    assert!(
+        message.contains("per-archive view count"),
+        "the refusal names the missing half: {message}"
+    );
 }
 
 #[tokio::test]

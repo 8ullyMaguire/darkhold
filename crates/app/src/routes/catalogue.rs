@@ -308,6 +308,16 @@ async fn search(
                     offset as usize,
                 )
                 .await?;
+                // A metric that ranks on a view count, asked for a population where
+                // no row carries one, would return every row at zero — an answer
+                // shaped like a ranking and worth nothing. Refused with the numbers.
+                if metric.needs_views() && page.views_rows == 0 {
+                    return Err(invalid(format!(
+                        "sort: \"{}\" needs a per-archive view count and none of the {} rows matched carries one",
+                        metric.refusal_name(sort_word),
+                        page.population
+                    )));
+                }
                 let mut sources: Vec<String> = page
                     .items
                     .iter()
