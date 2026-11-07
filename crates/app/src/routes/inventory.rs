@@ -832,14 +832,16 @@ pub const ROUTE_TABLE: &[RouteEntry] = &[
         handler: "list_anomalies",
         method: "GET",
         path: "/admin/anomalies",
-        audience: Audience::Operator,
+        // Site-local: triage of this community's own posts is what earned standing in this community is for.
+        audience: Audience::AdminOf { site: Some("darkhold") },
     },
     RouteEntry {
         file: "rating_integrity.rs",
         handler: "clear_anomaly",
         method: "POST",
         path: "/admin/anomalies/{id}/clear",
-        audience: Audience::Operator,
+        // Site-local: same triage, one decision.
+        audience: Audience::AdminOf { site: Some("darkhold") },
     },
     RouteEntry {
         file: "works.rs",
@@ -1341,14 +1343,16 @@ pub const ROUTE_TABLE: &[RouteEntry] = &[
         handler: "get_report",
         method: "GET",
         path: "/admin/fixity/report",
-        audience: Audience::Operator,
+        // Cross-site: the mirror report covers every site this instance serves (ADR 0003).
+        audience: Audience::AdminOf { site: None },
     },
     RouteEntry {
         file: "admin_fixity.rs",
         handler: "post_run",
         method: "POST",
         path: "/admin/fixity/run",
-        audience: Audience::Operator,
+        // Cross-site: it starts the same archive-wide scan, with load on the whole estate's mirrors.
+        audience: Audience::AdminOf { site: None },
     },
     RouteEntry {
         file: "well_known.rs",
