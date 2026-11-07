@@ -137,6 +137,7 @@ pub mod subscriptions;
 pub mod supply;
 pub mod tag_assertions;
 pub mod tag_coverage;
+pub mod tag_inference;
 pub mod tag_scripts;
 pub mod trope_clusters;
 pub mod tag_confirmation;

@@ -1041,6 +1041,20 @@ pub const ROUTE_TABLE: &[RouteEntry] = &[
         audience: Audience::Authenticated,
     },
     RouteEntry {
+        file: "tag_inference.rs",
+        handler: "coverage",
+        method: "GET",
+        path: "/operator/tag-inference/coverage",
+        audience: Audience::Authenticated,
+    },
+    RouteEntry {
+        file: "tag_inference.rs",
+        handler: "run",
+        method: "POST",
+        path: "/operator/tag-inference/run",
+        audience: Audience::Authenticated,
+    },
+    RouteEntry {
         file: "trope_coverage.rs",
         handler: "for_work",
         method: "GET",

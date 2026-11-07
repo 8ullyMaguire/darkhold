@@ -120,6 +120,7 @@ pub mod work_discussion;
 pub mod work_page;
 pub mod surfaces;
 pub mod tag_page;
+pub mod tag_inference;
 pub mod tag_scripts;
 pub mod trope_coverage;
 pub mod works;

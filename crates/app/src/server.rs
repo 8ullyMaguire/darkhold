@@ -751,6 +751,13 @@ pub fn build_router(state: AppState) -> Router {
             routes::trope_coverage::router(),
             RouteClass::Write,
         ))
+        // M63-32 — the operator's tag-inference pass and its coverage report.
+        .merge(module_mount(
+            &state,
+            "taxonomy",
+            routes::tag_inference::router(),
+            RouteClass::Write,
+        ))
         // M70-06 — the reader's own stylesheet. CSS only, and `reader_skin::check` refuses @import, remote url(),
         // stylesheet code paths and `</style` before anything is stored.
         .merge(module_mount(
