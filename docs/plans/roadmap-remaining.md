@@ -228,3 +228,5 @@ M71-14 (b799f828): settings provenance — GET /api/v1/settings/privacy publishe
 DELETE /api/v1/settings/privacy/{key}[?pseud_id=] clears one level (204/422/404 discipline). Migration 0180 adds
 privacy_settings.origin because onboarding-written defaults were indistinguishable from choices and were reported as
 the reader's own six decisions. Remaining: per-work level, deep links, and typography/gravity in the same vocabulary.
+
+MERGED thinkcentre 9e65ab8b + 5375d879 (W7 task 2 step 5 batches 2-3: succession and retention move to the cross-site door, a fourth operator predicate dies) as c6d1a65f — no migration, no collision; route_inventory 5/5, admin_scope 1/1, clippy clean.
