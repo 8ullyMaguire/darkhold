@@ -68,6 +68,11 @@ const MIN_MOUNT_SITES: usize = 100;
 // mount added without a row, cannot both pass — which is exactly the defect the first fixity deploy had.
 const STABLE_ROWS: usize = 82;
 const PLANNED_ROWS: usize = 23;
+/// Shipped but still moving. Counted separately for the same reason as the other two: a row that arrives without a deliberate count
+/// update is a decision nobody made, and `MODULES.len() == stable + planned` only noticed that while `Beta` and `Experimental` were
+/// unused — the first experimental row (W7's `admin_actions`) went red on the arithmetic instead of on the decision.
+const BETA_ROWS: usize = 0;
+const EXPERIMENTAL_ROWS: usize = 1;
 
 fn server_source() -> String {
     let path = Path::new(env!("CARGO_MANIFEST_DIR")).join("src/server.rs");
@@ -109,14 +114,13 @@ fn every_mount_site_is_core_or_a_stable_row() {
         ids.len()
     );
 
-    let stable: BTreeSet<&str> = MODULES
+    // A mounted surface must have a row that can be *enabled*: `module_mount` snapshots `enabled(id)` at mount time, and a `Planned`
+    // row is never enabled, so a Planned row beside a mounted route is the same unreachable door as no row at all (W7 task 3 hit
+    // exactly that in production: 404 MODULE_UNAVAILABLE on both routes with a green route suite). `Beta` and `Experimental` are
+    // shipped and can be enabled, so they satisfy the invariant; only `Planned` does not.
+    let shipped: BTreeSet<&str> = MODULES
         .iter()
-        .filter(|m| m.stability == Stability::Stable)
-        .map(|m| m.id)
-        .collect();
-    let planned: BTreeSet<&str> = MODULES
-        .iter()
-        .filter(|m| m.stability == Stability::Planned)
+        .filter(|m| m.stability != Stability::Planned)
         .map(|m| m.id)
         .collect();
     let core: BTreeSet<&str> = CORE.iter().copied().collect();
@@ -124,25 +128,18 @@ fn every_mount_site_is_core_or_a_stable_row() {
     let missing: Vec<&str> = ids
         .iter()
         .map(String::as_str)
-        .filter(|id| !stable.contains(id) && !core.contains(id))
+        .filter(|id| !shipped.contains(id) && !core.contains(id))
         .collect();
     assert!(
         missing.is_empty(),
-        "these surfaces are mounted with no Stable Module row: {missing:?} — add a row (§59.3), or \
-         add the id to CORE if it is one of the five permission-bearing surfaces that have no row \
-         by design"
+        "these surfaces are mounted with no shipped Module row (Stable/Beta/Experimental): {missing:?} — \
+         add a row (§59.3), or add the id to CORE if it is one of the five permission-bearing surfaces \
+         that have no row by design. A `Planned` row does not count: it can never be enabled, so the door \
+         answers 404 MODULE_UNAVAILABLE to everyone"
     );
 
-    let mounted_but_planned: Vec<&str> = ids
-        .iter()
-        .map(String::as_str)
-        .filter(|id| planned.contains(id))
-        .collect();
-    assert!(
-        mounted_but_planned.is_empty(),
-        "these rows say `Stability::Planned` while server.rs mounts them: {mounted_but_planned:?} \
-         — promote the row to Stable, because a mounted surface is not planned"
-    );
+    // The `Planned`-beside-a-mount case is covered by the assertion above (a Planned row is not `shipped`), so it has no separate
+    // check: two assertions for one rule is how they drift apart and one of them starts passing for the wrong reason.
 }
 
 #[test]
@@ -223,11 +220,22 @@ fn the_row_counts_are_what_the_index_says() {
         .iter()
         .filter(|m| m.stability == Stability::Planned)
         .count();
+    let beta = MODULES
+        .iter()
+        .filter(|m| m.stability == Stability::Beta)
+        .count();
+    let experimental = MODULES
+        .iter()
+        .filter(|m| m.stability == Stability::Experimental)
+        .count();
     assert_eq!(stable, STABLE_ROWS, "stable row count moved");
     assert_eq!(planned, PLANNED_ROWS, "planned row count moved");
+    assert_eq!(beta, BETA_ROWS, "beta row count moved");
+    assert_eq!(experimental, EXPERIMENTAL_ROWS, "experimental row count moved");
+    // Every stability is counted above, so a row in a category nobody tallied is the arithmetic failing rather than the sum drifting.
     assert_eq!(
         MODULES.len(),
-        stable + planned,
+        stable + planned + beta + experimental,
         "a row has a stability this test does not know about"
     );
 }
