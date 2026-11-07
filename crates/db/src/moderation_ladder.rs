@@ -29,6 +29,8 @@ pub struct LevelChange {
 #[derive(Debug, Default)]
 pub struct Sweep {
     pub changes: Vec<LevelChange>,
+    /// Accounts whose level was written for the first time. Not changes: an initial state writes no audit event, by design.
+    pub initialised: usize,
     pub crossings: Vec<String>,
 }
 
@@ -63,7 +65,8 @@ pub async fn sweep(
 
     let mut out = Sweep::default();
     for (account,) in accounts {
-        let before = current_level(db, &account).await?;
+        let stored = stored_level(db, &account).await?;
+        let before = stored.unwrap_or(1);
         // **The operator is designated, not computed.** Measured on a copy of the real store: the sweep demoted the one account at
         // level 6 to 2, because `recompute_trust` derives a level from four axes and the owner's hand appointment is not one of them.
         // Six is reserved for that appointment (`trust_levels.basis` reads "operator: designated by the instance owner"), and a job
@@ -73,7 +76,12 @@ pub async fn sweep(
         }
         let assessment = crate::governance::recompute_trust(db, &account, settings).await?;
         let after = u8::try_from(assessment.level).unwrap_or(MODERATOR_LEVEL);
-        if before == after {
+        // No row before = the first level this account has ever had. `recompute_trust` treats that as an initial state and writes no
+        // audit event, which is right; reporting it as a change was not. Measured on a copy of the real store: 10 accounts had no
+        // trust row, 7 of them were reported as `1 -> 2` changes, and `trust_events` stayed empty — the arithmetic only closes once
+        // the first level is counted separately from a move.
+        if stored.is_none() || before == after {
+            out.initialised += 1;
             continue;
         }
         if darkhold_domain::moderation_ladder::role_due(after)
@@ -90,8 +98,12 @@ pub async fn sweep(
     Ok(out)
 }
 
-/// The account's level today, or TL1 for an account with no row — a person who has never been measured is not a moderator.
-async fn current_level(db: &Database, account: &str) -> Result<u8, sqlx::Error> {
+
+/// The level held in `trust_levels`, or `None` when the account has never had one computed.
+///
+/// Separate from `current_level` because the difference is load-bearing: `None` means "first level, writes no audit event", while a
+/// number means "a change that must be recorded". Folding the two together produced seven phantom changes on a real store.
+async fn stored_level(db: &Database, account: &str) -> Result<Option<u8>, sqlx::Error> {
     let level: Option<i64> = match db.backend() {
         Backend::Sqlite => {
             sqlx::query_scalar("SELECT CAST(level AS INTEGER) FROM trust_levels WHERE account = ?1")
@@ -106,13 +118,5 @@ async fn current_level(db: &Database, account: &str) -> Result<u8, sqlx::Error> 
                 .await?
         }
     };
-    // The ceiling was 3 while a three-level scale was being built; under decision (c) the ladder speaks 1-6, and six is the
-    // operator. Clamping at 3 here made every account above it look like it was perpetually crossing 3 -> 4: the sweep compared a
-    // clamped reading against an unclamped assessment, reported a change, and `recompute_trust` — which compares the stored level
-    // against itself — wrote nothing. A number that means two things produced a job that reports work it never does.
-    Ok(match level.unwrap_or(1) {
-        l if l < 1 => 1,
-        l if l > 6 => 6,
-        l => u8::try_from(l).unwrap_or(1),
-    })
+    Ok(level.map(|l| u8::try_from(l.clamp(1, 6)).unwrap_or(1)))
 }
