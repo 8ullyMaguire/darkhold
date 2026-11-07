@@ -1134,6 +1134,9 @@ pub fn build_router(state: AppState) -> Router {
         // M16-06: the sandbox's only caller. Inside the `/api/v1` nest, not beside `facets`: running untrusted code needs the session
         // middleware (a caller must be known before it can be an operator) and CSRF, which the nest carries and the page router does not.
         .merge(routes::sandbox::router())
+        // M16-07: the review workflow. Inside the `/api/v1` nest for the same reason the sandbox is — it needs a session before it can
+        // ask whether the caller is an operator.
+        .merge(routes::extension_review::router())
         .merge(module_mount(
             &state,
             "flows",

@@ -42,6 +42,7 @@ pub mod exchange;
 pub mod exchanges;
 pub mod exports;
 pub mod extension;
+pub mod extension_review;
 pub mod external_seed;
 pub mod fandom_graph;
 pub mod fairqueue;

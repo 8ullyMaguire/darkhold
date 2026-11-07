@@ -295,7 +295,9 @@ pub async fn list_extensions(
 pub async fn get_extension(db: &Database, id: &str) -> Result<Option<Value>, sqlx::Error> {
     match db.backend() {
         Backend::Sqlite => {
-            let row = sqlx::query("SELECT id, version, document, submitted_by, state, created_at, derived_from FROM extension_manifests WHERE id = ?")
+            // A package may have several versions now (migration 0183). The newest one is what "this package" means to a reader; an
+            // unordered fetch_optional would fail on the second version, which is the bug this ordering fixes.
+            let row = sqlx::query("SELECT id, version, document, submitted_by, state, created_at, derived_from FROM extension_manifests WHERE id = ? ORDER BY created_at DESC LIMIT 1")
                 .bind(id)
                 .fetch_optional(db.sqlite_pool().expect("sqlite"))
                 .await?;
@@ -312,7 +314,7 @@ pub async fn get_extension(db: &Database, id: &str) -> Result<Option<Value>, sql
             }))
         }
         Backend::Postgres => {
-            let row = sqlx::query("SELECT id, version, document, submitted_by, state, created_at, derived_from FROM extension_manifests WHERE id = $1")
+            let row = sqlx::query("SELECT id, version, document, submitted_by, state, created_at, derived_from FROM extension_manifests WHERE id = $1 ORDER BY created_at DESC LIMIT 1")
                 .bind(id)
                 .fetch_optional(db.postgres_pool().expect("postgres"))
                 .await?;
@@ -495,6 +497,96 @@ pub async fn grant_extension(
         }
     }
     Ok(())
+}
+
+/// One submitted version's manifest document, verbatim.
+///
+/// Separate from [`get_extension`], which answers "what is this package" (the newest version) — this answers "what does *this version*
+/// declare", which is the question a permission comparison asks.
+pub async fn manifest_document(
+    db: &Database,
+    id: &str,
+    version: &str,
+) -> Result<Option<String>, sqlx::Error> {
+    let row: Option<String> = match db.backend() {
+        Backend::Sqlite => sqlx::query("SELECT document FROM extension_manifests WHERE id = ? AND version = ?")
+            .bind(id)
+            .bind(version)
+            .fetch_optional(db.sqlite_pool().expect("sqlite"))
+            .await?
+            .map(|row| row.get("document")),
+        Backend::Postgres => sqlx::query("SELECT document FROM extension_manifests WHERE id = $1 AND version = $2")
+            .bind(id)
+            .bind(version)
+            .fetch_optional(db.postgres_pool().expect("postgres"))
+            .await?
+            .map(|row| row.get("document")),
+    };
+    Ok(row)
+}
+
+/// Insert a manifest that is entering review (`state = 'pending'`).
+///
+/// Returns `false` when that (id, version) already exists: a submission is an event, and re-submitting the same version of the same
+/// package would restart a review somebody may already have half done. A new version is a new row and a new review.
+pub async fn submit_manifest(
+    db: &Database,
+    id: &str,
+    version: &str,
+    document: &str,
+    submitted_by: &str,
+) -> Result<bool, sqlx::Error> {
+    let exists: Option<String> = match db.backend() {
+        Backend::Sqlite => {
+            sqlx::query("SELECT id FROM extension_manifests WHERE id = ? AND version = ?")
+                .bind(id)
+                .bind(version)
+                .fetch_optional(db.sqlite_pool().expect("sqlite"))
+                .await?
+                .map(|row| row.get::<String, _>("id"))
+        }
+        Backend::Postgres => {
+            sqlx::query("SELECT id FROM extension_manifests WHERE id = $1 AND version = $2")
+                .bind(id)
+                .bind(version)
+                .fetch_optional(db.postgres_pool().expect("postgres"))
+                .await?
+                .map(|row| row.get::<String, _>("id"))
+        }
+    };
+    if exists.is_some() {
+        return Ok(false);
+    }
+    let now = crate::identity::now_rfc3339();
+    match db.backend() {
+        Backend::Sqlite => {
+            sqlx::query(
+                "INSERT INTO extension_manifests (id, version, document, submitted_by, state, created_at)
+                 VALUES (?, ?, ?, ?, 'pending', ?)",
+            )
+            .bind(id)
+            .bind(version)
+            .bind(document)
+            .bind(submitted_by)
+            .bind(&now)
+            .execute(db.sqlite_pool().expect("sqlite"))
+            .await?;
+        }
+        Backend::Postgres => {
+            sqlx::query(
+                "INSERT INTO extension_manifests (id, version, document, submitted_by, state, created_at)
+                 VALUES ($1, $2, $3, $4, 'pending', $5)",
+            )
+            .bind(id)
+            .bind(version)
+            .bind(document)
+            .bind(submitted_by)
+            .bind(&now)
+            .execute(db.postgres_pool().expect("postgres"))
+            .await?;
+        }
+    }
+    Ok(true)
 }
 
 /// Fork a published manifest into a new package (§21: "forks keep attribution and request their own grants").

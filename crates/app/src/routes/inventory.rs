@@ -3059,6 +3059,57 @@ pub const ROUTE_TABLE: &[RouteEntry] = &[
     // means in this table. They were added to the router before they were added here, and
     // `registered_routes_are_tabled` failed by name until they were: the hole this table exists to
     // make impossible.
+    // M16-07: the review workflow. One `Authenticated` door (an author submits their own package) and six `Operator` doors; the state
+    // machine refuses the submitter as a reviewer, which is the rule the door cannot express.
+    RouteEntry {
+        file: "extension_review.rs",
+        handler: "submit",
+        method: "POST",
+        path: "/extensions/{slug}/submit",
+        audience: Audience::Authenticated,
+    },
+    RouteEntry {
+        file: "extension_review.rs",
+        handler: "queue_route",
+        method: "GET",
+        path: "/extensions/reviews",
+        audience: Audience::Operator,
+    },
+    RouteEntry {
+        file: "extension_review.rs",
+        handler: "record_checks",
+        method: "POST",
+        path: "/extensions/reviews/{slug}/{version}/checks",
+        audience: Audience::Operator,
+    },
+    RouteEntry {
+        file: "extension_review.rs",
+        handler: "advance",
+        method: "POST",
+        path: "/extensions/reviews/{slug}/{version}/advance",
+        audience: Audience::Operator,
+    },
+    RouteEntry {
+        file: "extension_review.rs",
+        handler: "approve",
+        method: "POST",
+        path: "/extensions/reviews/{slug}/{version}/approve",
+        audience: Audience::Operator,
+    },
+    RouteEntry {
+        file: "extension_review.rs",
+        handler: "reject",
+        method: "POST",
+        path: "/extensions/reviews/{slug}/{version}/reject",
+        audience: Audience::Operator,
+    },
+    RouteEntry {
+        file: "extension_review.rs",
+        handler: "revoke",
+        method: "POST",
+        path: "/extensions/reviews/{slug}/{version}/revoke",
+        audience: Audience::Operator,
+    },
     // M16-12: forking a published package. `Authenticated` rather than `Operator`: any reader may derive a package, and the fork enters
     // review as `pending` — the door that publishes is a different one.
     RouteEntry {

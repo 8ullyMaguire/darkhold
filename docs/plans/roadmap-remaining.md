@@ -270,3 +270,22 @@ crates/app/src/facets_cache.rs memoises per (database, filter set) for 60 s; res
 cache_ttl_seconds. After deploy: warm p50 2.83 ms / p95 6.05 ms; cold 1,174 ms on the first request post-restart.
 Same commit fixed two PG-only defects in the facet scan (SUM->NUMERIC decode, `?n` placeholders never rewritten) that made the
 whole endpoint 500 on the live catalogue; crates/db/tests/facets_two_engines.rs is the guard. Remaining: the UI half.
+
+## M16-07 — review workflow (implemented)
+
+Stages live in `crates/domain/src/extension_review.rs` as a pure state machine; the routes in
+`crates/app/src/routes/extension_review.rs` only store what it decided. Rules: no stage skipped, the submitter never
+reviews, permission and security review are two different people, two distinct approvers publish, and a published
+version is finished unless it is revoked.
+
+Two things worth knowing:
+
+* **Migration 0183** rebuilt `extension_manifests` with `PRIMARY KEY (id, version)`. Keyed on `id` alone, a second
+  version was a UNIQUE violation — so "roll back to the previous published version" described a row that could not
+  exist. The rebuild copies every existing row.
+* **Automated checks are recorded, not dispatched.** `POST /extensions/reviews/{slug}/{version}/checks` takes the
+  results an operator got from `/operator/sandbox/run`. Submit does not run the sandbox because it does not know where
+  the package bytes live; when a package store exists, submit should call the runner and post its report.
+
+Renewal-on-growth is evaluated at publish against each active grant's own capability set, which is why a 1.1.0 that
+asks for `network` invalidates a 1.0.0 consent for `work.read` instead of inheriting it.
