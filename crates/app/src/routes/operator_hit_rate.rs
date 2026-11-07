@@ -57,7 +57,7 @@ pub async fn get_hit_rate(
     RequireSession(user): RequireSession,
     Query(query): Query<HitRateQuery>,
 ) -> ApiResult<Json<Value>> {
-    if state.config().administration.operator_account_id != Some(user.account_id) {
+    if !crate::routes::admin_scope::holds_estate_claim(&state, &user) {
         tracing::debug!(
             operator_configured = state.config().administration.operator_account_id.is_some(),
             "the hit-rate door was reached by an account that is not the operator"

@@ -102,17 +102,48 @@ async fn audit_refusal(state: &AppState, user: &SessionUser, site: Option<&str>)
 /// Refusals here are logged rather than written to the modlog: the audit write is async and these call sites are not. The
 /// destructive surfaces (retention, sanctions, succession) use the async door and DO audit — see `require_admin_of`.
 pub fn estate_admin_allowed(state: &AppState, user: &SessionUser) -> Result<(), ApiError> {
-    if user.roles.iter().any(|r| r == "role:operator") {
+    if holds_estate_claim(state, user) {
         return Ok(());
     }
     let configured = state.config().administration.operator_account_id;
-    if configured == Some(user.account_id) {
-        return Ok(());
-    }
     tracing::debug!(
         operator_configured = configured.is_some(),
         roles = ?user.roles,
         "a cross-site admin door was reached by a caller with no estate claim"
     );
+    // Audited without making the signature async: the decision needs no I/O, but the refusal must reach the modlog, and a
+    // refusal that only exists in a log file is not answerable six weeks later. Spawning is safe here because the caller is
+    // inside a request handler on a tokio runtime; with no runtime (a unit test calling this directly) the write is skipped
+    // rather than panicking, and the refusal is still returned.
+    if let Ok(handle) = tokio::runtime::Handle::try_current() {
+        let db = state.db().clone();
+        let actor = user.account_id.to_string();
+        let pseud = user.pseud_id.map(|p| p.to_string());
+        let roles = user.roles.clone();
+        handle.spawn(async move {
+            let document = serde_json::json!({ "required_site": "estate", "roles": roles }).to_string();
+            let _ = darkhold_db::governance::audit_append(
+                &db,
+                &darkhold_db::governance::AuditEntry {
+                    actor: &actor,
+                    actor_pseud: pseud.as_deref(),
+                    reason: Some("wrong_site"),
+                    action: "admin.refused",
+                    subject_type: "site",
+                    subject_id: "estate",
+                    document: &document,
+                },
+            )
+            .await;
+        });
+    }
     Err(ApiError(AppError::AccessDenied))
+}
+
+/// The same decision as a plain predicate, for doors that must refuse with `NotFound` rather than `403` because confirming
+/// their existence to a stranger would map the operator's configuration (see `operator_hit_rate`'s module doc). One
+/// authority, two refusal shapes — the shape is a property of the door, the authority is not.
+pub fn holds_estate_claim(state: &AppState, user: &SessionUser) -> bool {
+    user.roles.iter().any(|r| r == "role:operator")
+        || state.config().administration.operator_account_id == Some(user.account_id)
 }
