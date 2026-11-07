@@ -201,6 +201,8 @@ published/public works; GET /api/v1/fandoms/{fandom}/related publishes the map v
 lists and the works. Row stays planned: tag.cross_fandom and author.similar have no route in this build,
 so the map is not yet reached through the two surfaces the card names.
 
+MERGED thinkcentre 3a32119d (W7 task 2 step 5 first batch: 4 routes classified, two admin doors that had no gate) as f1cb3ffe — no migration, no collision; route_inventory 5/5, admin_scope 1/1, clippy clean.
+
 M71-12 backend (9fd5955a): GET /api/v1/facets/words returns 10 population-equal (quantile, not equal-width) buckets
 over the same filtered set as /api/v1/facets, with low/high/count/share and measured/unknown/when_unknown; unmeasured
 rows are excluded and stated, empty buckets dropped and renumbered. Row stays planned on the drawing control and on
