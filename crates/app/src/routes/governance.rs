@@ -12,6 +12,40 @@ use crate::format_rfc3339;
 use crate::http::{ApiError, ApiResult};
 use crate::state::AppState;
 
+/// The seven reason codes a report may be filed against.
+///
+/// Mirrored from `estate/contracts/reason-codes.json`, which is the published contract and the source the legal
+/// page at `/legal/acceptable-use` is checked against. Free-text reasons were the state of things until 2026-11-07:
+/// the moderation queue could be sorted by a string anybody could invent, which is the same as not being sorted at
+/// all. Gate 57 compares this list with the contract, so the copy cannot drift quietly.
+pub const REPORT_REASONS: [&str; 7] =
+    ["spam", "harassment", "off-topic", "copyright", "illegal", "csam", "other"];
+
+/// Codes that skip the ordinary moderation ladder and go straight to the operator.
+///
+/// The policy says so, and now the write path says so too: a report filed as `csam` or `illegal` is not something a
+/// volunteer reads first.
+pub const OPERATOR_ONLY_REASONS: [&str; 2] = ["csam", "illegal"];
+
+/// Rejects a reason that is not one of the seven, naming the alternatives in the field error.
+///
+/// The error is a `Validation` (code `VALIDATION_FAILED`, status 422) rather than a 400, because the request is
+/// well-formed JSON and the *field* is wrong — a client can switch on it and highlight the field.
+fn validate_reason(reason: &str) -> Result<(), AppError> {
+    if REPORT_REASONS.contains(&reason) {
+        return Ok(());
+    }
+    let mut field_errors = std::collections::BTreeMap::new();
+    field_errors.insert(
+        "reason".to_owned(),
+        format!("must be one of: {}", REPORT_REASONS.join(", ")),
+    );
+    Err(AppError::Validation {
+        message: format!("unknown report reason: {reason}"),
+        field_errors,
+    })
+}
+
 pub fn router() -> Router<AppState> {
     routes()
 }
@@ -60,6 +94,11 @@ async fn submit_report(
     MaybeSession(user): MaybeSession,
     Json(body): Json<SubmitReportBody>,
 ) -> ApiResult<Json<Value>> {
+    // The code is checked before anything is written: a report the operator cannot sort is a report nobody finds.
+    validate_reason(&body.reason)?;
+
+    let pages_operator = OPERATOR_ONLY_REASONS.contains(&body.reason.as_str());
+
     // Reports may be submitted by anyone, including unauthenticated visitors.
     // Anonymous reports are attributed to a sentinel account id "anonymous".
     let reporter = user
@@ -90,8 +129,15 @@ async fn submit_report(
             action: "report.submitted",
             subject_type: &body.subject_type,
             subject_id: &body.subject_id,
-            document: &json!({ "reason": body.reason, "detail": body.detail, "report_id": id })
-                .to_string(),
+            // `pages_operator` is written rather than implied: severity lives in the contract, but whether the
+            // report was supposed to reach the operator is a fact about this submission and belongs in the record.
+            document: &json!({
+                "reason": body.reason,
+                "detail": body.detail,
+                "report_id": id,
+                "pages_operator": pages_operator
+            })
+            .to_string(),
         },
     )
     .await
@@ -760,4 +806,46 @@ async fn my_audit_log(
             .await
             .map_err(|e| ApiError(darkhold_domain::AppError::Internal(e.into())))?;
     Ok(Json(json!({ "items": items })))
+}
+
+#[cfg(test)]
+mod submit_report_tests {
+    use super::*;
+
+    #[test]
+    fn every_contract_code_is_accepted() {
+        for code in REPORT_REASONS {
+            assert!(validate_reason(code).is_ok(), "{code} must be accepted");
+        }
+    }
+
+    #[test]
+    fn an_invented_reason_is_rejected_and_the_error_names_the_alternatives() {
+        let err = validate_reason("vexatious").expect_err("an invented code must not be accepted");
+        match err {
+            AppError::Validation { message, field_errors } => {
+                assert!(message.contains("vexatious"), "message names the rejected code: {message}");
+                let hint = field_errors.get("reason").expect("the reason field carries the alternatives");
+                for code in REPORT_REASONS {
+                    assert!(hint.contains(code), "the field error lists {code}: {hint}");
+                }
+            }
+            other => panic!("expected a Validation error, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn rejection_is_case_sensitive_because_the_contract_is_lowercase() {
+        // A client sending "Spam" is not sending the contract's code; accepting it would put a second spelling of the
+        // same reason in the queue, which is the drift this check exists to stop.
+        assert!(validate_reason("Spam").is_err());
+        assert!(validate_reason("").is_err());
+    }
+
+    #[test]
+    fn the_operator_only_set_is_a_subset_of_the_contract() {
+        for code in OPERATOR_ONLY_REASONS {
+            assert!(REPORT_REASONS.contains(&code), "{code} must also be a report reason");
+        }
+    }
 }
