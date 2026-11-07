@@ -1376,15 +1376,9 @@ async fn clear_taste_profile(
 
 /// Whether this account may use the operator surface.
 pub fn require_operator(state: &AppState, user: &crate::auth::SessionUser) -> ApiResult<()> {
-    let configured = state.config().administration.operator_account_id;
-    if configured == Some(user.account_id) {
-        return Ok(());
-    }
-    tracing::debug!(
-        operator_configured = configured.is_some(),
-        "an operator route was reached by an account that is not the operator"
-    );
-    Err(ApiError(AppError::NotFound { resource: "page" }))
+    // One decision, one place (ADR 0003): fourteen copies of this predicate, all keyed on a config value that is
+    // unset on this host, meant every one of these doors answered 404 to everybody.
+    crate::routes::admin_scope::estate_admin_allowed(state, user)
 }
 
 /// Get the current user's taste vector.

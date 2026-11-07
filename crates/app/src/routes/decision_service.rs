@@ -151,16 +151,9 @@ async fn list_tasks(
 /// reader can see — and not at an operator endpoint whose existence is the
 /// disclosure.
 fn require_operator(state: &AppState, user: &crate::auth::SessionUser) -> ApiResult<()> {
-    if state.config().administration.operator_account_id == Some(user.account_id) {
-        return Ok(());
-    }
-    tracing::debug!(
-        operator_configured = state.config().administration.operator_account_id.is_some(),
-        "the decision audit was reached by an account that is not the operator"
-    );
-    Err(ApiError(AppError::NotFound {
-        resource: "decision audit",
-    }))
+    // One decision, one place (ADR 0003): fourteen copies of this predicate, all keyed on a config value that is
+    // unset on this host, meant every one of these doors answered 404 to everybody.
+    crate::routes::admin_scope::estate_admin_allowed(state, user)
 }
 
 /// How many rows the audit read may return when the caller asks for nothing.
