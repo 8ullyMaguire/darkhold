@@ -487,6 +487,21 @@ pub const MODULES: &[Module] = &[
         source: "crates/app/src/routes/flows.rs",
     },
     Module {
+        id: "admin_actions",
+        name: "One-click actions",
+        summary: "W7 task 3 — admin verbs performed with a linked inverse (ban/unban).",
+        default_on: true,
+        stability: Stability::Experimental,
+        // Operator-only: the surface performs moderation verbs, so a reader must not be able to switch it off for the site.
+        toggle: Toggle::Operator,
+        requires: &["governance"],
+        milestone: "W7",
+        spec: "§59",
+        nav: &[],
+        relevance: 10,
+        source: "crates/app/src/routes/admin_actions.rs",
+    },
+    Module {
         id: "governance",
         name: "Governance",
         summary: "M14 — Governance routes: reports, moderation, sanctions, appeals, trust.",
