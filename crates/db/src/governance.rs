@@ -65,9 +65,11 @@ pub async fn trust_for(db: &Database, account: &str) -> Result<i64, sqlx::Error>
 pub async fn evidence_for(
     db: &Database,
     account: &str,
+    accepted_since: Option<&str>,
 ) -> Result<darkhold_domain::trust::TrustEvidence, sqlx::Error> {
     let tenure_days = tenure_days(db, account).await?;
-    let accepted_contributions = accepted_contributions(db, account).await?;
+    let accepted_contributions =
+        accepted_contributions(db, account, accepted_since).await?;
     let vote_score = vote_score(db, account).await?;
     let report_accuracy = report_accuracy(db, account).await?;
     let activity_volume = activity_volume(db, account).await?;
@@ -132,7 +134,11 @@ fn days_since(timestamp: &str) -> i64 {
 /// **Four channels, and each one names a review.** A proposal that is still
 /// open counts for nothing, because nothing has been accepted yet — which is
 /// what makes this axis *reviewed conduct* and not activity.
-async fn accepted_contributions(db: &Database, account: &str) -> Result<i64, sqlx::Error> {
+async fn accepted_contributions(
+    db: &Database,
+    account: &str,
+    accepted_since: Option<&str>,
+) -> Result<i64, sqlx::Error> {
     // `category_proposals` and `entry_moderation_proposals` record their
     // author as an account id in a TEXT column on both engines;
     // `retention_proposals` as an account id in a native id column;
@@ -169,19 +175,30 @@ async fn accepted_contributions(db: &Database, account: &str) -> Result<i64, sql
 
     let mut total = 0i64;
     for (sqlite_sql, postgres_sql) in queries {
-        let sql = db.sql(sqlite_sql, postgres_sql);
+        // The cutoff is appended rather than painted into all four strings: one clause, four queries, and the shape of each
+        // query stays readable above. Every one of the four tables has `created_at` (measured), which is what makes the
+        // clause uniform instead of four near-identical variants.
+        let mut sql = db.sql(sqlite_sql, postgres_sql).to_string();
+        if accepted_since.is_some() {
+            sql.push_str(match db.backend() {
+                Backend::Sqlite => " AND created_at >= ?2",
+                Backend::Postgres => " AND created_at >= $2",
+            });
+        }
         let count: (i64,) = match db.backend() {
             Backend::Sqlite => {
-                sqlx::query_as(&sql)
-                    .bind(account)
-                    .fetch_one(db.sqlite_pool().expect("sqlite handle"))
-                    .await?
+                let mut q = sqlx::query_as(&sql).bind(account);
+                if let Some(cutoff) = accepted_since {
+                    q = q.bind(cutoff);
+                }
+                q.fetch_one(db.sqlite_pool().expect("sqlite handle")).await?
             }
             Backend::Postgres => {
-                sqlx::query_as(&sql)
-                    .bind(account)
-                    .fetch_one(db.postgres_pool().expect("postgres handle"))
-                    .await?
+                let mut q = sqlx::query_as(&sql).bind(account);
+                if let Some(cutoff) = accepted_since {
+                    q = q.bind(cutoff);
+                }
+                q.fetch_one(db.postgres_pool().expect("postgres handle")).await?
             }
         };
         total += count.0;
@@ -345,6 +362,12 @@ pub struct TrustSettings<'a> {
     pub policy: darkhold_domain::trust::ElasticPolicy,
     /// The level a guest holds.
     pub guest_level: i64,
+    /// The instant contributions start counting, or `None` for "everything ever recorded".
+    ///
+    /// This exists because a contribution axis cannot tell an earned proposal from an imported one: on an instance that has
+    /// just imported a corpus, the history behind an account was written by a tool, not earned by a person. `None` keeps the
+    /// historical behaviour (and is what tests use); a cutoff makes the count mean "earned while this instance was running".
+    pub accepted_since: Option<&'a str>,
 }
 
 /// Recompute an account's trust level, record the event, and re-evaluate the
@@ -357,7 +380,7 @@ pub async fn recompute_trust(
     let ladder = settings.ladder;
     let axes = settings.axes;
     let guest_level = settings.guest_level;
-    let evidence = evidence_for(db, account).await?;
+    let evidence = evidence_for(db, account, settings.accepted_since).await?;
     let mut assessment = darkhold_domain::trust::assess(&evidence, axes, ladder);
 
     // **A guest never extends its trust** (spec §14.1), and this is where that

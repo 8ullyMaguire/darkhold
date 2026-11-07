@@ -1110,6 +1110,11 @@ pub struct TrustConfig {
     pub guest_level: i64,
     /// Whether a guest may earn trust. **False, always** (spec §14.1).
     pub guest_earns: bool,
+    /// The instant contribution counts start, or `None` to count all recorded history.
+    ///
+    /// Set this on an instance that imported a corpus: before it, the proposals behind an account were written by a tool, and a
+    /// trust axis cannot tell the difference. Absent means "no cutoff", which is what every instance had before this key existed.
+    pub accepted_since: Option<String>,
 }
 
 impl Default for TrustConfig {
@@ -1123,6 +1128,7 @@ impl Default for TrustConfig {
             elastic_decay_days: 30,
             guest_level: 1,
             guest_earns: false,
+            accepted_since: None,
         }
     }
 }
@@ -1173,6 +1179,7 @@ impl TrustConfig {
             requirements: &self.require,
             policy: self.elastic_policy(),
             guest_level: self.guest_level,
+            accepted_since: self.accepted_since.as_deref(),
         }
     }
 }
@@ -3684,6 +3691,7 @@ impl Config {
                     elastic_decay_days: t.elastic_decay_days.unwrap_or(base.elastic_decay_days),
                     guest_level: t.guest_level.unwrap_or(base.guest_level),
                     guest_earns: t.guest_earns.unwrap_or(base.guest_earns),
+                    accepted_since: t.accepted_since.clone(),
                 }
             },
             governance: {
@@ -4568,6 +4576,8 @@ struct TrustSection {
     elastic_decay_days: Option<i64>,
     guest_level: Option<i64>,
     guest_earns: Option<bool>,
+    /// `trust.accepted_since` — the instant contribution counts start; absent means all recorded history.
+    accepted_since: Option<String>,
 }
 
 /// The `[governance]` file section (spec §14.5).
