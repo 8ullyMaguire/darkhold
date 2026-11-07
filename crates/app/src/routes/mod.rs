@@ -142,3 +142,4 @@ pub mod works;
 
 pub mod well_known;
 pub mod mirroring;
+pub mod media_rescue;

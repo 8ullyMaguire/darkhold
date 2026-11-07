@@ -129,3 +129,4 @@ pub use error::{AppError, ErrorCode, Result};
 pub use ids::*;
 pub mod work_identity;
 pub mod mirroring;
+pub mod media_rescue;

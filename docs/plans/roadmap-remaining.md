@@ -574,3 +574,32 @@ Off by default (`[discovery] work_mirroring`).
 
 Limits: nothing transfers bytes (no peer API client), nothing verifies the peer still serves it, and the SPA does not render
 the sentence yet — the door returns it.
+
+### M69-06 — the perceptual-hash rescue ring (implemented 2026-11-07)
+
+Two hashes, two claims. The **content hash** is identity: a survivor reporting the same bytes may be credited without a human.
+The **perceptual hash** is evidence — it survives re-encoding, which is why it finds a copy and why it cannot prove one; the
+failure mode is a work's page showing somebody else's picture. So a perceptual match is a proposal, never an attachment:
+nothing here writes availability links, because attaching is `media_resilience`'s audited path.
+
+A tie is an answer: two equally close survivors (or two holding identical bytes) produce `Ambiguous` with both names and **no
+stored match**; `accept` then requires the operator to name one. Dimensions are a second lock — a candidate more than 1.25×
+off in either axis is excluded, because a thumbnail beside its original is a legitimate pair and the wrong rescue — while an
+*unknown* dimension never disqualifies.
+
+    POST /api/v1/operator/rescue/copies            # a survivor says what it holds
+    GET  /api/v1/operator/rescue/copies
+    POST /api/v1/operator/rescue                   # {dead_peer, media_reference_id} → outcome
+    GET  /api/v1/operator/rescue                   # every hunt, settled ones included
+    POST /api/v1/operator/rescue/hunts/{id}/resolve
+
+Every hunt is a row, `not_found` included — "we looked and nobody had it" is the answer an operator needs most. The outcome
+and the threshold travel with it; a later copy must not rewrite what the operator was told.
+
+Two defects found by doing it: the dead peer was first a **path** segment (`https://…` is two segments to the router, so
+every hunt 404'd), and `$n::timestamptz` binds into TEXT columns rewrote the stored stamp into PostgreSQL's rendering.
+
+Off by default (`[discovery] media_rescue`).
+
+Limits: nothing fetches a survivor's copy (no peer API client) — the ring matches claims; `accept` records who has it, the
+transfer is the operator's next step; hunts read at most 500 recorded copies; nothing decides a peer is dead automatically.

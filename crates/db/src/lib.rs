@@ -88,6 +88,7 @@ pub mod marketplace;
 pub mod theme_profiles;
 pub mod webhooks;
 pub mod media;
+pub mod media_rescue;
 pub mod media_resilience;
 pub mod migrate;
 pub mod moderation;

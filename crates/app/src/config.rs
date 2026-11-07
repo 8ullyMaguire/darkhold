@@ -755,6 +755,8 @@ pub struct DiscoveryConfig {
     pub work_mirroring: bool,
     /// The taste similarity a peer needs to hold a mirror (M69-05). Default: the domain floor.
     pub mirror_floor: Option<f64>,
+    /// Whether the perceptual-hash rescue ring is open (M69-06). Default: off.
+    pub media_rescue: bool,
     /// This instance's ed25519 passport signing key, hex-encoded, when configured (M69-03).
     pub passport_key: Option<String>,
     /// Per-surface algorithm choice (M64-01). Absent entirely when the instance runs the registry's defaults.
@@ -787,6 +789,7 @@ impl Default for DiscoveryConfig {
             work_tombstones: false,
             work_mirroring: false,
             mirror_floor: None,
+            media_rescue: false,
             passport_key: None,
             surfaces: std::collections::BTreeMap::new(),
         }
@@ -3359,6 +3362,9 @@ impl Config {
                 if let Some(mirroring) = d.work_mirroring {
                     cfg.work_mirroring = mirroring;
                 }
+                if let Some(rescue) = d.media_rescue {
+                    cfg.media_rescue = rescue;
+                }
                 if let Some(floor) = d.mirror_floor {
                     if !(0.0..=1.0).contains(&floor) {
                         return Err(anyhow::anyhow!(
@@ -4949,6 +4955,10 @@ struct DiscoverySection {
     /// `MIN_MIRROR_SIMILARITY` — a policy the instance may tighten, never a knob that opens to zero.
     #[serde(default)]
     mirror_floor: Option<f64>,
+    /// Whether the perceptual-hash rescue ring is open (M69-06). Off by default: it changes what a stranger sees or what
+    /// the instance claims about itself, so it waits for a decision rather than a default.
+    #[serde(default)]
+    media_rescue: Option<bool>,
     /// This instance's ed25519 passport signing key, hex-encoded 32 bytes (M69-03).
     ///
     /// Required only for export. Signing without a key would produce a document nobody can check, and generating one
