@@ -3059,6 +3059,15 @@ pub const ROUTE_TABLE: &[RouteEntry] = &[
     // means in this table. They were added to the router before they were added here, and
     // `registered_routes_are_tabled` failed by name until they were: the hole this table exists to
     // make impossible.
+    // M16-12: forking a published package. `Authenticated` rather than `Operator`: any reader may derive a package, and the fork enters
+    // review as `pending` — the door that publishes is a different one.
+    RouteEntry {
+        file: "marketplace.rs",
+        handler: "fork_extension",
+        method: "POST",
+        path: "/extensions/{slug}/fork",
+        audience: Audience::Authenticated,
+    },
     // M16-06: the sandbox's only caller. `Operator` because it runs untrusted code; the handler asks `require_operator` itself, so an
     // authenticated non-operator is a 403 and an anonymous call a 401 — the two answers this table exists to keep apart.
     RouteEntry {

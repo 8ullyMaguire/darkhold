@@ -237,8 +237,8 @@ pub async fn list_extensions(
     submitted_by: Option<&str>,
 ) -> Result<Vec<Value>, sqlx::Error> {
     let mut sqlite_sql =
-        "SELECT id, version, document, submitted_by, state, created_at FROM extension_manifests WHERE 1=1".to_string();
-    let mut pg_sql = "SELECT id, version, document, submitted_by, state, created_at FROM extension_manifests WHERE 1=1".to_string();
+        "SELECT id, version, document, submitted_by, state, created_at, derived_from FROM extension_manifests WHERE 1=1".to_string();
+    let mut pg_sql = "SELECT id, version, document, submitted_by, state, created_at, derived_from FROM extension_manifests WHERE 1=1".to_string();
     if submitted_by.is_some() {
         sqlite_sql.push_str(" AND submitted_by = ?");
         pg_sql.push_str(" AND submitted_by = $1");
@@ -263,6 +263,7 @@ pub async fn list_extensions(
                         "submitted_by": r.get::<String, _>("submitted_by"),
                         "state": r.get::<String, _>("state"),
                         "created_at": r.get::<String, _>("created_at"),
+                        "derived_from": r.get::<Option<String>, _>("derived_from"),
                     })
                 })
                 .collect())
@@ -283,6 +284,7 @@ pub async fn list_extensions(
                         "submitted_by": r.get::<String, _>("submitted_by"),
                         "state": r.get::<String, _>("state"),
                         "created_at": r.get::<String, _>("created_at"),
+                        "derived_from": r.get::<Option<String>, _>("derived_from"),
                     })
                 })
                 .collect())
@@ -293,7 +295,7 @@ pub async fn list_extensions(
 pub async fn get_extension(db: &Database, id: &str) -> Result<Option<Value>, sqlx::Error> {
     match db.backend() {
         Backend::Sqlite => {
-            let row = sqlx::query("SELECT id, version, document, submitted_by, state, created_at FROM extension_manifests WHERE id = ?")
+            let row = sqlx::query("SELECT id, version, document, submitted_by, state, created_at, derived_from FROM extension_manifests WHERE id = ?")
                 .bind(id)
                 .fetch_optional(db.sqlite_pool().expect("sqlite"))
                 .await?;
@@ -305,11 +307,12 @@ pub async fn get_extension(db: &Database, id: &str) -> Result<Option<Value>, sql
                     "submitted_by": r.get::<String, _>("submitted_by"),
                     "state": r.get::<String, _>("state"),
                     "created_at": r.get::<String, _>("created_at"),
+                    "derived_from": r.get::<Option<String>, _>("derived_from"),
                 })
             }))
         }
         Backend::Postgres => {
-            let row = sqlx::query("SELECT id, version, document, submitted_by, state, created_at FROM extension_manifests WHERE id = $1")
+            let row = sqlx::query("SELECT id, version, document, submitted_by, state, created_at, derived_from FROM extension_manifests WHERE id = $1")
                 .bind(id)
                 .fetch_optional(db.postgres_pool().expect("postgres"))
                 .await?;
@@ -321,6 +324,7 @@ pub async fn get_extension(db: &Database, id: &str) -> Result<Option<Value>, sql
                     "submitted_by": r.get::<String, _>("submitted_by"),
                     "state": r.get::<String, _>("state"),
                     "created_at": r.get::<String, _>("created_at"),
+                    "derived_from": r.get::<Option<String>, _>("derived_from"),
                 })
             }))
         }
@@ -491,6 +495,119 @@ pub async fn grant_extension(
         }
     }
     Ok(())
+}
+
+/// Fork a published manifest into a new package (§21: "forks keep attribution and request their own grants").
+///
+/// Three things this deliberately does **not** do:
+///
+/// * It does not copy the grants. A grant is a consent given by a reader to one package id; a fork is a different package and asking for
+///   the original's permissions by inheritance is exactly the thing consent is meant to prevent. The fork's own grant starts empty and is
+///   requested through the same door as anyone else's.
+/// * It does not carry the source's `state`. A fork enters `pending`, because approval is a judgement about a package and a copy of an
+///   approved package is not one.
+/// * It does not rewrite the document. The manifest bytes are what the original author signed; attribution lives in `derived_from` and is
+///   published beside the document, so a reader can tell "written by X, derived from Y" without the JSON having been edited in transit.
+///
+/// Refuses a target id that already exists, because silently overwriting somebody's package with a fork is not a merge.
+pub async fn fork_manifest(
+    db: &Database,
+    source_id: &str,
+    target_id: &str,
+    version: &str,
+    forked_by: &str,
+) -> Result<Value, sqlx::Error> {
+    // Each arm resolves to plain values rather than handing back a row: the two pools are different types, and a `match` that returned
+    // `Option<Row>` would not compile — which is the compiler pointing at the real thing, that these are two databases and only the
+    // extracted values are common.
+    let source: Option<(String, String)> = match db.backend() {
+        Backend::Sqlite => {
+            sqlx::query(
+                "SELECT version, document FROM extension_manifests WHERE id = ? ORDER BY created_at DESC LIMIT 1",
+            )
+            .bind(source_id)
+            .fetch_optional(db.sqlite_pool().expect("sqlite"))
+            .await?
+            .map(|row| (row.get::<String, _>("version"), row.get::<String, _>("document")))
+        }
+        Backend::Postgres => {
+            sqlx::query(
+                "SELECT version, document FROM extension_manifests WHERE id = $1 ORDER BY created_at DESC LIMIT 1",
+            )
+            .bind(source_id)
+            .fetch_optional(db.postgres_pool().expect("postgres"))
+            .await?
+            .map(|row| (row.get::<String, _>("version"), row.get::<String, _>("document")))
+        }
+    };
+    let Some((source_version, document)) = source else {
+        return Err(sqlx::Error::RowNotFound);
+    };
+
+    let exists: Option<String> = match db.backend() {
+        Backend::Sqlite => {
+            sqlx::query("SELECT id FROM extension_manifests WHERE id = ?")
+                .bind(target_id)
+                .fetch_optional(db.sqlite_pool().expect("sqlite"))
+                .await?
+                .map(|row| row.get::<String, _>("id"))
+        }
+        Backend::Postgres => {
+            sqlx::query("SELECT id FROM extension_manifests WHERE id = $1")
+                .bind(target_id)
+                .fetch_optional(db.postgres_pool().expect("postgres"))
+                .await?
+                .map(|row| row.get::<String, _>("id"))
+        }
+    };
+    if exists.is_some() {
+        return Err(sqlx::Error::Protocol(format!(
+            "a package called `{target_id}` already exists"
+        )));
+    }
+
+    let now = crate::identity::now_rfc3339();
+    match db.backend() {
+        Backend::Sqlite => {
+            sqlx::query(
+                "INSERT INTO extension_manifests (id, version, document, submitted_by, state, created_at, derived_from)
+                 VALUES (?, ?, ?, ?, 'pending', ?, ?)",
+            )
+            .bind(target_id)
+            .bind(version)
+            .bind(&document)
+            .bind(forked_by)
+            .bind(&now)
+            .bind(source_id)
+            .execute(db.sqlite_pool().expect("sqlite"))
+            .await?;
+        }
+        Backend::Postgres => {
+            sqlx::query(
+                "INSERT INTO extension_manifests (id, version, document, submitted_by, state, created_at, derived_from)
+                 VALUES ($1, $2, $3, $4, 'pending', $5, $6)",
+            )
+            .bind(target_id)
+            .bind(version)
+            .bind(&document)
+            .bind(forked_by)
+            .bind(&now)
+            .bind(source_id)
+            .execute(db.postgres_pool().expect("postgres"))
+            .await?;
+        }
+    }
+
+    Ok(serde_json::json!({
+        "id": target_id,
+        "version": version,
+        "state": "pending",
+        "derived_from": source_id,
+        "derived_from_version": source_version,
+        "submitted_by": forked_by,
+        // Stated rather than implied: a caller that expected the original's permissions to come along needs to see that they did not.
+        "grants": [],
+    }))
 }
 
 /// The grants that still hold: revoked is a column, so "uninstall" means the row stops counting rather than disappearing.

@@ -8,7 +8,7 @@ use serde_json::{json, Value};
 use std::str::FromStr;
 use uuid::Uuid;
 
-use crate::auth::MaybeSession;
+use crate::auth::{MaybeSession, RequireSession};
 use crate::http::{ApiError, ApiResult};
 use crate::state::AppState;
 
@@ -369,6 +369,9 @@ pub fn router() -> axum::Router<AppState> {
         .route("/commissions/{id}/transition", post(transition_commission))
         .route("/extensions", get(list_extensions))
         .route("/extensions/{slug}", get(get_extension))
+        // M16-12: a fork is a new package derived from a published one. Before the grant routes, because a fork is what a reader does
+        // first — and because a fork never inherits a grant, so the order matches the only legal sequence.
+        .route("/extensions/{slug}/fork", post(fork_extension))
         .route("/extensions/{slug}/grant", post(grant_extension))
         .route("/extensions/{slug}/revoke", post(revoke_extension))
         .route("/me/extension-grants", get(list_my_grants))
@@ -382,4 +385,49 @@ pub fn router() -> axum::Router<AppState> {
             "/works/{id}/gallery",
             get(list_gallery).post(add_gallery_item),
         )
+}
+
+/// The body of a fork: the new package's own id and version.
+#[derive(Debug, serde::Deserialize)]
+pub struct ForkBody {
+    /// The slug the fork is published under. Different from the source's, which is why the route takes both.
+    pub id: String,
+    pub version: String,
+}
+
+/// Fork a published extension (`POST /extensions/{slug}/fork`).
+///
+/// A fork keeps attribution (`derived_from`) and **starts with no grants**: a reader consented to the original package's permissions, and
+/// a copy of it is a different package. The refusal on a duplicate id is a `409` rather than a silent overwrite — two packages with one
+/// name is how a marketplace loses track of which one was reviewed.
+pub async fn fork_extension(
+    State(state): State<AppState>,
+    Path(slug): Path<String>,
+    // `RequireSession`, matching the `Authenticated` row in the route inventory: the audience table says the door refuses an anonymous
+    // caller, and an extractor that admits one and then checks by hand is how a door and its row disagree.
+    RequireSession(user): RequireSession,
+    Json(body): Json<ForkBody>,
+) -> ApiResult<Json<Value>> {
+    let account = user.account_id.to_string();
+    let id = body.id.trim().to_lowercase();
+    if id.is_empty() || !id.chars().all(|c| c.is_ascii_lowercase() || c.is_ascii_digit() || c == '-' || c == '_') {
+        return Err(ApiError(darkhold_domain::AppError::field(
+            "id",
+            "a package id is lowercase letters, digits, `-` and `_`",
+        )));
+    }
+    if id == slug {
+        return Err(ApiError(darkhold_domain::AppError::field(
+            "id",
+            "a fork needs its own id; forking onto the original's name would overwrite it",
+        )));
+    }
+    match darkhold_db::marketplace::fork_manifest(state.db(), &slug, &id, body.version.trim(), &account).await {
+        Ok(fork) => Ok(Json(fork)),
+        Err(sqlx::Error::RowNotFound) => Err(ApiError(darkhold_domain::AppError::NotFound {
+            resource: "extension",
+        })),
+        Err(sqlx::Error::Protocol(message)) => Err(ApiError(darkhold_domain::AppError::field("id", &message))),
+        Err(error) => Err(ApiError(darkhold_domain::AppError::Internal(error.into()))),
+    }
 }
