@@ -218,3 +218,8 @@ M71-13 collections (a7664d54): events::collection_coverage counts entries vs rea
 (published+public+undeleted), publishes hidden, three sentences (partial / all readable / empty). GET
 /api/v1/collections/{id} carries `coverage`. Only the facet panel's leading line remains, which is UI — the API publishes
 known/unknown/total per facet.
+
+M71-09 (f3aca3fc): ResumeState (current/stale/unmeasured/conflict) with percent(): Option<u16> and display() '—';
+positions_with_current_revision joins each stored row to its unit's current revision; /api/v1/reading/progress
+publishes `resume`; save_progress now stamps the server's current revision when the client omits content_revision
+(without that, a position could never be proven stale). Row stays planned on the reader bar/choice UI.
