@@ -99,7 +99,7 @@ pub async fn sweep(db: &Database, cutoff: &str) -> Result<Sweep, sqlx::Error> {
             sqlx::query_as(
                 "SELECT p.account_id,
                         COUNT(w.id),
-                        (SELECT COUNT(*) FROM reports r WHERE r.subject_id = p.account_id AND r.state = 'upheld')
+                        (SELECT COUNT(*) FROM reports r WHERE r.subject_id = CAST(p.account_id AS TEXT) AND r.state = 'upheld')
                    FROM works w
                    JOIN pseuds p ON p.id = w.owner_pseud_id
                   WHERE w.lifecycle = 'published' AND w.deleted_at IS NULL AND w.created_at >= ?1
@@ -113,7 +113,7 @@ pub async fn sweep(db: &Database, cutoff: &str) -> Result<Sweep, sqlx::Error> {
             sqlx::query_as(
                 "SELECT p.account_id,
                         COUNT(w.id),
-                        (SELECT COUNT(*) FROM reports r WHERE r.subject_id = p.account_id AND r.state = 'upheld')
+                        (SELECT COUNT(*) FROM reports r WHERE r.subject_id = CAST(p.account_id AS TEXT) AND r.state = 'upheld')
                    FROM works w
                    JOIN pseuds p ON p.id = w.owner_pseud_id
                   WHERE w.lifecycle = 'published' AND w.deleted_at IS NULL AND w.created_at >= $1
