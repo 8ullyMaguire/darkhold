@@ -191,3 +191,6 @@ checks; the cross-site refusal and audit check mutation-proven) merged into mast
 Its migration came in as **0179_session_roles**, renumbered from 0178 because 0178_source_engagement
 (M63-37) already occupied that number. Snapshot policy gained `sessions.roles` = drop_column
 (2628 cols / 362 tables). The thinkcentre checkout is ff-merged to 249a2bce and clean.
+
+Gate added alongside the merge (3cc2399e): `scripts/check-migration-numbers.py` in `gate.sh repo` refuses a repeated
+number per engine, a number in one engine only, and an unnumbered file. Proven by planting each failure.

@@ -35,7 +35,7 @@
 #   scripts/gate.sh frontend                svelte-check and vitest
 #   scripts/gate.sh e2e <suite>             one Playwright suite at a time
 #   scripts/gate.sh dialects                the dialect-parity gates
-#   scripts/gate.sh repo                    reachability, vocabulary, requirement ids, split spec, ledger
+#   scripts/gate.sh repo                    reachability, vocabulary, requirement ids, migration numbers, split spec, ledger
 #   scripts/gate.sh ledger                  the ledger's ending, header and idempotency
 #   scripts/gate.sh budget                  the archive's RSS budget
 #   scripts/gate.sh taste-budget            the taste engine's RSS budget (M13-09)
