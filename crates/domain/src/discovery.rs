@@ -237,11 +237,17 @@ pub fn blend_with(engines: &[Vec<Candidate>], options: BlendOptions) -> Vec<Cand
     // points higher, and the ordering guarantee §47.2 asks for was empty. M69-08 made the score the key and kept
     // appearance as the tie-break it always was.
     let mut first_seen: std::collections::HashMap<String, usize> = std::collections::HashMap::new();
-    for (position, engine_results) in engines.iter().enumerate() {
+    // The ordinal counts **candidates**, not engines. `or_insert(engine_index)` looked like first appearance and was not: two
+    // candidates from the same engine both recorded `0`, so their tie fell through to `HashMap` iteration order, which SipHash
+    // randomises per process — the exact flake the comment above says was fixed. `equal_scores_keep_first_appearance_order` failed on
+    // random ids because of it, one coin flip per run.
+    let mut ordinal = 0usize;
+    for engine_results in engines.iter() {
         for candidate in engine_results {
             first_seen
                 .entry(candidate.work_id.to_canonical_string())
-                .or_insert(position);
+                .or_insert(ordinal);
+            ordinal += 1;
         }
     }
     let mut results: Vec<Candidate> = merged
@@ -646,6 +652,19 @@ mod tests {
         let result = blend(&engines);
         assert_eq!(result[0].work_id, first);
         assert_eq!(result[1].work_id, second);
+
+        // The reverse input must give the reverse output. Without this half, a tie-break that happened to agree with the fixture
+        // (or a stable sort over a HashMap that usually iterates one way) would pass — which is what the previous version did,
+        // one coin flip per run, because same-engine candidates shared `first_seen = 0`.
+        let mirrored = blend(&[vec![candidate(second, 10), candidate(first, 10)]]);
+        assert_eq!(mirrored[0].work_id, second);
+        assert_eq!(mirrored[1].work_id, first);
+
+        // And a tie across two engines breaks by the engine that saw it first.
+        let early = WorkId::new();
+        let late = WorkId::new();
+        let across = blend(&[vec![candidate(early, 10)], vec![candidate(late, 10)]]);
+        assert_eq!(across[0].work_id, early);
     }
 
     #[test]
