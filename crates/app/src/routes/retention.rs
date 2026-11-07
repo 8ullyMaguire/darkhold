@@ -42,7 +42,6 @@ use serde::Deserialize;
 
 use crate::auth::RequireSession;
 use crate::http::{ApiError, ApiResult};
-use crate::routes::discovery::require_operator;
 use crate::state::AppState;
 
 /// Retention administration routes.
@@ -102,7 +101,10 @@ async fn get_policy(
     State(state): State<AppState>,
     RequireSession(user): RequireSession,
 ) -> ApiResult<Json<serde_json::Value>> {
-    require_operator(&state, &user)?;
+    // Cross-site (ADR 0003): retention decides what is DESTROYED, and the policy applies to imported sources beyond this
+    // site's own posts. It takes `role:operator` or the break-glass account — never local standing, and never a config string
+    // that happens to be unset (which is why this surface answered 404 to everyone before the conversion).
+    crate::routes::admin_scope::require_admin_of(&state, &user, None).await?;
 
     let policy = retention::read_policy(state.db())
         .await
@@ -131,7 +133,10 @@ async fn patch_policy(
     RequireSession(user): RequireSession,
     Json(body): Json<PolicyPatch>,
 ) -> ApiResult<Json<serde_json::Value>> {
-    require_operator(&state, &user)?;
+    // Cross-site (ADR 0003): retention decides what is DESTROYED, and the policy applies to imported sources beyond this
+    // site's own posts. It takes `role:operator` or the break-glass account — never local standing, and never a config string
+    // that happens to be unset (which is why this surface answered 404 to everyone before the conversion).
+    crate::routes::admin_scope::require_admin_of(&state, &user, None).await?;
 
     let mode = parse_mode(&body.body_mode).map_err(|message| {
         ApiError(AppError::Validation {
@@ -199,7 +204,10 @@ async fn get_sources(
     State(state): State<AppState>,
     RequireSession(user): RequireSession,
 ) -> ApiResult<Json<serde_json::Value>> {
-    require_operator(&state, &user)?;
+    // Cross-site (ADR 0003): retention decides what is DESTROYED, and the policy applies to imported sources beyond this
+    // site's own posts. It takes `role:operator` or the break-glass account — never local standing, and never a config string
+    // that happens to be unset (which is why this surface answered 404 to everyone before the conversion).
+    crate::routes::admin_scope::require_admin_of(&state, &user, None).await?;
 
     let instance = retention::effective_instance_mode(state.db())
         .await
@@ -230,7 +238,10 @@ async fn put_source_override(
     Path(source_key): Path<String>,
     Json(body): Json<SourceOverrideBody>,
 ) -> ApiResult<Json<serde_json::Value>> {
-    require_operator(&state, &user)?;
+    // Cross-site (ADR 0003): retention decides what is DESTROYED, and the policy applies to imported sources beyond this
+    // site's own posts. It takes `role:operator` or the break-glass account — never local standing, and never a config string
+    // that happens to be unset (which is why this surface answered 404 to everyone before the conversion).
+    crate::routes::admin_scope::require_admin_of(&state, &user, None).await?;
 
     let mode = parse_mode(&body.body_mode).map_err(|message| {
         ApiError(AppError::Validation {
@@ -308,7 +319,10 @@ async fn delete_source_override(
     RequireSession(user): RequireSession,
     Path(source_key): Path<String>,
 ) -> ApiResult<Json<serde_json::Value>> {
-    require_operator(&state, &user)?;
+    // Cross-site (ADR 0003): retention decides what is DESTROYED, and the policy applies to imported sources beyond this
+    // site's own posts. It takes `role:operator` or the break-glass account — never local standing, and never a config string
+    // that happens to be unset (which is why this surface answered 404 to everyone before the conversion).
+    crate::routes::admin_scope::require_admin_of(&state, &user, None).await?;
 
     let removed = retention::clear_source_override(state.db(), &source_key)
         .await
@@ -386,7 +400,10 @@ async fn get_works_past_saving(
     State(state): State<AppState>,
     RequireSession(user): RequireSession,
 ) -> ApiResult<Json<serde_json::Value>> {
-    require_operator(&state, &user)?;
+    // Cross-site (ADR 0003): retention decides what is DESTROYED, and the policy applies to imported sources beyond this
+    // site's own posts. It takes `role:operator` or the break-glass account — never local standing, and never a config string
+    // that happens to be unset (which is why this surface answered 404 to everyone before the conversion).
+    crate::routes::admin_scope::require_admin_of(&state, &user, None).await?;
 
     let past = darkhold_db::retention::works_past_saving(state.db())
         .await
