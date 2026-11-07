@@ -65,14 +65,29 @@ async fn tag_page(
     let mut page = docs::shell(&site, &format!("{shown} — {site}"), stylesheet.as_deref());
     page.open("main", &[]);
     page.open("h1", &[]).text(shown).close("h1");
+    // M71-13: the count that matters is the count **of the archive**, not of this page. "12 works" tells a reader the tag is small;
+    // "12 of 3,400 works in this archive are tagged slow burn (0.4%)" tells them how much of the archive they are looking at, which is
+    // the fact that decides whether to keep browsing.
+    let coverage = darkhold_db::taxonomy::dimension_coverage(state.db(), "tag", shown)
+        .await
+        .ok();
+    let mut counts = coverage
+        .as_ref()
+        .map(|coverage| coverage.sentence.clone())
+        .unwrap_or_else(|| {
+            if rows.len() == 1 {
+                "1 work".to_owned()
+            } else {
+                format!("{} works", rows.len())
+            }
+        });
+    if more {
+        counts.push_str(&format!(
+            " Showing the first {PAGE}, most recently updated first."
+        ));
+    }
     page.open("p", &[("class", "counts")])
-        .text(&if more {
-            format!("more than {} works, most recently updated first", PAGE)
-        } else if rows.len() == 1 {
-            "1 work".to_owned()
-        } else {
-            format!("{} works", rows.len())
-        })
+        .text(&counts)
         .close("p");
 
     page.open("ul", &[("class", "entries")]);

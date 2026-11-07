@@ -1675,3 +1675,111 @@ pub async fn tags_for_work(db: &Database, work_id: &str) -> Result<Vec<String>> 
     };
     Ok(rows)
 }
+
+/// How much of the catalogue one dimension actually covers (M71-13).
+///
+/// A tag page that says "12 works" invites the reader to think it is the whole of that tag, and a facet that offers a value offers it as if
+/// everything had been measured. Both are the same missing fact: **how much of the archive this dimension describes**. So the numbers travel
+/// with the answer — `works` in the view, `catalogue` published-and-public works in the archive, and the share between them — and the
+/// sentence is built here rather than by each surface, because two pages phrasing the same gap differently is how a reader learns to
+/// distrust both.
+///
+/// The catalogue count is `published` + `public` + not deleted, the same definition every listing uses; counting drafts would make every
+/// share look smaller than the archive a reader can actually reach.
+#[derive(Debug, Clone, Serialize)]
+pub struct Coverage {
+    /// What is being counted: `tag`, `fandom`, `collection`.
+    pub dimension: String,
+    /// The value the count is about, as the caller asked for it.
+    pub value: String,
+    /// Published, public, undeleted works carrying this dimension.
+    pub works: i64,
+    /// Published, public, undeleted works in the whole archive.
+    pub catalogue: i64,
+    /// `works / catalogue`, or `0.0` when the archive is empty — never a division by zero dressed as a measurement.
+    pub share: f64,
+    /// One sentence a page can print verbatim.
+    pub sentence: String,
+}
+
+/// The coverage of one `(dimension, value)` pair.
+pub async fn dimension_coverage(
+    db: &Database,
+    dimension: &str,
+    value: &str,
+) -> Result<Coverage> {
+    let norm = darkhold_domain::exchange::normalise(value);
+    // One statement, two scalar counts: a second round trip would let the catalogue change between the halves and report a share of two
+    // different archives.
+    let sqlite = "SELECT
+            (SELECT COUNT(DISTINCT w.id) FROM works w
+               JOIN work_tags wt ON wt.work_id = w.id
+               JOIN canonical_entities tn ON tn.id = wt.node_id
+              WHERE tn.norm = ?1 AND w.lifecycle = 'published' AND w.visibility = 'public' AND w.deleted_at IS NULL),
+            (SELECT COUNT(*) FROM works w
+              WHERE w.lifecycle = 'published' AND w.visibility = 'public' AND w.deleted_at IS NULL)";
+    let postgres = "SELECT
+            (SELECT COUNT(DISTINCT w.id) FROM works w
+               JOIN work_tags wt ON wt.work_id = w.id
+               JOIN canonical_entities tn ON tn.id = wt.node_id
+              WHERE tn.norm = $1 AND w.lifecycle = 'published' AND w.visibility = 'public' AND w.deleted_at IS NULL),
+            (SELECT COUNT(*) FROM works w
+              WHERE w.lifecycle = 'published' AND w.visibility = 'public' AND w.deleted_at IS NULL)";
+    let sql = db.sql(sqlite, postgres);
+    let (works, catalogue): (i64, i64) = match db.backend() {
+        Backend::Sqlite => {
+            sqlx::query_as(&sql)
+                .bind(&norm)
+                .fetch_one(
+                    db.sqlite_pool()
+                        .ok_or_else(|| anyhow::anyhow!("no sqlite pool on a sqlite database"))?,
+                )
+                .await?
+        }
+        Backend::Postgres => {
+            sqlx::query_as(&sql)
+                .bind(&norm)
+                .fetch_one(
+                    db.postgres_pool()
+                        .ok_or_else(|| anyhow::anyhow!("no postgres pool on a postgres database"))?,
+                )
+                .await?
+        }
+    };
+    let share = if catalogue > 0 {
+        works as f64 / catalogue as f64
+    } else {
+        0.0
+    };
+    Ok(Coverage {
+        dimension: dimension.to_owned(),
+        value: value.to_owned(),
+        works,
+        catalogue,
+        share,
+        sentence: coverage_sentence(dimension, value, works, catalogue, share),
+    })
+}
+
+fn coverage_sentence(dimension: &str, value: &str, works: i64, catalogue: i64, share: f64) -> String {
+    if catalogue == 0 {
+        // An empty archive: a percentage of nothing is not a measurement, and "0 of 0" reads as a fault.
+        return "This archive has no published works yet, so there is nothing to measure against."
+            .to_owned();
+    }
+    // A verb phrase, because "2 of 5 works are works tagged x" is what a template produces when nobody reads it back.
+    let predicate = match dimension {
+        "tag" => format!("tagged {value}"),
+        "fandom" | "collection" => format!("in {value}"),
+        other => format!("carrying this {other}"),
+    };
+    if works == 0 {
+        // A dimension page exists because something carried it, so zero means the rows went away since the page was linked. Saying
+        // that is more useful than a straight-faced "0.0%".
+        return format!("No published work in this archive is {predicate} any more.");
+    }
+    format!(
+        "{works} of {catalogue} works in this archive are {predicate} ({percent:.1}%).",
+        percent = share * 100.0
+    )
+}

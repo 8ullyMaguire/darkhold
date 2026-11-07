@@ -433,11 +433,18 @@ async fn list_works_by_tag(
     .await
     .unwrap_or_default();
 
+    // M71-13: how much of the archive this tag describes. "12 works" reads as "this is the tag"; "12 of 3,400 works in this archive
+    // are tagged slow burn (0.4%)" is the fact the page has.
+    let coverage = darkhold_db::taxonomy::dimension_coverage(state.db(), "tag", &tag)
+        .await
+        .map_err(|e| ApiError(AppError::Internal(e)))?;
+
     Ok(Json(serde_json::json!({
         "items": items,
         "sort": sort,
         "tag": tag,
         "facets": facets,
+        "coverage": coverage,
         // The count is the count of what SURVIVED the filter, not the count
         // before it. A reader told there are forty works and shown twelve,
         // with nothing saying which twelve, has been told a lie.
@@ -602,11 +609,17 @@ async fn list_works_by_fandom(
     .await
     .unwrap_or_default();
 
+    // M71-13: the same coverage fact as the tag page, because a fandom page with "9 works" says the same misleading thing.
+    let coverage = darkhold_db::taxonomy::dimension_coverage(state.db(), "fandom", &fandom)
+        .await
+        .map_err(|e| ApiError(AppError::Internal(e)))?;
+
     Ok(Json(serde_json::json!({
         "items": items,
         "sort": sort,
         "fandom": fandom,
         "facets": facets,
+        "coverage": coverage,
     })))
 }
 

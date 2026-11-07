@@ -150,7 +150,17 @@ async fn a_tag_lists_its_reachable_works_without_a_script() {
         body.contains(&format!("/works/{PUBLIC_A}")),
         "each entry links the work page: {body}"
     );
-    assert!(body.contains("2 works"), "the count is what it lists: {body}");
+    // M71-13: the count names the archive it is a part of, so "2 works" became "2 of N works in this archive are tagged ...".
+    // What this test still owns is that the number equals what the page lists.
+    let counts = body
+        .split("class=\"counts\">")
+        .nth(1)
+        .and_then(|rest| rest.split('<').next())
+        .unwrap_or_default();
+    assert!(
+        counts.starts_with("2 of ") && counts.contains("works in this archive are tagged"),
+        "the count is what it lists, and it says of how many: {counts}"
+    );
     test_support::assert_no_empty_section(&body, "tag page");
 }
 
