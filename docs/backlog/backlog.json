@@ -4,11 +4,11 @@
       "rows": 942,
       "by_status": {
         "implemented-verified-e2e": 139,
-        "implemented-locally-tested": 268,
+        "implemented-locally-tested": 269,
         "unsupported": 4,
         "implemented-fully-tested": 435,
         "implemented": 11,
-        "planned": 78,
+        "planned": 77,
         "evaluated-and-rejected": 7
       }
     },
@@ -179,12 +179,6 @@
       "milestone": "M63",
       "requirement": "reconcile the live database with the workspace migrations: 11 tables the migrations create are absent, 12 legacy-named tables are present",
       "notes": "Found while planning M63-01. The live instance was migrated by the other lineage (lorehaven), whose migration numbers collide with this tree's, so master's files are recorded as applied while the schema is the other one. Everything M63-01 touches exists in both shapes, so the milestone was verifiable; anything that reads chapters/bodies/ships from the live instance will not be. Decide per table: rename (units->chapters, entity_*->canonical_*, revisions->chapter_revisions) or create-and-backfill. Do not run this blind: 127k rows live in the legacy shapes."
-    },
-    {
-      "id": "M63-38",
-      "milestone": "M63",
-      "requirement": "the quality weights are per-operator and per-surface rather than compiled in",
-      "notes": "Renumbered from `M63-05` on 2026-11-02: that id was assigned to two rows, so a citation of it landed on whichever row sorted first. Belongs with M63-30's taste layer, not before it: a weight nobody can explain is worse than a constant. The registry shape is already there \u2014 each metric is addressable by name, so a profile is a weight vector over names."
     },
     {
       "id": "M64-06",
@@ -494,8 +488,8 @@
     }
   ],
   "open_by_milestone": {
-    "M63": 16,
     "M69": 16,
+    "M63": 15,
     "M45": 12,
     "M71": 10,
     "M64": 8,
