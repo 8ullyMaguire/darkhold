@@ -163,6 +163,41 @@ struct SubjectQuery {
 struct ProgressView {
     positions: Vec<PositionView>,
     resolution: ProgressResolutionView,
+    /// M71-09: what the reader is actually offered, with the honesty about stale places and absent measurements made explicit.
+    resume: ResumeView,
+}
+
+/// The resume decision as a page receives it.
+///
+/// `percent` is `null` — not `0` — whenever there is no honest number, and `display` is the string to print instead (`—`). A page that
+/// wants a percentage reads `percent`; a page that prints the number reads `display`, and neither can accidentally turn "no measurement" into
+/// "0%".
+#[derive(Debug, Serialize)]
+struct ResumeView {
+    state: &'static str,
+    percent: Option<u16>,
+    display: String,
+    sentence: &'static str,
+    needs_a_choice: bool,
+}
+
+impl From<darkhold_domain::reading::ResumeState> for ResumeView {
+    fn from(state: darkhold_domain::reading::ResumeState) -> Self {
+        let name = match &state {
+            darkhold_domain::reading::ResumeState::Nothing => "nothing",
+            darkhold_domain::reading::ResumeState::Unmeasured => "unmeasured",
+            darkhold_domain::reading::ResumeState::Current { .. } => "current",
+            darkhold_domain::reading::ResumeState::Stale { .. } => "stale",
+            darkhold_domain::reading::ResumeState::Conflict { .. } => "conflict",
+        };
+        Self {
+            state: name,
+            percent: state.percent(),
+            display: state.display(),
+            sentence: state.sentence(),
+            needs_a_choice: state.needs_a_choice(),
+        }
+    }
 }
 
 #[derive(Debug, Serialize)]
@@ -445,10 +480,17 @@ async fn save_progress(
     RequirePseud { user, pseud_id }: RequirePseud,
     Json(request): Json<ProgressRequest>,
 ) -> ApiResult<StatusCode> {
-    let revision = request
+    let mut revision = request
         .content_revision
         .as_deref()
         .and_then(|r| r.parse().ok());
+    // A client that does not name the revision it is reading gets the server's current one for the unit, not NULL (M71-09). A NULL revision
+    // is a place nobody can ever prove stale, so the reader would be offered "42%" of text that may have been rewritten twice.
+    if revision.is_none() {
+        if let Some(unit) = request.unit_id.as_deref() {
+            revision = reading::current_revision_of_unit(state.db(), unit).await?;
+        }
+    }
     reading::save_progress(
         state.db(),
         reading::ProgressInput {
@@ -497,9 +539,20 @@ async fn get_progress(
     )
     .await?;
     let resolution = resolve_progress(&positions);
+    // The honesty layer (M71-09): the stored rows carry the revision they were recorded against, but not the revision their unit points at
+    // now. One join supplies it, so the comparison happens at a single moment rather than across two queries.
+    let stored = reading::positions_with_current_revision(
+        state.db(),
+        user.account_id,
+        &query.subject_type,
+        &query.subject_id,
+    )
+    .await?;
+    let resume = darkhold_domain::reading::resume_state(&stored);
     Ok(Json(ProgressView {
         positions: positions.into_iter().map(PositionView::from).collect(),
         resolution: resolution.into(),
+        resume: resume.into(),
     }))
 }
 

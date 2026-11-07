@@ -140,6 +140,153 @@ pub fn estimate_reading_time(word_count: u32) -> ReadingTime {
     }
 }
 
+// ---------------------------------------------------------------------------
+// M71-09: an honest resume state
+// ---------------------------------------------------------------------------
+//
+// `resolve_progress` answers *which* stored position to use. It does not answer the two questions a reader actually has, and that silence is
+// the bug: a position recorded against a revision that has since been rewritten is presented as though it were current, and a row with no
+// evidence of where the reader was renders as `0%`, which is a fabricated measurement (§11.3 forbids fake precision; §8.14 forbids silence
+// about a gap).
+//
+// So the states are enumerated, each with its own sentence, and the percentage is an `Option` — `None` is rendered `—`, never `0%`.
+
+/// A stored position together with the revision its unit currently points at.
+///
+/// The current revision travels beside the position rather than being looked up by the caller, because comparing the two is the whole of
+/// the staleness question and a caller that forgot would produce exactly the silent lie this type exists to prevent.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct StoredPosition {
+    pub position: ReadingPosition,
+    /// The revision the position's unit points at *now*, when the unit still exists.
+    pub current_revision: Option<RevisionId>,
+}
+
+/// What a reader can be offered when they come back to a subject.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum ResumeState {
+    /// Nothing stored: there is nothing to resume and nothing to explain.
+    Nothing,
+    /// A position that was recorded without a revision, an anchor, or any movement: the reader was at the top, or nothing was saved.
+    Unmeasured,
+    /// A position against the text as it stands.
+    Current {
+        fraction: u16,
+        anchor: Option<String>,
+    },
+    /// A position against a revision that is no longer the current one. Offered as a choice, never rendered as a percentage: the
+    /// permille was measured against text that has changed.
+    Stale {
+        recorded: RevisionId,
+        /// The revision the unit points at now; `None` when the unit itself is gone, which is also why the place is not a percentage.
+        current: Option<RevisionId>,
+        fraction: u16,
+        anchor: Option<String>,
+    },
+    /// Positions from more than one device that disagree. The reader chooses; the page shows both, and no single percentage.
+    Conflict {
+        mine: ReadingPosition,
+        other: ReadingPosition,
+    },
+}
+
+impl ResumeState {
+    /// The percentage to render, or `None` when there is no honest number to render.
+    ///
+    /// Only [`ResumeState::Current`] has one. A stale position was measured against different text; an unmeasured one was never measured;
+    /// a conflict is two numbers and no basis to pick. `None` is rendered `—`.
+    #[must_use]
+    pub fn percent(&self) -> Option<u16> {
+        match self {
+            ResumeState::Current { fraction, .. } => Some(*fraction),
+            _ => None,
+        }
+    }
+
+    /// The string a page prints where a percentage would go.
+    #[must_use]
+    pub fn display(&self) -> String {
+        match self.percent() {
+            Some(per_mille) => format!("{:.0}%", f64::from(per_mille) / 10.0),
+            None => "—".to_owned(),
+        }
+    }
+
+    /// The sentence that explains the state, in the reader's terms.
+    #[must_use]
+    pub fn sentence(&self) -> &'static str {
+        match self {
+            ResumeState::Nothing => "You have not started this yet.",
+            ResumeState::Unmeasured => "There is no saved place in this text.",
+            ResumeState::Current { .. } => "You can pick up where you left off.",
+            ResumeState::Stale { .. } => {
+                "Your place was saved on an earlier version of this text. You can go back to it, or start from the top."
+            }
+            ResumeState::Conflict { .. } => {
+                "Two devices have different places in this text. Choose the one to continue from."
+            }
+        }
+    }
+
+    /// Whether the page must offer a choice rather than resume silently (§9.3).
+    #[must_use]
+    pub fn needs_a_choice(&self) -> bool {
+        matches!(
+            self,
+            ResumeState::Stale { .. } | ResumeState::Conflict { .. }
+        )
+    }
+}
+
+/// Positions closer than this agree: a slider dropped a pixel to the left is not a second opinion.
+pub const AGREEMENT_PERMILLE: u16 = 50;
+
+/// Decide what to offer a reader, from their stored positions and the revisions those units point at now.
+pub fn resume_state(rows: &[StoredPosition]) -> ResumeState {
+    let Some(first) = rows.first() else {
+        return ResumeState::Nothing;
+    };
+
+    // Disagreement first: if two devices say different things, which one is "current" is the reader's decision and not ours.
+    if let Some(other) = rows.iter().skip(1).find(|row| {
+        row.position.revision != first.position.revision
+            || row.position.fraction.abs_diff(first.position.fraction) > AGREEMENT_PERMILLE
+    }) {
+        return ResumeState::Conflict {
+            mine: first.position.clone(),
+            other: other.position.clone(),
+        };
+    }
+
+    let position = &first.position;
+    let has_evidence =
+        position.revision.is_some() || position.anchor.is_some() || position.fraction > 0;
+    if !has_evidence {
+        return ResumeState::Unmeasured;
+    }
+
+    match (&position.revision, &first.current_revision) {
+        (Some(recorded), Some(current)) if recorded != current => ResumeState::Stale {
+            recorded: *recorded,
+            current: Some(*current),
+            fraction: position.fraction,
+            anchor: position.anchor.clone(),
+        },
+        // A revision was recorded but the unit it belonged to is gone. The permille was not measured against text as it stands, so it is
+        // not a percentage; the place is still offered, with `current: None` saying why.
+        (Some(recorded), None) => ResumeState::Stale {
+            recorded: *recorded,
+            current: None,
+            fraction: position.fraction,
+            anchor: position.anchor.clone(),
+        },
+        _ => ResumeState::Current {
+            fraction: position.fraction,
+            anchor: position.anchor.clone(),
+        },
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -245,5 +392,114 @@ mod tests {
     #[test]
     fn reading_time_uses_the_documented_words_per_minute() {
         assert_eq!(WORDS_PER_MINUTE, 200);
+    }
+    // --- M71-09: the resume states, one test per state, each demanding its sentence and refusing a fabricated percentage ---
+
+    fn stored(revision: Option<&str>, fraction: u16, current: Option<&str>) -> StoredPosition {
+        StoredPosition {
+            position: ReadingPosition {
+                revision: revision.map(|value| value.parse().unwrap()),
+                anchor: None,
+                fraction,
+                device: Some("device-a".to_owned()),
+            },
+            current_revision: current.map(|value| value.parse().unwrap()),
+        }
+    }
+
+    #[test]
+    fn a_position_on_the_current_revision_is_the_one_percentage_that_is_offered() {
+        let state = resume_state(&[stored(
+            Some("00000000-0000-0000-0000-000000000011"),
+            420,
+            Some("00000000-0000-0000-0000-000000000011"),
+        )]);
+        assert_eq!(
+            state,
+            ResumeState::Current {
+                fraction: 420,
+                anchor: None
+            }
+        );
+        assert_eq!(state.percent(), Some(420));
+        assert_eq!(state.display(), "42%");
+        assert!(!state.needs_a_choice(), "nothing to decide");
+    }
+
+    #[test]
+    fn a_position_against_an_older_revision_is_offered_as_a_choice_and_never_as_a_percentage() {
+        let state = resume_state(&[stored(
+            Some("00000000-0000-0000-0000-000000000011"),
+            420,
+            Some("00000000-0000-0000-0000-000000000022"),
+        )]);
+        assert!(matches!(state, ResumeState::Stale { .. }), "{state:?}");
+        assert_eq!(
+            state.percent(),
+            None,
+            "the permille was measured against text that has changed"
+        );
+        assert_eq!(state.display(), "—", "no fabricated 42%");
+        assert!(state.needs_a_choice());
+        assert!(
+            state.sentence().contains("earlier version")
+                && state.sentence().contains("start from the top"),
+            "the choice is stated: {}",
+            state.sentence()
+        );
+    }
+
+    #[test]
+    fn a_position_with_no_evidence_renders_a_dash_rather_than_zero_percent() {
+        let state = resume_state(&[stored(None, 0, None)]);
+        assert_eq!(state, ResumeState::Unmeasured);
+        assert_eq!(state.percent(), None);
+        assert_eq!(state.display(), "—");
+        assert_eq!(state.sentence(), "There is no saved place in this text.");
+
+        // No rows at all is a different fact, and says so.
+        let nothing = resume_state(&[]);
+        assert_eq!(nothing, ResumeState::Nothing);
+        assert_eq!(nothing.display(), "—");
+        assert_eq!(nothing.sentence(), "You have not started this yet.");
+    }
+
+    #[test]
+    fn two_devices_that_disagree_ask_the_reader_and_show_no_single_percentage() {
+        let mine = stored(
+            Some("00000000-0000-0000-0000-000000000011"),
+            100,
+            Some("00000000-0000-0000-0000-000000000011"),
+        );
+        let theirs = StoredPosition {
+            position: ReadingPosition {
+                revision: mine.position.revision,
+                anchor: None,
+                fraction: 900,
+                device: Some("device-b".to_owned()),
+            },
+            current_revision: mine.current_revision,
+        };
+        let state = resume_state(&[mine, theirs]);
+        assert!(matches!(state, ResumeState::Conflict { .. }), "{state:?}");
+        assert_eq!(state.percent(), None, "two places, no basis to pick one");
+        assert_eq!(state.display(), "—");
+        assert!(state.needs_a_choice());
+        assert!(state.sentence().contains("Two devices"));
+
+        // A slider dropped a few permille to the left is not a second opinion.
+        let close = resume_state(&[
+            stored(Some("00000000-0000-0000-0000-000000000011"), 500, Some("00000000-0000-0000-0000-000000000011")),
+            StoredPosition {
+                position: ReadingPosition {
+                    revision: Some("00000000-0000-0000-0000-000000000011".parse().unwrap()),
+                    anchor: None,
+                    fraction: 520,
+                    device: Some("device-b".to_owned()),
+                },
+                current_revision: Some("00000000-0000-0000-0000-000000000011".parse().unwrap()),
+            },
+        ]);
+        assert!(matches!(close, ResumeState::Current { .. }), "{close:?}");
     }
 }

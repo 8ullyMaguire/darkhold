@@ -1478,6 +1478,111 @@ pub async fn save_typography(db: &Database, input: TypographyInput<'_>) -> Resul
     Ok(affected > 0)
 }
 
+// ---------------------------------------------------------------------------
+// M71-09: the facts a resume decision needs
+// ---------------------------------------------------------------------------
+
+/// Stored positions with the revision each one's unit points at **now**.
+///
+/// `progress_for` returns the rows as the reader left them. This returns them with the fact that decides whether they can still be honoured:
+/// the revision their unit currently points at. One join rather than a lookup per position, so the answer is about a single moment — two
+/// queries could see the unit change in between and report as current a position that was already stale.
+pub async fn positions_with_current_revision(
+    db: &Database,
+    account: AccountId,
+    subject_type: &str,
+    subject_id: &str,
+) -> Result<Vec<darkhold_domain::reading::StoredPosition>> {
+    let sql = db.sql(
+        "SELECT rp.content_revision, rp.paragraph_anchor AS anchor, rp.position_permille, rp.device_id,
+                u.current_revision_id
+           FROM reading_progress rp
+           LEFT JOIN units u ON u.id = rp.unit_id
+          WHERE rp.account_id = ? AND rp.subject_type = ? AND rp.subject_id = ?
+          ORDER BY rp.updated_at DESC",
+        "SELECT rp.content_revision::text AS content_revision, rp.paragraph_anchor AS anchor,
+                rp.position_permille, rp.device_id, u.current_revision_id::text AS current_revision_id
+           FROM reading_progress rp
+           LEFT JOIN units u ON u.id = rp.unit_id
+          WHERE rp.account_id::text = ? AND rp.subject_type = ? AND rp.subject_id::text = ?
+          ORDER BY rp.updated_at DESC",
+    );
+
+    type Row = (
+        Option<String>,
+        Option<String>,
+        i64,
+        Option<String>,
+        Option<String>,
+    );
+
+    let raw: Vec<Row> = match db.backend() {
+        Backend::Sqlite => {
+            sqlx::query_as(&sql)
+                .bind(account.to_string())
+                .bind(subject_type)
+                .bind(subject_id)
+                .fetch_all(db.sqlite_pool().expect("sqlite handle"))
+                .await?
+        }
+        Backend::Postgres => {
+            sqlx::query_as(&sql)
+                .bind(account.to_string())
+                .bind(subject_type)
+                .bind(subject_id)
+                .fetch_all(db.postgres_pool().expect("postgres handle"))
+                .await?
+        }
+    };
+
+    Ok(raw
+        .into_iter()
+        .map(|(revision, anchor, permille, device, current)| {
+            darkhold_domain::reading::StoredPosition {
+                position: darkhold_domain::reading::ReadingPosition {
+                    revision: revision.as_deref().and_then(|value| value.parse().ok()),
+                    anchor,
+                    fraction: u16::try_from(permille).unwrap_or(0),
+                    device,
+                },
+                current_revision: current.as_deref().and_then(|value| value.parse().ok()),
+            }
+        })
+        .collect())
+}
+
+/// The revision a unit points at right now.
+///
+/// The save route used to record whatever revision the client sent, and nothing when the client sent none. A reader whose browser does not
+/// send it then owns a position that can never be detected as stale — the honesty layer would have to call it current forever, which is the
+/// silent lie M71-09 exists to prevent. Resolving it here makes the default the server's own answer.
+pub async fn current_revision_of_unit(
+    db: &Database,
+    unit_id: &str,
+) -> Result<Option<darkhold_domain::ids::RevisionId>> {
+    let sql = db.sql(
+        "SELECT current_revision_id FROM units WHERE id = ?",
+        "SELECT current_revision_id::text FROM units WHERE id = $1",
+    );
+    let row: Option<(Option<String>,)> = match db.backend() {
+        Backend::Sqlite => {
+            sqlx::query_as(&sql)
+                .bind(unit_id)
+                .fetch_optional(db.sqlite_pool().expect("sqlite handle"))
+                .await?
+        }
+        Backend::Postgres => {
+            sqlx::query_as(&sql)
+                .bind(unit_id)
+                .fetch_optional(db.postgres_pool().expect("postgres handle"))
+                .await?
+        }
+    };
+    Ok(row
+        .and_then(|(revision,)| revision)
+        .and_then(|revision| revision.parse().ok()))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
