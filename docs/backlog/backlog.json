@@ -454,13 +454,13 @@
       "id": "M71-11",
       "milestone": "M71",
       "requirement": "Facet counts are a server capability with a latency budget: one endpoint returns counts per facet value under the current filter set, the UI renders them per group and shows '\u2014' while they update, and the p95 stays inside the budget on the 141k-row catalogue.",
-      "notes": "Priority 3, and the most underpriced item in the external design: no route in the 720 returns a facet count (grep '\"facets\"' crates/app/src is empty). This is an aggregate query plan \u2014 indexes, a cache, a budget \u2014 not a component. Acceptance: a load measurement with the decision rule fixed before the run, documented in the row."
+      "notes": "Priority 3, and the most underpriced item in the external design: no route in the 720 returned a facet count \u2014 STALE: /api/v1/facets has returned counts per facet value since M64-10 (one scan, four facets, when_unknown), and /api/v1/facets/words since M71-12 (grep '\"facets\"' crates/app/src is empty). This is an aggregate query plan \u2014 indexes, a cache, a budget \u2014 not a component. Acceptance: a load measurement with the decision rule fixed before the run, documented in the row. Remaining work is therefore the UI half (per-group counts, the '\u2014' pending state) and the p95 measurement on the 141k catalogue with the decision rule fixed before the run; the aggregate endpoint itself is not the gap."
     },
     {
       "id": "M71-12",
       "milestone": "M71",
       "requirement": "The word-count filter is a real histogram: a distribution endpoint returns ten buckets for the current filter set, the control draws them and lets a range be selected over the bars, and the selected bounds are stated as numbers.",
-      "notes": "Priority 4, depends on M71-11's aggregate surface \u2014 same query shape, different grouping. Decorative bars fed by invented data are forbidden (the proposal is right that the histogram must be real)."
+      "notes": "Priority 4, depends on M71-11's aggregate surface \u2014 same query shape, different grouping. Decorative bars fed by invented data are forbidden (the proposal is right that the histogram must be real). 9fd5955a: the distribution endpoint exists \u2014 GET /api/v1/facets/words?tag=&q=&buckets=&min_words=&max_words=&max_rating= returns 10 population-equal buckets (quantile edges, not equal width: equal width puts 8 of 10 skewed works in one bar) with low/high/count/share, plus measured/unknown/total/when_unknown over the same filtered set the facet route describes. Unmeasured rows (a unit with no current revision \u2014 this schema has revisions.word_count NOT NULL, so that IS the unmeasured state) are excluded from every bucket and counted in unknown; buckets partition the measured set exactly once, ties included; empty buckets are dropped and the rest renumbered so a chart has no gaps. STILL MISSING for the row: the control that draws the bars and lets a range be selected over them, and M71-11's latency measurement."
     },
     {
       "id": "M71-13",

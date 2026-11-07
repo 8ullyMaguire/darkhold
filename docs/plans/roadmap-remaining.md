@@ -200,3 +200,9 @@ validated at load; db::fandom_graph::related_works orders by WEIGHT then likes a
 published/public works; GET /api/v1/fandoms/{fandom}/related publishes the map version, both neighbour
 lists and the works. Row stays planned: tag.cross_fandom and author.similar have no route in this build,
 so the map is not yet reached through the two surfaces the card names.
+
+M71-12 backend (9fd5955a): GET /api/v1/facets/words returns 10 population-equal (quantile, not equal-width) buckets
+over the same filtered set as /api/v1/facets, with low/high/count/share and measured/unknown/when_unknown; unmeasured
+rows are excluded and stated, empty buckets dropped and renumbered. Row stays planned on the drawing control and on
+M71-11's p95 measurement. M71-11's note corrected: /api/v1/facets has returned counts since M64-10, so its bookmark
+("no route returns a facet count") was stale — the remaining work is the UI half and the measurement.

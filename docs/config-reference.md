@@ -278,6 +278,17 @@ weight vector that cannot rank (negative, `NaN`, or all zero). Weights need not 
 0.25, 0.15, 0.1, 0.1)` and `(4, 2.5, 1.5, 1, 1)` rank identically. `balanced` resolves even when `[profiles]` never mentions it, because a
 TOML table replaces the map rather than merging into it.
 
+## Routes added by the facet surfaces
+
+| Route | Audience | Notes |
+|-------|----------|-------|
+| `GET /api/v1/facets` | public | length, status, rating, cadence counts for the current filter set, from one scan |
+| `GET /api/v1/facets/words?buckets=10` | public | the word-count distribution: **population-equal** buckets with `low`/`high`/`count`/`share`, plus `measured`/`unknown`/`when_unknown` |
+
+Unmeasured works are counted in `unknown` and excluded from every bucket — `revisions.word_count` is `NOT NULL`, so
+"unmeasured" means a unit with no current revision, which is what a metadata-only import leaves behind. A chart drawn
+from this endpoint cannot show an invented bar at zero.
+
 ## `[fandom_graph]`
 
 The operator's fandom adjacency map (M64-08). Declared, never inferred: some fandoms are one community under two names — *Worm* and
