@@ -15,8 +15,9 @@
 use std::collections::{BTreeMap, HashMap};
 use std::str::FromStr;
 
-use axum::extract::State;
+use axum::extract::{Query, State};
 use axum::routing::{get, post};
+use axum::http::StatusCode;
 use axum::{Json, Router};
 use darkhold_db::identity::{self, PrivacyScope};
 use darkhold_db::sessions;
@@ -64,6 +65,12 @@ pub fn router() -> Router<AppState> {
             "/settings/notifications/{event_type}",
             axum::routing::delete(delete_notification_route),
         )
+        // M71-14: clearing one level so the next one applies. A separate door from the PATCH because "make this mine" and "make this
+        // inherited again" are different intentions, and a patch that accepted an empty value would conflate them with a stored empty string.
+        .route(
+            "/settings/privacy/{key}",
+            axum::routing::delete(delete_privacy_setting),
+        )
         .route("/settings/export", get(export_settings))
         .route("/settings/import", post(import_settings))
         // M52-09: the reader's recommendation-engine preference (spec §16.1b).
@@ -87,12 +94,43 @@ pub fn router() -> Router<AppState> {
 struct PrivacyView {
     /// Account-level settings.
     account: BTreeMap<String, String>,
+    /// Account-level values with the level that supplied each one (M71-14).
+    provenance: BTreeMap<String, Provenance>,
+    /// Pseud-level values with their level, keyed by pseud identifier.
+    pseud_provenance: BTreeMap<String, BTreeMap<String, Provenance>>,
     /// Pseud-level settings, keyed by pseud identifier.
     pseuds: BTreeMap<String, BTreeMap<String, String>>,
     /// Every recognised key, its permitted values and its description, so the
     /// interface renders what the server accepts rather than maintaining its
     /// own copy that can drift.
     schema: Vec<KeyDescription>,
+}
+
+/// Where a setting's effective value came from (M71-14).
+///
+/// The earlier design note here said the response should not let a client tell "chose the default" from "never chose", because the
+/// difference "is not actionable". That was wrong once settings had several levels: a reader looking at a value they did not choose cannot
+/// find the control that set it, cannot reset it, and cannot tell whether the instance's default changed under them. So the origin travels
+/// with the value, and each level states the request that clears it.
+#[derive(Debug, Serialize)]
+struct Provenance {
+    /// The effective value.
+    value: String,
+    /// The level that supplied it — the same vocabulary `/settings/export` uses, so two doors cannot name the same level differently.
+    source: darkhold_domain::settings::SettingSource,
+    /// How to clear this level, or `null` when the value is the instance default and there is nothing of the reader's to clear.
+    reset: Option<Reset>,
+    /// Why the value is what it is, when that needs saying — currently only for a stored onboarding default.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    note: Option<&'static str>,
+}
+
+#[derive(Debug, Serialize)]
+struct Reset {
+    method: &'static str,
+    path: String,
+    /// What the value becomes, so a settings page can say so before the reader clicks.
+    becomes: &'static str,
 }
 
 #[derive(Debug, Serialize)]
@@ -155,8 +193,108 @@ async fn get_privacy(
         pseud_settings.insert(pseud.id.to_string(), values);
     }
 
+    // The same values again, each with the level that supplied it. Kept beside the plain maps rather than replacing them so an existing
+    // client keeps working, and so a page can render the value without understanding provenance.
+    let mut account_provenance = BTreeMap::new();
+    for key in privacy::keys_in(privacy::Scope::Account) {
+        let stored = identity::privacy_value_with_origin(
+            state.db(),
+            PrivacyScope::Account(&user.account_id),
+            key.name,
+        )
+        .await?;
+        let (source, reset, note) = match stored {
+            // A row onboarding wrote is the instance's default with a place to live, not a decision: reporting it as `account` would tell
+            // a new reader they chose six settings on a page they have never opened.
+            Some((_, origin)) if origin == "onboarding" => (
+                darkhold_domain::settings::SettingSource::Instance,
+                None,
+                Some("The instance's starting default for your age band; you have not changed it."),
+            ),
+            Some(_) => (
+                darkhold_domain::settings::SettingSource::Account,
+                Some(Reset {
+                    method: "DELETE",
+                    path: format!("/api/v1/settings/privacy/{}", key.name),
+                    becomes: "the instance default for this account's age band",
+                }),
+                None,
+            ),
+            None => (darkhold_domain::settings::SettingSource::Instance, None, None),
+        };
+        account_provenance.insert(
+            key.name.to_owned(),
+            Provenance {
+                value: account_settings
+                    .get(key.name)
+                    .cloned()
+                    .unwrap_or_default(),
+                source,
+                reset,
+                note,
+            },
+        );
+    }
+
+    let mut pseud_provenance: BTreeMap<String, BTreeMap<String, Provenance>> = BTreeMap::new();
+    for (pseud_id, values) in &pseud_settings {
+        let mut entries = BTreeMap::new();
+        for key in privacy::keys_in(privacy::Scope::Pseud) {
+            let at_pseud = identity::privacy_value_with_origin(
+                state.db(),
+                PrivacyScope::Pseud(&pseud_id.parse().map_err(|_| ApiError(AppError::AuthRequired))?),
+                key.name,
+            )
+            .await?;
+            let (source, reset, note) = if at_pseud
+                .as_ref()
+                .is_some_and(|(_, origin)| origin != "onboarding")
+            {
+                (
+                    darkhold_domain::settings::SettingSource::Pseud,
+                    Some(Reset {
+                        method: "DELETE",
+                        path: format!(
+                            "/api/v1/settings/privacy/{}?pseud_id={pseud_id}",
+                            key.name
+                        ),
+                        becomes: "this account's value for the same setting",
+                    }),
+                    None,
+                )
+            } else if at_pseud.is_some() {
+                (
+                    darkhold_domain::settings::SettingSource::Instance,
+                    None,
+                    Some("The instance's starting default for this face; you have not changed it."),
+                )
+            } else if account_provenance
+                .get(key.name)
+                .is_some_and(|provenance| {
+                    provenance.source == darkhold_domain::settings::SettingSource::Account
+                })
+            {
+                (darkhold_domain::settings::SettingSource::Account, None, None)
+            } else {
+                (darkhold_domain::settings::SettingSource::Instance, None, None)
+            };
+            entries.insert(
+                key.name.to_owned(),
+                Provenance {
+                    value: values.get(key.name).cloned().unwrap_or_default(),
+                    source,
+                    reset,
+                    note,
+                },
+            );
+        }
+        pseud_provenance.insert(pseud_id.clone(), entries);
+    }
+
     Ok(Json(PrivacyView {
         account: account_settings,
+        provenance: account_provenance,
+        pseud_provenance,
         pseuds: pseud_settings,
         schema: privacy::ALL
             .iter()
@@ -167,6 +305,58 @@ async fn get_privacy(
             })
             .collect(),
     }))
+}
+
+/// Clear one level's value for a setting, so the next level applies (M71-14).
+///
+/// `204` whether or not a row existed: a reader who asks for a setting to be inherited gets inheritance either way, and a `404` would make
+/// the common case — clearing something that was never set — look like a failure.
+async fn delete_privacy_setting(
+    State(state): State<AppState>,
+    RequireSession(user): RequireSession,
+    axum::extract::Path(key): axum::extract::Path<String>,
+    Query(query): Query<DeletePrivacyQuery>,
+) -> ApiResult<StatusCode> {
+    let Some(description) = privacy::find(&key) else {
+        return Err(ApiError(AppError::field(
+            "key",
+            "That is not a recognised privacy setting.",
+        )));
+    };
+
+    match query.pseud_id {
+        Some(pseud_id) => {
+            // The scope is checked against this account's own pseuds: a reader cannot clear a setting on someone else's face, and the
+            // refusal is the same `403` an unknown pseud gets.
+            let owned = identity::pseuds_for_account(state.db(), user.account_id).await?;
+            if !owned.iter().any(|pseud| pseud.id == pseud_id) {
+                // Not found rather than forbidden: a refusal that says "that pseud exists but is not yours" is an account-enumeration
+                // oracle, and this route has no reason to be one.
+                return Err(ApiError(AppError::NotFound { resource: "pseud" }));
+            }
+            identity::delete_privacy(
+                state.db(),
+                PrivacyScope::Pseud(&pseud_id),
+                description.name,
+            )
+            .await?;
+        }
+        None => {
+            identity::delete_privacy(
+                state.db(),
+                PrivacyScope::Account(&user.account_id),
+                description.name,
+            )
+            .await?;
+        }
+    }
+    Ok(StatusCode::NO_CONTENT)
+}
+
+#[derive(Debug, Deserialize)]
+struct DeletePrivacyQuery {
+    #[serde(default)]
+    pseud_id: Option<PseudId>,
 }
 
 async fn patch_privacy(

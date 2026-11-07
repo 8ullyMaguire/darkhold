@@ -192,18 +192,20 @@ async fn create_pseud(
 
     // A new pseud starts from the same stored defaults as the first one, so a
     // second pseud is never accidentally more public than the first.
-    identity::set_privacy(
+    identity::set_privacy_with_origin(
         state.db(),
         PrivacyScope::Pseud(&pseud_id),
         privacy::PUBLIC_BOOKMARKS.name,
         privacy::default_for(privacy::PUBLIC_BOOKMARKS.name, user.age_state),
+        "onboarding",
     )
     .await?;
-    identity::set_privacy(
+    identity::set_privacy_with_origin(
         state.db(),
         PrivacyScope::Pseud(&pseud_id),
         privacy::PUBLIC_FOLLOWS.name,
         privacy::default_for(privacy::PUBLIC_FOLLOWS.name, user.age_state),
+        "onboarding",
     )
     .await?;
 

@@ -1,0 +1,15 @@
+-- M71-14: a stored default is not a choice.
+--
+-- Registration and pseud creation write every privacy key at account and pseud scope, so a new reader starts from the protective
+-- defaults rather than from whatever a read-time fallback happens to be. That is the right thing to store and the wrong thing to
+-- *report*: without this column, `GET /settings/privacy` has to describe those six rows as values the reader chose, which means a
+-- settings page cannot tell anyone what the instance's default is, cannot offer "reset to the default", and cannot let a later change
+-- to that default reach an existing account.
+--
+-- `origin` records why the row exists:
+--   'onboarding' — written by registration or pseud creation from the age-band default; not the reader's choice.
+--   'reader'     — the reader (or an import they asked for) set it.
+--
+-- Default 'reader' so every pre-existing row keeps its current meaning: those rows were written by the same onboarding path, but a row
+-- whose author is unknown must not be relabelled as inherited on the strength of a guess.
+ALTER TABLE privacy_settings ADD COLUMN origin TEXT NOT NULL DEFAULT 'reader';

@@ -800,13 +800,13 @@ async fn store_onboarding_defaults(
     // defaults. Written from the single canonical list so onboarding and the
     // settings endpoint cannot drift.
     for (key, value) in privacy::onboarding_defaults(age_state) {
-        identity::set_privacy(state.db(), PrivacyScope::Account(&account_id), key, value).await?;
+        identity::set_privacy_with_origin(state.db(), PrivacyScope::Account(&account_id), key, value, "onboarding").await?;
     }
 
     // Pseud-scoped keys, so the compartmentalised settings have a stored
     // starting point too rather than being derived on read.
     for (key, value) in privacy::onboarding_pseud_defaults(age_state) {
-        identity::set_privacy(state.db(), PrivacyScope::Pseud(&pseud_id), key, value).await?;
+        identity::set_privacy_with_origin(state.db(), PrivacyScope::Pseud(&pseud_id), key, value, "onboarding").await?;
     }
 
     // Content preferences start at the most conservative value inside whatever

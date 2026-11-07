@@ -358,6 +358,13 @@ pub const ROUTE_TABLE: &[RouteEntry] = &[
     // ------------------------------------------------------------------
     RouteEntry {
         file: "settings.rs",
+        handler: "delete_privacy_setting",
+        method: "DELETE",
+        path: "/settings/privacy/{key}",
+        audience: Audience::Authenticated,
+    },
+    RouteEntry {
+        file: "settings.rs",
         handler: "get_privacy",
         method: "GET",
         path: "/settings/privacy",

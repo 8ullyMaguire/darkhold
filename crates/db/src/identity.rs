@@ -861,11 +861,29 @@ pub async fn list_discoverable_pseuds(
 }
 
 /// Set a privacy policy value, replacing any existing one.
+///
+/// The row is recorded as the reader's choice. A path that writes a *default* on the reader's behalf must use
+/// [`set_privacy_with_origin`] and say so, or the settings page will report an inherited value as a decision.
 pub async fn set_privacy(
     db: &Database,
     scope: PrivacyScope<'_>,
     key: &str,
     value: &str,
+) -> Result<()> {
+    set_privacy_with_origin(db, scope, key, value, "reader").await
+}
+
+/// [`set_privacy`], with the reason the row exists (M71-14).
+///
+/// `origin` is `reader` or `onboarding`. It exists because a stored default and a chosen value look identical in this table, and the
+/// difference is exactly what a settings page has to show: an onboarding row means "the instance's default for your age band", with
+/// nothing of yours to clear.
+pub async fn set_privacy_with_origin(
+    db: &Database,
+    scope: PrivacyScope<'_>,
+    key: &str,
+    value: &str,
+    origin: &str,
 ) -> Result<()> {
     let now = now_rfc3339();
     let id = uuid::Uuid::new_v4().to_string();
@@ -889,23 +907,23 @@ pub async fn set_privacy(
      */
     let postgres_sql = match scope {
         PrivacyScope::Account(_) => {
-            "INSERT INTO privacy_settings (id, account_id, pseud_id, key, value, created_at, updated_at)
-             VALUES (?::uuid, ?::uuid, ?::uuid, ?, ?, ?, ?)
+            "INSERT INTO privacy_settings (id, account_id, pseud_id, key, value, origin, created_at, updated_at)
+             VALUES (?::uuid, ?::uuid, ?::uuid, ?, ?, ?, ?, ?)
              ON CONFLICT (account_id, key) WHERE account_id IS NOT NULL
-             DO UPDATE SET value = excluded.value, updated_at = excluded.updated_at"
+             DO UPDATE SET value = excluded.value, origin = excluded.origin, updated_at = excluded.updated_at"
         }
         PrivacyScope::Pseud(_) => {
-            "INSERT INTO privacy_settings (id, account_id, pseud_id, key, value, created_at, updated_at)
-             VALUES (?::uuid, ?::uuid, ?::uuid, ?, ?, ?, ?)
+            "INSERT INTO privacy_settings (id, account_id, pseud_id, key, value, origin, created_at, updated_at)
+             VALUES (?::uuid, ?::uuid, ?::uuid, ?, ?, ?, ?, ?)
              ON CONFLICT (pseud_id, key) WHERE pseud_id IS NOT NULL
-             DO UPDATE SET value = excluded.value, updated_at = excluded.updated_at"
+             DO UPDATE SET value = excluded.value, origin = excluded.origin, updated_at = excluded.updated_at"
         }
     };
 
     let sql = db.sql(
-        "INSERT INTO privacy_settings (id, account_id, pseud_id, key, value, created_at, updated_at)
-         VALUES (?, ?, ?, ?, ?, ?, ?)
-         ON CONFLICT DO UPDATE SET value = excluded.value, updated_at = excluded.updated_at",
+        "INSERT INTO privacy_settings (id, account_id, pseud_id, key, value, origin, created_at, updated_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+         ON CONFLICT DO UPDATE SET value = excluded.value, origin = excluded.origin, updated_at = excluded.updated_at",
         postgres_sql,
     );
 
@@ -917,6 +935,7 @@ pub async fn set_privacy(
                 .bind(&pseud)
                 .bind(key)
                 .bind(value)
+                .bind(origin)
                 .bind(&now)
                 .bind(&now)
                 .execute(db.sqlite_pool().expect("sqlite handle"))
@@ -930,6 +949,7 @@ pub async fn set_privacy(
                 .bind(&pseud)
                 .bind(key)
                 .bind(value)
+                .bind(origin)
                 .bind(&now)
                 .bind(&now)
                 .execute(db.postgres_pool().expect("postgres handle"))
@@ -938,6 +958,94 @@ pub async fn set_privacy(
         }
     }
     Ok(())
+}
+
+/// A privacy value with the reason its row exists (M71-14): `Some((value, origin))`.
+pub async fn privacy_value_with_origin(
+    db: &Database,
+    scope: PrivacyScope<'_>,
+    key: &str,
+) -> Result<Option<(String, String)>> {
+    let (sql, bind) = match scope {
+        PrivacyScope::Account(id) => (
+            db.sql(
+                "SELECT value, origin FROM privacy_settings WHERE account_id = ? AND key = ?",
+                "SELECT value, origin FROM privacy_settings WHERE account_id::text = ? AND key = ?",
+            ),
+            id.to_string(),
+        ),
+        PrivacyScope::Pseud(id) => (
+            db.sql(
+                "SELECT value, origin FROM privacy_settings WHERE pseud_id = ? AND key = ?",
+                "SELECT value, origin FROM privacy_settings WHERE pseud_id::text = ? AND key = ?",
+            ),
+            id.to_string(),
+        ),
+    };
+    match db.backend() {
+        crate::Backend::Sqlite => Ok(sqlx::query_as::<_, (String, String)>(&sql)
+            .bind(&bind)
+            .bind(key)
+            .fetch_optional(db.sqlite_pool().expect("sqlite handle"))
+            .await
+            .context("reading privacy setting origin")?),
+        crate::Backend::Postgres => Ok(sqlx::query_as::<_, (String, String)>(&sql)
+            .bind(&bind)
+            .bind(key)
+            .fetch_optional(db.postgres_pool().expect("postgres handle"))
+            .await
+            .context("reading privacy setting origin")?),
+    }
+}
+
+/// Remove a privacy policy value, so the next level's value applies again (M71-14).
+///
+/// Reset is a delete, not a write of the default: storing `default_for(key)` would pin today's default into the reader's row forever, so a
+/// later change to the instance's default would silently not reach them, and the settings page would claim the reader "chose" a value they
+/// never saw. Returns whether a row was there; both answers are success, because resetting a setting that is already inherited is exactly
+/// what a reader who has not chosen it would find.
+pub async fn delete_privacy(
+    db: &Database,
+    scope: PrivacyScope<'_>,
+    key: &str,
+) -> Result<bool> {
+    let (sql, bind) = match scope {
+        PrivacyScope::Account(id) => (
+            db.sql(
+                "DELETE FROM privacy_settings WHERE account_id = ? AND key = ?",
+                "DELETE FROM privacy_settings WHERE account_id::text = ? AND key = ?",
+            ),
+            id.to_string(),
+        ),
+        PrivacyScope::Pseud(id) => (
+            db.sql(
+                "DELETE FROM privacy_settings WHERE pseud_id = ? AND key = ?",
+                "DELETE FROM privacy_settings WHERE pseud_id::text = ? AND key = ?",
+            ),
+            id.to_string(),
+        ),
+    };
+    let affected = match db.backend() {
+        crate::Backend::Sqlite => {
+            sqlx::query(&sql)
+                .bind(&bind)
+                .bind(key)
+                .execute(db.sqlite_pool().expect("sqlite handle"))
+                .await
+                .context("deleting privacy setting")?
+                .rows_affected()
+        }
+        crate::Backend::Postgres => {
+            sqlx::query(&sql)
+                .bind(&bind)
+                .bind(key)
+                .execute(db.postgres_pool().expect("postgres handle"))
+                .await
+                .context("deleting privacy setting")?
+                .rows_affected()
+        }
+    };
+    Ok(affected > 0)
 }
 
 /// Read a privacy policy value.
