@@ -194,3 +194,9 @@ Its migration came in as **0179_session_roles**, renumbered from 0178 because 01
 
 Gate added alongside the merge (3cc2399e): `scripts/check-migration-numbers.py` in `gate.sh repo` refuses a repeated
 number per engine, a number in one engine only, and an unnumbered file. Proven by planting each failure.
+
+M64-08 (2e070f4f): the fandom adjacency map is configuration — [fandom_graph] version + weighted edges,
+validated at load; db::fandom_graph::related_works orders by WEIGHT then likes and returns only
+published/public works; GET /api/v1/fandoms/{fandom}/related publishes the map version, both neighbour
+lists and the works. Row stays planned: tag.cross_fandom and author.similar have no route in this build,
+so the map is not yet reached through the two surfaces the card names.
