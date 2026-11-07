@@ -39,6 +39,19 @@ pub fn basis_for(counts: Counts) -> String {
     )
 }
 
+/// The level at which `role:moderator:<site>` is due.
+///
+/// One number, in one place, because "which level moderates" is a policy decision and the wave's TL1/TL2/TL3 vocabulary is prose
+/// beside a ladder that already speaks 1-6. Level 6 is the operator (`basis: "operator: designated by the instance owner"`), so 5
+/// is the highest level a person can *earn* — minting there gives the ladder a top rung that is reachable by participation and
+/// still sits below the account the owner designated.
+pub const MODERATOR_LEVEL: u8 = 5;
+
+/// Whether a level is high enough that a moderator claim is due.
+pub fn role_due(level: u8) -> bool {
+    level >= MODERATOR_LEVEL
+}
+
 /// Whether a transition from `from` to `to` should mint the moderator claim. Minting happens on crossing into TL3, and
 /// revoking on leaving it — not on every sweep, or the entitlements table would collect a row per run.
 pub fn mints_role(from: u8, to: u8) -> bool {
@@ -97,6 +110,13 @@ mod tests {
         assert!(revokes_role(3, 2));
         assert!(!revokes_role(2, 3));
         assert!(!revokes_role(0, 3), "no previous level is not a demotion");
+    }
+
+    #[test]
+    fn a_moderator_claim_is_due_from_level_five() {
+        assert!(!role_due(4), "four is not a moderator");
+        assert!(role_due(5), "five is the highest earned level, and the rung a moderator sits on");
+        assert!(role_due(6), "the operator designated by the instance owner outranks the ladder, not the other way round");
     }
 
     #[test]
