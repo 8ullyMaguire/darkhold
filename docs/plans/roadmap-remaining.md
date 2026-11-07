@@ -237,3 +237,5 @@ CASE rank; RATING_RANKS in query.rs is the single table (general<teen<mature<exp
 editable nor removable, with the reason) plus unexpressed_note(). GET /api/v1/search returns state{query,chips,unexpressed_note}.
 Ideas rows M63-37/M63-38 removed because ideas_catalogue.py cannot run on this machine (two vault files absent).
 Remaining: the panel UI, and provenance/source as real filters.
+
+MERGED thinkcentre 2094ce7c (W7 task 2 step 5 batch 4: nine more operator predicates become one decision) as d2f95d57 — no migration, route_inventory 5/5, admin_scope 1/1, m71_15 4/4, clippy clean.
