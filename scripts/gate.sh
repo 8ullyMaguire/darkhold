@@ -212,6 +212,10 @@ run_repo() {
     python3 "$REPO_ROOT/scripts/ledger_test.py"
     python3 "$REPO_ROOT/scripts/check-vocabulary.py"
     python3 "$REPO_ROOT/scripts/check-requirement-ids.py"
+    # Migration numbers, per engine. Two migrations shared 0178 on 2026-11-07 — one from this tree (M63-37) and one
+    # from a parallel session's checkout — and nothing refused it: both loaded, both ran, and the order within the
+    # number was file-name sort. The gate refuses a repeat, a number in one engine only, and a file with no prefix.
+    python3 "$REPO_ROOT/scripts/check-migration-numbers.py"
     python3 "$REPO_ROOT/scripts/check-frontend-routes.py"
     python3 "$REPO_ROOT/scripts/check-split-spec.py"
 }
