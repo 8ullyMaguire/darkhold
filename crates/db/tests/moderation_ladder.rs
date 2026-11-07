@@ -112,19 +112,27 @@ async fn a_contribution_after_the_cutoff_counts_and_one_before_it_does_not() {
     let db = connect("cutoff").await;
     seed(&db).await;
 
-    let everything = darkhold_db::moderation_ladder::counts_for(&db, ACCOUNT, "2026-01-01T00:00:00Z")
+    let settings = darkhold_db::governance::TrustSettings {
+        ladder: &darkhold_domain::trust::TrustLadder::default_ladder(),
+        axes: &darkhold_domain::trust::TrustAxes::default(),
+        requirements: &darkhold_domain::trust::TrustRequirements::default(),
+        policy: darkhold_domain::trust::ElasticPolicy::default(),
+        guest_level: 1,
+        accepted_since: Some("2026-01-01T00:00:00Z"),
+    };
+    let everything = darkhold_db::governance::evidence_for(&db, ACCOUNT, settings.accepted_since)
         .await
-        .expect("counts before the proposal");
+        .expect("evidence before the proposal");
     assert_eq!(
-        everything.accepted, 1,
+        everything.accepted_contributions, 1,
         "a passed proposal dated 2026-10-01 must count when the cutoff is 2026-01-01"
     );
 
-    let after = darkhold_db::moderation_ladder::counts_for(&db, ACCOUNT, "2026-10-15T00:00:00Z")
+    let after = darkhold_db::governance::evidence_for(&db, ACCOUNT, Some("2026-10-15T00:00:00Z"))
         .await
-        .expect("counts after the proposal");
+        .expect("evidence after the proposal");
     assert_eq!(
-        after.accepted, 0,
+        after.accepted_contributions, 0,
         "the same proposal must not count when the ladder activated after it was made — this is the property that stops an \
          import from minting a moderator"
     );
