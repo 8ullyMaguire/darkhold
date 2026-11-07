@@ -110,52 +110,61 @@ async fn scan(db: &Database, filter: &FacetFilter) -> Result<Vec<Scanned>> {
     // Tag filters go through `work_tags`/`canonical_entities` rather than a name match on the work: the tag page resolves the
     // same way, and two spellings of "the slow burn tag" is how a facet ends up describing a different set than the page that
     // links it.
+    // `SUM` widens on PostgreSQL: summing a BIGINT column yields NUMERIC, which sqlx refuses to decode into the `i64` this row
+    // carries — the live catalogue answered every facet request 500 with "mismatched types ... SQL type NUMERIC" while every test
+    // passed, because the tests run on SQLite where the sum stays an INTEGER. The cast is per backend for that reason.
+    let words_sum = match db.backend() {
+        Backend::Sqlite => "COALESCE(SUM(r.word_count), 0)",
+        Backend::Postgres => "COALESCE(SUM(r.word_count), 0)::BIGINT",
+    };
+    // The window's right-hand side needs a type on PostgreSQL: `COALESCE(SUM(...), 0)` makes the comparison numeric, and a bare `$n`
+    // on one side of it has no type to be inferred from ("could not determine data type of parameter $2"). Naming the cast per backend
+    // is the smallest thing that says what the bound value is; on SQLite the cast is inert.
+    let window_cast = match db.backend() {
+        Backend::Sqlite => "INTEGER",
+        Backend::Postgres => "BIGINT",
+    };
     let mut sql = String::from(
         // `CAST(... AS TEXT)` on the dates because one backend stores `timestamptz` and the other text, and this needs only the
         // date prefix. Words live on the revision a unit currently points at — there is no `word_count` on `units`.
-        "SELECT w.rating, w.lifecycle, CAST(w.published_at AS TEXT), CAST(w.updated_at AS TEXT), \
-                COALESCE(SUM(r.word_count), 0) AS words, COUNT(r.word_count) AS measured \
-         FROM works w \
-         LEFT JOIN units u ON u.work_id = w.id AND u.deleted_at IS NULL \
-         LEFT JOIN revisions r ON r.id = u.current_revision_id \
-         WHERE w.visibility = 'public' AND w.deleted_at IS NULL",
+        &format!(
+            "SELECT w.rating, w.lifecycle, CAST(w.published_at AS TEXT), CAST(w.updated_at AS TEXT), \
+                    {words_sum} AS words, COUNT(r.word_count) AS measured \
+             FROM works w \
+             LEFT JOIN units u ON u.work_id = w.id AND u.deleted_at IS NULL \
+             LEFT JOIN revisions r ON r.id = u.current_revision_id \
+             WHERE w.visibility = 'public' AND w.deleted_at IS NULL"
+        ),
     );
-    // Parameter positions are assigned in the order they are bound, not by which filter is present: binding the title to `?2`
-    // while the tag placeholder `?1` went unused leaves `?2` unbound, and SQLite answers that with no rows rather than an
-    // error — an empty catalogue that looks like a measurement.
-    let mut next = 1usize;
+    // Bare `?` markers, numbered by position when the engine needs them.
+    //
+    // Not `?1`, `?2`: `Database::sql` rewrites placeholders for PostgreSQL by counting every `?` and ignoring the digits that follow it, so
+    // `?1` became `$11` — the parameter index glued to the literal text. The numbering was there to keep binds aligned with a statement
+    // whose filter clauses are optional; bind order IS that alignment, because a clause is only appended when its filter is present.
     if filter.tag.is_some() {
         sql.push_str(
             " AND EXISTS (SELECT 1 FROM work_tags wt JOIN canonical_entities n ON n.id = wt.node_id \
-              WHERE wt.work_id = w.id AND n.kind = ",
+              WHERE wt.work_id = w.id AND n.kind = ? AND lower(n.canonical) = lower(?))",
         );
-        sql.push_str(&format!("?{next}"));
-        sql.push_str(" AND lower(n.canonical) = lower(");
-        sql.push_str(&format!("?{}", next + 1));
-        sql.push_str("))");
-        next += 2;
     }
     if filter.title_contains.is_some() {
-        sql.push_str(&format!(" AND lower(w.title) LIKE ?{next}"));
-        next += 1;
+        sql.push_str(" AND lower(w.title) LIKE ?");
     }
     if filter.max_rating.is_some() {
         // Rating order, not string order: `mature` outranks `general` alphabetically by accident, and a ceiling built from an
         // accidental order lets explicit works through a `mature` ceiling.
-        sql.push_str(&format!(
-            " AND CASE lower(w.rating) WHEN 'general' THEN 0 WHEN 'teen' THEN 1 WHEN 'mature' THEN 2 WHEN 'explicit' THEN 3 ELSE 4 END <= ?{next}"
-        ));
-        next += 1;
+        sql.push_str(
+            " AND CASE lower(w.rating) WHEN 'general' THEN 0 WHEN 'teen' THEN 1 WHEN 'mature' THEN 2 WHEN 'explicit' THEN 3 ELSE 4 END <= ?",
+        );
     }
     // The word window is on the per-work sum, so it goes in the HAVING clause rather than the WHERE: filtering in WHERE would
     // test individual revisions against a window meant for the whole work.
     let mut having: Vec<String> = Vec::new();
     if filter.min_words.is_some() {
-        having.push(format!("COALESCE(SUM(r.word_count), 0) >= ?{next}"));
-        next += 1;
+        having.push(format!("{words_sum} >= CAST(? AS {window_cast})"));
     }
     if filter.max_words.is_some() {
-        having.push(format!("COALESCE(SUM(r.word_count), 0) <= ?{next}"));
+        having.push(format!("{words_sum} <= CAST(? AS {window_cast})"));
     }
     sql.push_str(" GROUP BY w.id, w.rating, w.lifecycle, w.published_at, w.updated_at");
     if !having.is_empty() {
@@ -172,9 +181,17 @@ async fn scan(db: &Database, filter: &FacetFilter) -> Result<Vec<Scanned>> {
         i64,
     );
 
+    // One spelling of the statement, rewritten for the engine that needs `$n`.
+    //
+    // The scan builds `?1`, `?2` … by hand as filters are added, and both branches below used to hand that text straight to sqlx. On
+    // PostgreSQL `<expr> >= ?1` is a syntax the server reads as "compare against the literal character `?`", so **every filtered facet
+    // request** failed with `operator does not exist: ? integer` while the unfiltered one worked — it has no placeholders to get wrong.
+    // `Database::sql` is the rewrite every other query in this crate goes through; this one had only ever run on SQLite.
+    let statement = db.sql(&sql, &sql);
+
     let raw: Vec<Row> = match db.backend() {
         Backend::Sqlite => {
-            let mut query = sqlx::query_as::<_, Row>(&sql);
+            let mut query = sqlx::query_as::<_, Row>(&statement);
             if let Some(tag) = filter.tag.as_deref() {
                 query = query.bind(
                     filter
@@ -203,7 +220,7 @@ async fn scan(db: &Database, filter: &FacetFilter) -> Result<Vec<Scanned>> {
                 .await?
         }
         Backend::Postgres => {
-            let mut query = sqlx::query_as::<_, Row>(&sql);
+            let mut query = sqlx::query_as::<_, Row>(&statement);
             if let Some(tag) = filter.tag.as_deref() {
                 query = query.bind(
                     filter
