@@ -24,6 +24,7 @@ pub mod bounties;
 pub mod browse;
 pub mod canon_agnostic;
 pub mod catalogue;
+pub mod crosspost;
 pub mod catalogue_export;
 pub mod collection_tags;
 pub mod extension_documents;

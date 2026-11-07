@@ -96,7 +96,7 @@ pub const SURFACES: &[Surface] = &[
     Surface { id: "author.similar", label: "Similar authors", need: DataNeed::WorkTags, defaults: &["author_graph", "tag_jaccard"] },
     Surface { id: "author.colists", label: "Co-listed authors", need: DataNeed::Shelves, defaults: &["co_shelving"] },
     Surface { id: "author.fandoms", label: "An author's fandoms", need: DataNeed::WorkTags, defaults: &["fandom_graph"] },
-    Surface { id: "home.trending", label: "Trending", need: DataNeed::None, defaults: &["time_decay", "popular"] },
+    Surface { id: "home.trending", label: "Trending", need: DataNeed::None, defaults: &["crosspost_union", "time_decay", "popular"] },
     Surface { id: "home.hidden_gems", label: "Hidden gems", need: DataNeed::WorkTags, defaults: &["tag_jaccard", "quality_signals"] },
     Surface { id: "home.popular_in_fandom", label: "Popular in a fandom", need: DataNeed::WorkTags, defaults: &["popular", "fandom_graph"] },
     Surface { id: "home.recently_updated", label: "Recently updated", need: DataNeed::None, defaults: &["time_decay"] },
@@ -149,6 +149,8 @@ pub fn engine_reason(algorithm: &str) -> Option<&'static str> {
         // Two tag algorithms, one engine: the feed's tag engine blends both signals already.
         "tag_jaccard" | "tag_cooccurrence" | "npmi" => "tags",
         "popular" | "time_decay" => "popular",
+        // M64-07: the same popularity signal, summed across every archive a story appears on rather than per copy.
+        "crosspost_union" => "crosspost_union",
         "rated_by_readers" | "ladder" => "ladder",
         "media_ref_collab" => "media_ref_collab",
         // M64-11: implemented in `db::discovery::co_shelving_recommendations`, over the reader's own shelves only.

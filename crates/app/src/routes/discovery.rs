@@ -348,6 +348,9 @@ fn reason_for(stage: &str) -> darkhold_domain::recommendation_transparency::Slot
         "media_ref_collab" => SlotReason::MediaReferenceCollaborative,
         // A shelf is the reader's own library, so "another work on a shelf you built" is reading history, not a model's guess.
         "co_shelving" => SlotReason::ReadingHistory,
+        // M64-07: popularity summed across archives. It is still popularity — nothing about the union changes why the work is
+        // being recommended — so it reuses that reason rather than inventing a sentence a reader cannot act on.
+        "crosspost_union" => SlotReason::Popular,
         "strategy" => SlotReason::Strategy,
         _ => SlotReason::TasteTags,
     }
@@ -600,6 +603,36 @@ pub(crate) async fn build_candidate_engines(
                     reason: "popular".into(),
                     taste_signal: 0.0,
                     diversity_class: 0.5,
+                })
+                .collect(),
+        );
+    }
+
+    // Engine 3b: crosspost union (M64-07). Engagement summed across every archive a story appears on: one story with three
+    // audiences ranks once, with all its evidence, instead of three times with a third each.
+    if runs("crosspost_union") {
+        let union = darkhold_db::crosspost::union_ranking(state.db(), limit)
+            .await
+            .map_err(|e| ApiError(AppError::Internal(e)))?;
+        engines.push(
+            union
+                .into_iter()
+                // The store hands back text; the candidate wants the typed id. An id that will not parse is dropped rather than
+                // replaced with a fresh one: a fabricated `WorkId` would put a work that does not exist into the feed, and the row
+                // it came from could not have been a work anyway.
+                .filter_map(|group| {
+                    let work_id = uuid::Uuid::parse_str(&group.work_id)
+                        .ok()
+                        .map(WorkId::from_uuid)?;
+                    Some(darkhold_domain::discovery::Candidate {
+                        work_id,
+                        // The score is the summed endorsement count itself, not a rank: this is a popularity input, and a position
+                        // would throw away the difference between a story with 900 likes across three archives and one with 12.
+                        score: group.total_likes,
+                        reason: "crosspost_union".into(),
+                        taste_signal: 0.0,
+                        diversity_class: 0.5,
+                    })
                 })
                 .collect(),
         );
