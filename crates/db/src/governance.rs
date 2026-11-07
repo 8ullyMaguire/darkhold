@@ -182,7 +182,12 @@ async fn accepted_contributions(
         if accepted_since.is_some() {
             sql.push_str(match db.backend() {
                 Backend::Sqlite => " AND created_at >= ?2",
-                Backend::Postgres => " AND created_at >= $2",
+                // PostgreSQL will not compare a `timestamptz` column against a text parameter: the literal in a psql
+                // session is coerced at parse time, a bound parameter is not. `$2::timestamptz` is the cast that makes the
+                // clause mean the same thing on both engines.
+                // The four proposal tables disagree about their own column type: some declare `created_at` as `timestamptz`, others as
+                // text. Casting both sides makes one clause true for all four instead of four variants.
+                Backend::Postgres => " AND CAST(created_at AS timestamptz) >= $2::timestamptz",
             });
         }
         let count: (i64,) = match db.backend() {
