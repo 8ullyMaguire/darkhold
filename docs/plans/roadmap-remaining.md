@@ -134,12 +134,13 @@ loops, memory excess, host-API permission denial, uninstall removing grants, and
 theme. Two things came out of writing them: host APIs are now **default-deny at link time** (`Grant`, so an import
 the manifest did not get is `permission_denied` before an instruction runs), and re-granting after an uninstall
 used to be a `UNIQUE` violation, because the grant's primary key is `(account, manifest_id)` and revocation is a
-column. Still open, and named in the ledger rather than glossed: honouring opt-out in custom engines and recipes (nothing
-extension-supplied runs those yet, and the suggestion is a `custom_extensions` privacy key consulted by recipe
-execution and engine dispatch, refusing rather than silently falling back). Forking has since shipped: migration
-0181 adds `extension_manifests.derived_from`, `POST /extensions/{slug}/fork` keeps attribution in that column
+column. Still open, and named in the ledger rather than glossed: the recipe half of "custom engines and recipes honour
+opt-out" (no extension-supplied recipe or engine exists, and the only AI-provider path — M64-14 embeddings — is
+not built, so `privacy::custom_processing_allowed` is enforced at `request_narration` and is the one predicate a
+future recipe dispatch must call). Forking has since shipped: migration 0181 adds
+`extension_manifests.derived_from`, `POST /extensions/{slug}/fork` keeps attribution in that column
 beside an untouched document, enters `pending`, and starts with **no grants** — consent named the original id.
-M16-12 stays `planned` on the opt-out clause alone.
+M16-12 stays `planned` on the recipe clause alone.
 
 ## Batch 8 — community, governance and growth (M45, M66, M29, M44)
 

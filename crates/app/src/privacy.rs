@@ -92,6 +92,27 @@ pub const TASTE_LEARNING: PrivacyKey = PrivacyKey {
     scope: Scope::Account,
 };
 
+/// Whether this account's content may be handed to a program the instance runs outside itself.
+///
+/// §21's last acceptance clause: "custom engines and recipes honour opt-out". The engines this instance
+/// offers are external programs — Piper for narration, Calibre for conversion — and running one means
+/// shipping the reader's text to a separate process, and in most deployments to a separate program with
+/// its own data handling. That is a transfer a reader is entitled to refuse, and the refusal has to be
+/// **stored** rather than decided at render time for the same reason every other key here is: a value
+/// computed at render time cannot be audited later, and cannot be shown to the reader as the thing they
+/// chose.
+///
+/// `allow` is the default for an adult because the instance's own features are what they came for, and
+/// because a key whose default disables a visible feature reads as a broken feature. A **minor defaults to
+/// `refuse`**: this is the one key where the safe value is the restrictive one, and the module's rule is
+/// that a default is the safe value rather than the permissive one.
+pub const CUSTOM_PROCESSING: PrivacyKey = PrivacyKey {
+    name: "custom_processing",
+    summary: "Let this instance's external programs (narration, conversion) process your works",
+    values: &["allow", "refuse"],
+    scope: Scope::Account,
+};
+
 /// Whether other people can see which works you follow.
 pub const PUBLIC_FOLLOWS: PrivacyKey = PrivacyKey {
     name: "public_follows",
@@ -107,6 +128,7 @@ pub const ALL: &[PrivacyKey] = &[
     DIRECTORY_LISTING,
     INSTANCE_AFFINITY,
     TASTE_LEARNING,
+    CUSTOM_PROCESSING,
     PUBLIC_FOLLOWS,
 ];
 
@@ -169,11 +191,40 @@ pub fn default_for(key: &str, age_state: AgeState) -> &'static str {
                 "true"
             }
         }
+        // The one key whose safe default is the restrictive one, and the reason is the transfer: refusing costs the
+        // reader a feature they did not ask for, allowing moves their text to a program they did not choose.
+        "custom_processing" => {
+            if minor {
+                "refuse"
+            } else {
+                "allow"
+            }
+        }
         "public_follows" => "private",
         // An unrecognised key has no safe default; "private" is the value that
         // discloses nothing.
         _ => "private",
     }
+}
+
+/// Whether this account may have its content processed by an external program.
+///
+/// Absence is not "no": a key that was never written takes its default, exactly like every other privacy key, so an
+/// account created before this key existed behaves like one created after it.
+pub async fn custom_processing_allowed(
+    db: &darkhold_db::Database,
+    account: &str,
+) -> anyhow::Result<bool> {
+    let account = account
+        .parse()
+        .map_err(|_| anyhow::anyhow!("`{account}` is not an account id"))?;
+    let stored = darkhold_db::identity::privacy_value(
+        db,
+        darkhold_db::identity::PrivacyScope::Account(&account),
+        CUSTOM_PROCESSING.name,
+    )
+    .await?;
+    Ok(stored.as_deref().unwrap_or("allow") != "refuse")
 }
 
 /// The account-level defaults to write at registration.

@@ -97,6 +97,19 @@ pub async fn request_narration(
 
     require_contributor(&state, &id, &session).await?;
 
+    // §21's opt-out clause, checked **before** the engine: a reader who refused custom processing must be told that,
+    // not told that the instance has no narration engine. The order is the whole message — an account that opted out
+    // and an instance without Piper both fail to produce audio, and only one of those is the reader's decision.
+    let allowed = crate::privacy::custom_processing_allowed(db, &session.account_id.to_string())
+        .await
+        .map_err(|error| ApiError::from(AppError::Internal(error)))?;
+    if !allowed {
+        return Err(validation(
+            "custom processing is switched off for your account (Settings → Privacy → custom_processing), \
+             so this instance will not hand your work to its external narration program",
+        ));
+    }
+
     // The producer is the engine this instance will actually run. Naming a
     // producer the instance cannot run would put a false credit on the edition,
     // so a mismatch is refused rather than recorded.

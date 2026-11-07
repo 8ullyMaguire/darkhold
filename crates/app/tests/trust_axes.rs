@@ -292,7 +292,7 @@ async fn the_evidence_reader_counts_reviewed_conduct_and_nothing_else() {
     let account = client.register("axes@example.test", "Axes").await;
 
     // A brand-new account has no reviewed conduct at all.
-    let evidence = darkhold_db::governance::evidence_for(harness.tdb.db(), &account)
+    let evidence = darkhold_db::governance::evidence_for(harness.tdb.db(), &account, None)
         .await
         .expect("read the evidence");
     assert_eq!(evidence.accepted_contributions, 0);
@@ -334,7 +334,7 @@ async fn the_evidence_reader_counts_reviewed_conduct_and_nothing_else() {
         "comment: {status} {body}"
     );
 
-    let evidence = darkhold_db::governance::evidence_for(harness.tdb.db(), &account)
+    let evidence = darkhold_db::governance::evidence_for(harness.tdb.db(), &account, None)
         .await
         .expect("read the evidence");
     assert!(

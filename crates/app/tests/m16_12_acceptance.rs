@@ -13,6 +13,7 @@
 //! | reset remains reachable after a broken theme | `reset_is_reachable_after_a_broken_theme` |
 //!
 //! | forks keep attribution and request their own grants | `a_fork_keeps_attribution_and_starts_without_grants` |
+//! | custom engines and recipes honour opt-out | `an_opted_out_account_is_not_handed_to_an_external_engine` |
 //!
 //! `revoked packages stop running` is the sandbox crate's `revocation_stops_a_running_module_at_its_next_host_call` — the flag is polled
 //! by the host imports, and there is no door here that revokes a run in flight yet (that is M16-07's emergency path). The two claims not
@@ -179,6 +180,12 @@ impl Client {
             .unwrap_or_else(|| panic!("no account id in {body}"))
             .to_owned()
     }
+}
+
+/// The first text column of a row, for the one-line lookups this file does.
+pub fn row_id(row: sqlx::sqlite::SqliteRow) -> String {
+    use sqlx::Row as _;
+    row.get::<String, _>(0)
 }
 
 fn b64(bytes: &[u8]) -> String {
@@ -506,4 +513,73 @@ async fn a_fork_keeps_attribution_and_starts_without_grants() {
         )
         .await;
     assert_eq!(status, StatusCode::NOT_FOUND, "{body}");
+}
+
+#[tokio::test]
+async fn an_opted_out_account_is_not_handed_to_an_external_engine() {
+    // §21's last clause. The instance's narration engine is an external program (Piper), so asking for a narration is
+    // asking for the reader's text to be handed to something outside the process. `custom_processing: refuse` stops it —
+    // and the *message* is what makes the opt-out verifiable: the refusal names the setting rather than blaming the host.
+    let mut h = Harness::new("optout").await;
+    // The narration surface is an extension: an instance that switches it off answers `404 MODULE_UNAVAILABLE`, and a test about an
+    // opt-out inside the surface has to have the surface on. Turning it on here is also a check that the switch and the guarantee are
+    // independent — the door refusing for two different reasons must not be one reason wearing two messages.
+    h.config.modules.enabled.push("narration".to_owned());
+    let mut client = h.client();
+    let user = client.register("optedout").await;
+
+    let pseud: String = sqlx::query("SELECT id FROM pseuds WHERE account_id = ?")
+        .bind(&user)
+        .fetch_one(h.tdb.db().sqlite_pool().expect("sqlite"))
+        .await
+        .map(crate::row_id)
+        .expect("the account has a pseud");
+    let pseud: darkhold_domain::ids::PseudId = pseud.parse().expect("pseud id parses");
+    let work = darkhold_db::content::create_work(h.tdb.db(), pseud, "Opted out work", None)
+        .await
+        .expect("create a work the session contributes to");
+    let work = work.id.to_string();
+
+    // Refused, and refused *before* the engine: on this host there is no narration engine at all, so a message about
+    // Piper would prove nothing about the opt-out.
+    let (status, body) = client
+        .send(
+            "POST",
+            &format!("/api/v1/works/{work}/editions"),
+            Some(json!({ "provider": "piper" })),
+        )
+        .await;
+    assert_eq!(status, StatusCode::UNPROCESSABLE_ENTITY, "{body}");
+    let message = body["error"]["message"].as_str().unwrap_or_default().to_owned();
+    assert!(
+        message.contains("cannot narrate"),
+        "with the default (`allow`) the request reaches the engine check and fails on the host, not on consent: {message}"
+    );
+
+    // Throw the switch through the product's own door, so this also proves the key is settable.
+    let (status, body) = client
+        .send(
+            "PATCH",
+            "/api/v1/settings/privacy",
+            Some(json!({ "changes": { "custom_processing": "refuse" } })),
+        )
+        .await;
+    assert!(
+        status == StatusCode::OK,
+        "the key is settable through the same door as every other one, which is what makes it a setting rather than a constant: {body}"
+    );
+
+    let (status, body) = client
+        .send(
+            "POST",
+            &format!("/api/v1/works/{work}/editions"),
+            Some(json!({ "provider": "piper" })),
+        )
+        .await;
+    assert_eq!(status, StatusCode::UNPROCESSABLE_ENTITY, "{body}");
+    let message = body["error"]["message"].as_str().unwrap_or_default().to_owned();
+    assert!(
+        message.contains("custom_processing"),
+        "the refusal names the setting the reader threw, not the host's engine: {message}"
+    );
 }
