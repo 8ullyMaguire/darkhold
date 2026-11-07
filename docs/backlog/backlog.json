@@ -184,7 +184,7 @@
       "id": "M63-37",
       "milestone": "M63",
       "requirement": "per-source engagement is stored as the source reports it (likes, hits, replies, bookmarks) instead of one normalised `likes`, so a rate metric can be computed per archive",
-      "notes": "Renumbered from `M63-04` on 2026-11-02: that id was assigned to two rows, so a citation of it landed on whichever row sorted first. Blocks likes_per_view, wilson and any rate metric. The same import should carry the board's reply count and the AO3 hits, which the source pages already publish."
+      "notes": "Renumbered from `M63-04` on 2026-11-02: that id was assigned to two rows, so a citation of it landed on whichever row sorted first. Blocks likes_per_view, wilson and any rate metric. The same import should carry the board's reply count and the AO3 hits, which the source pages already publish. 9647a6c8 ships the STORAGE and the RATE: library_item_engagement (migration 0178) keeps likes/hits/views/replies/bookmarks/kudos/follows/favourites per imported item with the SOURCE's reported_at; source_engagement::likes_per_view divides one archive's endorsements by that same archive's views and answers None (not 0.0) when a half is absent or the denominator is zero; PUT /operator/library-items/{id}/engagement/{metric} exists because the scrapers that read the numbers are not in this binary. Remaining half: (a) an importer calling record() when it reads a source page, (b) quality::Metric::Support still refuses likes_per_view and wilson statically \u2014 unblocking needs Candidate.views plus the library_items.work_id join, next item."
     },
     {
       "id": "M63-38",
