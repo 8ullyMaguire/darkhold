@@ -239,3 +239,5 @@ Ideas rows M63-37/M63-38 removed because ideas_catalogue.py cannot run on this m
 Remaining: the panel UI, and provenance/source as real filters.
 
 MERGED thinkcentre 2094ce7c (W7 task 2 step 5 batch 4: nine more operator predicates become one decision) as d2f95d57 — no migration, route_inventory 5/5, admin_scope 1/1, m71_15 4/4, clippy clean.
+
+MERGED thinkcentre 2de6811a (W7 task 2 step 5 batch 5: the last config-gated door; refusals reach the modlog) as f7e237f5 — admin_scope 1/1, route_inventory 5/5, clippy clean. W7 task 2 step 5 complete.
