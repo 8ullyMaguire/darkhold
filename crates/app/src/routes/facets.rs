@@ -104,7 +104,7 @@ async fn facets(
         max_rating: params.max_rating,
     };
 
-    let answers = facets::all_facets(state.db(), &filter)
+    let (answers, computed_at) = crate::facets_cache::cached(state.db(), &filter)
         .await
         .map_err(|error| ApiError(AppError::internal("reading facets", error)))?;
     let answers: Vec<_> = answers
@@ -121,5 +121,8 @@ async fn facets(
             "max_rating": filter.max_rating,
         },
         "facets": answers,
+        // M71-11: the numbers are memoised for a minute, so the response says when they were computed instead of implying they are live.
+        "computed_at_ms_ago": computed_at.elapsed().as_millis() as u64,
+        "cache_ttl_seconds": crate::facets_cache::TTL.as_secs(),
     })))
 }

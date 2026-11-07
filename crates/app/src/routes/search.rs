@@ -399,9 +399,9 @@ async fn search(
         max_words,
         max_rating: max_rating.clone(),
     };
-    let facets = darkhold_db::facets::all_facets(state.db(), &facet_filter)
+    let (facets, facets_computed_at) = crate::facets_cache::cached(state.db(), &facet_filter)
         .await
-        .unwrap_or_default();
+        .unwrap_or_else(|_| (Vec::new(), std::time::Instant::now()));
 
     // M71-15: the string and the panel are one state, so the response carries both halves of it.
     //
@@ -442,6 +442,8 @@ async fn search(
         },
         "facets": facets,
         "facets_over": "the catalogue under min_words, max_words and max_rating — not this page of hits",
+        // M71-11: facet counts are memoised for a minute; the age travels so a page can say how old they are.
+        "facets_computed_at_ms_ago": facets_computed_at.elapsed().as_millis() as u64,
     })))
 }
 
