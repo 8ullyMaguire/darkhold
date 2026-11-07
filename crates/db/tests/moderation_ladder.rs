@@ -191,3 +191,67 @@ async fn a_second_sweep_writes_no_event() {
     );
     db.close().await;
 }
+
+/// Run the sweep against a **live** database, printing what it reports and what it wrote.
+///
+/// Ignored by default so the fixture stays hermetic; run it deliberately:
+///
+/// ```text
+/// DARKHOLD_LADDER_DB=postgres:///darkhold?host=/run/postgresql \
+///   cargo test -p darkhold-db --test moderation_ladder -- --ignored --nocapture
+/// ```
+///
+/// It exists because "moderators are minted at level 5" is a fixture until the sweep has walked the real accounts. The assertion is
+/// deliberately weak — the sweep must not error and must report a level for every non-guest account — because the interesting output is
+/// the count of crossings, which is a fact about this instance and not a property of the code.
+#[tokio::test]
+#[ignore]
+async fn live_sweep() {
+    let url = std::env::var("DARKHOLD_LADDER_DB").expect("DARKHOLD_LADDER_DB must name the database to sweep");
+    let db = Database::connect(&make_config(url)).await.expect("connect");
+    let settings = darkhold_db::governance::TrustSettings {
+        ladder: &darkhold_domain::trust::TrustLadder::default_ladder(),
+        axes: &darkhold_domain::trust::TrustAxes::default(),
+        requirements: &darkhold_domain::trust::TrustRequirements::default(),
+        policy: darkhold_domain::trust::ElasticPolicy::default(),
+        guest_level: 1,
+        accepted_since: None,
+    };
+    let before: i64 = match db.backend() {
+        darkhold_db::Backend::Sqlite => sqlx::query_scalar("SELECT COUNT(*) FROM trust_events")
+            .fetch_one(db.sqlite_pool().expect("sqlite"))
+            .await
+            .expect("count"),
+        darkhold_db::Backend::Postgres => sqlx::query_scalar("SELECT COUNT(*) FROM trust_events")
+            .fetch_one(db.postgres_pool().expect("pg"))
+            .await
+            .expect("count"),
+    };
+    let sweep = darkhold_db::moderation_ladder::sweep(&db, &settings)
+        .await
+        .expect("sweep the live database");
+    let after: i64 = match db.backend() {
+        darkhold_db::Backend::Sqlite => sqlx::query_scalar("SELECT COUNT(*) FROM trust_events")
+            .fetch_one(db.sqlite_pool().expect("sqlite"))
+            .await
+            .expect("count"),
+        darkhold_db::Backend::Postgres => sqlx::query_scalar("SELECT COUNT(*) FROM trust_events")
+            .fetch_one(db.postgres_pool().expect("pg"))
+            .await
+            .expect("count"),
+    };
+    println!(
+        "sweep: {} level change(s), {} crossing(s), trust_events {} -> {}",
+        sweep.changes.len(),
+        sweep.crossings.len(),
+        before,
+        after
+    );
+    for c in &sweep.changes {
+        println!("  change {} {} -> {}", c.account, c.from, c.to);
+    }
+    for c in &sweep.crossings {
+        println!("  crossing {c} — a moderator claim is due");
+    }
+    db.close().await;
+}

@@ -55,7 +55,7 @@ pub async fn sweep(
                 .await?
         }
         Backend::Postgres => {
-            sqlx::query_as("SELECT id::text FROM accounts WHERE is_guest = false")
+            sqlx::query_as("SELECT id::text FROM accounts WHERE is_guest = 0")
                 .fetch_all(db.postgres_pool().expect("postgres"))
                 .await?
         }
