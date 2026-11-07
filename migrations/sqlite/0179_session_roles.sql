@@ -1,4 +1,4 @@
--- Migration 0178 — a session remembers the roles the issuer asserted at sign-in (ADR 0003).
+-- Migration 0179 — a session remembers the roles the issuer asserted at sign-in (ADR 0003).
 --
 -- Why on the session and not on the account: a role is asserted *at a moment* by the issuer and the bearer of it is a
 -- session. Putting it on the account would let one device's stale claim authorise another device's request, and would leave

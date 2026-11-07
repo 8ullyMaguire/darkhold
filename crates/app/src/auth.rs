@@ -108,7 +108,7 @@ pub struct SessionUser {
     pub acr: Option<String>,
     /// The roles the issuer asserted at sign-in, verbatim (ADR 0003).
     ///
-    /// Empty for a password session and for sessions written before migration 0178. Both are "no claim" to every check,
+    /// Empty for a password session and for sessions written before migration 0179. Both are "no claim" to every check,
     /// which is why this is a `Vec` and not an `Option`.
     pub roles: Vec<String>,
 }

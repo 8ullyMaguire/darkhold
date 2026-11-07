@@ -992,6 +992,11 @@
       "why": "Relative time is the research value. Absolute time is not an identifier (11.16.5).",
       "reviewed_by": "alvaro, 2026-09-29, against spec 11.16"
     },
+    "sessions.roles": {
+      "treatment": "drop_column",
+      "why": "The roles the issuer asserted for one browser session (ADR 0003, migration 0179). It is an authorisation claim, not behaviour: publishing it would map which accounts are operator, moderator or curator and on which site, which is a list of who to attack first, and it says nothing about the corpus a dump exists to publish. Sessions are re-minted at every sign-in, so the column has no value outside the session it belongs to.",
+      "reviewed_by": "agent, 2026-11-07, against spec 11.16 (W7 task 2 step 3, migration 0179); awaiting the operator's review"
+    },
     "sessions.revoked_at": {
       "treatment": "keep",
       "why": "Relative time is the research value. Absolute time is not an identifier (11.16.5).",

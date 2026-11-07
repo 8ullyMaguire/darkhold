@@ -43,7 +43,7 @@ pub struct Session {
     pub acr: Option<String>,
     /// The roles the issuer asserted at sign-in, verbatim from the id_token's `roles` (ADR 0003).
     ///
-    /// Storage form is a JSON array. Empty for sessions that predate migration 0178 and for anyone with no roles: both
+    /// Storage form is a JSON array. Empty for sessions that predate migration 0179 and for anyone with no roles: both
     /// mean "no claim" to every check, which is why this is not an `Option`.
     pub roles: String,
 }
