@@ -223,3 +223,8 @@ M71-09 (f3aca3fc): ResumeState (current/stale/unmeasured/conflict) with percent(
 positions_with_current_revision joins each stored row to its unit's current revision; /api/v1/reading/progress
 publishes `resume`; save_progress now stamps the server's current revision when the client omits content_revision
 (without that, a position could never be proven stale). Row stays planned on the reader bar/choice UI.
+
+M71-14 (b799f828): settings provenance — GET /api/v1/settings/privacy publishes per-key {value, source, reset, note};
+DELETE /api/v1/settings/privacy/{key}[?pseud_id=] clears one level (204/422/404 discipline). Migration 0180 adds
+privacy_settings.origin because onboarding-written defaults were indistinguishable from choices and were reported as
+the reader's own six decisions. Remaining: per-work level, deep links, and typography/gravity in the same vocabulary.
