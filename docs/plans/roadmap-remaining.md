@@ -328,3 +328,23 @@ Not built: any UI for the gallery, and notifications on a new review — the rou
 
 Gaps named in the ledger: no invoice document rendering, no processor webhook, and extension revenue settles through the existing
 `author_earnings_ledger` → `request_payout` path rather than a separate payout ledger.
+
+## M16-14 — webhook operations (implemented)
+
+`crates/domain/src/webhook.rs` (grace window, `RateLimit`, `Breaker`) · `crates/db/src/webhooks.rs` (store) · `crates/app/src/routes/webhook_ops.rs` (doors) ·
+`crates/app/src/webhook_delivery.rs` (the loop that enforces all three).
+
+* **A rotation is a window, not a switch.** The old secret stays admissible for 24 hours because an instant rotation breaks every
+  subscriber mid-deploy, and the failures it causes look like an outage rather than a configuration change. The header carries
+  `v1=<current>,v0=<previous>` so a receiver needs no special case after rotating.
+* **The rate limit counts deliveries, not attempts.** Throttled rows are excluded from the count — otherwise the limiter consumes its
+  own budget and a burst extends its own silence — and each skip is *recorded*, because an absent delivery reads as an outage.
+* **The breaker counts consecutive failures.** A subscriber that fails once a day for a year is flaky, not gone; twenty in a row is a
+  receiver that has stopped answering. A success resets the count, but a success while switched off does not resurrect the endpoint:
+  only an explicit, owner-scoped enable does.
+* **The operator view omits secrets by construction.** An operator needs to know an endpoint is failing, not to be able to forge its
+  deliveries.
+
+Two tests run the real `deliver_notification` loop against a local receiver rather than asserting the arithmetic again — the mutant that
+removed the limit check reddened exactly those. Remaining gaps (in the ledger): no retry backoff of its own (the outbox owns retries), no
+per-event-type limit, and no notification to an owner whose subscription the breaker switched off.

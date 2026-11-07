@@ -90,6 +90,79 @@ pub async fn send(
     endpoint_id: &str,
     attempt: u32,
 ) -> Result<(DeliveryRecord, u16), WebhookSendError> {
+    let signature = event.sign(secret);
+    send_with_signature(
+        client,
+        config,
+        endpoint,
+        Signature {
+            header: &format!("v1={signature}"),
+            recorded: &signature,
+        },
+        event,
+        endpoint_id,
+        attempt,
+    )
+    .await
+}
+
+/// Send an event signed by every currently admissible key (M16-14 rotation grace).
+///
+/// The header carries `v1=<current>` plus `v0=<previous>` while a rotation is inside its grace window,
+/// so a receiver that has not yet deployed the new secret can still verify — and one that has can tell
+/// which key matched. The signature recorded in the delivery log is the current key's, because the log
+/// answers "what did we sign with", not "what could have verified".
+pub async fn send_with_keys(
+    client: &reqwest::Client,
+    config: &WebhookSenderConfig,
+    endpoint: &str,
+    keys: &[(darkhold_domain::webhook::KeyId, String)],
+    event: &WebhookEvent,
+    endpoint_id: &str,
+    attempt: u32,
+) -> Result<(DeliveryRecord, u16), WebhookSendError> {
+    let borrowed: Vec<(darkhold_domain::webhook::KeyId, &str)> =
+        keys.iter().map(|(id, secret)| (*id, secret.as_str())).collect();
+    let header = darkhold_domain::webhook::signing_header(event, &borrowed);
+    let recorded = keys
+        .iter()
+        .find(|(id, _)| *id == darkhold_domain::webhook::KeyId::Current)
+        .map(|(_, secret)| event.sign(secret))
+        .unwrap_or_default();
+    send_with_signature(
+        client,
+        config,
+        endpoint,
+        Signature {
+            header: &header,
+            recorded: &recorded,
+        },
+        event,
+        endpoint_id,
+        attempt,
+    )
+    .await
+}
+
+/// What went on the wire and what to record — one value, because they are two answers to the same question.
+///
+/// The header may carry two signatures during a rotation's grace window while the log records only the
+/// current one: the log answers "what did we sign with", not "what could have verified".
+struct Signature<'a> {
+    header: &'a str,
+    recorded: &'a str,
+}
+
+/// The actual send, with the signature supplied by the caller.
+async fn send_with_signature(
+    client: &reqwest::Client,
+    config: &WebhookSenderConfig,
+    endpoint: &str,
+    signature: Signature<'_>,
+    event: &WebhookEvent,
+    endpoint_id: &str,
+    attempt: u32,
+) -> Result<(DeliveryRecord, u16), WebhookSendError> {
     // SSRF check: resolve the URL's host and verify it is not private/loopback.
     let url =
         reqwest::Url::parse(endpoint).map_err(|e| WebhookSendError::InvalidUrl(e.to_string()))?;
@@ -97,12 +170,13 @@ pub async fn send(
 
     let payload = darkhold_domain::webhook::bound_payload(&event.payload, 1024 * 1024);
     let body = serde_json::to_vec(&payload).expect("bounded payload is serializable");
-    let signature = event.sign(secret);
+    let header = signature.header;
+    let signature = signature.recorded.to_owned();
 
     let response = client
         .post(url.clone())
         .header("Content-Type", "application/json")
-        .header("X-Signature", &signature)
+        .header("X-Signature", header)
         .header("X-Event-Type", &event.event_type)
         .header("X-Event-Id", &event.event_id)
         .header("X-Attempt", attempt.to_string())

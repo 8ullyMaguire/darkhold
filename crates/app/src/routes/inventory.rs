@@ -6153,4 +6153,26 @@ pub const ROUTE_TABLE: &[RouteEntry] = &[
         path: "/xrpc/app.bsky.feed.getFeedSkeleton",
         audience: Audience::Public,
     },
+    RouteEntry {
+        file: "webhook_ops.rs",
+        handler: "rotate",
+        method: "POST",
+        path: "/me/webhooks/{id}/rotate",
+        audience: Audience::Authenticated,
+    },
+    RouteEntry {
+        file: "webhook_ops.rs",
+        handler: "health",
+        method: "GET",
+        path: "/operator/webhooks",
+        audience: Audience::Operator,
+    },
+    RouteEntry {
+        file: "webhook_ops.rs",
+        handler: "enable",
+        method: "POST",
+        path: "/operator/webhooks/{id}/enable",
+        audience: Audience::Operator,
+    },
 ];
+

@@ -1666,6 +1666,36 @@
       "treatment": "rekey_account",
       "why": "M64-11: a UUID foreign key to accounts.id on the follower side. It must be re-keyed with snapshot_account -- the SAME derivation accounts.id uses, on the account salt -- so a follow still joins to the account that made it. Same failure mode as shelves.account_id: rekey_text emits a `snp_` TEXT hash that cannot be compared with a uuid, so the relationship is destroyed while the column reads as pseudonymous.",
       "reviewed_by": "alvaro, 2026-11-06, against spec 11.16.3b"
+    },
+    "webhook_endpoints.previous_secret": {
+      "treatment": "drop_column",
+      "why": "M16-14: a signing secret one generation behind, kept usable for a day of rotation grace. A snapshot carrying it would hand every subscriber's deliveries to anyone holding the dump -- the grace window is exactly what makes it still valid.",
+      "reviewed_by": "alvaro, 2026-11-07, against spec 11.16"
+    },
+    "webhook_endpoints.rotated_at": {
+      "treatment": "keep",
+      "why": "M16-14: when a secret was replaced. Operational metadata about a configuration change; names no person.",
+      "reviewed_by": "alvaro, 2026-11-07, against spec 11.16"
+    },
+    "webhook_endpoints.rate_per_minute": {
+      "treatment": "keep",
+      "why": "M16-14: the subscription's own delivery ceiling. A configuration value.",
+      "reviewed_by": "alvaro, 2026-11-07, against spec 11.16"
+    },
+    "webhook_endpoints.consecutive_failures": {
+      "treatment": "keep",
+      "why": "M16-14: how many deliveries in a row the receiver missed. A count of attempts, meaningless without the endpoint and about no reader.",
+      "reviewed_by": "alvaro, 2026-11-07, against spec 11.16"
+    },
+    "webhook_endpoints.disabled_at": {
+      "treatment": "keep",
+      "why": "M16-14: when the breaker switched the endpoint off. Operational metadata.",
+      "reviewed_by": "alvaro, 2026-11-07, against spec 11.16"
+    },
+    "webhook_endpoints.disabled_reason": {
+      "treatment": "keep",
+      "why": "M16-14: the sentence shown to the owner explaining a switch-off. Derived from a count and a URL, and it names no reader.",
+      "reviewed_by": "alvaro, 2026-11-07, against spec 11.16"
     }
   }
 }

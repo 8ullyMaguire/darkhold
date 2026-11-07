@@ -64,6 +64,63 @@ pub async fn deliver_notification(state: &AppState, event: &OutboxEvent) -> Resu
         let endpoint_url = wh["url"].as_str().unwrap_or("").to_owned();
         let secret = wh["secret"].as_str().unwrap_or("").to_owned();
 
+        // ---- M16-14: the three operational gates, checked in the order that matters.
+        //
+        // 1. The rate limit is checked before anything else because a throttled delivery must not cost the
+        //    receiver anything and must not reset the breaker: a burst is not a failure of the endpoint.
+        let limit = darkhold_domain::webhook::RateLimit {
+            per_minute: u32::try_from(wh["rate_per_minute"].as_i64().unwrap_or(60))
+                .unwrap_or(u32::MAX),
+        };
+        let now = time::OffsetDateTime::now_utc();
+        let since = (now - time::Duration::minutes(1))
+            .format(&time::format_description::well_known::Rfc3339)
+            .unwrap_or_default();
+        let recent = darkhold_db::webhooks::delivered_since(state.db(), &endpoint_id, &since)
+            .await
+            .unwrap_or(0);
+        if !limit.allows(u64::try_from(recent).unwrap_or(u64::MAX)) {
+            // Recorded rather than dropped: a delivery that was never attempted is exactly the kind of
+            // thing whose absence looks like an outage from the subscriber's side.
+            if let Err(err) = darkhold_db::marketplace::record_delivery(
+                state.db(),
+                &endpoint_id,
+                &event.id,
+                &event.payload,
+                "",
+                "throttled",
+            )
+            .await
+            {
+                warn!(%err, "recording throttled webhook failed");
+            }
+            info!(
+                endpoint_id = %endpoint_id,
+                per_minute = limit.per_minute,
+                recent,
+                "webhook delivery throttled"
+            );
+            continue;
+        }
+
+        // 2. Sign with every admissible key. During a rotation's grace window that is two keys, so a
+        //    subscriber that has not deployed the new secret yet keeps verifying instead of failing
+        //    twenty times and switching itself off.
+        let rotated_at_epoch = wh["rotated_at"]
+            .as_str()
+            .and_then(epoch_seconds);
+        let previous = wh["previous_secret"].as_str();
+        let keys: Vec<(darkhold_domain::webhook::KeyId, String)> =
+            darkhold_domain::webhook::admissible_keys(
+                &secret,
+                previous,
+                rotated_at_epoch,
+                now.unix_timestamp(),
+            )
+            .into_iter()
+            .map(|(id, s)| (id, s.to_owned()))
+            .collect();
+
         let webhook_event = WebhookEvent {
             event_type: event_type.clone(),
             event_id: event.id.clone(),
@@ -76,11 +133,11 @@ pub async fn deliver_notification(state: &AppState, event: &OutboxEvent) -> Resu
         };
 
         let attempt = 1u32; // First attempt; retries handled by outbox
-        match webhook_sender::send(
+        match webhook_sender::send_with_keys(
             client,
             config,
             &endpoint_url,
-            &secret,
+            &keys,
             &webhook_event,
             &endpoint_id,
             attempt,
@@ -104,6 +161,24 @@ pub async fn deliver_notification(state: &AppState, event: &OutboxEvent) -> Resu
                 .await
                 {
                     warn!(%err, "recording webhook delivery failed");
+                }
+                // 3. The breaker: a 2xx is the only thing that resets the consecutive count.
+                if record.status == DeliveryStatus::Ok {
+                    if let Err(err) =
+                        darkhold_db::webhooks::record_success(state.db(), &endpoint_id).await
+                    {
+                        warn!(%err, "resetting webhook failure count failed");
+                    }
+                } else if let Ok(Some(reason)) = darkhold_db::webhooks::record_failure(
+                    state.db(),
+                    &endpoint_id,
+                    darkhold_domain::webhook::DEFAULT_FAILURE_THRESHOLD,
+                    &now.format(&time::format_description::well_known::Rfc3339)
+                        .unwrap_or_default(),
+                )
+                .await
+                {
+                    warn!(endpoint_id = %endpoint_id, reason = %reason, "webhook endpoint switched off");
                 }
                 info!(
                     endpoint_id = %endpoint_id,
@@ -131,11 +206,32 @@ pub async fn deliver_notification(state: &AppState, event: &OutboxEvent) -> Resu
                 {
                     warn!(%rec_err, "recording webhook failure failed");
                 }
+                if let Ok(Some(reason)) = darkhold_db::webhooks::record_failure(
+                    state.db(),
+                    &endpoint_id,
+                    darkhold_domain::webhook::DEFAULT_FAILURE_THRESHOLD,
+                    &now.format(&time::format_description::well_known::Rfc3339)
+                        .unwrap_or_default(),
+                )
+                .await
+                {
+                    warn!(endpoint_id = %endpoint_id, reason = %reason, "webhook endpoint switched off");
+                }
             }
         }
     }
 
     Ok(())
+}
+
+/// Parse an RFC 3339 timestamp into Unix seconds.
+///
+/// Kept here rather than in the store because the store must not decide what "recent" means: it stores
+/// what happened and this worker compares it against the clock.
+fn epoch_seconds(stamp: &str) -> Option<i64> {
+    time::OffsetDateTime::parse(stamp, &time::format_description::well_known::Rfc3339)
+        .ok()
+        .map(|t| t.unix_timestamp())
 }
 
 /// Check if a webhook is subscribed to a given event type.
