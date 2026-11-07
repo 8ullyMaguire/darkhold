@@ -347,6 +347,7 @@ pub async fn record_arena_ballot(
     best_work_id: &str,
     worst_work_id: &str,
     reason_tags: &[String],
+    calibrating: bool,
 ) -> Result<(), sqlx::Error> {
     let tags_json = serde_json::to_string(reason_tags).unwrap_or_else(|_| "[]".to_string());
     match db.backend() {
@@ -358,8 +359,9 @@ pub async fn record_arena_ballot(
                 .unwrap_or(0);
             let now_str = format!("{}", now);
             sqlx::query(
-                "INSERT INTO arena_ballots (id, account_id, best_work_id, worst_work_id, reason_tags, created_at)
-                 VALUES (?, ?, ?, ?, ?, ?)",
+                "INSERT INTO arena_ballots
+                    (id, account_id, best_work_id, worst_work_id, reason_tags, created_at, calibrating)
+                 VALUES (?, ?, ?, ?, ?, ?, ?)",
             )
             .bind(uuid::Uuid::new_v4().to_string())
             .bind(account_id)
@@ -367,6 +369,7 @@ pub async fn record_arena_ballot(
             .bind(worst_work_id)
             .bind(tags_json)
             .bind(now_str)
+            .bind(i64::from(calibrating))
             .execute(pool)
             .await?;
         }
@@ -377,18 +380,93 @@ pub async fn record_arena_ballot(
                 // `account_id`, `best_work_id` and `worst_work_id` are UUID on
                 // PostgreSQL, so the placeholders need casts. Without them the
                 // driver sends them as text and the insert fails 42804.
-                "INSERT INTO arena_ballots (account_id, best_work_id, worst_work_id, reason_tags)
-                 VALUES ($1::uuid, $2::uuid, $3::uuid, $4::jsonb)",
+                "INSERT INTO arena_ballots (account_id, best_work_id, worst_work_id, reason_tags, calibrating)
+                 VALUES ($1::uuid, $2::uuid, $3::uuid, $4::jsonb, $5)",
             )
             .bind(account_id)
             .bind(best_work_id)
             .bind(worst_work_id)
             .bind(tags_json)
+            .bind(calibrating)
             .execute(pool)
             .await?;
         }
     }
     Ok(())
+}
+
+/// How many ballots each of these works has appeared in, as best or worst.
+///
+/// The arena's own count, used for the calibration window when the taste service does not report one: a work in its first
+/// ballots is being positioned by the readers who saw it first, and that is true whether or not another process has an
+/// opinion. The middle two cards of a four-card round are not stored, so this is a floor on appearances rather than an
+/// exact count — which is the honest direction for a threshold that decides whether a rating counts as shared.
+pub async fn arena_appearances(
+    db: &Database,
+    work_ids: &[String],
+) -> Result<std::collections::HashMap<String, i64>, sqlx::Error> {
+    if work_ids.is_empty() {
+        return Ok(std::collections::HashMap::new());
+    }
+    let mut counts = std::collections::HashMap::new();
+    match db.backend() {
+        Backend::Sqlite => {
+            let pool = db.sqlite_pool().ok_or(pool_err())?;
+            let placeholders = vec!["?"; work_ids.len()].join(", ");
+            let sql = format!(
+                "SELECT work_id, COUNT(*) AS n FROM (
+                     SELECT best_work_id AS work_id FROM arena_ballots WHERE best_work_id IN ({placeholders})
+                     UNION ALL
+                     SELECT worst_work_id AS work_id FROM arena_ballots WHERE worst_work_id IN ({placeholders})
+                 ) GROUP BY work_id"
+            );
+            let mut query = sqlx::query(&sql);
+            for id in work_ids {
+                query = query.bind(id);
+            }
+            for id in work_ids {
+                query = query.bind(id);
+            }
+            for row in query.fetch_all(pool).await? {
+                let (work, count): (String, i64) = sqlx::Row::try_get(&row, 0).and_then(|work: String| {
+                    sqlx::Row::try_get::<i64, _>(&row, 1).map(|count| (work, count))
+                })?;
+                counts.insert(work, count);
+            }
+        }
+        Backend::Postgres => {
+            let pool = db.postgres_pool().ok_or(pool_err())?;
+            let placeholders = (1..=work_ids.len())
+                .map(|n| format!("${n}::uuid"))
+                .collect::<Vec<String>>()
+                .join(", ");
+            let offset = work_ids.len() + 1;
+            let second = (offset..offset + work_ids.len())
+                .map(|n| format!("${n}::uuid"))
+                .collect::<Vec<String>>()
+                .join(", ");
+            let sql = format!(
+                "SELECT CAST(work_id AS TEXT) AS work_id, CAST(COUNT(*) AS BIGINT) AS n FROM (
+                     SELECT best_work_id AS work_id FROM arena_ballots WHERE best_work_id IN ({placeholders})
+                     UNION ALL
+                     SELECT worst_work_id AS work_id FROM arena_ballots WHERE worst_work_id IN ({second})
+                 ) grouped GROUP BY work_id"
+            );
+            let mut query = sqlx::query(&sql);
+            for id in work_ids {
+                query = query.bind(id);
+            }
+            for id in work_ids {
+                query = query.bind(id);
+            }
+            for row in query.fetch_all(pool).await? {
+                let work: String = sqlx::Row::try_get(&row, 0)?;
+                let count: i64 = sqlx::Row::try_get(&row, 1)?;
+                counts.insert(work, count);
+            }
+        }
+    }
+    Ok(counts)
 }
 
 /// Get or create arena weights for an account.

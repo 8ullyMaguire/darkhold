@@ -1,6 +1,7 @@
 //! Darkhold domain primitives.
 
 pub mod actor;
+pub mod arena_pairing;
 pub mod affinity;
 pub mod ai;
 pub mod analytics;

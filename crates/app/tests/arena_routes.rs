@@ -36,6 +36,10 @@ fn router_for(tdb: &TestDb, dir: &std::path::Path) -> axum::Router {
     // instance never mounted. That is what they did from the day the gate landed until
     // 2026-11-02, and the failure read as "the arena route is broken".
     config.modules.enabled.push("arena".to_string());
+    // Pairing is deterministic here (M69-11): with exploration off, a round's mode is the decision rather than a coin,
+    // so the assertion below is an assertion and not a 15%-flaky bet. The explore branch is proved by the domain's own
+    // tests, which pass the roll in.
+    config.discovery.arena_epsilon = 0.0;
     server::build_router(AppState::new(config, tdb.db().clone()))
 }
 
@@ -165,7 +169,7 @@ async fn the_arena_still_needs_a_session() {
 ///
 /// Written out per engine because the id columns are TEXT on SQLite and UUID on
 /// PostgreSQL, and a `?` reaching PostgreSQL is a syntax error at plan time.
-async fn seed_published_works(tdb: &TestDb, count: usize, fandom: &str) {
+async fn seed_published_works(tdb: &TestDb, count: usize, fandom: &str) -> Vec<String> {
     const T0: &str = "2026-01-01T00:00:00Z";
     let account = uuid::Uuid::new_v4().to_string();
     let pseud = uuid::Uuid::new_v4().to_string();
@@ -251,8 +255,10 @@ async fn seed_published_works(tdb: &TestDb, count: usize, fandom: &str) {
         }
     }
 
+    let mut seeded = Vec::with_capacity(count);
     for n in 0..count {
         let work = uuid::Uuid::new_v4().to_string();
+        seeded.push(work.clone());
         match tdb.db().backend() {
             darkhold_db::Backend::Postgres => {
                 let pool = tdb.db().postgres_pool().expect("postgres pool");
@@ -304,4 +310,183 @@ async fn seed_published_works(tdb: &TestDb, count: usize, fandom: &str) {
             }
         }
     }
+    seeded
+}
+
+// --- M69-11: how the four were chosen, and whether a ballot counts as calibration -----------------------------------
+
+/// A round says which side of the pairing decision it fell on, and which cards are still being positioned.
+///
+/// With no taste service reachable in the harness, every card is unmeasured — which is exactly the state that must be
+/// reported honestly: `proximate` over the starting value, every card calibrating, and a reason that says so. A round
+/// that silently claimed settled ratings would be the failure this row exists to prevent.
+#[tokio::test]
+async fn a_round_reports_its_pairing_mode_and_which_cards_are_calibrating() {
+    let dir = scratch_dir("arena_pairing");
+    let tdb = TestDb::connect_with_dir("arena-pairing", &dir).await;
+    let mut client = arena_reader(&tdb, &dir, "arena_pairing").await;
+    seed_published_works(&tdb, 4, "fandom_pairing").await;
+
+    let (status, body) = client.get("/api/v1/arena/next").await;
+    assert_eq!(status, StatusCode::OK, "{body}");
+
+    assert_eq!(
+        body["mode"], "proximate",
+        "with exploration configured off, every round is a proximate one: {body}"
+    );
+    let calibrating = body["calibrating"].as_array().expect("calibrating list");
+    assert_eq!(
+        calibrating.len(),
+        4,
+        "every card here has zero readings, and zero readings is inside the window: {body}"
+    );
+    let reason = body["reason"].as_str().expect("reason");
+    assert!(
+        reason.contains("calibrating"),
+        "the round says why the label is there: {reason}"
+    );
+}
+
+/// The ballot keeps the fact: a vote cast on calibrating works is stored as one.
+///
+/// This is what makes the window "recorded, not applied" true rather than aspirational — a consumer that ranks by the
+/// ladder can leave the vote out without re-deriving which ballots were early, which it could not do anyway once more
+/// ballots arrive.
+#[tokio::test]
+async fn a_ballot_records_that_it_compared_calibrating_works() {
+    let dir = scratch_dir("arena_ballot_flag");
+    let tdb = TestDb::connect_with_dir("arena-ballot-flag", &dir).await;
+    let mut client = arena_reader(&tdb, &dir, "arena_ballot_flag").await;
+    seed_published_works(&tdb, 4, "fandom_flag").await;
+
+    let (status, body) = client.get("/api/v1/arena/next").await;
+    assert_eq!(status, StatusCode::OK, "{body}");
+    let cards: Vec<String> = body["round"]["cards"]
+        .as_array()
+        .expect("cards")
+        .iter()
+        .map(|card| card["work_id"].as_str().expect("id").to_owned())
+        .collect();
+    assert_eq!(cards.len(), 4, "{body}");
+
+    let (status, body) = client
+        .post(
+            "/api/v1/arena/vote",
+            serde_json::json!({
+                "best_work_id": cards[0],
+                "worst_work_id": cards[3],
+                "reason_tags": [],
+                "card_ids": cards,
+            }),
+        )
+        .await;
+    assert_eq!(status, StatusCode::OK, "{body}");
+
+    let flagged = match tdb.db().backend() {
+        darkhold_db::Backend::Sqlite => sqlx::query_scalar::<_, i64>(
+            "SELECT calibrating FROM arena_ballots ORDER BY created_at DESC LIMIT 1",
+        )
+        .fetch_one(tdb.db().sqlite_pool().expect("sqlite"))
+        .await
+        .expect("read the ballot")
+            == 1,
+        // BOOLEAN on this engine: the flag is the same fact, spelled the way the dialect declares it.
+        darkhold_db::Backend::Postgres => sqlx::query_scalar::<_, bool>(
+            "SELECT calibrating FROM arena_ballots ORDER BY created_at DESC LIMIT 1",
+        )
+        .fetch_one(tdb.db().postgres_pool().expect("postgres"))
+        .await
+        .expect("read the ballot"),
+    };
+    assert!(flagged, "a ballot on works with no readings is a calibration ballot");
+}
+
+/// A work that has been compared enough stops being flagged, and the count comes from the ballots rather than from a
+/// service that may not have answered.
+#[tokio::test]
+async fn a_work_past_its_calibration_window_is_no_longer_flagged() {
+    let dir = scratch_dir("arena_calibrated");
+    let tdb = TestDb::connect_with_dir("arena-calibrated", &dir).await;
+    let mut client = arena_reader(&tdb, &dir, "arena_calibrated").await;
+    let works = seed_published_works(&tdb, 4, "fandom_calibrated").await;
+
+    // Five ballots from another account, all naming the first work, take it out of the window.
+    let other = uuid::Uuid::new_v4().to_string();
+    let now = "2026-11-07T00:00:00Z";
+    match tdb.db().backend() {
+        darkhold_db::Backend::Sqlite => {
+            let pool = tdb.db().sqlite_pool().expect("sqlite");
+            sqlx::query("INSERT INTO accounts (id, email, created_at, updated_at) VALUES (?, ?, ?, ?)")
+                .bind(&other)
+                .bind(format!("other-{other}@example.test"))
+                .bind(now)
+                .bind(now)
+                .execute(pool)
+                .await
+                .expect("insert account");
+            for _ in 0..5 {
+                sqlx::query(
+                    "INSERT INTO arena_ballots
+                        (id, account_id, best_work_id, worst_work_id, reason_tags, created_at, calibrating)
+                     VALUES (?, ?, ?, ?, '[]', ?, 1)",
+                )
+                .bind(uuid::Uuid::new_v4().to_string())
+                .bind(&other)
+                .bind(&works[0])
+                .bind(&works[1])
+                .bind(now)
+                .execute(pool)
+                .await
+                .expect("insert ballot");
+            }
+        }
+        darkhold_db::Backend::Postgres => {
+            let pool = tdb.db().postgres_pool().expect("postgres");
+            sqlx::query(
+                "INSERT INTO accounts (id, email, created_at, updated_at) VALUES ($1::uuid, $2, $3::timestamptz, $3::timestamptz)",
+            )
+            .bind(&other)
+            .bind(format!("other-{other}@example.test"))
+            .bind(now)
+            .execute(pool)
+            .await
+            .expect("insert account");
+            for _ in 0..5 {
+                sqlx::query(
+                    "INSERT INTO arena_ballots
+                        (id, account_id, best_work_id, worst_work_id, reason_tags, created_at, calibrating)
+                     VALUES ($1::uuid, $2::uuid, $3::uuid, $4::uuid, '[]'::jsonb, $5::timestamptz, TRUE)",
+                )
+                .bind(uuid::Uuid::new_v4().to_string())
+                .bind(&other)
+                .bind(&works[0])
+                .bind(&works[1])
+                .bind(now)
+                .execute(pool)
+                .await
+                .expect("insert ballot");
+            }
+        }
+    }
+
+    let (status, body) = client.get("/api/v1/arena/next").await;
+    assert_eq!(status, StatusCode::OK, "{body}");
+    let calibrating: Vec<&str> = body["calibrating"]
+        .as_array()
+        .expect("calibrating")
+        .iter()
+        .filter_map(|id| id.as_str())
+        .collect();
+    for past in [&works[0], &works[1]] {
+        assert!(
+            !calibrating.contains(&past.as_str()),
+            "five comparisons is the window, so this card is no longer calibrating: {body}"
+        );
+    }
+    assert_eq!(
+        calibrating.len(),
+        2,
+        "the five ballots named two works (best and worst), so those two are past the window and the other two \
+         are not: {body}"
+    );
 }

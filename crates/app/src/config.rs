@@ -691,6 +691,11 @@ impl QualityConfig {
     }
 }
 
+/// The instance's default appetite for an exploring arena round (M69-11).
+fn default_arena_epsilon() -> f64 {
+    0.15
+}
+
 /// Discovery feed diversity settings.
 #[derive(Debug, Clone)]
 pub struct DiscoveryConfig {
@@ -730,6 +735,12 @@ pub struct DiscoveryConfig {
     /// already assigned — it leaves their stored arm in place, out of range, and the split treats an out-of-range arm as
     /// the control. Moving readers mid-experiment would invalidate the comparison the arms exist for.
     pub experiment_buckets: i64,
+    /// How often the arena explores instead of pairing proximate works (M69-11). `0.0` never explores, `1.0` always does.
+    ///
+    /// A config value rather than a constant because it is a taste of the instance's appetite for a comparison that
+    /// tells it where a work sits versus one that confirms where it already is — and because a test that could not set
+    /// it to zero could only assert "sometimes", which is not an assertion.
+    pub arena_epsilon: f64,
     /// Per-surface algorithm choice (M64-01). Absent entirely when the instance runs the registry's defaults.
     ///
     /// Validated at load — an unknown surface, a wrong count, an unknown algorithm or a duplicate is refused — because
@@ -752,6 +763,7 @@ impl Default for DiscoveryConfig {
             rec_enabled_strategies: Vec::new(),
             moods: MoodsConfig::default(),
             experiment_buckets: 0,
+            arena_epsilon: default_arena_epsilon(),
             surfaces: std::collections::BTreeMap::new(),
         }
     }
@@ -3300,6 +3312,15 @@ impl Config {
                 if let Some(strategies) = d.enabled_strategies {
                     cfg.rec_enabled_strategies = strategies;
                 }
+                if let Some(epsilon) = d.arena_epsilon {
+                    // Refused at load, not clamped: a value outside the interval is a typo in a probability, and quietly
+                    // making it 0.15 would leave an instance believing it configured exploration.
+                    anyhow::ensure!(
+                        (0.0..=1.0).contains(&epsilon) && epsilon.is_finite(),
+                        "discovery.arena_epsilon must be between 0 and 1, not {epsilon}"
+                    );
+                    cfg.arena_epsilon = epsilon;
+                }
                 if let Some(buckets) = d.experiment_buckets {
                     anyhow::ensure!(
                         (0..=8).contains(&buckets),
@@ -4815,6 +4836,9 @@ struct DiscoverySection {
     surfaces: Option<std::collections::BTreeMap<String, Vec<String>>>,
     /// Experiment arms per surface (M64-02). `0` or absent means no split.
     experiment_buckets: Option<i64>,
+    /// How often the arena explores instead of pairing proximate works (M69-11). Absent means 0.15.
+    #[serde(default)]
+    arena_epsilon: Option<f64>,
 }
 
 /// The `[theme]` table (spec §0.4.6): theme mode and gravity settings.

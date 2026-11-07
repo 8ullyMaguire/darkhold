@@ -406,3 +406,28 @@ Not wired yet: nothing consumes the score (trust speed, badges and membership ar
 reading of evidence with a door, not a feature a stranger can see. The four PostgreSQL casts (`::uuid` on account and
 work ids, `CAST(... AS TEXT)` on selects) are not decoration: the SQLite run passed while the PostgreSQL run failed on
 three separate decodes before them.
+
+### M69-11 — arena pairing (implemented 2026-11-07)
+
+The round is chosen, not shuffled. A fandom group is sorted by rating and a window of four slides over it: **proximate**
+minimises the span (a comparison that sharpens what the ladder already believes), **exploration** maximises it (a
+comparison that locates a work), and both break an exact tie on the largest mean **deviation** — within an equally tight
+window, the cards that can still move are the ones worth asking about.
+
+The roll is passed into the domain function rather than drawn inside it, so "explores about epsilon of the time" is
+testable: epsilon 0 never explores, 1 always does, and the route draws the roll from `rand` and takes epsilon from
+`discovery.arena_epsilon` (refused at load outside 0..=1 rather than clamped — a probability outside its range is a typo,
+and silently making it 0.15 leaves an instance believing it configured exploration).
+
+**The calibration window is recorded, not applied.** A round names every card with fewer than five comparisons, a card
+with no reading at all counts as inside it, and the ballot stores `calibrating` so a consumer can leave the vote out of the
+global number without re-deriving which ballots were early — which it could not do anyway once more ballots arrive. Nothing
+refuses the vote and nothing adjusts a rating here; the ladder arithmetic is `polaris-taste`'s (ADR 0001).
+
+Gaps named: the deviation tie-break only breaks *exact* ties (a continuous cost was rejected because it makes the reason
+sentence unquotable); no client renders `mode`/`calibrating` yet; `arena_appearances` counts best/worst only, because the
+middle two cards of a round are never stored, so it is a floor rather than an exact count.
+
+Two dialect facts paid for on the way: `arena_ballots.calibrating` is a BOOLEAN on PostgreSQL and INTEGER 0/1 on SQLite
+(the repository's flag convention), which the PG campaign caught as `column "calibrating" is of type integer but
+expression is of type boolean` — after the migration had been written IDENTICAL for both engines.

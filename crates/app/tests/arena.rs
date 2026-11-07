@@ -96,7 +96,7 @@ async fn arena_pool_excludes_voted_works() {
 
     // Record one ballot; the two voted works must drop out of the pool.
     let (acct, w1, w2) = (id("acc-arena"), id("work-a1"), id("work-a2"));
-    record_arena_ballot(db, &acct, &w1, &w2, &[]).await.unwrap();
+    record_arena_ballot(db, &acct, &w1, &w2, &[], false).await.unwrap();
 
     let pool = get_arena_pool(db, &id("acc-arena"), 10).await.unwrap();
     assert!(pool.iter().all(|w| w.id != w1 && w.id != w2));
@@ -151,6 +151,7 @@ async fn arena_ballot_updates_elo() {
         &id("work-a1"),
         &id("work-a2"),
         &["prose".to_string()],
+        false,
     )
     .await
     .unwrap();
@@ -184,6 +185,7 @@ async fn arena_ballot_updates_elo() {
                 excerpt: String::new(),
                 target_dimension: "prose".to_string(),
                 vector: vec![0.9],
+                signal: None,
             },
             darkhold_domain::taste_vector::ArenaCard {
                 work_id: id("work-a2"),
@@ -194,6 +196,7 @@ async fn arena_ballot_updates_elo() {
                 excerpt: String::new(),
                 target_dimension: "prose".to_string(),
                 vector: vec![0.1],
+                signal: None,
             },
         ],
     };

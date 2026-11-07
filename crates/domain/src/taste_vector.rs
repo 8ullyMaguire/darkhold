@@ -565,6 +565,13 @@ pub struct ArenaCard {
     /// [`work_vector_from_tags`].
     #[serde(default)]
     pub vector: Vec<f64>,
+    /// Where the ladder has this work, when the taste service reported it (M69-11).
+    ///
+    /// Optional because pairing works without it — an unrated card is paired as a starting-value card — and because a
+    /// service that does not answer must not stop the arena from offering a round. `None` means "no reading", which
+    /// pairing treats as maximally uncertain rather than as a rating of zero.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub signal: Option<crate::arena_pairing::ArenaSignal>,
 }
 
 impl ArenaCard {
@@ -779,7 +786,7 @@ pub fn apply_arena_ballot(
 /// keys the same way. Returns `None` when the instance has no such dimension, in
 /// which case the arena cannot score on it and the caller should skip it rather
 /// than invent a value.
-fn dimension_index(dimensions: &[TasteDimension], dimension: &str) -> Option<usize> {
+pub(crate) fn dimension_index(dimensions: &[TasteDimension], dimension: &str) -> Option<usize> {
     let mut keys: Vec<&str> = dimensions.iter().map(|d| d.key.as_str()).collect();
     keys.sort_unstable();
     keys.binary_search(&dimension).ok()
@@ -863,6 +870,7 @@ mod arena_tests {
             excerpt: "A test excerpt.".to_string(),
             target_dimension: dim.to_string(),
             vector: vec![score],
+            signal: None,
         }
     }
 

@@ -11,9 +11,10 @@ use axum::extract::State;
 use axum::routing::{get, post};
 use axum::{Json, Router};
 use darkhold_db;
+use darkhold_domain::arena_pairing::{select_round, ArenaSignal, PairingConfig, PairingMode};
 use darkhold_domain::taste_vector::{
-    apply_arena_ballot, generate_arena_round, weights_from_elos, ArenaBallot, ArenaCard,
-    ArenaRound, DimensionElo, TasteDimension,
+    apply_arena_ballot, weights_from_elos, ArenaBallot, ArenaCard, ArenaRound, DimensionElo,
+    TasteDimension,
 };
 use darkhold_domain::AppError;
 use serde::{Deserialize, Serialize};
@@ -47,6 +48,17 @@ pub struct ArenaNextResponse {
     /// pair worth asking about.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub explained_empty: Option<String>,
+    /// How these four were chosen: `proximate` (close on the ladder, a comparison that sharpens what is believed) or
+    /// `explore` (spread apart, a comparison that locates a work). Absent when there is no round.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub mode: Option<PairingMode>,
+    /// Cards still inside their calibration window. Their ballots are recorded with that fact and their ratings are not
+    /// treated as the ladder's, so a page can say "still calibrating" instead of presenting a first reader as a verdict.
+    #[serde(skip_serializing_if = "Vec::is_empty", default)]
+    pub calibrating: Vec<String>,
+    /// One sentence: why these four. Absent when there is no round.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub reason: Option<String>,
     pub dimensions: Vec<DimensionSummary>,
 }
 
@@ -134,8 +146,74 @@ fn build_cards(
                 &dimension_tuples,
                 &row.tag_weights,
             ),
+            // Filled by `attach_signals`: the pool query knows the catalogue, the ladder is another process.
+            signal: None,
         })
         .collect()
+}
+
+/// The pairing knobs, with the epsilon the instance configured.
+fn pairing_config(state: &AppState) -> PairingConfig {
+    PairingConfig {
+        epsilon: state.config().discovery.arena_epsilon,
+        ..PairingConfig::default()
+    }
+}
+
+/// Attach the ladder's reading to each card, and say which cards are still calibrating.
+///
+/// Two sources, in this order: the estate taste service (`state.taste().ratings`) when it answers, and the arena's own
+/// ballot count (`taste_vectors::arena_appearances`) for how many comparisons a work has actually had. The service's
+/// `matches` is used when present because it is the count the rating was computed from; the local count is the floor
+/// when it is absent.
+///
+/// **A failure here does not fail the round.** Pairing without readings is still pairing — every card is treated as
+/// unmeasured, so the round is `proximate` over the starting value and every card is marked calibrating. That is a
+/// worse round than a measured one and it is not an error: an outage in another process must cost a sharper question,
+/// never the arena.
+async fn attach_signals(state: &AppState, cards: &mut [ArenaCard]) {
+    if cards.is_empty() {
+        return;
+    }
+    let ids: Vec<String> = cards.iter().map(|card| card.work_id.clone()).collect();
+    let appearances = darkhold_db::taste_vectors::arena_appearances(state.db(), &ids)
+        .await
+        .unwrap_or_default();
+
+    let readings = match state.taste().ratings(2_000).await {
+        Ok(ratings) => ratings,
+        Err(error) => {
+            tracing::debug!(%error, "the taste service did not answer; pairing without readings");
+            Vec::new()
+        }
+    };
+    let by_work: std::collections::HashMap<String, crate::taste::Rating> = readings
+        .into_iter()
+        .map(|rating| {
+            let id = rating
+                .item_id
+                .strip_prefix("work:")
+                .unwrap_or(&rating.item_id)
+                .to_owned();
+            (id, rating)
+        })
+        .collect();
+
+    for card in cards.iter_mut() {
+        let local = appearances.get(&card.work_id).copied().unwrap_or(0);
+        card.signal = by_work.get(&card.work_id).map(|rating| ArenaSignal {
+            rating: rating.rating,
+            rd: Some(rating.deviation),
+            matches: u64::try_from(rating.matches.max(local)).unwrap_or(u64::MAX),
+        });
+        if card.signal.is_none() {
+            card.signal = Some(ArenaSignal {
+                rating: darkhold_domain::arena_pairing::DEFAULT_RATING,
+                rd: None,
+                matches: u64::try_from(local).unwrap_or(u64::MAX),
+            });
+        }
+    }
 }
 
 /// GET /arena/next — the next arena round for the signed-in user.
@@ -167,7 +245,14 @@ async fn get_arena_next(
     // The dimensions are still computed and reported either way, because they are
     // what the page shows about calibration progress, and an empty round must not
     // cost the reader that too.
-    let round = generate_arena_round(&cards, &dimensions, &targets);
+    let mut cards = cards;
+    attach_signals(&state, &mut cards).await;
+    // The roll is drawn here and passed in, so the decision is testable: `select_round` owns the rule, not the coin.
+    let roll = rand::random::<f64>();
+    let pairing = select_round(&cards, &dimensions, &targets, pairing_config(&state), roll);
+    let round = pairing.as_ref().map(|outcome| ArenaRound {
+        cards: outcome.cards.clone(),
+    });
     let explained_empty = round.is_none().then(|| {
         if cards.is_empty() {
             "No published, public works are available to compare yet."
@@ -194,6 +279,12 @@ async fn get_arena_next(
     Ok(Json(ArenaNextResponse {
         round,
         explained_empty,
+        mode: pairing.as_ref().map(|outcome| outcome.mode),
+        calibrating: pairing
+            .as_ref()
+            .map(|outcome| outcome.calibrating.clone())
+            .unwrap_or_default(),
+        reason: pairing.map(|outcome| outcome.reason),
         dimensions: dimension_summaries,
     }))
 }
@@ -215,6 +306,29 @@ async fn post_arena_vote(
         }));
     }
 
+    // Whether either work is still being positioned. Read from the ladder before the ballot is stored, because the
+    // count the window is measured against changes with this vote: computing it afterwards would call the ballot that
+    // took a work over the line a calibrating one, or the reverse.
+    let mut voted_cards = Vec::new();
+    for id in [&req.best_work_id, &req.worst_work_id] {
+        voted_cards.push(ArenaCard {
+            work_id: id.clone(),
+            title: String::new(),
+            fandom: String::new(),
+            tags: Vec::new(),
+            word_count: 0,
+            excerpt: String::new(),
+            target_dimension: String::new(),
+            vector: Vec::new(),
+            signal: None,
+        });
+    }
+    attach_signals(&state, &mut voted_cards).await;
+    let calibrating = voted_cards.iter().any(|card| {
+        card.signal
+            .is_none_or(|signal| signal.calibrating(pairing_config(&state).calibration_matches))
+    });
+
     // Record the ballot.
     darkhold_db::taste_vectors::record_arena_ballot(
         db,
@@ -222,6 +336,7 @@ async fn post_arena_vote(
         &req.best_work_id,
         &req.worst_work_id,
         &req.reason_tags,
+        calibrating,
     )
     .await
     .map_err(|e| ApiError(AppError::Internal(anyhow::anyhow!("record ballot: {e}"))))?;
@@ -308,9 +423,19 @@ async fn post_arena_vote(
     let pool_rows = darkhold_db::taste_vectors::get_arena_pool(db, &account_id, 50)
         .await
         .map_err(|e| ApiError(AppError::Internal(anyhow::anyhow!("arena pool: {e}"))))?;
-    let cards = build_cards(pool_rows, &dimensions);
+    let mut cards = build_cards(pool_rows, &dimensions);
+    attach_signals(&state, &mut cards).await;
     let targets: Vec<String> = dimensions.iter().map(|d| d.key.clone()).collect();
-    let next_round = generate_arena_round(&cards, &dimensions, &targets);
+    let next_round = select_round(
+        &cards,
+        &dimensions,
+        &targets,
+        pairing_config(&state),
+        rand::random::<f64>(),
+    )
+    .map(|outcome| ArenaRound {
+        cards: outcome.cards,
+    });
 
     Ok(Json(ArenaVoteResponse {
         success: true,
