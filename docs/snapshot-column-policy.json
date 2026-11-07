@@ -787,6 +787,11 @@
       "why": "Chosen by a person, or the primary identifier.",
       "reviewed_by": "alvaro, 2026-09-29, against spec 11.16"
     },
+    "operator_tax_profile.legal_name": {
+      "treatment": "keep",
+      "why": "The operator's own registered business name, printed on invoices. It names the host, not a reader: nothing in this table describes a person who used the site, so erasure does not apply.",
+      "reviewed_by": "alvaro, 2026-11-07, against spec 11.16"
+    },
     "pseuds.handle": {
       "treatment": "replace",
       "why": "Chosen by a person, or the primary identifier.",

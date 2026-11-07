@@ -1140,6 +1140,9 @@ pub fn build_router(state: AppState) -> Router {
         // M16-08: installing, rating and reviewing. Inside the nest because every door needs a session (the acting pseud is the scope),
         // and the read-only ratings door needs one too: it is the only place a package's install count is published.
         .merge(routes::gallery::router())
+        // M16-11: the paid marketplace. Inside the nest for the same reason as the rest: capture and refund are operator doors, and the
+        // session middleware is what knows whether the caller is one.
+        .merge(routes::payments::router())
         .merge(module_mount(
             &state,
             "flows",

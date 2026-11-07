@@ -19,6 +19,7 @@ pub mod extension_document;
 pub mod step_up;
 pub mod succession;
 pub mod moderation_ladder;
+pub mod payments;
 pub mod trust;
 // M45-22 (§54): the personal concierge's session selector and budget cut.
 pub mod concierge;

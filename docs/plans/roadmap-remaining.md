@@ -308,3 +308,23 @@ Two live PostgreSQL defects were found by `gallery_two_engines` (both engines gr
 `::text`, and `stars` is `INT4` so it is cast to `BIGINT` to keep one decode type.
 
 Not built: any UI for the gallery, and notifications on a new review — the routes are the mechanism, and a page is a separate row.
+
+## M16-11 — the paid marketplace (implemented)
+
+`crates/domain/src/payments.rs` (arithmetic) · `crates/db/src/payments.rs` (store) · `crates/app/src/routes/payments.rs` (doors).
+
+* **Separate from credits, by construction.** Nothing here reads a credit balance and nothing in the credits tables reads this ledger. A
+  credit balance must never be readable as a price, so the separation is structural rather than a rule in prose.
+* **A purchase grants nothing.** It records a payment in `pending`; capture is the moment money exists, and the only moment the grant and
+  the seller's share are written. With no provider configured, `Processor::Manual` returns `captured: false` and an operator settles it
+  against a bank transfer — the honest behaviour, and the reason `pending` is a state readers see.
+* **The split runs on the net of tax**, 85/15 with the remainder to the developer, so the halves sum to exactly what was charged.
+* **Refunds are cumulative in one column** with `refunded_minor + amount <= amount_minor` in the statement itself. A full refund revokes the
+  grant and reverses the seller's share; a partial one does neither.
+* **Tax is inclusive and rounded half-up** from a stored profile, so `net + tax == gross`. Storing a profile is not registering for tax, and
+  the response says so.
+* **Money columns are BIGINT.** `INT4` overflows at ~21M euros; the two-engine test caught three `INT4` decode failures on PostgreSQL before
+  the change, the same class the gallery row hit.
+
+Gaps named in the ledger: no invoice document rendering, no processor webhook, and extension revenue settles through the existing
+`author_earnings_ledger` → `request_payout` path rather than a separate payout ledger.

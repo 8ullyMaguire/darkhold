@@ -94,6 +94,7 @@ pub mod narration;
 pub mod north_star;
 pub mod note_links;
 pub mod notifications;
+pub mod payments;
 pub mod operator_theme;
 pub mod outbox;
 pub mod payout_store;

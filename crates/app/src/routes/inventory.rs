@@ -3059,6 +3059,58 @@ pub const ROUTE_TABLE: &[RouteEntry] = &[
     // means in this table. They were added to the router before they were added here, and
     // `registered_routes_are_tabled` failed by name until they were: the hole this table exists to
     // make impossible.
+    // M16-11: the paid marketplace. `purchase` and `me_payments` are `Authenticated` (a buyer is any signed-in account, and the list is the
+    // caller's own); capture, refund, price and the tax profile are `Operator` except pricing, which is checked in the handler because the
+    // seller of a package may price it too — the one door in this file whose audience depends on the row it is acting on.
+    RouteEntry {
+        file: "payments.rs",
+        handler: "purchase",
+        method: "POST",
+        path: "/extensions/{slug}/purchase",
+        audience: Audience::Authenticated,
+    },
+    RouteEntry {
+        file: "payments.rs",
+        handler: "my_payments",
+        method: "GET",
+        path: "/me/payments",
+        audience: Audience::Authenticated,
+    },
+    RouteEntry {
+        file: "payments.rs",
+        handler: "capture",
+        method: "POST",
+        path: "/operator/payments/{id}/capture",
+        audience: Audience::Operator,
+    },
+    RouteEntry {
+        file: "payments.rs",
+        handler: "refund",
+        method: "POST",
+        path: "/operator/payments/{id}/refund",
+        audience: Audience::Operator,
+    },
+    RouteEntry {
+        file: "payments.rs",
+        handler: "set_price",
+        method: "PUT",
+        path: "/operator/extensions/{slug}/price",
+        audience: Audience::Authenticated,
+    },
+    RouteEntry {
+        file: "payments.rs",
+        handler: "read_tax_profile",
+        method: "GET",
+        path: "/operator/tax-profile",
+        audience: Audience::Operator,
+    },
+    RouteEntry {
+        file: "payments.rs",
+        handler: "write_tax_profile",
+        method: "PUT",
+        path: "/operator/tax-profile",
+        audience: Audience::Operator,
+    },
     // M16-08: the gallery. Install/uninstall/update/rate are `Authenticated` because the acting pseud is the scope and a session has to be
     // the thing that names it; the ratings read is `Authenticated` too, since it publishes the install count and the host does not expose a
     // package's numbers to anonymous crawlers.

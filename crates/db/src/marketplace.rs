@@ -525,6 +525,30 @@ pub async fn manifest_document(
     Ok(row)
 }
 
+/// The account that submitted a package (the seller), from its newest version.
+///
+/// `None` when the package does not exist. Used for two questions that must agree: "may this account price it" and "who is paid when it
+/// sells" — reading the seller from the manifest rather than from a separate column is what makes them agree.
+pub async fn submitted_by(db: &Database, id: &str) -> Result<Option<String>, sqlx::Error> {
+    let row: Option<String> = match db.backend() {
+        Backend::Sqlite => sqlx::query(
+            "SELECT submitted_by FROM extension_manifests WHERE id = ? ORDER BY created_at DESC LIMIT 1",
+        )
+        .bind(id)
+        .fetch_optional(db.sqlite_pool().expect("sqlite"))
+        .await?
+        .map(|row| row.get("submitted_by")),
+        Backend::Postgres => sqlx::query(
+            "SELECT submitted_by FROM extension_manifests WHERE id = $1 ORDER BY created_at DESC LIMIT 1",
+        )
+        .bind(id)
+        .fetch_optional(db.postgres_pool().expect("postgres"))
+        .await?
+        .map(|row| row.get("submitted_by")),
+    };
+    Ok(row)
+}
+
 /// The newest **approved** version's document, or `None` when the package has nothing published.
 ///
 /// "Latest published" rather than "latest": a package under review has a newer row whose document nobody may install, and answering with it
