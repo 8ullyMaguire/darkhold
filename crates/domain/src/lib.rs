@@ -131,4 +131,5 @@ pub mod evacuation;
 pub mod glicko;
 pub mod media_rescue;
 pub mod mirroring;
+pub mod morning;
 pub mod work_identity;

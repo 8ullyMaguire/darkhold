@@ -618,6 +618,12 @@ pub fn build_router(state: AppState) -> Router {
         ))
         .merge(module_mount(
             &state,
+            "discovery",
+            routes::morning::router(),
+            RouteClass::Default,
+        ))
+        .merge(module_mount(
+            &state,
             "roadmap",
             routes::roadmap::read_router(),
             RouteClass::Default,

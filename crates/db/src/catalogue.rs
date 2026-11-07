@@ -317,6 +317,80 @@ pub async fn fandoms(db: &Database, limit: i64) -> Result<Vec<FandomCount>> {
     Ok(rows)
 }
 
+/// The first fandom of each catalogue row, keyed by the row's own id.
+///
+/// The morning queue (M69-22) needs a diversity bucket per candidate, and the catalogue row does not carry one: a work's fandoms
+/// live on `work_tags` -> `canonical_entities`, several per work. "First" is `canonical_entities.canonical` ordered ascending, so
+/// the answer is stable — a work whose fandoms are `Bleach` and `Naruto` buckets under `Bleach` on every call and on both
+/// engines, which is what lets a queue be reproducible.
+///
+/// Items this query does not reach are simply absent from the map: an untagged work has no fandom, and the caller buckets it as
+/// unknown rather than inventing one.
+///
+/// # Errors
+///
+/// Returns the store's error when the query fails.
+pub async fn fandom_for_items(
+    db: &Database,
+    item_ids: &[String],
+) -> Result<std::collections::BTreeMap<String, String>> {
+    let mut out = std::collections::BTreeMap::new();
+    if item_ids.is_empty() {
+        return Ok(out);
+    }
+    // Placeholders are built rather than bound in a loop: one round trip per page, and the row count is bounded by the caller.
+    let placeholders = match db.backend() {
+        crate::Backend::Sqlite => vec!["?"; item_ids.len()].join(","),
+        crate::Backend::Postgres => (1..=item_ids.len())
+            .map(|index| format!("${index}"))
+            .collect::<Vec<String>>()
+            .join(","),
+    };
+    // Bound to locals before `db.sql`: a `&format!(..)` temporary inside the call is dropped at the end of the statement
+    // (E0716), and the two-engine helper borrows its arguments.
+    let sqlite_sql = format!(
+        "SELECT li.id AS item_id, MIN(ce.canonical) AS fandom \
+           FROM library_items li \
+           JOIN work_tags wt ON wt.work_id = li.work_id \
+           JOIN canonical_entities ce ON ce.id = wt.node_id \
+          WHERE ce.kind = 'fandom' AND li.id IN ({placeholders}) \
+          GROUP BY li.id"
+    );
+    let postgres_sql = format!(
+        "SELECT li.id::text AS item_id, MIN(ce.canonical) AS fandom \
+           FROM library_items li \
+           JOIN work_tags wt ON wt.work_id = li.work_id \
+           JOIN canonical_entities ce ON ce.id = wt.node_id \
+          WHERE ce.kind = 'fandom' AND li.id::text IN ({placeholders}) \
+          GROUP BY li.id"
+    );
+    let sql = db.sql(&sqlite_sql, &postgres_sql);
+    let rows: Vec<(String, String)> = match db.backend() {
+        crate::Backend::Sqlite => {
+            let mut query = sqlx::query_as::<_, (String, String)>(&sql);
+            for id in item_ids {
+                query = query.bind(id);
+            }
+            query
+                .fetch_all(db.sqlite_pool().expect("sqlite handle"))
+                .await?
+        }
+        crate::Backend::Postgres => {
+            let mut query = sqlx::query_as::<_, (String, String)>(&sql);
+            for id in item_ids {
+                query = query.bind(id);
+            }
+            query
+                .fetch_all(db.postgres_pool().expect("postgres handle"))
+                .await?
+        }
+    };
+    for (item_id, fandom) in rows {
+        out.insert(item_id, fandom);
+    }
+    Ok(out)
+}
+
 /// How many rows the catalogue holds.
 ///
 /// The denominator of the coverage line. Read on fandom-scoped requests only,

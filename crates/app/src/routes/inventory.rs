@@ -6235,6 +6235,13 @@ pub const ROUTE_TABLE: &[RouteEntry] = &[
         audience: Audience::Authenticated,
     },
     RouteEntry {
+        file: "morning.rs",
+        handler: "morning",
+        method: "GET",
+        path: "/discovery/morning",
+        audience: Audience::Public,
+    },
+    RouteEntry {
         file: "evacuation.rs",
         handler: "announce",
         method: "POST",

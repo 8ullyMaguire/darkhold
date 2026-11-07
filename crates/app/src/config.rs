@@ -761,6 +761,16 @@ pub struct DiscoveryConfig {
     pub media_rescue: bool,
     /// Whether an evacuation may be announced and planned (M69-07). Default: off.
     pub evacuation: bool,
+    /// Whether `/discovery/morning` serves a queue and a daily surprise (M69-22). Default: off.
+    pub morning_queue: bool,
+    /// The slug of the saved filter the morning queue is drawn from (M69-22). `None` means the queue is on but unconfigured,
+    /// which answers `404` rather than inventing a filter: a queue with no filter behind it cannot be shown to a reader.
+    pub morning_queue_view: Option<String>,
+    /// How many works the queue offers. Default 5, clamped to 1..=10.
+    pub morning_queue_size: Option<i64>,
+    /// Whether the daily surprise is drawn alongside the queue (M69-22). Default: on when the queue is on — the surprise is the
+    /// half a reader asked for and the queue is the half that makes it tolerable.
+    pub daily_surprise: Option<bool>,
     /// This instance's ed25519 passport signing key, hex-encoded, when configured (M69-03).
     pub passport_key: Option<String>,
     /// Per-surface algorithm choice (M64-01). Absent entirely when the instance runs the registry's defaults.
@@ -795,6 +805,10 @@ impl Default for DiscoveryConfig {
             mirror_floor: None,
             media_rescue: false,
             evacuation: false,
+            morning_queue: false,
+            morning_queue_view: None,
+            morning_queue_size: None,
+            daily_surprise: None,
             passport_key: None,
             surfaces: std::collections::BTreeMap::new(),
         }
@@ -3378,6 +3392,23 @@ impl Config {
                 if let Some(evacuation) = d.evacuation {
                     cfg.evacuation = evacuation;
                 }
+                if let Some(queue) = d.morning_queue {
+                    cfg.morning_queue = queue;
+                }
+                if let Some(view) = d
+                    .morning_queue_view
+                    .as_ref()
+                    .map(|v| v.trim().to_owned())
+                    .filter(|v| !v.is_empty())
+                {
+                    cfg.morning_queue_view = Some(view);
+                }
+                if let Some(size) = d.morning_queue_size {
+                    cfg.morning_queue_size = Some(size.clamp(1, 10));
+                }
+                if let Some(surprise) = d.daily_surprise {
+                    cfg.daily_surprise = Some(surprise);
+                }
                 if let Some(floor) = d.mirror_floor {
                     if !(0.0..=1.0).contains(&floor) {
                         return Err(anyhow::anyhow!(
@@ -4985,6 +5016,19 @@ struct DiscoverySection {
     /// silently would hand every instance a key its operator never saw.
     #[serde(default)]
     passport_key: Option<String>,
+    /// Whether `/discovery/morning` is open (M69-22). Off by default: it puts a small curated set in front of every reader.
+    #[serde(default)]
+    morning_queue: Option<bool>,
+    /// The slug of the saved filter the morning queue is drawn from (M69-22). Absent means the queue is on but unconfigured,
+    /// which answers 404 rather than inventing a filter.
+    #[serde(default)]
+    morning_queue_view: Option<String>,
+    /// How many works the queue offers (M69-22). Absent means 5.
+    #[serde(default)]
+    morning_queue_size: Option<i64>,
+    /// Whether the daily surprise is drawn alongside the queue (M69-22). Absent means on, when the queue is on.
+    #[serde(default)]
+    daily_surprise: Option<bool>,
 }
 
 /// The `[theme]` table (spec §0.4.6): theme mode and gravity settings.

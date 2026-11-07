@@ -669,3 +669,30 @@ through HTTP rather than trusting the table.
 Limits: the arena still pairs candidates by Elo and match count — "prefer uncertain pairs" is available from the deviation now
 but not wired into `arena_candidates`; `diverged` describes the last ballot that moved a card, not its history; and the
 federation ladder's numbers remain `polaris-taste`'s under ADR 0001 (M69-10's consumer half, `db::ladder::is_settled`).
+
+### M69-22 — the morning queue and the daily surprise (implemented 2026-11-07)
+
+Two shapes, two jobs, and neither is a new surface: both are drawn from a **saved filter**, so the operator retunes the queue
+without a deploy and the response says which filter answered.
+
+    GET /api/v1/discovery/morning
+    → { day, filter: {slug, name, params, url}, queue: [...], surprise: {...} }
+
+**The queue is diverse by rule, not by hope.** Five excellent works from one corner of the archive read as one recommendation
+repeated. So the selection is a round — first from each fandom, then the second from each, stopping at two per fandom — which
+keeps the filter's own ranking *inside* each bucket and still puts the pool's best work first. Round-robin is over
+first-appearance order, so the result is deterministic; untagged works share one `unknown` bucket, because otherwise a
+catalogue of untagged rows would look perfectly diverse. A pool too small to fill the queue is filled rather than padded: the
+cap governs a *diverse* choice, not a short one.
+
+**The surprise is stable for the day and different between readers.** Seeded by FNV-1a over (day, reader), not `DefaultHasher`
+(which is explicitly not stable across Rust releases) and not `rand`. A surprise that changes on reload is a slot machine, and
+one that is the same for everyone is not a surprise.
+
+**Nothing here invents a filter.** The queue names a slug on the operator's account (`[discovery] morning_queue_view`); off,
+unnamed, or pointing at a filter that does not exist all answer **404** — an empty 200 would say "we looked and found nothing"
+when the truth is "nobody configured this". A **private** filter is refused with the reason, because serving it would publish the
+filter's contents to every reader, and a **library**-scoped view is refused too: the queue runs a public catalogue filter.
+
+Missing piece named: M69-23 (a saved filter as an import's intake policy) and M69-21's public life (subscriptions, keybinds,
+blends) are separate rows; this one is the reading surface.

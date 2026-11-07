@@ -143,4 +143,5 @@ pub mod works;
 pub mod evacuation;
 pub mod media_rescue;
 pub mod mirroring;
+pub mod morning;
 pub mod well_known;
