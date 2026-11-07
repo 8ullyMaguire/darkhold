@@ -12,6 +12,7 @@
 //! Named `moderation_ladder` and not `ladder`, because `crate::ladder` already means the *taste* ladder (Glicko-2 eligibility)
 //! in this crate. Two ladders, one word, and the qualified name is cheaper than the confusion.
 
+use darkhold_domain::moderation_ladder::MODERATOR_LEVEL;
 use darkhold_domain::moderation_ladder::Counts;
 
 use crate::{Backend, Database};
@@ -93,55 +94,45 @@ pub struct Sweep {
 /// Crossings are **returned, not applied**: minting the role is `polaris-id`'s act (its `entitlements` table is the authority for
 /// scope), and darkhold has no admin channel to it. The estate applies the grant from these crossings, which also makes a failed
 /// grant visible as an unapplied crossing rather than a silent half-success.
-pub async fn sweep(db: &Database, cutoff: &str) -> Result<Sweep, sqlx::Error> {
-    let rows: Vec<(String, i64, i64)> = match db.backend() {
+pub async fn sweep(
+    db: &Database,
+    settings: &crate::governance::TrustSettings<'_>,
+) -> Result<Sweep, sqlx::Error> {
+    // Every account that is not a guest. The count per account is not computed here any more: **the existing ladder already
+    // does that**, through `evidence_for` and the four-axis assessment, and this function's job is only to ask it again and
+    // report who crossed into a level where a moderator claim is due. Re-deriving a level from a bare count in this module was
+    // the second ladder decision (c) removed.
+    let accounts: Vec<(String,)> = match db.backend() {
         Backend::Sqlite => {
-            sqlx::query_as(
-                "SELECT p.account_id,
-                        COUNT(w.id),
-                        (SELECT COUNT(*) FROM reports r WHERE r.subject_id = CAST(p.account_id AS TEXT) AND r.state = 'upheld')
-                   FROM works w
-                   JOIN pseuds p ON p.id = w.owner_pseud_id
-                  WHERE w.lifecycle = 'published' AND w.deleted_at IS NULL AND w.created_at >= ?1
-                  GROUP BY p.account_id",
-            )
-            .bind(cutoff)
-            .fetch_all(db.sqlite_pool().expect("sqlite"))
-            .await?
+            sqlx::query_as("SELECT id FROM accounts WHERE is_guest = 0")
+                .fetch_all(db.sqlite_pool().expect("sqlite"))
+                .await?
         }
         Backend::Postgres => {
-            sqlx::query_as(
-                "SELECT p.account_id,
-                        COUNT(w.id),
-                        (SELECT COUNT(*) FROM reports r WHERE r.subject_id = CAST(p.account_id AS TEXT) AND r.state = 'upheld')
-                   FROM works w
-                   JOIN pseuds p ON p.id = w.owner_pseud_id
-                  WHERE w.lifecycle = 'published' AND w.deleted_at IS NULL AND w.created_at >= $1
-                  GROUP BY p.account_id",
-            )
-            .bind(cutoff)
-            .fetch_all(db.postgres_pool().expect("postgres"))
-            .await?
+            sqlx::query_as("SELECT id::text FROM accounts WHERE is_guest = false")
+                .fetch_all(db.postgres_pool().expect("postgres"))
+                .await?
         }
     };
 
     let mut out = Sweep::default();
-    for (account, accepted, upheld) in rows {
-        let counts = Counts {
-            accepted: u32::try_from(accepted).unwrap_or(u32::MAX),
-            upheld_against: u32::try_from(upheld).unwrap_or(u32::MAX),
-        };
-        let to = darkhold_domain::moderation_ladder::level_for(counts);
-        let from = current_level(db, &account).await?;
-        if from == to {
+    for (account,) in accounts {
+        let before = current_level(db, &account).await?;
+        let assessment = crate::governance::recompute_trust(db, &account, settings).await?;
+        let after = u8::try_from(assessment.level).unwrap_or(MODERATOR_LEVEL);
+        if before == after {
             continue;
         }
-        let basis = darkhold_domain::moderation_ladder::basis_for(counts);
-        crate::governance::set_trust(db, &account, i64::from(to), &basis).await?;
-        if darkhold_domain::moderation_ladder::mints_role(from, to) {
+        if darkhold_domain::moderation_ladder::role_due(after)
+            && !darkhold_domain::moderation_ladder::role_due(before)
+        {
             out.crossings.push(account.clone());
         }
-        out.changes.push(LevelChange { account, from, to });
+        out.changes.push(LevelChange {
+            account,
+            from: before,
+            to: after,
+        });
     }
     Ok(out)
 }
