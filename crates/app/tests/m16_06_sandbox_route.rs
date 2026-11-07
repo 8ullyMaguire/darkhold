@@ -218,6 +218,7 @@ fn request_body(wasm: String) -> Value {
         "host_calls": 10_u32,
         "output_bytes": 1024_usize,
         "wall_clock_ms": 2_000_u64,
+        "apis": ["write", "checkpoint"],
     })
 }
 

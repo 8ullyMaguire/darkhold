@@ -344,6 +344,10 @@ pub async fn list_my_grants(db: &Database, account: &str) -> Result<Vec<Value>, 
                         "capabilities": r.get::<String, _>("capabilities"),
                         "granted_at": r.get::<String, _>("granted_at"),
                         "revoked_at": r.get::<Option<String>, _>("revoked_at"),
+                        // Published rather than inferred by the reader: a revoked grant and a held one are the same shape of row, and the
+                        // difference between "this extension may call the host" and "you uninstalled it" must not depend on a client
+                        // deciding that `revoked_at != null` means something.
+                        "active": r.get::<Option<String>, _>("revoked_at").is_none(),
                     })
                 })
                 .collect())
@@ -363,6 +367,10 @@ pub async fn list_my_grants(db: &Database, account: &str) -> Result<Vec<Value>, 
                         "capabilities": r.get::<String, _>("capabilities"),
                         "granted_at": r.get::<String, _>("granted_at"),
                         "revoked_at": r.get::<Option<String>, _>("revoked_at"),
+                        // Published rather than inferred by the reader: a revoked grant and a held one are the same shape of row, and the
+                        // difference between "this extension may call the host" and "you uninstalled it" must not depend on a client
+                        // deciding that `revoked_at != null` means something.
+                        "active": r.get::<Option<String>, _>("revoked_at").is_none(),
                     })
                 })
                 .collect())
@@ -460,8 +468,13 @@ pub async fn grant_extension(
     match db.backend() {
         Backend::Sqlite => {
             sqlx::query(
+                // `ON CONFLICT` because the primary key is (account, manifest_id) and revocation is a column, not a delete: without it,
+                // uninstalling and then installing again hit a unique violation and the extension could never be re-granted. A re-grant
+                // is a new consent, so `revoked_at` is cleared and the capabilities are the ones just confirmed — not the old ones.
                 "INSERT INTO extension_grants (account, manifest_id, version, capabilities, granted_at)
-                 VALUES (?, ?, ?, ?, ?)"
+                 VALUES (?, ?, ?, ?, ?)
+                 ON CONFLICT(account, manifest_id) DO UPDATE SET version=excluded.version,
+                 capabilities=excluded.capabilities, granted_at=excluded.granted_at, revoked_at=NULL"
             )
             .bind(account).bind(manifest_id).bind(version).bind(&caps_json).bind(&now)
             .execute(db.sqlite_pool().expect("sqlite")).await?;
@@ -469,13 +482,52 @@ pub async fn grant_extension(
         Backend::Postgres => {
             sqlx::query(
                 "INSERT INTO extension_grants (account, manifest_id, version, capabilities, granted_at)
-                 VALUES ($1, $2, $3, $4, $5)"
+                 VALUES ($1, $2, $3, $4, $5)
+                 ON CONFLICT(account, manifest_id) DO UPDATE SET version=excluded.version,
+                 capabilities=excluded.capabilities, granted_at=excluded.granted_at, revoked_at=NULL"
             )
             .bind(account).bind(manifest_id).bind(version).bind(&caps_json).bind(&now)
             .execute(db.postgres_pool().expect("postgres")).await?;
         }
     }
     Ok(())
+}
+
+/// The grants that still hold: revoked is a column, so "uninstall" means the row stops counting rather than disappearing.
+///
+/// A separate reader from [`list_my_grants`] on purpose. The product needs both questions — *what have I granted over time* (the reader's
+/// settings page, where a revoked grant is history worth showing) and *may this package call the host right now* (the executor, where a
+/// revoked grant must be invisible) — and one function that answered both would have to be trusted to know which caller it was serving.
+pub async fn active_grants(db: &Database, account: &str) -> Result<Vec<Value>, sqlx::Error> {
+    let all = list_my_grants(db, account).await?;
+    Ok(all
+        .into_iter()
+        .filter(|grant| grant.get("revoked_at").is_some_and(Value::is_null))
+        .collect())
+}
+
+/// Whether one extension currently holds a grant of `capability` for this account.
+pub async fn holds_grant(
+    db: &Database,
+    account: &str,
+    manifest_id: &str,
+    capability: &str,
+) -> Result<bool, sqlx::Error> {
+    let active = active_grants(db, account).await?;
+    for grant in active {
+        if grant.get("manifest_id").and_then(Value::as_str) != Some(manifest_id) {
+            continue;
+        }
+        let capabilities = grant
+            .get("capabilities")
+            .and_then(Value::as_str)
+            .and_then(|text| serde_json::from_str::<Vec<String>>(text).ok())
+            .unwrap_or_default();
+        if capabilities.iter().any(|held| held == capability) {
+            return Ok(true);
+        }
+    }
+    Ok(false)
 }
 
 /// Get all active webhook endpoints.

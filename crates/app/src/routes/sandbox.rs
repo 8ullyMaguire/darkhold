@@ -45,6 +45,12 @@ pub struct SandboxRun {
     pub host_calls: u32,
     pub output_bytes: usize,
     pub wall_clock_ms: u64,
+    /// The host APIs this extension was granted, by name (`write`, `checkpoint`).
+    ///
+    /// Absent means **none**: default-deny, so a request that forgets the field runs a module that cannot call the host rather than one
+    /// that can call everything.
+    #[serde(default)]
+    pub apis: Vec<String>,
 }
 
 fn default_entry() -> String {
@@ -84,6 +90,7 @@ pub async fn run(
     }
 
     let decoder = base64::engine::general_purpose::STANDARD;
+    let grant = darkhold_sandbox::Grant::of(request.apis.clone());
     let wasm = decoder
         .decode(request.wasm_base64.as_bytes())
         .map_err(|_| ApiError(AppError::field("wasm_base64", "not valid base64")))?;
@@ -100,7 +107,7 @@ pub async fn run(
     // `wasmi` is an interpreter and a malicious module can loop until fuel runs out; doing that on the request thread would take a worker
     // with it. The run is moved off the reactor so a 10-second fuel budget cannot stall unrelated requests.
     let outcome = tokio::task::spawn_blocking(move || {
-        darkhold_sandbox::run(&wasm, &request.entry, &input, limits, revoked)
+        darkhold_sandbox::run(&wasm, &request.entry, &input, limits, &grant, revoked)
     })
     .await
     .map_err(|error| ApiError(AppError::internal("sandbox task", anyhow::anyhow!(error))))?;

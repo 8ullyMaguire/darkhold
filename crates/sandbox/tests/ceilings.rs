@@ -10,7 +10,7 @@
 use std::sync::atomic::AtomicBool;
 use std::time::Duration;
 
-use darkhold_sandbox::{run, Halt, Limits};
+use darkhold_sandbox::{run, Grant, Halt, Limits};
 
 /// A generous baseline: any test that fails should fail on the ceiling it names, not on something incidental.
 fn limits() -> Limits {
@@ -48,7 +48,7 @@ fn writer(count: i32) -> Vec<u8> {
 
 #[test]
 fn a_module_that_finishes_reports_what_it_wrote_and_spent() {
-    let outcome = run(&writer(12), "run", b"", limits(), revoked(false));
+    let outcome = run(&writer(12), "run", b"", limits(), &Grant::all(), revoked(false));
     assert_eq!(outcome.halt, None, "{outcome:?}");
     assert!(outcome.succeeded());
     assert_eq!(outcome.output.len(), 12, "twelve bytes written: {outcome:?}");
@@ -81,6 +81,7 @@ fn fuel_stops_a_module_that_never_calls_the_host() {
             fuel: 50_000,
             ..limits()
         },
+        &Grant::all(),
         revoked(false),
     );
     assert_eq!(outcome.halt, Some(Halt::Fuel), "{outcome:?}");
@@ -100,7 +101,7 @@ fn a_memory_ceiling_refuses_growth_beyond_it() {
             (i32.const 0)))
         "#,
     );
-    let outcome = run(&hungry, "run", b"", limits(), revoked(false));
+    let outcome = run(&hungry, "run", b"", limits(), &Grant::all(), revoked(false));
     assert_eq!(
         outcome.halt,
         Some(Halt::Memory),
@@ -133,6 +134,7 @@ fn the_host_call_budget_is_a_count_not_a_rate() {
             host_calls: 3,
             ..limits()
         },
+        &Grant::all(),
         revoked(false),
     );
     assert_eq!(outcome.halt, Some(Halt::HostCalls), "{outcome:?}");
@@ -150,6 +152,7 @@ fn the_output_cap_stops_a_module_that_writes_past_it() {
             output_bytes: 64,
             ..limits()
         },
+        &Grant::all(),
         revoked(false),
     );
     assert_eq!(outcome.halt, Some(Halt::Output), "{outcome:?}");
@@ -174,7 +177,7 @@ fn revocation_stops_a_running_module_at_its_next_host_call() {
             (i32.const 0)))
         "#,
     );
-    let outcome = run(&polls, "run", b"", limits(), revoked(true));
+    let outcome = run(&polls, "run", b"", limits(), &Grant::all(), revoked(true));
     assert_eq!(
         outcome.halt,
         Some(Halt::Revoked),
@@ -191,7 +194,7 @@ fn a_revocation_that_arrives_before_the_call_does_not_wait_for_a_host_call() {
           (func (export "run") (param i32 i32) (result i32) (i32.const 0)))
         "#,
     );
-    let outcome = run(&silent, "run", b"", limits(), revoked(true));
+    let outcome = run(&silent, "run", b"", limits(), &Grant::all(), revoked(true));
     assert_eq!(
         outcome.halt,
         Some(Halt::Revoked),
@@ -212,6 +215,7 @@ fn a_deadline_already_past_is_reported_as_the_clock() {
             wall_clock: Duration::ZERO,
             ..limits()
         },
+        &Grant::all(),
         revoked(false),
     );
     assert!(
@@ -222,7 +226,7 @@ fn a_deadline_already_past_is_reported_as_the_clock() {
 
 #[test]
 fn a_module_that_does_not_compile_is_a_result_not_a_panic() {
-    let outcome = run(b"\0asm\x01\0\0\0nonsense", "run", b"", limits(), revoked(false));
+    let outcome = run(b"\0asm\x01\0\0\0nonsense", "run", b"", limits(), &Grant::all(), revoked(false));
     match outcome.halt {
         Some(Halt::Trap(message)) => assert!(!message.is_empty(), "the reason is carried"),
         other => panic!("expected a trap, got {other:?}"),
@@ -236,6 +240,7 @@ fn a_missing_entry_point_names_the_export() {
         "run",
         b"",
         limits(),
+        &Grant::all(),
         revoked(false),
     );
     match outcome.halt {
@@ -260,6 +265,7 @@ fn a_host_call_that_outlives_its_budget_stops_the_run() {
             host_call_timeout: Duration::ZERO,
             ..limits()
         },
+        &Grant::all(),
         revoked(false),
     );
     assert_eq!(outcome.halt, Some(Halt::HostTimeout), "{outcome:?}");
@@ -290,4 +296,82 @@ fn a_zero_concurrency_bound_still_runs_one() {
     let bound = darkhold_sandbox::Concurrency::new(0);
     assert_eq!(bound.limit(), 1);
     assert!(bound.try_enter().is_some());
+}
+
+#[test]
+fn an_api_the_extension_was_not_granted_is_refused_before_it_runs() {
+    // The claim M16-12 has to be able to make: a host API denies a package that was not granted it. Refused at link time, so no fuel is
+    // spent and nothing the module would have done happens — a permission checked after the call is an audit, not a permission.
+    let outcome = run(
+        &writer(4),
+        "run",
+        b"",
+        limits(),
+        &Grant::none(),
+        revoked(false),
+    );
+    match outcome.halt {
+        Some(Halt::PermissionDenied(ref import)) => assert_eq!(
+            import, "darkhold.write",
+            "the refusal names the import the manifest lacked"
+        ),
+        other => panic!("expected a permission refusal, got {other:?}"),
+    }
+    assert_eq!(outcome.host_calls, 0, "{outcome:?}");
+    assert_eq!(outcome.fuel_used, 0, "refused before the entry point: {outcome:?}");
+    assert!(outcome.output.is_empty(), "{outcome:?}");
+}
+
+#[test]
+fn a_grant_of_only_checkpoint_does_not_buy_the_write_api() {
+    // Grants are per API, not per package: holding one must not imply the other.
+    let outcome = run(
+        &writer(4),
+        "run",
+        b"",
+        limits(),
+        &Grant::of(["checkpoint"]),
+        revoked(false),
+    );
+    assert_eq!(
+        outcome.halt,
+        Some(Halt::PermissionDenied("darkhold.write".to_owned())),
+        "{outcome:?}"
+    );
+}
+
+#[test]
+fn an_import_from_another_namespace_is_refused() {
+    // A module that imports from `env` is asking for something this run never offered. Linking would fail anyway; this names it as a
+    // permission instead of an opaque linker error.
+    let foreign = wasm(
+        r#"
+        (module
+          (import "env" "eval" (func $eval (result i32)))
+          (memory (export "memory") 1)
+          (func (export "run") (param i32 i32) (result i32) (call $eval)))
+        "#,
+    );
+    let outcome = run(&foreign, "run", b"", limits(), &Grant::all(), revoked(false));
+    assert_eq!(
+        outcome.halt,
+        Some(Halt::PermissionDenied("env.eval".to_owned())),
+        "{outcome:?}"
+    );
+}
+
+#[test]
+fn a_pure_module_needs_no_grant_at_all() {
+    // The other half of default-deny: a function that computes and returns is not blocked by having no permissions, or the sandbox would
+    // refuse the safest thing it can run.
+    let pure = wasm(
+        r#"
+        (module
+          (memory (export "memory") 1)
+          (func (export "run") (param i32 i32) (result i32) (i32.const 42)))
+        "#,
+    );
+    let outcome = run(&pure, "run", b"", limits(), &Grant::none(), revoked(false));
+    assert_eq!(outcome.halt, None, "{outcome:?}");
+    assert_eq!(outcome.returned, Some(42));
 }

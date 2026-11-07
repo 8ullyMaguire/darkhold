@@ -76,6 +76,54 @@ impl Limits {
     };
 }
 
+/// The host APIs one extension may call.
+///
+/// **Default deny.** A grant names what is allowed and everything else is refused at link time — before the module runs a single
+/// instruction — because a permission check that happens after the call has already happened is an audit, not a permission. An import
+/// from a module other than the sandbox's own namespace is refused too: an extension may ask *the host* for an API, never for arbitrary
+/// imports the run did not offer.
+#[derive(Debug, Clone, Default)]
+pub struct Grant {
+    apis: Vec<String>,
+}
+
+/// The namespace the sandbox's own imports live in.
+pub const HOST_MODULE: &str = "darkhold";
+
+impl Grant {
+    /// No host API at all: a module may still compute and return, which is what a pure function needs.
+    #[must_use]
+    pub fn none() -> Self {
+        Self::default()
+    }
+
+    /// The grant a caller builds from a stored capability list.
+    #[must_use]
+    pub fn of(apis: impl IntoIterator<Item = impl Into<String>>) -> Self {
+        Self {
+            apis: apis.into_iter().map(Into::into).collect(),
+        }
+    }
+
+    /// Everything this sandbox provides, for tests and for an operator running a module by hand.
+    #[must_use]
+    pub fn all() -> Self {
+        Self::of(["write", "checkpoint"])
+    }
+
+    /// Whether one import may be linked.
+    #[must_use]
+    pub fn allows(&self, module: &str, name: &str) -> bool {
+        module == HOST_MODULE && self.apis.iter().any(|api| api == name)
+    }
+
+    /// The names this grant carries.
+    #[must_use]
+    pub fn apis(&self) -> &[String] {
+        &self.apis
+    }
+}
+
 /// Why a run stopped.
 ///
 /// Every variant is a *reason*, not an error: a run that hits a ceiling did exactly what the sandbox promised, and the caller needs to
@@ -94,6 +142,11 @@ pub enum Halt {
     WallClock,
     /// One host call took longer than `host_call_timeout`.
     HostTimeout,
+    /// The module imports a host API the extension was not granted.
+    ///
+    /// Carries the import's full name (`darkhold.write`), because "permission denied" without saying which permission is a support
+    /// ticket rather than a message.
+    PermissionDenied(String),
     /// The run was revoked while it was running.
     Revoked,
     /// The module trapped: a bad instruction, an out-of-bounds access, a failure to instantiate.
@@ -111,6 +164,7 @@ impl Halt {
             Self::Output => "output",
             Self::WallClock => "wall_clock",
             Self::HostTimeout => "host_timeout",
+            Self::PermissionDenied(_) => "permission_denied",
             Self::Revoked => "revoked",
             Self::Trap(_) => "trap",
         }
@@ -215,6 +269,7 @@ pub fn run(
     entry: &str,
     input: &[u8],
     limits: Limits,
+    grant: &Grant,
     revoked: &'static AtomicBool,
 ) -> Outcome {
     let started = Instant::now();
@@ -242,6 +297,25 @@ pub fn run(
     // `trap_on_grow_failure` is what makes a denied growth nameable: without it `memory.grow` returns -1, the module carries on and
     // faults later somewhere unrelated, and the report says "out of bounds memory access" — true, useless, and not the ceiling that
     // actually stopped it.
+    // Refused before instantiation: an import that will not be linked is a module that cannot start, and finding that out before any
+    // fuel is spent is the difference between a permission and a runtime failure.
+    for import in module.imports() {
+        if !grant.allows(import.module(), import.name()) {
+            return Outcome {
+                halt: Some(Halt::PermissionDenied(format!(
+                    "{}.{}",
+                    import.module(),
+                    import.name()
+                ))),
+                output: Vec::new(),
+                host_calls: 0,
+                fuel_used: 0,
+                elapsed: started.elapsed(),
+                returned: None,
+            };
+        }
+    }
+
     let store_limits = StoreLimitsBuilder::new()
         .memory_size((limits.memory_mib as usize) * 1024 * 1024)
         .trap_on_grow_failure(true)
@@ -273,7 +347,7 @@ pub fn run(
     }
 
     let mut linker = Linker::new(&engine);
-    if let Err(error) = install_imports(&mut linker) {
+    if let Err(error) = install_imports(&mut linker, grant) {
         return Outcome {
             halt: Some(Halt::Trap(format!("linker: {error}"))),
             output: Vec::new(),
@@ -411,55 +485,62 @@ fn classify_instantiation(error: &wasmi::Error) -> Halt {
 /// The two host imports the sandbox itself provides.
 ///
 /// Both count against `host_calls_per_run` before doing anything: a module cannot get a free call by passing an invalid pointer.
-fn install_imports(linker: &mut Linker<HostState>) -> Result<(), wasmi::errors::LinkerError> {
-    linker.func_wrap(
-        "darkhold",
-        "write",
-        |mut caller: Caller<'_, HostState>, ptr: i32, len: i32| -> Result<i32, wasmi::Error> {
-            let state = caller.data_mut();
-            if let Err(halt) = state.charge_call() {
-                return Err(host_halt(halt));
-            }
-            let (ptr, len) = (ptr as usize, len.max(0) as usize);
-            let Some(memory) = caller.get_export("memory").and_then(|export| export.into_memory()) else {
-                return Ok(-1);
-            };
-            // Copied before the mutable borrow: the memory outlives the call, and holding a slice of it across `data_mut` is exactly
-            // the borrow the compiler refuses — refusing it is right, because the module could grow memory under the borrow.
-            let bytes = {
-                let data = memory.data(&caller);
-                match data.get(ptr..ptr.saturating_add(len)) {
-                    Some(slice) => slice.to_vec(),
-                    None => return Ok(-1),
+fn install_imports(
+    linker: &mut Linker<HostState>,
+    grant: &Grant,
+) -> Result<(), wasmi::errors::LinkerError> {
+    if grant.allows(HOST_MODULE, "write") {
+        linker.func_wrap(
+            HOST_MODULE,
+            "write",
+            |mut caller: Caller<'_, HostState>, ptr: i32, len: i32| -> Result<i32, wasmi::Error> {
+                let state = caller.data_mut();
+                if let Err(halt) = state.charge_call() {
+                    return Err(host_halt(halt));
                 }
-            };
-            let state = caller.data_mut();
-            if state.output.len() + bytes.len() > state.limits.output_bytes {
-                // A refused write ends the run: a module that keeps trying past the cap is spending fuel to be told the same thing,
-                // and the caller needs the ceiling named.
-                return Err(host_halt(Halt::Output));
-            }
-            state.output.extend_from_slice(&bytes);
-            if let Err(halt) = state.finish_call() {
-                return Err(host_halt(halt));
-            }
-            Ok(bytes.len() as i32)
-        },
-    )?;
-    linker.func_wrap(
-        "darkhold",
-        "checkpoint",
-        |mut caller: Caller<'_, HostState>| -> Result<i32, wasmi::Error> {
-            let state = caller.data_mut();
-            if let Err(halt) = state.charge_call() {
-                return Err(host_halt(halt));
-            }
-            if let Err(halt) = state.finish_call() {
-                return Err(host_halt(halt));
-            }
-            Ok(0)
-        },
-    )?;
+                let (ptr, len) = (ptr as usize, len.max(0) as usize);
+                let Some(memory) = caller.get_export("memory").and_then(|export| export.into_memory()) else {
+                    return Ok(-1);
+                };
+                // Copied before the mutable borrow: the memory outlives the call, and holding a slice of it across `data_mut` is exactly
+                // the borrow the compiler refuses — refusing it is right, because the module could grow memory under the borrow.
+                let bytes = {
+                    let data = memory.data(&caller);
+                    match data.get(ptr..ptr.saturating_add(len)) {
+                        Some(slice) => slice.to_vec(),
+                        None => return Ok(-1),
+                    }
+                };
+                let state = caller.data_mut();
+                if state.output.len() + bytes.len() > state.limits.output_bytes {
+                    // A refused write ends the run: a module that keeps trying past the cap is spending fuel to be told the same thing,
+                    // and the caller needs the ceiling named.
+                    return Err(host_halt(Halt::Output));
+                }
+                state.output.extend_from_slice(&bytes);
+                if let Err(halt) = state.finish_call() {
+                    return Err(host_halt(halt));
+                }
+                Ok(bytes.len() as i32)
+            },
+        )?;
+    }
+    if grant.allows(HOST_MODULE, "checkpoint") {
+        linker.func_wrap(
+            HOST_MODULE,
+            "checkpoint",
+            |mut caller: Caller<'_, HostState>| -> Result<i32, wasmi::Error> {
+                let state = caller.data_mut();
+                if let Err(halt) = state.charge_call() {
+                    return Err(host_halt(halt));
+                }
+                if let Err(halt) = state.finish_call() {
+                    return Err(host_halt(halt));
+                }
+                Ok(0)
+            },
+        )?;
+    }
     Ok(())
 }
 

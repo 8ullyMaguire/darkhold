@@ -129,6 +129,15 @@ acceptance list (the tests that make 06/07 real); M16-13 the theme model beyond 
 operational rotation, rate limits and auto-disable. M16-12 is now the natural next step: the sandbox exists, so
 the acceptance list has something to accept or refuse.
 
+M16-12 partly shipped (`crates/app/tests/m16_12_acceptance.rs`): five of seven claims are now tested — infinite
+loops, memory excess, host-API permission denial, uninstall removing grants, and reset reachable after a broken
+theme. Two things came out of writing them: host APIs are now **default-deny at link time** (`Grant`, so an import
+the manifest did not get is `permission_denied` before an instruction runs), and re-granting after an uninstall
+used to be a `UNIQUE` violation, because the grant's primary key is `(account, manifest_id)` and revocation is a
+column. Still open, and named in the ledger rather than glossed: forking an extension (nothing copies a manifest,
+and there is no derived-from column) and honouring opt-out in custom engines and recipes. M16-12 stays `planned`
+until both exist.
+
 ## Batch 8 — community, governance and growth (M45, M66, M29, M44)
 
 M45-58 (erasure reaches the routing record) is the only M45 row that is a correctness obligation rather than a feature;
