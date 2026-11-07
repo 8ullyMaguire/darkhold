@@ -99,9 +99,13 @@ async fn current_level(db: &Database, account: &str) -> Result<u8, sqlx::Error> 
                 .await?
         }
     };
+    // The ceiling was 3 while a three-level scale was being built; under decision (c) the ladder speaks 1-6, and six is the
+    // operator. Clamping at 3 here made every account above it look like it was perpetually crossing 3 -> 4: the sweep compared a
+    // clamped reading against an unclamped assessment, reported a change, and `recompute_trust` — which compares the stored level
+    // against itself — wrote nothing. A number that means two things produced a job that reports work it never does.
     Ok(match level.unwrap_or(1) {
-        l if l < 0 => 1,
-        l if l > 3 => 3,
+        l if l < 1 => 1,
+        l if l > 6 => 6,
         l => u8::try_from(l).unwrap_or(1),
     })
 }
