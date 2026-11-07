@@ -1696,6 +1696,11 @@
       "treatment": "keep",
       "why": "M16-14: the sentence shown to the owner explaining a switch-off. Derived from a count and a URL, and it names no reader.",
       "reviewed_by": "alvaro, 2026-11-07, against spec 11.16"
+    },
+    "theme_previews.session_id": {
+      "treatment": "drop_table",
+      "why": "M16-13: a session id is a bearer credential and this table exists only to show one signed-in browser a theme it has not published. Dropping the table removes the credential and loses nothing a dataset is for.",
+      "reviewed_by": "alvaro, 2026-11-07, against spec 11.16"
     }
   }
 }

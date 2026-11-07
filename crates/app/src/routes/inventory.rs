@@ -6174,5 +6174,55 @@ pub const ROUTE_TABLE: &[RouteEntry] = &[
         path: "/operator/webhooks/{id}/enable",
         audience: Audience::Operator,
     },
+    RouteEntry {
+        file: "themes.rs",
+        handler: "list_themes",
+        method: "GET",
+        path: "/themes",
+        audience: Audience::Authenticated,
+    },
+    RouteEntry {
+        file: "themes.rs",
+        handler: "save_theme",
+        method: "POST",
+        path: "/themes",
+        audience: Audience::Authenticated,
+    },
+    RouteEntry {
+        file: "themes.rs",
+        handler: "reset_theme",
+        method: "DELETE",
+        path: "/themes",
+        audience: Audience::Authenticated,
+    },
+    RouteEntry {
+        file: "themes.rs",
+        handler: "effective_theme",
+        method: "GET",
+        path: "/themes/effective",
+        audience: Audience::Authenticated,
+    },
+    RouteEntry {
+        file: "themes.rs",
+        handler: "publish_theme",
+        method: "POST",
+        path: "/themes/{id}/publish",
+        audience: Audience::Authenticated,
+    },
+    RouteEntry {
+        file: "themes.rs",
+        handler: "preview_theme",
+        method: "POST",
+        path: "/themes/{id}/preview",
+        audience: Audience::Authenticated,
+    },
+    RouteEntry {
+        file: "themes.rs",
+        handler: "set_safe_mode",
+        method: "POST",
+        path: "/operator/themes/safe-mode",
+        audience: Audience::Operator,
+    },
 ];
+
 

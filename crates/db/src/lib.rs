@@ -84,6 +84,7 @@ pub mod lending;
 pub mod library;
 pub mod longevity;
 pub mod marketplace;
+pub mod theme_profiles;
 pub mod webhooks;
 pub mod media;
 pub mod media_resilience;

@@ -348,3 +348,23 @@ Gaps named in the ledger: no invoice document rendering, no processor webhook, a
 Two tests run the real `deliver_notification` loop against a local receiver rather than asserting the arithmetic again — the mutant that
 removed the limit check reddened exactly those. Remaining gaps (in the ledger): no retry backoff of its own (the outbox owns retries), no
 per-event-type limit, and no notification to an owner whose subscription the breaker switched off.
+
+## M16-13 — the theme model (implemented)
+
+`crates/domain/src/theme_model.rs` (vocabulary, contrast, precedence) · `crates/db/src/theme_profiles.rs` (store) ·
+`crates/app/src/routes/themes.rs` (doors) · `migrations/*/0187_theme_profiles.sql`.
+
+* **A theme is data, not a document.** Ten tokens, a closed placement set, and `declarations()` emits custom properties and nothing
+  else. That single decision is what makes "a theme cannot hide the safety controls" a property of the vocabulary: a theme has no
+  selector, so it has nothing to aim at.
+* **Slots cannot be removed.** A theme changes a placement from a closed list; a missing slot means *core*, never *gone*, and the
+  renderer walks `Slot::all()`.
+* **Scope is where the constraint lives.** An instance theme lays out the building; a reader theme recolours one room and keeps the
+  building's layout. The check is in the model, so a future route cannot publish what `validate` refuses.
+* **Publish is the gate, save is the form.** Both refuse a contrast failure, and publishing re-validates the stored row rather than
+  trusting the save: a draft written when the rule was looser must not slip out later.
+* **Reset deletes.** Writing the defaults would turn "reset" into a theme that drifts the next time the defaults change.
+* **Safe mode beats the preview.** The preview is the theme most likely to be broken, so it is exactly what safe mode must override.
+
+Gap, stated in the ledger: the model makes hiding *inexpressible*, but the renderer half is a contract, not a verified fact — no
+frontend test asserts that the four protected surfaces sit outside the theme root, and there is no theme console UI.

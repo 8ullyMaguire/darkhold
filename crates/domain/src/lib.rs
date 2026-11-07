@@ -86,6 +86,7 @@ pub mod query_sql_forum;
 pub mod query_sql_user;
 pub mod quick_reactions;
 pub mod reader_skin;
+pub mod theme_model;
 pub mod reading;
 pub mod reading_goal;
 pub mod reading_position;
