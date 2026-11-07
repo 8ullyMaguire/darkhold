@@ -12,6 +12,8 @@
 //! | uninstall removes grants | `uninstalling_a_grant_removes_it_and_reinstalling_restores_it` |
 //! | reset remains reachable after a broken theme | `reset_is_reachable_after_a_broken_theme` |
 //!
+//! | forks keep attribution and request their own grants | `a_fork_keeps_attribution_and_starts_without_grants` |
+//!
 //! `revoked packages stop running` is the sandbox crate's `revocation_stops_a_running_module_at_its_next_host_call` — the flag is polled
 //! by the host imports, and there is no door here that revokes a run in flight yet (that is M16-07's emergency path). The two claims not
 //! covered at all are named in the ledger row: forks keep attribution and request their own grants, and custom engines and recipes honour
@@ -405,4 +407,103 @@ async fn reset_is_reachable_after_a_broken_theme() {
         body["present"], false,
         "and the reader is back on the site's own interface: {body}"
     );
+}
+
+#[tokio::test]
+async fn a_fork_keeps_attribution_and_starts_without_grants() {
+    // §21's claim has two halves and the second is the one that matters: a fork keeps the original's name on it, and it does **not**
+    // inherit the original's permissions. A reader consented to `shelf-sorter`; `shelf-sorter-tweaked` is a different package.
+    let h = Harness::new("fork").await;
+    let mut client = h.client();
+    let original_author = client.register("original").await;
+
+    // The manifest row is written straight to the store: there is no submission route yet (M16-07 owns it), and a fork test that needed
+    // the review workflow would be testing the workflow instead of the fork.
+    let document = json!({ "id": "shelf-sorter", "name": "Shelf sorter", "author": "orig" }).to_string();
+    sqlx::query(
+        "INSERT INTO extension_manifests (id, version, document, submitted_by, state, created_at)
+         VALUES ('shelf-sorter', '1.0.0', ?, ?, 'approved', '2026-11-01T00:00:00Z')",
+    )
+    .bind(&document)
+    .bind(&original_author)
+    .execute(h.tdb.db().sqlite_pool().expect("sqlite"))
+    .await
+    .expect("seed a published manifest");
+
+    // The original's author holds a grant on the original. The fork must not inherit it.
+    darkhold_db::marketplace::grant_extension(
+        h.tdb.db(),
+        &original_author,
+        "shelf-sorter",
+        "1.0.0",
+        &[darkhold_domain::extension::Capability::WorkRead],
+    )
+    .await
+    .expect("grant");
+
+    let (status, body) = client
+        .send(
+            "POST",
+            "/api/v1/extensions/shelf-sorter/fork",
+            Some(json!({ "id": "shelf-sorter-tweaked", "version": "0.1.0" })),
+        )
+        .await;
+    assert_eq!(status, StatusCode::OK, "{body}");
+    assert_eq!(body["derived_from"], "shelf-sorter", "attribution is kept: {body}");
+    assert_eq!(body["derived_from_version"], "1.0.0", "{body}");
+    assert_eq!(
+        body["state"], "pending",
+        "an approved package's copy is not approved; approval is a judgement about a package: {body}"
+    );
+    assert_eq!(
+        body["grants"],
+        json!([]),
+        "and nothing was granted, because consent named the original: {body}"
+    );
+
+    assert!(
+        !darkhold_db::marketplace::holds_grant(h.tdb.db(), &original_author, "shelf-sorter-tweaked", "work.read")
+            .await
+            .expect("read"),
+        "the forker's own grant does not follow them onto the fork"
+    );
+    assert!(
+        darkhold_db::marketplace::active_grants(h.tdb.db(), &original_author)
+            .await
+            .expect("read")
+            .iter()
+            .all(|grant| grant["manifest_id"] == "shelf-sorter"),
+        "the original grant is untouched"
+    );
+
+    // The document is byte-identical: a fork that rewrote the manifest would no longer be the thing its author signed.
+    let forked = darkhold_db::marketplace::get_extension(h.tdb.db(), "shelf-sorter-tweaked")
+        .await
+        .expect("read")
+        .expect("the fork exists");
+    assert_eq!(
+        forked["derived_from"], "shelf-sorter",
+        "read back from the store, not from the response the fork built: the first version of this assertion checked the handler's own JSON and stayed green when the column was written as NULL"
+    );
+    assert_eq!(forked["document"], document, "{forked}");
+
+    // And a fork cannot take the original's name, or the marketplace would have two packages called `shelf-sorter` and one review.
+    let (status, body) = client
+        .send(
+            "POST",
+            "/api/v1/extensions/shelf-sorter/fork",
+            Some(json!({ "id": "shelf-sorter", "version": "2.0.0" })),
+        )
+        .await;
+    assert_eq!(status, StatusCode::UNPROCESSABLE_ENTITY, "{body}");
+
+    // A slug nobody published is a 404, not an empty fork.
+    let (status, body) = client
+        .send(
+            "POST",
+            "/api/v1/extensions/no-such-package/fork",
+            Some(json!({ "id": "whatever", "version": "0.1.0" })),
+        )
+        .await;
+    assert_eq!(status, StatusCode::NOT_FOUND, "{body}");
 }

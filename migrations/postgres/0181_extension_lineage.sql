@@ -1,0 +1,11 @@
+-- M16-12: a fork is a new package that must say where it came from.
+--
+-- Attribution is the fork's whole obligation: §21 lets a reader take a published extension and publish a
+-- changed version, and the one thing that must not be lost in that move is who wrote the original. A
+-- column rather than a field inside the manifest document, because the document is the publisher's bytes
+-- and rewriting them on fork would mean the fork's manifest no longer matches what its author signed;
+-- and because `derived_from` has to be queryable — "what is this based on" and "what was derived from
+-- this" are questions a moderation queue asks about rows, not about JSON.
+--
+-- NULL for every manifest that stands on its own, which is all of them before this migration.
+ALTER TABLE extension_manifests ADD COLUMN derived_from TEXT;
