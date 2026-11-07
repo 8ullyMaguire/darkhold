@@ -85,6 +85,10 @@ pub async fn evidence_for(
 
 /// Days since the account was created.
 async fn tenure_days(db: &Database, account: &str) -> Result<i64, sqlx::Error> {
+    // `created_at` does not arrive as the RFC 3339 text the store writes elsewhere: on PostgreSQL it comes back in the
+    // server's own rendering (`2026-03-02 20:38:18.441367+00`), and `days_since` used to parse only RFC 3339 — so on
+    // PostgreSQL **tenure read as zero for every account**, quietly, for as long as this function has existed, and the
+    // tenure axis of every trust level was dead. The parser accepts both shapes now (there is a test).
     let sql = db.sql(
         "SELECT created_at FROM accounts WHERE id = ?",
         "SELECT created_at FROM accounts WHERE id = ?::uuid",
@@ -109,6 +113,32 @@ async fn tenure_days(db: &Database, account: &str) -> Result<i64, sqlx::Error> {
     Ok(days_since(&created))
 }
 
+/// Parse a timestamp as this store sees it: RFC 3339, or PostgreSQL's own rendering of the same instant.
+///
+/// The second shape exists because a column's type decides what a `String` decode receives, and a `timestamp` column
+/// arrives as `2026-03-02 20:38:18.441367+00`. Parsing only RFC 3339 turned every such read into a `0` — which for
+/// tenure meant that **no account on PostgreSQL ever earned the tenure axis**, and nothing failed loudly enough to say so.
+fn parse_timestamp(timestamp: &str) -> Option<time::OffsetDateTime> {
+    let rfc3339 = &time::format_description::well_known::Rfc3339;
+    if let Ok(at) = time::OffsetDateTime::parse(timestamp.trim(), rfc3339) {
+        return Some(at);
+    }
+    // "YYYY-MM-DD HH:MM:SS[.fraction][+HH[:MM]]": a space where RFC 3339 wants `T`, and an offset that may be two digits.
+    let mut text = timestamp.trim().replace(' ', "T");
+    if let Some(index) = text.rfind('+').or_else(|| {
+        // A negative offset only counts when it follows the time, not the date: look past the `T`.
+        text.find('T').and_then(|t| text[t..].rfind('-').map(|i| t + i))
+    }) {
+        let tail = text.len() - index;
+        if tail == 3 {
+            text.push_str(":00");
+        } else if tail == 5 && !text[index + 3..].starts_with(':') {
+            text.insert(index + 3, ':');
+        }
+    }
+    time::OffsetDateTime::parse(&text, rfc3339).ok()
+}
+
 /// Whole days between an RFC 3339 timestamp and now.
 ///
 /// **Whole days, and never negative.** An account created a moment ago has
@@ -116,9 +146,7 @@ async fn tenure_days(db: &Database, account: &str) -> Result<i64, sqlx::Error> {
 /// backwards (which happens, on a machine whose clock is corrected) must not
 /// make a reader's tenure negative and their trust fall.
 fn days_since(timestamp: &str) -> i64 {
-    let Ok(at) =
-        time::OffsetDateTime::parse(timestamp, &time::format_description::well_known::Rfc3339)
-    else {
+    let Some(at) = parse_timestamp(timestamp) else {
         return 0;
     };
     let now = time::OffsetDateTime::now_utc();
@@ -373,6 +401,10 @@ pub struct TrustSettings<'a> {
     /// just imported a corpus, the history behind an account was written by a tool, not earned by a person. `None` keeps the
     /// historical behaviour (and is what tests use); a cutoff makes the count mean "earned while this instance was running".
     pub accepted_since: Option<&'a str>,
+    /// Whether trust velocity applies (M69-13): progression multiplied by taste alignment and report quality, clamped,
+    /// and never a demotion. Off by default, because it changes the rate a reader earns at without their being able to
+    /// see the number that produced it.
+    pub velocity: bool,
 }
 
 /// Recompute an account's trust level, record the event, and re-evaluate the
@@ -387,6 +419,27 @@ pub async fn recompute_trust(
     let guest_level = settings.guest_level;
     let evidence = evidence_for(db, account, settings.accepted_since).await?;
     let mut assessment = darkhold_domain::trust::assess(&evidence, axes, ladder);
+
+    // M69-13: the multiplier is applied to the score *before* the ladder is read, and the level written is floored at
+    // the level the account already holds. Computed before the guest clamp, which still wins — a guest never extends
+    // its trust whatever the multiplier says.
+    let mut velocity_basis: Option<serde_json::Value> = None;
+    if settings.velocity {
+        let stored = stored_level(db, account).await?.unwrap_or(0);
+        let signals = velocity_signals(db, account).await?;
+        let appraisal =
+            darkhold_domain::trust_velocity::appraise(stored, &evidence, axes, ladder, &signals);
+        assessment = darkhold_domain::trust_velocity::apply(&appraisal, &assessment);
+        assessment.name = ladder.name_of(assessment.level).unwrap_or("new").to_owned();
+        velocity_basis = Some(serde_json::json!({
+            "velocity": appraisal.velocity,
+            "unadjusted_score": appraisal.unadjusted_score,
+            "adjusted_score": appraisal.adjusted_score,
+            "earned_level": appraisal.earned_level,
+            "held_level": appraisal.held_level,
+            "reason": appraisal.reason,
+        }));
+    }
 
     // **A guest never extends its trust** (spec §14.1), and this is where that
     // is enforced rather than merely configured. A guest with ninety days of
@@ -406,13 +459,11 @@ pub async fn recompute_trust(
     // from, so the cause of a move can be **named** rather than guessed.
     let previous_evidence = stored_evidence(db, account).await?;
 
-    write_trust(
-        db,
-        account,
-        assessment.level,
-        &assessment.basis().to_string(),
-    )
-    .await?;
+    let mut basis = assessment.basis();
+    if let Some(velocity) = velocity_basis {
+        basis["velocity"] = velocity;
+    }
+    write_trust(db, account, assessment.level, &basis.to_string()).await?;
 
     let mut moved = false;
     if let Some(previous) = previous {
@@ -442,6 +493,71 @@ pub async fn recompute_trust(
     // still refreshed, because the axis values behind the level did move.
 
     Ok(assessment)
+}
+
+/// The two things a reader's rate depends on (M69-13): how close their taste is to the instance's, and how their reports
+/// have been received.
+///
+/// **Both are read from evidence that already exists.** Affinity is M69-09's stored reading, and a reader with no row
+/// has not been measured — which is `None`, not zero. Report counts come from the same join the trust axis uses, counted
+/// rather than netted because the behaviour factor wants the ratio and the axis wants the difference.
+pub async fn velocity_signals(
+    db: &Database,
+    account: &str,
+) -> Result<darkhold_domain::trust_velocity::VelocitySignals, sqlx::Error> {
+    let alignment_bp: Option<i64> = match db.backend() {
+        Backend::Sqlite => {
+            sqlx::query_scalar("SELECT score_bp FROM reader_affinity WHERE account_id = ?")
+                .bind(account)
+                .fetch_optional(db.sqlite_pool().expect("sqlite handle"))
+                .await?
+        }
+        Backend::Postgres => {
+            // `reader_affinity.account_id` is TEXT on both engines (M69-09's migration), so the parameter needs no cast
+            // here — `$1::uuid` would make it `text = uuid`, which PostgreSQL refuses outright.
+            sqlx::query_scalar(
+                "SELECT CAST(score_bp AS BIGINT) FROM reader_affinity WHERE account_id = $1",
+            )
+            .bind(account)
+            .fetch_optional(db.postgres_pool().expect("postgres handle"))
+            .await?
+        }
+    };
+
+    let sql = db.sql(
+        "SELECT
+            COUNT(CASE WHEN LOWER(t.outcome) = 'uphold' THEN 1 END),
+            COUNT(CASE WHEN LOWER(t.outcome) = 'dismiss' THEN 1 END)
+           FROM reports r
+           JOIN review_tasks t ON t.report_id = r.id
+          WHERE r.reporter = ?",
+        "SELECT
+            CAST(COUNT(CASE WHEN LOWER(t.outcome) = 'uphold' THEN 1 END) AS BIGINT),
+            CAST(COUNT(CASE WHEN LOWER(t.outcome) = 'dismiss' THEN 1 END) AS BIGINT)
+           FROM reports r
+           JOIN review_tasks t ON t.report_id = r.id
+          WHERE r.reporter = $1",
+    );
+    let counts: (i64, i64) = match db.backend() {
+        Backend::Sqlite => {
+            sqlx::query_as(&sql)
+                .bind(account)
+                .fetch_one(db.sqlite_pool().expect("sqlite handle"))
+                .await?
+        }
+        Backend::Postgres => {
+            sqlx::query_as(&sql)
+                .bind(account)
+                .fetch_one(db.postgres_pool().expect("postgres handle"))
+                .await?
+        }
+    };
+
+    Ok(darkhold_domain::trust_velocity::VelocitySignals {
+        alignment_bp: alignment_bp.and_then(|bp| u16::try_from(bp.clamp(0, 10_000)).ok()),
+        confirmed_reports: counts.0,
+        dismissed_reports: counts.1,
+    })
 }
 
 /// Whether the account is a guest (spec §14.1, D-6).
@@ -2033,5 +2149,35 @@ pub async fn list_audit_log(
                 })
                 .collect())
         }
+    }
+}
+
+#[cfg(test)]
+mod timestamp_tests {
+    use super::*;
+
+    #[test]
+    fn the_servers_own_timestamp_rendering_is_parsed() {
+        let now = time::OffsetDateTime::now_utc();
+        let stamp = now.format(&time::format_description::well_known::Rfc3339).expect("format");
+        assert_eq!(days_since(&stamp), 0, "a fresh account has zero tenure, not a negative one");
+
+        // PostgreSQL's rendering of the same instant, 30 days back.
+        let back = (now - time::Duration::days(30))
+            .format(&time::format_description::well_known::Rfc3339)
+            .expect("format");
+        let rendered = back.replace('T', " ").replace('Z', "+00");
+        assert_eq!(
+            days_since(&rendered),
+            30,
+            "the server's rendering must read as the same instant: {rendered}"
+        );
+
+        // A fractional second and a two-digit offset, as PostgreSQL writes them.
+        assert_eq!(days_since("2026-03-02 20:38:18.441367+00"), days_since("2026-03-02T20:38:18.441367Z"));
+        // A full offset with a colon round-trips as itself.
+        assert_eq!(days_since("2026-03-02 20:38:18+01:00"), days_since("2026-03-02T19:38:18Z"));
+        // Garbage is zero rather than a panic.
+        assert_eq!(days_since("not a timestamp"), 0);
     }
 }

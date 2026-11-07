@@ -119,6 +119,7 @@ async fn a_contribution_after_the_cutoff_counts_and_one_before_it_does_not() {
         policy: darkhold_domain::trust::ElasticPolicy::default(),
         guest_level: 1,
         accepted_since: Some("2026-01-01T00:00:00Z"),
+        velocity: false,
     };
     let everything = darkhold_db::governance::evidence_for(&db, ACCOUNT, settings.accepted_since)
         .await
@@ -155,6 +156,7 @@ async fn a_second_sweep_writes_no_event() {
         policy: darkhold_domain::trust::ElasticPolicy::default(),
         guest_level: 1,
         accepted_since: Some("2026-01-01T00:00:00Z"),
+        velocity: false,
     };
 
     async fn events(db: &darkhold_db::Database) -> i64 {
@@ -216,6 +218,7 @@ async fn live_sweep() {
         policy: darkhold_domain::trust::ElasticPolicy::default(),
         guest_level: 1,
         accepted_since: None,
+        velocity: false,
     };
     let before: i64 = match db.backend() {
         darkhold_db::Backend::Sqlite => sqlx::query_scalar("SELECT COUNT(*) FROM trust_events")
