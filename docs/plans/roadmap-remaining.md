@@ -546,3 +546,31 @@ non-operator while on.
 
 Found on the way: dropping combining marks **without decomposing** split `Á` from `A`+acute into two keys — caught by the
 accent test; NFKD before lowercasing is the fix.
+
+### M69-05 — mirroring by taste, attributed on the page (implemented 2026-11-07)
+
+The reader-visible half of instance-death protection (M45-39 is the paperwork). Who may hold a copy is **computed** from the
+fingerprints peers publish against this instance's own: `peering::assess` decides, so a collision veto beats a high score and
+is reported as the rule with `similarity: null` — a veto is not a low score.
+
+The mirror floor is **0.5**, twice the suggestion floor: a suggestion says a reader might like it there, a mirror commits
+somebody's work to another host's keeping. `mirror_floor` in config can raise it, never lower it. Mutation testing caught
+that the first cut of tests only exercised peers below 0.25, so deleting the mirror check left the suite green; a peer at
+0.372 now holds the gap under test.
+
+    GET  /api/v1/operator/mirroring/eligible            # who may hold a copy, and why the others may not
+    POST /api/v1/operator/mirroring/{work}/mirrors      # record one (refused with the number if not eligible)
+    POST /api/v1/operator/mirroring/mirrors/{id}/retire # lost or withdrawn, reason required
+    GET  /api/v1/works/{work}/mirrors                   # the sentence a work page prints
+
+One row per (work, peer): re-recording replaces, and re-recording after a retirement re-arms it. The similarity stored is the
+one the decision was made on. Retirement keeps the row — a reader who saw the line yesterday is owed an explanation.
+
+The public door is anonymous and narrower than the operator one: published, public, undeleted works only (404 for a draft).
+A closed door answers 404 to *every* request, bodies parsed after the switch check — an extractor running first answers 422
+and tells a caller the route exists.
+
+Off by default (`[discovery] work_mirroring`).
+
+Limits: nothing transfers bytes (no peer API client), nothing verifies the peer still serves it, and the SPA does not render
+the sentence yet — the door returns it.

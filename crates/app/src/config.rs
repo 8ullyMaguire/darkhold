@@ -751,6 +751,10 @@ pub struct DiscoveryConfig {
     pub taste_passports: bool,
     /// Whether work tombstones are enforced and their doors are open (M69-04). Default: off.
     pub work_tombstones: bool,
+    /// Whether works may be mirrored to peers and their attribution shown (M69-05). Default: off.
+    pub work_mirroring: bool,
+    /// The taste similarity a peer needs to hold a mirror (M69-05). Default: the domain floor.
+    pub mirror_floor: Option<f64>,
     /// This instance's ed25519 passport signing key, hex-encoded, when configured (M69-03).
     pub passport_key: Option<String>,
     /// Per-surface algorithm choice (M64-01). Absent entirely when the instance runs the registry's defaults.
@@ -781,6 +785,8 @@ impl Default for DiscoveryConfig {
             enforced_rules: Vec::new(),
             taste_passports: false,
             work_tombstones: false,
+            work_mirroring: false,
+            mirror_floor: None,
             passport_key: None,
             surfaces: std::collections::BTreeMap::new(),
         }
@@ -3350,6 +3356,17 @@ impl Config {
                 if let Some(tombstones) = d.work_tombstones {
                     cfg.work_tombstones = tombstones;
                 }
+                if let Some(mirroring) = d.work_mirroring {
+                    cfg.work_mirroring = mirroring;
+                }
+                if let Some(floor) = d.mirror_floor {
+                    if !(0.0..=1.0).contains(&floor) {
+                        return Err(anyhow::anyhow!(
+                            "discovery.mirror_floor must be within 0..=1, got {floor}"
+                        ));
+                    }
+                    cfg.mirror_floor = Some(floor);
+                }
                 if let Some(key) = &d.passport_key {
                     let text = key.trim();
                     // Refused at load rather than at first export: a mistyped key that fails when a reader asks for their
@@ -4924,6 +4941,14 @@ struct DiscoverySection {
     /// import may bring in, and a default-on refusal is one nobody chose.
     #[serde(default)]
     work_tombstones: Option<bool>,
+    /// Whether works may be mirrored to peers and their attribution shown (M69-05). Off by default: it is a claim this
+    /// instance makes about its own work to strangers.
+    #[serde(default)]
+    work_mirroring: Option<bool>,
+    /// The taste similarity a peer needs to hold a mirror. Cannot be set below the domain's
+    /// `MIN_MIRROR_SIMILARITY` — a policy the instance may tighten, never a knob that opens to zero.
+    #[serde(default)]
+    mirror_floor: Option<f64>,
     /// This instance's ed25519 passport signing key, hex-encoded 32 bytes (M69-03).
     ///
     /// Required only for export. Signing without a key would produce a document nobody can check, and generating one
