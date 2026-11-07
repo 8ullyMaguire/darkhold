@@ -1856,49 +1856,56 @@ pub const ROUTE_TABLE: &[RouteEntry] = &[
         handler: "get_policy",
         method: "GET",
         path: "/admin/retention/policy",
-        audience: Audience::Operator,
+        // Cross-site: retention destroys, and its policy spans imported sources (ADR 0003).
+        audience: Audience::AdminOf { site: None },
     },
     RouteEntry {
         file: "retention.rs",
         handler: "patch_policy",
         method: "PATCH",
         path: "/admin/retention/policy",
-        audience: Audience::Operator,
+        // Cross-site: retention destroys, and its policy spans imported sources (ADR 0003).
+        audience: Audience::AdminOf { site: None },
     },
     RouteEntry {
         file: "retention.rs",
         handler: "get_sources",
         method: "GET",
         path: "/admin/retention/sources",
-        audience: Audience::Operator,
+        // Cross-site: retention destroys, and its policy spans imported sources (ADR 0003).
+        audience: Audience::AdminOf { site: None },
     },
     RouteEntry {
         file: "retention.rs",
         handler: "unsupported_verb",
         method: "POST",
         path: "/admin/retention/sources",
-        audience: Audience::Operator,
+        // Cross-site: retention destroys, and its policy spans imported sources (ADR 0003).
+        audience: Audience::AdminOf { site: None },
     },
     RouteEntry {
         file: "retention.rs",
         handler: "put_source_override",
         method: "PUT",
         path: "/admin/retention/sources/{source_key}",
-        audience: Audience::Operator,
+        // Cross-site: retention destroys, and its policy spans imported sources (ADR 0003).
+        audience: Audience::AdminOf { site: None },
     },
     RouteEntry {
         file: "retention.rs",
         handler: "delete_source_override",
         method: "DELETE",
         path: "/admin/retention/sources/{source_key}",
-        audience: Audience::Operator,
+        // Cross-site: retention destroys, and its policy spans imported sources (ADR 0003).
+        audience: Audience::AdminOf { site: None },
     },
     RouteEntry {
         file: "retention.rs",
         handler: "get_works_past_saving",
         method: "GET",
         path: "/admin/retention/works-past-saving",
-        audience: Audience::Operator,
+        // Cross-site: retention destroys, and its policy spans imported sources (ADR 0003).
+        audience: Audience::AdminOf { site: None },
     },
     // ------------------------------------------------------------------
     // Retention proposals (plan E, spec §5 / §19.15). The reader half is
@@ -1963,7 +1970,8 @@ pub const ROUTE_TABLE: &[RouteEntry] = &[
         handler: "respond",
         method: "POST",
         path: "/admin/retention/proposals/{id}/respond",
-        audience: Audience::Operator,
+        // Cross-site: retention destroys, and its policy spans imported sources (ADR 0003).
+        audience: Audience::AdminOf { site: None },
     },
     RouteEntry {
         // The handler is `override_setting` because `override` is a reserved
@@ -1974,14 +1982,16 @@ pub const ROUTE_TABLE: &[RouteEntry] = &[
         handler: "override_setting",
         method: "POST",
         path: "/admin/retention/proposals/{id}/override",
-        audience: Audience::Operator,
+        // Cross-site: retention destroys, and its policy spans imported sources (ADR 0003).
+        audience: Audience::AdminOf { site: None },
     },
     RouteEntry {
         file: "retention_settle.rs",
         handler: "settle_now",
         method: "POST",
         path: "/admin/retention/proposals/settle",
-        audience: Audience::Operator,
+        // Cross-site: retention destroys, and its policy spans imported sources (ADR 0003).
+        audience: Audience::AdminOf { site: None },
     },
     // ------------------------------------------------------------------
     // Exports — session-scoped (authed_router)
