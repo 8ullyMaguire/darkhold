@@ -45,7 +45,9 @@ pub async fn get_report(
     State(state): State<AppState>,
     RequireSession(user): RequireSession,
 ) -> ApiResult<Json<Value>> {
-    require_operator(&state, &user)?;
+    // Cross-site door (ADR 0003): the mirror report covers every site this instance serves, so local standing cannot open
+    // it — it takes `role:operator` or the break-glass operator account.
+    crate::routes::admin_scope::require_admin_of(&state, &user, None).await?;
     let report = crate::fixity::latest_report(state.db())
         .await
         .map_err(|error| ApiError(AppError::Internal(error)))?;

@@ -41,6 +41,11 @@ pub struct Session {
     /// `None` for a password session: this site does not manufacture an assurance claim, and "no claim" is a
     /// different statement from "low" (see `darkhold_domain::step_up`).
     pub acr: Option<String>,
+    /// The roles the issuer asserted at sign-in, verbatim from the id_token's `roles` (ADR 0003).
+    ///
+    /// Storage form is a JSON array. Empty for sessions that predate migration 0178 and for anyone with no roles: both
+    /// mean "no claim" to every check, which is why this is not an `Option`.
+    pub roles: String,
 }
 
 /// Row shape for session queries.
@@ -54,6 +59,9 @@ type SessionRow = (
     String,
     String,
     Option<String>,
+    // Appended last on purpose: the four SELECTs and this tuple are positional, so a new column goes at the end and every
+    // existing index keeps meaning what it meant (ADR 0003 step 0).
+    String,
 );
 
 /// The purpose of a single-use recovery token.
@@ -104,6 +112,8 @@ pub struct SessionContext<'a> {
     pub expires_at: &'a str,
     /// The assurance level the issuer asserted, verbatim. `None` when the issuer asserted nothing.
     pub acr: Option<&'a str>,
+    /// The roles the issuer asserted at sign-in (ADR 0003). Empty when the issuer sent none.
+    pub roles: &'a [String],
 }
 
 /// Insert a session.
@@ -122,19 +132,23 @@ pub async fn create_session(
         active_pseud_id,
         expires_at,
         acr,
+        roles,
     } = context;
     let id = SessionId::new();
     let now = now_rfc3339();
+    // Serialised once, bound to both engines: the claim is stored exactly as the issuer sent it, so nothing here decides what
+    // a role means (ADR 0003).
+    let roles_json = serde_json::to_string(roles).unwrap_or_else(|_| "[]".to_string());
 
     let sql = db.sql(
         "INSERT INTO sessions
              (id, token_hash, account_id, csrf_token_hash, user_agent, active_pseud_id,
-              created_at, last_seen_at, expires_at, acr)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+              created_at, last_seen_at, expires_at, acr, roles)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
         "INSERT INTO sessions
              (id, token_hash, account_id, csrf_token_hash, user_agent, active_pseud_id,
-              created_at, last_seen_at, expires_at, acr)
-         VALUES (?::uuid, ?, ?::uuid, ?, ?, ?::uuid, ?, ?, ?, ?)",
+              created_at, last_seen_at, expires_at, acr, roles)
+         VALUES (?::uuid, ?, ?::uuid, ?, ?, ?::uuid, ?, ?, ?, ?, ?)",
     );
 
     match db.backend() {
@@ -150,6 +164,7 @@ pub async fn create_session(
                 .bind(&now)
                 .bind(expires_at)
                 .bind(acr)
+                .bind(&roles_json)
                 .execute(db.sqlite_pool().expect("sqlite handle"))
                 .await
                 .context("inserting session")?;
@@ -166,6 +181,7 @@ pub async fn create_session(
                 .bind(&now)
                 .bind(expires_at)
                 .bind(acr)
+                .bind(&roles_json)
                 .execute(db.postgres_pool().expect("postgres handle"))
                 .await
                 .context("inserting session")?;
@@ -187,11 +203,11 @@ pub async fn find_live_session_by_token_hash(
 ) -> Result<Option<Session>> {
     let sql = db.sql(
         "SELECT id, account_id, active_pseud_id, csrf_token_hash, user_agent,
-                created_at, last_seen_at, expires_at, acr
+                created_at, last_seen_at, expires_at, acr, roles
            FROM sessions
           WHERE token_hash = ? AND revoked_at IS NULL AND expires_at > ?",
         "SELECT id::text, account_id::text, active_pseud_id::text, csrf_token_hash, user_agent,
-                created_at, last_seen_at, expires_at, acr
+                created_at, last_seen_at, expires_at, acr, roles
            FROM sessions
           WHERE token_hash = ? AND revoked_at IS NULL AND expires_at > ?",
     );
@@ -224,12 +240,12 @@ pub async fn live_sessions_for_account(
 ) -> Result<Vec<Session>> {
     let sql = db.sql(
         "SELECT id, account_id, active_pseud_id, csrf_token_hash, user_agent,
-                created_at, last_seen_at, expires_at, acr
+                created_at, last_seen_at, expires_at, acr, roles
            FROM sessions
           WHERE account_id = ? AND revoked_at IS NULL AND expires_at > ?
           ORDER BY last_seen_at DESC",
         "SELECT id::text, account_id::text, active_pseud_id::text, csrf_token_hash, user_agent,
-                created_at, last_seen_at, expires_at, acr
+                created_at, last_seen_at, expires_at, acr, roles
            FROM sessions
           WHERE account_id::text = ? AND revoked_at IS NULL AND expires_at > ?
           ORDER BY last_seen_at DESC",
@@ -746,6 +762,7 @@ fn decode_session(row: SessionRow) -> Session {
         last_seen_at,
         expires_at,
         acr,
+        roles,
     ) = row;
     Session {
         id: id.parse().unwrap_or_default(),
@@ -757,6 +774,7 @@ fn decode_session(row: SessionRow) -> Session {
         last_seen_at,
         expires_at,
         acr,
+        roles,
     }
 }
 

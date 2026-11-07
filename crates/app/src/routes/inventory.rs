@@ -64,6 +64,16 @@ pub enum Audience {
     /// `m54_bot_actions.rs`, the only place that can tell one scope from
     /// another.
     Scoped,
+    /// Admin door scoped to one site, or to the whole estate when `site` is `None` (ADR 0003).
+    ///
+    /// `None` requires the `role:operator` claim from polaris-id and is the door for actions whose blast radius crosses
+    /// sites. `Some(s)` accepts the claim `role:moderator:s`, or `role:operator`, **or** this site's own earned trust —
+    /// because a community's standing is earned inside it, and the break-glass account must keep working when the issuer
+    /// is unreachable.
+    ///
+    /// The site is a constant on the route, never a request parameter: a moderator of one site can type any parameter, so
+    /// reading scope from the request would make the scope a suggestion (docs/ROLES.md in polaris-id).
+    AdminOf { site: Option<&'static str> },
 }
 
 impl Audience {
@@ -80,6 +90,8 @@ impl Audience {
             Audience::Authenticated => "authenticated",
             Audience::Pseudonymous => "pseudonymous",
             Audience::Operator => "operator",
+            Audience::AdminOf { site: None } => "admin:estate",
+            Audience::AdminOf { site: Some(name) } => name,
             Audience::Actor => "actor",
             Audience::Scoped => "scoped",
             // Not a reader door: the body is the same for every caller, which is the whole contract of a machine
@@ -95,6 +107,9 @@ impl Audience {
             Audience::Authenticated => "RequireSession",
             Audience::Pseudonymous => "RequirePseud",
             Audience::Operator => "RequireSession",
+            // Same extractor as `Operator`: both ask *who are you* at the door and settle scope in the handler, where the
+            // route's site is known. Keeping them the same extractor is what lets `require_admin_of` audit a refusal.
+            Audience::AdminOf { .. } => "RequireSession",
             Audience::Actor => "RequireActor",
             Audience::Scoped => "RequireActorScoped",
             // No extractor: the inventory test accepts `None` only for this audience.

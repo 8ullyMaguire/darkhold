@@ -1,0 +1,12 @@
+-- Migration 0178 — a session remembers the roles the issuer asserted at sign-in (ADR 0003).
+--
+-- Why on the session and not on the account: a role is asserted *at a moment* by the issuer and the bearer of it is a
+-- session. Putting it on the account would let one device's stale claim authorise another device's request, and would leave
+-- no way to say "this session predates the grant".
+--
+-- Why not re-fetch per request: ADR 0003 rejects making polaris-id a dependency of every moderation click. The cost, stated
+-- in polaris-id's docs/ROLES.md, is that a revocation takes effect at the session's next renewal.
+--
+-- Default '[]' so every existing row is valid without a backfill, and so a session minted by a path that asserts no claim
+-- (password login, `identity::create_session`) is honestly role-less rather than NULL.
+ALTER TABLE sessions ADD COLUMN roles TEXT NOT NULL DEFAULT '[]';

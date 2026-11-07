@@ -1,5 +1,6 @@
 //! HTTP routes.
 
+pub mod admin_scope;
 pub mod atproto_feed;
 pub mod account_permissions;
 pub mod collection_tags;

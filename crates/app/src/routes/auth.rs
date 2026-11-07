@@ -229,6 +229,8 @@ async fn register(
         user_agent(&headers).as_deref(),
         // A password session asserts no assurance level: `None`, which is a different statement from "low".
         None,
+        // A password session carries no issuer claim, so no roles: the claim is only ever the issuer's to make (ADR 0003).
+        &[],
     )
     .await?;
 
@@ -315,6 +317,7 @@ async fn login(
         initial,
         user_agent(&headers).as_deref(),
         None,
+        &[],
     )
     .await?;
 
