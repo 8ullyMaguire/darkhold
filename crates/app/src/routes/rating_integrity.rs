@@ -26,8 +26,12 @@ pub fn router() -> Router<AppState> {
 
 async fn list_anomalies(
     State(state): State<AppState>,
-    RequireSession(_user): RequireSession,
+    RequireSession(user): RequireSession,
 ) -> ApiResult<Json<Value>> {
+    // Declared operator in the inventory since the route was added, and enforced by nothing: any signed-in account could
+    // read the anomaly list while the inventory promised an operator door. Found while classifying the route for ADR 0003 —
+    // a declaration whose enforcement is missing is not a weaker gate, it is no gate.
+    crate::routes::admin_scope::require_admin_of(&state, &user, Some("darkhold")).await?;
     let db = state.db();
     // Simplified: count anomalies via the db
     let count = {
@@ -61,6 +65,9 @@ async fn clear_anomaly(
     RequireSession(user): RequireSession,
     Path(id): Path<String>,
 ) -> ApiResult<Json<Value>> {
+    // Same gap as `list_anomalies`, and worse: clearing an anomaly erases the escalation record that a future moderator
+    // would have read.
+    crate::routes::admin_scope::require_admin_of(&state, &user, Some("darkhold")).await?;
     let db = state.db();
     let clearer = user.account_id;
     rating_integrity::clear_rating_anomaly_event(db, &id, &clearer)
