@@ -166,7 +166,7 @@ async fn write_plan(
     RequireSession(user): RequireSession,
     Json(request): Json<PlanRequest>,
 ) -> ApiResult<Json<SuccessionView>> {
-    require_operator(&state, &user)?;
+    crate::routes::admin_scope::require_admin_of(&state, &user, None).await?;
     let draft = darkhold_domain::succession::validate(PlanDraft {
         destination: request.destination,
         export_url: request.export_url,
@@ -183,7 +183,7 @@ async fn confirm_plan(
     RequireSession(user): RequireSession,
     Json(request): Json<ConfirmRequest>,
 ) -> ApiResult<Json<SuccessionView>> {
-    require_operator(&state, &user)?;
+    crate::routes::admin_scope::require_admin_of(&state, &user, None).await?;
     let review_days = request.review_days.map(|days| {
         days.clamp(
             darkhold_domain::succession::MIN_REVIEW_DAYS,
@@ -203,7 +203,7 @@ async fn withdraw_plan(
     State(state): State<AppState>,
     RequireSession(user): RequireSession,
 ) -> ApiResult<Json<SuccessionView>> {
-    require_operator(&state, &user)?;
+    crate::routes::admin_scope::require_admin_of(&state, &user, None).await?;
     darkhold_db::succession::clear(state.db()).await?;
     read_plan(State(state), MaybeSession(None)).await
 }
@@ -213,7 +213,7 @@ async fn write_redirect(
     RequireSession(user): RequireSession,
     Json(request): Json<RedirectRequest>,
 ) -> ApiResult<Json<ResolveView>> {
-    require_operator(&state, &user)?;
+    crate::routes::admin_scope::require_admin_of(&state, &user, None).await?;
     if !request.to_url.starts_with("https://") {
         return Err(ApiError(AppError::field(
             "to_url",
@@ -233,12 +233,6 @@ async fn write_redirect(
     Ok(Json(ResolveView { to: request.to_url }))
 }
 
-/// Refuse a caller who is not this instance's operator, without confirming that the endpoint exists.
-fn require_operator(state: &AppState, user: &crate::auth::SessionUser) -> ApiResult<()> {
-    if state.config().administration.operator_account_id == Some(user.account_id) {
-        return Ok(());
-    }
-    Err(ApiError(AppError::NotFound {
-        resource: "succession",
-    }))
-}
+// The local `require_operator` is gone: succession re-points an identity, which is estate state rather than this community's
+// content, so it uses the cross-site door (ADR 0003). Replacing it also removes a fourth definition of "operator" — the
+// config-only one, which disagreed with the trust-based one and would have let the two drift apart unnoticed.

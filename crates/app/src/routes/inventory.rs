@@ -410,28 +410,30 @@ pub const ROUTE_TABLE: &[RouteEntry] = &[
         handler: "write_plan",
         method: "PUT",
         path: "/succession",
-        audience: Audience::Operator,
+        // Cross-site: succession re-points an identity, which is estate state (ADR 0003).
+        audience: Audience::AdminOf { site: None },
     },
     RouteEntry {
         file: "succession.rs",
         handler: "confirm_plan",
         method: "POST",
         path: "/succession/confirm",
-        audience: Audience::Operator,
+        audience: Audience::AdminOf { site: None },
     },
     RouteEntry {
         file: "succession.rs",
         handler: "withdraw_plan",
         method: "DELETE",
         path: "/succession",
-        audience: Audience::Operator,
+        // Cross-site: succession re-points an identity, which is estate state (ADR 0003).
+        audience: Audience::AdminOf { site: None },
     },
     RouteEntry {
         file: "succession.rs",
         handler: "write_redirect",
         method: "PUT",
         path: "/succession/redirects",
-        audience: Audience::Operator,
+        audience: Audience::AdminOf { site: None },
     },
     RouteEntry {
         file: "reading.rs",
