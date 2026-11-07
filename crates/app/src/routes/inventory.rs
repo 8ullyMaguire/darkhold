@@ -1827,28 +1827,28 @@ pub const ROUTE_TABLE: &[RouteEntry] = &[
         handler: "revision_cache_stats",
         method: "GET",
         path: "/admin/sources/revisions",
-        audience: Audience::Operator,
+        audience: Audience::AdminOf { site: None },
     },
     RouteEntry {
         file: "imports.rs",
         handler: "clear_revision_cache",
         method: "DELETE",
         path: "/admin/sources/revisions",
-        audience: Audience::Operator,
+        audience: Audience::AdminOf { site: None },
     },
     RouteEntry {
         file: "imports.rs",
         handler: "purge_revision_cache",
         method: "POST",
         path: "/admin/sources/revisions/purge",
-        audience: Audience::Operator,
+        audience: Audience::AdminOf { site: None },
     },
     RouteEntry {
         file: "imports.rs",
         handler: "sweep_source_health",
         method: "POST",
         path: "/admin/sources/health",
-        audience: Audience::Operator,
+        audience: Audience::AdminOf { site: None },
     },
     // ------------------------------------------------------------------
     // Retention — operator-gated (spec §11.15, amendment §4.1-4.2)
@@ -3783,7 +3783,7 @@ pub const ROUTE_TABLE: &[RouteEntry] = &[
         handler: "get_leakage",
         method: "GET",
         path: "/admin/discovery/leakage",
-        audience: Audience::Operator,
+        audience: Audience::AdminOf { site: None },
     },
     // §53's faucet/sink view. `Operator`, like the leakage view beside it, and for the
     // same reason: the route itself is `RequireSession` and calls `require_operator`
@@ -3794,7 +3794,7 @@ pub const ROUTE_TABLE: &[RouteEntry] = &[
         handler: "get_flows",
         method: "GET",
         path: "/admin/economy/flows",
-        audience: Audience::Operator,
+        audience: Audience::AdminOf { site: None },
     },
     // Same shape and the same reason: `RequireSession` plus an internal
     // `require_operator`, so a non-operator gets 404 rather than a 403 that would confirm
@@ -3804,7 +3804,7 @@ pub const ROUTE_TABLE: &[RouteEntry] = &[
         handler: "get_north_star",
         method: "GET",
         path: "/admin/metrics/north-star",
-        audience: Audience::Operator,
+        audience: Audience::AdminOf { site: None },
     },
     RouteEntry {
         file: "admin.rs",

@@ -190,15 +190,9 @@ async fn sweep_source_health(
 /// helper would be one more thing to keep in step with the trust level that
 /// replaces it in Milestone 13.
 fn require_operator(state: &AppState, user: &crate::auth::SessionUser) -> ApiResult<()> {
-    let configured = state.config().administration.operator_account_id;
-    if configured == Some(user.account_id) {
-        return Ok(());
-    }
-    tracing::debug!(
-        operator_configured = configured.is_some(),
-        "an operator route was reached by an account that is not the operator"
-    );
-    Err(ApiError(AppError::NotFound { resource: "page" }))
+    // One decision, one place (ADR 0003): fourteen copies of this predicate, all keyed on a config value that is
+    // unset on this host, meant every one of these doors answered 404 to everybody.
+    crate::routes::admin_scope::estate_admin_allowed(state, user)
 }
 
 /// Refuse a source the catalogue says cannot be used (spec §11.8).

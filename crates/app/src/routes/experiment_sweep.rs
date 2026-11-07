@@ -52,13 +52,9 @@ struct SurfaceOutcome {
 /// copies of six lines is two too many — they should become one `auth::require_operator` — but a helper nobody has refactored
 /// is not a reason to add a fourth spelling of "operator" here today.
 pub(crate) fn require_operator(state: &AppState, user: &crate::auth::SessionUser) -> ApiResult<()> {
-    if state.config().administration.operator_account_id == Some(user.account_id) {
-        Ok(())
-    } else {
-        Err(ApiError(AppError::NotFound {
-            resource: "experiment sweep",
-        }))
-    }
+    // One decision, one place (ADR 0003): fourteen copies of this predicate, all keyed on a config value that is
+    // unset on this host, meant every one of these doors answered 404 to everybody.
+    crate::routes::admin_scope::estate_admin_allowed(state, user)
 }
 
 pub fn router() -> Router<AppState> {

@@ -65,16 +65,9 @@ pub struct NorthStarQuery {
 /// `flows::require_operator`; a copy rather than a shared helper because the two routes
 /// have different `resource` strings and that string is what an operator reads in a log.
 fn require_operator(state: &AppState, user: &crate::auth::SessionUser) -> ApiResult<()> {
-    if state.config().administration.operator_account_id == Some(user.account_id) {
-        return Ok(());
-    }
-    tracing::debug!(
-        operator_configured = state.config().administration.operator_account_id.is_some(),
-        "the north-star view was reached by an account that is not the operator"
-    );
-    Err(ApiError(AppError::NotFound {
-        resource: "north-star metric",
-    }))
+    // One decision, one place (ADR 0003): fourteen copies of this predicate, all keyed on a config value that is
+    // unset on this host, meant every one of these doors answered 404 to everybody.
+    crate::routes::admin_scope::estate_admin_allowed(state, user)
 }
 
 /// `GET /admin/metrics/north-star` — the feed-quality rate and its attribution.

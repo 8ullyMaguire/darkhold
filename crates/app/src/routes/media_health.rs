@@ -45,16 +45,9 @@ pub fn router() -> axum::Router<AppState> {
 /// turned every database hiccup into a 403, which reads as a permissions problem
 /// rather than the storage problem it is.
 fn require_operator(state: &AppState, user: &crate::auth::SessionUser) -> ApiResult<()> {
-    if state.config().administration.operator_account_id == Some(user.account_id) {
-        return Ok(());
-    }
-    tracing::debug!(
-        operator_configured = state.config().administration.operator_account_id.is_some(),
-        "the media-health dashboard was reached by an account that is not the operator"
-    );
-    Err(ApiError(AppError::NotFound {
-        resource: "media health",
-    }))
+    // One decision, one place (ADR 0003): fourteen copies of this predicate, all keyed on a config value that is
+    // unset on this host, meant every one of these doors answered 404 to everybody.
+    crate::routes::admin_scope::estate_admin_allowed(state, user)
 }
 
 /// Overall health overview for the admin dashboard (§32.7.11).

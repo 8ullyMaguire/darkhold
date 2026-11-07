@@ -91,3 +91,28 @@ async fn audit_refusal(state: &AppState, user: &SessionUser, site: Option<&str>)
     )
     .await;
 }
+
+/// The synchronous decision for a **cross-site** door: `role:operator` or the break-glass account (ADR 0003).
+///
+/// Sync because a role lives on the session and needs no I/O; the trust fallback is only for site-local doors, which take the
+/// async `require_admin_of` instead. This exists because fourteen files each carried their own six-line copy of "is this the
+/// configured operator", and the configured operator is unset on this host — so every one of those doors answered 404 to
+/// everyone. One decision, one place, and a door that can now be opened by the person appointed to open it.
+///
+/// Refusals here are logged rather than written to the modlog: the audit write is async and these call sites are not. The
+/// destructive surfaces (retention, sanctions, succession) use the async door and DO audit — see `require_admin_of`.
+pub fn estate_admin_allowed(state: &AppState, user: &SessionUser) -> Result<(), ApiError> {
+    if user.roles.iter().any(|r| r == "role:operator") {
+        return Ok(());
+    }
+    let configured = state.config().administration.operator_account_id;
+    if configured == Some(user.account_id) {
+        return Ok(());
+    }
+    tracing::debug!(
+        operator_configured = configured.is_some(),
+        roles = ?user.roles,
+        "a cross-site admin door was reached by a caller with no estate claim"
+    );
+    Err(ApiError(AppError::AccessDenied))
+}

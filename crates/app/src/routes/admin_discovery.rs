@@ -38,16 +38,9 @@ use darkhold_domain::leakage::{Disposition, Ease, LeakageReview, LeakageRow};
 /// the same reasoning: an endpoint whose existence is a disclosure must answer 404,
 /// because 403 says "yes, and you may not".
 fn require_operator(state: &AppState, user: &crate::auth::SessionUser) -> ApiResult<()> {
-    if state.config().administration.operator_account_id == Some(user.account_id) {
-        return Ok(());
-    }
-    tracing::debug!(
-        operator_configured = state.config().administration.operator_account_id.is_some(),
-        "the leakage view was reached by an account that is not the operator"
-    );
-    Err(ApiError(AppError::NotFound {
-        resource: "discovery leakage",
-    }))
+    // One decision, one place (ADR 0003): fourteen copies of this predicate, all keyed on a config value that is
+    // unset on this host, meant every one of these doors answered 404 to everybody.
+    crate::routes::admin_scope::estate_admin_allowed(state, user)
 }
 
 /// What the caller may filter by. No pagination parameter on purpose.
