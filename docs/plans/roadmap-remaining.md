@@ -185,3 +185,9 @@ still needs source category data the importer does not store.
 
 M64-07 (f5471486): crosspost_union ranks a story once at the sum of its archives; feed wiring
 proven by m64_07_crosspost_union (served once, first, 65 > 50).
+
+2026-11-07 merge — thinkcentre f6bbb890 + 1b4797bf (W7 task 2 step 3: roles reach the authorisation
+checks; the cross-site refusal and audit check mutation-proven) merged into master as 249a2bce.
+Its migration came in as **0179_session_roles**, renumbered from 0178 because 0178_source_engagement
+(M63-37) already occupied that number. Snapshot policy gained `sessions.roles` = drop_column
+(2628 cols / 362 tables). The thinkcentre checkout is ff-merged to 249a2bce and clean.
