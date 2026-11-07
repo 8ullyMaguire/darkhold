@@ -178,3 +178,7 @@ M69-18 (ed5f1f6e): trope clusters + coverage checklist. Advisory and read-only; 
 
 M64-06 (61f4da13): the refusal half shipped — a tag surface now refuses by name when tags and engagement
 never meet, with the counts, instead of claiming to rank. Row stays planned on M63-32's backfill.
+
+M63-32 (b387cb1e): tag-inference pass ships as proposals only (model claimant ⇒ invisible until
+confirmed), with per-source coverage (items/tagged/with_likes/tagged_and_liked). The metadata backfill
+still needs source category data the importer does not store.
