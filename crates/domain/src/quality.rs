@@ -96,10 +96,13 @@ pub enum Metric {
     Velocity,
     /// High velocity percentile, low absolute percentile. Blocked with `Velocity`.
     HiddenGem,
-    /// Kudos per 1k views. Blocked: `views` is null on every row.
+    /// Kudos per 1k views. Blocked on the join, not on the data: per-archive
+    /// views are recorded in `library_item_engagement` (M63-37), and the
+    /// catalogue sort does not read that table yet.
     LikesPerView,
-    /// Wilson lower bound on likes per view — the rate this catalogue cannot
-    /// compute yet, kept as a name so `--sort wilson` explains itself.
+    /// Wilson lower bound on likes per view — the same join, and a bound rather
+    /// than a point estimate so a 3-kudos-over-20-views row cannot outrank one
+    /// with 400 kudos over 9,000 views.
     Wilson,
     /// `quality` multiplied by `recency`: the same composite, discounted by age.
     FreshnessWeightedQuality,
@@ -255,9 +258,9 @@ impl Metric {
             Self::UpdaterReliability => Support::Blocked(
                 "needs the author's update history, which nothing records yet; the recheck (M63-32) starts it",
             ),
-            Self::LikesPerView | Self::Wilson => {
-                Support::Blocked("views are null on all 141,317 rows (M63-32 imports them)")
-            }
+            Self::LikesPerView | Self::Wilson => Support::Blocked(
+                "per-archive views live in library_item_engagement (M63-37) and this sort does not join it yet",
+            ),
             Self::Quality
             | Self::SourcePct
             | Self::SourceZ
