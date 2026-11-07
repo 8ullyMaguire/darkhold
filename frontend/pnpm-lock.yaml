@@ -8,6 +8,9 @@ importers:
 
   .:
     dependencies:
+      '@polaris/inbox-client':
+        specifier: file:../../../estate/packages/inbox-client/dist/polaris-inbox-client-0.1.1.tgz
+        version: file:../../../estate/packages/inbox-client/dist/polaris-inbox-client-0.1.1.tgz
       '@polaris/ui':
         specifier: file:../../../estate/ui/dist/polaris-ui-0.1.2.tgz
         version: file:../../../estate/ui/dist/polaris-ui-0.1.2.tgz(svelte@5.57.3)
@@ -286,6 +289,10 @@ packages:
     resolution: {integrity: sha512-oxMK4vllB9RK5NQ2l1pq1IfOf2AvnEuj/vYGDj0H2nMtmtZpKtCwt/l00GEO6xjGfpBNAvjovvYdCm50dRQkpQ==}
     engines: {node: '>=20'}
     hasBin: true
+
+  '@polaris/inbox-client@file:../../../estate/packages/inbox-client/dist/polaris-inbox-client-0.1.1.tgz':
+    resolution: {integrity: sha512-LtsRVjqbHJB5TrcNXQfQelHWdTkwX015Lq3Y8XI3eCifZilVCGQlL0nPYpek7T/cXJnD1dYZ4fl3la7MMcER9w==, tarball: file:../../../estate/packages/inbox-client/dist/polaris-inbox-client-0.1.1.tgz}
+    version: 0.1.1
 
   '@polaris/ui@file:../../../estate/ui/dist/polaris-ui-0.1.2.tgz':
     resolution: {integrity: sha512-T43WikMkCBVcO3+7tLn3yIutsts5i928C78egQjTDR51G5od33HfqFhaY88u26M6+uB7fLimzDgHKRtveqSFaw==, tarball: file:../../../estate/ui/dist/polaris-ui-0.1.2.tgz}
@@ -1487,6 +1494,8 @@ snapshots:
   '@playwright/test@1.63.0':
     dependencies:
       playwright: 1.63.0
+
+  '@polaris/inbox-client@file:../../../estate/packages/inbox-client/dist/polaris-inbox-client-0.1.1.tgz': {}
 
   '@polaris/ui@file:../../../estate/ui/dist/polaris-ui-0.1.2.tgz(svelte@5.57.3)':
     dependencies:

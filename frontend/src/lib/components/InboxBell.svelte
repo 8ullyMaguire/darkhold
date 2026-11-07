@@ -2,18 +2,13 @@
   /**
    * The bell: one number, live, for the person who is signed in.
    *
-   * The estate has one inbox (W4), and this is the first product to show it. Two sources, deliberately:
+   * The transport moved to `@polaris/inbox-client` in W9 §3.5. Three sites show the same inbox, so the rules that keep the number honest
+   * live in one package instead of in this file — and they are tested there, including the case this component used to get wrong.
    *
-   *  - `/api/v1/inbox/unread-count` for the truth on mount and after any doubt;
-   *  - `/api/v1/inbox/stream` (server-sent events) for the number going up while the page is open.
-   *
-   * The stream is not the source of truth and never sets the count to a computed value: an event means "ask
-   * again", because a count maintained by increments drifts the moment one event is missed — and the one number
-   * every product shows is the last place to keep a guess.
-   *
-   * Clicking is the answer the person meant by "I have seen these": mark all read, then zero.
+   * What stays here is what is darkhold's: the accessible name, the glyph, the badge, and the click.
    */
   import { onMount } from 'svelte';
+  import { createInboxClient } from '@polaris/inbox-client';
 
   // No initial prop: the number comes from the endpoint, and a prop would be a second source of truth that is
   // wrong the moment the page is a minute old.
@@ -21,50 +16,26 @@
   let open = $state(false);
   let live = $state(false);
 
-  async function refresh() {
-    try {
-      const response = await fetch('/api/v1/inbox/unread-count', { headers: { accept: 'application/json' } });
-      if (!response.ok) return;
-      const body = await response.json();
-      // `unavailable` means the inbox could not be reached; keep the last number rather than claiming zero.
-      if (body?.unavailable) return;
-      count = Number(body?.total ?? 0);
-    } catch {
-      // A bell that cannot reach the inbox keeps showing what it knows.
-    }
-  }
+  // Created in onMount, not at module scope. Measured: at module scope the client captured `EventSource` before the test had stubbed it,
+  // so the bell silently became poll-only — the same class of bug as the package's own poll-path defect, in the product this time.
+  let inbox: ReturnType<typeof createInboxClient> | null = null;
 
   async function markAllRead() {
-    try {
-      await fetch('/api/v1/inbox/read', {
-        method: 'POST',
-        headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ all: true })
-      });
-      count = 0;
-      open = false;
-    } catch {
-      /* the next refresh will tell the truth */
-    }
+    await inbox?.markAllRead();
+    open = false;
   }
 
   onMount(() => {
-    refresh();
-    if (typeof EventSource === 'undefined') return;
-    const source = new EventSource('/api/v1/inbox/stream');
-    source.addEventListener('open', () => (live = true));
-    source.addEventListener('inbox', () => {
-      live = true;
-      // Re-read rather than increment: the stream says something happened, the endpoint says how many.
-      refresh();
+    inbox = createInboxClient();
+    // The client owns refresh, the stream and the poll floor; this component owns the two numbers on screen.
+    const unsubscribe = inbox.subscribe((state) => {
+      count = state.total ?? 0;
+      live = state.live;
     });
-    // EventSource retries by itself; when it gives up entirely, fall back to a slow poll so the number is never
-    // stale by more than a minute.
-    source.addEventListener('error', () => (live = false));
-    const poll = setInterval(refresh, 60_000);
+    const stop = inbox.start();
     return () => {
-      source.close();
-      clearInterval(poll);
+      unsubscribe();
+      stop();
     };
   });
 </script>
