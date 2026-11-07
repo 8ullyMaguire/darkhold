@@ -26,7 +26,57 @@ struct FacetsQuery {
 }
 
 pub fn router() -> Router<AppState> {
-    Router::new().route("/api/v1/facets", get(facets))
+    Router::new()
+        .route("/api/v1/facets", get(facets))
+        // M71-12: the word-count distribution under the same filters. A separate door because it answers a different question with a
+        // different shape — ten population-equal buckets with their edges, not a list of named values — and because a chart is fetched by
+        // pages that never render the other four facets.
+        .route("/api/v1/facets/words", get(word_histogram))
+}
+
+#[derive(Deserialize)]
+struct HistogramQuery {
+    /// Tag name, exactly as `/tags/{tag}` takes it.
+    tag: Option<String>,
+    /// Substring of the title.
+    q: Option<String>,
+    /// How many buckets. Ten by default, which is what a chart can draw; clamped rather than refused, because a bar count is a
+    /// presentation choice and a 4-bucket request is a legitimate one.
+    buckets: Option<usize>,
+    min_words: Option<i64>,
+    max_words: Option<i64>,
+    max_rating: Option<String>,
+}
+
+/// The word-count histogram (M71-12).
+async fn word_histogram(
+    State(state): State<AppState>,
+    MaybeSession(_viewer): MaybeSession,
+    Query(params): Query<HistogramQuery>,
+) -> ApiResult<Json<Value>> {
+    let filter = FacetFilter {
+        tag: params.tag.map(|tag| tag.trim().to_owned()).filter(|tag| !tag.is_empty()),
+        title_contains: params
+            .q
+            .map(|text| text.trim().to_owned())
+            .filter(|text| !text.is_empty()),
+        tag_kind: None,
+        min_words: params.min_words,
+        max_words: params.max_words,
+        max_rating: params.max_rating,
+    };
+    let histogram = facets::word_histogram(state.db(), &filter, params.buckets.unwrap_or(10))
+        .await
+        .map_err(|error| ApiError(AppError::internal("reading the word histogram", error)))?;
+    Ok(Json(json!({
+        // Named so a page can print what the numbers describe, and so two charts on one screen cannot be confused.
+        "unit": "words",
+        "buckets": histogram.buckets,
+        "measured": histogram.measured,
+        "unknown": histogram.unknown,
+        "total": histogram.total,
+        "when_unknown": histogram.when_unknown,
+    })))
 }
 
 async fn facets(

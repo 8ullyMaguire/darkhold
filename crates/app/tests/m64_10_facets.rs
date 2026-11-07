@@ -335,3 +335,53 @@ async fn a_filter_that_measures_nothing_returns_the_sentence_rather_than_an_empt
         "the answer explains the gap instead of showing an empty shelf: {length}"
     );
 }
+
+/// M71-12: the word-count distribution is its own door, with population-equal buckets and the same honesty about gaps.
+#[tokio::test]
+async fn the_word_histogram_door_serves_a_distribution_over_the_same_filtered_set() {
+    let harness = Harness::new("words").await;
+    harness.seed().await;
+
+    let (status, body) = json_of(harness.client(), "/api/v1/facets/words?buckets=5").await;
+    assert_eq!(status, StatusCode::OK, "{body}");
+    assert_eq!(body["unit"], "words", "the chart says what it counts: {body}");
+    assert_eq!(body["measured"], 2, "the short and the long work: {body}");
+    assert_eq!(
+        body["unknown"], 1,
+        "the unmeasured work is a gap in the chart, not a bar at zero: {body}"
+    );
+    let buckets = body["buckets"].as_array().expect("buckets");
+    let counted: i64 = buckets
+        .iter()
+        .map(|bucket| bucket["count"].as_i64().expect("count"))
+        .sum();
+    assert_eq!(counted, 2, "every measured work lands in exactly one bucket: {body}");
+    assert_eq!(
+        buckets.last().expect("buckets")["high"], 12_000,
+        "the top edge is the longest work in this view: {body}"
+    );
+    assert!(
+        body["when_unknown"]
+            .as_str()
+            .unwrap_or_default()
+            .contains("1 of 3"),
+        "the gap is stated in the words the other facets use: {body}"
+    );
+
+    // A view where nothing is measured answers with the sentence and no buckets — the page must not draw a flat line at zero.
+    let (status, body) =
+        json_of(harness.client(), "/api/v1/facets/words?q=Unmeasured").await;
+    assert_eq!(status, StatusCode::OK, "{body}");
+    assert_eq!(body["measured"], 0, "{body}");
+    assert!(
+        body["buckets"].as_array().expect("buckets").is_empty(),
+        "no invented buckets: {body}"
+    );
+    assert!(
+        body["when_unknown"]
+            .as_str()
+            .unwrap_or_default()
+            .contains("gap in the catalogue"),
+        "it names the catalogue's gap rather than the reader's empty view: {body}"
+    );
+}

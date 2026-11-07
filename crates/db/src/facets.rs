@@ -257,6 +257,21 @@ async fn scan(db: &Database, filter: &FacetFilter) -> Result<Vec<Scanned>> {
         .collect())
 }
 
+/// The sentence that stands in for an empty chart — shared with [`word_histogram`] so the two answers use the same words.
+fn when_unknown(known: i64, total: i64, what: &str) -> Option<String> {
+    let unknown = total - known;
+    if unknown <= 0 {
+        return None;
+    }
+    if known == 0 {
+        Some(format!(
+            "No work in this view has a known {what} yet, so there is nothing to chart — this is a gap in the catalogue, not an empty shelf."
+        ))
+    } else {
+        Some(format!("{unknown} of {total} works in this view have no known {what}."))
+    }
+}
+
 fn tally(buckets: BTreeMap<String, (String, i64)>) -> Vec<Bucket> {
     let mut buckets: Vec<Bucket> = buckets
         .into_iter()
@@ -436,4 +451,130 @@ fn days_since_epoch(timestamp: &str) -> Option<i64> {
     let doy = (153 * mp + 2) / 5 + day - 1;
     let doe = yoe * 365 + yoe / 4 - yoe / 100 + doy;
     Some(era * 146_097 + doe - 719_468)
+}
+
+/// A word-count distribution over the filtered set (M71-12).
+///
+/// **Equal-population buckets, not equal-width.** Word counts are so skewed that equal-width bands are decorative: with a handful of
+/// 900k-word epics, nine of ten bands sit in the tail and hold nobody. Quantile edges put roughly a tenth of the *works* in each bucket,
+/// which is the question a reader actually has — "is this fandom's typical work shorter than that one's?" — and the edges travel with the
+/// answer so a page can label them without recomputing anything.
+///
+/// Contiguity is guaranteed by construction: each value lands in the bucket given by the number of edges it reaches, so the buckets
+/// partition the measured set exactly once, duplicates included. The last bucket's `high` is the maximum, and `None` when nothing was
+/// measured — a distribution over no works is not a distribution of zeroes.
+#[derive(Debug, Clone, Serialize)]
+pub struct WordHistogram {
+    /// Rows in the filtered set.
+    pub total: i64,
+    /// Rows whose word count is known.
+    pub measured: i64,
+    /// Rows whose word count is missing. Excluded from every bucket rather than counted as zero.
+    pub unknown: i64,
+    /// The sentence a page shows instead of an empty chart. `None` when every row was measured.
+    pub when_unknown: Option<String>,
+    /// The buckets, low to high. Empty when nothing was measured.
+    pub buckets: Vec<WordBucket>,
+}
+
+#[derive(Debug, Clone, Serialize)]
+pub struct WordBucket {
+    /// 0-based position in the served list, low to high. Renumbered after empty buckets are dropped, so it is the bar's slot, not the
+    /// quantile's ordinal.
+    pub index: usize,
+    /// Inclusive lower edge of this bucket.
+    pub low: i64,
+    /// Inclusive upper edge. Equal to the next bucket's `low` only when ties span the edge, which is why the count — not the range —
+    /// is what a page should print.
+    pub high: i64,
+    /// Works in this bucket.
+    pub count: i64,
+    /// `count / measured`, for a bar height.
+    pub share: f64,
+}
+
+/// The word-count distribution of a filtered set.
+pub async fn word_histogram(
+    db: &Database,
+    filter: &FacetFilter,
+    buckets: usize,
+) -> Result<WordHistogram> {
+    let rows = scan(db, filter).await?;
+    Ok(histogram_of(&rows, buckets.clamp(1, 50)))
+}
+
+fn histogram_of(rows: &[Scanned], buckets: usize) -> WordHistogram {
+    let mut words: Vec<i64> = rows.iter().filter_map(|row| row.words).collect();
+    let measured = words.len() as i64;
+    let total = rows.len() as i64;
+    let unknown = total - measured;
+    let when_unknown = when_unknown(measured, total, "word count");
+    if words.is_empty() {
+        return WordHistogram {
+            total,
+            measured,
+            unknown,
+            when_unknown,
+            buckets: Vec::new(),
+        };
+    }
+    words.sort_unstable();
+
+    // Edges at k/n of the population, for k = 1..n. `edges[0]` is the smallest value, so every work is in some bucket.
+    let n = words.len();
+    let edges: Vec<i64> = (0..buckets)
+        .map(|k| words[(k * n) / buckets])
+        .collect();
+
+    let mut counts = vec![0i64; buckets];
+    for value in &words {
+        // The number of edges this value reaches: the bucket it belongs to. Capped at the last index so the maximum lands there.
+        let index = edges
+            .iter()
+            .take_while(|edge| **edge <= *value)
+            .count()
+            .saturating_sub(1)
+            .min(buckets - 1);
+        counts[index] += 1;
+    }
+
+    let out: Vec<WordBucket> = (0..buckets)
+        .map(|index| {
+            let high = if index + 1 < buckets {
+                // Contiguous: the next bucket's edge, one short of it unless ties make them coincide.
+                edges[index + 1]
+            } else {
+                *words.last().expect("measured rows")
+            };
+            WordBucket {
+                index,
+                low: edges[index],
+                high,
+                count: counts[index],
+                share: if measured > 0 {
+                    counts[index] as f64 / measured as f64
+                } else {
+                    0.0
+                },
+            }
+        })
+        // A bucket that holds nothing because its edge coincides with its neighbour's is dropped: a bar with no works teaches a
+        // reader nothing, and on a skewed catalogue ties make several of them.
+        .filter(|bucket| bucket.count > 0)
+        // Renumbered after the drop, because `index` is where a chart draws the bar: leaving the edges' original positions would put
+        // gaps in the chart at exactly the places the population clustered, which reads as missing data rather than as one wide bucket.
+        .enumerate()
+        .map(|(position, bucket)| WordBucket {
+            index: position,
+            ..bucket
+        })
+        .collect();
+
+    WordHistogram {
+        total,
+        measured,
+        unknown,
+        when_unknown,
+        buckets: out,
+    }
 }
