@@ -6231,6 +6231,20 @@ pub const ROUTE_TABLE: &[RouteEntry] = &[
         audience: Audience::Authenticated,
     },
     RouteEntry {
+        file: "peering.rs",
+        handler: "suggestions",
+        method: "GET",
+        path: "/operator/peering/suggestions",
+        audience: Audience::Operator,
+    },
+    RouteEntry {
+        file: "peering.rs",
+        handler: "record_fingerprint",
+        method: "PUT",
+        path: "/operator/peering/fingerprints",
+        audience: Audience::Operator,
+    },
+    RouteEntry {
         file: "affinity.rs",
         handler: "my_affinity",
         method: "GET",

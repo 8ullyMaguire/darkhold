@@ -27,7 +27,7 @@
 //! * **No reader-level data.** A tag weight is an aggregate over the whole instance; the fingerprint cannot be
 //!   used to look anybody up, which is what makes publishing it safe.
 
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 
 use serde::{Deserialize, Serialize};
 
@@ -54,6 +54,14 @@ pub struct Fingerprint {
     /// When the numbers behind this were computed, not when they were served.
     pub generated_at: String,
     pub tags: Vec<TagWeight>,
+    /// The rules this instance enforces unconditionally — its hardcoded layer, **as declared** (M69-02).
+    ///
+    /// Absent means "this instance publishes nothing about it", which is not the same as "enforces nothing": the first is
+    /// a gap in the document and the second is a claim. M69-02's veto only fires on a rule one side declares and the other
+    /// does not, so an old peer whose document predates this field collides with nothing — the honest reading of a
+    /// document that does not answer the question is that it does not answer it.
+    #[serde(default, skip_serializing_if = "BTreeSet::is_empty")]
+    pub enforced: BTreeSet<String>,
 }
 
 impl Fingerprint {
@@ -112,7 +120,27 @@ pub fn build(instance_id: &str, generated_at: &str, vector: &BTreeMap<String, f6
         instance_id: instance_id.trim_end_matches('/').to_owned(),
         generated_at: generated_at.to_owned(),
         tags,
+        // Declared by the caller, never inferred here: an instance's hardcoded layer is a policy statement, and inferring it
+        // from what the instance happens to have served would make the veto depend on a sample.
+        enforced: BTreeSet::new(),
     }
+}
+
+/// The same document, with the rules this instance enforces declared alongside the taste (M69-02).
+#[must_use]
+pub fn build_with_rules(
+    instance_id: &str,
+    generated_at: &str,
+    vector: &BTreeMap<String, f64>,
+    enforced: impl IntoIterator<Item = String>,
+) -> Fingerprint {
+    let mut fingerprint = build(instance_id, generated_at, vector);
+    fingerprint.enforced = enforced
+        .into_iter()
+        .map(|rule| rule.trim().to_lowercase())
+        .filter(|rule| !rule.is_empty())
+        .collect();
+    fingerprint
 }
 
 /// Cosine similarity over two fingerprints, in `0..=1`.

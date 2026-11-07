@@ -86,6 +86,7 @@ pub mod narration;
 pub mod north_star;
 pub mod notifications;
 pub mod payments;
+pub mod peering;
 pub mod openapi;
 pub mod opensearch;
 pub mod preread;

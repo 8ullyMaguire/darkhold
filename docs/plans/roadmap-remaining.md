@@ -470,3 +470,24 @@ To enable: `[discovery]` → `live_badges = true`, then run `POST /api/v1/operat
 
 Limits: no page renders it yet (frontend rows own that); the sweep is operator-triggered so a badge is as fresh as the last run;
 only Attuned exists; a reader measured by exactly one signal is permanently ineligible by design.
+
+### M69-02 — peering suggestions, with the hardcoded layer as a veto (implemented 2026-11-07)
+
+Cosine over the published tag vector, the existing 0.25 floor, and — the half that was missing — a **veto**: a rule one side
+declares and the other does not is a block, checked *before* any score is computed. Symmetric (a peer that enforces more is
+also in collision), names the rule and the side enforcing it.
+
+The layer is declared (`[discovery] enforced_rules`) and published in `/.well-known/taste-fingerprint.json` as `enforced`;
+never inferred, for the same reason fandom adjacency is declared (M64-08) — a veto inferred from a sample can be outvoted by
+a larger sample. A peer whose document predates the field collides with nothing, because an unanswered question is not an
+answer.
+
+Doors (both operator-only, both 404 unless `[discovery] peering_suggestions`):
+
+    GET  /api/v1/operator/peering/suggestions   # ranked verdicts + reason per peer
+    PUT  /api/v1/operator/peering/fingerprints  # record a peer's document (nothing fetches yet)
+
+Order is the answer: suggestions, then vetoes, then near misses.
+
+Limits: nothing fetches peer documents; the list does not write `federation_peers_v2`; the veto matches rule *names* only, so
+differently-spelled rules collide spuriously — the fix is a controlled vocabulary, not a fuzzy match.

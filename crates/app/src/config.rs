@@ -743,6 +743,10 @@ pub struct DiscoveryConfig {
     pub arena_epsilon: f64,
     /// Whether live badges are decided and shown (M69-14). Default: off.
     pub live_badges: bool,
+    /// Whether the operator's peering suggestions door is open (M69-02). Default: off.
+    pub peering_suggestions: bool,
+    /// The rules this instance enforces unconditionally, as declared in config (M69-02).
+    pub enforced_rules: Vec<String>,
     /// Per-surface algorithm choice (M64-01). Absent entirely when the instance runs the registry's defaults.
     ///
     /// Validated at load — an unknown surface, a wrong count, an unknown algorithm or a duplicate is refused — because
@@ -767,6 +771,8 @@ impl Default for DiscoveryConfig {
             experiment_buckets: 0,
             arena_epsilon: default_arena_epsilon(),
             live_badges: false,
+            peering_suggestions: false,
+            enforced_rules: Vec::new(),
             surfaces: std::collections::BTreeMap::new(),
         }
     }
@@ -3326,6 +3332,16 @@ impl Config {
                 if let Some(live) = d.live_badges {
                     cfg.live_badges = live;
                 }
+                if let Some(peering) = d.peering_suggestions {
+                    cfg.peering_suggestions = peering;
+                }
+                if let Some(rules) = &d.enforced_rules {
+                    cfg.enforced_rules = rules
+                        .iter()
+                        .map(|rule| rule.trim().to_lowercase())
+                        .filter(|rule| !rule.is_empty())
+                        .collect();
+                }
                 if let Some(epsilon) = d.arena_epsilon {
                     // Refused at load, not clamped: a value outside the interval is a typo in a probability, and quietly
                     // making it 0.15 would leave an instance believing it configured exploration.
@@ -4860,6 +4876,17 @@ struct DiscoverySection {
     /// instance makes about a reader, and a default-on claim is one nobody chose.
     #[serde(default)]
     live_badges: Option<bool>,
+    /// Whether the operator can see peering suggestions (M69-02). Off by default: the list is a statement about who this
+    /// instance would pair with, and a default-on statement is one nobody chose.
+    #[serde(default)]
+    peering_suggestions: Option<bool>,
+    /// The rules this instance enforces unconditionally — its hardcoded layer, **declared** (M69-02).
+    ///
+    /// Declared and not inferred, for the same reason fandom adjacency is (M64-08): a veto inferred from a sample can be
+    /// outvoted by a larger sample. An empty list publishes nothing about the layer, and a peer that also declares nothing
+    /// therefore collides with nothing — absence on both sides is agreement, not a claim.
+    #[serde(default)]
+    enforced_rules: Option<Vec<String>>,
 }
 
 /// The `[theme]` table (spec §0.4.6): theme mode and gravity settings.

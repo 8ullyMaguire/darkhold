@@ -12,6 +12,11 @@
   ],
   "amends": "spec 11.16",
   "columns": {
+    "peer_fingerprints.instance_id": {
+      "treatment": "drop_column",
+      "why": "A peer instance's own published base URL, not a person: it is public by definition, since the document it came from is served at /.well-known. Dropping the column on erasure would delete the row a veto depends on, so the treatment is a column drop only -- an erasure that reaches a peer still leaves the peer's own public identity out of this store.",
+      "reviewed_by": "alvaro, 2026-11-07, against spec 11.16"
+    },
     "live_badge_events.account_id": {
       "treatment": "drop_table",
       "why": "A live badge is a reading about a pseudonymous reader: the row says this account's taste is close to the instance's. Removing the account leaves a claim about a person who is gone, and the claim is the whole content of the row -- so the events go with the account, and with it the reason sentence that quotes their affinity.",

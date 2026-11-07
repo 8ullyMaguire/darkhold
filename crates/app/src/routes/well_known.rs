@@ -22,7 +22,7 @@ use axum::routing::get;
 use axum::{Json, Router};
 use serde_json::Value;
 
-use darkhold_domain::taste_fingerprint::{build, Fingerprint};
+use darkhold_domain::taste_fingerprint::{build_with_rules, Fingerprint};
 
 use crate::auth::MaybeSession;
 use crate::http::{ApiError, ApiResult};
@@ -75,7 +75,14 @@ pub async fn current(state: &AppState) -> ApiResult<Option<Fingerprint>> {
         .map(|row| row.computed_at.clone())
         .or_else(|| operator.as_ref().map(|row| row.updated_at.clone()))
         .unwrap_or_else(darkhold_db::identity::now_rfc3339);
-    Ok(Some(build(&instance_id, &generated_at, &weights)))
+    // The declared hardcoded layer travels with the document: a peer decides whether to suggest this instance on the
+    // same two facts this instance decides on (M69-02), and it cannot compare a layer it was never sent.
+    Ok(Some(build_with_rules(
+        &instance_id,
+        &generated_at,
+        &weights,
+        state.config().discovery.enforced_rules.iter().cloned(),
+    )))
 }
 
 async fn fingerprint(
