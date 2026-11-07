@@ -5578,6 +5578,26 @@ pub const ROUTE_TABLE: &[RouteEntry] = &[
         path: "/operator/hit-rate",
         audience: Audience::Operator,
     },
+    // W7 task 3 — one-click actions and their inverse. The site is constant on the route (never read from the body), because a
+    // moderator of one site must not be able to name another.
+    RouteEntry {
+        file: "admin_actions.rs",
+        handler: "perform",
+        method: "POST",
+        path: "/admin/actions/{action}",
+        audience: Audience::AdminOf {
+            site: Some("darkhold"),
+        },
+    },
+    RouteEntry {
+        file: "admin_actions.rs",
+        handler: "undo",
+        method: "POST",
+        path: "/admin/actions/undo",
+        audience: Audience::AdminOf {
+            site: Some("darkhold"),
+        },
+    },
     // ------------------------------------------------------------------
     // Routes that existed before this table knew about them (M47-09b).
     //
