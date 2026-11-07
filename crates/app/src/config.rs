@@ -146,6 +146,8 @@ pub struct Config {
     pub theme: ThemeConfig,
     /// Discovery feed diversity settings.
     pub discovery: DiscoveryConfig,
+    /// Operator-chosen quality weights, per surface (M63-38).
+    pub quality: QualityConfig,
     /// TTS narration settings.
     pub tts: TtsConfig,
     /// Bulk export settings.
@@ -543,6 +545,147 @@ impl Default for ThemeConfig {
             signal_weights: ThemeSignalWeights::default(),
             opposition_weight: 0.35,
         }
+    }
+}
+
+
+/// Operator-chosen quality weights (M63-38).
+///
+/// ```toml
+/// [quality]
+/// default_profile = "balanced"
+///
+/// [quality.profiles.balanced]
+/// source_pct = 0.40
+/// consensus  = 0.25
+/// density    = 0.15
+/// crosspost  = 0.10
+/// confidence = 0.10
+///
+/// [quality.profiles.engagement]
+/// density   = 0.40
+/// consensus = 0.30
+///
+/// [quality.surfaces]
+/// catalogue = "balanced"
+/// rec-run   = "engagement"
+/// ```
+///
+/// A profile is a weight vector over *signal* names, not metric names: the five signals are the parts of the `quality` composite, and a
+/// metric that does not compose them is unaffected. Surfaces pick a profile by name; anything unnamed gets `default_profile`. Everything
+/// is validated at load, so a typo in a surface's profile is a startup failure naming both strings rather than a surface that silently
+/// ranks by the default forever.
+#[derive(Debug, Clone, Deserialize, Serialize)]
+#[serde(default, deny_unknown_fields)]
+pub struct QualityConfig {
+    /// The profile every surface gets unless it names its own.
+    pub default_profile: String,
+    /// Named weight vectors. `balanced` is always present, so an operator who only maps surfaces needs no profile block at all.
+    pub profiles: std::collections::BTreeMap<String, darkhold_domain::quality::QualityWeights>,
+    /// Surface name → profile name.
+    ///
+    /// An unrecognised *surface* key is not refused: an operator may configure a surface before the build that honours it ships, and
+    /// failing startup for that would make upgrading order-dependent. A profile *name* that does not resolve is refused, because that is
+    /// always a typo and never a future.
+    pub surfaces: std::collections::BTreeMap<String, String>,
+}
+
+impl Default for QualityConfig {
+    fn default() -> Self {
+        let mut profiles = std::collections::BTreeMap::new();
+        profiles.insert(
+            "balanced".to_owned(),
+            darkhold_domain::quality::QualityWeights::default(),
+        );
+        Self {
+            default_profile: "balanced".to_owned(),
+            profiles,
+            surfaces: std::collections::BTreeMap::new(),
+        }
+    }
+}
+
+impl QualityConfig {
+    /// A named profile, with `balanced` implicitly present.
+    ///
+    /// `[profiles]` in a file replaces the map rather than merging into it, so an operator who writes one profile would otherwise lose
+    /// the default. The shipped weight vector is therefore a *fallback name*, not an entry: `balanced` resolves even when the section
+    /// never mentions it, and a profile that shadows it is honoured.
+    pub fn profile(&self, name: &str) -> Option<&darkhold_domain::quality::QualityWeights> {
+        if let Some(weights) = self.profiles.get(name) {
+            return Some(weights);
+        }
+        if name == "balanced" {
+            static BALANCED: std::sync::OnceLock<darkhold_domain::quality::QualityWeights> =
+                std::sync::OnceLock::new();
+            return Some(BALANCED.get_or_init(darkhold_domain::quality::QualityWeights::default));
+        }
+        None
+    }
+
+    /// The name a surface resolves to: its own profile, else `default_profile`, else `balanced`.
+    pub fn profile_name_of(&self, surface: &str) -> &str {
+        self.surfaces
+            .get(surface)
+            .map(String::as_str)
+            .filter(|profile| self.profile(profile).is_some())
+            .unwrap_or_else(|| {
+                if self.profile(&self.default_profile).is_some() {
+                    self.default_profile.as_str()
+                } else {
+                    "balanced"
+                }
+            })
+    }
+
+    /// The weights a surface ranks with.
+    ///
+    /// Three levels of fallback, and the last one is unreachable in a validated instance: `profile_name_of` already prefers a profile
+    /// that exists, so returning the shipped numbers here is what a caller wants if it ever is reached, rather than a panic inside a sort.
+    pub fn weights_for_surface(
+        &self,
+        surface: &str,
+    ) -> &darkhold_domain::quality::QualityWeights {
+        let name = self.profile_name_of(surface);
+        self.profile(name).unwrap_or_else(|| {
+            static FALLBACK: std::sync::OnceLock<darkhold_domain::quality::QualityWeights> =
+                std::sync::OnceLock::new();
+            FALLBACK.get_or_init(darkhold_domain::quality::QualityWeights::default)
+        })
+    }
+
+    /// The profile names a refusal can offer, `balanced` included.
+    fn known(&self) -> String {
+        let mut names: Vec<String> = self.profiles.keys().cloned().collect();
+        if !names.iter().any(|name| name == "balanced") {
+            names.insert(0, "balanced".to_owned());
+        }
+        names.join(", ")
+    }
+
+    /// Every check `validate` runs, in one place so a test can call it directly.
+    pub fn validate(&self) -> Result<(), String> {
+        for (name, weights) in &self.profiles {
+            weights
+                .validate()
+                .map_err(|message| format!("quality.profiles.{name}: {message}"))?;
+        }
+        if self.profile(&self.default_profile).is_none() {
+            return Err(format!(
+                "quality.default_profile = {:?} names no profile; known: {}",
+                self.default_profile,
+                self.known()
+            ));
+        }
+        for (surface, profile) in &self.surfaces {
+            if self.profile(profile).is_none() {
+                return Err(format!(
+                    "quality.surfaces.{surface} names profile {profile:?}, which does not exist; known: {}",
+                    self.known()
+                ));
+            }
+        }
+        Ok(())
     }
 }
 
@@ -3116,6 +3259,7 @@ impl Config {
             // rather than defaulted — an unrecognised value must be refused
             // here, where the operator can see it, rather than reaching the
             // route and silently meaning `legacy`.
+            quality: file.quality.unwrap_or_default(),
             discovery: {
                 let d = file.discovery.unwrap_or_default();
                 let mut cfg = DiscoveryConfig::default();
@@ -3636,6 +3780,7 @@ impl Config {
             decisions: DecisionsConfig::default(),
             theme: ThemeConfig::default(),
             discovery: DiscoveryConfig::default(),
+            quality: QualityConfig::default(),
             tts: TtsConfig::default(),
             bulk_export: BulkExportConfig::default(),
             forum: ForumConfig::default(),
@@ -4002,6 +4147,9 @@ impl Config {
             anyhow::bail!("server.port must not be 0");
         }
         self.validate_governance_settings()?;
+        self.quality
+            .validate()
+            .map_err(|message| anyhow::anyhow!(message))?;
         if !(1024..=64 * 1024 * 1024).contains(&self.server.max_body_bytes) {
             anyhow::bail!(
                 "server.max_body_bytes must be between 1024 and 67108864, got {}",
@@ -4252,6 +4400,8 @@ struct FileConfig {
     /// Recommendation mode (spec §16.1a).
     discovery: Option<DiscoverySection>,
     theme: Option<ThemeSection>,
+    /// Operator-chosen quality weights per surface (M63-38).
+    quality: Option<QualityConfig>,
     /// Taste gravity settings (spec §0.4, §16.17).
     taste: Option<TasteSection>,
     /// Flexible bounty settings (spec §20.3.2).
@@ -5125,6 +5275,64 @@ impl Config {
 
 #[cfg(test)]
 mod tests {
+    /// M63-38: a profile is a weight vector over signal names, resolved per surface, refused at load when it cannot rank.
+    #[test]
+    fn quality_profiles_resolve_per_surface_and_refuse_weights_that_cannot_rank() {
+        let parsed: QualityConfig = toml::from_str(
+            r#"
+            default_profile = "balanced"
+
+            [profiles.engagement]
+            density = 0.40
+            consensus = 0.30
+
+            [surfaces]
+            catalogue = "balanced"
+            rec-run = "engagement"
+            "#,
+        )
+        .expect("a quality section");
+        // `profiles.balanced` is not written down and still exists: the default carries it, so an operator changing one weight does not
+        // have to restate the other four.
+        assert!(!parsed.profiles.contains_key("balanced"), "the file states only `engagement`");
+        assert!(parsed.profile("balanced").is_some(), "and `balanced` still resolves");
+        assert!(parsed.validate().is_ok());
+        assert_eq!(parsed.profile_name_of("rec-run"), "engagement");
+        assert_eq!(parsed.profile_name_of("catalogue"), "balanced");
+        assert_eq!(parsed.profile_name_of("nothing-configures-me"), "balanced");
+        let engagement = parsed.weights_for_surface("rec-run");
+        assert_eq!(engagement.density, 0.40);
+        assert_eq!(engagement.source_pct, 0.40, "unstated weights keep the shipped value");
+        assert_eq!(parsed.weights_for_surface("catalogue").consensus, 0.25);
+
+        // A typo in a profile name is a startup failure naming both strings — not a surface that silently ranks by the default.
+        let mut broken = parsed.clone();
+        broken.surfaces.insert("catalogue".to_owned(), "engagment".to_owned());
+        let error = broken.validate().expect_err("a misspelt profile is refused");
+        assert!(error.contains("engagment"), "{error}");
+        assert!(error.contains("engines") || error.contains("balanced"), "{error}");
+
+        // A default that names nothing is refused too; otherwise every surface falls back and nobody learns why.
+        let orphan = QualityConfig {
+            default_profile: "missing".to_owned(),
+            ..QualityConfig::default()
+        };
+        assert!(orphan.validate().unwrap_err().contains("default_profile"));
+
+        // Weights that cannot rank are refused with the profile that carries them, so the message points at a line.
+        let mut inverted = QualityConfig::default();
+        inverted.profiles.insert(
+            "bad".to_owned(),
+            darkhold_domain::quality::QualityWeights {
+                density: -1.0,
+                ..darkhold_domain::quality::QualityWeights::default()
+            },
+        );
+        let error = inverted.validate().expect_err("a negative weight is refused");
+        assert!(error.contains("quality.profiles.bad"), "{error}");
+        assert!(error.contains("density"), "{error}");
+    }
+
     use super::*;
 
     #[test]

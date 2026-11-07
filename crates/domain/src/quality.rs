@@ -528,6 +528,18 @@ fn logistic(z: f64) -> f64 {
 /// which block a row is in.
 #[must_use]
 pub fn rank(metric: Metric, candidates: &[Candidate], limit: usize, offset: usize) -> Ranking {
+    rank_with(metric, candidates, limit, offset, &QualityWeights::default())
+}
+
+/// [`rank`] with an operator's weights (M63-38). The same population sorted two ways is two judgements, and the caller that owns the
+/// catalogue is the one entitled to make the second.
+pub fn rank_with(
+    metric: Metric,
+    candidates: &[Candidate],
+    limit: usize,
+    offset: usize,
+    weights: &QualityWeights,
+) -> Ranking {
     let total = candidates.len();
     let engaged: Vec<&Candidate> = candidates.iter().filter(|c| c.likes > 0).collect();
     let ranked = engaged.len();
@@ -648,7 +660,7 @@ pub fn rank(metric: Metric, candidates: &[Candidate], limit: usize, offset: usiz
             Metric::Views => 0.0,
             // Fresher means fewer days, and the sort is descending.
             Metric::Updated => candidate.freshness_days.map_or(f64::MIN, |days| -days),
-            _ => score_of(metric, &signals),
+            _ => score_of(metric, &signals, weights),
         };
         hits.push(Hit {
             id: candidate.id.clone(),
@@ -728,18 +740,131 @@ pub fn wilson_lower_bound(successes: u64, trials: u64) -> Option<f64> {
     Some(((centre - margin) / denominator).clamp(0.0, 1.0))
 }
 
+
+/// The weights of the `quality` composite, as data instead of literals (M63-38).
+///
+/// `quality` is a weighted mean over five signals, renormalised over whichever of them a row actually has. Which five weights are right
+/// is an operator's judgement about their own catalogue — an archive where every source publishes word counts can afford to trust
+/// density; one where most rows have no dates must not lean on recency. Compiled-in numbers make that judgement invisible and
+/// unarguable, so they live here and are configured per profile.
+///
+/// Every field is a non-negative weight. The mean is renormalised, so the values need not sum to one: `(0.4, 0.25, 0.15, 0.1, 0.1)` and
+/// `(4, 2.5, 1.5, 1, 1)` are the same ranking, and requiring a sum would be a validation error that rejects a legal choice.
+#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
+pub struct QualityWeights {
+    /// [`Metric::SourcePct`].
+    #[serde(default = "default_source_pct")]
+    pub source_pct: f64,
+    /// [`Metric::Consensus`].
+    #[serde(default = "default_consensus")]
+    pub consensus: f64,
+    /// [`Metric::EngagementDensity`].
+    #[serde(default = "default_density")]
+    pub density: f64,
+    /// [`Metric::Crosspost`].
+    #[serde(default = "default_crosspost")]
+    pub crosspost: f64,
+    /// [`Metric::Confidence`] — evidence, not quality: how much the source's sample is worth.
+    #[serde(default = "default_confidence")]
+    pub confidence: f64,
+}
+
+// Per-field serde defaults, so a profile may state one weight and inherit the other four. A struct-level `default` would make a section
+// that mentions only `density` silently zero the rest, which is the opposite of what an operator writing one line means.
+fn default_source_pct() -> f64 {
+    0.40
+}
+fn default_consensus() -> f64 {
+    0.25
+}
+fn default_density() -> f64 {
+    0.15
+}
+fn default_crosspost() -> f64 {
+    0.10
+}
+fn default_confidence() -> f64 {
+    0.10
+}
+
+impl Default for QualityWeights {
+    /// The numbers this module shipped with. Named so a profile that only wants to change one weight can lean on the rest.
+    fn default() -> Self {
+        Self {
+            source_pct: 0.40,
+            consensus: 0.25,
+            density: 0.15,
+            crosspost: 0.10,
+            confidence: 0.10,
+        }
+    }
+}
+
+impl QualityWeights {
+    /// Refuse weights that cannot produce a ranking.
+    ///
+    /// Three things are refused, each for a different failure: a negative weight inverts a signal the operator meant to favour; `NaN` or
+    /// infinity makes every comparison false, so the sort silently falls back to id order; and all-zero weights make `quality` the same
+    /// number for every row, which is not a ranking but looks like one.
+    pub fn validate(&self) -> Result<(), String> {
+        for (name, value) in [
+            ("source_pct", self.source_pct),
+            ("consensus", self.consensus),
+            ("density", self.density),
+            ("crosspost", self.crosspost),
+            ("confidence", self.confidence),
+        ] {
+            if !value.is_finite() {
+                return Err(format!("quality weight `{name}` is {value}, which is not a number"));
+            }
+            if value < 0.0 {
+                return Err(format!(
+                    "quality weight `{name}` is {value}: a negative weight inverts the signal"
+                ));
+            }
+        }
+        if self.total() <= 0.0 {
+            return Err("every quality weight is zero, which makes `quality` identical for every row".to_owned());
+        }
+        Ok(())
+    }
+
+    /// The sum of the weights. Not required to be one — [`QualityWeights`] explains why — but the caller can report it in `dh doctor`.
+    pub fn total(&self) -> f64 {
+        self.source_pct + self.consensus + self.density + self.crosspost + self.confidence
+    }
+
+    /// How much of the composite this signal carries, as a share of the total, for a surface that wants to explain itself.
+    pub fn share(&self, signal: &str) -> Option<f64> {
+        let weight = match signal {
+            "source_pct" => self.source_pct,
+            "consensus" => self.consensus,
+            "density" => self.density,
+            "crosspost" => self.crosspost,
+            "confidence" => self.confidence,
+            _ => return None,
+        };
+        let total = self.total();
+        if total > 0.0 {
+            Some(weight / total)
+        } else {
+            None
+        }
+    }
+}
+
 /// The composite: source-relative quality, renormalised over what the row has.
-fn score_of(metric: Metric, signals: &Signals) -> f64 {
+fn score_of(metric: Metric, signals: &Signals, weights: &QualityWeights) -> f64 {
     match metric {
         Metric::Quality => {
             let parts: [(Option<f64>, f64); 5] = [
-                (signals.source_pct, 0.40),
-                (signals.consensus, 0.25),
-                (signals.density, 0.15),
-                (signals.crosspost, 0.10),
+                (signals.source_pct, weights.source_pct),
+                (signals.consensus, weights.consensus),
+                (signals.density, weights.density),
+                (signals.crosspost, weights.crosspost),
                 // Evidence, not quality: a row that leads a four-row archive is
                 // not worth the same as one that leads eight hundred.
-                (signals.confidence, 0.10),
+                (signals.confidence, weights.confidence),
             ];
             let mut weighted = 0.0;
             let mut weight = 0.0;
@@ -768,7 +893,7 @@ fn score_of(metric: Metric, signals: &Signals) -> f64 {
         // Freshness is what the metric is for, so a missing date scores zero
         // rather than being renormalised away — the same choice `Recency` makes.
         Metric::FreshnessWeightedQuality => {
-            score_of(Metric::Quality, signals) * signals.recency.unwrap_or(0.0)
+            score_of(Metric::Quality, signals, weights) * signals.recency.unwrap_or(0.0)
         }
         Metric::LikesPerView => signals.rate.unwrap_or(0.0),
         Metric::Wilson => signals.wilson.unwrap_or(0.0),
@@ -808,6 +933,87 @@ mod tests {
             views: Some(views),
             ..candidate(id, source, likes, Some(20_000))
         }
+    }
+
+
+    /// M63-38: two operators, one catalogue, two defensible orderings. The weights are data, so this is provable without a config file.
+    #[test]
+    fn different_weights_rank_the_same_population_differently() {
+        // `wide` leads its archive but has a modest density; `dense` is mid-pack but short and heavily liked per 1k words. A
+        // source-percentile profile ranks `wide` first; a density profile ranks `dense` first. Neither is wrong — which is the point.
+        let mut population = vec![
+            // Most liked in its archive, and the worst likes-per-word: a long story that is widely read.
+            candidate("wide", "sb", 1_000, Some(500_000)),
+            // Mid-pack on likes, and by far the most likes per 1k words: short and heavily liked.
+            candidate("dense", "sb", 900, Some(2_000)),
+        ];
+        for i in 0..8 {
+            population.push(candidate(&format!("f{i}"), "sb", 100 + i * 50, Some(50_000)));
+        }
+        // Two single-signal profiles, because the property is that the mixture is data: one operator trusts position in the archive,
+        // the other trusts engagement per word, and the same population answers both questions differently.
+        let percentile = QualityWeights {
+            source_pct: 1.0,
+            consensus: 0.0,
+            density: 0.0,
+            crosspost: 0.0,
+            confidence: 0.0,
+        };
+        let density = QualityWeights {
+            source_pct: 0.0,
+            consensus: 0.0,
+            density: 1.0,
+            crosspost: 0.0,
+            confidence: 0.0,
+        };
+        assert!(percentile.validate().is_ok());
+        assert!(density.validate().is_ok());
+
+        let a = rank_with(Metric::Quality, &population, 2, 0, &percentile);
+        let b = rank_with(Metric::Quality, &population, 2, 0, &density);
+        assert_eq!(a.hits[0].id, "wide", "percentile weights trust position");
+        assert_eq!(b.hits[0].id, "dense", "density weights trust likes per 1k words");
+        // The signals are the same rows observed the same way; only the mixture changed, so `dense` carries the better density in both
+        // rankings even where it loses the page.
+        let density_of = |ranking: &Ranking, id: &str| {
+            ranking
+                .hits
+                .iter()
+                .find(|hit| hit.id == id)
+                .and_then(|hit| hit.signals.density)
+        };
+        assert!(
+            density_of(&a, "dense") > density_of(&a, "wide"),
+            "density is a property of the row, not of the weights"
+        );
+
+        // Weights that cannot rank are refused rather than silently producing id order.
+        assert!(QualityWeights { source_pct: -0.1, ..QualityWeights::default() }
+            .validate()
+            .is_err());
+        assert!(QualityWeights { source_pct: f64::NAN, ..QualityWeights::default() }
+            .validate()
+            .is_err());
+        assert!(QualityWeights {
+            source_pct: 0.0,
+            consensus: 0.0,
+            density: 0.0,
+            crosspost: 0.0,
+            confidence: 0.0,
+        }
+        .validate()
+        .is_err());
+        // Scaling every weight leaves the ranking identical: the mean is renormalised, not summed.
+        let scaled = QualityWeights {
+            source_pct: 4.0,
+            consensus: 0.0,
+            density: 0.0,
+            crosspost: 0.0,
+            confidence: 0.0,
+        };
+        let c = rank_with(Metric::Quality, &population, 2, 0, &scaled);
+        assert_eq!(c.hits[0].id, a.hits[0].id);
+        assert_eq!(c.hits[1].id, a.hits[1].id);
     }
 
     /// The bound, not the point estimate: 1 kudos over 10 hits is a 10% rate and the weakest evidence there is, so the 95% bound puts it

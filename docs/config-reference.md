@@ -237,6 +237,47 @@ Text-to-speech engine settings.
 | `default_voice` | `string?` | `None` | Default voice |
 | `monthly_spend_cap_cents` | `int?` | `None` | Monthly spend cap |
 
+## `[quality]`
+
+The weights of the `quality` composite (M63-38), and which profile each surface ranks with.
+
+`quality` is a weighted mean over five signals, renormalised over whichever ones a row actually has. The weights are an operator's
+judgement about their own catalogue, so they are configuration rather than literals in `score_of`.
+
+| Key | Type | Default | Purpose |
+|-----|------|---------|---------|
+| `default_profile` | `string` | `"balanced"` | Profile for every surface that names none |
+| `profiles` | `map<string, QualityWeights>` | `balanced` (implicit) | Named weight vectors |
+| `surfaces` | `map<string,string>` | unset | Surface name → profile name |
+
+A profile states any subset of the five weights; unstated ones keep the shipped value, so one line changes one signal:
+
+| Weight | Default | Signal |
+|--------|---------|--------|
+| `source_pct` | `0.40` | Percentile of likes within the row's own archive |
+| `consensus` | `0.25` | Percentile plus the crosspost bonus |
+| `density` | `0.15` | Likes per 1k words within the archive |
+| `crosspost` | `0.10` | How many archives carry the story |
+| `confidence` | `0.10` | How much the archive's sample is worth |
+
+```toml
+[quality]
+default_profile = "balanced"
+
+[quality.profiles.engagement]
+density = 0.40
+consensus = 0.30
+
+[quality.surfaces]
+catalogue = "balanced"
+rec-run = "engagement"
+```
+
+Two refusals at load, both naming the string that is wrong: a `default_profile` or surface profile that resolves to nothing, and a
+weight vector that cannot rank (negative, `NaN`, or all zero). Weights need not sum to one — the mean is renormalised — so `(0.4,
+0.25, 0.15, 0.1, 0.1)` and `(4, 2.5, 1.5, 1, 1)` rank identically. `balanced` resolves even when `[profiles]` never mentions it, because a
+TOML table replaces the map rather than merging into it.
+
 ## `[forum]`
 
 Forum, vote budget, and karma settings (spec §35).

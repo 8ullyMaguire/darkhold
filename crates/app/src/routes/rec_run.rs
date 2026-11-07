@@ -260,12 +260,13 @@ async fn run(
     // engines, which need a bounded set to blend.
     let (candidates, metric_scores, gate) = match metric {
         Some(metric) => {
-            let page = darkhold_db::metrics::ranked(
+            let page = darkhold_db::metrics::ranked_with_weights(
                 state.db(),
                 &query,
                 metric,
                 darkhold_db::metrics::CANDIDATE_CAP as usize,
                 0,
+                state.config().quality.weights_for_surface("rec-run"),
             )
             .await?;
             if metric.needs_views() && page.views_rows == 0 {

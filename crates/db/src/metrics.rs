@@ -15,7 +15,7 @@
 //! 884. The remainder of the cap is the unmeasured block, which needs 5,000 rows
 //! only because triage wants something to choose between.
 
-use darkhold_domain::quality::{rank, Candidate, Metric, Signals};
+use darkhold_domain::quality::{Candidate, Metric, Signals};
 use darkhold_domain::similar::{self, Idf, Seed};
 use time::format_description::well_known::Rfc3339;
 use time::OffsetDateTime;
@@ -398,6 +398,29 @@ pub async fn ranked(
     limit: usize,
     offset: usize,
 ) -> Result<RankedPage> {
+    ranked_with_weights(
+        db,
+        query,
+        metric,
+        limit,
+        offset,
+        &darkhold_domain::quality::QualityWeights::default(),
+    )
+    .await
+}
+
+/// [`ranked`] with an operator's quality weights (M63-38).
+///
+/// The weights only reach the `quality` composite and `freshness_weighted_quality`; every other metric ignores them. Passing them here
+/// rather than threading a profile name through the store keeps the store ignorant of configuration: it ranks with what it is given.
+pub async fn ranked_with_weights(
+    db: &Database,
+    query: &CatalogueQuery,
+    metric: Metric,
+    limit: usize,
+    offset: usize,
+    weights: &darkhold_domain::quality::QualityWeights,
+) -> Result<RankedPage> {
     let rows = candidates(db, query).await?;
     let (total, engaged) = counts(db, query).await?;
 
@@ -415,7 +438,7 @@ pub async fn ranked(
         })
         .collect();
 
-    let ranking = rank(metric, &population, limit, offset);
+    let ranking = darkhold_domain::quality::rank_with(metric, &population, limit, offset, weights);
     let ids: Vec<String> = ranking.hits.iter().map(|h| h.id.clone()).collect();
     let stored = rows_by_ids(db, &ids).await?;
     let by_id: std::collections::HashMap<String, (CatalogueRow, Option<String>)> = stored

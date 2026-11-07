@@ -146,6 +146,12 @@ pub struct MetricPage {
     sources: Vec<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     fandom: Option<String>,
+    /// The quality profile this page was ranked with (M63-38), omitted for metrics that do not compose `quality`.
+    ///
+    /// Published rather than kept internal: "which weights produced this order" is the question a reader of a ranking is entitled to ask,
+    /// and a page that answers it can be argued with.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    quality_profile: Option<String>,
 }
 
 /// What the route answers.
@@ -300,12 +306,13 @@ async fn search(
                 }
                 let offset = params.offset.unwrap_or(0).max(0);
                 let query = build_query(&state, &params, None).await?;
-                let page = darkhold_db::metrics::ranked(
+                let page = darkhold_db::metrics::ranked_with_weights(
                     state.db(),
                     &query,
                     metric,
                     limit as usize,
                     offset as usize,
+                    state.config().quality.weights_for_surface("catalogue"),
                 )
                 .await?;
                 // A metric that ranks on a view count, asked for a population where
@@ -346,6 +353,19 @@ async fn search(
                     offset,
                     sources,
                     fandom: query.fandom.clone(),
+                    // Only the composite metrics read the weights; a `likes` page ranked by an `ORDER BY` has no profile to name.
+                    quality_profile: matches!(
+                        metric,
+                        darkhold_domain::quality::Metric::Quality
+                            | darkhold_domain::quality::Metric::FreshnessWeightedQuality
+                    )
+                    .then(|| {
+                        state
+                            .config()
+                            .quality
+                            .profile_name_of("catalogue")
+                            .to_owned()
+                    }),
                 })
                 .into_response());
             }

@@ -492,3 +492,97 @@ async fn rec_run_carries_the_metric_and_its_gate_too() {
     );
     assert_eq!(items[0]["rec_rank"], 1);
 }
+
+/// M63-38: the profile a surface ranks with is configuration, and the page says which one it used.
+///
+/// Two instances, same rows, same metric, different `[quality.surfaces] catalogue = ...`: the JSON names the profile, and the ordering
+/// follows the weights rather than the build. A page that ranks by one vector and reports another would be worse than one that reports
+/// nothing, so the two assertions are deliberately in the same test.
+#[tokio::test]
+async fn the_catalogue_names_and_obeys_the_quality_profile_it_ranks_with() {
+    let harness = Harness::new("profile").await;
+    let (mut client, account) = reader(&harness, "m6303prof").await;
+    seed(&harness.db, &account).await;
+
+    // Default instance: the resolved name is reported, and it is `balanced` because nothing configures a surface.
+    let (status, body) = client
+        .get("/api/v1/catalogue?sort=quality&limit=10")
+        .await;
+    assert_eq!(status, StatusCode::OK, "body: {body}");
+    assert_eq!(body["quality_profile"], "balanced", "body: {body}");
+    let score_of = |body: &Value, key: &str| -> f64 {
+        body["items"]
+            .as_array()
+            .expect("items")
+            .iter()
+            .find(|item| item["source_work_key"] == key)
+            .and_then(|item| item["score"].as_f64())
+            .unwrap_or_else(|| panic!("row {key} in {body}"))
+    };
+    let balanced_marvel = score_of(&body, "sb-marvel");
+
+    // A page sorted by a metric that does not compose the weights names no profile: there are no weights to blame.
+    let (status, body) = client.get("/api/v1/catalogue?sort=likes&limit=10").await;
+    assert_eq!(status, StatusCode::OK);
+    assert!(
+        body.get("quality_profile").is_none(),
+        "a `likes` page has no quality vector: {body}"
+    );
+
+    // Density-only: the same rows, ordered by likes per 1k words instead of percentile. The page says so.
+    let mut weighted = harness.config.clone();
+    weighted.quality.profiles.insert(
+        "stats-only".to_owned(),
+        darkhold_domain::quality::QualityWeights {
+            source_pct: 0.0,
+            consensus: 0.0,
+            density: 1.0,
+            crosspost: 0.0,
+            confidence: 0.0,
+        },
+    );
+    weighted
+        .quality
+        .surfaces
+        .insert("catalogue".to_owned(), "stats-only".to_owned());
+    weighted.validate().expect("a valid weight profile");
+    let mut weighted_client = Client {
+        app: server::build_router(AppState::new(weighted, harness.db.clone())),
+        cookies: Vec::new(),
+    };
+    // The reader's session lives on the first client; the catalogue route is public, so a fresh client is enough.
+    let _ = &mut weighted_client;
+
+    let (status, body) = weighted_client
+        .get("/api/v1/catalogue?sort=quality&limit=10")
+        .await;
+    assert_eq!(status, StatusCode::OK, "body: {body}");
+    assert_eq!(
+        body["quality_profile"], "stats-only",
+        "the page names the profile it used: {body}"
+    );
+    // The weights reached the arithmetic, not just the label: the same row's score moved because density is now the only signal.
+    let weighted_marvel = score_of(&body, "sb-marvel");
+    assert_ne!(
+        weighted_marvel, balanced_marvel,
+        "the same row scores differently under different weights: {weighted_marvel} vs {balanced_marvel}"
+    );
+    // And the ordering is the one the weights asked for: under a density-only profile the page is non-increasing in the density signal.
+    // Asserted on `signals` from the payload rather than on the raw likes-per-word, because the score is the *percentile within the row's
+    // archive* — two rows at the top of their own archives tie even when one has ten times the ratio.
+    let densities: Vec<f64> = body["items"]
+        .as_array()
+        .expect("items")
+        .iter()
+        .filter(|item| item["measured"] == true)
+        .map(|item| item["signals"]["density"].as_f64().unwrap_or(0.0))
+        .collect();
+    assert!(
+        densities.windows(2).all(|pair| pair[0] >= pair[1]),
+        "a density-only profile ranks by density: {densities:?}"
+    );
+    assert!(
+        densities.first().copied().unwrap_or(0.0) > 0.0,
+        "and at least one row has density to rank: {densities:?}"
+    );
+}
