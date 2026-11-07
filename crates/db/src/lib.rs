@@ -160,6 +160,7 @@ pub mod theme_schedule;
 pub mod thread_modes;
 pub mod translation;
 pub mod trend;
+pub mod moderation_ladder;
 pub mod trust_events;
 pub mod typed_votes;
 pub mod visibility;
