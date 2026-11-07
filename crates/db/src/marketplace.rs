@@ -525,6 +525,69 @@ pub async fn manifest_document(
     Ok(row)
 }
 
+/// The newest **approved** version's document, or `None` when the package has nothing published.
+///
+/// "Latest published" rather than "latest": a package under review has a newer row whose document nobody may install, and answering with it
+/// would let a pending submission become the thing a reader grants.
+pub async fn manifest_document_for_latest(
+    db: &Database,
+    id: &str,
+) -> Result<Option<String>, sqlx::Error> {
+    let row: Option<String> = match db.backend() {
+        Backend::Sqlite => sqlx::query(
+            "SELECT document FROM extension_manifests
+             WHERE id = ? AND state = 'approved' ORDER BY created_at DESC LIMIT 1",
+        )
+        .bind(id)
+        .fetch_optional(db.sqlite_pool().expect("sqlite"))
+        .await?
+        .map(|row| row.get("document")),
+        Backend::Postgres => sqlx::query(
+            "SELECT document FROM extension_manifests
+             WHERE id = $1 AND state = 'approved' ORDER BY created_at DESC LIMIT 1",
+        )
+        .bind(id)
+        .fetch_optional(db.postgres_pool().expect("postgres"))
+        .await?
+        .map(|row| row.get("document")),
+    };
+    Ok(row)
+}
+
+/// The capability set an account's active grant covers for one package.
+///
+/// Empty when there is no grant. Empty is also the honest answer for a grant whose capabilities do not parse: a corrupt grant covers
+/// nothing, and treating it as covering everything is how a renewal check passes when it should refuse.
+pub async fn granted_capabilities(
+    db: &Database,
+    account: &str,
+    manifest_id: &str,
+) -> Result<std::collections::BTreeSet<String>, sqlx::Error> {
+    let row: Option<String> = match db.backend() {
+        Backend::Sqlite => sqlx::query(
+            "SELECT capabilities FROM extension_grants
+             WHERE account = ? AND manifest_id = ? AND revoked_at IS NULL",
+        )
+        .bind(account)
+        .bind(manifest_id)
+        .fetch_optional(db.sqlite_pool().expect("sqlite"))
+        .await?
+        .map(|row| row.get("capabilities")),
+        Backend::Postgres => sqlx::query(
+            "SELECT capabilities FROM extension_grants
+             WHERE account = $1 AND manifest_id = $2 AND revoked_at IS NULL",
+        )
+        .bind(account)
+        .bind(manifest_id)
+        .fetch_optional(db.postgres_pool().expect("postgres"))
+        .await?
+        .map(|row| row.get("capabilities")),
+    };
+    Ok(row
+        .and_then(|text| serde_json::from_str(&text).ok())
+        .unwrap_or_default())
+}
+
 /// Insert a manifest that is entering review (`state = 'pending'`).
 ///
 /// Returns `false` when that (id, version) already exists: a submission is an event, and re-submitting the same version of the same
@@ -609,6 +672,22 @@ pub async fn fork_manifest(
     version: &str,
     forked_by: &str,
 ) -> Result<Value, sqlx::Error> {
+    fork_manifest_document(db, source_id, target_id, version, forked_by, None).await
+}
+
+/// Fork a package, optionally with a document the caller has already rewritten.
+///
+/// `document` exists for one case: a fork published under a different licence. The default (`None`) copies the source's document
+/// byte-for-byte, which is the rule — the manifest is what the author's review was about — and a caller that passes its own document has
+/// taken responsibility for saying why (the route checks licence compatibility before it gets here).
+pub async fn fork_manifest_document(
+    db: &Database,
+    source_id: &str,
+    target_id: &str,
+    version: &str,
+    forked_by: &str,
+    document: Option<&str>,
+) -> Result<Value, sqlx::Error> {
     // Each arm resolves to plain values rather than handing back a row: the two pools are different types, and a `match` that returned
     // `Option<Row>` would not compile — which is the compiler pointing at the real thing, that these are two databases and only the
     // extracted values are common.
@@ -632,9 +711,10 @@ pub async fn fork_manifest(
             .map(|row| (row.get::<String, _>("version"), row.get::<String, _>("document")))
         }
     };
-    let Some((source_version, document)) = source else {
+    let Some((source_version, source_document)) = source else {
         return Err(sqlx::Error::RowNotFound);
     };
+    let document = document.map_or(source_document, str::to_owned);
 
     let exists: Option<String> = match db.backend() {
         Backend::Sqlite => {

@@ -55,6 +55,7 @@ pub mod feeds;
 pub mod finder;
 pub mod fandom_graph;
 pub mod flows;
+pub mod gallery;
 pub mod governance;
 pub mod health;
 pub mod identifiers;

@@ -70,6 +70,7 @@ pub mod federation;
 pub mod finder;
 pub mod flow_store;
 pub mod generated_content;
+pub mod gallery;
 pub mod governance;
 pub mod hit_rate;
 pub mod identifier;

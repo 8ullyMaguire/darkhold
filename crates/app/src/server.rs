@@ -1137,6 +1137,9 @@ pub fn build_router(state: AppState) -> Router {
         // M16-07: the review workflow. Inside the `/api/v1` nest for the same reason the sandbox is — it needs a session before it can
         // ask whether the caller is an operator.
         .merge(routes::extension_review::router())
+        // M16-08: installing, rating and reviewing. Inside the nest because every door needs a session (the acting pseud is the scope),
+        // and the read-only ratings door needs one too: it is the only place a package's install count is published.
+        .merge(routes::gallery::router())
         .merge(module_mount(
             &state,
             "flows",

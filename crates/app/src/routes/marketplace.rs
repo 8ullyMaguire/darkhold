@@ -393,6 +393,10 @@ pub struct ForkBody {
     /// The slug the fork is published under. Different from the source's, which is why the route takes both.
     pub id: String,
     pub version: String,
+    /// A licence to publish the fork under. Absent means "the source's", which is the compatible answer for every licence; present means
+    /// the fork is relabelled, and §21.6 requires that relabelling to be checked rather than assumed.
+    #[serde(default)]
+    pub license: Option<String>,
 }
 
 /// Fork a published extension (`POST /extensions/{slug}/fork`).
@@ -422,8 +426,68 @@ pub async fn fork_extension(
             "a fork needs its own id; forking onto the original's name would overwrite it",
         )));
     }
-    match darkhold_db::marketplace::fork_manifest(state.db(), &slug, &id, body.version.trim(), &account).await {
-        Ok(fork) => Ok(Json(fork)),
+    // A fork under a different licence is relabelled deliberately, and the check happens before anything is written: a copyleft source
+    // may not be republished under a permissive licence, and an unrecognised one is refused rather than assumed compatible.
+    let mut document_override: Option<String> = None;
+    if let Some(requested) = body.license.as_deref().map(str::trim).filter(|text| !text.is_empty()) {
+        let source_document = darkhold_db::marketplace::manifest_document_for_latest(state.db(), &slug)
+            .await
+            .map_err(|error| ApiError(darkhold_domain::AppError::Internal(error.into())))?
+            .ok_or_else(|| ApiError(darkhold_domain::AppError::NotFound {
+                resource: "extension",
+            }))?;
+        let mut manifest: darkhold_domain::extension::Manifest =
+            serde_json::from_str(&source_document).map_err(|error| {
+                ApiError(darkhold_domain::AppError::Internal(anyhow::Error::from(error)))
+            })?;
+        darkhold_domain::gallery::compatible(&manifest.license, requested).map_err(|refusal| {
+            ApiError(darkhold_domain::AppError::Validation {
+                message: refusal.message(),
+                field_errors: Default::default(),
+            })
+        })?;
+        if manifest.license != requested {
+            manifest.license = requested.to_owned();
+            document_override = Some(serde_json::to_string(&manifest).map_err(|error| {
+                ApiError(darkhold_domain::AppError::Internal(anyhow::Error::from(error)))
+            })?);
+        }
+    }
+
+    match darkhold_db::marketplace::fork_manifest_document(
+        state.db(),
+        &slug,
+        &id,
+        body.version.trim(),
+        &account,
+        document_override.as_deref(),
+    )
+    .await
+    {
+        Ok(mut fork) => {
+            // The attribution sentence a page can print, derived from the row rather than written by the caller. §21.6 says attribution is
+            // preserved, which is a claim about what a reader sees, not only about a column. The licence comes from the fork's own
+            // document: the row does not carry one, and the document is what the reader would be granting.
+            if let (Some(source), Some(version)) = (
+                fork.get("derived_from").and_then(serde_json::Value::as_str).map(str::to_owned),
+                fork.get("derived_from_version").and_then(serde_json::Value::as_str).map(str::to_owned),
+            ) {
+                let license = darkhold_db::marketplace::manifest_document(state.db(), &id, body.version.trim())
+                    .await
+                    .ok()
+                    .flatten()
+                    .and_then(|document| {
+                        serde_json::from_str::<darkhold_domain::extension::Manifest>(&document).ok()
+                    })
+                    .map(|manifest| manifest.license)
+                    .unwrap_or_else(|| "licence unrecorded".to_owned());
+                let sentence = darkhold_domain::gallery::attribution(&source, &version, &license);
+                if let Some(object) = fork.as_object_mut() {
+                    object.insert("attribution".to_owned(), json!(sentence));
+                }
+            }
+            Ok(Json(fork))
+        }
         Err(sqlx::Error::RowNotFound) => Err(ApiError(darkhold_domain::AppError::NotFound {
             resource: "extension",
         })),

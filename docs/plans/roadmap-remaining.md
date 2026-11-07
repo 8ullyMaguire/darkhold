@@ -289,3 +289,22 @@ Two things worth knowing:
 
 Renewal-on-growth is evaluated at publish against each active grant's own capability set, which is why a 1.1.0 that
 asks for `network` invalidates a 1.0.0 consent for `work.read` instead of inheriting it.
+
+## M16-08 — gallery mechanics (implemented)
+
+Installations and ratings in `crates/db/src/gallery.rs`; the rules in `crates/domain/src/gallery.rs`.
+
+* **Idempotence is a statement, not a check.** `ON CONFLICT(id) DO UPDATE … WHERE extension_installations.uninstalled_at IS NOT NULL`
+  gives three outcomes from one write: a new row, a silent no-op on an active row, and a reactivation after uninstall. The partial unique
+  index on `(scope, manifest_id) WHERE uninstalled_at IS NULL` is what stops two concurrent installs from producing two active rows.
+* **The count is a census.** `COUNT(*) WHERE uninstalled_at IS NULL` at read time. Reinstalling cannot inflate it, and it can go down.
+* **The scope is the acting pseud**, taken from the session. A body field would let an account install as another identity.
+* **An update never widens a grant silently**: the policy resolves the target, then the target's declared capabilities are compared with the
+  grant, and the refusal names only what is new.
+* **Licence compatibility is a rule about identity, not a lookup.** `CC-BY-SA-4.0` cannot be forked under `MIT`, and the classification is
+  an explicit list because a prefix rule on `CC-BY` would put share-alike in the permissive bucket.
+
+Two live PostgreSQL defects were found by `gallery_two_engines` (both engines green now): `pseuds.id` is a uuid so the review join needs
+`::text`, and `stars` is `INT4` so it is cast to `BIGINT` to keep one decode type.
+
+Not built: any UI for the gallery, and notifications on a new review — the routes are the mechanism, and a page is a separate row.
