@@ -35,6 +35,7 @@ use darkhold_domain::AppError;
 pub fn router() -> Router<AppState> {
     Router::new()
         .route("/me/affinity", get(my_affinity))
+        .route("/me/badges", get(my_badges))
         .route("/operator/affinity", get(operator_view))
         .route("/operator/affinity/recompute", post(recompute))
 }
@@ -72,6 +73,47 @@ struct ViewQuery {
 
 fn default_limit() -> i64 {
     100
+}
+
+/// My live badges, and the history of when they changed.
+///
+/// A live badge is a state, so this door answers two questions at once: what is held now, and when it changed and why. The
+/// history is not decoration — a badge that disappears with no row behind it reads as a bug, and the rows are what let a
+/// reader (or a reply to their message) name the number that moved.
+async fn my_badges(
+    State(state): State<AppState>,
+    crate::auth::RequireSession(user): crate::auth::RequireSession,
+) -> ApiResult<Json<Value>> {
+    // M69-14 is off unless the instance turned it on. The door answers 404 rather than 200-with-nothing-to-say, because a
+    // reader who has the badge feature turned off should not learn that this instance measures them and decided not to
+    // show it.
+    if !state.config().discovery.live_badges {
+        return Err(ApiError(AppError::NotFound {
+            resource: "badges",
+        }));
+    }
+    let account = user.account_id.to_string();
+    let states = darkhold_db::live_badges::for_account(state.db(), &account)
+        .await
+        .map_err(|e| ApiError(AppError::Internal(e)))?;
+    let history = darkhold_db::live_badges::events(state.db(), &account, 50)
+        .await
+        .map_err(|e| ApiError(AppError::Internal(e)))?;
+
+    Ok(Json(json!({
+        "badges": states.iter().map(|state| json!({
+            "badge": state.badge,
+            "name": state.name,
+            "held": state.held,
+            "since": state.since,
+            "affinity_bp": state.affinity_bp,
+            "evidence_bp": state.evidence_bp,
+            "checked_at": state.checked_at,
+            "condition": darkhold_domain::live_badge::find(&state.badge).map(|badge| badge.condition),
+        })).collect::<Vec<Value>>(),
+        "history": history,
+        "note": "a live badge is held while the reading holds; `history` records every gain and every loss, with the number that caused it",
+    })))
 }
 
 /// The instance's view of its readership.
@@ -126,7 +168,12 @@ async fn recompute(
     let now = time::OffsetDateTime::now_utc()
         .format(&time::format_description::well_known::Rfc3339)
         .unwrap_or_default();
-    let report = darkhold_db::reader_affinity::recompute_all(state.db(), operator.as_deref(), &now)
+    let report = darkhold_db::reader_affinity::recompute_all(
+        state.db(),
+        operator.as_deref(),
+        &now,
+        state.config().discovery.live_badges,
+    )
         .await
         .map_err(|e| ApiError(AppError::Internal(e)))?;
 

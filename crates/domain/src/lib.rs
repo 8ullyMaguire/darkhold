@@ -62,6 +62,7 @@ pub mod jobs;
 pub mod leakage;
 pub mod lending;
 pub mod library;
+pub mod live_badge;
 pub mod longevity;
 pub mod marketplace;
 pub mod media;

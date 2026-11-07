@@ -169,7 +169,7 @@ async fn the_sweep_writes_one_row_per_reader_and_a_second_run_changes_nothing() 
     .await;
 
     // First sweep.
-    let first = reader_affinity::recompute_all(db, Some(OPERATOR), NOW)
+    let first = reader_affinity::recompute_all(db, Some(OPERATOR), NOW, false)
         .await
         .expect("sweep");
     assert_eq!(first.initialised, 1, "one candidate: {first:?}");
@@ -195,7 +195,7 @@ async fn the_sweep_writes_one_row_per_reader_and_a_second_run_changes_nothing() 
     assert_eq!(score["evidence_bp"].as_i64(), Some(8_000), "0.5 + 0.3 of the total weight: {score}");
 
     // Second sweep over the same data: one row, no change.
-    let second = reader_affinity::recompute_all(db, Some(OPERATOR), NOW)
+    let second = reader_affinity::recompute_all(db, Some(OPERATOR), NOW, false)
         .await
         .expect("sweep");
     assert_eq!(second.initialised, 0);
@@ -210,7 +210,7 @@ async fn the_sweep_writes_one_row_per_reader_and_a_second_run_changes_nothing() 
     assert_eq!(ranked[0]["account"], serde_json::json!(READER));
 
     // No operator means no score rather than a score of zero.
-    let unscored = reader_affinity::recompute_all(db, None, NOW)
+    let unscored = reader_affinity::recompute_all(db, None, NOW, false)
         .await
         .expect("sweep");
     assert_eq!(unscored.initialised, 0);

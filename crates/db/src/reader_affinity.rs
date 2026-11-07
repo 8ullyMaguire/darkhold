@@ -67,6 +67,10 @@ pub struct Report {
     pub unscored: usize,
     /// The changes themselves, so a caller can log or display them without a second query.
     pub changes: Vec<Change>,
+    /// Live badges this sweep awarded (M69-14).
+    pub badges_gained: usize,
+    /// Live badges this sweep took away. A loss is counted separately because it is the one that needs explaining.
+    pub badges_lost: usize,
 }
 
 impl Report {
@@ -85,6 +89,8 @@ impl Report {
             "changed": self.changed,
             "unchanged": self.unchanged,
             "unscored": self.unscored,
+            "badges_gained": self.badges_gained,
+            "badges_lost": self.badges_lost,
             "changes": self.changes.iter().map(|c| json!({
                 "account": c.account_id,
                 "score_bp": c.basis_points,
@@ -278,7 +284,12 @@ async fn arena_shared(db: &Database, account: &str, operator: &str) -> Result<(u
 /// `operator` is the account whose taste the score is measured against. When there is none — an instance with no
 /// designated operator — the sweep still runs and reports `unscored` for everyone: the honest answer is that there is
 /// nothing to be close to, not a score of zero for the whole readership.
-pub async fn recompute_all(db: &Database, operator: Option<&str>, now: &str) -> Result<Report> {
+pub async fn recompute_all(
+    db: &Database,
+    operator: Option<&str>,
+    now: &str,
+    live_badges: bool,
+) -> Result<Report> {
     let mut report = Report::default();
     let valued = valued_works(db).await?;
     let candidate_ids = candidates(db).await?;
@@ -306,14 +317,24 @@ pub async fn recompute_all(db: &Database, operator: Option<&str>, now: &str) -> 
         };
 
         let stored = stored_bp(db, &account).await?;
-        write(
-            db,
-            &account,
-            &score,
-            &components,
-            now,
-        )
-        .await?;
+        write(db, &account, &score, &components, now).await?;
+
+        // M69-14: a live badge is decided by the reading that was just written, in the same pass — "recomputed with
+        // affinity" is the requirement, and a second sweep would be a second thing to forget to run. Off unless the
+        // instance enabled it, and when off nothing is decided at all: a state row would be the instance measuring a
+        // reader for a badge it has told nobody about.
+        let outcomes = if live_badges {
+            crate::live_badges::recompute_all(db, &account, Some(score.basis_points), score.evidence_bp, now).await?
+        } else {
+            Vec::new()
+        };
+        for outcome in outcomes {
+            match outcome.transition {
+                darkhold_domain::live_badge::Transition::Gained => report.badges_gained += 1,
+                darkhold_domain::live_badge::Transition::Lost => report.badges_lost += 1,
+                _ => {}
+            }
+        }
 
         let changed = match stored {
             None => {

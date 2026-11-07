@@ -451,3 +451,22 @@ not good judgement; and nothing renders the multiplier to a reader yet.
 zero for every account**, silently, and every level on that engine omitted it. The parser now accepts both shapes and is
 unit-tested against both; recorded against DM3-02. On the live instance the next recompute will raise levels for accounts
 that were always entitled to them, which is a change to announce rather than to let happen.
+
+### M69-14 — a live badge, gained and lost (implemented 2026-11-07)
+
+Attuned is a **state**, so it cannot reuse `badge_award` (unique per account+badge, an event with a credit bonus). Two tables:
+`live_badge_state` (what is held now) and `live_badge_events` (when it changed and why). Eligibility is two clauses —
+`affinity >= 7500` **and** `measured weight >= 8000` — because M69-09 reweights over present signals, so a one-signal reading
+can be 10,000 and a badge is a fact. The reason names the clause that failed.
+
+A recompute that changes nothing writes no event; a change writes a row and enqueues `badge.gained` / `badge.lost` on the
+outbox. `since` is cleared on loss. Events carry a `seq` so "newest first" is the order things happened in, not a tie-break.
+
+Decided inside the affinity sweep (the requirement is "recomputed with affinity"; a second door is a second thing to forget).
+Off by default (`[discovery] live_badges`): when off nothing is decided (no state row) and `/me/badges` answers 404, so a reader
+cannot learn the instance measures them and hid it.
+
+To enable: `[discovery]` → `live_badges = true`, then run `POST /api/v1/operator/affinity/recompute`.
+
+Limits: no page renders it yet (frontend rows own that); the sweep is operator-triggered so a badge is as fresh as the last run;
+only Attuned exists; a reader measured by exactly one signal is permanently ineligible by design.
