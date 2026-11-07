@@ -64,6 +64,13 @@ pub async fn sweep(
     let mut out = Sweep::default();
     for (account,) in accounts {
         let before = current_level(db, &account).await?;
+        // **The operator is designated, not computed.** Measured on a copy of the real store: the sweep demoted the one account at
+        // level 6 to 2, because `recompute_trust` derives a level from four axes and the owner's hand appointment is not one of them.
+        // Six is reserved for that appointment (`trust_levels.basis` reads "operator: designated by the instance owner"), and a job
+        // that can take it away is a job that can lock the owner out of their own instance. Skipped loudly rather than silently.
+        if before == 6 {
+            continue;
+        }
         let assessment = crate::governance::recompute_trust(db, &account, settings).await?;
         let after = u8::try_from(assessment.level).unwrap_or(MODERATOR_LEVEL);
         if before == after {
