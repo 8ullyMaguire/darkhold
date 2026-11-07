@@ -6223,6 +6223,14 @@ pub const ROUTE_TABLE: &[RouteEntry] = &[
         path: "/operator/themes/safe-mode",
         audience: Audience::Operator,
     },
+    RouteEntry {
+        file: "extension_dispatch.rs",
+        handler: "apply_recipe",
+        method: "POST",
+        path: "/extensions/{slug}/apply-recipe",
+        audience: Audience::Authenticated,
+    },
 ];
+
 
 

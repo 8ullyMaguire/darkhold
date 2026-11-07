@@ -13,12 +13,17 @@
 //! | reset remains reachable after a broken theme | `reset_is_reachable_after_a_broken_theme` |
 //!
 //! | forks keep attribution and request their own grants | `a_fork_keeps_attribution_and_starts_without_grants` |
-//! | custom engines and recipes honour opt-out | `an_opted_out_account_is_not_handed_to_an_external_engine` |
+//! | custom engines honour opt-out | `an_opted_out_account_is_not_handed_to_an_external_engine` |
+//! | recipes honour opt-out | `a_recipe_is_applied_and_it_asks_nothing_of_an_opted_out_reader` |
+//! | a recipe is a closed composition | `a_recipe_that_carries_anything_else_is_refused_by_name` |
 //!
 //! `revoked packages stop running` is the sandbox crate's `revocation_stops_a_running_module_at_its_next_host_call` — the flag is polled
-//! by the host imports, and there is no door here that revokes a run in flight yet (that is M16-07's emergency path). The two claims not
-//! covered at all are named in the ledger row: forks keep attribution and request their own grants, and custom engines and recipes honour
-//! opt-out.
+//! by the host imports; the review workflow's revoke door calls the same function, so the claim has one implementation and two callers.
+//!
+//! The recipe half of the last clause is the interesting one, because the answer is *not* "refuse the opted-out reader": a declarative
+//! recipe composes strategies the instance already runs, so there is nothing to hand outside and `custom_processing: refuse` does not
+//! apply to it. See `crates/domain/src/recipe_document.rs` for why that is a property of the schema (the document has no field that could
+//! carry an address) rather than a promise.
 
 use std::path::PathBuf;
 
@@ -581,5 +586,181 @@ async fn an_opted_out_account_is_not_handed_to_an_external_engine() {
     assert!(
         message.contains("custom_processing"),
         "the refusal names the setting the reader threw, not the host's engine: {message}"
+    );
+}
+
+/// Publish an approved package with a real manifest, so the dispatch route's strict parse has something valid
+/// to read. Category and permissions are parameters because the point of these tests is which category does
+/// what.
+async fn publish_approved(h: &Harness, id: &str, category: &str, permissions: &[&str]) {
+    let document = json!({
+        "id": id,
+        "version": 1,
+        "category": category,
+        "entrypoint": "main.wasm",
+        "required_host_api_version": 1,
+        "permissions": permissions,
+        "resource_limits": { "memory_mib": 32, "fuel": 1_000_000, "host_calls_per_run": 64 },
+        "supported_surfaces": ["library"],
+        "license": "MIT",
+        "network_allowlist": [],
+        "pricing": "free",
+    })
+    .to_string();
+    sqlx::query(
+        "INSERT INTO extension_manifests (id, version, document, submitted_by, state, created_at)
+         VALUES (?, '1.0.0', ?, 'host', 'approved', '2026-11-01T00:00:00Z')",
+    )
+    .bind(id)
+    .bind(&document)
+    .execute(h.tdb.db().sqlite_pool().expect("sqlite"))
+    .await
+    .expect("seed an approved package");
+}
+
+#[tokio::test]
+async fn a_recipe_is_applied_and_it_asks_nothing_of_an_opted_out_reader() {
+    // The recipe half of §21's last clause, and the answer is the opposite of the engine's: a declarative
+    // recipe composes strategies the instance already runs, so it hands nothing outside and consent does not
+    // govern it. Refusing here would be a false positive that teaches readers the setting is noise.
+    let h = Harness::new("recipe-apply").await;
+    publish_approved(&h, "mood-blend", "declarative_recipe", &[]).await;
+
+    let mut client = h.client();
+    client.register("recipe-reader").await;
+
+    let (status, body) = client
+        .send("POST", "/api/v1/extensions/mood-blend/install", Some(json!({})))
+        .await;
+    assert_eq!(status, StatusCode::OK, "install: {body}");
+
+    // Opt out of custom processing — the same switch the engine test throws.
+    let (status, body) = client
+        .send(
+            "PATCH",
+            "/api/v1/settings/privacy",
+            Some(json!({ "changes": { "custom_processing": "refuse" } })),
+        )
+        .await;
+    assert_eq!(status, StatusCode::OK, "{body}");
+
+    let strategies = darkhold_app::rec_engine::available_strategies();
+    assert!(!strategies.is_empty(), "a recipe needs at least one strategy to compose");
+    let first = strategies[0].clone();
+    let (status, body) = client
+        .send(
+            "POST",
+            "/api/v1/extensions/mood-blend/apply-recipe",
+            Some(json!({
+                "recipe": { "stages": [{ "strategy": first, "weight": 1.0 }] },
+                "name": "my blend",
+            })),
+        )
+        .await;
+    assert_eq!(
+        status,
+        StatusCode::OK,
+        "a declarative recipe processes nothing of the reader's outside the host, so an opt-out must not block it: {body}"
+    );
+    assert_eq!(body["custom_processing_required"], json!(false), "{body}");
+    assert_eq!(body["stages"][0]["strategy"], json!(first), "{body}");
+
+    // It is a real recipe, owned by the reader who asked.
+    let (status, body) = client.send("GET", "/api/v1/recipes/list", None).await;
+    assert_eq!(status, StatusCode::OK, "{body}");
+    let recipes = body["recipes"].as_array().or_else(|| body.as_array()).expect("a recipe list");
+    assert!(
+        recipes.iter().any(|r| r["name"] == json!("my blend")),
+        "the applied recipe is the reader's own row: {body}"
+    );
+
+    // And the same reader is refused an *engine* package, because an engine is what processes.
+    publish_approved(&h, "oracle-engine", "recommendation_engine", &[]).await;
+    client
+        .send("POST", "/api/v1/extensions/oracle-engine/install", Some(json!({})))
+        .await;
+    let (status, body) = client
+        .send(
+            "POST",
+            "/api/v1/extensions/oracle-engine/apply-recipe",
+            Some(json!({ "recipe": { "stages": [{ "strategy": first, "weight": 0.5 }] } })),
+        )
+        .await;
+    assert_eq!(status, StatusCode::UNPROCESSABLE_ENTITY, "{body}");
+    let message = body["error"]["message"].as_str().unwrap_or_default().to_owned();
+    assert!(
+        message.contains("custom_processing"),
+        "the opt-out names the setting rather than blaming the package: {message}"
+    );
+}
+
+#[tokio::test]
+async fn a_recipe_that_carries_anything_else_is_refused_by_name() {
+    // The schema is the mechanism: a document that may only carry strategy names cannot carry an address,
+    // which is *why* the opt-out question does not arise for it.
+    let h = Harness::new("recipe-closed").await;
+    publish_approved(&h, "mood-blend", "declarative_recipe", &[]).await;
+
+    let mut client = h.client();
+    client.register("recipe-reader").await;
+    client
+        .send("POST", "/api/v1/extensions/mood-blend/install", Some(json!({})))
+        .await;
+
+    let strategies = darkhold_app::rec_engine::available_strategies();
+    let first = strategies[0].clone();
+
+    // A top-level key that is not `stages` — where a callback URL would hide.
+    let (status, body) = client
+        .send(
+            "POST",
+            "/api/v1/extensions/mood-blend/apply-recipe",
+            Some(json!({
+                "recipe": {
+                    "stages": [{ "strategy": first, "weight": 1.0 }],
+                    "endpoint": "https://collect.example/v1",
+                }
+            })),
+        )
+        .await;
+    assert_eq!(status, StatusCode::UNPROCESSABLE_ENTITY, "{body}");
+    assert!(
+        body["error"]["message"].as_str().unwrap_or_default().contains("endpoint"),
+        "the refusal names the offending key: {body}"
+    );
+
+    // A strategy the instance does not run is refused with the menu of ones it does.
+    let (status, body) = client
+        .send(
+            "POST",
+            "/api/v1/extensions/mood-blend/apply-recipe",
+            Some(json!({ "recipe": { "stages": [{ "strategy": "oracle", "weight": 1.0 }] } })),
+        )
+        .await;
+    assert_eq!(status, StatusCode::UNPROCESSABLE_ENTITY, "{body}");
+    let message = body["error"]["message"].as_str().unwrap_or_default().to_owned();
+    assert!(message.contains(&first), "the refusal offers the strategies it does run: {message}");
+
+    // Nothing was stored by either refusal.
+    let (_, body) = client.send("GET", "/api/v1/recipes/list", None).await;
+    let recipes = body["recipes"].as_array().or_else(|| body.as_array()).cloned().unwrap_or_default();
+    assert!(recipes.is_empty(), "a refused recipe is not a stored recipe: {body}");
+
+    // A package that is not a recipe cannot be applied through this door at all.
+    publish_approved(&h, "widget", "reader_widget", &[]).await;
+    client
+        .send("POST", "/api/v1/extensions/widget/install", Some(json!({})))
+        .await;
+    let (status, body) = client
+        .send(
+            "POST",
+            "/api/v1/extensions/widget/apply-recipe",
+            Some(json!({ "recipe": { "stages": [{ "strategy": first, "weight": 1.0 }] } })),
+        )
+        .await;
+    assert_eq!(status, StatusCode::UNPROCESSABLE_ENTITY, "{body}");
+    assert!(
+        body["error"]["message"].as_str().unwrap_or_default().contains("reader_widget"),
+        "{body}"
     );
 }

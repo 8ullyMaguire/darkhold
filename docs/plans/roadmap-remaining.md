@@ -368,3 +368,24 @@ per-event-type limit, and no notification to an owner whose subscription the bre
 
 Gap, stated in the ledger: the model makes hiding *inexpressible*, but the renderer half is a contract, not a verified fact — no
 frontend test asserts that the four protected surfaces sit outside the theme root, and there is no theme console UI.
+
+## M16-12 — the acceptance list (implemented)
+
+`crates/app/tests/m16_12_acceptance.rs` (one test per claim) · `crates/domain/src/recipe_document.rs` (the recipe schema and the
+processing rule) · `crates/app/src/routes/extension_dispatch.rs` (the dispatch point).
+
+The row closed on a decision rather than a feature: **"custom engines and recipes honour opt-out" has two answers, and they are not the
+same answer.**
+
+* An engine runs code or drives a process outside the host, so `custom_processing: refuse` governs it, and the refusal names the setting
+  rather than the package.
+* A declarative recipe composes strategies the instance already runs, so it hands nothing outside and consent does **not** govern it.
+  Refusing an opted-out reader here would be a false positive that teaches readers the setting is noise.
+
+That is structural, not conventional: a recipe's schema is closed (`stages[{strategy, weight}]`, weights in (0,1], at most eight, no
+duplicate strategy), so a document that could carry an endpoint is refused *by name*. `processing(category)` is the one place that
+answers which categories run, the route asks it before reading anything out of the body, and strategy names are validated against
+`rec_engine::available_strategies()` rather than a second list that would drift.
+
+Gaps named in the ledger: the blend does not read recipe documents yet (M69/M64 own that), so an applied recipe is validated and stored
+but does not change the feed; and there is no engine runner to hand an engine package to.
