@@ -213,3 +213,8 @@ M71-13 (bf404997): db::taxonomy::dimension_coverage publishes works/catalogue/sh
 `coverage` on /api/v1/tags/{tag} and /api/v1/fandoms/{fandom} and into the document tag page (bare count replaced).
 Zero-work and empty-catalogue cases have their own sentences. Row stays planned on collection coverage and on the
 facet panel's leading line (UI; the API already publishes known/unknown/total).
+
+M71-13 collections (a7664d54): events::collection_coverage counts entries vs readable entries INSIDE the collection
+(published+public+undeleted), publishes hidden, three sentences (partial / all readable / empty). GET
+/api/v1/collections/{id} carries `coverage`. Only the facet panel's leading line remains, which is UI — the API publishes
+known/unknown/total per facet.
