@@ -652,3 +652,4 @@ mod tests {
 
 pub mod tombstones;
 pub mod work_mirrors;
+pub mod evacuation;

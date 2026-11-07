@@ -757,6 +757,8 @@ pub struct DiscoveryConfig {
     pub mirror_floor: Option<f64>,
     /// Whether the perceptual-hash rescue ring is open (M69-06). Default: off.
     pub media_rescue: bool,
+    /// Whether an evacuation may be announced and planned (M69-07). Default: off.
+    pub evacuation: bool,
     /// This instance's ed25519 passport signing key, hex-encoded, when configured (M69-03).
     pub passport_key: Option<String>,
     /// Per-surface algorithm choice (M64-01). Absent entirely when the instance runs the registry's defaults.
@@ -790,6 +792,7 @@ impl Default for DiscoveryConfig {
             work_mirroring: false,
             mirror_floor: None,
             media_rescue: false,
+            evacuation: false,
             passport_key: None,
             surfaces: std::collections::BTreeMap::new(),
         }
@@ -3365,6 +3368,9 @@ impl Config {
                 if let Some(rescue) = d.media_rescue {
                     cfg.media_rescue = rescue;
                 }
+                if let Some(evacuation) = d.evacuation {
+                    cfg.evacuation = evacuation;
+                }
                 if let Some(floor) = d.mirror_floor {
                     if !(0.0..=1.0).contains(&floor) {
                         return Err(anyhow::anyhow!(
@@ -4959,6 +4965,10 @@ struct DiscoverySection {
     /// the instance claims about itself, so it waits for a decision rather than a default.
     #[serde(default)]
     media_rescue: Option<bool>,
+    /// Whether an evacuation may be announced and planned (M69-07). Off by default: it hands this instance's work to other
+    /// hosts, which is the largest claim in this module and therefore the last one to be made by default.
+    #[serde(default)]
+    evacuation: Option<bool>,
     /// This instance's ed25519 passport signing key, hex-encoded 32 bytes (M69-03).
     ///
     /// Required only for export. Signing without a key would produce a document nobody can check, and generating one

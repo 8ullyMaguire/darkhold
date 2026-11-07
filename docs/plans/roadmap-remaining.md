@@ -603,3 +603,36 @@ Off by default (`[discovery] media_rescue`).
 
 Limits: nothing fetches a survivor's copy (no peer API client) — the ring matches claims; `accept` records who has it, the
 transfer is the operator's next step; hunts read at most 500 recorded copies; nothing decides a peer is dead automatically.
+
+### M69-07 — the evacuation plan and its receipt (implemented 2026-11-07)
+
+An instance announcing it is going away hands its works to taste-similar peers and writes down **who took what**. The plan is
+a pure function (`domain::evacuation::plan`): works in, ranked eligible recipients in, placements out. Deterministic — the same
+inputs give the same plan on every run, or two operators disagree about who took what.
+
+**Balance is a rule, not a preference.** Filling every placement with the closest peer is the naive plan and a bad one: the
+peer closest to *everything* takes everything, and an evacuation that concentrates a whole catalogue on one host has recreated
+the single point of failure it was performed to avoid. So the plan fills the least-loaded peer *inside* a 0.15 similarity
+window first, and only outside that window does taste win.
+
+**The fork is the failure.** `UNIQUE (notice_id, work_id)` stops the plan placing one work twice. The receipt's job is the
+other half: a second evacuation — an instance that closed and announced again, or one revived under a new operator — cannot
+hand a work to a different peer once someone accepted it. The refusal names the peer *and* the notice.
+
+    POST /api/v1/operator/evacuation                        {reason, note?, limit?}
+    GET  /api/v1/operator/evacuation                        notice + assignments + receipt + forks
+    POST /api/v1/operator/evacuation/assignments/{id}/settle {state: accepted|declined, note?}
+    POST /api/v1/operator/evacuation/close                  {state: withdrawn|completed}
+
+Recipients are **computed** (`mirroring::eligible_peers`, same floor as mirrors), never typed: an operator picking hosts by
+hand is how a shutdown becomes a copy of somebody's catalogue on a host nobody vetted. With no eligible peer the announcement
+is **refused** rather than planned empty — a receipt of zero looks like the work was placed.
+
+Off by default (`[discovery] evacuation`).
+
+Limits, named honestly: (1) nothing transfers bytes — `settle` records what a peer said, and the transfer is the operator's
+next step through existing machinery; (2) no peer authenticates a claim, so a recipient that says "we have it" and does not is
+indistinguishable here from one that does; (3) the plan reads at most 1000 works per announcement and ignores works that are
+not `published` + `public`; (4) nothing notices a shutdown automatically — an operator announces it; (5) a second acceptance
+answers 422, not 409, because this error vocabulary's only conflict variant names two version numbers this refusal does not
+have, and inventing a version pair to reach a 409 would be a lie in the payload.

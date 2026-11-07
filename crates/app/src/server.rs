@@ -1149,6 +1149,7 @@ pub fn build_router(state: AppState) -> Router {
         .merge(routes::tombstones::router())
         .merge(routes::mirroring::router())
         .merge(routes::media_rescue::router())
+        .merge(routes::evacuation::router())
         // M16-11: the paid marketplace. Inside the nest for the same reason as the rest: capture and refund are operator doors, and the
         // session middleware is what knows whether the caller is one.
         .merge(routes::payments::router())
