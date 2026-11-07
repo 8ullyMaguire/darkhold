@@ -68,3 +68,103 @@ pub async fn counts_for(db: &Database, account: &str, cutoff: &str) -> Result<Co
         upheld_against: u32::try_from(upheld).unwrap_or(u32::MAX),
     })
 }
+
+/// One account whose level changed in a sweep.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct LevelChange {
+    pub account: String,
+    pub from: u8,
+    pub to: u8,
+}
+
+/// What a sweep did: the levels it moved, and the accounts that crossed into TL3 and are therefore due a
+/// `role:moderator:<site>` grant.
+#[derive(Debug, Default)]
+pub struct Sweep {
+    pub changes: Vec<LevelChange>,
+    pub crossings: Vec<String>,
+}
+
+/// Recompute every contributing account's level and persist only what changed.
+///
+/// Writes through `governance::set_trust`, which already records a `trust_events` row — so the audit trail of a level change is
+/// not this module's invention, and a second sweep over unchanged counts writes nothing at all.
+///
+/// Crossings are **returned, not applied**: minting the role is `polaris-id`'s act (its `entitlements` table is the authority for
+/// scope), and darkhold has no admin channel to it. The estate applies the grant from these crossings, which also makes a failed
+/// grant visible as an unapplied crossing rather than a silent half-success.
+pub async fn sweep(db: &Database, cutoff: &str) -> Result<Sweep, sqlx::Error> {
+    let rows: Vec<(String, i64, i64)> = match db.backend() {
+        Backend::Sqlite => {
+            sqlx::query_as(
+                "SELECT p.account_id,
+                        COUNT(w.id),
+                        (SELECT COUNT(*) FROM reports r WHERE r.subject_id = p.account_id AND r.state = 'upheld')
+                   FROM works w
+                   JOIN pseuds p ON p.id = w.owner_pseud_id
+                  WHERE w.lifecycle = 'published' AND w.deleted_at IS NULL AND w.created_at >= ?1
+                  GROUP BY p.account_id",
+            )
+            .bind(cutoff)
+            .fetch_all(db.sqlite_pool().expect("sqlite"))
+            .await?
+        }
+        Backend::Postgres => {
+            sqlx::query_as(
+                "SELECT p.account_id,
+                        COUNT(w.id),
+                        (SELECT COUNT(*) FROM reports r WHERE r.subject_id = p.account_id AND r.state = 'upheld')
+                   FROM works w
+                   JOIN pseuds p ON p.id = w.owner_pseud_id
+                  WHERE w.lifecycle = 'published' AND w.deleted_at IS NULL AND w.created_at >= $1
+                  GROUP BY p.account_id",
+            )
+            .bind(cutoff)
+            .fetch_all(db.postgres_pool().expect("postgres"))
+            .await?
+        }
+    };
+
+    let mut out = Sweep::default();
+    for (account, accepted, upheld) in rows {
+        let counts = Counts {
+            accepted: u32::try_from(accepted).unwrap_or(u32::MAX),
+            upheld_against: u32::try_from(upheld).unwrap_or(u32::MAX),
+        };
+        let to = darkhold_domain::moderation_ladder::level_for(counts);
+        let from = current_level(db, &account).await?;
+        if from == to {
+            continue;
+        }
+        let basis = darkhold_domain::moderation_ladder::basis_for(counts);
+        crate::governance::set_trust(db, &account, i64::from(to), &basis).await?;
+        if darkhold_domain::moderation_ladder::mints_role(from, to) {
+            out.crossings.push(account.clone());
+        }
+        out.changes.push(LevelChange { account, from, to });
+    }
+    Ok(out)
+}
+
+/// The account's level today, or TL1 for an account with no row — a person who has never been measured is not a moderator.
+async fn current_level(db: &Database, account: &str) -> Result<u8, sqlx::Error> {
+    let level: Option<i64> = match db.backend() {
+        Backend::Sqlite => {
+            sqlx::query_scalar("SELECT CAST(level AS INTEGER) FROM trust_levels WHERE account = ?1")
+                .bind(account)
+                .fetch_optional(db.sqlite_pool().expect("sqlite"))
+                .await?
+        }
+        Backend::Postgres => {
+            sqlx::query_scalar("SELECT CAST(level AS BIGINT) FROM trust_levels WHERE account = $1")
+                .bind(account)
+                .fetch_optional(db.postgres_pool().expect("postgres"))
+                .await?
+        }
+    };
+    Ok(match level.unwrap_or(1) {
+        l if l < 0 => 1,
+        l if l > 3 => 3,
+        l => u8::try_from(l).unwrap_or(1),
+    })
+}
