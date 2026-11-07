@@ -4,11 +4,11 @@
       "rows": 942,
       "by_status": {
         "implemented-verified-e2e": 139,
-        "implemented-locally-tested": 266,
+        "implemented-locally-tested": 267,
         "unsupported": 4,
         "implemented-fully-tested": 435,
         "implemented": 11,
-        "planned": 80,
+        "planned": 79,
         "evaluated-and-rejected": 7
       }
     },
@@ -197,12 +197,6 @@
       "milestone": "M64",
       "requirement": "tag_jaccard and tag_cooccurrence over the normalised tag taxonomy with synonym mapping, refused by name while no engaged row carries a tag",
       "notes": "P6, blocked on M63-32. Measured 2026-11-01: work_tags joins 0 of the 1,247 rows that carry likes; all 7,626 tagged rows are pawchive with none. Shipping this before the backfill returns a page that reads as 'nothing is similar'. 61f4da13: the refusal half is built \u2014 db::tag_coverage::tag_engagement (tagged, engaged, tagged_and_engaged against work_metric_aggregates) and list_surfaces refuses a WorkTags surface by name WITH the numbers when rows exist on both sides and never meet ('0 tagged, 1,247 engaged, 0 in common'), distinct from 'has no rows yet'. Engines were already built; what was missing was telling an operator that the problem is the join, not the table. STILL BLOCKED on data: M63-32's backfill \u2014 until tagged works are engaged the surface correctly refuses instead of serving 'nothing is similar'."
-    },
-    {
-      "id": "M64-07",
-      "milestone": "M64",
-      "requirement": "crosspost_union: one story's engagement is summed across every archive it appears on, reusing M63-04's resolution rule for which copy a name means",
-      "notes": "P7. The catalogue already computes total_likes and source_count by normalised title+author; this row is the algorithm that exposes it as a ranking input rather than a displayed number."
     },
     {
       "id": "M64-08",
@@ -510,7 +504,7 @@
     "M69": 16,
     "M45": 12,
     "M71": 10,
-    "M64": 9,
+    "M64": 8,
     "M16": 7,
     "M66": 6,
     "M29": 1,

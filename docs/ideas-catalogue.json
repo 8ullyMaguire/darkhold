@@ -1,6 +1,6 @@
 {
  "generated_by": "scripts/ideas_catalogue.py",
- "count": 175,
+ "count": 174,
  "ideas": [
   {
    "why_summary": "",
@@ -474,19 +474,6 @@
    "why_summary": "docs/design/2026-11-01-ranking-signals-and-surfaces.md P6, blocked on M63-32. Measured 2026-11-01: work_tags joins 0 of the 1,247 rows that carry likes; all 7,626 tagged rows are p",
    "id": "M64-06",
    "title": "tag_jaccard and tag_cooccurrence over the normalised tag taxonomy with synonym mapping, refused by name while no engaged row carries a tag",
-   "sources": [
-    "docs/requirements.csv"
-   ],
-   "milestone": "M64",
-   "relevance": 4,
-   "because": "a requirements row exists (+4)",
-   "default_on": false,
-   "built": false
-  },
-  {
-   "why_summary": "docs/design/2026-11-01-ranking-signals-and-surfaces.md P7. The catalogue already computes total_likes and source_count by normalised title+author; this row is the algorithm that ex",
-   "id": "M64-07",
-   "title": "crosspost_union",
    "sources": [
     "docs/requirements.csv"
    ],

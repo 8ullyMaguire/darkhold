@@ -182,3 +182,6 @@ never meet, with the counts, instead of claiming to rank. Row stays planned on M
 M63-32 (b387cb1e): tag-inference pass ships as proposals only (model claimant ⇒ invisible until
 confirmed), with per-source coverage (items/tagged/with_likes/tagged_and_liked). The metadata backfill
 still needs source category data the importer does not store.
+
+M64-07 (f5471486): crosspost_union ranks a story once at the sum of its archives; feed wiring
+proven by m64_07_crosspost_union (served once, first, 65 > 50).
