@@ -208,3 +208,8 @@ over the same filtered set as /api/v1/facets, with low/high/count/share and meas
 rows are excluded and stated, empty buckets dropped and renumbered. Row stays planned on the drawing control and on
 M71-11's p95 measurement. M71-11's note corrected: /api/v1/facets has returned counts since M64-10, so its bookmark
 ("no route returns a facet count") was stale — the remaining work is the UI half and the measurement.
+
+M71-13 (bf404997): db::taxonomy::dimension_coverage publishes works/catalogue/share/sentence in one statement; wired as
+`coverage` on /api/v1/tags/{tag} and /api/v1/fandoms/{fandom} and into the document tag page (bare count replaced).
+Zero-work and empty-catalogue cases have their own sentences. Row stays planned on collection coverage and on the
+facet panel's leading line (UI; the API already publishes known/unknown/total).
