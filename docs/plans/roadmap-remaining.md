@@ -243,3 +243,10 @@ MERGED thinkcentre 2094ce7c (W7 task 2 step 5 batch 4: nine more operator predic
 MERGED thinkcentre 2de6811a (W7 task 2 step 5 batch 5: the last config-gated door; refusals reach the modlog) as f7e237f5 — admin_scope 1/1, route_inventory 5/5, clippy clean. W7 task 2 step 5 complete.
 
 MERGED thinkcentre 32a1b331 (W7 task 3 step 2: one-click envelope wired on the existing seam) as c8951a10 — new routes/admin_actions.rs, governance +66, server +7; route_inventory 5/5, admin_scope 1/1, m71_11 3/3, clippy clean.
+
+M71-11 (41e847e4): facet counts measured, then cached. Pre-registered rule (82db6c0e): p50<=100 / p95<=200 on 50 sequential
+requests -> FIRST RUN FAILED (p50 297 ms / p95 372 ms); EXPLAIN showed three seq scans + a disk sort, so no index helps.
+crates/app/src/facets_cache.rs memoises per (database, filter set) for 60 s; responses publish computed_at_ms_ago and
+cache_ttl_seconds. After deploy: warm p50 2.83 ms / p95 6.05 ms; cold 1,174 ms on the first request post-restart.
+Same commit fixed two PG-only defects in the facet scan (SUM->NUMERIC decode, `?n` placeholders never rewritten) that made the
+whole endpoint 500 on the live catalogue; crates/db/tests/facets_two_engines.rs is the guard. Remaining: the UI half.
