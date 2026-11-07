@@ -1041,6 +1041,20 @@ pub const ROUTE_TABLE: &[RouteEntry] = &[
         audience: Audience::Authenticated,
     },
     RouteEntry {
+        file: "source_engagement.rs",
+        handler: "list",
+        method: "GET",
+        path: "/operator/library-items/{id}/engagement",
+        audience: Audience::Authenticated,
+    },
+    RouteEntry {
+        file: "source_engagement.rs",
+        handler: "record_one",
+        method: "PUT",
+        path: "/operator/library-items/{id}/engagement/{metric}",
+        audience: Audience::Authenticated,
+    },
+    RouteEntry {
         file: "tag_inference.rs",
         handler: "coverage",
         method: "GET",

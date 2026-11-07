@@ -98,6 +98,7 @@ pub mod search;
 pub mod settings;
 pub mod sitemap;
 pub mod source_adapters;
+pub mod source_engagement;
 pub mod spoilers;
 pub mod subscriptions;
 pub mod succession;

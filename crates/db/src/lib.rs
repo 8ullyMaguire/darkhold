@@ -121,6 +121,7 @@ pub mod series_recs;
 pub mod sessions;
 pub mod settings;
 pub mod source_adapters;
+pub mod source_engagement;
 pub mod succession;
 // M67-03: the instance account that owns syndicated works.
 pub mod spoilers;

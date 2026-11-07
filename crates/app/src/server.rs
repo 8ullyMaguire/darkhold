@@ -751,6 +751,14 @@ pub fn build_router(state: AppState) -> Router {
             routes::trope_coverage::router(),
             RouteClass::Write,
         ))
+        // M63-37 — per-source engagement as each archive reports it. A door because the scrapers that read the numbers are not in
+        // this binary.
+        .merge(module_mount(
+            &state,
+            "catalogue",
+            routes::source_engagement::router(),
+            RouteClass::Write,
+        ))
         // M63-32 — the operator's tag-inference pass and its coverage report.
         .merge(module_mount(
             &state,
