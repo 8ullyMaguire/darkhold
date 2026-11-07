@@ -31,6 +31,8 @@ pub struct Sweep {
     pub changes: Vec<LevelChange>,
     /// Accounts whose level was written for the first time. Not changes: an initial state writes no audit event, by design.
     pub initialised: usize,
+    /// Accounts the sweep examined and found already at the level the ladder computes.
+    pub unchanged: usize,
     pub crossings: Vec<String>,
 }
 
@@ -80,8 +82,15 @@ pub async fn sweep(
         // audit event, which is right; reporting it as a change was not. Measured on a copy of the real store: 10 accounts had no
         // trust row, 7 of them were reported as `1 -> 2` changes, and `trust_events` stayed empty — the arithmetic only closes once
         // the first level is counted separately from a move.
-        if stored.is_none() || before == after {
+        if stored.is_none() {
+            // A first level is an initial state: written, not reported, and never an audit event.
             out.initialised += 1;
+            continue;
+        }
+        if before == after {
+            // Unchanged. Counting this as "initialised" was the same conflation in the opposite direction: 19 accounts reported as
+            // first-time on a second run that wrote nothing, because nine of them simply had not moved.
+            out.unchanged += 1;
             continue;
         }
         if darkhold_domain::moderation_ladder::role_due(after)
