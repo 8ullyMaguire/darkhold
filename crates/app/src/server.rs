@@ -1131,6 +1131,9 @@ pub fn build_router(state: AppState) -> Router {
         // The experiment sweep is not an extension: it acts on the ranking every instance has, and gating it behind a module
         // would mean the platform could promote experiments on a surface it cannot rank.
         .merge(routes::experiment_sweep::router())
+        // M16-06: the sandbox's only caller. Inside the `/api/v1` nest, not beside `facets`: running untrusted code needs the session
+        // middleware (a caller must be known before it can be an operator) and CSRF, which the nest carries and the page router does not.
+        .merge(routes::sandbox::router())
         .merge(module_mount(
             &state,
             "flows",

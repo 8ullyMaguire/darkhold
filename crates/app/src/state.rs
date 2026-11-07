@@ -29,6 +29,11 @@ struct Inner {
     /// could route to one adapter when previewed and another when imported, and
     /// the reader would have confirmed a plan that nothing then followed.
     registry: Registry,
+    /// The extension sandbox's concurrency bound (M16-06).
+    ///
+    /// Per **state**, not a process static: the count belongs to the instance that runs work, and a static made every test in a binary
+    /// share one counter — which is a real bug in tests and a lie about the design, since two `AppState`s are two servers.
+    sandbox_slots: crate::routes::sandbox::Slots,
     /// The external converters this instance found at startup.
     ///
     /// Detected once rather than per request: what an instance can produce is a
@@ -130,6 +135,9 @@ impl AppState {
                 db,
                 rate_limiter,
                 started_at: Instant::now(),
+                sandbox_slots: crate::routes::sandbox::Slots::new(
+                    crate::routes::sandbox::MAX_CONCURRENT_RUNS,
+                ),
                 registry: darkhold_scrapers::sites::default_registry(),
                 converters,
                 tts,
@@ -142,6 +150,12 @@ impl AppState {
                 capacity: Arc::new(tokio::sync::OnceCell::new()),
             }),
         }
+    }
+
+    /// The extension sandbox's concurrency bound (M16-06).
+    #[must_use]
+    pub fn sandbox_slots(&self) -> &crate::routes::sandbox::Slots {
+        &self.inner.sandbox_slots
     }
 
     /// The active configuration.

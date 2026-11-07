@@ -1,0 +1,12 @@
+[package]
+name = "darkhold-sandbox"
+version = "0.1.0"
+edition = "2021"
+publish = false
+
+[dependencies]
+anyhow.workspace = true
+wasmi = "2"
+
+[dev-dependencies]
+wat = "1"

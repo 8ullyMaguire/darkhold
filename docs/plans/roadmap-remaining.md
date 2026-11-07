@@ -117,10 +117,17 @@ reported), M63-38 (per-operator quality weights).
 
 ## Batch 7 — extensions (M16)
 
-M16-06 is the sandbox (`wasmi`, fuel, memory and output ceilings, host-call limits, bounded concurrency); M16-07 the
-review workflow; M16-08 gallery mechanics; M16-11 the paid marketplace; M16-12 the acceptance list (the tests that make
-06/07 real); M16-13 the theme model beyond one stylesheet; M16-14 operational rotation, rate limits and auto-disable.
-Take M16-06 + M16-12 together: one without the other is a sandbox nobody can prove.
+~~M16-06~~ shipped: `crates/sandbox` (`darkhold-sandbox`, `wasmi` 2) with one caller,
+`POST /api/v1/operator/sandbox/run`. Every ceiling in the row is enforced and has a module that hits it: fuel
+(a loop with no imports, which nothing else can stop), memory (`trap_on_grow_failure`, so a denied grow reports
+`memory` rather than the module's own out-of-bounds trap), host calls, output bytes (a refused write appends
+nothing), wall clock, per-call host-I/O budget, and concurrency (`Concurrency` on `AppState`, refusing with 429
+rather than queueing). Revocation is an `AtomicBool` polled at every host call and once before entry. The honest
+limits are in the row's notes: `wasmi` has no epoch interrupt, so a module that never calls the host is bounded
+by fuel alone. M16-07 the review workflow; M16-08 gallery mechanics; M16-11 the paid marketplace; M16-12 the
+acceptance list (the tests that make 06/07 real); M16-13 the theme model beyond one stylesheet; M16-14
+operational rotation, rate limits and auto-disable. M16-12 is now the natural next step: the sandbox exists, so
+the acceptance list has something to accept or refuse.
 
 ## Batch 8 — community, governance and growth (M45, M66, M29, M44)
 

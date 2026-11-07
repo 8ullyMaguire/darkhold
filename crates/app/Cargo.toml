@@ -66,6 +66,7 @@ tracing-subscriber.workspace = true
 uuid.workspace = true
 
 darkhold-db = { path = "../db" }
+darkhold-sandbox = { path = "../sandbox" }
 darkhold-metadata = { path = "../metadata" }
 darkhold-domain = { path = "../domain" }
 # `cloudflare-impersonation` is a feature of the scraper crate rather than a
@@ -79,6 +80,7 @@ chrono = "0.4"
 image = { version = "=0.25.6", default-features = false, features = ["png", "jpeg", "gif", "webp", "bmp"] }
 
 [dev-dependencies]
+wat = "1"
 tokio = { workspace = true, features = ["macros", "rt-multi-thread"] }
 test-support = { path = "../test-support" }
 
