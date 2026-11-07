@@ -7,10 +7,11 @@
 
 /// The level at which `role:moderator:<site>` is due.
 ///
-/// Level 6 is the operator (`trust_levels.basis` reads "operator: designated by the instance owner" for the one account holding it),
-/// so five is the highest level a person can *earn*. A moderator claim due there sits on the top earned rung and still below the
-/// account the owner appointed by hand.
-pub const MODERATOR_LEVEL: u8 = 5;
+/// **Four, because the ladder already names four "moderator".** `TrustLadder::default_ladder()` reads: 2 member (40 points),
+/// 3 trusted (120), 4 moderator (240). I picked five by hand, reasoning from "six is the operator", and measured on a copy of the
+/// store an account with 400 accepted proposals plateaus at **level 4**: five would have been a threshold nobody could reach, and the
+/// role would never have been minted. The product had already answered the question, in the level's own name.
+pub const MODERATOR_LEVEL: u8 = 4;
 
 /// Whether a level is high enough that a moderator claim is due.
 pub const fn role_due(level: u8) -> bool {
@@ -22,12 +23,10 @@ mod tests {
     use super::*;
 
     #[test]
-    fn a_moderator_claim_is_due_from_level_five() {
-        assert!(!role_due(4), "four is not a moderator");
-        assert!(
-            role_due(5),
-            "five is the highest earned level, and the rung a moderator sits on"
-        );
+    fn a_moderator_claim_is_due_from_level_four() {
+        assert!(!role_due(3), "three is \"trusted\", not a moderator");
+        assert!(role_due(4), "four is named \"moderator\" in the ladder");
+        assert!(role_due(5), "and everything above it");
         assert!(
             role_due(6),
             "the operator designated by the instance owner outranks the ladder, not the other way round"
