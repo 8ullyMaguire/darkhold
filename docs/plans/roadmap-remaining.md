@@ -431,3 +431,23 @@ middle two cards of a round are never stored, so it is a floor rather than an ex
 Two dialect facts paid for on the way: `arena_ballots.calibrating` is a BOOLEAN on PostgreSQL and INTEGER 0/1 on SQLite
 (the repository's flag convention), which the PG campaign caught as `column "calibrating" is of type integer but
 expression is of type boolean` — after the migration had been written IDENTICAL for both engines.
+
+### M69-13 — trust velocity (implemented 2026-11-07)
+
+The multiplier applies to the **score**, before the ladder is read: alignment factor `0.5 + affinity` (M69-09) and behaviour
+factor `0.5 + Laplace-smoothed share of confirmed reports`, each **neutral at 1.0 when there is no evidence**, product
+clamped to `[0.25, 2.5]`. The level written is `max(held, earned)`, so a multiplier can slow the next level and can never
+take the one a reader holds — demotion stays the confirmed-report path, which has an appeal.
+
+The basis carries the multiplier, both factors, and a sentence explaining the floor, so a support answer can name the
+number. Off by default (`[trust] velocity`).
+
+Honest limits: with today's factor ranges the product cannot leave `[0.25, 2.25]`, so the clamp is a guard proved on
+`velocity_from_factors` rather than a participant; behaviour quality reads reports only, so it rewards good *reporting*,
+not good judgement; and nothing renders the multiplier to a reader yet.
+
+**A defect fell out of this row and is worth more than the row.** `days_since` parsed only RFC 3339, and PostgreSQL returns
+`accounts.created_at` in its own rendering (`2026-03-02 20:38:18.441367+00`) — so on PostgreSQL the **tenure axis read
+zero for every account**, silently, and every level on that engine omitted it. The parser now accepts both shapes and is
+unit-tested against both; recorded against DM3-02. On the live instance the next recompute will raise levels for accounts
+that were always entitled to them, which is a change to announce rather than to let happen.

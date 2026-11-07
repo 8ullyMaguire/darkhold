@@ -32,6 +32,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         policy: darkhold_domain::trust::ElasticPolicy::default(),
         guest_level: 1,
         accepted_since: accepted_since.as_deref(),
+        velocity: false,
     };
 
     let sweep = darkhold_db::moderation_ladder::sweep(&db, &settings).await?;

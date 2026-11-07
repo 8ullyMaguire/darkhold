@@ -1127,6 +1127,12 @@ pub struct TrustConfig {
     /// Set this on an instance that imported a corpus: before it, the proposals behind an account were written by a tool, and a
     /// trust axis cannot tell the difference. Absent means "no cutoff", which is what every instance had before this key existed.
     pub accepted_since: Option<String>,
+    /// Whether trust velocity applies (M69-13).
+    ///
+    /// Off by default: a multiplier on the rate a reader earns at is a statement the instance makes about judgement, and
+    /// an instance that has not decided it should not be making it. When on, the multiplier is floored at 1.0's evidence
+    /// rather than applied blindly — see `darkhold_domain::trust_velocity`.
+    pub velocity: bool,
 }
 
 impl Default for TrustConfig {
@@ -1141,6 +1147,7 @@ impl Default for TrustConfig {
             guest_level: 1,
             guest_earns: false,
             accepted_since: None,
+            velocity: false,
         }
     }
 }
@@ -1192,6 +1199,7 @@ impl TrustConfig {
             policy: self.elastic_policy(),
             guest_level: self.guest_level,
             accepted_since: self.accepted_since.as_deref(),
+            velocity: self.velocity,
         }
     }
 }
@@ -3713,6 +3721,7 @@ impl Config {
                     guest_level: t.guest_level.unwrap_or(base.guest_level),
                     guest_earns: t.guest_earns.unwrap_or(base.guest_earns),
                     accepted_since: t.accepted_since.clone(),
+                    velocity: t.velocity.unwrap_or(base.velocity),
                 }
             },
             governance: {
@@ -4599,6 +4608,8 @@ struct TrustSection {
     guest_earns: Option<bool>,
     /// `trust.accepted_since` — the instant contribution counts start; absent means all recorded history.
     accepted_since: Option<String>,
+    /// `trust.velocity` — whether progression is multiplied by alignment and report quality (M69-13).
+    velocity: Option<bool>,
 }
 
 /// The `[governance]` file section (spec §14.5).
