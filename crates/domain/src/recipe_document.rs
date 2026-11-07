@@ -154,9 +154,7 @@ pub fn parse(document: &Value, known: &[String]) -> Result<Recipe, Vec<Refusal>>
     let mut refusals = Vec::new();
     for key in object.keys() {
         if key != "stages" {
-            refusals.push(Refusal::UnknownField {
-                field: key.clone(),
-            });
+            refusals.push(Refusal::UnknownField { field: key.clone() });
         }
     }
 
@@ -300,7 +298,11 @@ mod tests {
         let recipe = parse(&document, &known()).expect("valid recipe");
         assert_eq!(recipe.stages.len(), 2);
         assert!((recipe.total_weight() - 1.0).abs() < f64::EPSILON);
-        assert_eq!(recipe.document(), document, "the stored form is the validated form");
+        assert_eq!(
+            recipe.document(),
+            document,
+            "the stored form is the validated form"
+        );
     }
 
     #[test]
@@ -342,7 +344,11 @@ mod tests {
             }
             other => panic!("{other:?}"),
         }
-        assert!(refusals[0].message().contains("cooccurrence"), "{:?}", refusals[0].message());
+        assert!(
+            refusals[0].message().contains("cooccurrence"),
+            "{:?}",
+            refusals[0].message()
+        );
     }
 
     #[test]
@@ -396,13 +402,22 @@ mod tests {
 
     #[test]
     fn a_document_that_is_not_an_object_is_refused_rather_than_defaulted() {
-        assert_eq!(parse(&json!("taste"), &known()).unwrap_err(), vec![Refusal::NotAnObject]);
-        assert_eq!(parse(&json!({}), &known()).unwrap_err(), vec![Refusal::NoStages]);
+        assert_eq!(
+            parse(&json!("taste"), &known()).unwrap_err(),
+            vec![Refusal::NotAnObject]
+        );
+        assert_eq!(
+            parse(&json!({}), &known()).unwrap_err(),
+            vec![Refusal::NoStages]
+        );
     }
 
     #[test]
     fn only_the_declarative_recipe_composes_and_everything_else_runs() {
-        assert_eq!(processing(Category::DeclarativeRecipe), Processing::Composes);
+        assert_eq!(
+            processing(Category::DeclarativeRecipe),
+            Processing::Composes
+        );
         assert!(!processing(Category::DeclarativeRecipe).needs_consent());
         // The engine is the case §21's clause is about: it processes, so consent governs it.
         assert_eq!(processing(Category::RecommendationEngine), Processing::Runs);

@@ -230,11 +230,17 @@ pub struct RoadmapConfig {
     /// and a release. The default is 1, so no existing instance changes
     /// behaviour and the three sites that were already there are unchanged.
     pub min_trust: i64,
+    /// Whether the arena ranks by Glicko-2 rather than Elo (M69-10). Off by default: it changes what a stranger sees on the
+    /// board — a rating plus an uncertainty — so it waits for a decision rather than a default.
+    pub glicko: bool,
 }
 
 impl Default for RoadmapConfig {
     fn default() -> Self {
-        Self { min_trust: 1 }
+        Self {
+            min_trust: 1,
+            glicko: false,
+        }
     }
 }
 
@@ -550,7 +556,6 @@ impl Default for ThemeConfig {
     }
 }
 
-
 /// Operator-chosen quality weights (M63-38).
 ///
 /// ```toml
@@ -644,10 +649,7 @@ impl QualityConfig {
     ///
     /// Three levels of fallback, and the last one is unreachable in a validated instance: `profile_name_of` already prefers a profile
     /// that exists, so returning the shipped numbers here is what a caller wants if it ever is reached, rather than a panic inside a sort.
-    pub fn weights_for_surface(
-        &self,
-        surface: &str,
-    ) -> &darkhold_domain::quality::QualityWeights {
+    pub fn weights_for_surface(&self, surface: &str) -> &darkhold_domain::quality::QualityWeights {
         let name = self.profile_name_of(surface);
         self.profile(name).unwrap_or_else(|| {
             static FALLBACK: std::sync::OnceLock<darkhold_domain::quality::QualityWeights> =
@@ -3189,6 +3191,11 @@ impl Config {
             // already, in the other direction.
             roadmap: RoadmapConfig {
                 min_trust: file.roadmap.as_ref().and_then(|r| r.min_trust).unwrap_or(1),
+                glicko: file
+                    .roadmap
+                    .as_ref()
+                    .and_then(|r| r.glicko)
+                    .unwrap_or(false),
             },
             retention_governance: match file.retention_governance.as_ref() {
                 Some(section) => RetentionGovernanceConfig {
@@ -3383,8 +3390,9 @@ impl Config {
                     let text = key.trim();
                     // Refused at load rather than at first export: a mistyped key that fails when a reader asks for their
                     // passport is a bug report, and one that fails at startup is a fix.
-                    let bytes = hex::decode(text)
-                        .map_err(|_| anyhow::anyhow!("discovery.passport_key must be hex-encoded"))?;
+                    let bytes = hex::decode(text).map_err(|_| {
+                        anyhow::anyhow!("discovery.passport_key must be hex-encoded")
+                    })?;
                     if bytes.len() != 32 {
                         return Err(anyhow::anyhow!(
                             "discovery.passport_key must be 32 bytes (64 hex characters), not {}",
@@ -4741,6 +4749,8 @@ struct RoadmapSection {
     /// roadmap. Defaults to 1, which is what the three call sites used to
     /// hardcode.
     min_trust: Option<i64>,
+    /// Whether the arena ranks by Glicko-2 rather than Elo (M69-10). Absent means off.
+    glicko: Option<bool>,
 }
 
 /// The `[retention_governance]` file section (spec §5, §19.15, amendment §5).
@@ -5483,23 +5493,39 @@ mod tests {
         .expect("a quality section");
         // `profiles.balanced` is not written down and still exists: the default carries it, so an operator changing one weight does not
         // have to restate the other four.
-        assert!(!parsed.profiles.contains_key("balanced"), "the file states only `engagement`");
-        assert!(parsed.profile("balanced").is_some(), "and `balanced` still resolves");
+        assert!(
+            !parsed.profiles.contains_key("balanced"),
+            "the file states only `engagement`"
+        );
+        assert!(
+            parsed.profile("balanced").is_some(),
+            "and `balanced` still resolves"
+        );
         assert!(parsed.validate().is_ok());
         assert_eq!(parsed.profile_name_of("rec-run"), "engagement");
         assert_eq!(parsed.profile_name_of("catalogue"), "balanced");
         assert_eq!(parsed.profile_name_of("nothing-configures-me"), "balanced");
         let engagement = parsed.weights_for_surface("rec-run");
         assert_eq!(engagement.density, 0.40);
-        assert_eq!(engagement.source_pct, 0.40, "unstated weights keep the shipped value");
+        assert_eq!(
+            engagement.source_pct, 0.40,
+            "unstated weights keep the shipped value"
+        );
         assert_eq!(parsed.weights_for_surface("catalogue").consensus, 0.25);
 
         // A typo in a profile name is a startup failure naming both strings — not a surface that silently ranks by the default.
         let mut broken = parsed.clone();
-        broken.surfaces.insert("catalogue".to_owned(), "engagment".to_owned());
-        let error = broken.validate().expect_err("a misspelt profile is refused");
+        broken
+            .surfaces
+            .insert("catalogue".to_owned(), "engagment".to_owned());
+        let error = broken
+            .validate()
+            .expect_err("a misspelt profile is refused");
         assert!(error.contains("engagment"), "{error}");
-        assert!(error.contains("engines") || error.contains("balanced"), "{error}");
+        assert!(
+            error.contains("engines") || error.contains("balanced"),
+            "{error}"
+        );
 
         // A default that names nothing is refused too; otherwise every surface falls back and nobody learns why.
         let orphan = QualityConfig {
@@ -5517,7 +5543,9 @@ mod tests {
                 ..darkhold_domain::quality::QualityWeights::default()
             },
         );
-        let error = inverted.validate().expect_err("a negative weight is refused");
+        let error = inverted
+            .validate()
+            .expect_err("a negative weight is refused");
         assert!(error.contains("quality.profiles.bad"), "{error}");
         assert!(error.contains("density"), "{error}");
     }
@@ -7127,7 +7155,11 @@ mode = "private"
             .gravity_per_surface
             .insert("home.trending".to_owned(), 0.35);
 
-        assert_eq!(taste.strength_for("story.similar"), 0.15, "a surface with no entry uses the global");
+        assert_eq!(
+            taste.strength_for("story.similar"),
+            0.15,
+            "a surface with no entry uses the global"
+        );
         assert_eq!(
             taste.strength_for("story.more_by_author"),
             0.0,
@@ -7142,7 +7174,11 @@ mode = "private"
         taste
             .gravity_per_surface
             .insert("home.trending".to_owned(), 2.0);
-        assert_eq!(taste.strength_for("home.trending"), 0.5, "an over-eager entry is bounded too");
+        assert_eq!(
+            taste.strength_for("home.trending"),
+            0.5,
+            "an over-eager entry is bounded too"
+        );
     }
 
     #[test]

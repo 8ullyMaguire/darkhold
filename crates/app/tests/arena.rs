@@ -96,7 +96,9 @@ async fn arena_pool_excludes_voted_works() {
 
     // Record one ballot; the two voted works must drop out of the pool.
     let (acct, w1, w2) = (id("acc-arena"), id("work-a1"), id("work-a2"));
-    record_arena_ballot(db, &acct, &w1, &w2, &[], false).await.unwrap();
+    record_arena_ballot(db, &acct, &w1, &w2, &[], false)
+        .await
+        .unwrap();
 
     let pool = get_arena_pool(db, &id("acc-arena"), 10).await.unwrap();
     assert!(pool.iter().all(|w| w.id != w1 && w.id != w2));

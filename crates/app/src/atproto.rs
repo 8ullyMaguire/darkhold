@@ -30,7 +30,11 @@ pub fn canonical_url(base: &str, work_id: &str) -> String {
 
 /// The post body: title, a link facet over the whole text, and an external card pointing at the page.
 #[must_use]
-pub fn record_for(work: &darkhold_db::atproto::WorkForRecord, site_base: &str, created_at: &str) -> serde_json::Value {
+pub fn record_for(
+    work: &darkhold_db::atproto::WorkForRecord,
+    site_base: &str,
+    created_at: &str,
+) -> serde_json::Value {
     let url = canonical_url(site_base, &work.id);
     let text = format!("{} — darkhold", work.title);
     json!({
@@ -70,8 +74,11 @@ fn first_sentence(text: &str, max: usize) -> String {
 /// `Ok(())` means "this event is done": either a record was written, or the work is not public any more and there was
 /// nothing to publish. An error means "try again later" and leaves the row claimable with backoff.
 pub async fn publish_work(state: &AppState, payload: &str) -> Result<()> {
-    let event: serde_json::Value = serde_json::from_str(payload).context("work.published payload is not JSON")?;
-    let work_id = event["work_id"].as_str().context("work.published payload has no work_id")?;
+    let event: serde_json::Value =
+        serde_json::from_str(payload).context("work.published payload is not JSON")?;
+    let work_id = event["work_id"]
+        .as_str()
+        .context("work.published payload has no work_id")?;
 
     // Defer, never deliver. Reaching here with the bridge off can only happen if `enabled` was turned off under a
     // running worker; returning `Ok` would mark the event done and silently drop a publication nobody got.
@@ -83,8 +90,12 @@ pub async fn publish_work(state: &AppState, payload: &str) -> Result<()> {
         tracing::debug!(work = %work_id, "work.published: the work is not public any more; nothing to publish");
         return Ok(());
     };
-    let password = std::env::var(&config.password_env)
-        .with_context(|| format!("{} is not set in this unit's environment", config.password_env))?;
+    let password = std::env::var(&config.password_env).with_context(|| {
+        format!(
+            "{} is not set in this unit's environment",
+            config.password_env
+        )
+    })?;
 
     let http = state.reqwest_client();
     let session = create_session(http, config, &password).await?;
@@ -92,7 +103,10 @@ pub async fn publish_work(state: &AppState, payload: &str) -> Result<()> {
     let rkey = rkey_for(&work.id);
 
     let response = http
-        .post(format!("{}/xrpc/com.atproto.repo.putRecord", config.pds.trim_end_matches('/')))
+        .post(format!(
+            "{}/xrpc/com.atproto.repo.putRecord",
+            config.pds.trim_end_matches('/')
+        ))
         .bearer_auth(&session.access_jwt)
         .json(&json!({
             "repo": session.did,
@@ -107,7 +121,10 @@ pub async fn publish_work(state: &AppState, payload: &str) -> Result<()> {
     let status = response.status();
     if !status.is_success() {
         let body = response.text().await.unwrap_or_default();
-        anyhow::bail!("putRecord answered {status}: {}", body.chars().take(300).collect::<String>());
+        anyhow::bail!(
+            "putRecord answered {status}: {}",
+            body.chars().take(300).collect::<String>()
+        );
     }
 
     let at_uri = format!("at://{}/app.bsky.feed.post/{}", session.did, rkey);
@@ -132,7 +149,12 @@ pub async fn withdraw_work(state: &AppState, work_id: &str) -> Result<()> {
     let mut parts = at_uri.rsplitn(3, '/');
     let rkey = parts.next().unwrap_or_default().to_owned();
     let collection = parts.next().unwrap_or_default().to_owned();
-    let repo = at_uri.trim_start_matches("at://").split('/').next().unwrap_or_default().to_owned();
+    let repo = at_uri
+        .trim_start_matches("at://")
+        .split('/')
+        .next()
+        .unwrap_or_default()
+        .to_owned();
     if rkey.is_empty() || collection.is_empty() || repo.is_empty() {
         anyhow::bail!("cannot parse an at:// URI: {at_uri}");
     }
@@ -142,13 +164,20 @@ pub async fn withdraw_work(state: &AppState, work_id: &str) -> Result<()> {
     let Some(config) = state.config().atproto.as_ref() else {
         return Ok(());
     };
-    let password = std::env::var(&config.password_env)
-        .with_context(|| format!("{} is not set in this unit's environment", config.password_env))?;
+    let password = std::env::var(&config.password_env).with_context(|| {
+        format!(
+            "{} is not set in this unit's environment",
+            config.password_env
+        )
+    })?;
     let http = state.reqwest_client();
     let session = create_session(http, config, &password).await?;
 
     let response = http
-        .post(format!("{}/xrpc/com.atproto.repo.deleteRecord", config.pds.trim_end_matches('/')))
+        .post(format!(
+            "{}/xrpc/com.atproto.repo.deleteRecord",
+            config.pds.trim_end_matches('/')
+        ))
         .bearer_auth(&session.access_jwt)
         .json(&json!({ "repo": repo, "collection": collection, "rkey": rkey }))
         .send()
@@ -167,7 +196,10 @@ pub async fn withdraw_work(state: &AppState, work_id: &str) -> Result<()> {
         tracing::info!(work = %work_id, %at_uri, "the ATProto record was already gone");
         return Ok(());
     }
-    anyhow::bail!("deleteRecord answered {status}: {}", body.chars().take(300).collect::<String>());
+    anyhow::bail!(
+        "deleteRecord answered {status}: {}",
+        body.chars().take(300).collect::<String>()
+    );
 }
 
 /// A session on the PDS. Created per delivery, not cached: a cached JWT is a second thing that expires, and at this
@@ -178,7 +210,10 @@ async fn create_session(
     password: &str,
 ) -> Result<Session> {
     let response = http
-        .post(format!("{}/xrpc/com.atproto.server.createSession", config.pds.trim_end_matches('/')))
+        .post(format!(
+            "{}/xrpc/com.atproto.server.createSession",
+            config.pds.trim_end_matches('/')
+        ))
         .json(&json!({ "identifier": config.handle, "password": password }))
         .send()
         .await
@@ -186,11 +221,20 @@ async fn create_session(
     let status = response.status();
     let body: serde_json::Value = response.json().await.unwrap_or_else(|_| json!({}));
     if !status.is_success() {
-        anyhow::bail!("createSession answered {status}: {}", body.to_string().chars().take(200).collect::<String>());
+        anyhow::bail!(
+            "createSession answered {status}: {}",
+            body.to_string().chars().take(200).collect::<String>()
+        );
     }
     Ok(Session {
-        did: body["did"].as_str().context("createSession returned no did")?.to_owned(),
-        access_jwt: body["accessJwt"].as_str().context("createSession returned no accessJwt")?.to_owned(),
+        did: body["did"]
+            .as_str()
+            .context("createSession returned no did")?
+            .to_owned(),
+        access_jwt: body["accessJwt"]
+            .as_str()
+            .context("createSession returned no accessJwt")?
+            .to_owned(),
     })
 }
 
@@ -223,24 +267,48 @@ mod tests {
 
     #[test]
     fn the_record_points_at_the_canonical_page_and_copies_no_body() {
-        let r = record_for(&work(), "https://darkhold.polarisocial.xyz", "2026-11-06T10:00:00Z");
+        let r = record_for(
+            &work(),
+            "https://darkhold.polarisocial.xyz",
+            "2026-11-06T10:00:00Z",
+        );
         assert_eq!(
             r["embed"]["external"]["uri"],
             "https://darkhold.polarisocial.xyz/w/67430ccc-9945-4145-9503-e602c0d91186"
         );
         // 300 bytes is the post text budget; the body must never be in there.
-        assert!(r["text"].as_str().unwrap().len() < 300, "the post text is a pointer, not the work");
-        assert!(r["embed"]["external"]["description"].as_str().unwrap().len() <= 200);
-        assert_eq!(r["facets"][0]["features"][0]["uri"], r["embed"]["external"]["uri"]);
+        assert!(
+            r["text"].as_str().unwrap().len() < 300,
+            "the post text is a pointer, not the work"
+        );
+        assert!(
+            r["embed"]["external"]["description"]
+                .as_str()
+                .unwrap()
+                .len()
+                <= 200
+        );
+        assert_eq!(
+            r["facets"][0]["features"][0]["uri"],
+            r["embed"]["external"]["uri"]
+        );
     }
 
     #[test]
     fn a_multi_byte_summary_is_cut_on_a_character_boundary() {
         let mut w = work();
         w.summary = "é".repeat(400);
-        let r = record_for(&w, "https://darkhold.polarisocial.xyz", "2026-11-06T10:00:00Z");
+        let r = record_for(
+            &w,
+            "https://darkhold.polarisocial.xyz",
+            "2026-11-06T10:00:00Z",
+        );
         let description = r["embed"]["external"]["description"].as_str().unwrap();
-        assert!(description.len() <= 400, "cut in bytes, not characters: {} bytes", description.len());
+        assert!(
+            description.len() <= 400,
+            "cut in bytes, not characters: {} bytes",
+            description.len()
+        );
         assert!(description.chars().all(|c| c == 'é'));
     }
 }

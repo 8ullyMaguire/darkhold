@@ -18,8 +18,15 @@ use crate::state::AppState;
 /// page at `/legal/acceptable-use` is checked against. Free-text reasons were the state of things until 2026-11-07:
 /// the moderation queue could be sorted by a string anybody could invent, which is the same as not being sorted at
 /// all. Gate 57 compares this list with the contract, so the copy cannot drift quietly.
-pub const REPORT_REASONS: [&str; 7] =
-    ["spam", "harassment", "off-topic", "copyright", "illegal", "csam", "other"];
+pub const REPORT_REASONS: [&str; 7] = [
+    "spam",
+    "harassment",
+    "off-topic",
+    "copyright",
+    "illegal",
+    "csam",
+    "other",
+];
 
 /// Codes that skip the ordinary moderation ladder and go straight to the operator.
 ///
@@ -823,9 +830,17 @@ mod submit_report_tests {
     fn an_invented_reason_is_rejected_and_the_error_names_the_alternatives() {
         let err = validate_reason("vexatious").expect_err("an invented code must not be accepted");
         match err {
-            AppError::Validation { message, field_errors } => {
-                assert!(message.contains("vexatious"), "message names the rejected code: {message}");
-                let hint = field_errors.get("reason").expect("the reason field carries the alternatives");
+            AppError::Validation {
+                message,
+                field_errors,
+            } => {
+                assert!(
+                    message.contains("vexatious"),
+                    "message names the rejected code: {message}"
+                );
+                let hint = field_errors
+                    .get("reason")
+                    .expect("the reason field carries the alternatives");
                 for code in REPORT_REASONS {
                     assert!(hint.contains(code), "the field error lists {code}: {hint}");
                 }
@@ -845,7 +860,10 @@ mod submit_report_tests {
     #[test]
     fn the_operator_only_set_is_a_subset_of_the_contract() {
         for code in OPERATOR_ONLY_REASONS {
-            assert!(REPORT_REASONS.contains(&code), "{code} must also be a report reason");
+            assert!(
+                REPORT_REASONS.contains(&code),
+                "{code} must also be a report reason"
+            );
         }
     }
 }

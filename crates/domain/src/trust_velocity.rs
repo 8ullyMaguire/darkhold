@@ -156,7 +156,8 @@ pub fn appraise(
     let slowed = velocity < 1.0;
 
     let mut reason = if (velocity - NEUTRAL_FACTOR).abs() < f64::EPSILON {
-        "neutral multiplier: neither taste alignment nor report history moves this reader's rate".to_owned()
+        "neutral multiplier: neither taste alignment nor report history moves this reader's rate"
+            .to_owned()
     } else {
         let direction = if slowed { "below" } else { "above" };
         format!(
@@ -213,8 +214,16 @@ mod tests {
     #[test]
     fn a_reader_with_no_evidence_of_either_kind_progresses_exactly_neutrally() {
         let signals = VelocitySignals::default();
-        assert_eq!(signals.alignment_factor(), NEUTRAL_FACTOR, "no score is not a bad score");
-        assert_eq!(signals.behaviour_factor(), NEUTRAL_FACTOR, "no reports is not a bad record");
+        assert_eq!(
+            signals.alignment_factor(),
+            NEUTRAL_FACTOR,
+            "no score is not a bad score"
+        );
+        assert_eq!(
+            signals.behaviour_factor(),
+            NEUTRAL_FACTOR,
+            "no reports is not a bad record"
+        );
         assert_eq!(signals.velocity(), NEUTRAL_FACTOR);
     }
 
@@ -247,7 +256,10 @@ mod tests {
         assert_eq!(velocity_from_factors(3.0, 3.0), MAX_VELOCITY);
         assert_eq!(velocity_from_factors(0.1, 0.1), MIN_VELOCITY);
         assert_eq!(velocity_from_factors(1.0, 1.0), NEUTRAL_FACTOR);
-        assert!(velocity_from_factors(f64::NAN, 1.0).is_finite(), "a NaN cannot become the multiplier");
+        assert!(
+            velocity_from_factors(f64::NAN, 1.0).is_finite(),
+            "a NaN cannot become the multiplier"
+        );
 
         // And the bounds hold for the factors this module can actually produce.
         let floor = VelocitySignals {
@@ -303,7 +315,11 @@ mod tests {
             appraisal.effective_level, 4,
             "the held level stands whatever the multiplier does: {appraisal:?}"
         );
-        assert!(appraisal.reason.contains("never takes a level away"), "{}", appraisal.reason);
+        assert!(
+            appraisal.reason.contains("never takes a level away"),
+            "{}",
+            appraisal.reason
+        );
     }
 
     #[test]
@@ -360,7 +376,10 @@ mod tests {
         let appraisal = appraise(0, &evidence, &axes, &ladder, &VelocitySignals::default());
         let applied = apply(&appraisal, &assessment);
         assert_eq!(applied.level, appraisal.effective_level);
-        assert_eq!(applied.score, assessment.score, "the basis keeps the honest score");
+        assert_eq!(
+            applied.score, assessment.score,
+            "the basis keeps the honest score"
+        );
         assert_eq!(applied.name, assessment.name);
     }
 
@@ -380,7 +399,15 @@ mod tests {
             },
         );
         assert!(appraisal.reason.contains('×'), "{}", appraisal.reason);
-        assert!(appraisal.reason.contains("alignment factor"), "{}", appraisal.reason);
-        assert!(appraisal.reason.contains("behaviour factor"), "{}", appraisal.reason);
+        assert!(
+            appraisal.reason.contains("alignment factor"),
+            "{}",
+            appraisal.reason
+        );
+        assert!(
+            appraisal.reason.contains("behaviour factor"),
+            "{}",
+            appraisal.reason
+        );
     }
 }

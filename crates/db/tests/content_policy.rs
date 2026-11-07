@@ -39,10 +39,8 @@ async fn database(tag: &str) -> (Database, PathBuf) {
                 .expect("an empty PostgreSQL database")
         }
         _ => {
-            let config = DatabaseConfig::new(format!(
-                "sqlite://{}/policy.sqlite?mode=rwc",
-                dir.display()
-            ));
+            let config =
+                DatabaseConfig::new(format!("sqlite://{}/policy.sqlite?mode=rwc", dir.display()));
             Database::connect(&config).await.expect("connect")
         }
     };
@@ -92,9 +90,15 @@ async fn a_policy_block_needs_a_reason_reaches_the_signed_out_and_keeps_a_trail(
     assert!(live(&db).await.expect("live").is_empty());
 
     assert_eq!(
-        block(&db, "tag", "child endangerment", "illegal content, §46.2", ADMIN)
-            .await
-            .expect("block"),
+        block(
+            &db,
+            "tag",
+            "child endangerment",
+            "illegal content, §46.2",
+            ADMIN
+        )
+        .await
+        .expect("block"),
         Ok(())
     );
     // Blocking the same value twice is refused rather than duplicated.
@@ -126,16 +130,24 @@ async fn a_policy_block_needs_a_reason_reaches_the_signed_out_and_keeps_a_trail(
         Err(BlockRefusal::EmptyReason)
     );
     assert_eq!(
-        revoke(&db, "tag", "child endangerment", "court order withdrawn", ADMIN)
-            .await
-            .expect("revoke"),
+        revoke(
+            &db,
+            "tag",
+            "child endangerment",
+            "court order withdrawn",
+            ADMIN
+        )
+        .await
+        .expect("revoke"),
         Ok(true)
     );
     assert!(live(&db).await.expect("live").is_empty());
-    assert!(darkhold_db::search::content_filter_sql::for_pseud(&db, None)
-        .await
-        .expect("rules")
-        .is_empty());
+    assert!(
+        darkhold_db::search::content_filter_sql::for_pseud(&db, None)
+            .await
+            .expect("rules")
+            .is_empty()
+    );
 
     let trail = history(&db).await.expect("history");
     assert_eq!(trail.len(), 1, "the block is not deleted: {trail:?}");

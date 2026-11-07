@@ -49,10 +49,8 @@ async fn database(tag: &str) -> (Database, PathBuf) {
                 .expect("an empty PostgreSQL database")
         }
         _ => {
-            let config = DatabaseConfig::new(format!(
-                "sqlite://{}/tropes.sqlite?mode=rwc",
-                dir.display()
-            ));
+            let config =
+                DatabaseConfig::new(format!("sqlite://{}/tropes.sqlite?mode=rwc", dir.display()));
             Database::connect(&config).await.expect("connect")
         }
     };
@@ -129,7 +127,10 @@ async fn coverage_tells_a_work_which_families_it_never_names_and_writes_nothing(
     seed(&db).await;
 
     // 6. No clusters yet: an empty list, not an error and not a perfect score.
-    assert!(coverage_for_work(&db, WORK).await.expect("coverage").is_empty());
+    assert!(coverage_for_work(&db, WORK)
+        .await
+        .expect("coverage")
+        .is_empty());
 
     // 1. Priority orders the clusters; a tie breaks on slug so two reads agree.
     create_cluster(&db, "hurt-comfort", "Hurt/Comfort", None, 20)
@@ -176,7 +177,10 @@ async fn coverage_tells_a_work_which_families_it_never_names_and_writes_nothing(
 
     let coverage = coverage_for_work(&db, WORK).await.expect("coverage");
     let angst = coverage.iter().find(|c| c.slug == "angst").expect("angst");
-    assert!(!angst.is_named(), "a guess is not a family named: {angst:?}");
+    assert!(
+        !angst.is_named(),
+        "a guess is not a family named: {angst:?}"
+    );
     assert_eq!(angst.missing, 1);
 
     let comfort = coverage

@@ -50,8 +50,12 @@ impl Client {
     fn capture(&mut self, response: &axum::response::Response) {
         for value in response.headers().get_all(header::SET_COOKIE) {
             let Ok(text) = value.to_str() else { continue };
-            let Some((pair, _)) = text.split_once(';') else { continue };
-            let Some((name, value)) = pair.split_once('=') else { continue };
+            let Some((pair, _)) = text.split_once(';') else {
+                continue;
+            };
+            let Some((name, value)) = pair.split_once('=') else {
+                continue;
+            };
             let name = name.trim().to_owned();
             let value = value.trim().to_owned();
             self.cookies.retain(|(k, _)| k != &name);
@@ -97,7 +101,10 @@ impl Client {
         let bytes = axum::body::to_bytes(response.into_body(), usize::MAX)
             .await
             .expect("body");
-        (status, serde_json::from_slice(&bytes).unwrap_or(Value::Null))
+        (
+            status,
+            serde_json::from_slice(&bytes).unwrap_or(Value::Null),
+        )
     }
 
     async fn register(&mut self, handle: &str) -> String {
@@ -232,7 +239,10 @@ async fn a_hunt_finds_the_survivor_and_an_ambiguity_is_left_to_the_operator() {
     assert_eq!(body["hunt"]["outcome"], "ambiguous", "{body}");
     assert!(body["hunt"]["matched_instance"].is_null(), "{body}");
     assert_eq!(
-        body["hunt"]["candidates"].as_array().expect("candidates").len(),
+        body["hunt"]["candidates"]
+            .as_array()
+            .expect("candidates")
+            .len(),
         2,
         "{body}"
     );

@@ -66,17 +66,31 @@ async fn publishing_is_a_move_and_the_demotion_is_in_the_statement() {
     let db = &db;
     let owner = INSTANCE_OWNER;
 
-    let first = theme_profiles::save(db, "instance", owner, &theme("one", "#c9a227"), "2026-11-07T00:00:00Z")
-        .await
-        .expect("save first");
-    let second = theme_profiles::save(db, "instance", owner, &theme("two", "#4fa3d1"), "2026-11-07T00:01:00Z")
-        .await
-        .expect("save second");
+    let first = theme_profiles::save(
+        db,
+        "instance",
+        owner,
+        &theme("one", "#c9a227"),
+        "2026-11-07T00:00:00Z",
+    )
+    .await
+    .expect("save first");
+    let second = theme_profiles::save(
+        db,
+        "instance",
+        owner,
+        &theme("two", "#4fa3d1"),
+        "2026-11-07T00:01:00Z",
+    )
+    .await
+    .expect("save second");
     assert_ne!(first, second);
 
-    assert!(theme_profiles::publish(db, "instance", owner, &first, "2026-11-07T00:02:00Z")
-        .await
-        .expect("publish first"));
+    assert!(
+        theme_profiles::publish(db, "instance", owner, &first, "2026-11-07T00:02:00Z")
+            .await
+            .expect("publish first")
+    );
     let published = theme_profiles::published(db, "instance", owner)
         .await
         .expect("published")
@@ -85,9 +99,11 @@ async fn publishing_is_a_move_and_the_demotion_is_in_the_statement() {
 
     // The second publish must take the first one down: two published rows would make "the instance's
     // appearance" depend on row order.
-    assert!(theme_profiles::publish(db, "instance", owner, &second, "2026-11-07T00:03:00Z")
-        .await
-        .expect("publish second"));
+    assert!(
+        theme_profiles::publish(db, "instance", owner, &second, "2026-11-07T00:03:00Z")
+            .await
+            .expect("publish second")
+    );
     let published = theme_profiles::published(db, "instance", owner)
         .await
         .expect("published")
@@ -96,9 +112,15 @@ async fn publishing_is_a_move_and_the_demotion_is_in_the_statement() {
     assert_eq!(published.theme.palette[&Token::Accent], "#4fa3d1");
 
     // Saving over a published theme demotes it: the bytes that were approved are not the bytes just written.
-    theme_profiles::save(db, "instance", owner, &theme("two", "#7fc27a"), "2026-11-07T00:04:00Z")
-        .await
-        .expect("re-save");
+    theme_profiles::save(
+        db,
+        "instance",
+        owner,
+        &theme("two", "#7fc27a"),
+        "2026-11-07T00:04:00Z",
+    )
+    .await
+    .expect("re-save");
     assert!(
         theme_profiles::published(db, "instance", owner)
             .await
@@ -108,8 +130,14 @@ async fn publishing_is_a_move_and_the_demotion_is_in_the_statement() {
     );
 
     // Reset deletes rather than writes the defaults.
-    let rows = theme_profiles::list(db, "instance", owner).await.expect("list");
-    assert_eq!(rows.len(), 2, "both drafts survive a reset of the published one: {rows:?}");
+    let rows = theme_profiles::list(db, "instance", owner)
+        .await
+        .expect("list");
+    assert_eq!(
+        rows.len(),
+        2,
+        "both drafts survive a reset of the published one: {rows:?}"
+    );
 }
 
 #[tokio::test]
@@ -118,21 +146,25 @@ async fn a_preview_is_joined_by_session_and_expires_on_the_clock() {
     let db = &db;
     let account = "01955100-0000-4000-8000-000000e00001";
 
-    let id = theme_profiles::save(db, "reader", account, &theme("mine", "#c9a227"), "2026-11-07T00:00:00Z")
-        .await
-        .expect("save");
+    let id = theme_profiles::save(
+        db,
+        "reader",
+        account,
+        &theme("mine", "#c9a227"),
+        "2026-11-07T00:00:00Z",
+    )
+    .await
+    .expect("save");
 
     theme_profiles::start_preview(db, &id, "session-a", "2026-11-07T00:15:00Z")
         .await
         .expect("preview");
 
     // A session that did not ask sees nothing.
-    assert!(
-        theme_profiles::preview_for(db, "session-b", 0)
-            .await
-            .expect("preview")
-            .is_none()
-    );
+    assert!(theme_profiles::preview_for(db, "session-b", 0)
+        .await
+        .expect("preview")
+        .is_none());
 
     // The asking session sees it, and the expiry is compared in Rust against the clock it is given.
     let live = theme_profiles::preview_for(db, "session-a", 1_000)
@@ -159,10 +191,12 @@ async fn a_preview_is_joined_by_session_and_expires_on_the_clock() {
             .fetch_one(db.sqlite_pool().expect("sqlite"))
             .await
             .expect("count"),
-        darkhold_db::Backend::Postgres => sqlx::query_scalar("SELECT CAST(COUNT(*) AS BIGINT) FROM theme_previews")
-            .fetch_one(db.postgres_pool().expect("postgres"))
-            .await
-            .expect("count"),
+        darkhold_db::Backend::Postgres => {
+            sqlx::query_scalar("SELECT CAST(COUNT(*) AS BIGINT) FROM theme_previews")
+                .fetch_one(db.postgres_pool().expect("postgres"))
+                .await
+                .expect("count")
+        }
     };
     assert_eq!(count, 1);
 }
@@ -174,9 +208,13 @@ async fn safe_mode_is_one_row_and_its_reason_survives_the_round_trip() {
 
     assert!(!theme_profiles::safe_mode(db).await.expect("read").active);
 
-    theme_profiles::set_safe_mode(db, &SafeMode::on("the reader crashed on load"), "2026-11-07T00:00:00Z")
-        .await
-        .expect("on");
+    theme_profiles::set_safe_mode(
+        db,
+        &SafeMode::on("the reader crashed on load"),
+        "2026-11-07T00:00:00Z",
+    )
+    .await
+    .expect("on");
     let mode = theme_profiles::safe_mode(db).await.expect("read");
     assert!(mode.active);
     assert_eq!(mode.reason.as_deref(), Some("the reader crashed on load"));
@@ -190,10 +228,12 @@ async fn safe_mode_is_one_row_and_its_reason_survives_the_round_trip() {
             .fetch_one(db.sqlite_pool().expect("sqlite"))
             .await
             .expect("count"),
-        darkhold_db::Backend::Postgres => sqlx::query_scalar("SELECT CAST(COUNT(*) AS BIGINT) FROM theme_safe_mode")
-            .fetch_one(db.postgres_pool().expect("postgres"))
-            .await
-            .expect("count"),
+        darkhold_db::Backend::Postgres => {
+            sqlx::query_scalar("SELECT CAST(COUNT(*) AS BIGINT) FROM theme_safe_mode")
+                .fetch_one(db.postgres_pool().expect("postgres"))
+                .await
+                .expect("count")
+        }
     };
     assert_eq!(rows, 1);
 

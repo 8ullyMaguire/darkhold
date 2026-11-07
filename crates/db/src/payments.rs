@@ -19,7 +19,8 @@ use crate::{Backend, Database};
 ///
 /// Spelled once so a projection cannot drift between queries; each call appends its own `WHERE`, because the placeholder syntax is the one
 /// thing the two engines disagree about here and a shared string would have to lie about it.
-const COLUMNS: &str = "SELECT id, account, subject_kind, subject_id, subject_version, amount_minor, currency, \
+const COLUMNS: &str =
+    "SELECT id, account, subject_kind, subject_id, subject_version, amount_minor, currency, \
      state, processor, processor_ref, tax_minor, refunded_minor FROM payments";
 
 /// A payment, as the store keeps it.
@@ -198,11 +199,7 @@ async fn payment_by_idempotency(
 ///
 /// `WHERE state = 'pending'` is the guard: a double capture is a no-op, not a second charge, so the affected-row count is what the caller
 /// reads to know whether it captured or found it already captured.
-pub async fn capture(
-    db: &Database,
-    id: &str,
-    processor_ref: &str,
-) -> Result<bool, sqlx::Error> {
+pub async fn capture(db: &Database, id: &str, processor_ref: &str) -> Result<bool, sqlx::Error> {
     let now = crate::identity::now_rfc3339();
     let affected = match db.backend() {
         Backend::Sqlite => sqlx::query(
@@ -312,7 +309,11 @@ pub async fn record_refund(
 }
 
 /// A buyer's own payments, newest first. The only payment read that names an account, and it is the caller's own.
-pub async fn my_payments(db: &Database, account: &str, limit: i64) -> Result<Vec<Value>, sqlx::Error> {
+pub async fn my_payments(
+    db: &Database,
+    account: &str,
+    limit: i64,
+) -> Result<Vec<Value>, sqlx::Error> {
     let payments: Vec<Payment> = match db.backend() {
         Backend::Sqlite => sqlx::query(
             "SELECT id, account, subject_kind, subject_id, subject_version, amount_minor, currency,
@@ -494,13 +495,15 @@ pub async fn tax_profile(db: &Database) -> Result<Option<TaxProfile>, sqlx::Erro
             )
         }),
     };
-    Ok(row.map(|(legal_name, country, tax_id, rate_bp, invoice_prefix)| TaxProfile {
-        legal_name,
-        country,
-        tax_id,
-        rate_bp,
-        invoice_prefix,
-    }))
+    Ok(row.map(
+        |(legal_name, country, tax_id, rate_bp, invoice_prefix)| TaxProfile {
+            legal_name,
+            country,
+            tax_id,
+            rate_bp,
+            invoice_prefix,
+        },
+    ))
 }
 
 /// Store the tax profile (one row; setting it twice replaces it).

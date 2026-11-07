@@ -457,10 +457,10 @@ async fn similar_follows_its_configured_algorithms() {
 
     // Now the same data with `co_shelving` taken out of the surface's configured set.
     let mut config = h.config.clone();
-    config.discovery.surfaces.insert(
-        "story.similar".to_owned(),
-        vec!["tag_jaccard".to_owned()],
-    );
+    config
+        .discovery
+        .surfaces
+        .insert("story.similar".to_owned(), vec!["tag_jaccard".to_owned()]);
     let router = server::build_router(AppState::new(config, h.db.clone()));
     let response = router
         .oneshot(

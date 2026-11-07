@@ -6,8 +6,8 @@ use crate::state::AppState;
 use axum::extract::State;
 use axum::routing::get;
 use axum::{Json, Router};
-use darkhold_domain::gravity_dial::{effective, narrow, DialRefusal};
 use darkhold_domain::error::AppError;
+use darkhold_domain::gravity_dial::{effective, narrow, DialRefusal};
 use serde::Deserialize;
 use serde_json::{json, Value};
 
@@ -26,7 +26,12 @@ fn require_pseud(session: &SessionUser) -> ApiResult<uuid::Uuid> {
         .pseud_id
         .as_ref()
         .map(|pseud| pseud.as_uuid())
-        .ok_or_else(|| ApiError(AppError::field("pseud", "choose a pseud before setting gravity")))
+        .ok_or_else(|| {
+            ApiError(AppError::field(
+                "pseud",
+                "choose a pseud before setting gravity",
+            ))
+        })
 }
 
 pub fn router() -> Router<AppState> {
@@ -35,10 +40,7 @@ pub fn router() -> Router<AppState> {
     Router::new().route("/discovery/gravity", get(read).put(write).delete(reset))
 }
 
-async fn read(
-    State(state): State<AppState>,
-    session: RequireSession,
-) -> ApiResult<Json<Value>> {
+async fn read(State(state): State<AppState>, session: RequireSession) -> ApiResult<Json<Value>> {
     let pseud = require_pseud(&session.0)?;
     let taste = &state.config().taste;
     let instance = taste.strength_for(SURFACE);
@@ -100,10 +102,7 @@ async fn write(
     })))
 }
 
-async fn reset(
-    State(state): State<AppState>,
-    session: RequireSession,
-) -> ApiResult<Json<Value>> {
+async fn reset(State(state): State<AppState>, session: RequireSession) -> ApiResult<Json<Value>> {
     let pseud = require_pseud(&session.0)?;
     let cleared = darkhold_db::gravity_prefs::clear(state.db(), pseud)
         .await

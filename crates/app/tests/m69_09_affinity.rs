@@ -115,8 +115,12 @@ impl Client {
     fn capture(&mut self, response: &axum::response::Response) {
         for value in response.headers().get_all(header::SET_COOKIE) {
             let Ok(text) = value.to_str() else { continue };
-            let Some((pair, _)) = text.split_once(';') else { continue };
-            let Some((name, value)) = pair.split_once('=') else { continue };
+            let Some((pair, _)) = text.split_once(';') else {
+                continue;
+            };
+            let Some((name, value)) = pair.split_once('=') else {
+                continue;
+            };
             let name = name.trim().to_owned();
             let value = value.trim().to_owned();
             self.cookies.retain(|(k, _)| k != &name);
@@ -127,8 +131,9 @@ impl Client {
     }
 
     async fn send(&mut self, method: &str, uri: &str, body: Option<Value>) -> (StatusCode, Value) {
-        let mut builder =
-            Request::builder().method(Method::from_bytes(method.as_bytes()).expect("method")).uri(uri);
+        let mut builder = Request::builder()
+            .method(Method::from_bytes(method.as_bytes()).expect("method"))
+            .uri(uri);
         if body.is_some() {
             builder = builder.header(header::CONTENT_TYPE, "application/json");
         }
@@ -158,8 +163,13 @@ impl Client {
             .expect("response");
         let status = response.status();
         self.capture(&response);
-        let bytes = axum::body::to_bytes(response.into_body(), usize::MAX).await.expect("body");
-        (status, serde_json::from_slice(&bytes).unwrap_or(Value::Null))
+        let bytes = axum::body::to_bytes(response.into_body(), usize::MAX)
+            .await
+            .expect("body");
+        (
+            status,
+            serde_json::from_slice(&bytes).unwrap_or(Value::Null),
+        )
     }
 
     async fn register(&mut self, handle: &str) -> String {
@@ -249,15 +259,27 @@ async fn an_aligned_reader_scores_high_a_stranger_low_and_a_silent_reader_has_no
 
     // Nobody is scored before the sweep runs: this is a stored reading, not a request-time computation.
     let (_, body) = aligned.send("GET", "/api/v1/me/affinity", None).await;
-    assert_eq!(body["scored"], json!(false), "the score is a row, not a calculation per page: {body}");
+    assert_eq!(
+        body["scored"],
+        json!(false),
+        "the score is a row, not a calculation per page: {body}"
+    );
 
     let mut operator_client = h.client();
     operator_client.cookies = op.cookies.clone();
     let (status, body) = operator_client
-        .send("POST", "/api/v1/operator/affinity/recompute", Some(json!({})))
+        .send(
+            "POST",
+            "/api/v1/operator/affinity/recompute",
+            Some(json!({})),
+        )
         .await;
     assert_eq!(status, StatusCode::OK, "{body}");
-    assert_eq!(body["initialised"], json!(2), "two readers had evidence: {body}");
+    assert_eq!(
+        body["initialised"],
+        json!(2),
+        "two readers had evidence: {body}"
+    );
     assert_eq!(body["changed"], json!(0), "{body}");
     assert_eq!(
         body["unscored"],
@@ -311,14 +333,22 @@ async fn a_second_sweep_over_unchanged_data_reports_zeros() {
     operator_client.cookies = op.cookies.clone();
 
     let (status, first) = operator_client
-        .send("POST", "/api/v1/operator/affinity/recompute", Some(json!({})))
+        .send(
+            "POST",
+            "/api/v1/operator/affinity/recompute",
+            Some(json!({})),
+        )
         .await;
     assert_eq!(status, StatusCode::OK, "{first}");
     assert_eq!(first["initialised"], json!(1), "{first}");
 
     // The same data, swept again. The upsert repairs one row; the report must say so rather than claiming a change.
     let (status, second) = operator_client
-        .send("POST", "/api/v1/operator/affinity/recompute", Some(json!({})))
+        .send(
+            "POST",
+            "/api/v1/operator/affinity/recompute",
+            Some(json!({})),
+        )
         .await;
     assert_eq!(status, StatusCode::OK, "{second}");
     assert_eq!(second["initialised"], json!(0), "{second}");
@@ -333,13 +363,20 @@ async fn a_second_sweep_over_unchanged_data_reports_zeros() {
         .fetch_one(h.tdb.db().sqlite_pool().expect("sqlite"))
         .await
         .expect("count");
-    assert_eq!(rows, 1, "one reader is one row, however many times the sweep runs");
+    assert_eq!(
+        rows, 1,
+        "one reader is one row, however many times the sweep runs"
+    );
 
     // New evidence is absorbed by the next run — a repair, not a one-shot.
     let more = h.work("Also valued", &["angst"]).await;
     value_work(&h, &more, 9_000).await;
     let (_, third) = operator_client
-        .send("POST", "/api/v1/operator/affinity/recompute", Some(json!({})))
+        .send(
+            "POST",
+            "/api/v1/operator/affinity/recompute",
+            Some(json!({})),
+        )
         .await;
     assert_eq!(third["initialised"], json!(0), "{third}");
     assert_eq!(
@@ -357,7 +394,10 @@ async fn a_second_sweep_over_unchanged_data_reports_zeros() {
         .fetch_one(h.tdb.db().sqlite_pool().expect("sqlite"))
         .await
         .expect("count");
-    assert_eq!(rows, 1, "a repair run does not add a second row per reader: {third}");
+    assert_eq!(
+        rows, 1,
+        "a repair run does not add a second row per reader: {third}"
+    );
 }
 
 #[tokio::test]
@@ -375,12 +415,20 @@ async fn an_instance_with_no_operator_scores_nobody_rather_than_scoring_everybod
     op.register("not-the-operator").await;
 
     // The sweep still runs; it just has no operator to measure against.
-    let report = darkhold_db::reader_affinity::recompute_all(h.tdb.db(), None, "2026-11-07T00:00:00Z", false)
-        .await
-        .expect("sweep");
+    let report = darkhold_db::reader_affinity::recompute_all(
+        h.tdb.db(),
+        None,
+        "2026-11-07T00:00:00Z",
+        false,
+    )
+    .await
+    .expect("sweep");
     assert_eq!(report.initialised, 0);
     assert_eq!(report.changed, 0);
-    assert_eq!(report.unscored, 1, "the candidate is reported, not silently dropped");
+    assert_eq!(
+        report.unscored, 1,
+        "the candidate is reported, not silently dropped"
+    );
     assert!(!report.wrote());
 
     let rows: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM reader_affinity")

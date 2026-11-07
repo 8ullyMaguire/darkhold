@@ -21,6 +21,7 @@ use std::sync::Arc;
 use std::time::Instant;
 
 use anyhow::{Context, Result};
+use axum::extract::DefaultBodyLimit;
 use axum::extract::{Request, State};
 use axum::http::{header, HeaderName, HeaderValue, Method, StatusCode};
 use axum::middleware::{self, Next};
@@ -32,7 +33,6 @@ use darkhold_db::outbox;
 use darkhold_db::Database;
 use darkhold_domain::ids::RequestId;
 use tower_http::cors::{AllowOrigin, CorsLayer};
-use axum::extract::DefaultBodyLimit;
 use tower_http::timeout::TimeoutLayer;
 use tracing::Instrument;
 
@@ -138,19 +138,19 @@ pub async fn serve(config: Config, db: Database, args: &ServeArgs) -> Result<()>
     // `darkhold worker` process is the better one when the queue is busy. Both
     // are supported and both stop on the same signal.
     if args.with_worker {
-    /// The `work_id` an outbox event carries.
-    ///
-    /// Parsed as JSON, not by splitting on a byte sequence. The previous form was
-    /// `payload.split("\"work_id\":\"").nth(1)`, which is correct only for serde_json's *compact* output: a producer that
-    /// pretty-printed, reordered keys, or emitted `{"work_id": "…"}` with a space would make every deindex fail with
-    /// "missing work_id in payload" — measured, not hypothesised: a spaced payload inserted into a scratch instance was
-    /// retried twice and the withdrawal never ran.
-    fn payload_work_id(payload: &str) -> String {
-        serde_json::from_str::<serde_json::Value>(payload)
-            .ok()
-            .and_then(|v| v.get("work_id").and_then(|w| w.as_str()).map(str::to_owned))
-            .unwrap_or_default()
-    }
+        /// The `work_id` an outbox event carries.
+        ///
+        /// Parsed as JSON, not by splitting on a byte sequence. The previous form was
+        /// `payload.split("\"work_id\":\"").nth(1)`, which is correct only for serde_json's *compact* output: a producer that
+        /// pretty-printed, reordered keys, or emitted `{"work_id": "…"}` with a space would make every deindex fail with
+        /// "missing work_id in payload" — measured, not hypothesised: a spaced payload inserted into a scratch instance was
+        /// retried twice and the withdrawal never ran.
+        fn payload_work_id(payload: &str) -> String {
+            serde_json::from_str::<serde_json::Value>(payload)
+                .ok()
+                .and_then(|v| v.get("work_id").and_then(|w| w.as_str()).map(str::to_owned))
+                .unwrap_or_default()
+        }
 
         // Rebound as `mut` because the ATProto handler is registered *conditionally*: see below.
         let mut worker = crate::worker::Worker::new(crate::worker::WorkerOptions::default())
@@ -246,11 +246,14 @@ pub async fn serve(config: Config, db: Database, args: &ServeArgs) -> Result<()>
         // Conditional registration defers them by *not asking for them*, which is the mechanism the outbox already has.
         if state.config().atproto.as_ref().is_some_and(|c| c.enabled) {
             worker = worker.with_topic("work.published", {
-                let handler: crate::worker::TopicHandler = Arc::new(|_state: &AppState, event: &outbox::OutboxEvent| {
-                    let state = _state.clone();
-                    let payload = event.payload.clone();
-                    Box::pin(async move { crate::atproto::publish_work(&state, &payload).await })
-                });
+                let handler: crate::worker::TopicHandler =
+                    Arc::new(|_state: &AppState, event: &outbox::OutboxEvent| {
+                        let state = _state.clone();
+                        let payload = event.payload.clone();
+                        Box::pin(
+                            async move { crate::atproto::publish_work(&state, &payload).await },
+                        )
+                    });
                 handler
             });
         }
@@ -433,6 +436,23 @@ pub fn build_router(state: AppState) -> Router {
         ));
 
     let api: Router<AppState> = Router::new()
+        // Roadmap participation (M45, §44). These were nested into the OUTER router at `/api/v1`, one `.nest` per
+        // router — and a router keeps only the last `nest` for a prefix, so the arena and the suggest door were
+        // unreachable (`GET /api/v1/roadmap/arena` → a bodiless 404) while the public board next door answered. They
+        // belong in `api`, which is the router that is actually nested at `/api/v1`, and one test now requests the
+        // arena through HTTP rather than trusting the route table.
+        .merge(module_mount(
+            &state,
+            "roadmap",
+            routes::roadmap::router(),
+            RouteClass::Default,
+        ))
+        .merge(module_mount(
+            &state,
+            "roadmap",
+            routes::roadmap::admin_router(),
+            RouteClass::Write,
+        ))
         .merge(module_mount(
             &state,
             "meta",
@@ -602,28 +622,6 @@ pub fn build_router(state: AppState) -> Router {
             routes::roadmap::read_router(),
             RouteClass::Default,
         ))
-        .merge(
-            // TL>=1 + operator routes under /api/v1/roadmap and /api/v1/admin/roadmap.
-            Router::new()
-                .nest(
-                    "/api/v1",
-                    module_mount(
-                        &state,
-                        "roadmap",
-                        routes::roadmap::router(),
-                        RouteClass::Default,
-                    ),
-                )
-                .nest(
-                    "/api/v1",
-                    module_mount(
-                        &state,
-                        "roadmap",
-                        routes::roadmap::admin_router(),
-                        RouteClass::Write,
-                    ),
-                ),
-        )
         .merge(module_mount(
             &state,
             "browse",
@@ -1344,24 +1342,28 @@ pub fn build_router(state: AppState) -> Router {
         // The landing page, rendered as a document (ADR 0006). At the root and before the fallback, with its own
         // session loading for the same reason the reader has it: without the layer a signed-in reader would be
         // answered as a stranger and never redirected to discovery.
-        .merge(routes::landing_page::router().layer(middleware::from_fn_with_state(
-            state.clone(),
-            auth::load_session,
-        )))
+        .merge(
+            routes::landing_page::router().layer(middleware::from_fn_with_state(
+                state.clone(),
+                auth::load_session,
+            )),
+        )
         // The sitemap (M71-16). No session layer: the file a crawler gets must be the file everyone gets, which is why
         // its audience is `Anonymous` rather than a `MaybeSession` nobody reads.
         .merge(routes::sitemap::router())
-            .merge(routes::facets::router())
+        .merge(routes::facets::router())
         // M64-08: a fandom's declared neighbours. The map is the operator's, so every caller gets the same answer and no session
         // layer is needed — the same reason the sitemap is `Anonymous`.
         .merge(routes::fandom_graph::router())
         // The work page (ADR 0006, M71-20): the most-linked page on an archive, as a document. Registered before the
         // SPA fallback so `/works/{id}` is HTML for a reader, a crawler and a preview; the application keeps the routes
         // that are only meaningful with a session.
-        .merge(routes::work_page::router().layer(middleware::from_fn_with_state(
-            state.clone(),
-            auth::load_session,
-        )))
+        .merge(
+            routes::work_page::router().layer(middleware::from_fn_with_state(
+                state.clone(),
+                auth::load_session,
+            )),
+        )
         // A tag's page (ADR 0006, M71-20): the archive's second door, and the one a search result or a shared link
         // arrives at. Its listing comes from a query that already filters to published public works.
         .merge(routes::tag_page::router())

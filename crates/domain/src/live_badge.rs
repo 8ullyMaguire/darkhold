@@ -120,11 +120,7 @@ pub struct Decision {
 /// Returns `(eligible, reason)`. The reason is written the same way for a gain and a loss, so the reader's history reads
 /// consistently whatever direction the number moved.
 #[must_use]
-fn eligibility(
-    affinity_bp: Option<u16>,
-    evidence_bp: u16,
-    badge: &LiveBadge,
-) -> (bool, String) {
+fn eligibility(affinity_bp: Option<u16>, evidence_bp: u16, badge: &LiveBadge) -> (bool, String) {
     let Some(score) = affinity_bp else {
         return (
             false,
@@ -212,7 +208,10 @@ mod tests {
     fn a_high_score_on_thin_evidence_is_not_eligibility() {
         // One signal measured at its ceiling: M69-09 can read 10,000 on favourites alone.
         let decision = decide(false, Some(10_000), 5_000, &ATTUNED);
-        assert!(!decision.held, "5000 of weight is one signal, not a relationship");
+        assert!(
+            !decision.held,
+            "5000 of weight is one signal, not a relationship"
+        );
         assert_eq!(decision.transition, Transition::Unearned);
         assert!(
             decision.reason.contains("measured"),
@@ -230,7 +229,11 @@ mod tests {
     fn an_unmeasured_reader_is_neither_eligible_nor_blamed() {
         let decision = decide(false, None, 0, &ATTUNED);
         assert!(!decision.held);
-        assert!(decision.reason.contains("no affinity reading"), "{}", decision.reason);
+        assert!(
+            decision.reason.contains("no affinity reading"),
+            "{}",
+            decision.reason
+        );
         assert!(
             !decision.reason.contains("below"),
             "an unmeasured reader has not fallen below anything: {}",
@@ -240,8 +243,14 @@ mod tests {
 
     #[test]
     fn holding_is_unchanged_when_nothing_moved() {
-        assert_eq!(decide(true, Some(9_000), 10_000, &ATTUNED).transition, Transition::Held);
-        assert_eq!(decide(false, Some(1_000), 10_000, &ATTUNED).transition, Transition::Unearned);
+        assert_eq!(
+            decide(true, Some(9_000), 10_000, &ATTUNED).transition,
+            Transition::Held
+        );
+        assert_eq!(
+            decide(false, Some(1_000), 10_000, &ATTUNED).transition,
+            Transition::Unearned
+        );
         assert!(!Transition::Held.is_change());
         assert!(!Transition::Unearned.is_change());
         assert!(Transition::Gained.is_change());
@@ -251,7 +260,15 @@ mod tests {
     #[test]
     fn the_threshold_is_inclusive_and_the_evidence_floor_is_too() {
         // Exactly at both bounds holds: a boundary that excludes its own number is a threshold nobody can state.
-        assert!(decide(false, Some(ATTUNED_THRESHOLD_BP), ATTUNED_MIN_EVIDENCE_BP, &ATTUNED).held);
+        assert!(
+            decide(
+                false,
+                Some(ATTUNED_THRESHOLD_BP),
+                ATTUNED_MIN_EVIDENCE_BP,
+                &ATTUNED
+            )
+            .held
+        );
         assert!(!decide(false, Some(ATTUNED_THRESHOLD_BP - 1), 10_000, &ATTUNED).held);
         assert!(!decide(false, Some(10_000), ATTUNED_MIN_EVIDENCE_BP - 1, &ATTUNED).held);
     }

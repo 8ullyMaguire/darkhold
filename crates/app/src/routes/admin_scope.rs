@@ -15,8 +15,8 @@
 
 use crate::auth::SessionUser;
 use crate::http::ApiError;
-use darkhold_domain::error::AppError;
 use crate::state::AppState;
+use darkhold_domain::error::AppError;
 
 /// Whether the caller may act on `site` (`None` = the whole estate).
 ///
@@ -121,7 +121,8 @@ pub fn estate_admin_allowed(state: &AppState, user: &SessionUser) -> Result<(), 
         let pseud = user.pseud_id.map(|p| p.to_string());
         let roles = user.roles.clone();
         handle.spawn(async move {
-            let document = serde_json::json!({ "required_site": "estate", "roles": roles }).to_string();
+            let document =
+                serde_json::json!({ "required_site": "estate", "roles": roles }).to_string();
             let _ = darkhold_db::governance::audit_append(
                 &db,
                 &darkhold_db::governance::AuditEntry {

@@ -158,7 +158,10 @@ impl Client {
         let bytes = axum::body::to_bytes(response.into_body(), usize::MAX)
             .await
             .expect("body");
-        (status, serde_json::from_slice(&bytes).unwrap_or(Value::Null))
+        (
+            status,
+            serde_json::from_slice(&bytes).unwrap_or(Value::Null),
+        )
     }
 
     async fn register(&mut self, handle: &str) -> String {
@@ -274,7 +277,11 @@ async fn memory_excess_fails_safely() {
             Some(body_for(&wasm, 10_000_000)),
         )
         .await;
-    assert_eq!(status, StatusCode::OK, "a ceiling is a result, not a 500: {body}");
+    assert_eq!(
+        status,
+        StatusCode::OK,
+        "a ceiling is a result, not a 500: {body}"
+    );
     assert_eq!(body["halt"], "memory", "{body}");
     assert_eq!(body["succeeded"], false, "{body}");
 }
@@ -406,7 +413,11 @@ async fn reset_is_reachable_after_a_broken_theme() {
         .expect("seed a skin the validator would refuse");
 
     let (status, body) = client.send("GET", "/api/v1/me/skin", None).await;
-    assert_eq!(status, StatusCode::OK, "reading it is not an error either: {body}");
+    assert_eq!(
+        status,
+        StatusCode::OK,
+        "reading it is not an error either: {body}"
+    );
     assert_eq!(body["present"], true, "{body}");
 
     let (status, body) = client.send("DELETE", "/api/v1/me/skin", None).await;
@@ -431,7 +442,8 @@ async fn a_fork_keeps_attribution_and_starts_without_grants() {
 
     // The manifest row is written straight to the store: there is no submission route yet (M16-07 owns it), and a fork test that needed
     // the review workflow would be testing the workflow instead of the fork.
-    let document = json!({ "id": "shelf-sorter", "name": "Shelf sorter", "author": "orig" }).to_string();
+    let document =
+        json!({ "id": "shelf-sorter", "name": "Shelf sorter", "author": "orig" }).to_string();
     sqlx::query(
         "INSERT INTO extension_manifests (id, version, document, submitted_by, state, created_at)
          VALUES ('shelf-sorter', '1.0.0', ?, ?, 'approved', '2026-11-01T00:00:00Z')",
@@ -461,7 +473,10 @@ async fn a_fork_keeps_attribution_and_starts_without_grants() {
         )
         .await;
     assert_eq!(status, StatusCode::OK, "{body}");
-    assert_eq!(body["derived_from"], "shelf-sorter", "attribution is kept: {body}");
+    assert_eq!(
+        body["derived_from"], "shelf-sorter",
+        "attribution is kept: {body}"
+    );
     assert_eq!(body["derived_from_version"], "1.0.0", "{body}");
     assert_eq!(
         body["state"], "pending",
@@ -474,9 +489,14 @@ async fn a_fork_keeps_attribution_and_starts_without_grants() {
     );
 
     assert!(
-        !darkhold_db::marketplace::holds_grant(h.tdb.db(), &original_author, "shelf-sorter-tweaked", "work.read")
-            .await
-            .expect("read"),
+        !darkhold_db::marketplace::holds_grant(
+            h.tdb.db(),
+            &original_author,
+            "shelf-sorter-tweaked",
+            "work.read"
+        )
+        .await
+        .expect("read"),
         "the forker's own grant does not follow them onto the fork"
     );
     assert!(
@@ -555,7 +575,10 @@ async fn an_opted_out_account_is_not_handed_to_an_external_engine() {
         )
         .await;
     assert_eq!(status, StatusCode::UNPROCESSABLE_ENTITY, "{body}");
-    let message = body["error"]["message"].as_str().unwrap_or_default().to_owned();
+    let message = body["error"]["message"]
+        .as_str()
+        .unwrap_or_default()
+        .to_owned();
     assert!(
         message.contains("cannot narrate"),
         "with the default (`allow`) the request reaches the engine check and fails on the host, not on consent: {message}"
@@ -582,7 +605,10 @@ async fn an_opted_out_account_is_not_handed_to_an_external_engine() {
         )
         .await;
     assert_eq!(status, StatusCode::UNPROCESSABLE_ENTITY, "{body}");
-    let message = body["error"]["message"].as_str().unwrap_or_default().to_owned();
+    let message = body["error"]["message"]
+        .as_str()
+        .unwrap_or_default()
+        .to_owned();
     assert!(
         message.contains("custom_processing"),
         "the refusal names the setting the reader threw, not the host's engine: {message}"
@@ -630,7 +656,11 @@ async fn a_recipe_is_applied_and_it_asks_nothing_of_an_opted_out_reader() {
     client.register("recipe-reader").await;
 
     let (status, body) = client
-        .send("POST", "/api/v1/extensions/mood-blend/install", Some(json!({})))
+        .send(
+            "POST",
+            "/api/v1/extensions/mood-blend/install",
+            Some(json!({})),
+        )
         .await;
     assert_eq!(status, StatusCode::OK, "install: {body}");
 
@@ -645,7 +675,10 @@ async fn a_recipe_is_applied_and_it_asks_nothing_of_an_opted_out_reader() {
     assert_eq!(status, StatusCode::OK, "{body}");
 
     let strategies = darkhold_app::rec_engine::available_strategies();
-    assert!(!strategies.is_empty(), "a recipe needs at least one strategy to compose");
+    assert!(
+        !strategies.is_empty(),
+        "a recipe needs at least one strategy to compose"
+    );
     let first = strategies[0].clone();
     let (status, body) = client
         .send(
@@ -668,7 +701,10 @@ async fn a_recipe_is_applied_and_it_asks_nothing_of_an_opted_out_reader() {
     // It is a real recipe, owned by the reader who asked.
     let (status, body) = client.send("GET", "/api/v1/recipes/list", None).await;
     assert_eq!(status, StatusCode::OK, "{body}");
-    let recipes = body["recipes"].as_array().or_else(|| body.as_array()).expect("a recipe list");
+    let recipes = body["recipes"]
+        .as_array()
+        .or_else(|| body.as_array())
+        .expect("a recipe list");
     assert!(
         recipes.iter().any(|r| r["name"] == json!("my blend")),
         "the applied recipe is the reader's own row: {body}"
@@ -677,7 +713,11 @@ async fn a_recipe_is_applied_and_it_asks_nothing_of_an_opted_out_reader() {
     // And the same reader is refused an *engine* package, because an engine is what processes.
     publish_approved(&h, "oracle-engine", "recommendation_engine", &[]).await;
     client
-        .send("POST", "/api/v1/extensions/oracle-engine/install", Some(json!({})))
+        .send(
+            "POST",
+            "/api/v1/extensions/oracle-engine/install",
+            Some(json!({})),
+        )
         .await;
     let (status, body) = client
         .send(
@@ -687,7 +727,10 @@ async fn a_recipe_is_applied_and_it_asks_nothing_of_an_opted_out_reader() {
         )
         .await;
     assert_eq!(status, StatusCode::UNPROCESSABLE_ENTITY, "{body}");
-    let message = body["error"]["message"].as_str().unwrap_or_default().to_owned();
+    let message = body["error"]["message"]
+        .as_str()
+        .unwrap_or_default()
+        .to_owned();
     assert!(
         message.contains("custom_processing"),
         "the opt-out names the setting rather than blaming the package: {message}"
@@ -704,7 +747,11 @@ async fn a_recipe_that_carries_anything_else_is_refused_by_name() {
     let mut client = h.client();
     client.register("recipe-reader").await;
     client
-        .send("POST", "/api/v1/extensions/mood-blend/install", Some(json!({})))
+        .send(
+            "POST",
+            "/api/v1/extensions/mood-blend/install",
+            Some(json!({})),
+        )
         .await;
 
     let strategies = darkhold_app::rec_engine::available_strategies();
@@ -725,7 +772,10 @@ async fn a_recipe_that_carries_anything_else_is_refused_by_name() {
         .await;
     assert_eq!(status, StatusCode::UNPROCESSABLE_ENTITY, "{body}");
     assert!(
-        body["error"]["message"].as_str().unwrap_or_default().contains("endpoint"),
+        body["error"]["message"]
+            .as_str()
+            .unwrap_or_default()
+            .contains("endpoint"),
         "the refusal names the offending key: {body}"
     );
 
@@ -738,13 +788,26 @@ async fn a_recipe_that_carries_anything_else_is_refused_by_name() {
         )
         .await;
     assert_eq!(status, StatusCode::UNPROCESSABLE_ENTITY, "{body}");
-    let message = body["error"]["message"].as_str().unwrap_or_default().to_owned();
-    assert!(message.contains(&first), "the refusal offers the strategies it does run: {message}");
+    let message = body["error"]["message"]
+        .as_str()
+        .unwrap_or_default()
+        .to_owned();
+    assert!(
+        message.contains(&first),
+        "the refusal offers the strategies it does run: {message}"
+    );
 
     // Nothing was stored by either refusal.
     let (_, body) = client.send("GET", "/api/v1/recipes/list", None).await;
-    let recipes = body["recipes"].as_array().or_else(|| body.as_array()).cloned().unwrap_or_default();
-    assert!(recipes.is_empty(), "a refused recipe is not a stored recipe: {body}");
+    let recipes = body["recipes"]
+        .as_array()
+        .or_else(|| body.as_array())
+        .cloned()
+        .unwrap_or_default();
+    assert!(
+        recipes.is_empty(),
+        "a refused recipe is not a stored recipe: {body}"
+    );
 
     // A package that is not a recipe cannot be applied through this door at all.
     publish_approved(&h, "widget", "reader_widget", &[]).await;
@@ -760,7 +823,10 @@ async fn a_recipe_that_carries_anything_else_is_refused_by_name() {
         .await;
     assert_eq!(status, StatusCode::UNPROCESSABLE_ENTITY, "{body}");
     assert!(
-        body["error"]["message"].as_str().unwrap_or_default().contains("reader_widget"),
+        body["error"]["message"]
+            .as_str()
+            .unwrap_or_default()
+            .contains("reader_widget"),
         "{body}"
     );
 }

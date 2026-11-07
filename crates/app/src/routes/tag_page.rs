@@ -47,8 +47,7 @@ async fn tag_page(
 
     // One over the page size: the extra row answers "is there more" without a second count query, and the count of a
     // tag is the count of what the reader can actually reach (§10.3).
-    let Ok(mut rows) =
-        darkhold_db::taxonomy::works_by_tag(state.db(), &norm, PAGE + 1, 0).await
+    let Ok(mut rows) = darkhold_db::taxonomy::works_by_tag(state.db(), &norm, PAGE + 1, 0).await
     else {
         return docs::not_found(&site, "That tag does not exist.", stylesheet.as_deref());
     };

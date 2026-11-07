@@ -45,10 +45,8 @@ async fn database(tag: &str) -> (Database, PathBuf) {
                 .expect("an empty PostgreSQL database")
         }
         _ => {
-            let config = DatabaseConfig::new(format!(
-                "sqlite://{}/eng.sqlite?mode=rwc",
-                dir.display()
-            ));
+            let config =
+                DatabaseConfig::new(format!("sqlite://{}/eng.sqlite?mode=rwc", dir.display()));
             Database::connect(&config).await.expect("connect")
         }
     };

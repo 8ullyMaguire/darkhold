@@ -178,17 +178,17 @@ pub async fn publish(db: &Database, scope: &str, owner: &str, id: &str, now: &st
             .execute(db.sqlite_pool().expect("sqlite"))
             .await?
             .rows_affected()
-            + sqlx::query(
-                "UPDATE theme_profiles SET state = 'published', updated_at = ?
+                + sqlx::query(
+                    "UPDATE theme_profiles SET state = 'published', updated_at = ?
                  WHERE id = ? AND scope = ? AND owner = ?",
-            )
-            .bind(now)
-            .bind(id)
-            .bind(scope)
-            .bind(owner)
-            .execute(db.sqlite_pool().expect("sqlite"))
-            .await?
-            .rows_affected()
+                )
+                .bind(now)
+                .bind(id)
+                .bind(scope)
+                .bind(owner)
+                .execute(db.sqlite_pool().expect("sqlite"))
+                .await?
+                .rows_affected()
         }
         Backend::Postgres => {
             sqlx::query(
@@ -201,23 +201,25 @@ pub async fn publish(db: &Database, scope: &str, owner: &str, id: &str, now: &st
             .execute(db.postgres_pool().expect("postgres"))
             .await?
             .rows_affected()
-            + sqlx::query(
-                "UPDATE theme_profiles SET state = 'published', updated_at = $1
+                + sqlx::query(
+                    "UPDATE theme_profiles SET state = 'published', updated_at = $1
                  WHERE id = $2 AND scope = $3 AND owner = $4",
-            )
-            .bind(now)
-            .bind(id)
-            .bind(scope)
-            .bind(owner)
-            .execute(db.postgres_pool().expect("postgres"))
-            .await?
-            .rows_affected()
+                )
+                .bind(now)
+                .bind(id)
+                .bind(scope)
+                .bind(owner)
+                .execute(db.postgres_pool().expect("postgres"))
+                .await?
+                .rows_affected()
         }
     };
     // Read back rather than trust a count: a theme published twice is still one published theme, and
     // "did it work" means "is this row the published one now".
     let _ = affected;
-    Ok(published(db, scope, owner).await?.is_some_and(|t| t.id == id))
+    Ok(published(db, scope, owner)
+        .await?
+        .is_some_and(|t| t.id == id))
 }
 
 /// The published theme for a scope and owner, if any.
@@ -281,22 +283,22 @@ fn row_to_stored_pg(row: &sqlx::postgres::PgRow) -> Stored {
 /// changes; the first never does.
 pub async fn reset(db: &Database, scope: &str, owner: &str) -> Result<i64> {
     let affected = match db.backend() {
-        Backend::Sqlite => {
-            sqlx::query("DELETE FROM theme_profiles WHERE scope = ? AND owner = ? AND state = 'published'")
-                .bind(scope)
-                .bind(owner)
-                .execute(db.sqlite_pool().expect("sqlite"))
-                .await?
-                .rows_affected()
-        }
-        Backend::Postgres => {
-            sqlx::query("DELETE FROM theme_profiles WHERE scope = $1 AND owner = $2 AND state = 'published'")
-                .bind(scope)
-                .bind(owner)
-                .execute(db.postgres_pool().expect("postgres"))
-                .await?
-                .rows_affected()
-        }
+        Backend::Sqlite => sqlx::query(
+            "DELETE FROM theme_profiles WHERE scope = ? AND owner = ? AND state = 'published'",
+        )
+        .bind(scope)
+        .bind(owner)
+        .execute(db.sqlite_pool().expect("sqlite"))
+        .await?
+        .rows_affected(),
+        Backend::Postgres => sqlx::query(
+            "DELETE FROM theme_profiles WHERE scope = $1 AND owner = $2 AND state = 'published'",
+        )
+        .bind(scope)
+        .bind(owner)
+        .execute(db.postgres_pool().expect("postgres"))
+        .await?
+        .rows_affected(),
     };
     Ok(i64::try_from(affected).unwrap_or(0))
 }
@@ -407,7 +409,11 @@ pub async fn start_preview(
 ///
 /// `now` is passed in rather than read here so a test can stand at any instant; the comparison is the
 /// domain's `preview_is_live`, so the rule has one home.
-pub async fn preview_for(db: &Database, session_id: &str, now_epoch: i64) -> Result<Option<Stored>> {
+pub async fn preview_for(
+    db: &Database,
+    session_id: &str,
+    now_epoch: i64,
+) -> Result<Option<Stored>> {
     let sql = "SELECT p.id, p.scope, p.owner, p.name, p.state, p.palette, p.layout, p.updated_at, v.expires_at
                FROM theme_previews v JOIN theme_profiles p ON p.id = v.theme_id
                WHERE v.session_id = ? ORDER BY v.expires_at DESC";

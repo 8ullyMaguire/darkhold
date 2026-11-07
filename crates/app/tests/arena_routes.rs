@@ -383,13 +383,15 @@ async fn a_ballot_records_that_it_compared_calibrating_works() {
     assert_eq!(status, StatusCode::OK, "{body}");
 
     let flagged = match tdb.db().backend() {
-        darkhold_db::Backend::Sqlite => sqlx::query_scalar::<_, i64>(
-            "SELECT calibrating FROM arena_ballots ORDER BY created_at DESC LIMIT 1",
-        )
-        .fetch_one(tdb.db().sqlite_pool().expect("sqlite"))
-        .await
-        .expect("read the ballot")
-            == 1,
+        darkhold_db::Backend::Sqlite => {
+            sqlx::query_scalar::<_, i64>(
+                "SELECT calibrating FROM arena_ballots ORDER BY created_at DESC LIMIT 1",
+            )
+            .fetch_one(tdb.db().sqlite_pool().expect("sqlite"))
+            .await
+            .expect("read the ballot")
+                == 1
+        }
         // BOOLEAN on this engine: the flag is the same fact, spelled the way the dialect declares it.
         darkhold_db::Backend::Postgres => sqlx::query_scalar::<_, bool>(
             "SELECT calibrating FROM arena_ballots ORDER BY created_at DESC LIMIT 1",
@@ -398,7 +400,10 @@ async fn a_ballot_records_that_it_compared_calibrating_works() {
         .await
         .expect("read the ballot"),
     };
-    assert!(flagged, "a ballot on works with no readings is a calibration ballot");
+    assert!(
+        flagged,
+        "a ballot on works with no readings is a calibration ballot"
+    );
 }
 
 /// A work that has been compared enough stops being flagged, and the count comes from the ballots rather than from a
@@ -416,14 +421,16 @@ async fn a_work_past_its_calibration_window_is_no_longer_flagged() {
     match tdb.db().backend() {
         darkhold_db::Backend::Sqlite => {
             let pool = tdb.db().sqlite_pool().expect("sqlite");
-            sqlx::query("INSERT INTO accounts (id, email, created_at, updated_at) VALUES (?, ?, ?, ?)")
-                .bind(&other)
-                .bind(format!("other-{other}@example.test"))
-                .bind(now)
-                .bind(now)
-                .execute(pool)
-                .await
-                .expect("insert account");
+            sqlx::query(
+                "INSERT INTO accounts (id, email, created_at, updated_at) VALUES (?, ?, ?, ?)",
+            )
+            .bind(&other)
+            .bind(format!("other-{other}@example.test"))
+            .bind(now)
+            .bind(now)
+            .execute(pool)
+            .await
+            .expect("insert account");
             for _ in 0..5 {
                 sqlx::query(
                     "INSERT INTO arena_ballots

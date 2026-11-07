@@ -55,7 +55,10 @@ async fn word_histogram(
     Query(params): Query<HistogramQuery>,
 ) -> ApiResult<Json<Value>> {
     let filter = FacetFilter {
-        tag: params.tag.map(|tag| tag.trim().to_owned()).filter(|tag| !tag.is_empty()),
+        tag: params
+            .tag
+            .map(|tag| tag.trim().to_owned())
+            .filter(|tag| !tag.is_empty()),
         title_contains: params
             .q
             .map(|text| text.trim().to_owned())
@@ -93,7 +96,10 @@ async fn facets(
         }
     }
     let filter = FacetFilter {
-        tag: params.tag.map(|tag| tag.trim().to_owned()).filter(|tag| !tag.is_empty()),
+        tag: params
+            .tag
+            .map(|tag| tag.trim().to_owned())
+            .filter(|tag| !tag.is_empty()),
         title_contains: params
             .q
             .map(|text| text.trim().to_owned())
@@ -109,7 +115,12 @@ async fn facets(
         .map_err(|error| ApiError(AppError::internal("reading facets", error)))?;
     let answers: Vec<_> = answers
         .into_iter()
-        .filter(|answer| params.facet.as_deref().is_none_or(|name| name == answer.facet))
+        .filter(|answer| {
+            params
+                .facet
+                .as_deref()
+                .is_none_or(|name| name == answer.facet)
+        })
         .collect();
 
     Ok(Json(json!({

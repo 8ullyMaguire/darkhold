@@ -76,7 +76,10 @@ async fn exec(db: &Database, statement: &str) {
 }
 
 /// The works a filtered query returns, using the **real** rendered exclusion.
-async fn visible(db: &Database, rules: &[darkhold_db::search::content_filter_sql::FilterRule]) -> Vec<String> {
+async fn visible(
+    db: &Database,
+    rules: &[darkhold_db::search::content_filter_sql::FilterRule],
+) -> Vec<String> {
     let exclusion = exclusion_for(rules, "w.id");
     // Splice exactly as the real callers do (`notifications.rs`): an empty predicate adds nothing, a present one is prefixed
     // with `AND`. Getting this wrong is a syntax error, which is the good failure; the bad one would be a `WHERE 1 = 1` that
@@ -116,7 +119,10 @@ async fn visible(db: &Database, rules: &[darkhold_db::search::content_filter_sql
 }
 
 async fn seed(db: &Database) {
-    for (account, email) in [(ADMIN, "admin@example.invalid"), (AUTHOR, "author@example.invalid")] {
+    for (account, email) in [
+        (ADMIN, "admin@example.invalid"),
+        (AUTHOR, "author@example.invalid"),
+    ] {
         exec(
             db,
             &format!(
@@ -169,9 +175,7 @@ async fn seed(db: &Database) {
 
 #[tokio::test]
 async fn an_override_lets_one_work_through_one_block_and_leaves_a_record() {
-    use darkhold_db::content_policy::{
-        block, grant_override, live, revoke_override, BlockRefusal,
-    };
+    use darkhold_db::content_policy::{block, grant_override, live, revoke_override, BlockRefusal};
     use darkhold_db::search::content_filter_sql::{for_pseud, FilterRule};
 
     let (db, dir) = database("one-work").await;
@@ -191,13 +195,23 @@ async fn an_override_lets_one_work_through_one_block_and_leaves_a_record() {
         Ok(())
     );
     let rules = for_pseud(&db, None).await.expect("rules");
-    assert!(visible(&db, &rules).await.is_empty(), "both works carry the value");
+    assert!(
+        visible(&db, &rules).await.is_empty(),
+        "both works carry the value"
+    );
 
     // 4-5. Refusals first: no live block, no reason.
     assert_eq!(
-        grant_override(&db, WORK_A, "tag", "a trope nobody blocked", "why not", ADMIN)
-            .await
-            .expect("grant"),
+        grant_override(
+            &db,
+            WORK_A,
+            "tag",
+            "a trope nobody blocked",
+            "why not",
+            ADMIN
+        )
+        .await
+        .expect("grant"),
         Err(BlockRefusal::NotFound),
         "an exception to nothing is a decision about nothing"
     );
@@ -222,7 +236,11 @@ async fn an_override_lets_one_work_through_one_block_and_leaves_a_record() {
         .expect("grant"),
         Ok(())
     );
-    assert_eq!(live(&db).await.expect("live").len(), 1, "the block itself is untouched");
+    assert_eq!(
+        live(&db).await.expect("live").len(),
+        1,
+        "the block itself is untouched"
+    );
     let rules = for_pseud(&db, None).await.expect("rules");
     assert_eq!(
         visible(&db, &rules).await,
@@ -243,22 +261,18 @@ async fn an_override_lets_one_work_through_one_block_and_leaves_a_record() {
         "a revoked exception hides the work again"
     );
     let rows: i64 = match db.backend() {
-        darkhold_db::Backend::Sqlite => {
-            sqlx::query_scalar(
-                "SELECT COUNT(*) FROM content_policy_overrides WHERE revoked_reason = 'archive closed'",
-            )
-            .fetch_one(db.sqlite_pool().expect("sqlite"))
-            .await
-            .expect("count")
-        }
-        darkhold_db::Backend::Postgres => {
-            sqlx::query_scalar(
-                "SELECT COUNT(*) FROM content_policy_overrides WHERE revoked_reason = 'archive closed'",
-            )
-            .fetch_one(db.postgres_pool().expect("postgres"))
-            .await
-            .expect("count")
-        }
+        darkhold_db::Backend::Sqlite => sqlx::query_scalar(
+            "SELECT COUNT(*) FROM content_policy_overrides WHERE revoked_reason = 'archive closed'",
+        )
+        .fetch_one(db.sqlite_pool().expect("sqlite"))
+        .await
+        .expect("count"),
+        darkhold_db::Backend::Postgres => sqlx::query_scalar(
+            "SELECT COUNT(*) FROM content_policy_overrides WHERE revoked_reason = 'archive closed'",
+        )
+        .fetch_one(db.postgres_pool().expect("postgres"))
+        .await
+        .expect("count"),
     };
     assert_eq!(rows, 1, "the exception is revoked, not deleted");
 

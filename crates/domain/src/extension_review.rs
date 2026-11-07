@@ -361,10 +361,7 @@ impl Review {
         granted: &'a BTreeSet<String>,
         requested: &'a BTreeSet<String>,
     ) -> Vec<&'a str> {
-        requested
-            .difference(granted)
-            .map(String::as_str)
-            .collect()
+        requested.difference(granted).map(String::as_str).collect()
     }
 }
 
@@ -427,7 +424,10 @@ mod tests {
             name: "sandbox.runs".to_owned(),
             outcome: Err("the module trapped".to_owned()),
         }];
-        assert_eq!(review.apply(Action::RecordChecks), Err(Refusal::ChecksFailed));
+        assert_eq!(
+            review.apply(Action::RecordChecks),
+            Err(Refusal::ChecksFailed)
+        );
         assert_eq!(review.stage, Stage::Submitted);
     }
 
@@ -478,7 +478,10 @@ mod tests {
             review.apply(Action::Approve {
                 actor: "operator-a".to_owned()
             }),
-            Err(Refusal::QuorumNotReached { have: 1, need: QUORUM })
+            Err(Refusal::QuorumNotReached {
+                have: 1,
+                need: QUORUM
+            })
         );
         assert_eq!(
             review.apply(Action::Approve {

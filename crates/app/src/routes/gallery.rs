@@ -29,9 +29,7 @@ use crate::auth::RequireSession;
 use crate::http::{ApiError, ApiResult};
 use crate::state::AppState;
 use darkhold_domain::extension::Manifest;
-use darkhold_domain::gallery::{
-    compatible, GalleryRefusal, InstallOutcome, Rating, UpdatePolicy,
-};
+use darkhold_domain::gallery::{compatible, GalleryRefusal, InstallOutcome, Rating, UpdatePolicy};
 use darkhold_domain::AppError;
 
 pub fn router() -> Router<AppState> {
@@ -121,7 +119,10 @@ async fn install(
         .map_err(|error| ApiError(AppError::Internal(error.into())))?;
     let version = match body.version.as_deref() {
         Some(exact) => {
-            if !published_versions.iter().any(|candidate| candidate == exact) {
+            if !published_versions
+                .iter()
+                .any(|candidate| candidate == exact)
+            {
                 return Err(refused(GalleryRefusal::NotPublished(format!(
                     "{slug} {exact}"
                 ))));
@@ -368,6 +369,9 @@ async fn my_installations(
 ///
 /// Exposed as a function rather than inlined in the fork route because the fork route already copies the document byte-for-byte — the
 /// licence it will carry is the source's — and the question "may this be forked at all" is a gallery rule, not a marketplace one.
-pub fn fork_licence_allows(source_license: &str, derived_license: &str) -> Result<(), GalleryRefusal> {
+pub fn fork_licence_allows(
+    source_license: &str,
+    derived_license: &str,
+) -> Result<(), GalleryRefusal> {
     compatible(source_license, derived_license)
 }

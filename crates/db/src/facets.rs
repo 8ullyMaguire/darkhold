@@ -93,10 +93,7 @@ struct Scanned {
 }
 
 /// Every facet for one filtered set, computed from a single scan.
-pub async fn all_facets(
-    db: &Database,
-    filter: &FacetFilter,
-) -> Result<Vec<FacetAnswer>> {
+pub async fn all_facets(db: &Database, filter: &FacetFilter) -> Result<Vec<FacetAnswer>> {
     let rows = scan(db, filter).await?;
     Ok(vec![
         length_facet(&rows),
@@ -193,12 +190,7 @@ async fn scan(db: &Database, filter: &FacetFilter) -> Result<Vec<Scanned>> {
         Backend::Sqlite => {
             let mut query = sqlx::query_as::<_, Row>(&statement);
             if let Some(tag) = filter.tag.as_deref() {
-                query = query.bind(
-                    filter
-                        .tag_kind
-                        .clone()
-                        .unwrap_or_else(|| "tag".to_owned()),
-                );
+                query = query.bind(filter.tag_kind.clone().unwrap_or_else(|| "tag".to_owned()));
                 query = query.bind(tag);
             }
             if let Some(title) = filter.title_contains.as_deref() {
@@ -222,12 +214,7 @@ async fn scan(db: &Database, filter: &FacetFilter) -> Result<Vec<Scanned>> {
         Backend::Postgres => {
             let mut query = sqlx::query_as::<_, Row>(&statement);
             if let Some(tag) = filter.tag.as_deref() {
-                query = query.bind(
-                    filter
-                        .tag_kind
-                        .clone()
-                        .unwrap_or_else(|| "tag".to_owned()),
-                );
+                query = query.bind(filter.tag_kind.clone().unwrap_or_else(|| "tag".to_owned()));
                 query = query.bind(tag);
             }
             if let Some(title) = filter.title_contains.as_deref() {
@@ -255,22 +242,24 @@ async fn scan(db: &Database, filter: &FacetFilter) -> Result<Vec<Scanned>> {
 
     Ok(raw
         .into_iter()
-        .map(|(rating, lifecycle, published_at, updated_at, words, measured)| {
-            // `word_count` is unknown for a work whose units carry none. Storing `0` here would be a lie the length facet
-            // cannot tell from a 0-word work, which is why the measured count travels with the sum.
-            let words = (measured > 0).then_some(words);
-            let days = published_at
-                .as_deref()
-                .and_then(days_since_epoch)
-                .zip(updated_at.as_deref().and_then(days_since_epoch))
-                .map(|(published, updated)| (updated - published).max(0));
-            Scanned {
-                rating: rating.filter(|value| !value.trim().is_empty()),
-                lifecycle: lifecycle.filter(|value| !value.trim().is_empty()),
-                words,
-                days,
-            }
-        })
+        .map(
+            |(rating, lifecycle, published_at, updated_at, words, measured)| {
+                // `word_count` is unknown for a work whose units carry none. Storing `0` here would be a lie the length facet
+                // cannot tell from a 0-word work, which is why the measured count travels with the sum.
+                let words = (measured > 0).then_some(words);
+                let days = published_at
+                    .as_deref()
+                    .and_then(days_since_epoch)
+                    .zip(updated_at.as_deref().and_then(days_since_epoch))
+                    .map(|(published, updated)| (updated - published).max(0));
+                Scanned {
+                    rating: rating.filter(|value| !value.trim().is_empty()),
+                    lifecycle: lifecycle.filter(|value| !value.trim().is_empty()),
+                    words,
+                    days,
+                }
+            },
+        )
         .collect())
 }
 
@@ -285,30 +274,23 @@ fn when_unknown(known: i64, total: i64, what: &str) -> Option<String> {
             "No work in this view has a known {what} yet, so there is nothing to chart — this is a gap in the catalogue, not an empty shelf."
         ))
     } else {
-        Some(format!("{unknown} of {total} works in this view have no known {what}."))
+        Some(format!(
+            "{unknown} of {total} works in this view have no known {what}."
+        ))
     }
 }
 
 fn tally(buckets: BTreeMap<String, (String, i64)>) -> Vec<Bucket> {
     let mut buckets: Vec<Bucket> = buckets
         .into_iter()
-        .map(|(key, (label, count))| Bucket {
-            key,
-            label,
-            count,
-        })
+        .map(|(key, (label, count))| Bucket { key, label, count })
         .collect();
     // Largest first, then by label: a facet with a random order is a facet nobody can scan twice.
     buckets.sort_by(|a, b| b.count.cmp(&a.count).then_with(|| a.label.cmp(&b.label)));
     buckets
 }
 
-fn answer(
-    facet: Facet,
-    buckets: Vec<Bucket>,
-    known: i64,
-    total: i64,
-) -> FacetAnswer {
+fn answer(facet: Facet, buckets: Vec<Bucket>, known: i64, total: i64) -> FacetAnswer {
     let unknown = total - known;
     let when_unknown = if unknown > 0 && buckets.is_empty() {
         Some(format!(
@@ -539,9 +521,7 @@ fn histogram_of(rows: &[Scanned], buckets: usize) -> WordHistogram {
 
     // Edges at k/n of the population, for k = 1..n. `edges[0]` is the smallest value, so every work is in some bucket.
     let n = words.len();
-    let edges: Vec<i64> = (0..buckets)
-        .map(|k| words[(k * n) / buckets])
-        .collect();
+    let edges: Vec<i64> = (0..buckets).map(|k| words[(k * n) / buckets]).collect();
 
     let mut counts = vec![0i64; buckets];
     for value in &words {

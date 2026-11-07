@@ -40,7 +40,9 @@ async fn connect() -> Database {
         return db;
     };
     let name = format!("lh_mirror_{}", uuid::Uuid::new_v4().simple());
-    let admin_db = Database::connect(&make_config(admin.clone())).await.expect("admin");
+    let admin_db = Database::connect(&make_config(admin.clone()))
+        .await
+        .expect("admin");
     sqlx::query(&format!("CREATE DATABASE {name}"))
         .execute(admin_db.postgres_pool().expect("postgres handle"))
         .await
@@ -71,7 +73,12 @@ async fn recording_replaces_and_retiring_keeps_the_row() {
     .expect("record");
     assert_eq!(first.state, "active");
     assert_eq!(first.similarity_bp, 7200);
-    assert_eq!(work_mirrors::active_count(db, "work-1").await.expect("count"), 1);
+    assert_eq!(
+        work_mirrors::active_count(db, "work-1")
+            .await
+            .expect("count"),
+        1
+    );
 
     // Re-recording replaces: same row, new address and number.
     let again = work_mirrors::record(
@@ -85,10 +92,16 @@ async fn recording_replaces_and_retiring_keeps_the_row() {
     .await
     .expect("record again");
     assert_eq!(again.id, first.id, "one identity is one row");
-    assert_eq!(again.similarity_bp, 8100, "the number is the one the decision was made on");
+    assert_eq!(
+        again.similarity_bp, 8100,
+        "the number is the one the decision was made on"
+    );
     assert_eq!(again.peer_url, "https://peer.example/works/the-storm");
     assert_eq!(
-        work_mirrors::for_work(db, "work-1").await.expect("list").len(),
+        work_mirrors::for_work(db, "work-1")
+            .await
+            .expect("list")
+            .len(),
         1
     );
 
@@ -96,18 +109,25 @@ async fn recording_replaces_and_retiring_keeps_the_row() {
     work_mirrors::record(db, "work-1", "https://other.example", "", 6500, NOW)
         .await
         .expect("record other");
-    assert_eq!(work_mirrors::active_count(db, "work-1").await.expect("count"), 2);
+    assert_eq!(
+        work_mirrors::active_count(db, "work-1")
+            .await
+            .expect("count"),
+        2
+    );
 
     // A retirement needs a reason and keeps the row.
     let error = work_mirrors::retire(db, &again.id, "lost", "  ", NOW)
         .await
         .expect_err("a retirement without a reason is not a retirement");
     assert!(error.to_string().contains("reason"), "{error}");
-    assert!(
-        own_retire(db, &again.id).await,
-        "the mirror was retired"
+    assert!(own_retire(db, &again.id).await, "the mirror was retired");
+    assert_eq!(
+        work_mirrors::active_count(db, "work-1")
+            .await
+            .expect("count"),
+        1
     );
-    assert_eq!(work_mirrors::active_count(db, "work-1").await.expect("count"), 1);
     let rows = work_mirrors::for_work(db, "work-1").await.expect("list");
     assert_eq!(rows.len(), 2, "the retired row stays");
     let retired = rows
@@ -135,7 +155,12 @@ async fn recording_replaces_and_retiring_keeps_the_row() {
     assert_eq!(re_armed.state, "active");
     assert!(re_armed.retired_at.is_none(), "re-armed means not retired");
     assert!(re_armed.retire_reason.is_none());
-    assert_eq!(work_mirrors::active_count(db, "work-1").await.expect("count"), 2);
+    assert_eq!(
+        work_mirrors::active_count(db, "work-1")
+            .await
+            .expect("count"),
+        2
+    );
 }
 
 async fn own_retire(db: &Database, id: &str) -> bool {

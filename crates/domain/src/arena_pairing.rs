@@ -60,7 +60,9 @@ impl ArenaSignal {
     /// The deviation to reason with: the reported one, or the initial 350 for a card nobody has measured.
     #[must_use]
     pub fn deviation(&self) -> f64 {
-        self.rd.filter(|rd| rd.is_finite() && *rd >= 0.0).unwrap_or(INITIAL_DEVIATION)
+        self.rd
+            .filter(|rd| rd.is_finite() && *rd >= 0.0)
+            .unwrap_or(INITIAL_DEVIATION)
     }
 
     /// Whether this card is still being positioned.
@@ -130,7 +132,8 @@ fn rating_of(card: &ArenaCard) -> f64 {
 }
 
 fn deviation_of(card: &ArenaCard) -> f64 {
-    card.signal.map_or(INITIAL_DEVIATION, |signal| signal.deviation())
+    card.signal
+        .map_or(INITIAL_DEVIATION, |signal| signal.deviation())
 }
 
 fn calibrating_of(card: &ArenaCard, calibration_matches: u64) -> bool {
@@ -168,14 +171,19 @@ pub fn select_round(
     // The same pairing rule the arena has always used: four works that share a fandom. Grouping lives here rather than in
     // SQL because it is the arena's presentation rule, and a group of three must fall through to "no round", not to a
     // three-card tradeoff.
-    let mut groups: std::collections::BTreeMap<&str, Vec<&ArenaCard>> = std::collections::BTreeMap::new();
+    let mut groups: std::collections::BTreeMap<&str, Vec<&ArenaCard>> =
+        std::collections::BTreeMap::new();
     for card in pool {
         groups.entry(card.fandom.as_str()).or_default().push(card);
     }
     let group = groups.values().find(|members| members.len() >= 4)?;
 
     let exploring = {
-        let epsilon = if config.epsilon.is_finite() { config.epsilon.clamp(0.0, 1.0) } else { 0.0 };
+        let epsilon = if config.epsilon.is_finite() {
+            config.epsilon.clamp(0.0, 1.0)
+        } else {
+            0.0
+        };
         roll.is_finite() && roll >= 0.0 && roll < epsilon
     };
     let mode = if exploring {
@@ -301,7 +309,11 @@ mod tests {
             excerpt: String::new(),
             target_dimension: "prose".to_owned(),
             vector: vec![0.5],
-            signal: rating.map(|rating| ArenaSignal { rating, rd, matches }),
+            signal: rating.map(|rating| ArenaSignal {
+                rating,
+                rd,
+                matches,
+            }),
         }
     }
 
@@ -319,11 +331,21 @@ mod tests {
             card("far", Some(1_900.0), Some(60.0), 40),
             card("farther", Some(900.0), Some(60.0), 40),
         ];
-        let outcome = select_round(&pool, &dimensions(), &targets(), PairingConfig::default(), 0.5)
-            .expect("a round");
+        let outcome = select_round(
+            &pool,
+            &dimensions(),
+            &targets(),
+            PairingConfig::default(),
+            0.5,
+        )
+        .expect("a round");
         assert_eq!(outcome.mode, PairingMode::Proximate);
         let ids: Vec<&str> = outcome.cards.iter().map(|c| c.work_id.as_str()).collect();
-        assert_eq!(ids, vec!["a", "b", "c", "d"], "the tight four, not the spread six");
+        assert_eq!(
+            ids,
+            vec!["a", "b", "c", "d"],
+            "the tight four, not the spread six"
+        );
         assert!(outcome.reason.contains("proximate"), "{}", outcome.reason);
     }
 
@@ -340,15 +362,24 @@ mod tests {
             card("g", Some(1_280.0), Some(300.0), 1),
             card("h", Some(1_300.0), Some(300.0), 1),
         ];
-        let outcome = select_round(&pool, &dimensions(), &targets(), PairingConfig::default(), 0.5)
-            .expect("a round");
+        let outcome = select_round(
+            &pool,
+            &dimensions(),
+            &targets(),
+            PairingConfig::default(),
+            0.5,
+        )
+        .expect("a round");
         let ids: Vec<&str> = outcome.cards.iter().map(|c| c.work_id.as_str()).collect();
         assert_eq!(
             ids,
             vec!["e", "f", "g", "h"],
             "equal span, and these four are the ones the vote can still move"
         );
-        assert_eq!(outcome.calibrating, ids, "one ballot each is inside the window");
+        assert_eq!(
+            outcome.calibrating, ids,
+            "one ballot each is inside the window"
+        );
     }
 
     #[test]
@@ -367,14 +398,22 @@ mod tests {
         let explored = select_round(&pool, &dimensions(), &targets(), config, 0.05).expect("round");
         assert_eq!(explored.mode, PairingMode::Explore);
         let ids: Vec<&str> = explored.cards.iter().map(|c| c.work_id.as_str()).collect();
-        assert_eq!(ids, vec!["b", "c", "d", "e"], "the widest window, not the tightest");
+        assert_eq!(
+            ids,
+            vec!["b", "c", "d", "e"],
+            "the widest window, not the tightest"
+        );
         assert!(explored.reason.contains("exploring"), "{}", explored.reason);
 
         // The same pool and the same four under a roll outside epsilon: no exploration, no ambiguity.
         let paired = select_round(&pool, &dimensions(), &targets(), config, 0.9).expect("round");
         assert_eq!(paired.mode, PairingMode::Proximate);
         assert_ne!(
-            paired.cards.iter().map(|c| c.work_id.clone()).collect::<Vec<_>>(),
+            paired
+                .cards
+                .iter()
+                .map(|c| c.work_id.clone())
+                .collect::<Vec<_>>(),
             ids,
             "the two modes must not converge on the same four here, or the test proves nothing"
         );
@@ -388,8 +427,14 @@ mod tests {
             card("rated3", Some(1_520.0), Some(60.0), 50),
             card("unrated", None, None, 0),
         ];
-        let outcome = select_round(&pool, &dimensions(), &targets(), PairingConfig::default(), 0.5)
-            .expect("a round");
+        let outcome = select_round(
+            &pool,
+            &dimensions(),
+            &targets(),
+            PairingConfig::default(),
+            0.5,
+        )
+        .expect("a round");
         assert_eq!(outcome.calibrating, vec!["unrated".to_owned()]);
         assert!(
             outcome.reason.contains("calibrating"),
@@ -406,30 +451,59 @@ mod tests {
             card("c", Some(1_500.0), None, 9),
         ];
         assert_eq!(
-            select_round(&three, &dimensions(), &targets(), PairingConfig::default(), 0.0),
+            select_round(
+                &three,
+                &dimensions(),
+                &targets(),
+                PairingConfig::default(),
+                0.0
+            ),
             None
         );
-        let four: Vec<ArenaCard> = (0..4).map(|n| card(&format!("w{n}"), None, None, 0)).collect();
+        let four: Vec<ArenaCard> = (0..4)
+            .map(|n| card(&format!("w{n}"), None, None, 0))
+            .collect();
         assert_eq!(
-            select_round(&four, &dimensions(), &["missing".to_owned()], PairingConfig::default(), 0.0),
+            select_round(
+                &four,
+                &dimensions(),
+                &["missing".to_owned()],
+                PairingConfig::default(),
+                0.0
+            ),
             None,
             "a round varying on no known dimension teaches nothing"
         );
         // And the same four are offerable once a real dimension is named.
-        assert!(select_round(&four, &dimensions(), &targets(), PairingConfig::default(), 0.0).is_some());
+        assert!(select_round(
+            &four,
+            &dimensions(),
+            &targets(),
+            PairingConfig::default(),
+            0.0
+        )
+        .is_some());
     }
 
     #[test]
     fn epsilon_zero_never_explores_and_one_always_does() {
         let pool: Vec<ArenaCard> = (0..6)
-            .map(|n| card(&format!("w{n}"), Some(1_500.0 + f64::from(n) * 100.0), Some(90.0), 30))
+            .map(|n| {
+                card(
+                    &format!("w{n}"),
+                    Some(1_500.0 + f64::from(n) * 100.0),
+                    Some(90.0),
+                    30,
+                )
+            })
             .collect();
         let never = PairingConfig {
             epsilon: 0.0,
             ..PairingConfig::default()
         };
         for roll in [0.0, 0.5, 0.999_999] {
-            let outcome = select_round(&pool, &dimensions(), &targets(), never, roll).expect("round");
+            let outcome =
+                select_round(&pool, &dimensions(), &targets(), never, roll).expect("round");
             assert_eq!(outcome.mode, PairingMode::Proximate, "roll {roll}");
         }
         let always = PairingConfig {
@@ -443,10 +517,29 @@ mod tests {
     #[test]
     fn the_same_roll_gives_the_same_round() {
         let pool: Vec<ArenaCard> = (0..8)
-            .map(|n| card(&format!("w{n}"), Some(1_400.0 + f64::from(n) * 50.0), Some(120.0), 12))
+            .map(|n| {
+                card(
+                    &format!("w{n}"),
+                    Some(1_400.0 + f64::from(n) * 50.0),
+                    Some(120.0),
+                    12,
+                )
+            })
             .collect();
-        let first = select_round(&pool, &dimensions(), &targets(), PairingConfig::default(), 0.42);
-        let second = select_round(&pool, &dimensions(), &targets(), PairingConfig::default(), 0.42);
+        let first = select_round(
+            &pool,
+            &dimensions(),
+            &targets(),
+            PairingConfig::default(),
+            0.42,
+        );
+        let second = select_round(
+            &pool,
+            &dimensions(),
+            &targets(),
+            PairingConfig::default(),
+            0.42,
+        );
         assert_eq!(first, second, "no hidden RNG, so a rerun is a rerun");
     }
 }

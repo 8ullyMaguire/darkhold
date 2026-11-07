@@ -121,9 +121,12 @@ impl Harness {
         ))
         .await;
 
-        self.work(PUBLIC_WORK, "'The Long Way Round'", "public").await;
-        self.work(UNLISTED_WORK, "'An Unlisted Thing'", "unlisted").await;
-        self.work(PRIVATE_WORK, "'A Private Thing'", "private").await;
+        self.work(PUBLIC_WORK, "'The Long Way Round'", "public")
+            .await;
+        self.work(UNLISTED_WORK, "'An Unlisted Thing'", "unlisted")
+            .await;
+        self.work(PRIVATE_WORK, "'A Private Thing'", "private")
+            .await;
         self.work(RESTRICTED_WORK, "'A Restricted Thing'", "restricted")
             .await;
 
@@ -216,7 +219,10 @@ async fn a_public_work_renders_as_a_readable_document() {
     );
     assert!(body.contains("A blurb about the thing."), "{body}");
     assert!(body.contains("general"), "rating is stated: {body}");
-    assert!(body.contains("2000 words"), "length is the readable total: {body}");
+    assert!(
+        body.contains("2000 words"),
+        "length is the readable total: {body}"
+    );
     assert!(body.contains("slow burn"), "tags are listed: {body}");
     assert!(
         body.contains(&format!("/works/{PUBLIC_WORK}/units/{UNIT_ONE}")),
@@ -250,7 +256,11 @@ async fn an_unlisted_work_is_readable_by_url() {
     harness.seed().await;
     let mut client = harness.client();
     let (status, body) = client.get(&format!("/works/{UNLISTED_WORK}")).await;
-    assert_eq!(status, StatusCode::OK, "unlisted is not hidden from a link: {body}");
+    assert_eq!(
+        status,
+        StatusCode::OK,
+        "unlisted is not hidden from a link: {body}"
+    );
     assert!(body.contains("An Unlisted Thing"), "{body}");
 }
 
@@ -290,7 +300,10 @@ async fn a_restricted_work_shows_its_record_and_withholds_its_text() {
     // why they cannot read it. `denial` encodes that as `SignInRequired` -> `MetadataOnly`, before
     // `works.gated_metadata_public` is consulted at all, so this arm must not be gated on a config switch.
     assert_eq!(status, StatusCode::OK, "{body}");
-    assert!(body.contains("A Restricted Thing"), "the record is public: {body}");
+    assert!(
+        body.contains("A Restricted Thing"),
+        "the record is public: {body}"
+    );
     assert!(
         body.contains("text is held"),
         "the page must say plainly why there is no chapter here: {body}"

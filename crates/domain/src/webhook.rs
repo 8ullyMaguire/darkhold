@@ -218,7 +218,10 @@ pub enum BreakerDecision {
     /// Nothing changed, or a success reset the count.
     Continue { consecutive_failures: u32 },
     /// Switch the endpoint off, with the reason a reader will see.
-    Disable { consecutive_failures: u32, reason: String },
+    Disable {
+        consecutive_failures: u32,
+        reason: String,
+    },
 }
 
 impl Breaker {
@@ -281,7 +284,11 @@ mod operational_tests {
             Some(rotated),
             rotated + ROTATION_GRACE_SECONDS,
         );
-        assert_eq!(after, vec![(KeyId::Current, current)], "the grace is a window");
+        assert_eq!(
+            after,
+            vec![(KeyId::Current, current)],
+            "the grace is a window"
+        );
     }
 
     #[test]
@@ -307,7 +314,10 @@ mod operational_tests {
             &event(),
             &[(KeyId::Current, "whsec_a"), (KeyId::Previous, "whsec_b")],
         );
-        assert!(rotated.contains("v1=") && rotated.contains("v0="), "{rotated}");
+        assert!(
+            rotated.contains("v1=") && rotated.contains("v0="),
+            "{rotated}"
+        );
         // The two signatures differ, which is the point: a receiver can tell which key verified.
         let parts: Vec<&str> = rotated.split(',').collect();
         assert_eq!(parts.len(), 2);
@@ -349,7 +359,10 @@ mod operational_tests {
             }
         );
         match breaker.after_failure(2) {
-            BreakerDecision::Disable { consecutive_failures, reason } => {
+            BreakerDecision::Disable {
+                consecutive_failures,
+                reason,
+            } => {
                 assert_eq!(consecutive_failures, 3);
                 assert!(reason.contains("consecutive"), "{reason}");
             }

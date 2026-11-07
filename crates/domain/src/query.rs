@@ -333,12 +333,8 @@ fn unsplit_comparison(term: &str) -> Option<String> {
 /// The order is the product's: `general` < `teen` < `mature` < `explicit`. It is here — in the domain, next to the grammar — because
 /// three implementations of the same ladder is how `rating:<=mature` and the catalogue's ceiling end up disagreeing about whether
 /// an `explicit` work is above a `mature` one.
-pub const RATING_RANKS: [(&str, i64); 4] = [
-    ("general", 0),
-    ("teen", 1),
-    ("mature", 2),
-    ("explicit", 3),
-];
+pub const RATING_RANKS: [(&str, i64); 4] =
+    [("general", 0), ("teen", 1), ("mature", 2), ("explicit", 3)];
 
 /// The rank of a rating name, case-insensitively; `None` when the name is not in the vocabulary.
 #[must_use]
@@ -490,9 +486,7 @@ fn bounds_descend(kind: ValueKind, low: &str, high: &str) -> bool {
         // behaves as "January 2026" against a stored `2026-01-15 09:00:00`.
         ValueKind::Date | ValueKind::Text => low > high,
         // A rank compares by position in the vocabulary, and a range whose low end is above its high end is the same empty window.
-        ValueKind::Rank => {
-            rating_rank(low).unwrap_or(0) > rating_rank(high).unwrap_or(i64::MAX)
-        }
+        ValueKind::Rank => rating_rank(low).unwrap_or(0) > rating_rank(high).unwrap_or(i64::MAX),
     }
 }
 

@@ -95,25 +95,21 @@ pub async fn snapshot_day(db: &Database, day: &str) -> Result<i64> {
     };
 
     let written = match db.backend() {
-        crate::Backend::Sqlite => {
-            sqlx::query(sql)
-                .bind(day)
-                .bind(&start)
-                .execute(db.sqlite_pool().expect("sqlite pool for sqlite backend"))
-                .await?
-                .rows_affected()
-        }
-        crate::Backend::Postgres => {
-            sqlx::query(sql)
-                .bind(day)
-                .bind(&start)
-                .execute(
-                    db.postgres_pool()
-                        .expect("postgres pool for postgres backend"),
-                )
-                .await?
-                .rows_affected()
-        }
+        crate::Backend::Sqlite => sqlx::query(sql)
+            .bind(day)
+            .bind(&start)
+            .execute(db.sqlite_pool().expect("sqlite pool for sqlite backend"))
+            .await?
+            .rows_affected(),
+        crate::Backend::Postgres => sqlx::query(sql)
+            .bind(day)
+            .bind(&start)
+            .execute(
+                db.postgres_pool()
+                    .expect("postgres pool for postgres backend"),
+            )
+            .await?
+            .rows_affected(),
     };
     Ok(i64::try_from(written).unwrap_or(i64::MAX))
 }

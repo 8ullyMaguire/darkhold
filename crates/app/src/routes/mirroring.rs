@@ -30,7 +30,9 @@ use crate::routes::discovery::require_operator;
 use crate::routes::well_known;
 use crate::state::AppState;
 use darkhold_domain::error::AppError;
-use darkhold_domain::mirroring::{eligible, eligible_peers, Attribution, Ineligible, MIN_MIRROR_SIMILARITY};
+use darkhold_domain::mirroring::{
+    eligible, eligible_peers, Attribution, Ineligible, MIN_MIRROR_SIMILARITY,
+};
 
 /// The mirroring routes.
 pub fn router() -> Router<AppState> {
@@ -78,14 +80,17 @@ fn validation(message: String) -> ApiError {
 /// attribution door asks with it, because a mirror line is a disclosure about where a work lives and a draft's address is
 /// not a stranger's to learn. The public door answers 404 for a draft, not an empty list: "no mirrors" and "not for you" are
 /// different facts and only one of them is safe to tell.
-async fn work_title(state: &AppState, work_id: &str, published: bool) -> anyhow::Result<Option<String>> {
+async fn work_title(
+    state: &AppState,
+    work_id: &str,
+    published: bool,
+) -> anyhow::Result<Option<String>> {
     let filter = if published {
         " AND lifecycle = 'published' AND visibility = 'public'"
     } else {
         ""
     };
-    let sqlite_sql =
-        format!("SELECT title FROM works WHERE id = ? AND deleted_at IS NULL{filter}");
+    let sqlite_sql = format!("SELECT title FROM works WHERE id = ? AND deleted_at IS NULL{filter}");
     let postgres_sql =
         format!("SELECT title FROM works WHERE id::text = $1 AND deleted_at IS NULL{filter}");
     let sql = state.db().sql(&sqlite_sql, &postgres_sql);
@@ -144,7 +149,10 @@ async fn eligible_peers_handler(
         })));
     };
 
-    let documents: Vec<_> = peers.iter().map(|(fingerprint, _)| fingerprint.clone()).collect();
+    let documents: Vec<_> = peers
+        .iter()
+        .map(|(fingerprint, _)| fingerprint.clone())
+        .collect();
     let eligible_list = eligible_peers(&own, &documents, floor);
     let ineligible: Vec<Value> = documents
         .iter()
@@ -212,7 +220,10 @@ async fn record(
     let request: RecordRequest = parse(&body)?;
 
     // The work has to exist: a mirror row pointing at nothing is a line on no page.
-    let Some(title) = work_title(&state, &work_id, false).await.map_err(internal)? else {
+    let Some(title) = work_title(&state, &work_id, false)
+        .await
+        .map_err(internal)?
+    else {
         return Err(ApiError(AppError::NotFound { resource: "work" }));
     };
 
@@ -328,7 +339,11 @@ async fn attribution(
     }
     // The same visibility rule the operator door uses, so the two cannot disagree about which works have a public mirror
     // line: a draft's mirrors are not a stranger's to learn, and the answer for one is 404, not an empty list.
-    if work_title(&state, &work_id, true).await.map_err(internal)?.is_none() {
+    if work_title(&state, &work_id, true)
+        .await
+        .map_err(internal)?
+        .is_none()
+    {
         return Err(ApiError(AppError::NotFound { resource: "work" }));
     }
     let rows = darkhold_db::work_mirrors::for_work(state.db(), &work_id)

@@ -43,7 +43,9 @@ async fn connect() -> Database {
         return db;
     };
     let name = format!("lh_pass_{}", uuid::Uuid::new_v4().simple());
-    let admin_db = Database::connect(&make_config(admin.clone())).await.expect("admin");
+    let admin_db = Database::connect(&make_config(admin.clone()))
+        .await
+        .expect("admin");
     sqlx::query(&format!("CREATE DATABASE {name}"))
         .execute(admin_db.postgres_pool().expect("postgres handle"))
         .await
@@ -79,26 +81,22 @@ fn passport(tags: &[(&str, u32)]) -> Passport {
 
 async fn signals(db: &Database, account: &str) -> Vec<(String, String, f64)> {
     let rows: Vec<(String, String, f64)> = match db.backend() {
-        Backend::Sqlite => {
-            sqlx::query_as(
-                "SELECT dimension_key, origin, signal_value FROM taste_signals
+        Backend::Sqlite => sqlx::query_as(
+            "SELECT dimension_key, origin, signal_value FROM taste_signals
                   WHERE account_id = ? ORDER BY dimension_key",
-            )
-            .bind(account)
-            .fetch_all(db.sqlite_pool().expect("sqlite"))
-            .await
-            .expect("signals")
-        }
-        Backend::Postgres => {
-            sqlx::query_as(
-                "SELECT dimension_key, origin, signal_value::double precision FROM taste_signals
+        )
+        .bind(account)
+        .fetch_all(db.sqlite_pool().expect("sqlite"))
+        .await
+        .expect("signals"),
+        Backend::Postgres => sqlx::query_as(
+            "SELECT dimension_key, origin, signal_value::double precision FROM taste_signals
                   WHERE account_id = $1::uuid ORDER BY dimension_key",
-            )
-            .bind(account)
-            .fetch_all(db.postgres_pool().expect("postgres"))
-            .await
-            .expect("signals")
-        }
+        )
+        .bind(account)
+        .fetch_all(db.postgres_pool().expect("postgres"))
+        .await
+        .expect("signals"),
     };
     rows
 }
@@ -143,7 +141,9 @@ async fn a_verified_passport_seeds_imported_signals_and_a_tampered_one_seeds_not
 
     let document = passport(&[("angst", 5_000), ("fluff", 3_000), ("au", 2_000)]);
     let signed = passport::sign_with_hex(&document, KEY).expect("sign");
-    let receipt = passports::import(db, &reader, &signed, NOW).await.expect("import");
+    let receipt = passports::import(db, &reader, &signed, NOW)
+        .await
+        .expect("import");
     assert_eq!(receipt.origin, "https://origin.example");
     assert_eq!(receipt.signals, 3, "one signal per tag");
     assert_eq!(receipt.taste_bp.get("angst"), Some(&5_000));
@@ -170,9 +170,15 @@ async fn a_verified_passport_seeds_imported_signals_and_a_tampered_one_seeds_not
         .await
         .expect_err("a forged passport is refused");
     assert!(error.to_string().contains("signature"), "{error}");
-    assert!(signals(db, &other).await.is_empty(), "verification runs before any write");
     assert!(
-        passports::for_account(db, &other).await.expect("receipts").is_empty(),
+        signals(db, &other).await.is_empty(),
+        "verification runs before any write"
+    );
+    assert!(
+        passports::for_account(db, &other)
+            .await
+            .expect("receipts")
+            .is_empty(),
         "a refused passport leaves no receipt"
     );
 }
@@ -183,18 +189,30 @@ async fn re_presenting_a_newer_document_replaces_the_old_taste_and_withdrawing_r
     let db = &db;
     let reader = account(db, "passport-mover").await;
 
-    let first = passport::sign_with_hex(&passport(&[("angst", 6_000), ("hurt", 4_000)]), KEY).expect("sign");
-    passports::import(db, &reader, &first, NOW).await.expect("first import");
+    let first = passport::sign_with_hex(&passport(&[("angst", 6_000), ("hurt", 4_000)]), KEY)
+        .expect("sign");
+    passports::import(db, &reader, &first, NOW)
+        .await
+        .expect("first import");
     assert_eq!(signals(db, &reader).await.len(), 2);
 
-    let second = passport::sign_with_hex(&passport(&[("smut", 7_000), ("au", 3_000)]), KEY).expect("sign");
-    let receipt = passports::import(db, &reader, &second, NOW).await.expect("second import");
+    let second =
+        passport::sign_with_hex(&passport(&[("smut", 7_000), ("au", 3_000)]), KEY).expect("sign");
+    let receipt = passports::import(db, &reader, &second, NOW)
+        .await
+        .expect("second import");
     assert_eq!(receipt.signals, 2);
 
     let seeded = signals(db, &reader).await;
-    assert_eq!(seeded.len(), 2, "two versions of one prior are not two priors: {seeded:?}");
+    assert_eq!(
+        seeded.len(),
+        2,
+        "two versions of one prior are not two priors: {seeded:?}"
+    );
     assert!(
-        seeded.iter().all(|(dimension, _, _)| dimension != "tag:angst" && dimension != "tag:hurt"),
+        seeded
+            .iter()
+            .all(|(dimension, _, _)| dimension != "tag:angst" && dimension != "tag:hurt"),
         "the older document's taste is gone, not merely outweighed: {seeded:?}"
     );
 
@@ -207,8 +225,14 @@ async fn re_presenting_a_newer_document_replaces_the_old_taste_and_withdrawing_r
             .expect("revoke"),
         "revoking an existing passport reports that it removed something"
     );
-    assert!(signals(db, &reader).await.is_empty(), "the taste goes with the receipt");
-    assert!(passports::for_account(db, &reader).await.expect("receipts").is_empty());
+    assert!(
+        signals(db, &reader).await.is_empty(),
+        "the taste goes with the receipt"
+    );
+    assert!(passports::for_account(db, &reader)
+        .await
+        .expect("receipts")
+        .is_empty());
     assert!(
         !passports::revoke(db, &reader, "https://origin.example")
             .await

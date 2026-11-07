@@ -43,10 +43,8 @@ async fn database(tag: &str) -> (Database, PathBuf) {
                 .expect("an empty PostgreSQL database")
         }
         _ => {
-            let config = DatabaseConfig::new(format!(
-                "sqlite://{}/slug.sqlite?mode=rwc",
-                dir.display()
-            ));
+            let config =
+                DatabaseConfig::new(format!("sqlite://{}/slug.sqlite?mode=rwc", dir.display()));
             Database::connect(&config).await.expect("connect")
         }
     };
@@ -100,9 +98,7 @@ async fn view(db: &Database, account: &str, id: &str, name: &str) {
 
 #[tokio::test]
 async fn a_saved_view_can_be_named_and_the_name_is_per_account() {
-    use darkhold_db::library::{
-        saved_view_id_for_slug, set_saved_view_slug, valid_slug,
-    };
+    use darkhold_db::library::{saved_view_id_for_slug, set_saved_view_slug, valid_slug};
 
     let (db, dir) = database("names").await;
     seed(&db).await;
@@ -110,11 +106,18 @@ async fn a_saved_view_can_be_named_and_the_name_is_per_account() {
     view(&db, ME, "01955200-0000-4000-8000-00000000000b", "Evening").await;
 
     // 1. A legal name round-trips.
-    assert!(set_saved_view_slug(&db, ME, "01955200-0000-4000-8000-00000000000a", Some("to-read"))
-        .await
-        .expect("name it"));
+    assert!(set_saved_view_slug(
+        &db,
+        ME,
+        "01955200-0000-4000-8000-00000000000a",
+        Some("to-read")
+    )
+    .await
+    .expect("name it"));
     assert_eq!(
-        saved_view_id_for_slug(&db, ME, "to-read").await.expect("resolve"),
+        saved_view_id_for_slug(&db, ME, "to-read")
+            .await
+            .expect("resolve"),
         Some("01955200-0000-4000-8000-00000000000a".to_owned())
     );
 
@@ -129,16 +132,23 @@ async fn a_saved_view_can_be_named_and_the_name_is_per_account() {
         );
     }
     assert_eq!(
-        saved_view_id_for_slug(&db, ME, "to-read").await.expect("resolve"),
+        saved_view_id_for_slug(&db, ME, "to-read")
+            .await
+            .expect("resolve"),
         Some("01955200-0000-4000-8000-00000000000a".to_owned()),
         "a refused name leaves the other view's name intact"
     );
 
     // 3. Two of my views cannot share a name.
     assert!(
-        set_saved_view_slug(&db, ME, "01955200-0000-4000-8000-00000000000b", Some("to-read"))
-            .await
-            .is_err(),
+        set_saved_view_slug(
+            &db,
+            ME,
+            "01955200-0000-4000-8000-00000000000b",
+            Some("to-read")
+        )
+        .await
+        .is_err(),
         "the account may hold `to-read` once"
     );
 
@@ -153,17 +163,23 @@ async fn a_saved_view_can_be_named_and_the_name_is_per_account() {
     .await
     .expect("their own name"));
     assert_eq!(
-        saved_view_id_for_slug(&db, OTHER, "to-read").await.expect("resolve"),
+        saved_view_id_for_slug(&db, OTHER, "to-read")
+            .await
+            .expect("resolve"),
         Some("01955200-0000-4000-8000-00000000000c".to_owned()),
         "the same slug in another account is a different view"
     );
 
     // 5. Clearing the name leaves the view addressable by id only.
-    assert!(set_saved_view_slug(&db, ME, "01955200-0000-4000-8000-00000000000a", None)
-        .await
-        .expect("clear"));
+    assert!(
+        set_saved_view_slug(&db, ME, "01955200-0000-4000-8000-00000000000a", None)
+            .await
+            .expect("clear")
+    );
     assert_eq!(
-        saved_view_id_for_slug(&db, ME, "to-read").await.expect("resolve"),
+        saved_view_id_for_slug(&db, ME, "to-read")
+            .await
+            .expect("resolve"),
         None
     );
 

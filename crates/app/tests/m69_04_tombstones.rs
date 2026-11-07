@@ -52,8 +52,12 @@ impl Client {
     fn capture(&mut self, response: &axum::response::Response) {
         for value in response.headers().get_all(header::SET_COOKIE) {
             let Ok(text) = value.to_str() else { continue };
-            let Some((pair, _)) = text.split_once(';') else { continue };
-            let Some((name, value)) = pair.split_once('=') else { continue };
+            let Some((pair, _)) = text.split_once(';') else {
+                continue;
+            };
+            let Some((name, value)) = pair.split_once('=') else {
+                continue;
+            };
             let name = name.trim().to_owned();
             let value = value.trim().to_owned();
             self.cookies.retain(|(k, _)| k != &name);
@@ -99,7 +103,10 @@ impl Client {
         let bytes = axum::body::to_bytes(response.into_body(), usize::MAX)
             .await
             .expect("body");
-        (status, serde_json::from_slice(&bytes).unwrap_or(Value::Null))
+        (
+            status,
+            serde_json::from_slice(&bytes).unwrap_or(Value::Null),
+        )
     }
 
     async fn register(&mut self, handle: &str) -> String {
@@ -133,7 +140,8 @@ fn router(tdb: &TestDb, dir: &std::path::Path, open: bool, operator: Option<&str
     let mut config = Config::development_defaults();
     config.storage.root = dir.to_path_buf();
     config.discovery.work_tombstones = open;
-    config.administration.operator_account_id = operator.map(|id| id.parse().expect("an account id"));
+    config.administration.operator_account_id =
+        operator.map(|id| id.parse().expect("an account id"));
     let state = AppState::new(config, tdb.db().clone());
     server::build_router(state)
 }
@@ -189,8 +197,7 @@ async fn filing_reads_back_and_withdrawal_stops_the_refusal() {
     assert_eq!(status, StatusCode::OK, "{listed}");
     assert_eq!(listed["active"], 1);
     assert_eq!(
-        listed["tombstones"][0]["refusals"],
-        1,
+        listed["tombstones"][0]["refusals"], 1,
         "the count is how an operator sees the tombstone working: {listed}"
     );
 
@@ -204,18 +211,16 @@ async fn filing_reads_back_and_withdrawal_stops_the_refusal() {
     assert_eq!(status, StatusCode::OK, "{withdrawn}");
 
     // Withdrawn: no longer refusing, still listed, with the reason.
-    assert!(
-        darkhold_db::tombstones::refuse(
-            tdb.db(),
-            "The Storm",
-            "ada",
-            Some("en"),
-            "2026-11-07T00:00:00Z"
-        )
-        .await
-        .expect("refuse")
-        .is_none()
-    );
+    assert!(darkhold_db::tombstones::refuse(
+        tdb.db(),
+        "The Storm",
+        "ada",
+        Some("en"),
+        "2026-11-07T00:00:00Z"
+    )
+    .await
+    .expect("refuse")
+    .is_none());
     let (_, listed) = client.send("GET", "/api/v1/admin/tombstones", None).await;
     assert_eq!(listed["active"], 0);
     assert_eq!(

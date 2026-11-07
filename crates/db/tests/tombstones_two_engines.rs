@@ -38,7 +38,9 @@ async fn connect() -> Database {
         return db;
     };
     let name = format!("lh_tomb_{}", uuid::Uuid::new_v4().simple());
-    let admin_db = Database::connect(&make_config(admin.clone())).await.expect("admin");
+    let admin_db = Database::connect(&make_config(admin.clone()))
+        .await
+        .expect("admin");
     sqlx::query(&format!("CREATE DATABASE {name}"))
         .execute(admin_db.postgres_pool().expect("postgres handle"))
         .await
@@ -81,7 +83,10 @@ async fn a_tombstone_refuses_the_work_cites_itself_and_counts_the_refusal() {
         .await
         .expect("refuse")
         .expect("a refusal, because identity is not the URL");
-    assert_eq!(refusal.tombstone, filed.id, "the refusal cites the tombstone");
+    assert_eq!(
+        refusal.tombstone, filed.id,
+        "the refusal cites the tombstone"
+    );
     assert_eq!(refusal.reason, "author request");
     assert_eq!(refusal.filed_at, NOW);
 
@@ -92,10 +97,12 @@ async fn a_tombstone_refuses_the_work_cites_itself_and_counts_the_refusal() {
     assert_eq!(listed[0].last_refused_at.as_deref(), Some(NOW));
 
     // A different author is a different work.
-    assert!(tombstones::refuse(db, "Vampiric Concerto", "someone-else", None, NOW)
-        .await
-        .expect("refuse")
-        .is_none());
+    assert!(
+        tombstones::refuse(db, "Vampiric Concerto", "someone-else", None, NOW)
+            .await
+            .expect("refuse")
+            .is_none()
+    );
     // An untitled work cannot be keyed, so it is not refused either.
     assert!(tombstones::refuse(db, "", "ashenthea", None, NOW)
         .await
@@ -131,11 +138,15 @@ async fn withdrawal_stops_the_refusal_and_keeps_the_row_and_re_filing_re_arms_it
         .expect_err("a withdrawal without a reason is not a withdrawal");
     assert!(error.to_string().contains("reason"), "{error}");
 
-    assert!(
-        tombstones::withdraw(db, &filed.id, "operator", "filed against the wrong work", NOW)
-            .await
-            .expect("withdraw")
-    );
+    assert!(tombstones::withdraw(
+        db,
+        &filed.id,
+        "operator",
+        "filed against the wrong work",
+        NOW
+    )
+    .await
+    .expect("withdraw"));
     assert!(
         !tombstones::withdraw(db, &filed.id, "operator", "again", NOW)
             .await
@@ -149,7 +160,11 @@ async fn withdrawal_stops_the_refusal_and_keeps_the_row_and_re_filing_re_arms_it
         .expect("refuse")
         .is_none());
     let listed = tombstones::list(db, 10).await.expect("list");
-    assert_eq!(listed.len(), 1, "the row stays: deleting it would answer the author with silence");
+    assert_eq!(
+        listed.len(),
+        1,
+        "the row stays: deleting it would answer the author with silence"
+    );
     assert_eq!(
         listed[0].withdraw_reason.as_deref(),
         Some("filed against the wrong work")
@@ -174,7 +189,10 @@ async fn withdrawal_stops_the_refusal_and_keeps_the_row_and_re_filing_re_arms_it
     .await
     .expect("re-file");
     assert_eq!(re_armed.id, filed.id, "one identity is one row");
-    assert!(re_armed.withdrawn_at.is_none(), "re-filed means active again");
+    assert!(
+        re_armed.withdrawn_at.is_none(),
+        "re-filed means active again"
+    );
     assert_eq!(
         re_armed.dmca_id.as_deref(),
         Some("dmca-42"),

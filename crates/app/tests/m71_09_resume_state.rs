@@ -150,7 +150,10 @@ impl Client {
         let bytes = axum::body::to_bytes(response.into_body(), usize::MAX)
             .await
             .unwrap();
-        (status, serde_json::from_slice(&bytes).unwrap_or(Value::Null))
+        (
+            status,
+            serde_json::from_slice(&bytes).unwrap_or(Value::Null),
+        )
     }
 
     async fn get(&mut self, uri: &str) -> (StatusCode, Value) {
@@ -339,7 +342,10 @@ async fn two_devices_that_disagree_ask_the_reader_and_show_no_single_percentage(
     assert_eq!(status, StatusCode::OK, "{body}");
     let resume = &body["resume"];
     assert_eq!(resume["state"], "conflict", "{body}");
-    assert!(resume["percent"].is_null(), "two places, no basis: {resume}");
+    assert!(
+        resume["percent"].is_null(),
+        "two places, no basis: {resume}"
+    );
     assert_eq!(resume["display"], "—");
     assert_eq!(resume["needs_a_choice"], true);
     assert!(

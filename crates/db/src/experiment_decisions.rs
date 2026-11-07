@@ -564,23 +564,19 @@ pub async fn release(db: &Database, surface_id: &str) -> Result<bool> {
         Backend::Postgres => "DELETE FROM experiment_holds WHERE surface_id = $1",
     };
     let affected = match db.backend() {
-        Backend::Sqlite => {
-            sqlx::query(sql)
-                .bind(surface_id)
-                .execute(db.sqlite_pool().expect("sqlite pool for sqlite backend"))
-                .await?
-                .rows_affected()
-        }
-        Backend::Postgres => {
-            sqlx::query(sql)
-                .bind(surface_id)
-                .execute(
-                    db.postgres_pool()
-                        .expect("postgres pool for postgres backend"),
-                )
-                .await?
-                .rows_affected()
-        }
+        Backend::Sqlite => sqlx::query(sql)
+            .bind(surface_id)
+            .execute(db.sqlite_pool().expect("sqlite pool for sqlite backend"))
+            .await?
+            .rows_affected(),
+        Backend::Postgres => sqlx::query(sql)
+            .bind(surface_id)
+            .execute(
+                db.postgres_pool()
+                    .expect("postgres pool for postgres backend"),
+            )
+            .await?
+            .rows_affected(),
     };
     Ok(affected > 0)
 }

@@ -73,10 +73,7 @@ impl Harness {
     }
 
     fn client(&self) -> axum::Router {
-        server::build_router(AppState::new(
-            self.config.clone(),
-            self.tdb.db().clone(),
-        ))
+        server::build_router(AppState::new(self.config.clone(), self.tdb.db().clone()))
     }
 
     async fn exec(&self, statement: &str) {
@@ -140,8 +137,10 @@ impl Harness {
                      '2026-01-01T00:00:00Z')"
         ))
         .await;
-        self.exec(&format!("UPDATE units SET current_revision_id = '{REVISION}' WHERE id = '{UNIT}'"))
-            .await;
+        self.exec(&format!(
+            "UPDATE units SET current_revision_id = '{REVISION}' WHERE id = '{UNIT}'"
+        ))
+        .await;
 
         self.exec(&format!(
             "INSERT INTO library_items (id, account_id, work_id, source_key, source_work_key, title,

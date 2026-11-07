@@ -489,7 +489,11 @@ mod tests {
 
         // A slider dropped a few permille to the left is not a second opinion.
         let close = resume_state(&[
-            stored(Some("00000000-0000-0000-0000-000000000011"), 500, Some("00000000-0000-0000-0000-000000000011")),
+            stored(
+                Some("00000000-0000-0000-0000-000000000011"),
+                500,
+                Some("00000000-0000-0000-0000-000000000011"),
+            ),
             StoredPosition {
                 position: ReadingPosition {
                     revision: Some("00000000-0000-0000-0000-000000000011".parse().unwrap()),

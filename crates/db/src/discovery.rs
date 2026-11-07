@@ -77,8 +77,8 @@ pub struct Candidate {
 /// future would hide it for as long as the schedule was wrong.
 /// Read a taste profile (owner only).
 pub async fn blind_date_work(db: &Database, account: &str, today: &str) -> Result<Option<String>> {
-// INFER: no surface concludes from a restricted work. Nobody could have read a work they were never shown,
-// so an edge or a count built on one is a claim about people made from a non-event. See `db::visibility`.
+    // INFER: no surface concludes from a restricted work. Nobody could have read a work they were never shown,
+    // so an edge or a count built on one is a claim about people made from a non-event. See `db::visibility`.
     // One seed per (account, day). Hashing rather than randomising is what makes the
     // pick stable across reloads -- see the doc comment.
     // `works.id` is uuid on PostgreSQL and TEXT on SQLite, and `subject_id` /
@@ -292,8 +292,8 @@ pub struct SurprisePick {
 /// a running instance means there are no published public works at all — not a state any
 /// reader will meet, and one the route reports honestly rather than as an error.
 pub async fn surprise_me_work(db: &Database, account: &str, today: &str) -> Result<SurprisePick> {
-// INFER: no surface concludes from a restricted work. Nobody could have read a work they were never shown,
-// so an edge or a count built on one is a claim about people made from a non-event. See `db::visibility`.
+    // INFER: no surface concludes from a restricted work. Nobody could have read a work they were never shown,
+    // so an edge or a count built on one is a claim about people made from a non-event. See `db::visibility`.
     let seed = blind_date_seed(account, today);
     // `works.id` is uuid on PostgreSQL and TEXT on SQLite; the subqueries compare
     // `work_tags.work_id` (TEXT on both) against it, so the id needs casting on the

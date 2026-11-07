@@ -42,14 +42,21 @@ struct Client {
 
 impl Client {
     fn new(app: axum::Router) -> Self {
-        Self { app, cookies: Vec::new() }
+        Self {
+            app,
+            cookies: Vec::new(),
+        }
     }
 
     fn capture(&mut self, response: &axum::response::Response) {
         for value in response.headers().get_all(header::SET_COOKIE) {
             let Ok(text) = value.to_str() else { continue };
-            let Some((pair, _)) = text.split_once(';') else { continue };
-            let Some((name, value)) = pair.split_once('=') else { continue };
+            let Some((pair, _)) = text.split_once(';') else {
+                continue;
+            };
+            let Some((name, value)) = pair.split_once('=') else {
+                continue;
+            };
             let name = name.trim().to_owned();
             let value = value.trim().to_owned();
             self.cookies.retain(|(k, _)| k != &name);
@@ -92,8 +99,13 @@ impl Client {
             .expect("response");
         let status = response.status();
         self.capture(&response);
-        let bytes = axum::body::to_bytes(response.into_body(), usize::MAX).await.expect("body");
-        (status, serde_json::from_slice(&bytes).unwrap_or(Value::Null))
+        let bytes = axum::body::to_bytes(response.into_body(), usize::MAX)
+            .await
+            .expect("body");
+        (
+            status,
+            serde_json::from_slice(&bytes).unwrap_or(Value::Null),
+        )
     }
 
     async fn register(&mut self, handle: &str) -> String {
@@ -154,22 +166,42 @@ async fn an_exported_passport_is_accepted_by_the_import_door_and_a_tampered_one_
         json!(public),
         "the document carries the PUBLIC half of this instance's key -- never the seed"
     );
-    assert_eq!(signed["passport"]["subject"], json!(reader_handle), "{body}");
+    assert_eq!(
+        signed["passport"]["subject"],
+        json!(reader_handle),
+        "{body}"
+    );
     assert_eq!(signed["passport"]["version"], json!(1));
     let taste = signed["passport"]["taste"].as_object().expect("taste");
     assert_eq!(taste.len(), 2, "two tags, normalised: {body}");
-    assert_eq!(taste["angst"], json!(6667), "two of three tag occurrences, in basis points: {body}");
+    assert_eq!(
+        taste["angst"],
+        json!(6667),
+        "two of three tag occurrences, in basis points: {body}"
+    );
     assert_eq!(taste["slowburn"], json!(3333), "{body}");
     // The two works the test shelved were created under the reader's own pseud, so the count is theirs -- which is the
     // point of counting: a passport says how much a reader has done, not what they did.
-    assert_eq!(signed["passport"]["contributions"]["works"], json!(2), "{body}");
-    assert_eq!(signed["passport"]["contributions"]["comments"], json!(0), "{body}");
+    assert_eq!(
+        signed["passport"]["contributions"]["works"],
+        json!(2),
+        "{body}"
+    );
+    assert_eq!(
+        signed["passport"]["contributions"]["comments"],
+        json!(0),
+        "{body}"
+    );
 
     // A second reader presents the document verbatim: the receiving side verifies it and seeds imported taste.
     let mut receiver = Client::new(router(&tdb, &dir, true, Some(KEY)));
     let receiver_id = receiver.register("passport-receiver").await;
     let (status, body) = receiver
-        .send("POST", "/api/v1/me/passport", Some(json!({ "passport": signed })))
+        .send(
+            "POST",
+            "/api/v1/me/passport",
+            Some(json!({ "passport": signed })),
+        )
         .await;
     assert_eq!(status, StatusCode::OK, "{body}");
     assert_eq!(body["signals"], json!(2), "{body}");
@@ -177,7 +209,11 @@ async fn an_exported_passport_is_accepted_by_the_import_door_and_a_tampered_one_
 
     let (status, body) = receiver.send("GET", "/api/v1/me/passports", None).await;
     assert_eq!(status, StatusCode::OK, "{body}");
-    assert_eq!(body["passports"].as_array().expect("receipts").len(), 1, "{body}");
+    assert_eq!(
+        body["passports"].as_array().expect("receipts").len(),
+        1,
+        "{body}"
+    );
     assert_eq!(body["passports"][0]["signals"], json!(2), "{body}");
 
     let imported = imported_signals(&tdb, &receiver_id).await;
@@ -191,14 +227,22 @@ async fn an_exported_passport_is_accepted_by_the_import_door_and_a_tampered_one_
     let mut forged = signed.clone();
     forged["passport"]["taste"]["angst"] = json!(9_999);
     let (status, _) = receiver
-        .send("POST", "/api/v1/me/passport", Some(json!({ "passport": forged })))
+        .send(
+            "POST",
+            "/api/v1/me/passport",
+            Some(json!({ "passport": forged })),
+        )
         .await;
     assert_eq!(
         status,
         StatusCode::UNPROCESSABLE_ENTITY,
         "a document whose bytes no longer match its signature is refused"
     );
-    assert_eq!(imported_signals(&tdb, &receiver_id).await.len(), 2, "and nothing was added");
+    assert_eq!(
+        imported_signals(&tdb, &receiver_id).await.len(),
+        2,
+        "and nothing was added"
+    );
 
     // Withdrawing takes the receipt and the taste with it.
     let (status, body) = receiver
@@ -211,11 +255,15 @@ async fn an_exported_passport_is_accepted_by_the_import_door_and_a_tampered_one_
     assert_eq!(status, StatusCode::OK, "{body}");
     assert!(imported_signals(&tdb, &receiver_id).await.is_empty());
     let (_, body) = receiver.send("GET", "/api/v1/me/passports", None).await;
-    assert!(body["passports"].as_array().expect("receipts").is_empty(), "{body}");
+    assert!(
+        body["passports"].as_array().expect("receipts").is_empty(),
+        "{body}"
+    );
 }
 
 #[tokio::test]
-async fn export_without_a_configured_key_is_refused_with_the_reason_and_the_doors_are_shut_by_default() {
+async fn export_without_a_configured_key_is_refused_with_the_reason_and_the_doors_are_shut_by_default(
+) {
     server::set_trust_proxy(false);
     let dir = scratch_dir("passport-closed");
     let tdb = TestDb::connect_with_dir("m69-03-closed", &dir).await;
@@ -239,7 +287,10 @@ async fn export_without_a_configured_key_is_refused_with_the_reason_and_the_door
     for (method, path) in [
         ("GET", "/api/v1/me/passport"),
         ("GET", "/api/v1/me/passports"),
-        ("DELETE", "/api/v1/me/passport?origin=https%3A%2F%2Fx.example"),
+        (
+            "DELETE",
+            "/api/v1/me/passport?origin=https%3A%2F%2Fx.example",
+        ),
     ] {
         let (status, _) = shut.send(method, path, None).await;
         assert_eq!(
@@ -275,13 +326,15 @@ async fn seed_shelved(tdb: &TestDb, account: &str, title: &str, tags: &[&str]) {
         .execute(tdb.db().sqlite_pool().expect("sqlite"))
         .await
         .expect("canonical entity");
-        sqlx::query("INSERT OR IGNORE INTO work_tags (work_id, node_id, added_at) VALUES (?, ?, ?)")
-            .bind(&work_id)
-            .bind(format!("node-{tag}"))
-            .bind(now)
-            .execute(tdb.db().sqlite_pool().expect("sqlite"))
-            .await
-            .expect("tag");
+        sqlx::query(
+            "INSERT OR IGNORE INTO work_tags (work_id, node_id, added_at) VALUES (?, ?, ?)",
+        )
+        .bind(&work_id)
+        .bind(format!("node-{tag}"))
+        .bind(now)
+        .execute(tdb.db().sqlite_pool().expect("sqlite"))
+        .await
+        .expect("tag");
     }
     sqlx::query(
         "INSERT INTO bookmarks (id, account_id, subject_type, subject_id, note, is_public, created_at, updated_at)

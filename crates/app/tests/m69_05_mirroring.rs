@@ -53,8 +53,12 @@ impl Client {
     fn capture(&mut self, response: &axum::response::Response) {
         for value in response.headers().get_all(header::SET_COOKIE) {
             let Ok(text) = value.to_str() else { continue };
-            let Some((pair, _)) = text.split_once(';') else { continue };
-            let Some((name, value)) = pair.split_once('=') else { continue };
+            let Some((pair, _)) = text.split_once(';') else {
+                continue;
+            };
+            let Some((name, value)) = pair.split_once('=') else {
+                continue;
+            };
             let name = name.trim().to_owned();
             let value = value.trim().to_owned();
             self.cookies.retain(|(k, _)| k != &name);
@@ -100,7 +104,10 @@ impl Client {
         let bytes = axum::body::to_bytes(response.into_body(), usize::MAX)
             .await
             .expect("body");
-        (status, serde_json::from_slice(&bytes).unwrap_or(Value::Null))
+        (
+            status,
+            serde_json::from_slice(&bytes).unwrap_or(Value::Null),
+        )
     }
 
     async fn register(&mut self, handle: &str) -> String {
@@ -159,15 +166,25 @@ fn peer_document(instance: &str, tags: &[(&str, f64)], enforced: &[&str]) -> Str
 /// This instance's own taste, written the way M69-01 reads it: a public `instance_themes` row.
 async fn seed_own_taste(tdb: &TestDb, base_url: &str) {
     let vector = json!({ "angst": 0.5, "slowburn": 0.3, "fluff": 0.2 });
-    darkhold_db::instance_theme::upsert_theme(tdb.db(), base_url, &vector, true, "2026-11-07T00:00:00Z")
-        .await
-        .expect("seed instance theme");
+    darkhold_db::instance_theme::upsert_theme(
+        tdb.db(),
+        base_url,
+        &vector,
+        true,
+        "2026-11-07T00:00:00Z",
+    )
+    .await
+    .expect("seed instance theme");
 }
 
 /// A published, public work, created through the only route that makes works.
 async fn publish_a_work(client: &mut Client) -> String {
     let (status, body) = client
-        .send("POST", "/api/v1/works", Some(json!({ "title": "The Storm" })))
+        .send(
+            "POST",
+            "/api/v1/works",
+            Some(json!({ "title": "The Storm" })),
+        )
         .await;
     assert!(
         status == StatusCode::CREATED || status == StatusCode::OK,
@@ -246,7 +263,11 @@ async fn a_neighbour_is_eligible_a_twin_is_vetoed_and_a_copy_is_recorded_with_it
         .await;
     assert_eq!(status, StatusCode::OK, "{body}");
     let eligible = body["eligible"].as_array().expect("a list");
-    assert_eq!(eligible.len(), 1, "only the neighbour may hold a copy: {body}");
+    assert_eq!(
+        eligible.len(),
+        1,
+        "only the neighbour may hold a copy: {body}"
+    );
     assert_eq!(eligible[0]["instance_id"], "https://near.example");
     assert!(
         eligible[0]["similarity"].as_f64().unwrap_or(0.0) >= 0.5,
@@ -339,8 +360,13 @@ async fn a_neighbour_is_eligible_a_twin_is_vetoed_and_a_copy_is_recorded_with_it
         body["mirror"]["similarity_bp"].as_i64().unwrap_or(0) >= 5000,
         "the record carries the number the decision was made on: {body}"
     );
-    let attribution = body["attribution"].as_str().expect("an attribution sentence");
-    assert!(attribution.contains("https://near.example"), "{attribution}");
+    let attribution = body["attribution"]
+        .as_str()
+        .expect("an attribution sentence");
+    assert!(
+        attribution.contains("https://near.example"),
+        "{attribution}"
+    );
     assert!(attribution.contains("mirror"), "{attribution}");
     assert!(body["mirror"]["title"].is_string(), "{body}");
 
@@ -354,7 +380,10 @@ async fn a_neighbour_is_eligible_a_twin_is_vetoed_and_a_copy_is_recorded_with_it
     let lines = body["attribution"].as_array().expect("lines");
     assert_eq!(lines.len(), 1);
     assert!(
-        lines[0].as_str().unwrap_or_default().contains("preserved by https://near.example"),
+        lines[0]
+            .as_str()
+            .unwrap_or_default()
+            .contains("preserved by https://near.example"),
         "{body}"
     );
 
@@ -408,7 +437,10 @@ async fn with_the_switch_off_every_door_is_404() {
     for (method, path) in [
         ("GET", "/api/v1/operator/mirroring/eligible".to_owned()),
         ("POST", "/api/v1/operator/mirroring/w/mirrors".to_owned()),
-        ("POST", "/api/v1/operator/mirroring/mirrors/i/retire".to_owned()),
+        (
+            "POST",
+            "/api/v1/operator/mirroring/mirrors/i/retire".to_owned(),
+        ),
         ("GET", "/api/v1/works/w/mirrors".to_owned()),
     ] {
         let (status, body) = client

@@ -94,9 +94,8 @@ async fn taste_bp(state: &AppState, account: &str) -> ApiResult<BTreeMap<String,
             .await
             .map_err(|error| internal(error.into()))?
         }
-        darkhold_db::Backend::Postgres => {
-            sqlx::query_as(
-                "SELECT tn.canonical, CAST(COUNT(*) AS BIGINT) AS n
+        darkhold_db::Backend::Postgres => sqlx::query_as(
+            "SELECT tn.canonical, CAST(COUNT(*) AS BIGINT) AS n
                    FROM bookmarks b
                    JOIN work_tags wt ON wt.work_id = b.subject_id
                    JOIN canonical_entities tn ON tn.id = wt.node_id
@@ -104,12 +103,11 @@ async fn taste_bp(state: &AppState, account: &str) -> ApiResult<BTreeMap<String,
                   GROUP BY tn.canonical
                   ORDER BY n DESC
                   LIMIT 200",
-            )
-            .bind(account)
-            .fetch_all(state.db().postgres_pool().expect("postgres"))
-            .await
-            .map_err(|error| internal(error.into()))?
-        }
+        )
+        .bind(account)
+        .fetch_all(state.db().postgres_pool().expect("postgres"))
+        .await
+        .map_err(|error| internal(error.into()))?,
     };
 
     let total: i64 = rows.iter().map(|(_, count)| *count).sum();
@@ -217,7 +215,12 @@ async fn export(
 
     let passport = Passport {
         version: passport::VERSION,
-        origin: state.config().site.base_url.trim_end_matches('/').to_owned(),
+        origin: state
+            .config()
+            .site
+            .base_url
+            .trim_end_matches('/')
+            .to_owned(),
         subject: handle.unwrap_or_else(|| account.clone()),
         issued_at: darkhold_db::identity::now_rfc3339(),
         taste,
@@ -225,7 +228,8 @@ async fn export(
         contributions,
         affinity_bp: affinity,
     };
-    let signed = passport::sign_with_hex(&passport, key).map_err(|error| invalid(error.to_string()))?;
+    let signed =
+        passport::sign_with_hex(&passport, key).map_err(|error| invalid(error.to_string()))?;
 
     Ok(Json(json!({
         "passport": signed,

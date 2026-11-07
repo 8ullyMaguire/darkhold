@@ -109,13 +109,11 @@ async fn settings<'a>(
 
 async fn stored_basis(db: &Database, id: &str) -> serde_json::Value {
     let basis: Option<String> = match db.backend() {
-        Backend::Sqlite => {
-            sqlx::query_scalar("SELECT basis FROM trust_levels WHERE account = ?")
-                .bind(id)
-                .fetch_optional(db.sqlite_pool().expect("sqlite"))
-                .await
-                .expect("read basis")
-        }
+        Backend::Sqlite => sqlx::query_scalar("SELECT basis FROM trust_levels WHERE account = ?")
+            .bind(id)
+            .fetch_optional(db.sqlite_pool().expect("sqlite"))
+            .await
+            .expect("read basis"),
         Backend::Postgres => {
             sqlx::query_scalar("SELECT basis FROM trust_levels WHERE account = $1")
                 .bind(id)
@@ -180,13 +178,10 @@ async fn a_dropped_multiplier_slows_the_next_level_and_never_takes_the_held_one(
         }
     }
 
-    let slowed = governance::recompute_trust(
-        db,
-        id,
-        &settings(&ladder, &axes, &requirements, true).await,
-    )
-    .await
-    .expect("recompute");
+    let slowed =
+        governance::recompute_trust(db, id, &settings(&ladder, &axes, &requirements, true).await)
+            .await
+            .expect("recompute");
     assert_eq!(
         slowed.level, 4,
         "the multiplier halves the rate, so the earner reached level 3 — and the held level 4 stands"
@@ -200,7 +195,10 @@ async fn a_dropped_multiplier_slows_the_next_level_and_never_takes_the_held_one(
     assert_eq!(velocity["earned_level"], serde_json::json!(3), "{basis}");
     assert_eq!(velocity["held_level"], serde_json::json!(4), "{basis}");
     assert!(
-        velocity["reason"].as_str().expect("reason").contains("never takes a level away"),
+        velocity["reason"]
+            .as_str()
+            .expect("reason")
+            .contains("never takes a level away"),
         "the stored basis explains the floor: {basis}"
     );
 

@@ -99,20 +99,16 @@ async fn assigned(db: &Database) -> i64 {
         }
     };
     let count: i64 = match db.backend() {
-        darkhold_db::Backend::Sqlite => {
-            sqlx::query_scalar(&sql)
-                .bind(PSEUD)
-                .fetch_one(db.sqlite_pool().expect("sqlite"))
-                .await
-                .expect("count")
-        }
-        darkhold_db::Backend::Postgres => {
-            sqlx::query_scalar(&sql)
-                .bind(PSEUD)
-                .fetch_one(db.postgres_pool().expect("postgres"))
-                .await
-                .expect("count")
-        }
+        darkhold_db::Backend::Sqlite => sqlx::query_scalar(&sql)
+            .bind(PSEUD)
+            .fetch_one(db.sqlite_pool().expect("sqlite"))
+            .await
+            .expect("count"),
+        darkhold_db::Backend::Postgres => sqlx::query_scalar(&sql)
+            .bind(PSEUD)
+            .fetch_one(db.postgres_pool().expect("postgres"))
+            .await
+            .expect("count"),
     };
     count
 }
@@ -128,7 +124,10 @@ async fn the_arm_is_written_once_and_survives_a_new_arm_count() {
     let again = darkhold_db::experiments::bucket_for(&db, PSEUD, "discover.feed", 2)
         .await
         .expect("second read");
-    assert_eq!(first, again, "the same reader, the same surface, the same arm");
+    assert_eq!(
+        first, again,
+        "the same reader, the same surface, the same arm"
+    );
 
     // The operator doubles the arm count. The reader must not move: 1 in 2 becomes 1 in 4 by adding arms for *other*
     // readers, and a reader who changed arm here would make every earlier impression unusable.

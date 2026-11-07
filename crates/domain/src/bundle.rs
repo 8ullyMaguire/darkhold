@@ -81,7 +81,9 @@ pub enum BundleError {
     NoManifest,
     #[error("bundle.json is not valid JSON: {0}")]
     Manifest(String),
-    #[error("bundle version {0} is not supported by this reader (it understands {SUPPORTED_VERSION})")]
+    #[error(
+        "bundle version {0} is not supported by this reader (it understands {SUPPORTED_VERSION})"
+    )]
     UnsupportedVersion(u32),
     #[error("bundle item kind {0:?} is not a work")]
     UnsupportedKind(String),
@@ -109,13 +111,13 @@ impl BundleItem {
     /// * **`content.md` is required even when the manifest does not checksum it.** The exporter always writes it; a
     ///   manifest that checksums only attachments is a bundle with no body, and importing it would create an empty work.
     pub fn open(bytes: &[u8]) -> Result<Self, BundleError> {
-        let mut archive =
-            zip::ZipArchive::new(Cursor::new(bytes)).map_err(|e| BundleError::Archive(e.to_string()))?;
+        let mut archive = zip::ZipArchive::new(Cursor::new(bytes))
+            .map_err(|e| BundleError::Archive(e.to_string()))?;
 
         let manifest_bytes =
             read_entry(&mut archive, "bundle.json")?.ok_or(BundleError::NoManifest)?;
-        let manifest: Manifest =
-            serde_json::from_slice(&manifest_bytes).map_err(|e| BundleError::Manifest(e.to_string()))?;
+        let manifest: Manifest = serde_json::from_slice(&manifest_bytes)
+            .map_err(|e| BundleError::Manifest(e.to_string()))?;
         if manifest.estate_bundle != SUPPORTED_VERSION {
             return Err(BundleError::UnsupportedVersion(manifest.estate_bundle));
         }
@@ -132,7 +134,8 @@ impl BundleItem {
             let bytes = if path == "content.md" {
                 body_bytes.clone()
             } else {
-                read_entry(&mut archive, path)?.ok_or_else(|| BundleError::UnlistedEntry(path.clone()))?
+                read_entry(&mut archive, path)?
+                    .ok_or_else(|| BundleError::UnlistedEntry(path.clone()))?
             };
             let actual = format!("sha256:{}", hex::encode(Sha256::digest(&bytes)));
             if &actual != expected {
@@ -147,7 +150,8 @@ impl BundleItem {
             }
         }
 
-        let body = String::from_utf8(body_bytes).map_err(|e| BundleError::NotUtf8(e.to_string()))?;
+        let body =
+            String::from_utf8(body_bytes).map_err(|e| BundleError::NotUtf8(e.to_string()))?;
         Ok(BundleItem {
             manifest,
             body,
@@ -191,7 +195,10 @@ mod tests {
     /// for. `checksums` lets a test sign a body it does not carry, which is the only way to produce a tampered archive.
     fn make(entries: &[(&str, &str)], checksums: Checksums) -> Vec<u8> {
         let checksums = checksums.unwrap_or_else(|| {
-            entries.iter().map(|(name, body)| (*name, digest(body))).collect()
+            entries
+                .iter()
+                .map(|(name, body)| (*name, digest(body)))
+                .collect()
         });
         let manifest = Manifest {
             estate_bundle: 1,
@@ -201,11 +208,16 @@ mod tests {
             title: "Wish upon the Stars".into(),
             tags: vec!["time loop".into()],
             audience: Some("public".into()),
-            canonical_url: Some("https://darkhold.polarisocial.xyz/w/78eb8d57-e28f-49d8-b58e-ebe6181bac3b".into()),
+            canonical_url: Some(
+                "https://darkhold.polarisocial.xyz/w/78eb8d57-e28f-49d8-b58e-ebe6181bac3b".into(),
+            ),
             created_at: Some("2026-10-27T15:05:58Z".into()),
             exported_at: Some("2026-10-27T15:05:58Z".into()),
             generator: Some("polaris-export/1.0 (estate 2026.11.3)".into()),
-            checksums: checksums.into_iter().map(|(k, v)| (k.to_string(), v)).collect(),
+            checksums: checksums
+                .into_iter()
+                .map(|(k, v)| (k.to_string(), v))
+                .collect(),
         };
         let bytes = serde_json::to_vec(&manifest).unwrap();
         pack(&bytes, entries)
@@ -215,7 +227,8 @@ mod tests {
         let mut out = Vec::new();
         {
             let mut zip = zip::ZipWriter::new(Cursor::new(&mut out));
-            let options = SimpleFileOptions::default().compression_method(zip::CompressionMethod::Deflated);
+            let options =
+                SimpleFileOptions::default().compression_method(zip::CompressionMethod::Deflated);
             zip.start_file("bundle.json", options).unwrap();
             zip.write_all(manifest).unwrap();
             for (name, body) in entries {
@@ -232,22 +245,34 @@ mod tests {
 
     #[test]
     fn good_bundle_reading_round_trips() {
-        let item = BundleItem::open(&make(&[("content.md", BODY), ("attachments.json", ATTACH)], None))
-            .expect("a well-formed bundle must open");
+        let item = BundleItem::open(&make(
+            &[("content.md", BODY), ("attachments.json", ATTACH)],
+            None,
+        ))
+        .expect("a well-formed bundle must open");
         assert_eq!(item.manifest.title, "Wish upon the Stars");
         assert_eq!(item.manifest.tags, vec!["time loop".to_string()]);
         assert_eq!(item.body, BODY);
         assert!(item.files.contains_key("attachments.json"));
-        assert!(!item.files.contains_key("content.md"), "the body is not duplicated into files");
+        assert!(
+            !item.files.contains_key("content.md"),
+            "the body is not duplicated into files"
+        );
     }
 
     #[test]
     fn a_tampered_content_is_refused() {
         // The manifest signs the true body; the archive carries a different one. This is what a corrupted download looks
         // like, and the case a reader that skipped the digest would import as a mangled work.
-        let checksums = vec![("content.md", digest(BODY)), ("attachments.json", digest(ATTACH))];
+        let checksums = vec![
+            ("content.md", digest(BODY)),
+            ("attachments.json", digest(ATTACH)),
+        ];
         let bytes = make(
-            &[("content.md", "# Wish upon the Stars\n\nThe loop forgets.\n"), ("attachments.json", ATTACH)],
+            &[
+                ("content.md", "# Wish upon the Stars\n\nThe loop forgets.\n"),
+                ("attachments.json", ATTACH),
+            ],
             Some(checksums),
         );
         match BundleItem::open(&bytes) {
@@ -262,12 +287,16 @@ mod tests {
         let bytes = {
             let mut out = Vec::new();
             let mut zip = zip::ZipWriter::new(Cursor::new(&mut out));
-            zip.start_file("content.md", SimpleFileOptions::default()).unwrap();
+            zip.start_file("content.md", SimpleFileOptions::default())
+                .unwrap();
             zip.write_all(BODY.as_bytes()).unwrap();
             zip.finish().unwrap();
             out
         };
-        assert!(matches!(BundleItem::open(&bytes), Err(BundleError::NoManifest)));
+        assert!(matches!(
+            BundleItem::open(&bytes),
+            Err(BundleError::NoManifest)
+        ));
     }
 
     #[test]
@@ -276,7 +305,10 @@ mod tests {
             "estate_bundle": 2, "kind": "work", "id": "x", "site": "darkhold", "title": "t",
             "checksums": { "content.md": digest(BODY) }
         });
-        let bytes = pack(&serde_json::to_vec(&manifest).unwrap(), &[("content.md", BODY)]);
+        let bytes = pack(
+            &serde_json::to_vec(&manifest).unwrap(),
+            &[("content.md", BODY)],
+        );
         match BundleItem::open(&bytes) {
             Err(BundleError::UnsupportedVersion(v)) => assert_eq!(v, 2),
             other => panic!("expected an unsupported-version refusal, got {other:?}"),
@@ -286,7 +318,10 @@ mod tests {
     #[test]
     fn a_checked_file_missing_from_the_archive_is_refused() {
         // The manifest checksums attachments.json but the archive does not carry it.
-        let checksums = vec![("content.md", digest(BODY)), ("attachments.json", digest("{}"))];
+        let checksums = vec![
+            ("content.md", digest(BODY)),
+            ("attachments.json", digest("{}")),
+        ];
         let bytes = make(&[("content.md", BODY)], Some(checksums));
         match BundleItem::open(&bytes) {
             Err(BundleError::UnlistedEntry(path)) => assert_eq!(path, "attachments.json"),

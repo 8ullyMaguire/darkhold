@@ -231,7 +231,10 @@ fn the_row_counts_are_what_the_index_says() {
     assert_eq!(stable, STABLE_ROWS, "stable row count moved");
     assert_eq!(planned, PLANNED_ROWS, "planned row count moved");
     assert_eq!(beta, BETA_ROWS, "beta row count moved");
-    assert_eq!(experimental, EXPERIMENTAL_ROWS, "experimental row count moved");
+    assert_eq!(
+        experimental, EXPERIMENTAL_ROWS,
+        "experimental row count moved"
+    );
     // Every stability is counted above, so a row in a category nobody tallied is the arithmetic failing rather than the sum drifting.
     assert_eq!(
         MODULES.len(),

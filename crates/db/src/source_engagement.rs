@@ -69,7 +69,9 @@ impl Metric {
     /// Parse a stored name. `None` for a word this build does not know, so a row written by a newer importer is reported rather than
     /// silently folded into `likes`.
     pub fn parse(value: &str) -> Option<Self> {
-        Self::all().into_iter().find(|metric| metric.as_str() == value)
+        Self::all()
+            .into_iter()
+            .find(|metric| metric.as_str() == value)
     }
 }
 

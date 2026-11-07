@@ -89,7 +89,10 @@ async fn rotation_counting_and_the_breaker_agree_on_both_engines() {
     let rows = darkhold_db::marketplace::list_all_active_webhooks(db)
         .await
         .expect("list");
-    let row = rows.iter().find(|r| r["id"] == serde_json::json!(id)).expect("row");
+    let row = rows
+        .iter()
+        .find(|r| r["id"] == serde_json::json!(id))
+        .expect("row");
     assert_eq!(row["secret"], serde_json::json!("whsec_second"));
     assert_eq!(row["previous_secret"], serde_json::json!("whsec_original"));
     assert_eq!(row["rotated_at"], serde_json::json!("2026-11-07T00:00:00Z"));
@@ -108,16 +111,9 @@ async fn rotation_counting_and_the_breaker_agree_on_both_engines() {
 
     // --- the count
     for n in 0..2 {
-        darkhold_db::marketplace::record_delivery(
-            db,
-            &id,
-            &format!("evt-{n}"),
-            "{}",
-            "sig",
-            "ok",
-        )
-        .await
-        .expect("record delivery");
+        darkhold_db::marketplace::record_delivery(db, &id, &format!("evt-{n}"), "{}", "sig", "ok")
+            .await
+            .expect("record delivery");
     }
     darkhold_db::marketplace::record_delivery(db, &id, "evt-t", "{}", "", "throttled")
         .await
@@ -137,8 +133,13 @@ async fn rotation_counting_and_the_breaker_agree_on_both_engines() {
     let reason = switched.expect("the third failure switches it off");
     assert!(reason.contains("consecutive"), "{reason}");
 
-    let subs = darkhold_db::webhooks::subscriptions(db).await.expect("subscriptions");
-    let row = subs.iter().find(|r| r["id"] == serde_json::json!(id)).expect("row");
+    let subs = darkhold_db::webhooks::subscriptions(db)
+        .await
+        .expect("subscriptions");
+    let row = subs
+        .iter()
+        .find(|r| r["id"] == serde_json::json!(id))
+        .expect("row");
     assert_eq!(row["active"], serde_json::json!(false));
     assert_eq!(row["disabled_reason"], serde_json::json!(reason));
     let active = darkhold_db::marketplace::list_all_active_webhooks(db)
@@ -147,14 +148,21 @@ async fn rotation_counting_and_the_breaker_agree_on_both_engines() {
     assert!(!active.iter().any(|r| r["id"] == serde_json::json!(id)));
 
     // --- explicit enable, owner-scoped
-    assert!(!darkhold_db::webhooks::reenable(db, &id, Some("someone-else"))
-        .await
-        .expect("reenable"));
+    assert!(
+        !darkhold_db::webhooks::reenable(db, &id, Some("someone-else"))
+            .await
+            .expect("reenable")
+    );
     assert!(darkhold_db::webhooks::reenable(db, &id, Some(owner))
         .await
         .expect("reenable"));
-    let subs = darkhold_db::webhooks::subscriptions(db).await.expect("subscriptions");
-    let row = subs.iter().find(|r| r["id"] == serde_json::json!(id)).expect("row");
+    let subs = darkhold_db::webhooks::subscriptions(db)
+        .await
+        .expect("subscriptions");
+    let row = subs
+        .iter()
+        .find(|r| r["id"] == serde_json::json!(id))
+        .expect("row");
     assert_eq!(row["active"], serde_json::json!(true));
     assert_eq!(row["consecutive_failures"], serde_json::json!(0));
     assert_eq!(row["disabled_reason"], serde_json::Value::Null);

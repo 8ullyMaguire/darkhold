@@ -10,7 +10,11 @@
 //! Ownership decides `curator` versus `author`: applying a script to your own work writes `author`, to somebody else's writes
 //! `curator`. That is read from the work's owner rather than passed in, because the caller who forgot would write the wrong claim.
 
-use crate::{identity::now_rfc3339, tag_assertions::{assert_tag, Claimant}, Backend, Database, Result};
+use crate::{
+    identity::now_rfc3339,
+    tag_assertions::{assert_tag, Claimant},
+    Backend, Database, Result,
+};
 use serde::Serialize;
 
 /// One script, with its nodes.
@@ -78,7 +82,12 @@ pub async fn create_script(db: &Database, account: &str, name: &str) -> Result<T
 }
 
 /// Add a node to a script. Idempotent: adding what is already there changes nothing and is not an error.
-pub async fn add_node(db: &Database, account: &str, script_id: &str, node_id: &str) -> Result<bool> {
+pub async fn add_node(
+    db: &Database,
+    account: &str,
+    script_id: &str,
+    node_id: &str,
+) -> Result<bool> {
     if !owns(db, account, script_id).await? {
         return Ok(false);
     }
@@ -91,22 +100,18 @@ pub async fn add_node(db: &Database, account: &str, script_id: &str, node_id: &s
          ON CONFLICT (script_id, node_id) DO NOTHING",
     );
     let affected = match db.backend() {
-        Backend::Sqlite => {
-            sqlx::query(&sql)
-                .bind(script_id)
-                .bind(node_id)
-                .execute(db.sqlite_pool().expect("sqlite handle"))
-                .await?
-                .rows_affected()
-        }
-        Backend::Postgres => {
-            sqlx::query(&sql)
-                .bind(script_id)
-                .bind(node_id)
-                .execute(db.postgres_pool().expect("postgres handle"))
-                .await?
-                .rows_affected()
-        }
+        Backend::Sqlite => sqlx::query(&sql)
+            .bind(script_id)
+            .bind(node_id)
+            .execute(db.sqlite_pool().expect("sqlite handle"))
+            .await?
+            .rows_affected(),
+        Backend::Postgres => sqlx::query(&sql)
+            .bind(script_id)
+            .bind(node_id)
+            .execute(db.postgres_pool().expect("postgres handle"))
+            .await?
+            .rows_affected(),
     };
     touch(db, script_id).await?;
     Ok(affected > 0)
@@ -127,22 +132,18 @@ pub async fn remove_node(
         "DELETE FROM tag_script_nodes WHERE script_id = $1::uuid AND node_id = $2",
     );
     let affected = match db.backend() {
-        Backend::Sqlite => {
-            sqlx::query(&sql)
-                .bind(script_id)
-                .bind(node_id)
-                .execute(db.sqlite_pool().expect("sqlite handle"))
-                .await?
-                .rows_affected()
-        }
-        Backend::Postgres => {
-            sqlx::query(&sql)
-                .bind(script_id)
-                .bind(node_id)
-                .execute(db.postgres_pool().expect("postgres handle"))
-                .await?
-                .rows_affected()
-        }
+        Backend::Sqlite => sqlx::query(&sql)
+            .bind(script_id)
+            .bind(node_id)
+            .execute(db.sqlite_pool().expect("sqlite handle"))
+            .await?
+            .rows_affected(),
+        Backend::Postgres => sqlx::query(&sql)
+            .bind(script_id)
+            .bind(node_id)
+            .execute(db.postgres_pool().expect("postgres handle"))
+            .await?
+            .rows_affected(),
     };
     touch(db, script_id).await?;
     Ok(affected > 0)
@@ -216,15 +217,7 @@ pub async fn apply_to_work(
     let mut already_present = 0;
     for node in &nodes {
         let existed = has_tag(db, work_id, node).await?;
-        assert_tag(
-            db,
-            work_id,
-            node,
-            Claimant::Human,
-            owned,
-            1.0,
-        )
-        .await?;
+        assert_tag(db, work_id, node, Claimant::Human, owned, 1.0).await?;
         if existed {
             already_present += 1;
         } else {

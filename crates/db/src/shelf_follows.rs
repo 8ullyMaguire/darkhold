@@ -117,22 +117,18 @@ pub async fn unfollow(db: &Database, account: &str, shelf_id: &str) -> Result<bo
         "DELETE FROM shelf_follows WHERE follower_account_id = $1 AND shelf_id = $2",
     );
     let removed = match db.backend() {
-        Backend::Sqlite => {
-            sqlx::query(&sql)
-                .bind(account)
-                .bind(shelf_id)
-                .execute(db.sqlite_pool().expect("sqlite pool"))
-                .await?
-                .rows_affected()
-        }
-        Backend::Postgres => {
-            sqlx::query(&sql)
-                .bind(account)
-                .bind(shelf_id)
-                .execute(db.postgres_pool().expect("postgres pool"))
-                .await?
-                .rows_affected()
-        }
+        Backend::Sqlite => sqlx::query(&sql)
+            .bind(account)
+            .bind(shelf_id)
+            .execute(db.sqlite_pool().expect("sqlite pool"))
+            .await?
+            .rows_affected(),
+        Backend::Postgres => sqlx::query(&sql)
+            .bind(account)
+            .bind(shelf_id)
+            .execute(db.postgres_pool().expect("postgres pool"))
+            .await?
+            .rows_affected(),
     };
     Ok(removed > 0)
 }

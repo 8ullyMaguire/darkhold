@@ -91,7 +91,10 @@ async fn apply_recipe(
     let installed = darkhold_db::gallery::my_installations(state.db(), &pseud.to_string())
         .await
         .map_err(|e| ApiError(AppError::Internal(e.into())))?;
-    if !installed.iter().any(|row| row["manifest_id"] == json!(slug)) {
+    if !installed
+        .iter()
+        .any(|row| row["manifest_id"] == json!(slug))
+    {
         return Err(ApiError(AppError::field(
             "slug",
             "install this package before applying its recipe",

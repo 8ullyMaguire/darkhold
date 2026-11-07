@@ -47,9 +47,17 @@ mod tests {
 
     #[test]
     fn the_dial_narrows_and_never_widens() {
-        assert_eq!(narrow(0.15, 0.0, false), Ok(0.0), "a reader may switch gravity off");
+        assert_eq!(
+            narrow(0.15, 0.0, false),
+            Ok(0.0),
+            "a reader may switch gravity off"
+        );
         assert_eq!(narrow(0.15, 0.10, false), Ok(0.10));
-        assert_eq!(narrow(0.15, 0.15, false), Ok(0.15), "asking for what they already get is allowed");
+        assert_eq!(
+            narrow(0.15, 0.15, false),
+            Ok(0.15),
+            "asking for what they already get is allowed"
+        );
         assert_eq!(
             narrow(0.15, 0.30, false),
             Err(DialRefusal::AboveInstance(0.15)),
@@ -77,7 +85,15 @@ mod tests {
         // 0.30 was legal when the instance ran 0.40. When it drops to 0.10, the reader gets 0.10 — not 0.30, and not a
         // silent 0.10 that then looks like a choice they made.
         assert_eq!(effective(0.10, Some(0.30)), 0.10);
-        assert_eq!(effective(0.15, None), 0.15, "no stored choice means the instance's value");
-        assert_eq!(effective(0.15, Some(0.0)), 0.0, "an explicit zero stays zero");
+        assert_eq!(
+            effective(0.15, None),
+            0.15,
+            "no stored choice means the instance's value"
+        );
+        assert_eq!(
+            effective(0.15, Some(0.0)),
+            0.0,
+            "an explicit zero stays zero"
+        );
     }
 }

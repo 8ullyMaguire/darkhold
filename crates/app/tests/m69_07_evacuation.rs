@@ -52,8 +52,12 @@ impl Client {
     fn capture(&mut self, response: &axum::response::Response) {
         for value in response.headers().get_all(header::SET_COOKIE) {
             let Ok(text) = value.to_str() else { continue };
-            let Some((pair, _)) = text.split_once(';') else { continue };
-            let Some((name, value)) = pair.split_once('=') else { continue };
+            let Some((pair, _)) = text.split_once(';') else {
+                continue;
+            };
+            let Some((name, value)) = pair.split_once('=') else {
+                continue;
+            };
             let name = name.trim().to_owned();
             let value = value.trim().to_owned();
             self.cookies.retain(|(k, _)| k != &name);
@@ -99,7 +103,10 @@ impl Client {
         let bytes = axum::body::to_bytes(response.into_body(), usize::MAX)
             .await
             .expect("body");
-        (status, serde_json::from_slice(&bytes).unwrap_or(Value::Null))
+        (
+            status,
+            serde_json::from_slice(&bytes).unwrap_or(Value::Null),
+        )
     }
 
     async fn register(&mut self, handle: &str) -> String {
@@ -156,9 +163,15 @@ fn peer_document(instance: &str, tags: &[(&str, f64)]) -> String {
 
 async fn seed_own_taste(tdb: &TestDb, base_url: &str) {
     let vector = json!({ "angst": 0.5, "slowburn": 0.3, "fluff": 0.2 });
-    darkhold_db::instance_theme::upsert_theme(tdb.db(), base_url, &vector, true, "2026-11-07T00:00:00Z")
-        .await
-        .expect("seed instance theme");
+    darkhold_db::instance_theme::upsert_theme(
+        tdb.db(),
+        base_url,
+        &vector,
+        true,
+        "2026-11-07T00:00:00Z",
+    )
+    .await
+    .expect("seed instance theme");
 }
 
 /// A published, public work, created through the only route that makes works.
@@ -252,9 +265,16 @@ async fn the_plan_spreads_the_works_and_the_receipt_names_who_took_what() {
         .await;
     assert_eq!(status, StatusCode::OK, "{body}");
     assert_eq!(body["plan"]["placed"], 4, "{body}");
-    let notice_id = body["notice"]["id"].as_str().expect("a notice id").to_owned();
+    let notice_id = body["notice"]["id"]
+        .as_str()
+        .expect("a notice id")
+        .to_owned();
     let load = body["plan"]["load"].as_array().expect("load");
-    assert_eq!(load.len(), 2, "two close peers, and the far one takes none: {body}");
+    assert_eq!(
+        load.len(),
+        2,
+        "two close peers, and the far one takes none: {body}"
+    );
     assert!(
         load.iter().all(|row| row["works"].as_i64() == Some(2)),
         "the works are spread, not poured into the closest peer: {body}"
@@ -302,7 +322,9 @@ async fn the_plan_spreads_the_works_and_the_receipt_names_who_took_what() {
     assert_eq!(status, StatusCode::OK, "{body}");
     assert_eq!(body["assignment"]["state"], "accepted");
 
-    let (status, body) = operator.send("GET", "/api/v1/operator/evacuation", None).await;
+    let (status, body) = operator
+        .send("GET", "/api/v1/operator/evacuation", None)
+        .await;
     assert_eq!(status, StatusCode::OK, "{body}");
     assert_eq!(body["offered"], 3, "{body}");
     assert_eq!(body["receipt"]["accepted"], 1, "{body}");
@@ -322,7 +344,9 @@ async fn the_plan_spreads_the_works_and_the_receipt_names_who_took_what() {
         .await;
     assert_eq!(status, StatusCode::OK, "{body}");
     assert_eq!(body["notice"]["state"], "completed");
-    let (status, body) = operator.send("GET", "/api/v1/operator/evacuation", None).await;
+    let (status, body) = operator
+        .send("GET", "/api/v1/operator/evacuation", None)
+        .await;
     assert_eq!(status, StatusCode::OK, "{body}");
     assert!(body["notice"].is_null(), "nothing is announced: {body}");
 

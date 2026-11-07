@@ -50,10 +50,8 @@ async fn database(tag: &str) -> (Database, PathBuf) {
                 .expect("an empty PostgreSQL database")
         }
         _ => {
-            let config = DatabaseConfig::new(format!(
-                "sqlite://{}/infer.sqlite?mode=rwc",
-                dir.display()
-            ));
+            let config =
+                DatabaseConfig::new(format!("sqlite://{}/infer.sqlite?mode=rwc", dir.display()));
             Database::connect(&config).await.expect("connect")
         }
     };
@@ -100,7 +98,11 @@ async fn seed(db: &Database) {
     .await;
     for (work, title, summary) in [
         (TAGGED_WORK, "Already tagged", "a summary"),
-        (NAMED_WORK, "A hurt comfort story", "the summary mentions comfort"),
+        (
+            NAMED_WORK,
+            "A hurt comfort story",
+            "the summary mentions comfort",
+        ),
         (PLAIN_WORK, "An untitled thing", "nothing to match here"),
     ] {
         exec(
@@ -131,10 +133,7 @@ async fn seed(db: &Database) {
         .await;
     }
     // The tagged work carries a visible tag already, so the pass must skip it.
-    for (node, canonical) in [
-        (NODE_LONG, "hurt comfort"),
-        (NODE_SHORT, "comfort"),
-    ] {
+    for (node, canonical) in [(NODE_LONG, "hurt comfort"), (NODE_SHORT, "comfort")] {
         exec(
             db,
             &format!(
@@ -160,7 +159,10 @@ async fn the_pass_proposes_only_what_readers_cannot_see() {
     seed(&db).await;
 
     let report = propose_from_text(&db, 100).await.expect("pass");
-    assert_eq!(report.examined, 2, "the already-tagged work is not examined");
+    assert_eq!(
+        report.examined, 2,
+        "the already-tagged work is not examined"
+    );
 
     // 1. A proposal, invisible to readers.
     let visible = darkhold_db::taxonomy::tag_names_for_work(&db, NAMED_WORK)
@@ -186,11 +188,18 @@ async fn the_pass_proposes_only_what_readers_cannot_see() {
     // 3. A second pass proposes nothing new. `examined` is not zero and should not be: the work that matched nothing is still
     // untagged, so it is looked at every time — the property that matters is that no second row is written.
     let again = propose_from_text(&db, 100).await.expect("second pass");
-    assert_eq!(again.proposed, 0, "a proposal is not re-proposed as a new one");
+    assert_eq!(
+        again.proposed, 0,
+        "a proposal is not re-proposed as a new one"
+    );
     let rows_again = darkhold_db::tag_assertions::assertions_for_work(&db, NAMED_WORK)
         .await
         .expect("assertions");
-    assert_eq!(rows_again.len(), rows.len(), "no second row for the same node");
+    assert_eq!(
+        rows_again.len(),
+        rows.len(),
+        "no second row for the same node"
+    );
 
     // 5. Coverage: one of three items carries likes and a visible tag.
     let report_coverage = coverage(&db).await.expect("coverage");
@@ -204,22 +213,23 @@ async fn the_pass_proposes_only_what_readers_cannot_see() {
     assert_eq!(ao3.tagged_and_liked, 1);
 
     // 4. Confirming the proposal makes it a visible tag, and coverage follows.
-    assert!(
-        darkhold_db::tag_assertions::confirm(
-            &db,
-            NAMED_WORK,
-            NODE_LONG,
-            darkhold_db::tag_assertions::ConfirmLevel::Reader
-        )
-        .await
-        .expect("confirm")
-    );
+    assert!(darkhold_db::tag_assertions::confirm(
+        &db,
+        NAMED_WORK,
+        NODE_LONG,
+        darkhold_db::tag_assertions::ConfirmLevel::Reader
+    )
+    .await
+    .expect("confirm"));
     let visible = darkhold_db::taxonomy::tag_names_for_work(&db, NAMED_WORK)
         .await
         .expect("tags");
     assert_eq!(visible, vec!["hurt comfort".to_owned()]);
     let after = coverage(&db).await.expect("coverage");
-    let ao3 = after.iter().find(|row| row.source_key == "ao3").expect("ao3");
+    let ao3 = after
+        .iter()
+        .find(|row| row.source_key == "ao3")
+        .expect("ao3");
     assert_eq!(ao3.tagged, 2, "a confirmed inference is a tag");
 
     let _ = std::fs::remove_dir_all(dir);

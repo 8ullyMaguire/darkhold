@@ -121,8 +121,10 @@ pub async fn send_with_keys(
     endpoint_id: &str,
     attempt: u32,
 ) -> Result<(DeliveryRecord, u16), WebhookSendError> {
-    let borrowed: Vec<(darkhold_domain::webhook::KeyId, &str)> =
-        keys.iter().map(|(id, secret)| (*id, secret.as_str())).collect();
+    let borrowed: Vec<(darkhold_domain::webhook::KeyId, &str)> = keys
+        .iter()
+        .map(|(id, secret)| (*id, secret.as_str()))
+        .collect();
     let header = darkhold_domain::webhook::signing_header(event, &borrowed);
     let recorded = keys
         .iter()

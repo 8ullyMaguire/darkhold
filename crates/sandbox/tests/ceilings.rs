@@ -48,10 +48,21 @@ fn writer(count: i32) -> Vec<u8> {
 
 #[test]
 fn a_module_that_finishes_reports_what_it_wrote_and_spent() {
-    let outcome = run(&writer(12), "run", b"", limits(), &Grant::all(), revoked(false));
+    let outcome = run(
+        &writer(12),
+        "run",
+        b"",
+        limits(),
+        &Grant::all(),
+        revoked(false),
+    );
     assert_eq!(outcome.halt, None, "{outcome:?}");
     assert!(outcome.succeeded());
-    assert_eq!(outcome.output.len(), 12, "twelve bytes written: {outcome:?}");
+    assert_eq!(
+        outcome.output.len(),
+        12,
+        "twelve bytes written: {outcome:?}"
+    );
     assert_eq!(outcome.host_calls, 1, "one import called: {outcome:?}");
     assert_eq!(outcome.returned, Some(7));
     assert!(outcome.fuel_used > 0, "fuel metering is on: {outcome:?}");
@@ -138,8 +149,15 @@ fn the_host_call_budget_is_a_count_not_a_rate() {
         revoked(false),
     );
     assert_eq!(outcome.halt, Some(Halt::HostCalls), "{outcome:?}");
-    assert_eq!(outcome.host_calls, 3, "exactly the budget was used: {outcome:?}");
-    assert_eq!(outcome.output.len(), 3, "and only those calls wrote: {outcome:?}");
+    assert_eq!(
+        outcome.host_calls, 3,
+        "exactly the budget was used: {outcome:?}"
+    );
+    assert_eq!(
+        outcome.output.len(),
+        3,
+        "and only those calls wrote: {outcome:?}"
+    );
 }
 
 #[test]
@@ -226,7 +244,14 @@ fn a_deadline_already_past_is_reported_as_the_clock() {
 
 #[test]
 fn a_module_that_does_not_compile_is_a_result_not_a_panic() {
-    let outcome = run(b"\0asm\x01\0\0\0nonsense", "run", b"", limits(), &Grant::all(), revoked(false));
+    let outcome = run(
+        b"\0asm\x01\0\0\0nonsense",
+        "run",
+        b"",
+        limits(),
+        &Grant::all(),
+        revoked(false),
+    );
     match outcome.halt {
         Some(Halt::Trap(message)) => assert!(!message.is_empty(), "the reason is carried"),
         other => panic!("expected a trap, got {other:?}"),
@@ -318,7 +343,10 @@ fn an_api_the_extension_was_not_granted_is_refused_before_it_runs() {
         other => panic!("expected a permission refusal, got {other:?}"),
     }
     assert_eq!(outcome.host_calls, 0, "{outcome:?}");
-    assert_eq!(outcome.fuel_used, 0, "refused before the entry point: {outcome:?}");
+    assert_eq!(
+        outcome.fuel_used, 0,
+        "refused before the entry point: {outcome:?}"
+    );
     assert!(outcome.output.is_empty(), "{outcome:?}");
 }
 
@@ -352,7 +380,14 @@ fn an_import_from_another_namespace_is_refused() {
           (func (export "run") (param i32 i32) (result i32) (call $eval)))
         "#,
     );
-    let outcome = run(&foreign, "run", b"", limits(), &Grant::all(), revoked(false));
+    let outcome = run(
+        &foreign,
+        "run",
+        b"",
+        limits(),
+        &Grant::all(),
+        revoked(false),
+    );
     assert_eq!(
         outcome.halt,
         Some(Halt::PermissionDenied("env.eval".to_owned())),

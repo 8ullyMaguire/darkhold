@@ -90,10 +90,18 @@ impl FilterState {
     pub fn chips(&self) -> Vec<Chip> {
         let mut chips: Vec<Chip> = Vec::new();
         if let Some(min) = self.min_words {
-            chips.push(Chip::expressible("min_words", &min.to_string(), &format!("{min}+ words")));
+            chips.push(Chip::expressible(
+                "min_words",
+                &min.to_string(),
+                &format!("{min}+ words"),
+            ));
         }
         if let Some(max) = self.max_words {
-            chips.push(Chip::expressible("max_words", &max.to_string(), &format!("at most {max} words")));
+            chips.push(Chip::expressible(
+                "max_words",
+                &max.to_string(),
+                &format!("at most {max} words"),
+            ));
         }
         if let Some(rating) = &self.max_rating {
             chips.push(Chip::expressible(
@@ -210,7 +218,11 @@ impl Chip {
 ///
 /// The AST keeps text, fielded terms and comparisons as distinct nodes, so the walk is where "what is this query saying in free text" is
 /// decided — in one place, rather than in every caller that wants to prefill a search box.
-fn collect(ast: &QueryAst, text: &mut Vec<String>, comparisons: &mut Vec<(String, String, String)>) {
+fn collect(
+    ast: &QueryAst,
+    text: &mut Vec<String>,
+    comparisons: &mut Vec<(String, String, String)>,
+) {
     match ast {
         QueryAst::Text(value) | QueryAst::Phrase(value) => text.push(value.trim().to_owned()),
         QueryAst::Comparison(field, op, value) => comparisons.push((
@@ -314,7 +326,10 @@ mod tests {
         let sort = chips.last().expect("sort chip");
         assert_eq!(sort.kind, "sort", "{sort:?}");
         assert!(!sort.editable_in_query && sort.removable, "{sort:?}");
-        assert!(sort.reason.is_some(), "it says why it is not in the string: {sort:?}");
+        assert!(
+            sort.reason.is_some(),
+            "it says why it is not in the string: {sort:?}"
+        );
     }
 
     #[test]
@@ -349,7 +364,10 @@ mod tests {
         }
         // Removing every token from the string leaves the pinned filters in the state, which is the property the row is about.
         let edited = FilterState::from_query_string("");
-        assert!(edited.pinned.is_empty(), "the string cannot carry them, by definition");
+        assert!(
+            edited.pinned.is_empty(),
+            "the string cannot carry them, by definition"
+        );
         assert_eq!(
             with_pinned.pinned.len(),
             2,

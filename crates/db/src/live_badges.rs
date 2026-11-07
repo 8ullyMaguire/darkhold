@@ -62,16 +62,14 @@ pub struct State {
 /// Whether the account holds a live badge.
 async fn stored(db: &Database, account: &str, slug: &str) -> Result<bool> {
     let held = match db.backend() {
-        Backend::Sqlite => {
-            sqlx::query_scalar::<_, i64>(
-                "SELECT held FROM live_badge_state WHERE account_id = ? AND badge = ?",
-            )
-            .bind(account)
-            .bind(slug)
-            .fetch_optional(db.sqlite_pool().expect("sqlite"))
-            .await?
-            .map(|flag| flag != 0)
-        }
+        Backend::Sqlite => sqlx::query_scalar::<_, i64>(
+            "SELECT held FROM live_badge_state WHERE account_id = ? AND badge = ?",
+        )
+        .bind(account)
+        .bind(slug)
+        .fetch_optional(db.sqlite_pool().expect("sqlite"))
+        .await?
+        .map(|flag| flag != 0),
         Backend::Postgres => {
             sqlx::query_scalar::<_, bool>(
                 "SELECT held FROM live_badge_state WHERE account_id = $1 AND badge = $2",
@@ -217,7 +215,9 @@ pub async fn recompute(
         // A failure to enqueue must not lose the badge change: the state and the event row are already written, and the
         // outbox is a delivery mechanism. Logged rather than propagated, so a broken outbox costs notifications and never
         // a reader's badge.
-        if let Err(error) = crate::outbox::enqueue(db, &topic, &payload.to_string(), Some(&id)).await {
+        if let Err(error) =
+            crate::outbox::enqueue(db, &topic, &payload.to_string(), Some(&id)).await
+        {
             tracing::warn!(%error, %topic, "the badge transition was not enqueued");
         }
     }

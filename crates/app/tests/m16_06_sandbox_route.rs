@@ -141,7 +141,10 @@ impl Client {
         let bytes = axum::body::to_bytes(response.into_body(), usize::MAX)
             .await
             .expect("body");
-        (status, serde_json::from_slice(&bytes).unwrap_or(Value::Null))
+        (
+            status,
+            serde_json::from_slice(&bytes).unwrap_or(Value::Null),
+        )
     }
 
     /// Register a reader and return their account id, so the caller can raise their trust.
@@ -262,7 +265,11 @@ async fn an_operator_runs_a_module_under_the_ceilings_the_request_names() {
     let decoded = base64::engine::general_purpose::STANDARD
         .decode(body["output_base64"].as_str().expect("output"))
         .expect("valid base64");
-    assert_eq!(decoded.len(), 8, "the bytes the module wrote come back: {body}");
+    assert_eq!(
+        decoded.len(),
+        8,
+        "the bytes the module wrote come back: {body}"
+    );
     assert!(
         body["fuel_used"].as_u64().unwrap_or(0) > 0,
         "fuel metering is on in the door, not only in the library: {body}"
@@ -280,7 +287,11 @@ async fn a_run_that_hits_a_ceiling_reports_which_one() {
     let mut body = request_body(spinner());
     body["fuel"] = json!(40_000);
     let (status, body) = client.post("/api/v1/operator/sandbox/run", body).await;
-    assert_eq!(status, StatusCode::OK, "a ceiling is a result, not an error: {body}");
+    assert_eq!(
+        status,
+        StatusCode::OK,
+        "a ceiling is a result, not an error: {body}"
+    );
     assert_eq!(body["halt"], "fuel", "{body}");
     assert_eq!(body["succeeded"], false, "{body}");
 }

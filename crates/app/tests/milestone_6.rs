@@ -2999,15 +2999,23 @@ async fn a_tombstoned_work_is_refused_before_anything_is_written() {
     run_passes(&state, 6).await;
 
     let row = import_row(&harness, &import_id).await;
-    assert_eq!(row.state, "failed", "a refusal is a permanent failure, not a retry: {:?}", row.report_json);
-    let report: Value = serde_json::from_str(row.report_json.as_deref().expect("a report")).expect("json");
+    assert_eq!(
+        row.state, "failed",
+        "a refusal is a permanent failure, not a retry: {:?}",
+        row.report_json
+    );
+    let report: Value =
+        serde_json::from_str(row.report_json.as_deref().expect("a report")).expect("json");
     assert_eq!(report["error"], "tombstoned");
     let message = report["message"].as_str().expect("a message");
     assert!(
         message.contains(&filed.id),
         "the report cites the tombstone ({message})"
     );
-    assert!(message.contains("author request"), "and why it was filed ({message})");
+    assert!(
+        message.contains("author request"),
+        "and why it was filed ({message})"
+    );
     assert!(
         message.contains("will not be retried"),
         "the queue must not keep asking ({message})"
@@ -3019,12 +3027,17 @@ async fn a_tombstoned_work_is_refused_before_anything_is_written() {
         .expect("find");
     assert!(item.is_none(), "a refused import leaves no library row");
     assert!(
-        imports::list_import_units(harness.tdb.db(), &import_id).await.expect("units").is_empty(),
+        imports::list_import_units(harness.tdb.db(), &import_id)
+            .await
+            .expect("units")
+            .is_empty(),
         "a refused import stores no units"
     );
 
     // The refusal was counted, which is how an operator knows the key matched what the source serves.
-    let listed = darkhold_db::tombstones::list(harness.tdb.db(), 10).await.expect("list");
+    let listed = darkhold_db::tombstones::list(harness.tdb.db(), 10)
+        .await
+        .expect("list");
     assert_eq!(listed[0].refusals, 1);
 
     harness.cleanup().await;
@@ -3060,7 +3073,10 @@ async fn with_tombstones_off_the_same_work_imports() {
     let item = imports::find_library_item(harness.tdb.db(), &account.to_string(), SOURCE, WORK_KEY)
         .await
         .expect("find");
-    assert!(item.is_some(), "no refusal without a decision to enforce tombstones");
+    assert!(
+        item.is_some(),
+        "no refusal without a decision to enforce tombstones"
+    );
 
     harness.cleanup().await;
 }

@@ -56,32 +56,28 @@ pub async fn work_for_record(
     // returns the *row* cannot type-check — the arms must be reduced to a common type before they meet. Measured as
     // `error[E0308]: match arms have incompatible types` on the first version of this function.
     let work = match db.backend() {
-        Backend::Sqlite => {
-            sqlx::query(&sql)
-                .bind(work_id)
-                .fetch_optional(db.sqlite_pool().ok_or_else(pool_err)?)
-                .await?
-                .map(|r| WorkForRecord {
-                    id: r.get("id"),
-                    title: r.get("title"),
-                    summary: r.get("summary"),
-                    language: r.get("language"),
-                    created_at: r.get("created_at"),
-                })
-        }
-        Backend::Postgres => {
-            sqlx::query(&sql)
-                .bind(work_id)
-                .fetch_optional(db.postgres_pool().ok_or_else(pool_err)?)
-                .await?
-                .map(|r| WorkForRecord {
-                    id: r.get("id"),
-                    title: r.get("title"),
-                    summary: r.get("summary"),
-                    language: r.get("language"),
-                    created_at: r.get("created_at"),
-                })
-        }
+        Backend::Sqlite => sqlx::query(&sql)
+            .bind(work_id)
+            .fetch_optional(db.sqlite_pool().ok_or_else(pool_err)?)
+            .await?
+            .map(|r| WorkForRecord {
+                id: r.get("id"),
+                title: r.get("title"),
+                summary: r.get("summary"),
+                language: r.get("language"),
+                created_at: r.get("created_at"),
+            }),
+        Backend::Postgres => sqlx::query(&sql)
+            .bind(work_id)
+            .fetch_optional(db.postgres_pool().ok_or_else(pool_err)?)
+            .await?
+            .map(|r| WorkForRecord {
+                id: r.get("id"),
+                title: r.get("title"),
+                summary: r.get("summary"),
+                language: r.get("language"),
+                created_at: r.get("created_at"),
+            }),
     };
 
     Ok(work)
@@ -122,20 +118,16 @@ pub async fn at_uri_for(db: &Database, work_id: &str) -> Result<Option<String>, 
         "SELECT at_uri FROM works WHERE id = $1::uuid AND at_uri IS NOT NULL",
     );
     let uri = match db.backend() {
-        Backend::Sqlite => {
-            sqlx::query(&sql)
-                .bind(work_id)
-                .fetch_optional(db.sqlite_pool().ok_or_else(pool_err)?)
-                .await?
-                .map(|r| r.get::<String, _>("at_uri"))
-        }
-        Backend::Postgres => {
-            sqlx::query(&sql)
-                .bind(work_id)
-                .fetch_optional(db.postgres_pool().ok_or_else(pool_err)?)
-                .await?
-                .map(|r| r.get::<String, _>("at_uri"))
-        }
+        Backend::Sqlite => sqlx::query(&sql)
+            .bind(work_id)
+            .fetch_optional(db.sqlite_pool().ok_or_else(pool_err)?)
+            .await?
+            .map(|r| r.get::<String, _>("at_uri")),
+        Backend::Postgres => sqlx::query(&sql)
+            .bind(work_id)
+            .fetch_optional(db.postgres_pool().ok_or_else(pool_err)?)
+            .await?
+            .map(|r| r.get::<String, _>("at_uri")),
     };
     Ok(uri)
 }
@@ -150,40 +142,47 @@ pub async fn clear_at_uri(db: &Database, work_id: &str) -> Result<(), sqlx::Erro
     let now = crate::identity::now_rfc3339();
     match db.backend() {
         Backend::Sqlite => {
-            sqlx::query(&sql).bind(&now).bind(work_id).execute(db.sqlite_pool().ok_or_else(pool_err)?).await?;
+            sqlx::query(&sql)
+                .bind(&now)
+                .bind(work_id)
+                .execute(db.sqlite_pool().ok_or_else(pool_err)?)
+                .await?;
         }
         Backend::Postgres => {
-            sqlx::query(&sql).bind(&now).bind(work_id).execute(db.postgres_pool().ok_or_else(pool_err)?).await?;
+            sqlx::query(&sql)
+                .bind(&now)
+                .bind(work_id)
+                .execute(db.postgres_pool().ok_or_else(pool_err)?)
+                .await?;
         }
     }
     Ok(())
 }
 
 /// The `at://` URIs already published, for the purge in `docs/FEDERATION.md` §9 and for the gate that counts them.
-pub async fn published_uris(db: &Database, limit: i64) -> Result<Vec<(String, String)>, sqlx::Error> {
+pub async fn published_uris(
+    db: &Database,
+    limit: i64,
+) -> Result<Vec<(String, String)>, sqlx::Error> {
     let sql = db.sql(
         "SELECT id, at_uri FROM works WHERE at_uri IS NOT NULL ORDER BY updated_at DESC LIMIT ?",
         "SELECT id, at_uri FROM works WHERE at_uri IS NOT NULL ORDER BY updated_at DESC LIMIT $1",
     );
     let rows = match db.backend() {
-        Backend::Sqlite => {
-            sqlx::query(&sql)
-                .bind(limit)
-                .fetch_all(db.sqlite_pool().ok_or_else(pool_err)?)
-                .await?
-                .into_iter()
-                .map(|r| (r.get::<String, _>("id"), r.get::<String, _>("at_uri")))
-                .collect::<Vec<_>>()
-        }
-        Backend::Postgres => {
-            sqlx::query(&sql)
-                .bind(limit)
-                .fetch_all(db.postgres_pool().ok_or_else(pool_err)?)
-                .await?
-                .into_iter()
-                .map(|r| (r.get::<String, _>("id"), r.get::<String, _>("at_uri")))
-                .collect::<Vec<_>>()
-        }
+        Backend::Sqlite => sqlx::query(&sql)
+            .bind(limit)
+            .fetch_all(db.sqlite_pool().ok_or_else(pool_err)?)
+            .await?
+            .into_iter()
+            .map(|r| (r.get::<String, _>("id"), r.get::<String, _>("at_uri")))
+            .collect::<Vec<_>>(),
+        Backend::Postgres => sqlx::query(&sql)
+            .bind(limit)
+            .fetch_all(db.postgres_pool().ok_or_else(pool_err)?)
+            .await?
+            .into_iter()
+            .map(|r| (r.get::<String, _>("id"), r.get::<String, _>("at_uri")))
+            .collect::<Vec<_>>(),
     };
     Ok(rows)
 }

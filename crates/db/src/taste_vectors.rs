@@ -428,9 +428,10 @@ pub async fn arena_appearances(
                 query = query.bind(id);
             }
             for row in query.fetch_all(pool).await? {
-                let (work, count): (String, i64) = sqlx::Row::try_get(&row, 0).and_then(|work: String| {
-                    sqlx::Row::try_get::<i64, _>(&row, 1).map(|count| (work, count))
-                })?;
+                let (work, count): (String, i64) =
+                    sqlx::Row::try_get(&row, 0).and_then(|work: String| {
+                        sqlx::Row::try_get::<i64, _>(&row, 1).map(|count| (work, count))
+                    })?;
                 counts.insert(work, count);
             }
         }
@@ -582,8 +583,8 @@ pub async fn get_arena_pool(
     account_id: &str,
     limit: i64,
 ) -> Result<Vec<ArenaPoolRow>, sqlx::Error> {
-// INFER: no surface concludes from a restricted work. Nobody could have read a work they were never shown,
-// so an edge or a count built on one is a claim about people made from a non-event. See `db::visibility`.
+    // INFER: no surface concludes from a restricted work. Nobody could have read a work they were never shown,
+    // so an edge or a count built on one is a claim about people made from a non-event. See `db::visibility`.
     match db.backend() {
         Backend::Sqlite => {
             let _pool = db.sqlite_pool().ok_or(pool_err())?;

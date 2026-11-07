@@ -4,8 +4,8 @@
 //! module only reads and writes the rows those decisions describe. No function here decides a threshold.
 
 use anyhow::Result;
-use sqlx::Row as _;
 use serde_json::{json, Value};
+use sqlx::Row as _;
 
 use crate::{Backend, Database};
 
@@ -140,18 +140,20 @@ pub async fn record_failure(
     use darkhold_domain::webhook::{Breaker, BreakerDecision};
 
     let previous: Option<i64> = match db.backend() {
-        Backend::Sqlite => sqlx::query_scalar(
-            "SELECT consecutive_failures FROM webhook_endpoints WHERE id = ?",
-        )
-        .bind(endpoint_id)
-        .fetch_optional(db.sqlite_pool().expect("sqlite"))
-        .await?,
-        Backend::Postgres => sqlx::query_scalar(
-            "SELECT CAST(consecutive_failures AS BIGINT) FROM webhook_endpoints WHERE id = $1",
-        )
-        .bind(endpoint_id)
-        .fetch_optional(db.postgres_pool().expect("postgres"))
-        .await?,
+        Backend::Sqlite => {
+            sqlx::query_scalar("SELECT consecutive_failures FROM webhook_endpoints WHERE id = ?")
+                .bind(endpoint_id)
+                .fetch_optional(db.sqlite_pool().expect("sqlite"))
+                .await?
+        }
+        Backend::Postgres => {
+            sqlx::query_scalar(
+                "SELECT CAST(consecutive_failures AS BIGINT) FROM webhook_endpoints WHERE id = $1",
+            )
+            .bind(endpoint_id)
+            .fetch_optional(db.postgres_pool().expect("postgres"))
+            .await?
+        }
     };
     let Some(previous) = previous else {
         return Ok(None);
@@ -164,11 +166,13 @@ pub async fn record_failure(
         } => {
             match db.backend() {
                 Backend::Sqlite => {
-                    sqlx::query("UPDATE webhook_endpoints SET consecutive_failures = ? WHERE id = ?")
-                        .bind(i64::from(consecutive_failures))
-                        .bind(endpoint_id)
-                        .execute(db.sqlite_pool().expect("sqlite"))
-                        .await?;
+                    sqlx::query(
+                        "UPDATE webhook_endpoints SET consecutive_failures = ? WHERE id = ?",
+                    )
+                    .bind(i64::from(consecutive_failures))
+                    .bind(endpoint_id)
+                    .execute(db.sqlite_pool().expect("sqlite"))
+                    .await?;
                 }
                 Backend::Postgres => {
                     sqlx::query(
@@ -232,7 +236,9 @@ pub async fn reenable(db: &Database, endpoint_id: &str, owner: Option<&str>) -> 
             if let Some(owner) = owner {
                 q = q.bind(owner);
             }
-            q.execute(db.sqlite_pool().expect("sqlite")).await?.rows_affected()
+            q.execute(db.sqlite_pool().expect("sqlite"))
+                .await?
+                .rows_affected()
         }
         Backend::Postgres => {
             let sql = if owner.is_some() {

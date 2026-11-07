@@ -315,14 +315,22 @@ async fn callback(
         .get(header::USER_AGENT)
         .and_then(|value| value.to_str().ok());
 
-    let issued =
-        match auth::issue_session(&state, &account, initial, user_agent, acr.as_deref(), &roles).await {
-            Ok(issued) => issued,
-            Err(error) => {
-                tracing::error!(%error, "could not issue a session after Polaris sign-in");
-                return Redirect::to("/login?oidc=error").into_response();
-            }
-        };
+    let issued = match auth::issue_session(
+        &state,
+        &account,
+        initial,
+        user_agent,
+        acr.as_deref(),
+        &roles,
+    )
+    .await
+    {
+        Ok(issued) => issued,
+        Err(error) => {
+            tracing::error!(%error, "could not issue a session after Polaris sign-in");
+            return Redirect::to("/login?oidc=error").into_response();
+        }
+    };
     if let Err(error) =
         darkhold_db::engagement::record_login(state.db(), &account.id.to_string()).await
     {

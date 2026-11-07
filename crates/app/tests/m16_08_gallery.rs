@@ -59,7 +59,13 @@ impl Harness {
     }
 
     /// Insert a published package with a real manifest, so `install` has something to read.
-    async fn publish(&self, id: &str, version: &str, license: &str, permissions: &[&str]) -> String {
+    async fn publish(
+        &self,
+        id: &str,
+        version: &str,
+        license: &str,
+        permissions: &[&str],
+    ) -> String {
         let document = json!({
             "id": id,
             "version": 1,
@@ -108,8 +114,12 @@ impl Client {
     fn capture(&mut self, response: &axum::response::Response) {
         for value in response.headers().get_all(header::SET_COOKIE) {
             let Ok(text) = value.to_str() else { continue };
-            let Some((pair, _)) = text.split_once(';') else { continue };
-            let Some((name, value)) = pair.split_once('=') else { continue };
+            let Some((pair, _)) = text.split_once(';') else {
+                continue;
+            };
+            let Some((name, value)) = pair.split_once('=') else {
+                continue;
+            };
             let name = name.trim().to_owned();
             let value = value.trim().to_owned();
             self.cookies.retain(|(k, _)| k != &name);
@@ -120,8 +130,9 @@ impl Client {
     }
 
     async fn send(&mut self, method: &str, uri: &str, body: Option<Value>) -> (StatusCode, Value) {
-        let mut builder =
-            Request::builder().method(Method::from_bytes(method.as_bytes()).expect("method")).uri(uri);
+        let mut builder = Request::builder()
+            .method(Method::from_bytes(method.as_bytes()).expect("method"))
+            .uri(uri);
         if body.is_some() {
             builder = builder.header(header::CONTENT_TYPE, "application/json");
         }
@@ -151,8 +162,13 @@ impl Client {
             .expect("response");
         let status = response.status();
         self.capture(&response);
-        let bytes = axum::body::to_bytes(response.into_body(), usize::MAX).await.expect("body");
-        (status, serde_json::from_slice(&bytes).unwrap_or(Value::Null))
+        let bytes = axum::body::to_bytes(response.into_body(), usize::MAX)
+            .await
+            .expect("body");
+        (
+            status,
+            serde_json::from_slice(&bytes).unwrap_or(Value::Null),
+        )
     }
 
     /// Register and remember the pseud the session acts as.
@@ -170,7 +186,10 @@ impl Client {
                 })),
             )
             .await;
-        assert!(status == StatusCode::CREATED || status == StatusCode::OK, "register {handle}: {body}");
+        assert!(
+            status == StatusCode::CREATED || status == StatusCode::OK,
+            "register {handle}: {body}"
+        );
         let (status, me) = self.send("GET", "/api/v1/auth/me", None).await;
         assert_eq!(status, StatusCode::OK, "{me}");
         self.pseud = me["pseuds"][0]["id"].as_str().expect("pseud id").to_owned();
@@ -183,18 +202,28 @@ impl Client {
 }
 
 fn message(body: &Value) -> String {
-    body["error"]["message"].as_str().unwrap_or_default().to_owned()
+    body["error"]["message"]
+        .as_str()
+        .unwrap_or_default()
+        .to_owned()
 }
 
 #[tokio::test]
 async fn installing_twice_is_one_install_and_the_count_is_a_census() {
     let h = Harness::new("idempotent").await;
-    h.publish("shelf-sorter", "1.0.0", "MIT", &["work.read"]).await;
+    h.publish("shelf-sorter", "1.0.0", "MIT", &["work.read"])
+        .await;
 
     let mut reader = h.client();
     reader.register("reader-one").await;
 
-    let (status, body) = reader.send("POST", "/api/v1/extensions/shelf-sorter/install", Some(json!({}))).await;
+    let (status, body) = reader
+        .send(
+            "POST",
+            "/api/v1/extensions/shelf-sorter/install",
+            Some(json!({})),
+        )
+        .await;
     assert_eq!(status, StatusCode::OK, "{body}");
     assert_eq!(body["installed"], true, "{body}");
     assert_eq!(body["version"], "1.0.0", "{body}");
@@ -202,19 +231,36 @@ async fn installing_twice_is_one_install_and_the_count_is_a_census() {
     assert_eq!(body["update_policy"], "pinned", "{body}");
 
     // The retry a client makes when it did not read the first response.
-    let (status, body) = reader.send("POST", "/api/v1/extensions/shelf-sorter/install", Some(json!({}))).await;
+    let (status, body) = reader
+        .send(
+            "POST",
+            "/api/v1/extensions/shelf-sorter/install",
+            Some(json!({})),
+        )
+        .await;
     assert_eq!(status, StatusCode::OK, "{body}");
     assert_eq!(body["installed"], false, "{body}");
     assert_eq!(body["already_installed"], true, "{body}");
-    assert_eq!(body["install_count"], 1, "reinstalling is not a second install: {body}");
+    assert_eq!(
+        body["install_count"], 1,
+        "reinstalling is not a second install: {body}"
+    );
 
-    let (status, body) = reader.send("DELETE", "/api/v1/extensions/shelf-sorter/install", None).await;
+    let (status, body) = reader
+        .send("DELETE", "/api/v1/extensions/shelf-sorter/install", None)
+        .await;
     assert_eq!(status, StatusCode::OK, "{body}");
     assert_eq!(body["uninstalled"], true, "{body}");
     assert_eq!(body["install_count"], 0, "{body}");
 
     // And back again: the count follows reality, which is why it is computed rather than accumulated.
-    let (status, body) = reader.send("POST", "/api/v1/extensions/shelf-sorter/install", Some(json!({}))).await;
+    let (status, body) = reader
+        .send(
+            "POST",
+            "/api/v1/extensions/shelf-sorter/install",
+            Some(json!({})),
+        )
+        .await;
     assert_eq!(status, StatusCode::OK, "{body}");
     assert_eq!(body["install_count"], 1, "{body}");
 }
@@ -229,36 +275,76 @@ async fn two_scopes_are_two_installs() {
     let mut second = h.client();
     second.register("reader-b").await;
 
-    first.send("POST", "/api/v1/extensions/shelf-sorter/install", Some(json!({}))).await;
-    let (status, body) = second.send("POST", "/api/v1/extensions/shelf-sorter/install", Some(json!({}))).await;
+    first
+        .send(
+            "POST",
+            "/api/v1/extensions/shelf-sorter/install",
+            Some(json!({})),
+        )
+        .await;
+    let (status, body) = second
+        .send(
+            "POST",
+            "/api/v1/extensions/shelf-sorter/install",
+            Some(json!({})),
+        )
+        .await;
     assert_eq!(status, StatusCode::OK, "{body}");
     assert_eq!(body["install_count"], 2, "{body}");
 
     // The caller's own list names only its own installation.
     let (status, body) = first.send("GET", "/api/v1/me/installations", None).await;
     assert_eq!(status, StatusCode::OK, "{body}");
-    assert_eq!(body["installations"].as_array().map(Vec::len), Some(1), "{body}");
-    assert_eq!(body["installations"][0]["manifest_id"], "shelf-sorter", "{body}");
+    assert_eq!(
+        body["installations"].as_array().map(Vec::len),
+        Some(1),
+        "{body}"
+    );
+    assert_eq!(
+        body["installations"][0]["manifest_id"], "shelf-sorter",
+        "{body}"
+    );
 }
 
 #[tokio::test]
 async fn an_update_follows_the_policy_and_never_widens_a_grant_silently() {
     let h = Harness::new("update").await;
-    h.publish("shelf-sorter", "1.0.0", "MIT", &["work.read"]).await;
+    h.publish("shelf-sorter", "1.0.0", "MIT", &["work.read"])
+        .await;
 
     let mut reader = h.client();
     reader.register("updater").await;
-    reader.send("POST", "/api/v1/extensions/shelf-sorter/install", Some(json!({}))).await;
+    reader
+        .send(
+            "POST",
+            "/api/v1/extensions/shelf-sorter/install",
+            Some(json!({})),
+        )
+        .await;
 
     // A new release that asks for nothing new.
-    h.publish("shelf-sorter", "1.1.0", "MIT", &["work.read"]).await;
-    let (status, body) = reader.send("POST", "/api/v1/extensions/shelf-sorter/update", Some(json!({}))).await;
+    h.publish("shelf-sorter", "1.1.0", "MIT", &["work.read"])
+        .await;
+    let (status, body) = reader
+        .send(
+            "POST",
+            "/api/v1/extensions/shelf-sorter/update",
+            Some(json!({})),
+        )
+        .await;
     assert_eq!(status, StatusCode::OK, "{body}");
-    assert_eq!(body["updated"], false, "a pinned install does not follow a release: {body}");
+    assert_eq!(
+        body["updated"], false,
+        "a pinned install does not follow a release: {body}"
+    );
     assert_eq!(body["version"], "1.0.0", "{body}");
 
     let (status, body) = reader
-        .send("POST", "/api/v1/extensions/shelf-sorter/update", Some(json!({ "update_policy": "minor" })))
+        .send(
+            "POST",
+            "/api/v1/extensions/shelf-sorter/update",
+            Some(json!({ "update_policy": "minor" })),
+        )
         .await;
     assert_eq!(status, StatusCode::OK, "{body}");
     assert_eq!(body["updated"], true, "{body}");
@@ -266,10 +352,21 @@ async fn an_update_follows_the_policy_and_never_widens_a_grant_silently() {
     assert_eq!(body["version"], "1.1.0", "{body}");
 
     // A release that asks for more: the update is refused and the refusal names what is new.
-    h.publish("shelf-sorter", "1.2.0", "MIT", &["work.read", "network"]).await;
-    let (status, body) = reader.send("POST", "/api/v1/extensions/shelf-sorter/update", Some(json!({}))).await;
+    h.publish("shelf-sorter", "1.2.0", "MIT", &["work.read", "network"])
+        .await;
+    let (status, body) = reader
+        .send(
+            "POST",
+            "/api/v1/extensions/shelf-sorter/update",
+            Some(json!({})),
+        )
+        .await;
     assert_eq!(status, StatusCode::UNPROCESSABLE_ENTITY, "{body}");
-    assert!(message(&body).contains("network"), "the prompt names what is new: {}", message(&body));
+    assert!(
+        message(&body).contains("network"),
+        "the prompt names what is new: {}",
+        message(&body)
+    );
     assert!(
         !message(&body).contains("work.read"),
         "it names only what is new, not what was already granted: {}",
@@ -287,12 +384,26 @@ async fn a_rating_needs_an_install_and_one_scope_is_one_rating() {
 
     // Before installing there is nothing to have an opinion about.
     let (status, body) = reader
-        .send("PUT", "/api/v1/extensions/shelf-sorter/rating", Some(json!({ "stars": 5 })))
+        .send(
+            "PUT",
+            "/api/v1/extensions/shelf-sorter/rating",
+            Some(json!({ "stars": 5 })),
+        )
         .await;
     assert_eq!(status, StatusCode::UNPROCESSABLE_ENTITY, "{body}");
-    assert!(message(&body).contains("only a scope that has installed"), "{}", message(&body));
+    assert!(
+        message(&body).contains("only a scope that has installed"),
+        "{}",
+        message(&body)
+    );
 
-    reader.send("POST", "/api/v1/extensions/shelf-sorter/install", Some(json!({}))).await;
+    reader
+        .send(
+            "POST",
+            "/api/v1/extensions/shelf-sorter/install",
+            Some(json!({})),
+        )
+        .await;
 
     let (status, body) = reader
         .send(
@@ -319,18 +430,27 @@ async fn a_rating_needs_an_install_and_one_scope_is_one_rating() {
 
     // Zero is not an abstention.
     let (status, body) = reader
-        .send("PUT", "/api/v1/extensions/shelf-sorter/rating", Some(json!({ "stars": 0 })))
+        .send(
+            "PUT",
+            "/api/v1/extensions/shelf-sorter/rating",
+            Some(json!({ "stars": 0 })),
+        )
         .await;
     assert_eq!(status, StatusCode::UNPROCESSABLE_ENTITY, "{body}");
 
-    let (status, body) = reader.send("GET", "/api/v1/extensions/shelf-sorter/ratings", None).await;
+    let (status, body) = reader
+        .send("GET", "/api/v1/extensions/shelf-sorter/ratings", None)
+        .await;
     assert_eq!(status, StatusCode::OK, "{body}");
     assert_eq!(body["count"], 1, "{body}");
     assert_eq!(body["install_count"], 1, "{body}");
     let reviews = body["reviews"].as_array().expect("reviews");
     assert_eq!(reviews.len(), 1, "{body}");
     assert_eq!(reviews[0]["stars"], 3, "{body}");
-    assert_eq!(reviews[0]["version_rated"], "1.0.0", "a review says which version it is about: {body}");
+    assert_eq!(
+        reviews[0]["version_rated"], "1.0.0",
+        "a review says which version it is about: {body}"
+    );
 }
 
 #[tokio::test]
@@ -356,7 +476,9 @@ async fn a_fork_cannot_be_relabelled_out_of_a_copyleft_licence() {
         .send(
             "POST",
             "/api/v1/extensions/share-alike/fork",
-            Some(json!({ "id": "share-alike-mine", "version": "1.0.0", "license": "CC-BY-SA-4.0" })),
+            Some(
+                json!({ "id": "share-alike-mine", "version": "1.0.0", "license": "CC-BY-SA-4.0" }),
+            ),
         )
         .await;
     assert_eq!(status, StatusCode::OK, "{body}");

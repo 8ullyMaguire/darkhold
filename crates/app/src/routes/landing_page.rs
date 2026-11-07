@@ -110,9 +110,7 @@ async fn starters(state: &AppState) -> Vec<Starter> {
         let units = darkhold_db::content::units_for_work(state.db(), id)
             .await
             .unwrap_or_default();
-        let first_readable = units
-            .iter()
-            .find(|unit| unit.current_revision_id.is_some());
+        let first_readable = units.iter().find(|unit| unit.current_revision_id.is_some());
         let words: i64 = units
             .iter()
             .filter(|unit| unit.current_revision_id.is_some())
@@ -144,7 +142,8 @@ async fn starters(state: &AppState) -> Vec<Starter> {
 /// theirs to publish or withhold, and an unpublished theme must not leak through a summary line (§12.1, §8.4).
 async fn published_theme_tags(state: &AppState) -> Vec<String> {
     let instance_id = state.config().site.base_url.clone();
-    let Ok(Some(theme)) = darkhold_db::instance_theme::get_local_theme(state.db(), &instance_id).await
+    let Ok(Some(theme)) =
+        darkhold_db::instance_theme::get_local_theme(state.db(), &instance_id).await
     else {
         return Vec::new();
     };
@@ -159,11 +158,7 @@ async fn published_theme_tags(state: &AppState) -> Vec<String> {
         .filter_map(|(tag, weight)| weight.as_f64().map(|w| (tag.clone(), w)))
         .collect();
     weighted.sort_by(|a, b| b.1.partial_cmp(&a.1).unwrap_or(std::cmp::Ordering::Equal));
-    weighted
-        .into_iter()
-        .take(6)
-        .map(|(tag, _)| tag)
-        .collect()
+    weighted.into_iter().take(6).map(|(tag, _)| tag).collect()
 }
 
 fn render(
@@ -187,10 +182,7 @@ fn render(
             ("content", "width=device-width, initial-scale=1"),
         ],
     );
-    page.void(
-        "meta",
-        &[("name", "description"), ("content", tagline)],
-    );
+    page.void("meta", &[("name", "description"), ("content", tagline)]);
     page.open("title", &[]).text(name).close("title");
     if let Some(href) = stylesheet {
         page.void("link", &[("rel", "stylesheet"), ("href", href)]);
@@ -224,7 +216,9 @@ fn render(
     // ── the declaration ───────────────────────────────────────────────────
     page.open("h1", &[]).text(name).close("h1");
     if !tagline.trim().is_empty() {
-        page.open("p", &[("class", "tagline")]).text(tagline).close("p");
+        page.open("p", &[("class", "tagline")])
+            .text(tagline)
+            .close("p");
     }
     if let Some(total) = total {
         let mut line = format!("{total} works catalogued");
@@ -236,7 +230,9 @@ fn render(
                 ));
             }
         }
-        page.open("p", &[("class", "counts")]).text(&line).close("p");
+        page.open("p", &[("class", "counts")])
+            .text(&line)
+            .close("p");
     }
     if !theme_tags.is_empty() {
         page.open("p", &[("class", "counts")])
@@ -289,7 +285,9 @@ fn render(
 
     // ── what this place is for ───────────────────────────────────────────
     page.open("section", &[]);
-    page.open("h2", &[]).text("What you can do here").close("h2");
+    page.open("h2", &[])
+        .text("What you can do here")
+        .close("h2");
     page.open("p", &[])
         .text("Reading is free and needs no account. ")
         .open("a", &[("href", "/browse")])
@@ -318,7 +316,9 @@ fn render(
         .text("Sign in")
         .close("a");
     page.text(" · ");
-    page.open("a", &[("href", "/about")]).text("About").close("a");
+    page.open("a", &[("href", "/about")])
+        .text("About")
+        .close("a");
     page.close("footer");
 
     page.close("main");

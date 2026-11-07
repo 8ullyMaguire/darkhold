@@ -226,9 +226,16 @@ impl PaymentRefusal {
     pub fn message(&self) -> String {
         match self {
             Self::NotChargeable => "a price is a positive amount".to_owned(),
-            Self::BadFee(fee) => format!("a platform fee of {fee} basis points is outside 0–10 000"),
-            Self::NotCaptured => "nothing has been captured, so there is nothing to refund".to_owned(),
-            Self::OverRefund { requested, remaining } => {
+            Self::BadFee(fee) => {
+                format!("a platform fee of {fee} basis points is outside 0–10 000")
+            }
+            Self::NotCaptured => {
+                "nothing has been captured, so there is nothing to refund".to_owned()
+            }
+            Self::OverRefund {
+                requested,
+                remaining,
+            } => {
                 format!("a refund of {requested} exceeds the {remaining} still available")
             }
             Self::AlreadyRefunded => "this payment has already been refunded in full".to_owned(),
@@ -395,7 +402,10 @@ mod tests {
     fn only_a_full_refund_is_a_full_refund() {
         assert!(!is_full_refund(1_000, 999));
         assert!(is_full_refund(1_000, 1_000));
-        assert!(!is_full_refund(0, 0), "nothing captured is not a full refund");
+        assert!(
+            !is_full_refund(0, 0),
+            "nothing captured is not a full refund"
+        );
     }
 
     #[test]

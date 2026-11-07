@@ -163,7 +163,10 @@ async fn the_declared_map_is_served_with_its_version_and_the_works_it_reaches() 
 
     let (status, body) = get(app, "/api/v1/fandoms/Worm/related").await;
     assert_eq!(status, StatusCode::OK, "body: {body}");
-    assert_eq!(body["graph_version"], "2026-11-07", "the page can name its map");
+    assert_eq!(
+        body["graph_version"], "2026-11-07",
+        "the page can name its map"
+    );
     assert_eq!(body["fandom"], "Worm");
     assert_eq!(body["neighbours"][0]["name"], "Ward");
     assert_eq!(body["neighbours"][0]["weight"], 0.9);

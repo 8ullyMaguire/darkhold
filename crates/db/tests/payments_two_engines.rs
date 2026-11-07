@@ -148,7 +148,10 @@ async fn a_payment_is_idempotent_captured_once_and_refunded_within_its_amount() 
     )
     .await
     .expect("record");
-    assert_eq!(first.state, darkhold_domain::payments::PaymentState::Pending);
+    assert_eq!(
+        first.state,
+        darkhold_domain::payments::PaymentState::Pending
+    );
 
     // The idempotency key is the guard: a retry returns the same row.
     let retried = record_payment(
@@ -167,15 +170,25 @@ async fn a_payment_is_idempotent_captured_once_and_refunded_within_its_amount() 
     )
     .await
     .expect("retry");
-    assert_eq!(retried.id, first.id, "a retry must not create a second payment");
+    assert_eq!(
+        retried.id, first.id,
+        "a retry must not create a second payment"
+    );
 
-    assert!(capture(&db, &first.id, "manual:test").await.expect("capture"));
+    assert!(capture(&db, &first.id, "manual:test")
+        .await
+        .expect("capture"));
     assert!(
-        !capture(&db, &first.id, "manual:second").await.expect("capture twice"),
+        !capture(&db, &first.id, "manual:second")
+            .await
+            .expect("capture twice"),
         "capturing twice is a no-op, not a second charge"
     );
     let captured = payment(&db, &first.id).await.expect("read").expect("row");
-    assert_eq!(captured.state, darkhold_domain::payments::PaymentState::Captured);
+    assert_eq!(
+        captured.state,
+        darkhold_domain::payments::PaymentState::Captured
+    );
     assert_eq!(captured.tax_minor, 160);
 
     // `seller_net` joins the manifest; on PostgreSQL `submitted_by` is a uuid column and the comparison is against a text bind, which is
@@ -195,10 +208,15 @@ async fn a_payment_is_idempotent_captured_once_and_refunded_within_its_amount() 
         .await
         .expect("final"));
     let settled = payment(&db, &first.id).await.expect("read").expect("row");
-    assert_eq!(settled.state, darkhold_domain::payments::PaymentState::Refunded);
+    assert_eq!(
+        settled.state,
+        darkhold_domain::payments::PaymentState::Refunded
+    );
     assert_eq!(settled.refunded_minor, 1_000);
     assert!(
-        !record_refund(&db, &first.id, 1, "again", "op").await.expect("closed"),
+        !record_refund(&db, &first.id, 1, "again", "op")
+            .await
+            .expect("closed"),
         "a refunded payment accepts nothing further"
     );
 }

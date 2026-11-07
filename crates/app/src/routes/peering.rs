@@ -65,7 +65,10 @@ async fn suggestions(
         .await
         .map_err(|error| ApiError(AppError::Internal(error)))?;
 
-    let documents: Vec<_> = peers.iter().map(|(fingerprint, _)| fingerprint.clone()).collect();
+    let documents: Vec<_> = peers
+        .iter()
+        .map(|(fingerprint, _)| fingerprint.clone())
+        .collect();
     let verdicts = peering::suggest(&own, &documents, peering::MAX_SUGGESTIONS);
     let fetched: std::collections::BTreeMap<&str, &str> = peers
         .iter()
@@ -109,14 +112,15 @@ async fn record_fingerprint(
     require_operator(&state, &session.0)?;
 
     let fetched_at = darkhold_db::identity::now_rfc3339();
-    let fingerprint = darkhold_db::peer_fingerprints::record(state.db(), &request.document, &fetched_at)
-        .await
-        .map_err(|error| {
-            ApiError(AppError::Validation {
-                message: error.to_string(),
-                field_errors: std::collections::BTreeMap::new(),
-            })
-        })?;
+    let fingerprint =
+        darkhold_db::peer_fingerprints::record(state.db(), &request.document, &fetched_at)
+            .await
+            .map_err(|error| {
+                ApiError(AppError::Validation {
+                    message: error.to_string(),
+                    field_errors: std::collections::BTreeMap::new(),
+                })
+            })?;
 
     Ok(Json(json!({
         "instance_id": fingerprint.instance_id,

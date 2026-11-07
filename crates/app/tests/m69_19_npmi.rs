@@ -78,10 +78,7 @@ impl Harness {
     }
 
     fn client(&self) -> axum::Router {
-        server::build_router(AppState::new(
-            self.config.clone(),
-            self.tdb.db().clone(),
-        ))
+        server::build_router(AppState::new(self.config.clone(), self.tdb.db().clone()))
     }
 
     async fn exec(&self, statement: &str) {
@@ -172,10 +169,20 @@ async fn a_rare_companion_outranks_a_common_one() {
     assert_eq!(status, StatusCode::OK, "{body}");
     let parsed: Value = serde_json::from_str(&body).expect("json");
     let items = parsed["items"].as_array().expect("items");
-    assert_eq!(items.len(), 2, "a pair seen once is noise and is excluded: {body}");
+    assert_eq!(
+        items.len(),
+        2,
+        "a pair seen once is noise and is excluded: {body}"
+    );
 
-    assert_eq!(items[0]["tag"], "rare", "NPMI ranks the rare companion first: {body}");
-    assert_eq!(items[1]["tag"], "common", "raw counts would have put this first: {body}");
+    assert_eq!(
+        items[0]["tag"], "rare",
+        "NPMI ranks the rare companion first: {body}"
+    );
+    assert_eq!(
+        items[1]["tag"], "common",
+        "raw counts would have put this first: {body}"
+    );
 
     // The numbers are the evidence, not a decoration: 0.8394 vs 0.3908 is the disagreement with a raw count.
     let npmi = |index: usize| items[index]["npmi"].as_f64().expect("npmi");

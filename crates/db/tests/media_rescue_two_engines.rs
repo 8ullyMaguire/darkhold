@@ -39,7 +39,9 @@ async fn connect() -> Database {
         return db;
     };
     let name = format!("lh_rescue_{}", uuid::Uuid::new_v4().simple());
-    let admin_db = Database::connect(&make_config(admin.clone())).await.expect("admin");
+    let admin_db = Database::connect(&make_config(admin.clone()))
+        .await
+        .expect("admin");
     sqlx::query(&format!("CREATE DATABASE {name}"))
         .execute(admin_db.postgres_pool().expect("postgres handle"))
         .await
@@ -93,8 +95,14 @@ async fn an_exact_copy_is_found_and_an_ambiguous_one_names_nobody() {
     .await
     .expect("hunt");
     assert_eq!(hunt.outcome, "exact");
-    assert_eq!(hunt.matched_instance.as_deref(), Some("https://alive.example"));
-    assert_eq!(hunt.threshold, 10, "the bound the search used travels with the outcome");
+    assert_eq!(
+        hunt.matched_instance.as_deref(),
+        Some("https://alive.example")
+    );
+    assert_eq!(
+        hunt.threshold, 10,
+        "the bound the search used travels with the outcome"
+    );
 
     // Two survivors with the same bytes: ambiguity, and no name stored.
     media_rescue::record_copy(
@@ -144,8 +152,15 @@ async fn an_exact_copy_is_found_and_an_ambiguous_one_names_nobody() {
     assert_eq!(hunt.outcome, "not_found");
     assert_eq!(hunt.matched_instance, None);
     let all = media_rescue::list(db, 50).await.expect("list");
-    assert_eq!(all.len(), 3, "every hunt is recorded, including the empty ones");
-    assert_eq!(all.iter().filter(|hunt| hunt.resolved_at.is_none()).count(), 3);
+    assert_eq!(
+        all.len(),
+        3,
+        "every hunt is recorded, including the empty ones"
+    );
+    assert_eq!(
+        all.iter().filter(|hunt| hunt.resolved_at.is_none()).count(),
+        3
+    );
 }
 
 #[tokio::test]
@@ -195,30 +210,53 @@ async fn accepting_needs_a_name_and_settling_twice_is_a_no_op() {
     assert_eq!(hunt.outcome, "ambiguous", "{hunt:?}");
 
     // An unknown resolution is refused, and accepting without a name on an ambiguous hunt is refused.
-    assert!(media_rescue::resolve(db, &hunt.id, "maybe", "operator", None, NOW)
-        .await
-        .is_err());
+    assert!(
+        media_rescue::resolve(db, &hunt.id, "maybe", "operator", None, NOW)
+            .await
+            .is_err()
+    );
     let error = media_rescue::resolve(db, &hunt.id, "accepted", "operator", None, NOW)
         .await
         .expect_err("an ambiguous hunt needs the name the operator chose");
     assert!(error.to_string().contains("survivor"), "{error}");
 
     // Naming one settles it, and the name is stored as the credit.
-    assert!(
-        media_rescue::resolve(db, &hunt.id, "accepted", "operator", Some("https://b.example"), NOW)
-            .await
-            .expect("accept")
-    );
-    let settled = media_rescue::find(db, &hunt.id).await.expect("find").expect("row");
+    assert!(media_rescue::resolve(
+        db,
+        &hunt.id,
+        "accepted",
+        "operator",
+        Some("https://b.example"),
+        NOW
+    )
+    .await
+    .expect("accept"));
+    let settled = media_rescue::find(db, &hunt.id)
+        .await
+        .expect("find")
+        .expect("row");
     assert_eq!(settled.resolution.as_deref(), Some("accepted"));
-    assert_eq!(settled.matched_instance.as_deref(), Some("https://b.example"));
+    assert_eq!(
+        settled.matched_instance.as_deref(),
+        Some("https://b.example")
+    );
     assert_eq!(settled.resolved_by.as_deref(), Some("operator"));
 
     // A second settle changes nothing: the first decision is the one that happened.
-    assert!(!media_rescue::resolve(db, &hunt.id, "rejected", "someone-else", None, "2026-11-08T00:00:00Z")
+    assert!(!media_rescue::resolve(
+        db,
+        &hunt.id,
+        "rejected",
+        "someone-else",
+        None,
+        "2026-11-08T00:00:00Z"
+    )
+    .await
+    .expect("settle again"));
+    let settled = media_rescue::find(db, &hunt.id)
         .await
-        .expect("settle again"));
-    let settled = media_rescue::find(db, &hunt.id).await.expect("find").expect("row");
+        .expect("find")
+        .expect("row");
     assert_eq!(settled.resolution.as_deref(), Some("accepted"));
     assert_eq!(settled.resolved_at.as_deref(), Some(NOW));
 }

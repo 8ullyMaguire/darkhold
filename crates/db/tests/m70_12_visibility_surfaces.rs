@@ -150,7 +150,10 @@ async fn a_restricted_work_is_never_listed_and_never_inferred_from() {
         !fresh.contains(&restricted),
         "a restricted work is not enumerated: {fresh:?}"
     );
-    assert!(!fresh.contains(&unlisted), "unlisted is not listed: {fresh:?}");
+    assert!(
+        !fresh.contains(&unlisted),
+        "unlisted is not listed: {fresh:?}"
+    );
 
     // --- LIST: tag browse --------------------------------------------------------------------------
     let tagged = darkhold_db::taxonomy::works_by_tag(db, "held close", 50, 0)

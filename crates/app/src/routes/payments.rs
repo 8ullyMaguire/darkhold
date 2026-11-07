@@ -159,9 +159,10 @@ async fn my_payments(
     State(state): State<AppState>,
     RequireSession(user): RequireSession,
 ) -> ApiResult<Json<Value>> {
-    let payments = darkhold_db::payments::my_payments(state.db(), &user.account_id.to_string(), 100)
-        .await
-        .map_err(|error| ApiError(AppError::Internal(error.into())))?;
+    let payments =
+        darkhold_db::payments::my_payments(state.db(), &user.account_id.to_string(), 100)
+            .await
+            .map_err(|error| ApiError(AppError::Internal(error.into())))?;
     Ok(Json(json!({ "payments": payments })))
 }
 
@@ -182,7 +183,11 @@ async fn capture(
     let payment = darkhold_db::payments::payment(state.db(), &id)
         .await
         .map_err(|error| ApiError(AppError::Internal(error.into())))?
-        .ok_or_else(|| ApiError(AppError::NotFound { resource: "payment" }))?;
+        .ok_or_else(|| {
+            ApiError(AppError::NotFound {
+                resource: "payment",
+            })
+        })?;
     if payment.state != PaymentState::Pending {
         return Err(refused(format!(
             "this payment is already `{}`",
@@ -196,7 +201,11 @@ async fn capture(
         .map(str::trim)
         .filter(|text| !text.is_empty())
         .map_or_else(
-            || Processor::Manual.capture(&payment.id, payment.amount_minor).reference,
+            || {
+                Processor::Manual
+                    .capture(&payment.id, payment.amount_minor)
+                    .reference
+            },
             str::to_owned,
         );
     let captured = darkhold_db::payments::capture(state.db(), &id, &reference)
@@ -204,15 +213,18 @@ async fn capture(
         .map_err(|error| ApiError(AppError::Internal(error.into())))?;
     if !captured {
         // Somebody else captured it between the read and the write; the state is what matters, not who won.
-        return Err(refused("this payment was captured by another request".to_owned()));
+        return Err(refused(
+            "this payment was captured by another request".to_owned(),
+        ));
     }
 
     // Capture is the moment the package becomes the buyer's: the grant names the version that was paid for.
     let mut granted = false;
     if let Some(version) = payment.subject_version.as_deref() {
-        let document = darkhold_db::marketplace::manifest_document(state.db(), &payment.subject_id, version)
-            .await
-            .map_err(|error| ApiError(AppError::Internal(error.into())))?;
+        let document =
+            darkhold_db::marketplace::manifest_document(state.db(), &payment.subject_id, version)
+                .await
+                .map_err(|error| ApiError(AppError::Internal(error.into())))?;
         let permissions = document
             .as_deref()
             .and_then(|text| {
@@ -280,10 +292,17 @@ async fn refund(
     let payment = darkhold_db::payments::payment(state.db(), &id)
         .await
         .map_err(|error| ApiError(AppError::Internal(error.into())))?
-        .ok_or_else(|| ApiError(AppError::NotFound { resource: "payment" }))?;
+        .ok_or_else(|| {
+            ApiError(AppError::NotFound {
+                resource: "payment",
+            })
+        })?;
     if body.reason.trim().is_empty() {
         // A refund with no reason is the one ledger entry nobody can explain later.
-        return Err(ApiError(AppError::field("reason", "a refund needs a reason")));
+        return Err(ApiError(AppError::field(
+            "reason",
+            "a refund needs a reason",
+        )));
     }
 
     let remaining = payments::refundable(payment.amount_minor, payment.refunded_minor);
@@ -331,9 +350,10 @@ async fn refund(
         }
         // And the seller's revenue is reversed by the same amount they were credited for the net.
         let net = payment.amount_minor - payment.tax_minor;
-        if let Some(seller) = darkhold_db::marketplace::submitted_by(state.db(), &payment.subject_id)
-            .await
-            .map_err(|error| ApiError(AppError::Internal(error.into())))?
+        if let Some(seller) =
+            darkhold_db::marketplace::submitted_by(state.db(), &payment.subject_id)
+                .await
+                .map_err(|error| ApiError(AppError::Internal(error.into())))?
         {
             if let Some(split) = Split::reference(net) {
                 let _ = darkhold_db::monetization::post_earnings(
@@ -383,7 +403,11 @@ async fn set_price(
     let seller = darkhold_db::marketplace::submitted_by(state.db(), &slug)
         .await
         .map_err(|error| ApiError(AppError::Internal(error.into())))?
-        .ok_or_else(|| ApiError(AppError::NotFound { resource: "extension" }))?;
+        .ok_or_else(|| {
+            ApiError(AppError::NotFound {
+                resource: "extension",
+            })
+        })?;
     let is_operator = crate::routes::discovery::require_operator(&state, &user).is_ok();
     // The seller sets the price of their own package; an operator may set it for anyone (a host sometimes has to correct a listing). Anyone
     // else gets a 403 rather than a 404, because the package is public and pretending it is not would be a lie a reader can check.
@@ -391,9 +415,14 @@ async fn set_price(
         return Err(ApiError(AppError::AccessDenied));
     }
     if body.price_minor < 0 {
-        return Err(ApiError(AppError::field("price_minor", "a price cannot be negative")));
+        return Err(ApiError(AppError::field(
+            "price_minor",
+            "a price cannot be negative",
+        )));
     }
-    if !(3..=3).contains(&body.currency.len()) || !body.currency.chars().all(|c| c.is_ascii_uppercase()) {
+    if !(3..=3).contains(&body.currency.len())
+        || !body.currency.chars().all(|c| c.is_ascii_uppercase())
+    {
         return Err(ApiError(AppError::field(
             "currency",
             "a currency is a three-letter upper-case code",

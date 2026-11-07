@@ -35,18 +35,14 @@ async fn count_rows(state: &AppState, table: &str) -> Option<i64> {
     let postgres = format!("SELECT COUNT(*)::bigint FROM {table}");
     let sql = state.db().sql(&sqlite, &postgres);
     match state.db().backend() {
-        darkhold_db::Backend::Sqlite => {
-            sqlx::query_scalar(&sql)
-                .fetch_one(state.db().sqlite_pool().expect("sqlite"))
-                .await
-                .ok()
-        }
-        darkhold_db::Backend::Postgres => {
-            sqlx::query_scalar(&sql)
-                .fetch_one(state.db().postgres_pool().expect("postgres"))
-                .await
-                .ok()
-        }
+        darkhold_db::Backend::Sqlite => sqlx::query_scalar(&sql)
+            .fetch_one(state.db().sqlite_pool().expect("sqlite"))
+            .await
+            .ok(),
+        darkhold_db::Backend::Postgres => sqlx::query_scalar(&sql)
+            .fetch_one(state.db().postgres_pool().expect("postgres"))
+            .await
+            .ok(),
     }
 }
 
@@ -78,7 +74,9 @@ async fn list_experiments(
             }
             let rows = darkhold_db::experiment_snapshots::day_snapshots(state.db(), day)
                 .await
-                .map_err(|error| ApiError(AppError::internal("reading experiment snapshots", error)))?;
+                .map_err(|error| {
+                    ApiError(AppError::internal("reading experiment snapshots", error))
+                })?;
             Some(rows)
         }
         None => darkhold_db::experiment_snapshots::latest_snapshots(state.db())

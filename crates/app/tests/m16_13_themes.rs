@@ -73,8 +73,12 @@ impl Client {
     fn capture(&mut self, response: &axum::response::Response) {
         for value in response.headers().get_all(header::SET_COOKIE) {
             let Ok(text) = value.to_str() else { continue };
-            let Some((pair, _)) = text.split_once(';') else { continue };
-            let Some((name, value)) = pair.split_once('=') else { continue };
+            let Some((pair, _)) = text.split_once(';') else {
+                continue;
+            };
+            let Some((name, value)) = pair.split_once('=') else {
+                continue;
+            };
             let name = name.trim().to_owned();
             let value = value.trim().to_owned();
             self.cookies.retain(|(k, _)| k != &name);
@@ -85,8 +89,9 @@ impl Client {
     }
 
     async fn send(&mut self, method: &str, uri: &str, body: Option<Value>) -> (StatusCode, Value) {
-        let mut builder =
-            Request::builder().method(Method::from_bytes(method.as_bytes()).expect("method")).uri(uri);
+        let mut builder = Request::builder()
+            .method(Method::from_bytes(method.as_bytes()).expect("method"))
+            .uri(uri);
         if body.is_some() {
             builder = builder.header(header::CONTENT_TYPE, "application/json");
         }
@@ -116,8 +121,13 @@ impl Client {
             .expect("response");
         let status = response.status();
         self.capture(&response);
-        let bytes = axum::body::to_bytes(response.into_body(), usize::MAX).await.expect("body");
-        (status, serde_json::from_slice(&bytes).unwrap_or(Value::Null))
+        let bytes = axum::body::to_bytes(response.into_body(), usize::MAX)
+            .await
+            .expect("body");
+        (
+            status,
+            serde_json::from_slice(&bytes).unwrap_or(Value::Null),
+        )
     }
 
     async fn register(&mut self, handle: &str) -> String {
@@ -149,7 +159,10 @@ impl Client {
 }
 
 fn message(body: &Value) -> String {
-    body["error"]["message"].as_str().unwrap_or_default().to_owned()
+    body["error"]["message"]
+        .as_str()
+        .unwrap_or_default()
+        .to_owned()
 }
 
 fn warm_palette() -> Value {
@@ -181,7 +194,10 @@ async fn an_unreadable_theme_is_refused_at_save_and_the_refusal_names_the_pair()
         .await;
     assert_eq!(status, StatusCode::UNPROCESSABLE_ENTITY, "{body}");
     let text = message(&body);
-    assert!(text.contains("--dh-ink"), "the message names the token: {text}");
+    assert!(
+        text.contains("--dh-ink"),
+        "the message names the token: {text}"
+    );
     assert!(text.contains(":1"), "and the measured ratio: {text}");
 
     // Nothing was stored: the list is empty, so a refused save is not a stored draft.
@@ -205,7 +221,10 @@ async fn a_good_theme_saves_as_a_draft_and_only_a_publish_makes_it_the_appearanc
         .await;
     assert_eq!(status, StatusCode::OK, "{saved}");
     assert_eq!(saved["state"], json!("draft"), "{saved}");
-    assert!(saved["declarations"].as_str().unwrap_or_default().contains("--dh-accent: #c9a227;"));
+    assert!(saved["declarations"]
+        .as_str()
+        .unwrap_or_default()
+        .contains("--dh-accent: #c9a227;"));
 
     // A draft is not an appearance.
     let (_, effective) = reader.send("GET", "/api/v1/themes/effective", None).await;
@@ -217,14 +236,22 @@ async fn a_good_theme_saves_as_a_draft_and_only_a_publish_makes_it_the_appearanc
 
     let id = saved["id"].as_str().expect("id");
     let (status, published) = reader
-        .send("POST", &format!("/api/v1/themes/{id}/publish"), Some(json!({})))
+        .send(
+            "POST",
+            &format!("/api/v1/themes/{id}/publish"),
+            Some(json!({})),
+        )
         .await;
     assert_eq!(status, StatusCode::OK, "{published}");
     assert_eq!(published["published"], json!(true), "{published}");
 
     let (_, effective) = reader.send("GET", "/api/v1/themes/effective", None).await;
     assert_eq!(effective["source"], json!("reader"), "{effective}");
-    assert_eq!(effective["palette"]["--dh-accent"], json!("#c9a227"), "{effective}");
+    assert_eq!(
+        effective["palette"]["--dh-accent"],
+        json!("#c9a227"),
+        "{effective}"
+    );
 }
 
 #[tokio::test]
@@ -234,11 +261,19 @@ async fn saving_a_published_theme_again_demotes_it() {
     reader.register("theme-reader").await;
 
     let (_, saved) = reader
-        .send("POST", "/api/v1/themes", Some(json!({"name": "warm", "palette": warm_palette()})))
+        .send(
+            "POST",
+            "/api/v1/themes",
+            Some(json!({"name": "warm", "palette": warm_palette()})),
+        )
         .await;
     let id = saved["id"].as_str().expect("id").to_owned();
     reader
-        .send("POST", &format!("/api/v1/themes/{id}/publish"), Some(json!({})))
+        .send(
+            "POST",
+            &format!("/api/v1/themes/{id}/publish"),
+            Some(json!({})),
+        )
         .await;
     assert_eq!(
         reader.send("GET", "/api/v1/themes/effective", None).await.1["source"],
@@ -306,10 +341,18 @@ async fn a_reader_may_recolour_but_not_rearrange() {
     let id = body["id"].as_str().expect("id");
 
     let (status, published) = operator
-        .send("POST", &format!("/api/v1/themes/{id}/publish"), Some(json!({})))
+        .send(
+            "POST",
+            &format!("/api/v1/themes/{id}/publish"),
+            Some(json!({})),
+        )
         .await;
     assert_eq!(status, StatusCode::OK, "{published}");
-    assert_eq!(published["layout"]["nav"], json!("aside"), "the placement is honoured");
+    assert_eq!(
+        published["layout"]["nav"],
+        json!("aside"),
+        "the placement is honoured"
+    );
     assert_eq!(
         published["layout"]["header"],
         json!("stacked"),
@@ -320,7 +363,11 @@ async fn a_reader_may_recolour_but_not_rearrange() {
     let mut stranger = h.client();
     stranger.register("stranger").await;
     let (status, body) = stranger
-        .send("POST", &format!("/api/v1/themes/{id}/publish"), Some(json!({})))
+        .send(
+            "POST",
+            &format!("/api/v1/themes/{id}/publish"),
+            Some(json!({})),
+        )
         .await;
     assert!(
         status == StatusCode::UNPROCESSABLE_ENTITY || status == StatusCode::FORBIDDEN,
@@ -343,7 +390,11 @@ async fn a_preview_is_this_session_only_and_it_expires() {
     let id = saved["id"].as_str().expect("id").to_owned();
 
     let (status, body) = author
-        .send("POST", &format!("/api/v1/themes/{id}/preview"), Some(json!({})))
+        .send(
+            "POST",
+            &format!("/api/v1/themes/{id}/preview"),
+            Some(json!({})),
+        )
         .await;
     assert_eq!(status, StatusCode::OK, "{body}");
     assert_eq!(body["preview"], json!(true), "{body}");
@@ -359,7 +410,11 @@ async fn a_preview_is_this_session_only_and_it_expires() {
     let mut other = h.client();
     other.register("other-reader").await;
     let (_, theirs) = other.send("GET", "/api/v1/themes/effective", None).await;
-    assert_ne!(theirs["source"], json!("preview"), "a preview is not a publication: {theirs}");
+    assert_ne!(
+        theirs["source"],
+        json!("preview"),
+        "a preview is not a publication: {theirs}"
+    );
 
     // Expiry is enforced server-side: push the row into the past and the preview is gone.
     sqlx::query("UPDATE theme_previews SET expires_at = '2000-01-01T00:00:00Z' WHERE theme_id = ?")
@@ -382,11 +437,19 @@ async fn reset_deletes_the_published_theme_and_safe_mode_overrides_everything() 
     let account = reader.register("theme-reader").await;
 
     let (_, saved) = reader
-        .send("POST", "/api/v1/themes", Some(json!({"name": "warm", "palette": warm_palette()})))
+        .send(
+            "POST",
+            "/api/v1/themes",
+            Some(json!({"name": "warm", "palette": warm_palette()})),
+        )
         .await;
     let id = saved["id"].as_str().expect("id").to_owned();
     reader
-        .send("POST", &format!("/api/v1/themes/{id}/publish"), Some(json!({})))
+        .send(
+            "POST",
+            &format!("/api/v1/themes/{id}/publish"),
+            Some(json!({})),
+        )
         .await;
 
     // Safe mode beats the published theme.
@@ -408,7 +471,10 @@ async fn reset_deletes_the_published_theme_and_safe_mode_overrides_everything() 
     assert_eq!(effective["source"], json!("core"), "{effective}");
     assert_eq!(effective["safe_mode"], json!(true), "{effective}");
     assert!(
-        effective["safe_mode_reason"].as_str().unwrap_or_default().contains("crashed"),
+        effective["safe_mode_reason"]
+            .as_str()
+            .unwrap_or_default()
+            .contains("crashed"),
         "{effective}"
     );
 
@@ -445,5 +511,8 @@ async fn reset_deletes_the_published_theme_and_safe_mode_overrides_everything() 
         .fetch_one(h.tdb.db().sqlite_pool().expect("sqlite"))
         .await
         .expect("count");
-    assert_eq!(rows, 0, "reset deletes the row rather than writing the default into it");
+    assert_eq!(
+        rows, 0,
+        "reset deletes the row rather than writing the default into it"
+    );
 }

@@ -166,11 +166,7 @@ impl FandomGraph {
 
     /// How many pairs the map declares, counting each once.
     pub fn pair_count(&self) -> usize {
-        self.adjacency()
-            .values()
-            .map(BTreeMap::len)
-            .sum::<usize>()
-            / 2
+        self.adjacency().values().map(BTreeMap::len).sum::<usize>() / 2
     }
 }
 
@@ -207,7 +203,10 @@ mod tests {
         // Each end reaches the other, however the reader spelled the one they asked about.
         assert_eq!(map.neighbours("Worm")[0].name, "Ward");
         assert_eq!(map.neighbours("ward")[0].name, "Worm");
-        assert_eq!(map.neighbours("Worm")[0].weight, map.neighbours("ward")[0].weight);
+        assert_eq!(
+            map.neighbours("Worm")[0].weight,
+            map.neighbours("ward")[0].weight
+        );
         assert_eq!(map.pair_count(), 1, "one pair, not two edges");
         // Case and surrounding space are the operator's typing, not part of the identity.
         assert_eq!(map.neighbours("  WORm  ").len(), 1);
@@ -232,7 +231,9 @@ mod tests {
         assert!(zero.contains("outside (0, 1]"), "{zero}");
         let above = graph(vec![("Worm", "Ward", 1.5)]).validate().unwrap_err();
         assert!(above.contains("outside (0, 1]"), "{above}");
-        let nan = graph(vec![("Worm", "Ward", f64::NAN)]).validate().unwrap_err();
+        let nan = graph(vec![("Worm", "Ward", f64::NAN)])
+            .validate()
+            .unwrap_err();
         assert!(nan.contains("outside (0, 1]"), "{nan}");
         let blank = graph(vec![(" ", "Ward", 0.5)]).validate().unwrap_err();
         assert!(blank.contains("empty fandom"), "{blank}");

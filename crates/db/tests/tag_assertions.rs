@@ -51,10 +51,8 @@ async fn database(tag: &str) -> (Database, PathBuf) {
                 .expect("an empty PostgreSQL database")
         }
         _ => {
-            let config = DatabaseConfig::new(format!(
-                "sqlite://{}/assert.sqlite?mode=rwc",
-                dir.display()
-            ));
+            let config =
+                DatabaseConfig::new(format!("sqlite://{}/assert.sqlite?mode=rwc", dir.display()));
             Database::connect(&config).await.expect("connect")
         }
     };
@@ -197,11 +195,9 @@ async fn a_model_may_only_propose_and_readers_never_see_a_proposal() {
     );
 
     // 3. A confirmation makes it a fact.
-    assert!(
-        confirm(&db, WORK, MODEL_TAG, ConfirmLevel::Reader)
-            .await
-            .expect("confirm")
-    );
+    assert!(confirm(&db, WORK, MODEL_TAG, ConfirmLevel::Reader)
+        .await
+        .expect("confirm"));
     let visible = darkhold_db::taxonomy::tag_names_for_work(&db, WORK)
         .await
         .expect("tags");

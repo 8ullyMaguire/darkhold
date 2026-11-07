@@ -21,8 +21,8 @@ pub mod cursor;
 pub mod derivative;
 pub mod doctor;
 pub mod estate_search;
-pub mod facets_cache;
 pub mod exports;
+pub mod facets_cache;
 // The HTTP half of a feed: which format, what content type, what ETag. Rendering lives in `commons-feed`.
 pub mod alerts;
 pub mod feed_http;

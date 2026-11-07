@@ -81,21 +81,35 @@ pub async fn list(db: &Database) -> Result<Vec<(Fingerprint, String)>> {
 
     match db.backend() {
         Backend::Sqlite => {
-            let rows = sqlx::query("SELECT document, fetched_at FROM peer_fingerprints ORDER BY instance_id")
-                .fetch_all(db.sqlite_pool().expect("sqlite"))
-                .await?;
+            let rows = sqlx::query(
+                "SELECT document, fetched_at FROM peer_fingerprints ORDER BY instance_id",
+            )
+            .fetch_all(db.sqlite_pool().expect("sqlite"))
+            .await?;
             Ok(rows
                 .iter()
-                .filter_map(|row| parse(&row.get::<String, _>("document"), row.get::<String, _>("fetched_at")))
+                .filter_map(|row| {
+                    parse(
+                        &row.get::<String, _>("document"),
+                        row.get::<String, _>("fetched_at"),
+                    )
+                })
                 .collect())
         }
         Backend::Postgres => {
-            let rows = sqlx::query("SELECT document, fetched_at FROM peer_fingerprints ORDER BY instance_id")
-                .fetch_all(db.postgres_pool().expect("postgres"))
-                .await?;
+            let rows = sqlx::query(
+                "SELECT document, fetched_at FROM peer_fingerprints ORDER BY instance_id",
+            )
+            .fetch_all(db.postgres_pool().expect("postgres"))
+            .await?;
             Ok(rows
                 .iter()
-                .filter_map(|row| parse(&row.get::<String, _>("document"), row.get::<String, _>("fetched_at")))
+                .filter_map(|row| {
+                    parse(
+                        &row.get::<String, _>("document"),
+                        row.get::<String, _>("fetched_at"),
+                    )
+                })
                 .collect())
         }
     }
@@ -104,20 +118,16 @@ pub async fn list(db: &Database) -> Result<Vec<(Fingerprint, String)>> {
 /// Remove a peer's fingerprint, so the operator can say "stop suggesting this one".
 pub async fn forget(db: &Database, instance_id: &str) -> Result<bool> {
     let affected = match db.backend() {
-        Backend::Sqlite => {
-            sqlx::query("DELETE FROM peer_fingerprints WHERE instance_id = ?")
-                .bind(instance_id)
-                .execute(db.sqlite_pool().expect("sqlite"))
-                .await?
-                .rows_affected()
-        }
-        Backend::Postgres => {
-            sqlx::query("DELETE FROM peer_fingerprints WHERE instance_id = $1")
-                .bind(instance_id)
-                .execute(db.postgres_pool().expect("postgres"))
-                .await?
-                .rows_affected()
-        }
+        Backend::Sqlite => sqlx::query("DELETE FROM peer_fingerprints WHERE instance_id = ?")
+            .bind(instance_id)
+            .execute(db.sqlite_pool().expect("sqlite"))
+            .await?
+            .rows_affected(),
+        Backend::Postgres => sqlx::query("DELETE FROM peer_fingerprints WHERE instance_id = $1")
+            .bind(instance_id)
+            .execute(db.postgres_pool().expect("postgres"))
+            .await?
+            .rows_affected(),
     };
     Ok(affected > 0)
 }

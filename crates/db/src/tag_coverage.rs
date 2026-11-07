@@ -40,18 +40,17 @@ pub async fn tag_engagement(db: &Database) -> Result<TagEngagement> {
     let engaged_sum = "(m.views + m.complete_reads + m.reactions + m.kudos + m.bookmarks + m.collection_adds + m.reviews)";
 
     let tagged_sql = "SELECT COUNT(DISTINCT work_id) FROM work_tags";
-    let engaged_sql = format!(
-        "SELECT COUNT(*) FROM work_metric_aggregates m WHERE {engaged_sum} > 0"
-    );
+    let engaged_sql =
+        format!("SELECT COUNT(*) FROM work_metric_aggregates m WHERE {engaged_sum} > 0");
     let overlap_sql = format!(
         "SELECT COUNT(*) FROM (SELECT DISTINCT work_id FROM work_tags) t
            JOIN work_metric_aggregates m ON m.work_id = t.work_id
           WHERE {engaged_sum} > 0"
     );
 
-    let tagged: i64 = scalar(db, tagged_sql, ).await?;
-    let engaged: i64 = scalar(db, &engaged_sql, ).await?;
-    let tagged_and_engaged: i64 = scalar(db, &overlap_sql, ).await?;
+    let tagged: i64 = scalar(db, tagged_sql).await?;
+    let engaged: i64 = scalar(db, &engaged_sql).await?;
+    let tagged_and_engaged: i64 = scalar(db, &overlap_sql).await?;
     Ok(TagEngagement {
         tagged,
         engaged,

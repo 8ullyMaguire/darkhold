@@ -147,14 +147,29 @@ async fn a_day_counts_only_slots_that_have_an_arm() {
     seed(&db).await;
     slot(&db, "01955000-0000-4000-8000-0000000001e1", PSEUD, true).await;
     slot(&db, "01955000-0000-4000-8000-0000000001e2", PSEUD, false).await;
-    slot(&db, "01955000-0000-4000-8000-0000000001e3", GUEST_PSEUD, false).await;
+    slot(
+        &db,
+        "01955000-0000-4000-8000-0000000001e3",
+        GUEST_PSEUD,
+        false,
+    )
+    .await;
     // Served to a reader with no assignment: not an observation of any arm.
-    slot(&db, "01955000-0000-4000-8000-0000000001e4", UNASSIGNED_PSEUD, false).await;
+    slot(
+        &db,
+        "01955000-0000-4000-8000-0000000001e4",
+        UNASSIGNED_PSEUD,
+        false,
+    )
+    .await;
 
     let written = darkhold_db::experiment_snapshots::snapshot_day(&db, "2026-11-06")
         .await
         .expect("snapshot");
-    assert_eq!(written, 2, "two arms had traffic; the unassigned slot belongs to neither");
+    assert_eq!(
+        written, 2,
+        "two arms had traffic; the unassigned slot belongs to neither"
+    );
 
     let rows = darkhold_db::experiment_snapshots::day_snapshots(&db, "2026-11-06")
         .await
@@ -168,7 +183,10 @@ async fn a_day_counts_only_slots_that_have_an_arm() {
 
     let arm1 = rows.iter().find(|r| r.arm == 1).expect("arm 1");
     assert_eq!(arm1.impressions, 1);
-    assert_eq!(arm1.guest_readers, 1, "the guardrail input: this arm's only reader is a guest");
+    assert_eq!(
+        arm1.guest_readers, 1,
+        "the guardrail input: this arm's only reader is a guest"
+    );
 
     let _ = std::fs::remove_dir_all(dir);
 }
@@ -190,7 +208,10 @@ async fn a_second_run_repairs_the_day_rather_than_doubling_it() {
         .await
         .expect("read back");
     let arm0 = rows.iter().find(|r| r.arm == 0).expect("arm 0");
-    assert_eq!(arm0.impressions, 1, "one impression, however many times the job runs");
+    assert_eq!(
+        arm0.impressions, 1,
+        "one impression, however many times the job runs"
+    );
 
     // A late slot for the same day: the re-run must absorb it rather than adding a second row.
     slot(&db, "01955000-0000-4000-8000-0000000001f2", PSEUD, false).await;

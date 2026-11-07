@@ -198,7 +198,11 @@ const COPY_COLUMNS: &str =
 const COPY_COLUMNS_SQLITE: &str =
     "id, instance, content_hash, perceptual_hash, width, height, recorded_at";
 
-async fn find_copy(db: &Database, instance: &str, content_hash: &str) -> Result<Option<SurvivorCopy>> {
+async fn find_copy(
+    db: &Database,
+    instance: &str,
+    content_hash: &str,
+) -> Result<Option<SurvivorCopy>> {
     match db.backend() {
         Backend::Sqlite => {
             let row = sqlx::query(&format!(
@@ -288,8 +292,7 @@ fn request_from_postgres(row: &sqlx::postgres::PgRow) -> RescueRequest {
     }
 }
 
-const REQUEST_COLUMNS: &str =
-    "id, dead_peer, media_reference_id, content_hash, perceptual_hash, \
+const REQUEST_COLUMNS: &str = "id, dead_peer, media_reference_id, content_hash, perceptual_hash, \
      CAST(threshold AS BIGINT) AS threshold, outcome, matched_instance, \
      CAST(distance AS BIGINT) AS distance, confidence, candidates_json, created_at, \
      resolved_at, resolved_by, resolution";
@@ -480,38 +483,34 @@ pub async fn resolve(
         ));
     }
     let affected = match db.backend() {
-        Backend::Sqlite => {
-            sqlx::query(
-                "UPDATE media_rescue_requests
+        Backend::Sqlite => sqlx::query(
+            "UPDATE media_rescue_requests
                     SET resolved_at = ?, resolved_by = ?, resolution = ?,
                         matched_instance = COALESCE(?, matched_instance)
                   WHERE id = ? AND resolved_at IS NULL",
-            )
-            .bind(now)
-            .bind(by)
-            .bind(resolution)
-            .bind(note_instance)
-            .bind(id)
-            .execute(db.sqlite_pool().expect("sqlite"))
-            .await?
-            .rows_affected()
-        }
-        Backend::Postgres => {
-            sqlx::query(
-                "UPDATE media_rescue_requests
+        )
+        .bind(now)
+        .bind(by)
+        .bind(resolution)
+        .bind(note_instance)
+        .bind(id)
+        .execute(db.sqlite_pool().expect("sqlite"))
+        .await?
+        .rows_affected(),
+        Backend::Postgres => sqlx::query(
+            "UPDATE media_rescue_requests
                     SET resolved_at = $1, resolved_by = $2, resolution = $3,
                         matched_instance = COALESCE($4, matched_instance)
                   WHERE id = $5 AND resolved_at IS NULL",
-            )
-            .bind(now)
-            .bind(by)
-            .bind(resolution)
-            .bind(note_instance)
-            .bind(id)
-            .execute(db.postgres_pool().expect("postgres"))
-            .await?
-            .rows_affected()
-        }
+        )
+        .bind(now)
+        .bind(by)
+        .bind(resolution)
+        .bind(note_instance)
+        .bind(id)
+        .execute(db.postgres_pool().expect("postgres"))
+        .await?
+        .rows_affected(),
     };
     Ok(affected > 0)
 }

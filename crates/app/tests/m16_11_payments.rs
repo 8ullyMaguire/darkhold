@@ -117,8 +117,12 @@ impl Client {
     fn capture_cookies(&mut self, response: &axum::response::Response) {
         for value in response.headers().get_all(header::SET_COOKIE) {
             let Ok(text) = value.to_str() else { continue };
-            let Some((pair, _)) = text.split_once(';') else { continue };
-            let Some((name, value)) = pair.split_once('=') else { continue };
+            let Some((pair, _)) = text.split_once(';') else {
+                continue;
+            };
+            let Some((name, value)) = pair.split_once('=') else {
+                continue;
+            };
             let name = name.trim().to_owned();
             let value = value.trim().to_owned();
             self.cookies.retain(|(k, _)| k != &name);
@@ -129,8 +133,9 @@ impl Client {
     }
 
     async fn send(&mut self, method: &str, uri: &str, body: Option<Value>) -> (StatusCode, Value) {
-        let mut builder =
-            Request::builder().method(Method::from_bytes(method.as_bytes()).expect("method")).uri(uri);
+        let mut builder = Request::builder()
+            .method(Method::from_bytes(method.as_bytes()).expect("method"))
+            .uri(uri);
         if body.is_some() {
             builder = builder.header(header::CONTENT_TYPE, "application/json");
         }
@@ -160,8 +165,13 @@ impl Client {
             .expect("response");
         let status = response.status();
         self.capture_cookies(&response);
-        let bytes = axum::body::to_bytes(response.into_body(), usize::MAX).await.expect("body");
-        (status, serde_json::from_slice(&bytes).unwrap_or(Value::Null))
+        let bytes = axum::body::to_bytes(response.into_body(), usize::MAX)
+            .await
+            .expect("body");
+        (
+            status,
+            serde_json::from_slice(&bytes).unwrap_or(Value::Null),
+        )
     }
 
     async fn register(&mut self, handle: &str) -> String {
@@ -178,7 +188,10 @@ impl Client {
                 })),
             )
             .await;
-        assert!(status == StatusCode::CREATED || status == StatusCode::OK, "register {handle}: {body}");
+        assert!(
+            status == StatusCode::CREATED || status == StatusCode::OK,
+            "register {handle}: {body}"
+        );
         let (status, me) = self.send("GET", "/api/v1/auth/me", None).await;
         assert_eq!(status, StatusCode::OK, "{me}");
         me["account"]["id"]
@@ -190,7 +203,10 @@ impl Client {
 }
 
 fn message(body: &Value) -> String {
-    body["error"]["message"].as_str().unwrap_or_default().to_owned()
+    body["error"]["message"]
+        .as_str()
+        .unwrap_or_default()
+        .to_owned()
 }
 
 /// A client whose session carries `role:operator`, which is what `require_operator` reads.
@@ -219,7 +235,11 @@ async fn a_purchase_grants_nothing_until_the_money_exists() {
             Some(json!({ "price_minor": 1_000, "currency": "EUR" })),
         )
         .await;
-    assert_eq!(status, StatusCode::OK, "a seller may price their own package: {body}");
+    assert_eq!(
+        status,
+        StatusCode::OK,
+        "a seller may price their own package: {body}"
+    );
 
     // Tax profile first, so the purchase can say what part of the price is tax.
     let mut op = operator(&h, "tax-op").await;
@@ -237,29 +257,47 @@ async fn a_purchase_grants_nothing_until_the_money_exists() {
         )
         .await;
     assert_eq!(status, StatusCode::OK, "{body}");
-    assert_eq!(body["country"], "DE", "the code is stored upper-case: {body}");
+    assert_eq!(
+        body["country"], "DE",
+        "the code is stored upper-case: {body}"
+    );
 
     let mut buyer = h.client();
     let buyer_account = buyer.register("buyer").await;
     let (status, body) = buyer
-        .send("POST", "/api/v1/extensions/shelf-sorter/purchase", Some(json!({})))
+        .send(
+            "POST",
+            "/api/v1/extensions/shelf-sorter/purchase",
+            Some(json!({})),
+        )
         .await;
     assert_eq!(status, StatusCode::OK, "{body}");
     assert_eq!(body["purchase_state"], "pending", "{body}");
     assert_eq!(body["payment"]["amount_minor"], 1_000, "{body}");
-    assert_eq!(body["tax_minor"], 160, "19% inclusive of 1000 is 160: {body}");
+    assert_eq!(
+        body["tax_minor"], 160,
+        "19% inclusive of 1000 is 160: {body}"
+    );
     assert_eq!(body["net_minor"], 840, "{body}");
     assert_eq!(
         body["processor"]["captured"], false,
         "a manual processor never claims to have taken money: {body}"
     );
-    let payment_id = body["payment"]["id"].as_str().expect("payment id").to_owned();
+    let payment_id = body["payment"]["id"]
+        .as_str()
+        .expect("payment id")
+        .to_owned();
 
     // Nothing was granted, and nothing was earned.
     assert!(
-        !darkhold_db::marketplace::holds_grant(h.tdb.db(), &buyer_account, "shelf-sorter", "work.read")
-            .await
-            .expect("read"),
+        !darkhold_db::marketplace::holds_grant(
+            h.tdb.db(),
+            &buyer_account,
+            "shelf-sorter",
+            "work.read"
+        )
+        .await
+        .expect("read"),
         "a pending payment must not grant the package"
     );
     assert_eq!(h.seller_earnings(&seller_account).await, 0);
@@ -281,9 +319,14 @@ async fn a_purchase_grants_nothing_until_the_money_exists() {
     assert_eq!(body["split"]["host_minor"], 126, "15% of 840: {body}");
 
     assert!(
-        darkhold_db::marketplace::holds_grant(h.tdb.db(), &buyer_account, "shelf-sorter", "work.read")
-            .await
-            .expect("read"),
+        darkhold_db::marketplace::holds_grant(
+            h.tdb.db(),
+            &buyer_account,
+            "shelf-sorter",
+            "work.read"
+        )
+        .await
+        .expect("read"),
         "capture is the moment the package becomes the buyer's"
     );
     assert_eq!(h.seller_earnings(&seller_account).await, 714);
@@ -359,9 +402,16 @@ async fn a_full_refund_takes_the_package_and_the_revenue_back() {
     let mut buyer = h.client();
     let buyer_account = buyer.register("refund-buyer").await;
     let (_, body) = buyer
-        .send("POST", "/api/v1/extensions/shelf-sorter/purchase", Some(json!({})))
+        .send(
+            "POST",
+            "/api/v1/extensions/shelf-sorter/purchase",
+            Some(json!({})),
+        )
         .await;
-    let payment_id = body["payment"]["id"].as_str().expect("payment id").to_owned();
+    let payment_id = body["payment"]["id"]
+        .as_str()
+        .expect("payment id")
+        .to_owned();
 
     let mut op = operator(&h, "refund-op").await;
     op.send(
@@ -370,7 +420,11 @@ async fn a_full_refund_takes_the_package_and_the_revenue_back() {
         Some(json!({})),
     )
     .await;
-    assert_eq!(h.seller_earnings(&seller_account).await, 850, "85% of 1000 with no tax");
+    assert_eq!(
+        h.seller_earnings(&seller_account).await,
+        850,
+        "85% of 1000 with no tax"
+    );
 
     // A reason is required: a refund nobody can explain is the ledger entry that starts an argument.
     let (status, body) = op
@@ -395,9 +449,14 @@ async fn a_full_refund_takes_the_package_and_the_revenue_back() {
     assert_eq!(body["refunded_total_minor"], 1_000, "{body}");
 
     assert!(
-        !darkhold_db::marketplace::holds_grant(h.tdb.db(), &buyer_account, "shelf-sorter", "work.read")
-            .await
-            .expect("read"),
+        !darkhold_db::marketplace::holds_grant(
+            h.tdb.db(),
+            &buyer_account,
+            "shelf-sorter",
+            "work.read"
+        )
+        .await
+        .expect("read"),
         "a full refund takes the package back"
     );
     assert_eq!(
@@ -424,9 +483,16 @@ async fn a_partial_refund_keeps_access_and_cannot_exceed_the_charge() {
     let mut buyer = h.client();
     let buyer_account = buyer.register("partial-buyer").await;
     let (_, body) = buyer
-        .send("POST", "/api/v1/extensions/shelf-sorter/purchase", Some(json!({})))
+        .send(
+            "POST",
+            "/api/v1/extensions/shelf-sorter/purchase",
+            Some(json!({})),
+        )
         .await;
-    let payment_id = body["payment"]["id"].as_str().expect("payment id").to_owned();
+    let payment_id = body["payment"]["id"]
+        .as_str()
+        .expect("payment id")
+        .to_owned();
     let mut op = operator(&h, "partial-op").await;
     op.send(
         "POST",
@@ -446,9 +512,14 @@ async fn a_partial_refund_keeps_access_and_cannot_exceed_the_charge() {
     assert_eq!(body["full"], false, "{body}");
     assert_eq!(body["access_revoked"], false, "{body}");
     assert!(
-        darkhold_db::marketplace::holds_grant(h.tdb.db(), &buyer_account, "shelf-sorter", "work.read")
-            .await
-            .expect("read"),
+        darkhold_db::marketplace::holds_grant(
+            h.tdb.db(),
+            &buyer_account,
+            "shelf-sorter",
+            "work.read"
+        )
+        .await
+        .expect("read"),
         "a goodwill refund is not a return: the reader keeps what they bought"
     );
 
@@ -461,7 +532,11 @@ async fn a_partial_refund_keeps_access_and_cannot_exceed_the_charge() {
         )
         .await;
     assert_eq!(status, StatusCode::UNPROCESSABLE_ENTITY, "{body}");
-    assert!(message(&body).contains("900"), "the refusal names what is left: {}", message(&body));
+    assert!(
+        message(&body).contains("900"),
+        "the refusal names what is left: {}",
+        message(&body)
+    );
 
     // The rest completes it, and completing it is what revokes.
     let (status, body) = op
@@ -473,11 +548,14 @@ async fn a_partial_refund_keeps_access_and_cannot_exceed_the_charge() {
         .await;
     assert_eq!(status, StatusCode::OK, "{body}");
     assert_eq!(body["full"], true, "{body}");
-    assert!(
-        !darkhold_db::marketplace::holds_grant(h.tdb.db(), &buyer_account, "shelf-sorter", "work.read")
-            .await
-            .expect("read")
-    );
+    assert!(!darkhold_db::marketplace::holds_grant(
+        h.tdb.db(),
+        &buyer_account,
+        "shelf-sorter",
+        "work.read"
+    )
+    .await
+    .expect("read"));
 }
 
 #[tokio::test]
@@ -508,16 +586,32 @@ async fn a_package_cannot_be_priced_against_its_author_and_an_author_cannot_buy_
 
     // And the author cannot buy their own package.
     let (status, body) = seller
-        .send("POST", "/api/v1/extensions/shelf-sorter/purchase", Some(json!({})))
+        .send(
+            "POST",
+            "/api/v1/extensions/shelf-sorter/purchase",
+            Some(json!({})),
+        )
         .await;
     assert_eq!(status, StatusCode::UNPROCESSABLE_ENTITY, "{body}");
-    assert!(message(&body).contains("cannot buy it"), "{}", message(&body));
+    assert!(
+        message(&body).contains("cannot buy it"),
+        "{}",
+        message(&body)
+    );
 
     // An unpriced package is not for sale at all.
     h.publish("unpriced", "1.0.0", &seller_account).await;
     let (status, body) = stranger
-        .send("POST", "/api/v1/extensions/unpriced/purchase", Some(json!({})))
+        .send(
+            "POST",
+            "/api/v1/extensions/unpriced/purchase",
+            Some(json!({})),
+        )
         .await;
     assert_eq!(status, StatusCode::UNPROCESSABLE_ENTITY, "{body}");
-    assert!(message(&body).contains("not for sale"), "{}", message(&body));
+    assert!(
+        message(&body).contains("not for sale"),
+        "{}",
+        message(&body)
+    );
 }

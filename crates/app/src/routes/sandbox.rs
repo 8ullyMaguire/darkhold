@@ -13,8 +13,8 @@ use serde::Deserialize;
 use serde_json::{json, Value};
 
 use crate::auth::RequireSession;
-use crate::state::AppState;
 use crate::http::{ApiError, ApiResult};
+use crate::state::AppState;
 use darkhold_domain::AppError;
 
 /// The operator door, relative to the `/api/v1` nest it is merged into.
@@ -67,7 +67,9 @@ pub async fn run(
     // Taken before anything is decoded: a refused caller should not get a base64 decode for free. The refusal is `RateLimited` rather
     // than a generic 503 because it carries a retry hint, and because the caller's next attempt genuinely can succeed.
     let Some(_slot) = state.sandbox_slots().try_enter() else {
-        return Err(ApiError(AppError::RateLimited { retry_after_secs: 1 }));
+        return Err(ApiError(AppError::RateLimited {
+            retry_after_secs: 1,
+        }));
     };
 
     let limits = darkhold_sandbox::Limits {

@@ -95,7 +95,10 @@ async fn the_sweep_writes_one_row_per_reader_and_a_second_run_changes_nothing() 
     let db = &db;
 
     // Two accounts, one of which is the operator whose taste the score is measured against.
-    for (id, email) in [(READER, "reader-2e@example.test"), (OPERATOR, "operator-2e@example.test")] {
+    for (id, email) in [
+        (READER, "reader-2e@example.test"),
+        (OPERATOR, "operator-2e@example.test"),
+    ] {
         exec(
             db,
             "INSERT INTO accounts (id, email, created_at, updated_at) VALUES (?1, ?2, ?3, ?3)",
@@ -136,7 +139,10 @@ async fn the_sweep_writes_one_row_per_reader_and_a_second_run_changes_nothing() 
     }
 
     // The operator values two works that share a tag; the reader collected one of them.
-    for work in ["01955100-0000-4000-8000-000000b00001", "01955100-0000-4000-8000-000000b00002"] {
+    for work in [
+        "01955100-0000-4000-8000-000000b00001",
+        "01955100-0000-4000-8000-000000b00002",
+    ] {
         exec(
             db,
             // Bound text-first so the helper's (strings then integers) order matches the statement.
@@ -181,7 +187,10 @@ async fn the_sweep_writes_one_row_per_reader_and_a_second_run_changes_nothing() 
         .expect("read")
         .expect("a score");
     let bp = score["score_bp"].as_i64().expect("score_bp");
-    assert!(bp > 0, "a reader who collected a valued work is not zero aligned: {score}");
+    assert!(
+        bp > 0,
+        "a reader who collected a valued work is not zero aligned: {score}"
+    );
     assert_eq!(
         score["signals"].as_i64(),
         Some(2),
@@ -192,7 +201,11 @@ async fn the_sweep_writes_one_row_per_reader_and_a_second_run_changes_nothing() 
         serde_json::Value::Null,
         "an absent signal stores NULL, because 0 would be a measurement nobody made"
     );
-    assert_eq!(score["evidence_bp"].as_i64(), Some(8_000), "0.5 + 0.3 of the total weight: {score}");
+    assert_eq!(
+        score["evidence_bp"].as_i64(),
+        Some(8_000),
+        "0.5 + 0.3 of the total weight: {score}"
+    );
 
     // Second sweep over the same data: one row, no change.
     let second = reader_affinity::recompute_all(db, Some(OPERATOR), NOW, false)
@@ -206,7 +219,11 @@ async fn the_sweep_writes_one_row_per_reader_and_a_second_run_changes_nothing() 
     assert_eq!(second.unchanged, 1);
 
     let ranked = reader_affinity::ranked(db, 10).await.expect("ranked");
-    assert_eq!(ranked.len(), 1, "one reader is one row however often the sweep runs: {ranked:?}");
+    assert_eq!(
+        ranked.len(),
+        1,
+        "one reader is one row however often the sweep runs: {ranked:?}"
+    );
     assert_eq!(ranked[0]["account"], serde_json::json!(READER));
 
     // No operator means no score rather than a score of zero.
@@ -223,7 +240,12 @@ async fn a_reader_never_swept_has_no_row_and_so_no_score() {
     let db = connect().await;
     let db = &db;
 
-    assert_eq!(reader_affinity::for_account(db, READER).await.expect("read"), None);
+    assert_eq!(
+        reader_affinity::for_account(db, READER)
+            .await
+            .expect("read"),
+        None
+    );
     let ranked = reader_affinity::ranked(db, 10).await.expect("ranked");
     assert!(ranked.is_empty());
 

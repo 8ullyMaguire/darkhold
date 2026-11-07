@@ -200,12 +200,17 @@ mod tests {
 
     #[test]
     fn a_close_peer_is_eligible_and_a_distant_one_is_not() {
-        let close = fingerprint("https://close.example", &[("angst", 0.5), ("slowburn", 0.5)]);
+        let close = fingerprint(
+            "https://close.example",
+            &[("angst", 0.5), ("slowburn", 0.5)],
+        );
         let far = fingerprint("https://far.example", &[("crack", 1.0)]);
         let who = eligible(&own(), &close).expect("close is eligible");
         assert!(who.similarity > 0.5, "{who:?}");
         match eligible(&own(), &far) {
-            Err(Ineligible::TooDistant { similarity }) => assert!(similarity < MIN_MIRROR_SIMILARITY, "{similarity}"),
+            Err(Ineligible::TooDistant { similarity }) => {
+                assert!(similarity < MIN_MIRROR_SIMILARITY, "{similarity}")
+            }
             other => panic!("a distant peer must be too distant, got {other:?}"),
         }
     }
@@ -233,7 +238,10 @@ mod tests {
         // The gap between the two floors is the design: 0.372 is a peer worth *telling a reader about* (peering's floor is
         // 0.25) and not a peer to hand a copy of somebody's work to. Without this test the mirror floor is a number no
         // behaviour depends on -- and removing the check entirely would leave the suite green.
-        let neighbour = fingerprint("https://near-ish.example", &[("angst", 1.0), ("crack", 2.0)]);
+        let neighbour = fingerprint(
+            "https://near-ish.example",
+            &[("angst", 1.0), ("crack", 2.0)],
+        );
         match eligible(&own(), &neighbour) {
             Err(Ineligible::TooDistant { similarity }) => {
                 assert!(
@@ -257,11 +265,19 @@ mod tests {
 
     #[test]
     fn the_floor_is_a_policy_that_can_be_raised_never_lowered() {
-        let close = fingerprint("https://close.example", &[("angst", 0.5), ("slowburn", 0.5)]);
-        let far = fingerprint("https://far.example", &[("angst", 0.3), ("slowburn", 0.1), ("crack", 0.6)]);
+        let close = fingerprint(
+            "https://close.example",
+            &[("angst", 0.5), ("slowburn", 0.5)],
+        );
+        let far = fingerprint(
+            "https://far.example",
+            &[("angst", 0.3), ("slowburn", 0.1), ("crack", 0.6)],
+        );
         // A floor of zero does not mean "everybody": `MIN_MIRROR_SIMILARITY` still applies.
         let under = eligible_peers(&own(), &[close.clone(), far.clone()], 0.0);
-        assert!(under.iter().all(|peer| peer.similarity >= MIN_MIRROR_SIMILARITY));
+        assert!(under
+            .iter()
+            .all(|peer| peer.similarity >= MIN_MIRROR_SIMILARITY));
         assert!(!under.iter().any(|peer| peer.instance_id == far.instance_id));
         // Raising it does exclude a peer that would otherwise pass.
         let raised = eligible_peers(&own(), std::slice::from_ref(&close), 0.99);
@@ -272,10 +288,20 @@ mod tests {
     fn the_list_is_order_stable_for_equal_similarities() {
         let left = fingerprint("https://b.example", &[("angst", 0.5), ("slowburn", 0.5)]);
         let right = fingerprint("https://a.example", &[("angst", 0.5), ("slowburn", 0.5)]);
-        let first = eligible_peers(&own(), &[left.clone(), right.clone()], MIN_MIRROR_SIMILARITY);
+        let first = eligible_peers(
+            &own(),
+            &[left.clone(), right.clone()],
+            MIN_MIRROR_SIMILARITY,
+        );
         let second = eligible_peers(&own(), &[right, left], MIN_MIRROR_SIMILARITY);
-        assert_eq!(first, second, "the same fingerprints must give the same order");
-        assert_eq!(first[0].instance_id, "https://a.example", "ties break by id");
+        assert_eq!(
+            first, second,
+            "the same fingerprints must give the same order"
+        );
+        assert_eq!(
+            first[0].instance_id, "https://a.example",
+            "ties break by id"
+        );
     }
 
     #[test]
@@ -286,7 +312,10 @@ mod tests {
             mirrored_at: "2026-11-07".to_owned(),
         };
         let sentence = with_url.sentence();
-        assert!(sentence.contains("https://peer.example/works/storm"), "{sentence}");
+        assert!(
+            sentence.contains("https://peer.example/works/storm"),
+            "{sentence}"
+        );
         assert!(sentence.contains("mirror"), "{sentence}");
         assert!(sentence.contains("2026-11-07"), "{sentence}");
 
@@ -294,6 +323,10 @@ mod tests {
             peer_url: String::new(),
             ..with_url
         };
-        assert!(!without.sentence().contains(" at ,"), "no dangling address: {}", without.sentence());
+        assert!(
+            !without.sentence().contains(" at ,"),
+            "no dangling address: {}",
+            without.sentence()
+        );
     }
 }

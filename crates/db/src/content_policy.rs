@@ -144,28 +144,24 @@ pub async fn revoke(
           WHERE filter_type = $4 AND value = $5 AND revoked_at IS NULL",
     );
     let affected = match db.backend() {
-        Backend::Sqlite => {
-            sqlx::query(&sql)
-                .bind(&now)
-                .bind(revoked_by)
-                .bind(reason)
-                .bind(filter_type)
-                .bind(value)
-                .execute(db.sqlite_pool().expect("sqlite handle"))
-                .await?
-                .rows_affected()
-        }
-        Backend::Postgres => {
-            sqlx::query(&sql)
-                .bind(&now)
-                .bind(revoked_by)
-                .bind(reason)
-                .bind(filter_type)
-                .bind(value)
-                .execute(db.postgres_pool().expect("postgres handle"))
-                .await?
-                .rows_affected()
-        }
+        Backend::Sqlite => sqlx::query(&sql)
+            .bind(&now)
+            .bind(revoked_by)
+            .bind(reason)
+            .bind(filter_type)
+            .bind(value)
+            .execute(db.sqlite_pool().expect("sqlite handle"))
+            .await?
+            .rows_affected(),
+        Backend::Postgres => sqlx::query(&sql)
+            .bind(&now)
+            .bind(revoked_by)
+            .bind(reason)
+            .bind(filter_type)
+            .bind(value)
+            .execute(db.postgres_pool().expect("postgres handle"))
+            .await?
+            .rows_affected(),
     };
     Ok(Ok(affected > 0))
 }
@@ -283,32 +279,28 @@ pub async fn grant_override(
          ON CONFLICT (work_id, filter_type, value) WHERE revoked_at IS NULL DO NOTHING",
     );
     let affected = match db.backend() {
-        Backend::Sqlite => {
-            sqlx::query(&sql)
-                .bind(&id)
-                .bind(work_id)
-                .bind(filter_type)
-                .bind(value)
-                .bind(reason)
-                .bind(granted_by)
-                .bind(&now)
-                .execute(db.sqlite_pool().expect("sqlite handle"))
-                .await?
-                .rows_affected()
-        }
-        Backend::Postgres => {
-            sqlx::query(&sql)
-                .bind(&id)
-                .bind(work_id)
-                .bind(filter_type)
-                .bind(value)
-                .bind(reason)
-                .bind(granted_by)
-                .bind(&now)
-                .execute(db.postgres_pool().expect("postgres handle"))
-                .await?
-                .rows_affected()
-        }
+        Backend::Sqlite => sqlx::query(&sql)
+            .bind(&id)
+            .bind(work_id)
+            .bind(filter_type)
+            .bind(value)
+            .bind(reason)
+            .bind(granted_by)
+            .bind(&now)
+            .execute(db.sqlite_pool().expect("sqlite handle"))
+            .await?
+            .rows_affected(),
+        Backend::Postgres => sqlx::query(&sql)
+            .bind(&id)
+            .bind(work_id)
+            .bind(filter_type)
+            .bind(value)
+            .bind(reason)
+            .bind(granted_by)
+            .bind(&now)
+            .execute(db.postgres_pool().expect("postgres handle"))
+            .await?
+            .rows_affected(),
     };
     if affected == 0 {
         return Ok(Err(BlockRefusal::AlreadyBlocked));
@@ -339,30 +331,26 @@ pub async fn revoke_override(
           WHERE work_id = $4::uuid AND filter_type = $5 AND value = $6 AND revoked_at IS NULL",
     );
     let affected = match db.backend() {
-        Backend::Sqlite => {
-            sqlx::query(&sql)
-                .bind(&now)
-                .bind(revoked_by)
-                .bind(reason)
-                .bind(work_id)
-                .bind(filter_type)
-                .bind(value)
-                .execute(db.sqlite_pool().expect("sqlite handle"))
-                .await?
-                .rows_affected()
-        }
-        Backend::Postgres => {
-            sqlx::query(&sql)
-                .bind(&now)
-                .bind(revoked_by)
-                .bind(reason)
-                .bind(work_id)
-                .bind(filter_type)
-                .bind(value)
-                .execute(db.postgres_pool().expect("postgres handle"))
-                .await?
-                .rows_affected()
-        }
+        Backend::Sqlite => sqlx::query(&sql)
+            .bind(&now)
+            .bind(revoked_by)
+            .bind(reason)
+            .bind(work_id)
+            .bind(filter_type)
+            .bind(value)
+            .execute(db.sqlite_pool().expect("sqlite handle"))
+            .await?
+            .rows_affected(),
+        Backend::Postgres => sqlx::query(&sql)
+            .bind(&now)
+            .bind(revoked_by)
+            .bind(reason)
+            .bind(work_id)
+            .bind(filter_type)
+            .bind(value)
+            .execute(db.postgres_pool().expect("postgres handle"))
+            .await?
+            .rows_affected(),
     };
     Ok(Ok(affected > 0))
 }

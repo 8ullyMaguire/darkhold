@@ -23,30 +23,27 @@ pub async fn review_for(
 ) -> Result<Option<Review>, sqlx::Error> {
     // Extracted inside each arm: the two pools are different types, so only plain values are common between them.
     let row: Option<ReviewRow> = match db.backend() {
-        Backend::Sqlite => {
-            sqlx::query(
-                "SELECT stage, submitter, checks, permission_reviewer, security_reviewer, approvals
+        Backend::Sqlite => sqlx::query(
+            "SELECT stage, submitter, checks, permission_reviewer, security_reviewer, approvals
                  FROM extension_reviews WHERE manifest_id = ? AND version = ?",
-            )
-            .bind(manifest_id)
-            .bind(version)
-            .fetch_optional(db.sqlite_pool().expect("sqlite"))
-            .await?
-            .map(review_row_sqlite)
-        }
-        Backend::Postgres => {
-            sqlx::query(
-                "SELECT stage, submitter, checks, permission_reviewer, security_reviewer, approvals
+        )
+        .bind(manifest_id)
+        .bind(version)
+        .fetch_optional(db.sqlite_pool().expect("sqlite"))
+        .await?
+        .map(review_row_sqlite),
+        Backend::Postgres => sqlx::query(
+            "SELECT stage, submitter, checks, permission_reviewer, security_reviewer, approvals
                  FROM extension_reviews WHERE manifest_id = $1 AND version = $2",
-            )
-            .bind(manifest_id)
-            .bind(version)
-            .fetch_optional(db.postgres_pool().expect("postgres"))
-            .await?
-            .map(review_row_pg)
-        }
+        )
+        .bind(manifest_id)
+        .bind(version)
+        .fetch_optional(db.postgres_pool().expect("postgres"))
+        .await?
+        .map(review_row_pg),
     };
-    let Some((stage, submitter, checks, permission_reviewer, security_reviewer, approvals)) = row else {
+    let Some((stage, submitter, checks, permission_reviewer, security_reviewer, approvals)) = row
+    else {
         return Ok(None);
     };
     Ok(Some(Review {
@@ -257,7 +254,13 @@ pub async fn renewal_on_growth(
             .fetch_all(db.sqlite_pool().expect("sqlite"))
             .await?;
             rows.iter()
-                .map(|row| (row.get("account"), row.get("version"), row.get("capabilities")))
+                .map(|row| {
+                    (
+                        row.get("account"),
+                        row.get("version"),
+                        row.get("capabilities"),
+                    )
+                })
                 .collect()
         }
         Backend::Postgres => {
@@ -269,7 +272,13 @@ pub async fn renewal_on_growth(
             .fetch_all(db.postgres_pool().expect("postgres"))
             .await?;
             rows.iter()
-                .map(|row| (row.get("account"), row.get("version"), row.get("capabilities")))
+                .map(|row| {
+                    (
+                        row.get("account"),
+                        row.get("version"),
+                        row.get("capabilities"),
+                    )
+                })
                 .collect()
         }
     };
@@ -326,30 +335,26 @@ pub async fn require_renewal(
 ) -> Result<u64, sqlx::Error> {
     let now = crate::identity::now_rfc3339();
     let affected = match db.backend() {
-        Backend::Sqlite => {
-            sqlx::query(
-                "UPDATE extension_grants SET revoked_at = ?
+        Backend::Sqlite => sqlx::query(
+            "UPDATE extension_grants SET revoked_at = ?
                  WHERE manifest_id = ? AND version = ? AND revoked_at IS NULL",
-            )
-            .bind(&now)
-            .bind(manifest_id)
-            .bind(version)
-            .execute(db.sqlite_pool().expect("sqlite"))
-            .await?
-            .rows_affected()
-        }
-        Backend::Postgres => {
-            sqlx::query(
-                "UPDATE extension_grants SET revoked_at = $1
+        )
+        .bind(&now)
+        .bind(manifest_id)
+        .bind(version)
+        .execute(db.sqlite_pool().expect("sqlite"))
+        .await?
+        .rows_affected(),
+        Backend::Postgres => sqlx::query(
+            "UPDATE extension_grants SET revoked_at = $1
                  WHERE manifest_id = $2 AND version = $3 AND revoked_at IS NULL",
-            )
-            .bind(&now)
-            .bind(manifest_id)
-            .bind(version)
-            .execute(db.postgres_pool().expect("postgres"))
-            .await?
-            .rows_affected()
-        }
+        )
+        .bind(&now)
+        .bind(manifest_id)
+        .bind(version)
+        .execute(db.postgres_pool().expect("postgres"))
+        .await?
+        .rows_affected(),
     };
     Ok(affected)
 }
@@ -395,7 +400,14 @@ fn decode_list(text: String) -> Vec<String> {
     serde_json::from_str(&text).unwrap_or_default()
 }
 
-type ReviewRow = (String, String, String, Option<String>, Option<String>, String);
+type ReviewRow = (
+    String,
+    String,
+    String,
+    Option<String>,
+    Option<String>,
+    String,
+);
 
 fn review_row_sqlite(row: sqlx::sqlite::SqliteRow) -> ReviewRow {
     (

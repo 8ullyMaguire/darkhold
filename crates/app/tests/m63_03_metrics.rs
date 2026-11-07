@@ -505,9 +505,7 @@ async fn the_catalogue_names_and_obeys_the_quality_profile_it_ranks_with() {
     seed(&harness.db, &account).await;
 
     // Default instance: the resolved name is reported, and it is `balanced` because nothing configures a surface.
-    let (status, body) = client
-        .get("/api/v1/catalogue?sort=quality&limit=10")
-        .await;
+    let (status, body) = client.get("/api/v1/catalogue?sort=quality&limit=10").await;
     assert_eq!(status, StatusCode::OK, "body: {body}");
     assert_eq!(body["quality_profile"], "balanced", "body: {body}");
     let score_of = |body: &Value, key: &str| -> f64 {

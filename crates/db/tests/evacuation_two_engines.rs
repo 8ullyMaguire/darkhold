@@ -40,7 +40,9 @@ async fn connect() -> Database {
         return db;
     };
     let name = format!("lh_evac_{}", uuid::Uuid::new_v4().simple());
-    let admin_db = Database::connect(&make_config(admin.clone())).await.expect("admin");
+    let admin_db = Database::connect(&make_config(admin.clone()))
+        .await
+        .expect("admin");
     sqlx::query(&format!("CREATE DATABASE {name}"))
         .execute(admin_db.postgres_pool().expect("postgres handle"))
         .await
@@ -132,7 +134,9 @@ async fn one_work_gets_one_home_and_a_second_evacuation_cannot_move_it() {
     assert!(receipt.forks().is_empty(), "one recipient, recorded once");
 
     // Close, then evacuate again: the same work offered to the other peer must not be accepted.
-    evacuation::close(db, "completed", NOW).await.expect("close");
+    evacuation::close(db, "completed", NOW)
+        .await
+        .expect("close");
     let other_peer = peers([0.0, 0.9])
         .into_iter()
         .filter(|peer| peer.instance_id != first.recipient_instance)
@@ -168,9 +172,15 @@ async fn one_work_gets_one_home_and_a_second_evacuation_cannot_move_it() {
     );
 
     // Declining is always allowed, and the receipt says so.
-    let declined = evacuation::settle(db, &second[0].id, "declined", "not ours", "2026-11-08T00:00:00Z")
-        .await
-        .expect("decline");
+    let declined = evacuation::settle(
+        db,
+        &second[0].id,
+        "declined",
+        "not ours",
+        "2026-11-08T00:00:00Z",
+    )
+    .await
+    .expect("decline");
     assert_eq!(declined.state, "declined");
     let receipt = evacuation::receipt(db, &second_notice.id)
         .await
@@ -198,28 +208,24 @@ async fn insert_duplicate_claim(
          VALUES ($1, $2, $3, 'duplicate', $4, 9000, 'offered', $5)",
     );
     let result = match db.backend() {
-        darkhold_db::Backend::Sqlite => {
-            sqlx::query(&sql)
-                .bind(&id)
-                .bind(notice_id)
-                .bind(work_id)
-                .bind(instance)
-                .bind(NOW)
-                .execute(db.sqlite_pool().expect("sqlite"))
-                .await
-                .map(|_| ())
-        }
-        darkhold_db::Backend::Postgres => {
-            sqlx::query(&sql)
-                .bind(&id)
-                .bind(notice_id)
-                .bind(work_id)
-                .bind(instance)
-                .bind(NOW)
-                .execute(db.postgres_pool().expect("postgres"))
-                .await
-                .map(|_| ())
-        }
+        darkhold_db::Backend::Sqlite => sqlx::query(&sql)
+            .bind(&id)
+            .bind(notice_id)
+            .bind(work_id)
+            .bind(instance)
+            .bind(NOW)
+            .execute(db.sqlite_pool().expect("sqlite"))
+            .await
+            .map(|_| ()),
+        darkhold_db::Backend::Postgres => sqlx::query(&sql)
+            .bind(&id)
+            .bind(notice_id)
+            .bind(work_id)
+            .bind(instance)
+            .bind(NOW)
+            .execute(db.postgres_pool().expect("postgres"))
+            .await
+            .map(|_| ()),
     };
     result
         .expect_err("a second row for one work in one notice violates the unique index")
@@ -246,7 +252,9 @@ async fn an_announcement_needs_a_reason_and_closing_needs_a_state_it_recognises(
     assert!(error.to_string().contains("withdrawn"), "{error}");
 
     // Withdrawing keeps the notice and its placements.
-    let withdrawn = evacuation::close(db, "withdrawn", NOW).await.expect("withdraw");
+    let withdrawn = evacuation::close(db, "withdrawn", NOW)
+        .await
+        .expect("withdraw");
     assert_eq!(withdrawn.state, "withdrawn");
     assert_eq!(
         evacuation::assignments_for(db, &notice.id)

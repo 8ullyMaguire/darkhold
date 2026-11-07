@@ -107,7 +107,10 @@ mod tests {
     fn the_same_work_from_another_host_has_the_same_key() {
         let original = key("The Storm", "ada", Some("en")).expect("key");
         let mirror = key("  the   STORM! ", "Ada", Some("EN")).expect("key");
-        assert_eq!(original, mirror, "case, punctuation and spacing are not identity");
+        assert_eq!(
+            original, mirror,
+            "case, punctuation and spacing are not identity"
+        );
     }
 
     #[test]
@@ -175,6 +178,9 @@ mod tests {
         let first = text_key("It was a dark and stormy night.").expect("key");
         let formatted = text_key("it was a DARK and stormy   night\n").expect("key");
         assert_eq!(first, formatted);
-        assert_ne!(first, text_key("It was a bright and stormy night.").expect("key"));
+        assert_ne!(
+            first,
+            text_key("It was a bright and stormy night.").expect("key")
+        );
     }
 }

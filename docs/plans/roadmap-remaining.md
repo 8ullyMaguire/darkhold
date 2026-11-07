@@ -636,3 +636,36 @@ indistinguishable here from one that does; (3) the plan reads at most 1000 works
 not `published` + `public`; (4) nothing notices a shutdown automatically — an operator announces it; (5) a second acceptance
 answers 422, not 409, because this error vocabulary's only conflict variant names two version numbers this refusal does not
 have, and inventing a version pair to reach a 409 would be a lie in the payload.
+
+### M69-10 — Glicko-2 for the arena, and the arena nobody could reach (implemented 2026-11-07)
+
+Elo has no notion of confidence: a card with two ballots and a card with two hundred sit on the same ladder as if their numbers
+meant the same thing. Glicko-2 carries a rating, a deviation and a volatility, so "provisional" becomes a number.
+
+`domain/src/glicko.rs` is Glickman's algorithm, steps 1–8, reproducing the paper's worked example (1464.06 / 151.52 / 0.05999)
+to within 0.05. 1500-mean scale preserved, so nothing a reader saw changes meaning. A card enters at its Elo rating with
+**maximum** deviation — an Elo number is a position without an uncertainty — and the deviation then shrinks by being compared
+and grows with silence (additive in variance: reaching the ceiling from deviation 60 takes about 1200 updates at σ = 0.06).
+
+**The divergence flag was re-derived once, in the open.** The first rule was "a ballot that moves the rating further than
+twice its own deviation"; a measurement killed it — a settled card (deviation 40) beating an opponent 600 points above moves
+**26** points against an 80-point bar, because Glicko-2's rating step is bounded by the squared posterior deviation, not by the
+surprise. A rule that cannot fire on a four-card ballot is decoration. The flag now means what an operator can act on: this
+ballot **inverted a gap of at least 300 rating points**.
+
+**Two defects in the Glicko-2 arithmetic, both caught by the paper's example:** the volatility step returns `e^(x/2)`, not
+`e^x` (returning the square of the volatility makes every number look plausible and the deviation barely grow), and the
+`k` counter in the Illinois bracket is an `f64`.
+
+**The real find:** `GET /api/v1/roadmap/arena` and `POST /api/v1/roadmap/suggest` had **never worked over HTTP**. They lived in
+`roadmap::router()`, nested into the outer router at `/api/v1` — and a router keeps only the last `nest` for a prefix, so the
+`.nest("/api/v1", api)` further down silently discarded them, while `read_router()`'s public board (merged at the root) worked
+next door. The store tests passed, the route table listed the paths, and a reader got a bodiless 404 from a surface that was
+"mounted". Fixed by putting both routers in `api`, the router that is actually nested, and the new test requests the arena
+through HTTP rather than trusting the table.
+
+    [roadmap] glicko = true    # off by default: a rating plus an uncertainty is a claim about the board
+
+Limits: the arena still pairs candidates by Elo and match count — "prefer uncertain pairs" is available from the deviation now
+but not wired into `arena_candidates`; `diverged` describes the last ballot that moved a card, not its history; and the
+federation ladder's numbers remain `polaris-taste`'s under ADR 0001 (M69-10's consumer half, `db::ladder::is_settled`).

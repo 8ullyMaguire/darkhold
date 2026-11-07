@@ -102,7 +102,11 @@ impl Outcome {
 fn dimension_ratio(left: Option<u32>, right: Option<u32>) -> Option<f64> {
     match (left, right) {
         (Some(left), Some(right)) if left > 0 && right > 0 => {
-            let (low, high) = if left <= right { (left, right) } else { (right, left) };
+            let (low, high) = if left <= right {
+                (left, right)
+            } else {
+                (right, left)
+            };
             Some(f64::from(high) / f64::from(low))
         }
         // An unknown dimension is not a mismatch: most survivors will not know, and refusing them all would make the ring
@@ -247,7 +251,11 @@ mod tests {
         ];
         match rescue(&wanted(None), &copies, 10) {
             Outcome::Ambiguous { instances, reason } => {
-                assert_eq!(instances, vec!["https://a.example", "https://b.example"], "sorted, so the answer is stable");
+                assert_eq!(
+                    instances,
+                    vec!["https://a.example", "https://b.example"],
+                    "sorted, so the answer is stable"
+                );
                 assert!(reason.contains("2 survivors"), "{reason}");
             }
             other => panic!("expected ambiguity, got {other:?}"),
@@ -256,7 +264,11 @@ mod tests {
 
     #[test]
     fn a_close_picture_is_a_proposal_with_its_distance_and_confidence() {
-        let copies = [copy("https://alive.example", "content-bbbb", Some("ffff0000ffff0000"))];
+        let copies = [copy(
+            "https://alive.example",
+            "content-bbbb",
+            Some("ffff0000ffff0000"),
+        )];
         match rescue(&wanted(Some("ffff0000ffff0001")), &copies, 10) {
             Outcome::Proposal {
                 instance,
@@ -274,8 +286,16 @@ mod tests {
     #[test]
     fn exact_beats_similar_even_when_the_similar_one_is_closer_in_the_list() {
         let copies = [
-            copy("https://near.example", "content-bbbb", Some("ffff0000ffff0000")),
-            copy("https://exact.example", "content-aaaa", Some("0000000000000000")),
+            copy(
+                "https://near.example",
+                "content-bbbb",
+                Some("ffff0000ffff0000"),
+            ),
+            copy(
+                "https://exact.example",
+                "content-aaaa",
+                Some("0000000000000000"),
+            ),
         ];
         assert_eq!(
             rescue(&wanted(Some("ffff0000ffff0000")), &copies, 10),
@@ -303,7 +323,11 @@ mod tests {
     #[test]
     fn a_thumbnail_is_not_the_asset() {
         // Same perceptual hash, a quarter of the size: the pair is legitimate and the rescue is wrong.
-        let mut thumbnail = copy("https://thumb.example", "content-cccc", Some("ffff0000ffff0000"));
+        let mut thumbnail = copy(
+            "https://thumb.example",
+            "content-cccc",
+            Some("ffff0000ffff0000"),
+        );
         thumbnail.width = Some(100);
         thumbnail.height = Some(75);
         assert_eq!(
@@ -314,17 +338,31 @@ mod tests {
 
     #[test]
     fn nothing_similar_is_not_found_and_no_perceptual_hash_means_no_search() {
-        let far = copy("https://far.example", "content-dd", Some("0000000000000000"));
-        assert_eq!(rescue(&wanted(Some("ffffffffffffffff")), &[far], 4), Outcome::NotFound);
+        let far = copy(
+            "https://far.example",
+            "content-dd",
+            Some("0000000000000000"),
+        );
+        assert_eq!(
+            rescue(&wanted(Some("ffffffffffffffff")), &[far], 4),
+            Outcome::NotFound
+        );
         // A wanted copy with no perceptual hash cannot be searched perceptually, however close the candidates look.
-        let close = copy("https://close.example", "content-ee", Some("ffffffffffffffff"));
+        let close = copy(
+            "https://close.example",
+            "content-ee",
+            Some("ffffffffffffffff"),
+        );
         assert_eq!(rescue(&wanted(None), &[close], 10), Outcome::NotFound);
     }
 
     #[test]
     fn a_malformed_hash_is_skipped_rather_than_measured() {
         let junk = copy("https://junk.example", "content-ff", Some("not-a-hash"));
-        assert_eq!(rescue(&wanted(Some("ffff0000ffff0000")), &[junk], 64), Outcome::NotFound);
+        assert_eq!(
+            rescue(&wanted(Some("ffff0000ffff0000")), &[junk], 64),
+            Outcome::NotFound
+        );
     }
 
     #[test]

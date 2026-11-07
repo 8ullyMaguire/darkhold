@@ -521,18 +521,22 @@ pub async fn manifest_document(
     version: &str,
 ) -> Result<Option<String>, sqlx::Error> {
     let row: Option<String> = match db.backend() {
-        Backend::Sqlite => sqlx::query("SELECT document FROM extension_manifests WHERE id = ? AND version = ?")
-            .bind(id)
-            .bind(version)
-            .fetch_optional(db.sqlite_pool().expect("sqlite"))
-            .await?
-            .map(|row| row.get("document")),
-        Backend::Postgres => sqlx::query("SELECT document FROM extension_manifests WHERE id = $1 AND version = $2")
-            .bind(id)
-            .bind(version)
-            .fetch_optional(db.postgres_pool().expect("postgres"))
-            .await?
-            .map(|row| row.get("document")),
+        Backend::Sqlite => {
+            sqlx::query("SELECT document FROM extension_manifests WHERE id = ? AND version = ?")
+                .bind(id)
+                .bind(version)
+                .fetch_optional(db.sqlite_pool().expect("sqlite"))
+                .await?
+                .map(|row| row.get("document"))
+        }
+        Backend::Postgres => {
+            sqlx::query("SELECT document FROM extension_manifests WHERE id = $1 AND version = $2")
+                .bind(id)
+                .bind(version)
+                .fetch_optional(db.postgres_pool().expect("postgres"))
+                .await?
+                .map(|row| row.get("document"))
+        }
     };
     Ok(row)
 }
@@ -753,20 +757,16 @@ pub async fn fork_manifest_document(
     let document = document.map_or(source_document, str::to_owned);
 
     let exists: Option<String> = match db.backend() {
-        Backend::Sqlite => {
-            sqlx::query("SELECT id FROM extension_manifests WHERE id = ?")
-                .bind(target_id)
-                .fetch_optional(db.sqlite_pool().expect("sqlite"))
-                .await?
-                .map(|row| row.get::<String, _>("id"))
-        }
-        Backend::Postgres => {
-            sqlx::query("SELECT id FROM extension_manifests WHERE id = $1")
-                .bind(target_id)
-                .fetch_optional(db.postgres_pool().expect("postgres"))
-                .await?
-                .map(|row| row.get::<String, _>("id"))
-        }
+        Backend::Sqlite => sqlx::query("SELECT id FROM extension_manifests WHERE id = ?")
+            .bind(target_id)
+            .fetch_optional(db.sqlite_pool().expect("sqlite"))
+            .await?
+            .map(|row| row.get::<String, _>("id")),
+        Backend::Postgres => sqlx::query("SELECT id FROM extension_manifests WHERE id = $1")
+            .bind(target_id)
+            .fetch_optional(db.postgres_pool().expect("postgres"))
+            .await?
+            .map(|row| row.get::<String, _>("id")),
     };
     if exists.is_some() {
         return Err(sqlx::Error::Protocol(format!(

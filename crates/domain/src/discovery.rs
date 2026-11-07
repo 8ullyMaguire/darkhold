@@ -202,7 +202,8 @@ pub fn blend(engines: &[Vec<Candidate>]) -> Vec<Candidate> {
 pub fn blend_with(engines: &[Vec<Candidate>], options: BlendOptions) -> Vec<Candidate> {
     let mut merged: std::collections::HashMap<String, Candidate> = std::collections::HashMap::new();
     // How many times this work has already been contributed, per work. The multiplier is `decay^count`.
-    let mut contributions: std::collections::HashMap<String, u32> = std::collections::HashMap::new();
+    let mut contributions: std::collections::HashMap<String, u32> =
+        std::collections::HashMap::new();
     for engine_results in engines {
         for candidate in engine_results {
             let key = candidate.work_id.to_canonical_string();
@@ -403,7 +404,10 @@ pub fn apply_taste_gravity(
         .unwrap_or(0);
     let scale = if best > 0 { best as f64 } else { 1.0 };
 
-    let incoming: Vec<WorkId> = candidates.iter().map(|candidate| candidate.work_id).collect();
+    let incoming: Vec<WorkId> = candidates
+        .iter()
+        .map(|candidate| candidate.work_id)
+        .collect();
     let mut served: Vec<(f64, Candidate)> = candidates
         .into_iter()
         .map(|candidate| {
@@ -600,7 +604,11 @@ mod tests {
     #[test]
     fn a_third_engine_contributes_less_than_the_second() {
         let w = WorkId::new();
-        let engines = vec![vec![candidate(w, 100)], vec![candidate(w, 100)], vec![candidate(w, 100)]];
+        let engines = vec![
+            vec![candidate(w, 100)],
+            vec![candidate(w, 100)],
+            vec![candidate(w, 100)],
+        ];
         let result = blend(&engines);
         assert_eq!(result.len(), 1);
         // 100 + 80 + 64: consenting engines add diminishing weight rather than stacking linearly.
@@ -610,10 +618,17 @@ mod tests {
     #[test]
     fn decay_of_one_is_the_plain_sum() {
         let w = WorkId::new();
-        let engines = vec![vec![candidate(w, 10)], vec![candidate(w, 10)], vec![candidate(w, 10)]];
+        let engines = vec![
+            vec![candidate(w, 10)],
+            vec![candidate(w, 10)],
+            vec![candidate(w, 10)],
+        ];
         let result = blend_with(
             &engines,
-            BlendOptions { decay: 1.0, floor: 0 },
+            BlendOptions {
+                decay: 1.0,
+                floor: 0,
+            },
         );
         assert_eq!(result[0].score, 30, "1.0 must disable the decay exactly");
     }
@@ -623,12 +638,24 @@ mod tests {
         let strong = WorkId::new();
         let weak = WorkId::new();
         let engines = vec![vec![candidate(strong, 20), candidate(weak, 14)]];
-        let result = blend_with(&engines, BlendOptions { decay: 0.8, floor: 15 });
+        let result = blend_with(
+            &engines,
+            BlendOptions {
+                decay: 0.8,
+                floor: 15,
+            },
+        );
         assert_eq!(result.len(), 1, "a 14 under a floor of 15 is dropped");
         assert_eq!(result[0].work_id, strong);
 
         // The floor is inclusive on the boundary: a candidate exactly at it is served.
-        let result = blend_with(&engines, BlendOptions { decay: 0.8, floor: 14 });
+        let result = blend_with(
+            &engines,
+            BlendOptions {
+                decay: 0.8,
+                floor: 14,
+            },
+        );
         assert_eq!(result.len(), 2);
     }
 
@@ -865,20 +892,20 @@ mod tests {
         // stands; at g = 1 taste decides alone; halfway is halfway.
         let strong = tasted(10, 0.0);
         let aligned = tasted(10, 1.0);
-        let (ranked, pile) = apply_taste_gravity(
-            vec![strong.clone(), aligned.clone()],
-            0.0,
-            "taste_weighted",
+        let (ranked, pile) =
+            apply_taste_gravity(vec![strong.clone(), aligned.clone()], 0.0, "taste_weighted");
+        assert_eq!(
+            ranked[0].work_id, strong.work_id,
+            "g = 0 keeps the algorithm's order"
         );
-        assert_eq!(ranked[0].work_id, strong.work_id, "g = 0 keeps the algorithm's order");
         assert_eq!(pile.unchanged, 2);
 
-        let (ranked, _) = apply_taste_gravity(
-            vec![strong.clone(), aligned.clone()],
-            1.0,
-            "taste_weighted",
+        let (ranked, _) =
+            apply_taste_gravity(vec![strong.clone(), aligned.clone()], 1.0, "taste_weighted");
+        assert_eq!(
+            ranked[0].work_id, aligned.work_id,
+            "g = 1 is order by taste alone"
         );
-        assert_eq!(ranked[0].work_id, aligned.work_id, "g = 1 is order by taste alone");
 
         // A row that is 30% better but has no taste signal against one that is 10% worse and perfectly aligned: halfway,
         // the mixture is 0.5*1.0 + 0.5*0.0 = 0.5 vs 0.5*(10/13) + 0.5*1.0 = 0.885 — the aligned row wins, and it won because
@@ -910,7 +937,11 @@ mod tests {
         ];
         let ids: Vec<WorkId> = rows.iter().map(|row| row.work_id).collect();
         let (ranked, pile) = apply_taste_gravity(rows, 1.0, "taste_weighted");
-        assert_eq!(ranked.len(), ids.len(), "a gravity layer may not drop a row");
+        assert_eq!(
+            ranked.len(),
+            ids.len(),
+            "a gravity layer may not drop a row"
+        );
         for id in &ids {
             assert!(
                 ranked.iter().any(|row| row.work_id == *id),
@@ -922,13 +953,20 @@ mod tests {
             *ids.last().expect("the aligned row"),
             "even a weak row leads when the dial is all the way to taste"
         );
-        assert_eq!(pile.moved_up, 1, "one row rose above three others: {pile:?}");
+        assert_eq!(
+            pile.moved_up, 1,
+            "one row rose above three others: {pile:?}"
+        );
         // The three that were passed each drop a single place — a histogram that reported them unchanged would be counting
         // positions rather than movement.
         assert_eq!(pile.moved_down, 3, "{pile:?}");
         assert_eq!(pile.unchanged, 0, "{pile:?}");
         let passed: Vec<WorkId> = ranked.iter().skip(1).map(|row| row.work_id).collect();
-        assert_eq!(passed, ids[..3].to_vec(), "their relative order is untouched");
+        assert_eq!(
+            passed,
+            ids[..3].to_vec(),
+            "their relative order is untouched"
+        );
         // The algorithm's own score is not rewritten: gravity decides the order the reader sees, not what the engine
         // measured. A row's score that changed under a display setting would make every later diagnosis wrong.
         assert_eq!(ranked[0].score, 1);
@@ -938,11 +976,8 @@ mod tests {
     fn egalitarian_policy_switches_gravity_off_whatever_the_strength_says() {
         let weak = tasted(10, 0.0);
         let aligned = tasted(1, 1.0);
-        let (ranked, pile) = apply_taste_gravity(
-            vec![weak.clone(), aligned.clone()],
-            1.0,
-            "egalitarian",
-        );
+        let (ranked, pile) =
+            apply_taste_gravity(vec![weak.clone(), aligned.clone()], 1.0, "egalitarian");
         assert_eq!(ranked[0].work_id, weak.work_id);
         assert_eq!(pile.moved_up, 0);
         assert_eq!(pile.moved_down, 0);

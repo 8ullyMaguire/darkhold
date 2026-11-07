@@ -520,7 +520,9 @@ pub async fn run(
     // This is a **permanent** failure, not a retryable one: the queue must not keep asking. The report cites the tombstone by
     // id, the reason it was filed, and when, because "import refused" with no citation is a support ticket.
     let tombstone_now = darkhold_db::identity::now_rfc3339();
-    if let Some(refusal) = tombstones_enabled(state, &work.title, &work.author_text, &tombstone_now).await? {
+    if let Some(refusal) =
+        tombstones_enabled(state, &work.title, &work.author_text, &tombstone_now).await?
+    {
         let message = format!(
             "\"{}\" is taken down (tombstone {}, filed {} for: {}); the import was refused and will not be retried",
             work.title, refusal.tombstone, refusal.filed_at, refusal.reason
@@ -1318,7 +1320,9 @@ async fn process_bundle(
     // only stopped the scraper would be half a takedown. A bundle carries no author, so the key is (title, "", unknown) —
     // which is why the tombstone is keyed on what the importer actually has rather than on what a filing form wished for.
     let tombstone_now = darkhold_db::identity::now_rfc3339();
-    if let Some(refusal) = tombstones_enabled(state, &item.manifest.title, "", &tombstone_now).await? {
+    if let Some(refusal) =
+        tombstones_enabled(state, &item.manifest.title, "", &tombstone_now).await?
+    {
         let message = format!(
             "\"{}\" is taken down (tombstone {}, filed {} for: {}); the restore was refused",
             item.manifest.title, refusal.tombstone, refusal.filed_at, refusal.reason
@@ -1398,12 +1402,23 @@ async fn process_bundle(
         Err(error) => {
             // The item exists and the body does not. That is a failed import with a code a reader can act on, not a log
             // line — and the error still propagates so the queue retries.
-            fail_import(state, import_job_id, "bundle_store_failed", &error.to_string()).await?;
+            fail_import(
+                state,
+                import_job_id,
+                "bundle_store_failed",
+                &error.to_string(),
+            )
+            .await?;
             return Err(transient(error));
         }
     };
     store
-        .reference(state.db(), &body_checksum, UNIT_OWNER_TYPE, &library_item.id)
+        .reference(
+            state.db(),
+            &body_checksum,
+            UNIT_OWNER_TYPE,
+            &library_item.id,
+        )
         .await
         .map_err(transient)?;
     imports::upsert_import_unit(

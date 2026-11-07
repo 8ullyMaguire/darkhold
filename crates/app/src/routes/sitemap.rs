@@ -68,7 +68,11 @@ pub async fn sitemap(State(state): State<AppState>) -> Response {
         body.push_str(&url_entry(base, &format!("/works/{id}"), lastmod));
     }
     for tag in &tags {
-        body.push_str(&url_entry(base, &format!("/tags/{}", encode_tag(tag)), None));
+        body.push_str(&url_entry(
+            base,
+            &format!("/tags/{}", encode_tag(tag)),
+            None,
+        ));
     }
     body.push_str("</urlset>\n");
 

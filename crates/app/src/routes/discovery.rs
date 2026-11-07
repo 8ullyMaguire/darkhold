@@ -413,14 +413,10 @@ async fn experiment_arm(
     let Some(pseud) = viewer_pseud.filter(|_| buckets > 1) else {
         return Ok(None);
     };
-    let bucket = darkhold_db::experiments::bucket_for(
-        state.db(),
-        &pseud.to_string(),
-        surface_id,
-        buckets,
-    )
-    .await
-    .map_err(|error| ApiError(AppError::Internal(error)))?;
+    let bucket =
+        darkhold_db::experiments::bucket_for(state.db(), &pseud.to_string(), surface_id, buckets)
+            .await
+            .map_err(|error| ApiError(AppError::Internal(error)))?;
     Ok(Some((bucket, buckets)))
 }
 
@@ -490,43 +486,43 @@ pub(crate) async fn build_candidate_engines(
         Vec::new()
     } else {
         match state.taste().ratings(LADDER_CANDIDATES).await {
-        Ok(ratings) => {
-            let candidates: Vec<darkhold_db::ladder::LadderWork> = ratings
-                .into_iter()
-                .map(|rating| darkhold_db::ladder::LadderWork {
-                    work_id: rating
-                        .item_id
-                        .strip_prefix("work:")
-                        .unwrap_or(&rating.item_id)
-                        .to_string(),
-                    rating: rating.rating,
-                    deviation: rating.deviation,
-                    matches: rating.matches,
-                    volatility: rating.volatility,
-                    divergence: rating.divergence,
-                })
-                .collect();
-            match darkhold_db::ladder::eligible_top(
-                state.db(),
-                &candidates,
-                account_id,
-                viewer_pseud,
-                limit.min(LADDER_SHELF),
-                LADDER_MIN_MATCHES,
-            )
-            .await
-            {
-                Ok(works) => works,
-                Err(error) => {
-                    tracing::warn!(%error, "the eligibility filter for the works ladder failed");
-                    Vec::new()
+            Ok(ratings) => {
+                let candidates: Vec<darkhold_db::ladder::LadderWork> = ratings
+                    .into_iter()
+                    .map(|rating| darkhold_db::ladder::LadderWork {
+                        work_id: rating
+                            .item_id
+                            .strip_prefix("work:")
+                            .unwrap_or(&rating.item_id)
+                            .to_string(),
+                        rating: rating.rating,
+                        deviation: rating.deviation,
+                        matches: rating.matches,
+                        volatility: rating.volatility,
+                        divergence: rating.divergence,
+                    })
+                    .collect();
+                match darkhold_db::ladder::eligible_top(
+                    state.db(),
+                    &candidates,
+                    account_id,
+                    viewer_pseud,
+                    limit.min(LADDER_SHELF),
+                    LADDER_MIN_MATCHES,
+                )
+                .await
+                {
+                    Ok(works) => works,
+                    Err(error) => {
+                        tracing::warn!(%error, "the eligibility filter for the works ladder failed");
+                        Vec::new()
+                    }
                 }
             }
-        }
-        Err(error) => {
-            tracing::warn!(%error, "the taste service did not answer, so the feed has no ladder shelf");
-            Vec::new()
-        }
+            Err(error) => {
+                tracing::warn!(%error, "the taste service did not answer, so the feed has no ladder shelf");
+                Vec::new()
+            }
         }
     };
     if !ladder.is_empty() {
@@ -590,9 +586,10 @@ pub(crate) async fn build_candidate_engines(
 
     // Engine 3: popularity-based (public engine).
     if runs("popular") {
-        let popular = darkhold_db::discovery::public_recommendations(state.db(), viewer_pseud, limit)
-            .await
-            .map_err(|e| ApiError(AppError::Internal(e)))?;
+        let popular =
+            darkhold_db::discovery::public_recommendations(state.db(), viewer_pseud, limit)
+                .await
+                .map_err(|e| ApiError(AppError::Internal(e)))?;
         engines.push(
             popular
                 .into_iter()
@@ -643,14 +640,15 @@ pub(crate) async fn build_candidate_engines(
     // with the user's bookmarked works. Spec §32.7.3, §9.10.
     if let Some(account_id) = account_id {
         if runs("media_ref_collab") {
-            let media_collab = darkhold_db::discovery::media_reference_collaborative_recommendations(
-                state.db(),
-                account_id,
-                viewer_pseud,
-                limit,
-            )
-            .await
-            .map_err(|e| ApiError(AppError::Internal(e)))?;
+            let media_collab =
+                darkhold_db::discovery::media_reference_collaborative_recommendations(
+                    state.db(),
+                    account_id,
+                    viewer_pseud,
+                    limit,
+                )
+                .await
+                .map_err(|e| ApiError(AppError::Internal(e)))?;
             engines.push(
                 media_collab
                     .into_iter()
@@ -951,8 +949,10 @@ async fn get_discovery(
                 Ok(Some(signals)) => ranked
                     .into_iter()
                     .map(|mut candidate| {
-                        candidate.taste_signal =
-                            signals.get(&candidate.work_id.as_uuid()).copied().unwrap_or(0.0);
+                        candidate.taste_signal = signals
+                            .get(&candidate.work_id.as_uuid())
+                            .copied()
+                            .unwrap_or(0.0);
                         candidate
                     })
                     .collect(),
@@ -998,7 +998,10 @@ async fn get_discovery(
 
     let pull = darkhold_domain::discovery::PullHistogram::between(
         &order_before_pull,
-        &ranked.iter().map(|candidate| candidate.work_id).collect::<Vec<_>>(),
+        &ranked
+            .iter()
+            .map(|candidate| candidate.work_id)
+            .collect::<Vec<_>>(),
     );
 
     // M71-06: the reason and the match percentage travel with the row, because an explanation the client has to

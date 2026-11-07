@@ -58,14 +58,18 @@ async fn events(db: &Database, account: &str) -> Vec<serde_json::Value> {
 
 async fn outbox_topics(db: &Database) -> Vec<String> {
     match db.backend() {
-        Backend::Sqlite => sqlx::query_scalar("SELECT topic FROM outbox_events ORDER BY created_at")
-            .fetch_all(db.sqlite_pool().expect("sqlite"))
-            .await
-            .expect("topics"),
-        Backend::Postgres => sqlx::query_scalar("SELECT topic FROM outbox_events ORDER BY created_at")
-            .fetch_all(db.postgres_pool().expect("postgres"))
-            .await
-            .expect("topics"),
+        Backend::Sqlite => {
+            sqlx::query_scalar("SELECT topic FROM outbox_events ORDER BY created_at")
+                .fetch_all(db.sqlite_pool().expect("sqlite"))
+                .await
+                .expect("topics")
+        }
+        Backend::Postgres => {
+            sqlx::query_scalar("SELECT topic FROM outbox_events ORDER BY created_at")
+                .fetch_all(db.postgres_pool().expect("postgres"))
+                .await
+                .expect("topics")
+        }
     }
 }
 
@@ -76,11 +80,21 @@ async fn a_badge_is_gained_held_and_lost_with_the_number_that_caused_each_change
     let account = "01955100-0000-4000-8000-000000f00001";
 
     // Gained.
-    let outcome = live_badges::recompute(db, account, &darkhold_domain::live_badge::ATTUNED, Some(9_000), 10_000, NOW)
-        .await
-        .expect("recompute");
+    let outcome = live_badges::recompute(
+        db,
+        account,
+        &darkhold_domain::live_badge::ATTUNED,
+        Some(9_000),
+        10_000,
+        NOW,
+    )
+    .await
+    .expect("recompute");
     assert!(outcome.held);
-    assert_eq!(outcome.transition, darkhold_domain::live_badge::Transition::Gained);
+    assert_eq!(
+        outcome.transition,
+        darkhold_domain::live_badge::Transition::Gained
+    );
 
     let states = live_badges::for_account(db, account).await.expect("states");
     let attuned = states
@@ -88,26 +102,53 @@ async fn a_badge_is_gained_held_and_lost_with_the_number_that_caused_each_change
         .find(|state| state.badge == "attuned")
         .expect("the catalogue lists attuned even before a sweep");
     assert!(attuned.held);
-    assert_eq!(attuned.since.as_deref(), Some(NOW), "a gained badge records since when");
+    assert_eq!(
+        attuned.since.as_deref(),
+        Some(NOW),
+        "a gained badge records since when"
+    );
     assert_eq!(attuned.affinity_bp, Some(9_000));
 
     // Held, with no second event: a recompute that changes nothing is not news.
-    let same = live_badges::recompute(db, account, &darkhold_domain::live_badge::ATTUNED, Some(9_100), 10_000, NOW)
-        .await
-        .expect("recompute");
-    assert_eq!(same.transition, darkhold_domain::live_badge::Transition::Held);
+    let same = live_badges::recompute(
+        db,
+        account,
+        &darkhold_domain::live_badge::ATTUNED,
+        Some(9_100),
+        10_000,
+        NOW,
+    )
+    .await
+    .expect("recompute");
+    assert_eq!(
+        same.transition,
+        darkhold_domain::live_badge::Transition::Held
+    );
     assert_eq!(events(db, account).await.len(), 1, "still one gain");
 
     // Lost: the reading fell, so the badge goes — and the event names the number.
-    let lost = live_badges::recompute(db, account, &darkhold_domain::live_badge::ATTUNED, Some(4_200), 10_000, NOW)
-        .await
-        .expect("recompute");
+    let lost = live_badges::recompute(
+        db,
+        account,
+        &darkhold_domain::live_badge::ATTUNED,
+        Some(4_200),
+        10_000,
+        NOW,
+    )
+    .await
+    .expect("recompute");
     assert!(!lost.held);
-    assert_eq!(lost.transition, darkhold_domain::live_badge::Transition::Lost);
+    assert_eq!(
+        lost.transition,
+        darkhold_domain::live_badge::Transition::Lost
+    );
     assert!(lost.reason.contains("4200"), "{}", lost.reason);
 
     let states = live_badges::for_account(db, account).await.expect("states");
-    let attuned = states.iter().find(|state| state.badge == "attuned").expect("state");
+    let attuned = states
+        .iter()
+        .find(|state| state.badge == "attuned")
+        .expect("state");
     assert!(!attuned.held);
     assert_eq!(
         attuned.since, None,
@@ -118,7 +159,10 @@ async fn a_badge_is_gained_held_and_lost_with_the_number_that_caused_each_change
     assert_eq!(history.len(), 2, "{history:?}");
     assert_eq!(history[0]["kind"], "lost", "newest first");
     assert_eq!(history[0]["affinity_bp"], serde_json::json!(4_200));
-    assert!(history[0]["reason"].as_str().expect("reason").contains("4200"));
+    assert!(history[0]["reason"]
+        .as_str()
+        .expect("reason")
+        .contains("4200"));
     assert_eq!(history[1]["kind"], "gained");
 
     let topics = outbox_topics(db).await;
@@ -136,11 +180,21 @@ async fn thin_evidence_never_awards_the_badge_however_high_the_score() {
     let account = "01955100-0000-4000-8000-000000f00002";
 
     // 10,000 of affinity on 5,000 of measured weight: one signal at its ceiling.
-    let outcome = live_badges::recompute(db, account, &darkhold_domain::live_badge::ATTUNED, Some(10_000), 5_000, NOW)
-        .await
-        .expect("recompute");
+    let outcome = live_badges::recompute(
+        db,
+        account,
+        &darkhold_domain::live_badge::ATTUNED,
+        Some(10_000),
+        5_000,
+        NOW,
+    )
+    .await
+    .expect("recompute");
     assert!(!outcome.held, "one signal is not a relationship");
-    assert_eq!(outcome.transition, darkhold_domain::live_badge::Transition::Unearned);
+    assert_eq!(
+        outcome.transition,
+        darkhold_domain::live_badge::Transition::Unearned
+    );
     assert!(
         events(db, account).await.is_empty(),
         "nothing changed, so nothing is written"
@@ -148,7 +202,10 @@ async fn thin_evidence_never_awards_the_badge_however_high_the_score() {
 
     // And the state row still records the reading, so a page can say why.
     let states = live_badges::for_account(db, account).await.expect("states");
-    let attuned = states.iter().find(|state| state.badge == "attuned").expect("state");
+    let attuned = states
+        .iter()
+        .find(|state| state.badge == "attuned")
+        .expect("state");
     assert_eq!(attuned.affinity_bp, Some(10_000));
     assert_eq!(attuned.evidence_bp, 5_000);
 }

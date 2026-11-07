@@ -107,7 +107,6 @@ pub async fn sweep(
     Ok(out)
 }
 
-
 /// The level held in `trust_levels`, or `None` when the account has never had one computed.
 ///
 /// Separate from `current_level` because the difference is load-bearing: `None` means "first level, writes no audit event", while a

@@ -67,7 +67,9 @@ impl UpdatePolicy {
             Self::Pinned => candidate == current,
             Self::Any => parse_version(candidate).is_some(),
             Self::Minor => match (parse_version(current), parse_version(candidate)) {
-                (Some((current_major, _, _)), Some((candidate_major, _, _))) => current_major == candidate_major,
+                (Some((current_major, _, _)), Some((candidate_major, _, _))) => {
+                    current_major == candidate_major
+                }
                 _ => false,
             },
         }
@@ -357,7 +359,8 @@ mod tests {
     #[test]
     fn a_minor_policy_stops_at_the_major_boundary() {
         assert_eq!(
-            UpdatePolicy::Minor.newest_allowed("1.0.0", &["1.0.1".into(), "1.4.0".into(), "2.0.0".into()]),
+            UpdatePolicy::Minor
+                .newest_allowed("1.0.0", &["1.0.1".into(), "1.4.0".into(), "2.0.0".into()]),
             Some("1.4.0".to_owned())
         );
         assert_eq!(
@@ -370,7 +373,10 @@ mod tests {
     #[test]
     fn an_any_policy_takes_the_newest_readable_version() {
         assert_eq!(
-            UpdatePolicy::Any.newest_allowed("1.0.0", &["1.2.0".into(), "2.0.1".into(), "not-a-version".into()]),
+            UpdatePolicy::Any.newest_allowed(
+                "1.0.0",
+                &["1.2.0".into(), "2.0.1".into(), "not-a-version".into()]
+            ),
             Some("2.0.1".to_owned())
         );
     }
@@ -421,7 +427,10 @@ mod tests {
     #[test]
     fn an_unrecognised_licence_is_refused_rather_than_assumed_permissive() {
         let refusal = compatible("Proprietary-1.0", "MIT").expect_err("unknown");
-        assert_eq!(refusal, GalleryRefusal::UnknownLicence("Proprietary-1.0".to_owned()));
+        assert_eq!(
+            refusal,
+            GalleryRefusal::UnknownLicence("Proprietary-1.0".to_owned())
+        );
     }
 
     #[test]

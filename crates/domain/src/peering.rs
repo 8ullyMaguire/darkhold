@@ -93,7 +93,9 @@ impl Verdict {
     #[must_use]
     pub fn similarity(&self) -> Option<f64> {
         match self {
-            Self::Suggested { similarity, .. } | Self::NotEnough { similarity, .. } => Some(*similarity),
+            Self::Suggested { similarity, .. } | Self::NotEnough { similarity, .. } => {
+                Some(*similarity)
+            }
             Self::Collision { .. } | Self::Unmeasured { .. } => None,
         }
     }
@@ -205,12 +207,14 @@ pub fn suggest(own: &Fingerprint, candidates: &[Fingerprint], limit: usize) -> V
             Verdict::NotEnough { .. } => 2,
             Verdict::Unmeasured { .. } => 3,
         };
-        rank(a).cmp(&rank(b)).then_with(|| {
-            b.similarity()
-                .unwrap_or(0.0)
-                .total_cmp(&a.similarity().unwrap_or(0.0))
-        })
-        .then_with(|| a.instance_id().cmp(b.instance_id()))
+        rank(a)
+            .cmp(&rank(b))
+            .then_with(|| {
+                b.similarity()
+                    .unwrap_or(0.0)
+                    .total_cmp(&a.similarity().unwrap_or(0.0))
+            })
+            .then_with(|| a.instance_id().cmp(b.instance_id()))
     });
     verdicts.truncate(limit.min(MAX_SUGGESTIONS));
     verdicts
@@ -255,7 +259,10 @@ mod tests {
     use std::collections::BTreeMap;
 
     fn vector(pairs: &[(&str, f64)]) -> BTreeMap<String, f64> {
-        pairs.iter().map(|(tag, weight)| ((*tag).to_owned(), *weight)).collect()
+        pairs
+            .iter()
+            .map(|(tag, weight)| ((*tag).to_owned(), *weight))
+            .collect()
     }
 
     fn prints(instance: &str, tags: &[(&str, f64)], enforced: &[&str]) -> Fingerprint {
@@ -290,19 +297,31 @@ mod tests {
             } => {
                 assert_eq!(rule, "csam");
                 assert_eq!(*rules, 1);
-                assert_eq!(*enforced_by, "this instance", "the rule is ours and not theirs");
+                assert_eq!(
+                    *enforced_by, "this instance",
+                    "the rule is ours and not theirs"
+                );
             }
             other => panic!("expected a collision, got {other:?}"),
         }
-        assert!(verdict.similarity().is_none(), "a veto has no score to argue with");
-        assert!(verdict.reason().contains("different hardcoded layer"), "{}", verdict.reason());
+        assert!(
+            verdict.similarity().is_none(),
+            "a veto has no score to argue with"
+        );
+        assert!(
+            verdict.reason().contains("different hardcoded layer"),
+            "{}",
+            verdict.reason()
+        );
 
         // And the ranking drops it rather than placing it second.
         let ranked = rank(&own(), std::slice::from_ref(&twin), MAX_SUGGESTIONS);
         assert!(ranked.is_empty(), "{ranked:?}");
         let listed = suggest(&own(), &[twin], MAX_SUGGESTIONS);
         assert_eq!(listed.len(), 1);
-        assert!(listed[0].reason().contains("no similarity can make it a peer"));
+        assert!(listed[0]
+            .reason()
+            .contains("no similarity can make it a peer"));
     }
 
     #[test]
@@ -342,14 +361,20 @@ mod tests {
     fn two_instances_that_enforce_nothing_do_not_collide() {
         let bare = prints("https://bare.example", &[("angst", 10.0)], &[]);
         let other = prints("https://other.example", &[("angst", 9.0)], &[]);
-        assert!(collisions(&bare, &other).is_empty(), "absence on both sides is agreement");
+        assert!(
+            collisions(&bare, &other).is_empty(),
+            "absence on both sides is agreement"
+        );
     }
 
     #[test]
     fn an_unmeasured_peer_is_not_maximally_different() {
         let empty = prints("https://empty.example", &[], &["csam"]);
         assert_eq!(similarity(&own(), &empty), None);
-        assert_eq!(assess(&own(), &empty).instance_id(), "https://empty.example");
+        assert_eq!(
+            assess(&own(), &empty).instance_id(),
+            "https://empty.example"
+        );
         assert!(rank(&own(), &[empty], MAX_SUGGESTIONS).is_empty());
     }
 
@@ -366,7 +391,11 @@ mod tests {
             &[],
         );
         // Shares no tag with this instance at all, so it scores zero rather than merely lower.
-        let far = prints("https://far.example", &[("omegaverse", 20.0), ("mpreg", 9.0)], &["csam"]);
+        let far = prints(
+            "https://far.example",
+            &[("omegaverse", 20.0), ("mpreg", 9.0)],
+            &["csam"],
+        );
         let listed = suggest(&own(), &[far, blocked, near], MAX_SUGGESTIONS);
         assert!(listed[0].is_suggestion());
         assert_eq!(listed[0].instance_id(), "https://near.example");

@@ -65,10 +65,7 @@ impl Harness {
     }
 
     fn client(&self) -> axum::Router {
-        server::build_router(AppState::new(
-            self.config.clone(),
-            self.tdb.db().clone(),
-        ))
+        server::build_router(AppState::new(self.config.clone(), self.tdb.db().clone()))
     }
 
     async fn exec(&self, statement: &str) {
@@ -115,11 +112,19 @@ impl Harness {
              VALUES ('{TAG}','tag','slow burn','slow burn','2026-01-01T00:00:00Z')"
         ))
         .await;
-        self.work(PUBLIC_A, "'The Long Way Round'", "public", true).await;
-        self.work(PUBLIC_B, "'A Second Tagged Work'", "public", true).await;
-        self.work(PRIVATE_C, "'A Private Tagged Work'", "private", true).await;
-        self.work("01957000-0000-4000-8000-0000000001d1", "'Untagged'", "public", false)
+        self.work(PUBLIC_A, "'The Long Way Round'", "public", true)
             .await;
+        self.work(PUBLIC_B, "'A Second Tagged Work'", "public", true)
+            .await;
+        self.work(PRIVATE_C, "'A Private Tagged Work'", "private", true)
+            .await;
+        self.work(
+            "01957000-0000-4000-8000-0000000001d1",
+            "'Untagged'",
+            "public",
+            false,
+        )
+        .await;
     }
 }
 

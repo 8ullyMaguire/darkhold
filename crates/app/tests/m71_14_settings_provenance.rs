@@ -154,7 +154,10 @@ impl Client {
         let bytes = axum::body::to_bytes(response.into_body(), usize::MAX)
             .await
             .unwrap();
-        (status, serde_json::from_slice(&bytes).unwrap_or(Value::Null))
+        (
+            status,
+            serde_json::from_slice(&bytes).unwrap_or(Value::Null),
+        )
     }
 
     async fn get(&mut self, uri: &str) -> (StatusCode, Value) {
@@ -297,7 +300,10 @@ async fn a_pseud_override_outranks_the_account_and_clearing_it_returns_the_accou
         .keys()
         .cloned()
         .collect();
-    let pseud = pseuds.first().expect("the registering reader has a pseud").clone();
+    let pseud = pseuds
+        .first()
+        .expect("the registering reader has a pseud")
+        .clone();
     assert_eq!(
         pseud_provenance(&body, &pseud, PSEUD_KEY)["source"],
         "instance",
@@ -331,7 +337,11 @@ async fn a_pseud_override_outranks_the_account_and_clearing_it_returns_the_accou
     assert_eq!(status, StatusCode::NO_CONTENT);
     let (status, body) = reader.get("/api/v1/settings/privacy").await;
     assert_eq!(status, StatusCode::OK, "{body}");
-    assert_eq!(pseud_provenance(&body, &pseud, PSEUD_KEY)["source"], "instance", "{body}");
+    assert_eq!(
+        pseud_provenance(&body, &pseud, PSEUD_KEY)["source"],
+        "instance",
+        "{body}"
+    );
     // The account key set at the start of this test is untouched by any of it.
     assert_eq!(provenance(&body, KEY)["source"], "account", "{body}");
 

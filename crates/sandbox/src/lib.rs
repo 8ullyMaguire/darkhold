@@ -372,7 +372,10 @@ pub fn run(
 
     // Input goes in before the call, through the module's own memory, so the ABI is one memory and no shared buffer.
     if !input.is_empty() {
-        if let Some(memory) = instance.get_export(&store, "memory").and_then(|export| export.into_memory()) {
+        if let Some(memory) = instance
+            .get_export(&store, "memory")
+            .and_then(|export| export.into_memory())
+        {
             let capacity = memory.data_size(&store);
             if input.len() > capacity {
                 return finish_with(store, started, limits.fuel, Some(Halt::Memory));
@@ -435,7 +438,9 @@ fn finish_with(
     fuel_budget: u64,
     halt: Option<Halt>,
 ) -> Outcome {
-    let spent = store.get_fuel().map_or(fuel_budget, |left| fuel_budget.saturating_sub(left));
+    let spent = store
+        .get_fuel()
+        .map_or(fuel_budget, |left| fuel_budget.saturating_sub(left));
     let state = store.data();
     Outcome {
         halt,
@@ -454,7 +459,13 @@ fn classify(error: &wasmi::Error) -> Halt {
     // A host import that refuses returns `Error::new("halt:<name>")`; the name is how the reason survives being unwound through
     // `wasmi`, which has no way to carry our own type back out.
     if let wasmi::errors::ErrorKind::Message(text) = error.kind() {
-        for candidate in [Halt::HostCalls, Halt::Output, Halt::Revoked, Halt::WallClock, Halt::HostTimeout] {
+        for candidate in [
+            Halt::HostCalls,
+            Halt::Output,
+            Halt::Revoked,
+            Halt::WallClock,
+            Halt::HostTimeout,
+        ] {
             if text.as_ref() == format!("halt:{}", candidate.as_str()) {
                 return candidate;
             }
@@ -499,7 +510,10 @@ fn install_imports(
                     return Err(host_halt(halt));
                 }
                 let (ptr, len) = (ptr as usize, len.max(0) as usize);
-                let Some(memory) = caller.get_export("memory").and_then(|export| export.into_memory()) else {
+                let Some(memory) = caller
+                    .get_export("memory")
+                    .and_then(|export| export.into_memory())
+                else {
                     return Ok(-1);
                 };
                 // Copied before the mutable borrow: the memory outlives the call, and holding a slice of it across `data_mut` is exactly

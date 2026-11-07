@@ -122,10 +122,7 @@ async fn file(
     })))
 }
 
-async fn list(
-    State(state): State<AppState>,
-    session: RequireSession,
-) -> ApiResult<Json<Value>> {
+async fn list(State(state): State<AppState>, session: RequireSession) -> ApiResult<Json<Value>> {
     if let Some(error) = closed(&state) {
         return Err(error);
     }

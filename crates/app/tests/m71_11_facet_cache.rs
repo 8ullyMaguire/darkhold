@@ -113,7 +113,10 @@ async fn get(app: &axum::Router, uri: &str) -> (StatusCode, Value) {
     let bytes = axum::body::to_bytes(response.into_body(), usize::MAX)
         .await
         .expect("body");
-    (status, serde_json::from_slice(&bytes).unwrap_or(Value::Null))
+    (
+        status,
+        serde_json::from_slice(&bytes).unwrap_or(Value::Null),
+    )
 }
 
 /// The `known` count of the length facet: how many works in the set have a measured length.
@@ -141,7 +144,8 @@ async fn a_second_request_inside_the_window_is_served_from_the_cache_and_says_so
          VALUES ('{PSEUD}','{ACCOUNT}','probe','probe','2026-01-01T00:00:00Z','2026-01-01T00:00:00Z')"
     ))
     .await;
-    h.add_work("01955200-0000-4000-8000-0000000c0001", 12_000).await;
+    h.add_work("01955200-0000-4000-8000-0000000c0001", 12_000)
+        .await;
 
     let app = h.app();
     let (status, first) = get(&app, "/api/v1/facets").await;
@@ -153,7 +157,8 @@ async fn a_second_request_inside_the_window_is_served_from_the_cache_and_says_so
     );
 
     // A work the catalogue gains now must NOT appear on the next request: that is what memoised means, and the age says why.
-    h.add_work("01955200-0000-4000-8000-0000000c0002", 3_000).await;
+    h.add_work("01955200-0000-4000-8000-0000000c0002", 3_000)
+        .await;
     let (status, second) = get(&app, "/api/v1/facets").await;
     assert_eq!(status, StatusCode::OK, "{second}");
     assert_eq!(
@@ -181,15 +186,21 @@ async fn clearing_the_cache_makes_the_next_request_reflect_the_change() {
          VALUES ('{PSEUD}','{ACCOUNT}','probe','probe','2026-01-01T00:00:00Z','2026-01-01T00:00:00Z')"
     ))
     .await;
-    h.add_work("01955200-0000-4000-8000-0000000c0003", 1_500).await;
+    h.add_work("01955200-0000-4000-8000-0000000c0003", 1_500)
+        .await;
 
     let app = h.app();
     let (_, before) = get(&app, "/api/v1/facets").await;
     assert_eq!(length_known(&before), 1, "{before}");
 
-    h.add_work("01955200-0000-4000-8000-0000000c0004", 25_000).await;
+    h.add_work("01955200-0000-4000-8000-0000000c0004", 25_000)
+        .await;
     let (_, memoised) = get(&app, "/api/v1/facets").await;
-    assert_eq!(length_known(&memoised), 1, "still the memoised answer: {memoised}");
+    assert_eq!(
+        length_known(&memoised),
+        1,
+        "still the memoised answer: {memoised}"
+    );
 
     darkhold_app::facets_cache::clear();
     let (status, fresh) = get(&app, "/api/v1/facets").await;
@@ -219,8 +230,10 @@ async fn a_different_filter_is_a_different_entry() {
          VALUES ('{PSEUD}','{ACCOUNT}','probe','probe','2026-01-01T00:00:00Z','2026-01-01T00:00:00Z')"
     ))
     .await;
-    h.add_work("01955200-0000-4000-8000-0000000c0005", 1_200).await;
-    h.add_work("01955200-0000-4000-8000-0000000c0006", 30_000).await;
+    h.add_work("01955200-0000-4000-8000-0000000c0005", 1_200)
+        .await;
+    h.add_work("01955200-0000-4000-8000-0000000c0006", 30_000)
+        .await;
 
     let app = h.app();
     let (_, all) = get(&app, "/api/v1/facets").await;

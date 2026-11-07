@@ -697,8 +697,8 @@ async fn titles_and_summaries(
 /// surface — offering a known work back would be a recommendation wearing a
 /// calibration hat.
 pub async fn candidate_works(db: &Database, account_id: &str, limit: i64) -> Result<Vec<String>> {
-// INFER: no surface concludes from a restricted work. Nobody could have read a work they were never shown,
-// so an edge or a count built on one is a claim about people made from a non-event. See `db::visibility`.
+    // INFER: no surface concludes from a restricted work. Nobody could have read a work they were never shown,
+    // so an edge or a count built on one is a claim about people made from a non-event. See `db::visibility`.
     let sql = db.sql(
         "SELECT w.id
          FROM works w

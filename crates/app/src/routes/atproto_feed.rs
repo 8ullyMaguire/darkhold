@@ -48,7 +48,10 @@ pub struct SkeletonQuery {
 }
 
 pub fn router() -> Router<AppState> {
-    Router::new().route("/xrpc/app.bsky.feed.getFeedSkeleton", get(get_feed_skeleton))
+    Router::new().route(
+        "/xrpc/app.bsky.feed.getFeedSkeleton",
+        get(get_feed_skeleton),
+    )
 }
 
 /// The feed an `at://` URI names, or `None` when it names one this generator does not serve.
@@ -117,7 +120,11 @@ async fn get_feed_skeleton(
     let cursor = match q.cursor.as_deref().map(str::trim) {
         None | Some("") => None,
         Some(c) if valid_cursor(c) => Some(c),
-        Some(c) => return unknown_feed(&format!("cursor {c:?} is not a timestamp this feed can resume from")),
+        Some(c) => {
+            return unknown_feed(&format!(
+                "cursor {c:?} is not a timestamp this feed can resume from"
+            ))
+        }
     };
 
     match darkhold_db::atproto::feed_page(state.db(), feed, limit, cursor).await {

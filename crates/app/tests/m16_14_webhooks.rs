@@ -73,8 +73,12 @@ impl Client {
     fn capture(&mut self, response: &axum::response::Response) {
         for value in response.headers().get_all(header::SET_COOKIE) {
             let Ok(text) = value.to_str() else { continue };
-            let Some((pair, _)) = text.split_once(';') else { continue };
-            let Some((name, value)) = pair.split_once('=') else { continue };
+            let Some((pair, _)) = text.split_once(';') else {
+                continue;
+            };
+            let Some((name, value)) = pair.split_once('=') else {
+                continue;
+            };
             let name = name.trim().to_owned();
             let value = value.trim().to_owned();
             self.cookies.retain(|(k, _)| k != &name);
@@ -85,8 +89,9 @@ impl Client {
     }
 
     async fn send(&mut self, method: &str, uri: &str, body: Option<Value>) -> (StatusCode, Value) {
-        let mut builder =
-            Request::builder().method(Method::from_bytes(method.as_bytes()).expect("method")).uri(uri);
+        let mut builder = Request::builder()
+            .method(Method::from_bytes(method.as_bytes()).expect("method"))
+            .uri(uri);
         if body.is_some() {
             builder = builder.header(header::CONTENT_TYPE, "application/json");
         }
@@ -116,8 +121,13 @@ impl Client {
             .expect("response");
         let status = response.status();
         self.capture(&response);
-        let bytes = axum::body::to_bytes(response.into_body(), usize::MAX).await.expect("body");
-        (status, serde_json::from_slice(&bytes).unwrap_or(Value::Null))
+        let bytes = axum::body::to_bytes(response.into_body(), usize::MAX)
+            .await
+            .expect("body");
+        (
+            status,
+            serde_json::from_slice(&bytes).unwrap_or(Value::Null),
+        )
     }
 
     async fn register(&mut self, handle: &str) -> String {
@@ -145,7 +155,10 @@ impl Client {
 }
 
 fn message(body: &Value) -> String {
-    body["error"]["message"].as_str().unwrap_or_default().to_owned()
+    body["error"]["message"]
+        .as_str()
+        .unwrap_or_default()
+        .to_owned()
 }
 
 #[tokio::test]
@@ -167,11 +180,18 @@ async fn rotating_a_secret_returns_the_new_one_once_and_keeps_the_old_one_workin
     assert!(first.starts_with("whsec_"), "{first}");
 
     let (status, rotated) = owner
-        .send("POST", &format!("/api/v1/me/webhooks/{id}/rotate"), Some(json!({})))
+        .send(
+            "POST",
+            &format!("/api/v1/me/webhooks/{id}/rotate"),
+            Some(json!({})),
+        )
         .await;
     assert_eq!(status, StatusCode::OK, "{rotated}");
     let second = rotated["secret"].as_str().expect("new secret").to_owned();
-    assert_ne!(second, first, "a rotation that returns the old secret is not a rotation");
+    assert_ne!(
+        second, first,
+        "a rotation that returns the old secret is not a rotation"
+    );
     assert_eq!(
         rotated["previous_valid_for_seconds"],
         json!(darkhold_domain::webhook::ROTATION_GRACE_SECONDS),
@@ -183,7 +203,10 @@ async fn rotating_a_secret_returns_the_new_one_once_and_keeps_the_old_one_workin
     let rows = darkhold_db::marketplace::list_all_active_webhooks(h.tdb.db())
         .await
         .expect("list webhooks");
-    let row = rows.iter().find(|r| r["id"] == json!(id)).expect("endpoint row");
+    let row = rows
+        .iter()
+        .find(|r| r["id"] == json!(id))
+        .expect("endpoint row");
     assert_eq!(row["secret"], json!(second));
     assert_eq!(
         row["previous_secret"],
@@ -191,18 +214,32 @@ async fn rotating_a_secret_returns_the_new_one_once_and_keeps_the_old_one_workin
         "the replaced secret stays admissible for the grace window: {row}"
     );
     let rotated_at = row["rotated_at"].as_str().expect("rotated_at");
-    assert!(!rotated_at.is_empty(), "a grace without a start time never ends: {row}");
+    assert!(
+        !rotated_at.is_empty(),
+        "a grace without a start time never ends: {row}"
+    );
 
     // A second rotation makes the *first* new secret the previous one: there is only ever one previous.
     let (status, third) = owner
-        .send("POST", &format!("/api/v1/me/webhooks/{id}/rotate"), Some(json!({})))
+        .send(
+            "POST",
+            &format!("/api/v1/me/webhooks/{id}/rotate"),
+            Some(json!({})),
+        )
         .await;
     assert_eq!(status, StatusCode::OK, "{third}");
     let rows = darkhold_db::marketplace::list_all_active_webhooks(h.tdb.db())
         .await
         .expect("list webhooks");
-    let row = rows.iter().find(|r| r["id"] == json!(id)).expect("endpoint row");
-    assert_eq!(row["previous_secret"], json!(second), "only one key is on the way out");
+    let row = rows
+        .iter()
+        .find(|r| r["id"] == json!(id))
+        .expect("endpoint row");
+    assert_eq!(
+        row["previous_secret"],
+        json!(second),
+        "only one key is on the way out"
+    );
 }
 
 #[tokio::test]
@@ -222,7 +259,11 @@ async fn a_rotation_by_a_stranger_is_the_same_answer_as_a_missing_subscription()
     let mut stranger = h.client();
     stranger.register("not-the-owner").await;
     let (status, body) = stranger
-        .send("POST", &format!("/api/v1/me/webhooks/{id}/rotate"), Some(json!({})))
+        .send(
+            "POST",
+            &format!("/api/v1/me/webhooks/{id}/rotate"),
+            Some(json!({})),
+        )
         .await;
     assert!(
         status == StatusCode::UNPROCESSABLE_ENTITY || status == StatusCode::NOT_FOUND,
@@ -238,7 +279,10 @@ async fn a_rotation_by_a_stranger_is_the_same_answer_as_a_missing_subscription()
         .await
         .expect("list");
     let row = rows.iter().find(|r| r["id"] == json!(id)).expect("row");
-    assert_eq!(row["secret"], created["secret"], "the stranger changed nothing");
+    assert_eq!(
+        row["secret"], created["secret"],
+        "the stranger changed nothing"
+    );
 }
 
 #[tokio::test]
@@ -257,15 +301,25 @@ async fn consecutive_failures_switch_an_endpoint_off_and_only_an_explicit_enable
 
     let threshold = darkhold_domain::webhook::DEFAULT_FAILURE_THRESHOLD;
     for attempt in 1..threshold {
-        let reason = darkhold_db::webhooks::record_failure(db, &id, threshold, "2026-11-07T00:00:00Z")
-            .await
-            .expect("record failure");
-        assert!(reason.is_none(), "failure {attempt} is below the threshold: {reason:?}");
+        let reason =
+            darkhold_db::webhooks::record_failure(db, &id, threshold, "2026-11-07T00:00:00Z")
+                .await
+                .expect("record failure");
+        assert!(
+            reason.is_none(),
+            "failure {attempt} is below the threshold: {reason:?}"
+        );
     }
 
-    let subs = darkhold_db::webhooks::subscriptions(db).await.expect("subscriptions");
+    let subs = darkhold_db::webhooks::subscriptions(db)
+        .await
+        .expect("subscriptions");
     let row = subs.iter().find(|r| r["id"] == json!(id)).expect("row");
-    assert_eq!(row["active"], json!(true), "still active one failure short: {row}");
+    assert_eq!(
+        row["active"],
+        json!(true),
+        "still active one failure short: {row}"
+    );
     assert_eq!(row["consecutive_failures"], json!(i64::from(threshold - 1)));
 
     // The failure that crosses the line.
@@ -275,7 +329,9 @@ async fn consecutive_failures_switch_an_endpoint_off_and_only_an_explicit_enable
         .expect("the threshold switches it off");
     assert!(reason.contains("consecutive"), "{reason}");
 
-    let subs = darkhold_db::webhooks::subscriptions(db).await.expect("subscriptions");
+    let subs = darkhold_db::webhooks::subscriptions(db)
+        .await
+        .expect("subscriptions");
     let row = subs.iter().find(|r| r["id"] == json!(id)).expect("row");
     assert_eq!(row["active"], json!(false), "{row}");
     assert_eq!(row["disabled_reason"], json!(reason), "{row}");
@@ -291,20 +347,38 @@ async fn consecutive_failures_switch_an_endpoint_off_and_only_an_explicit_enable
     );
 
     // A success while disabled does not resurrect it: only an explicit enable does.
-    darkhold_db::webhooks::record_success(db, &id).await.expect("success");
-    let subs = darkhold_db::webhooks::subscriptions(db).await.expect("subscriptions");
+    darkhold_db::webhooks::record_success(db, &id)
+        .await
+        .expect("success");
+    let subs = darkhold_db::webhooks::subscriptions(db)
+        .await
+        .expect("subscriptions");
     let row = subs.iter().find(|r| r["id"] == json!(id)).expect("row");
-    assert_eq!(row["active"], json!(false), "the breaker needs a human: {row}");
-    assert_eq!(row["consecutive_failures"], json!(0), "the count reset, the switch did not");
+    assert_eq!(
+        row["active"],
+        json!(false),
+        "the breaker needs a human: {row}"
+    );
+    assert_eq!(
+        row["consecutive_failures"],
+        json!(0),
+        "the count reset, the switch did not"
+    );
 
     // And the explicit enable clears both the flag and the reason.
     assert!(darkhold_db::webhooks::reenable(db, &id, Some("owner-1"))
         .await
         .expect("reenable"));
-    let subs = darkhold_db::webhooks::subscriptions(db).await.expect("subscriptions");
+    let subs = darkhold_db::webhooks::subscriptions(db)
+        .await
+        .expect("subscriptions");
     let row = subs.iter().find(|r| r["id"] == json!(id)).expect("row");
     assert_eq!(row["active"], json!(true), "{row}");
-    assert_eq!(row["disabled_reason"], Value::Null, "a stale reason on an active endpoint reads as a fault: {row}");
+    assert_eq!(
+        row["disabled_reason"],
+        Value::Null,
+        "a stale reason on an active endpoint reads as a fault: {row}"
+    );
 
     // A different owner cannot re-enable it.
     darkhold_db::webhooks::record_failure(db, &id, 1, "2026-11-07T00:02:00Z")
@@ -333,16 +407,9 @@ async fn the_rate_limit_counts_deliveries_not_attempts_it_never_made() {
     .expect("create webhook");
 
     for n in 0..3 {
-        darkhold_db::marketplace::record_delivery(
-            db,
-            &id,
-            &format!("evt-{n}"),
-            "{}",
-            "sig",
-            "ok",
-        )
-        .await
-        .expect("record delivery");
+        darkhold_db::marketplace::record_delivery(db, &id, &format!("evt-{n}"), "{}", "sig", "ok")
+            .await
+            .expect("record delivery");
     }
     let since = "2000-01-01T00:00:00Z";
     let counted = darkhold_db::webhooks::delivered_since(db, &id, since)
@@ -404,7 +471,9 @@ async fn only_an_operator_reads_the_subscription_health_and_no_secret_is_in_it()
     // The operator is the same person: carry the session cookies over rather than registering again.
     operator.cookies = owner.cookies.clone();
 
-    let (status, body) = operator.send("GET", "/api/v1/operator/webhooks", None).await;
+    let (status, body) = operator
+        .send("GET", "/api/v1/operator/webhooks", None)
+        .await;
     assert_eq!(status, StatusCode::OK, "{body}");
     let subs = body["subscriptions"].as_array().expect("subscriptions");
     let row = subs.iter().find(|r| r["id"] == json!(id)).expect("row");
@@ -412,18 +481,30 @@ async fn only_an_operator_reads_the_subscription_health_and_no_secret_is_in_it()
         row.get("secret").is_none(),
         "an operator must not be able to forge a subscriber's deliveries: {row}"
     );
-    assert_eq!(row["rate_per_minute"], json!(60), "the default limit is visible: {row}");
+    assert_eq!(
+        row["rate_per_minute"],
+        json!(60),
+        "the default limit is visible: {row}"
+    );
     assert_eq!(row["consecutive_failures"], json!(0));
 
     // Re-enabling through the door is the operator's act, and it reports what it did.
     let (status, body) = operator
-        .send("POST", &format!("/api/v1/operator/webhooks/{id}/enable"), Some(json!({})))
+        .send(
+            "POST",
+            &format!("/api/v1/operator/webhooks/{id}/enable"),
+            Some(json!({})),
+        )
         .await;
     assert_eq!(status, StatusCode::OK, "{body}");
     assert_eq!(body["active"], json!(true), "{body}");
 
     let (status, body) = operator
-        .send("POST", "/api/v1/operator/webhooks/no-such-endpoint/enable", Some(json!({})))
+        .send(
+            "POST",
+            "/api/v1/operator/webhooks/no-such-endpoint/enable",
+            Some(json!({})),
+        )
         .await;
     assert_eq!(status, StatusCode::UNPROCESSABLE_ENTITY, "{body}");
     assert!(message(&body).contains("no subscription"), "{body}");
@@ -445,7 +526,9 @@ use darkhold_db::outbox::OutboxEvent;
 
 /// A tiny HTTP receiver: counts requests and answers with `status`, one connection at a time.
 async fn receiver(status: &'static str) -> (u16, Arc<AtomicUsize>) {
-    let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.expect("bind");
+    let listener = tokio::net::TcpListener::bind("127.0.0.1:0")
+        .await
+        .expect("bind");
     let port = listener.local_addr().expect("addr").port();
     let hits = Arc::new(AtomicUsize::new(0));
     let counter = Arc::clone(&hits);
@@ -461,7 +544,8 @@ async fn receiver(status: &'static str) -> (u16, Arc<AtomicUsize>) {
                 // Read the request head; the body is irrelevant to the count.
                 let _ = socket.read(&mut buf).await;
                 counter.fetch_add(1, Ordering::SeqCst);
-                let body = format!("HTTP/1.1 {status}\r\nContent-Length: 0\r\nConnection: close\r\n\r\n");
+                let body =
+                    format!("HTTP/1.1 {status}\r\nContent-Length: 0\r\nConnection: close\r\n\r\n");
                 let _ = socket.write_all(body.as_bytes()).await;
                 let _ = socket.shutdown().await;
             });
@@ -554,13 +638,11 @@ async fn the_delivery_loop_switches_off_an_endpoint_whose_receiver_keeps_failing
     )
     .await
     .expect("create webhook");
-    sqlx::query(
-        "UPDATE webhook_endpoints SET rate_per_minute = 100000 WHERE id = ?",
-    )
-    .bind(&id)
-    .execute(db.sqlite_pool().expect("sqlite"))
-    .await
-    .expect("raise rate limit");
+    sqlx::query("UPDATE webhook_endpoints SET rate_per_minute = 100000 WHERE id = ?")
+        .bind(&id)
+        .execute(db.sqlite_pool().expect("sqlite"))
+        .await
+        .expect("raise rate limit");
 
     let state = AppState::new(h.config.clone(), db.clone());
     let threshold = darkhold_domain::webhook::DEFAULT_FAILURE_THRESHOLD;
@@ -570,7 +652,9 @@ async fn the_delivery_loop_switches_off_an_endpoint_whose_receiver_keeps_failing
             .expect("deliver");
     }
 
-    let subs = darkhold_db::webhooks::subscriptions(db).await.expect("subscriptions");
+    let subs = darkhold_db::webhooks::subscriptions(db)
+        .await
+        .expect("subscriptions");
     let row = subs.iter().find(|r| r["id"] == json!(id)).expect("row");
     assert_eq!(
         row["active"],
@@ -578,7 +662,10 @@ async fn the_delivery_loop_switches_off_an_endpoint_whose_receiver_keeps_failing
         "a permanently failing receiver must be switched off by the sender itself: {row}"
     );
     assert!(
-        row["disabled_reason"].as_str().unwrap_or_default().contains("consecutive"),
+        row["disabled_reason"]
+            .as_str()
+            .unwrap_or_default()
+            .contains("consecutive"),
         "{row}"
     );
 }

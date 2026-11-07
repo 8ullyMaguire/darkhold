@@ -61,9 +61,18 @@ pub fn router() -> Router<AppState> {
     Router::new()
         .route("/operator/experiments/sweep", post(sweep))
         .route("/operator/experiments", get(overview))
-        .route("/operator/experiments/{surface}/hold", post(hold_surface).delete(release_surface))
-        .route("/operator/experiments/{surface}/promote", post(promote_by_hand))
-        .route("/operator/experiments/{surface}/demote", post(demote_by_hand))
+        .route(
+            "/operator/experiments/{surface}/hold",
+            post(hold_surface).delete(release_surface),
+        )
+        .route(
+            "/operator/experiments/{surface}/promote",
+            post(promote_by_hand),
+        )
+        .route(
+            "/operator/experiments/{surface}/demote",
+            post(demote_by_hand),
+        )
         // M69-16 layer two: the instance's content policy, with a reason on every block and a revocation rather than a delete.
         .route(
             "/operator/content-policy",
@@ -294,11 +303,12 @@ async fn overview(
             darkhold_db::experiment_decisions::override_for(state.db(), &surface_id)
                 .await
                 .map_err(|error| ApiError(AppError::internal("reading an override", error)))?;
-        let last_decision = darkhold_db::experiment_decisions::decisions_for(state.db(), &surface_id)
-            .await
-            .map_err(|error| ApiError(AppError::internal("reading decisions", error)))?
-            .into_iter()
-            .next();
+        let last_decision =
+            darkhold_db::experiment_decisions::decisions_for(state.db(), &surface_id)
+                .await
+                .map_err(|error| ApiError(AppError::internal("reading decisions", error)))?
+                .into_iter()
+                .next();
 
         surfaces.push(json!({
             "surface": surface_id,
@@ -341,19 +351,14 @@ async fn sweep(
     // split is not a missing decision, it is an instance that is not experimenting.
     let buckets = state.config().discovery.experiment_buckets;
     if buckets > 1 {
-        let surfaces: Vec<String> = state
-            .config()
-            .discovery
-            .surfaces
-            .keys()
-            .cloned()
-            .collect();
+        let surfaces: Vec<String> = state.config().discovery.surfaces.keys().cloned().collect();
         for surface_id in surfaces {
             // A held surface is skipped and said so: an operator who paused an experiment must not see the sweep quietly
             // deciding it a minute later.
-            if let Some(reason) = darkhold_db::experiment_decisions::hold_reason(state.db(), &surface_id)
-                .await
-                .map_err(|error| ApiError(AppError::internal("reading a hold", error)))?
+            if let Some(reason) =
+                darkhold_db::experiment_decisions::hold_reason(state.db(), &surface_id)
+                    .await
+                    .map_err(|error| ApiError(AppError::internal("reading a hold", error)))?
             {
                 outcomes.push(SurfaceOutcome {
                     surface_id,
@@ -372,21 +377,16 @@ async fn sweep(
                 continue;
             }
 
-            let Some(surface) = darkhold_domain::recommendation_surfaces::surface(&surface_id) else {
+            let Some(surface) = darkhold_domain::recommendation_surfaces::surface(&surface_id)
+            else {
                 continue;
             };
             let configured = &state.config().discovery.surfaces;
             let incumbent = darkhold_domain::recommendation_surfaces::algorithms_for_bucket(
-                surface,
-                configured,
-                0,
-                buckets,
+                surface, configured, 0, buckets,
             );
             let challenger = darkhold_domain::recommendation_surfaces::algorithms_for_bucket(
-                surface,
-                configured,
-                1,
-                buckets,
+                surface, configured, 1, buckets,
             );
 
             let decision = darkhold_db::experiment_decisions::evaluate_surface(
@@ -399,14 +399,9 @@ async fn sweep(
                 // The guardrails the platform can measure from its own snapshots: a conversion-rate collapse and a traffic
                 // collapse, both relative to the incumbent. Empty when the incumbent had no traffic on a day — nothing was
                 // measured, and a fabricated pass is worse than a missing day.
-                darkhold_db::experiment_decisions::guardrail_history(
-                    state.db(),
-                    &surface_id,
-                    0,
-                    1,
-                )
-                .await
-                .map_err(|error| ApiError(AppError::internal("reading guardrails", error)))?,
+                darkhold_db::experiment_decisions::guardrail_history(state.db(), &surface_id, 0, 1)
+                    .await
+                    .map_err(|error| ApiError(AppError::internal("reading guardrails", error)))?,
             )
             .await
             .map_err(|error| ApiError(AppError::internal("evaluating an experiment", error)))?;
@@ -595,7 +590,8 @@ async fn grant_policy_override(
             resource: "policy block",
         })),
         Err(BlockRefusal::EmptyReason) => Err(ApiError(AppError::Validation {
-            message: "an override needs a reason: it is a recorded exception, not a quiet one".to_owned(),
+            message: "an override needs a reason: it is a recorded exception, not a quiet one"
+                .to_owned(),
             field_errors: Default::default(),
         })),
         Err(BlockRefusal::EmptyTarget) => Err(ApiError(AppError::Validation {

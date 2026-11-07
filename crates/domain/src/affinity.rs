@@ -211,7 +211,10 @@ mod tests {
             one.basis_points, 8_000,
             "a reader with only favourite evidence is as aligned as that evidence says, not 40% of it"
         );
-        assert_eq!(one.evidence_bp, 5_000, "the denominator travels with the score");
+        assert_eq!(
+            one.evidence_bp, 5_000,
+            "the denominator travels with the score"
+        );
         assert_eq!(one.signals, 1);
 
         let two = score(&Components {
@@ -259,7 +262,11 @@ mod tests {
         let overlap = jaccard(&reader, &instance).expect("overlap");
         assert!((overlap - 1.0 / 3.0).abs() < 1e-9, "{overlap}");
 
-        assert_eq!(jaccard(&[], &instance), None, "an empty reader has no overlap to measure");
+        assert_eq!(
+            jaccard(&[], &instance),
+            None,
+            "an empty reader has no overlap to measure"
+        );
         assert_eq!(
             jaccard(&reader, &[]),
             None,
@@ -282,6 +289,10 @@ mod tests {
     fn arena_agreement_counts_only_shared_pairs() {
         assert_eq!(arena_agreement(0, 0), None);
         assert_eq!(arena_agreement(4, 3), Some(0.75));
-        assert_eq!(arena_agreement(4, 0), Some(0.0), "four shared pairs and no agreement is a zero");
+        assert_eq!(
+            arena_agreement(4, 0),
+            Some(0.0),
+            "four shared pairs and no agreement is a zero"
+        );
     }
 }

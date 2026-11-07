@@ -91,11 +91,19 @@ pub struct PromotionInput {
 #[serde(tag = "decision", rename_all = "snake_case")]
 pub enum Decision {
     /// The sample is too small: not a verdict, a "keep going", and it names which threshold failed.
-    InsufficientSample { impressions: i64, conversions: i64, days: i64 },
+    InsufficientSample {
+        impressions: i64,
+        conversions: i64,
+        days: i64,
+    },
     /// The experiment is younger than the floor.
     TooYoung { days: i64 },
     /// A guardrail is out of bounds on the current snapshot.
-    GuardrailBreached { name: String, value: f64, consecutive: usize },
+    GuardrailBreached {
+        name: String,
+        value: f64,
+        consecutive: usize,
+    },
     /// The sequence won and nothing else objected: promote, and this is the record.
     Promote { lift: f64, evidence: f64 },
     /// The sequence has not won yet. `evidence` is the martingale, so an operator can see how far off it is.
@@ -175,7 +183,8 @@ pub fn mixture_evidence(incumbent: ArmCounts, challenger: ArmCounts) -> f64 {
     // Robbins' normal mixture: the exponent carries the `tau² / (variance + tau²)` factor. Without it the ratio is the
     // likelihood under a *point* alternative, which is not a martingale and has no continuous-monitoring guarantee — the
     // failure looks like a sequence that simply never fires on a real effect.
-    let exponent = difference * difference * tau_squared / (2.0 * variance * (variance + tau_squared));
+    let exponent =
+        difference * difference * tau_squared / (2.0 * variance * (variance + tau_squared));
     scale * exponent.exp()
 }
 
@@ -250,7 +259,10 @@ mod tests {
         match decision {
             Decision::Promote { lift, evidence } => {
                 assert!((lift - 0.02).abs() < 1e-9, "lift is two points: {lift}");
-                assert!(evidence >= 1.0 / ALPHA, "evidence {evidence} clears 1/alpha");
+                assert!(
+                    evidence >= 1.0 / ALPHA,
+                    "evidence {evidence} clears 1/alpha"
+                );
             }
             other => panic!("expected a promotion, got {other:?}"),
         }
@@ -316,7 +328,9 @@ mod tests {
         input.guardrails.push(breach("latency_p95"));
         input.guardrails.push(breach("error_rate"));
         match decide(&input) {
-            Decision::GuardrailBreached { name, consecutive, .. } => {
+            Decision::GuardrailBreached {
+                name, consecutive, ..
+            } => {
                 assert_eq!(name, "error_rate");
                 assert_eq!(consecutive, 1, "a different guardrail starts a new count");
             }

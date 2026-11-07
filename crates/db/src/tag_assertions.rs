@@ -182,26 +182,22 @@ pub async fn confirm(
         "UPDATE work_tags SET confirmation = $1, added_at = $2 WHERE work_id = $3::uuid AND node_id = $4",
     );
     let affected = match db.backend() {
-        Backend::Sqlite => {
-            sqlx::query(&sql)
-                .bind(by.as_str())
-                .bind(&now)
-                .bind(work_id)
-                .bind(node_id)
-                .execute(db.sqlite_pool().expect("sqlite handle"))
-                .await?
-                .rows_affected()
-        }
-        Backend::Postgres => {
-            sqlx::query(&sql)
-                .bind(by.as_str())
-                .bind(&now)
-                .bind(work_id)
-                .bind(node_id)
-                .execute(db.postgres_pool().expect("postgres handle"))
-                .await?
-                .rows_affected()
-        }
+        Backend::Sqlite => sqlx::query(&sql)
+            .bind(by.as_str())
+            .bind(&now)
+            .bind(work_id)
+            .bind(node_id)
+            .execute(db.sqlite_pool().expect("sqlite handle"))
+            .await?
+            .rows_affected(),
+        Backend::Postgres => sqlx::query(&sql)
+            .bind(by.as_str())
+            .bind(&now)
+            .bind(work_id)
+            .bind(node_id)
+            .execute(db.postgres_pool().expect("postgres handle"))
+            .await?
+            .rows_affected(),
     };
     Ok(affected > 0)
 }
@@ -232,22 +228,18 @@ pub async fn retract(db: &Database, work_id: &str, node_id: &str) -> Result<bool
         "DELETE FROM work_tags WHERE work_id = $1::uuid AND node_id = $2",
     );
     let affected = match db.backend() {
-        Backend::Sqlite => {
-            sqlx::query(&sql)
-                .bind(work_id)
-                .bind(node_id)
-                .execute(db.sqlite_pool().expect("sqlite handle"))
-                .await?
-                .rows_affected()
-        }
-        Backend::Postgres => {
-            sqlx::query(&sql)
-                .bind(work_id)
-                .bind(node_id)
-                .execute(db.postgres_pool().expect("postgres handle"))
-                .await?
-                .rows_affected()
-        }
+        Backend::Sqlite => sqlx::query(&sql)
+            .bind(work_id)
+            .bind(node_id)
+            .execute(db.sqlite_pool().expect("sqlite handle"))
+            .await?
+            .rows_affected(),
+        Backend::Postgres => sqlx::query(&sql)
+            .bind(work_id)
+            .bind(node_id)
+            .execute(db.postgres_pool().expect("postgres handle"))
+            .await?
+            .rows_affected(),
     };
     Ok(affected > 0)
 }
@@ -276,12 +268,14 @@ pub async fn assertions_for_work(db: &Database, work_id: &str) -> Result<Vec<Tag
     };
     Ok(rows
         .into_iter()
-        .map(|(node_id, source, confirmation, confidence, added_at)| TagAssertion {
-            node_id,
-            source,
-            confirmation,
-            confidence,
-            added_at,
-        })
+        .map(
+            |(node_id, source, confirmation, confidence, added_at)| TagAssertion {
+                node_id,
+                source,
+                confirmation,
+                confidence,
+                added_at,
+            },
+        )
         .collect())
 }

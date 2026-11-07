@@ -36,7 +36,10 @@ use darkhold_domain::media_rescue::Wanted;
 pub fn router() -> Router<AppState> {
     Router::new()
         .route("/operator/rescue", get(list).post(hunt))
-        .route("/operator/rescue/copies", get(list_copies).post(record_copy))
+        .route(
+            "/operator/rescue/copies",
+            get(list_copies).post(record_copy),
+        )
         .route("/operator/rescue/hunts/{id}/resolve", post(resolve))
 }
 
@@ -98,7 +101,8 @@ async fn record_copy(
     // nothing and would sit in the table looking like a survivor that could have helped.
     if request.content_hash.trim().len() < 16 {
         return Err(validation(
-            "a content hash is at least 16 characters; a shorter one cannot be the key of a copy".to_owned(),
+            "a content hash is at least 16 characters; a shorter one cannot be the key of a copy"
+                .to_owned(),
         ));
     }
     if let Some(perceptual) = request.perceptual_hash.as_deref() {
@@ -291,9 +295,7 @@ async fn resolve(
     let hunt = darkhold_db::media_rescue::find(state.db(), &id)
         .await
         .map_err(internal)?
-        .ok_or(ApiError(AppError::NotFound {
-            resource: "hunt",
-        }))?;
+        .ok_or(ApiError(AppError::NotFound { resource: "hunt" }))?;
 
     // Accepting names somebody. An exact or proposed hunt already has a name, so the operator may accept without repeating
     // it; an ambiguous one does not, and the ring will not invent one.
@@ -304,7 +306,8 @@ async fn resolve(
         .or_else(|| hunt.matched_instance.clone());
     if request.resolution == "accepted" && instance.is_none() {
         return Err(validation(
-            "this hunt named no survivor; accepting it needs `instance` naming the one to credit".to_owned(),
+            "this hunt named no survivor; accepting it needs `instance` naming the one to credit"
+                .to_owned(),
         ));
     }
 

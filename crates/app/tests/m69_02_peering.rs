@@ -39,7 +39,10 @@ struct Client {
 
 impl Client {
     fn new(app: axum::Router) -> Self {
-        Self { app, cookies: Vec::new() }
+        Self {
+            app,
+            cookies: Vec::new(),
+        }
     }
 
     /// Swap the router under the same session, so a config change does not cost the cookies.
@@ -50,8 +53,12 @@ impl Client {
     fn capture(&mut self, response: &axum::response::Response) {
         for value in response.headers().get_all(header::SET_COOKIE) {
             let Ok(text) = value.to_str() else { continue };
-            let Some((pair, _)) = text.split_once(';') else { continue };
-            let Some((name, value)) = pair.split_once('=') else { continue };
+            let Some((pair, _)) = text.split_once(';') else {
+                continue;
+            };
+            let Some((name, value)) = pair.split_once('=') else {
+                continue;
+            };
             let name = name.trim().to_owned();
             let value = value.trim().to_owned();
             self.cookies.retain(|(k, _)| k != &name);
@@ -94,8 +101,13 @@ impl Client {
             .expect("response");
         let status = response.status();
         self.capture(&response);
-        let bytes = axum::body::to_bytes(response.into_body(), usize::MAX).await.expect("body");
-        (status, serde_json::from_slice(&bytes).unwrap_or(Value::Null))
+        let bytes = axum::body::to_bytes(response.into_body(), usize::MAX)
+            .await
+            .expect("body");
+        (
+            status,
+            serde_json::from_slice(&bytes).unwrap_or(Value::Null),
+        )
     }
 
     async fn register(&mut self, handle: &str) -> String {
@@ -240,13 +252,21 @@ async fn the_list_suggests_the_neighbour_blocks_the_twin_and_ignores_the_strange
     assert_eq!(candidates.len(), 3, "{body}");
 
     // Order: suggestion, then the veto, then the near miss (see `peering::suggest`).
-    assert_eq!(candidates[0]["instance_id"], json!("https://near.example"), "{body}");
+    assert_eq!(
+        candidates[0]["instance_id"],
+        json!("https://near.example"),
+        "{body}"
+    );
     assert_eq!(candidates[0]["verdict"], json!("suggested"), "{body}");
     assert!(
         candidates[0]["similarity"].as_f64().expect("score") > 0.99,
         "a re-weighted copy of the same taste is a near-perfect match: {body}"
     );
-    assert_eq!(candidates[1]["instance_id"], json!("https://twin.example"), "{body}");
+    assert_eq!(
+        candidates[1]["instance_id"],
+        json!("https://twin.example"),
+        "{body}"
+    );
     assert_eq!(
         candidates[1]["verdict"],
         json!("blocked"),
@@ -257,10 +277,17 @@ async fn the_list_suggests_the_neighbour_blocks_the_twin_and_ignores_the_strange
         "a veto reports no score for anyone to act on: {body}"
     );
     assert!(
-        candidates[1]["reason"].as_str().expect("reason").contains("csam"),
+        candidates[1]["reason"]
+            .as_str()
+            .expect("reason")
+            .contains("csam"),
         "the reason names the rule: {body}"
     );
-    assert_eq!(candidates[2]["instance_id"], json!("https://stranger.example"), "{body}");
+    assert_eq!(
+        candidates[2]["instance_id"],
+        json!("https://stranger.example"),
+        "{body}"
+    );
     assert_eq!(candidates[2]["verdict"], json!("not_enough"), "{body}");
 }
 
@@ -293,7 +320,11 @@ async fn the_door_is_shut_unless_the_instance_opened_it_and_shut_means_404() {
             Some(json!({ "document": peer_document("https://x.example", &[("angst", 1.0)], &[]) })),
         )
         .await;
-    assert_eq!(status, StatusCode::NOT_FOUND, "recording is the same statement");
+    assert_eq!(
+        status,
+        StatusCode::NOT_FOUND,
+        "recording is the same statement"
+    );
 }
 
 #[tokio::test]

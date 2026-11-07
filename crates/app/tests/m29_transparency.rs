@@ -1463,7 +1463,10 @@ async fn a_served_recommendation_carries_its_reason_and_match_percentage() {
     let (status, body) = reader.get("/api/v1/discovery").await;
     assert_eq!(status, StatusCode::OK, "body: {body}");
     let items = body["items"].as_array().expect("items");
-    assert!(!items.is_empty(), "three published works are served: {body}");
+    assert!(
+        !items.is_empty(),
+        "three published works are served: {body}"
+    );
 
     let vocabulary = [
         "taste_tags",
@@ -1480,10 +1483,7 @@ async fn a_served_recommendation_carries_its_reason_and_match_percentage() {
             !reason.is_empty(),
             "every served row says why, in words: {item}"
         );
-        assert!(
-            reason.ends_with('.'),
-            "the reason is a sentence: {item}"
-        );
+        assert!(reason.ends_with('.'), "the reason is a sentence: {item}");
         let code = item["reason_code"].as_str().expect("reason_code");
         assert!(
             vocabulary.contains(&code),
@@ -1491,7 +1491,10 @@ async fn a_served_recommendation_carries_its_reason_and_match_percentage() {
         );
         let percent = item["match_percent"].as_i64().expect("match_percent");
         if position == 0 {
-            assert_eq!(percent, 100, "the top row is the whole of the scale: {item}");
+            assert_eq!(
+                percent, 100,
+                "the top row is the whole of the scale: {item}"
+            );
         }
         assert!(
             (1..=100).contains(&percent),
@@ -1533,11 +1536,10 @@ async fn a_surface_runs_only_the_algorithms_it_is_configured_with() {
     // configured and no media references seeded, the feed must be EMPTY even though three published works are waiting.
     // Without the wiring, `popular` would still run and serve them — the assertion that fails when the registry is
     // ignored.
-    harness
-        .config
-        .discovery
-        .surfaces
-        .insert("discover.feed".to_owned(), vec!["media_ref_collab".to_owned()]);
+    harness.config.discovery.surfaces.insert(
+        "discover.feed".to_owned(),
+        vec!["media_ref_collab".to_owned()],
+    );
     let mut narrowed = harness.reader("SurfaceSet").await;
     let (status, body) = narrowed.get("/api/v1/discovery").await;
     assert_eq!(status, StatusCode::OK, "body: {body}");
@@ -1583,7 +1585,11 @@ async fn the_arm_a_reader_is_assigned_decides_which_algorithms_run() {
     let (status, body) = reader.get("/api/v1/discovery").await;
     assert_eq!(status, StatusCode::OK, "body: {body}");
     let items = body["items"].as_array().expect("items");
-    assert_eq!(items.len(), 3, "arm 0 runs popularity, which finds all three: {body}");
+    assert_eq!(
+        items.len(),
+        3,
+        "arm 0 runs popularity, which finds all three: {body}"
+    );
     for item in items {
         assert_eq!(item["reason_code"], "popular", "{item}");
     }
@@ -1673,7 +1679,9 @@ async fn the_experiment_console_is_an_operator_door_and_the_sweep_is_invisible_t
         .expect("the feed's experiment is listed");
     assert_eq!(feed["numbers"][0]["impressions"], 1000, "{feed}");
     assert_eq!(
-        feed["numbers"][0]["conversion_rate"].as_f64().unwrap_or_default(),
+        feed["numbers"][0]["conversion_rate"]
+            .as_f64()
+            .unwrap_or_default(),
         0.1,
         "the console shows the rate the snapshot measured, not a recomputation: {feed}"
     );
@@ -1682,7 +1690,10 @@ async fn the_experiment_console_is_an_operator_door_and_the_sweep_is_invisible_t
     let (status, _) = reader.get("/api/v1/operator/experiments").await;
     assert_eq!(status, StatusCode::NOT_FOUND);
     let (status, _) = reader
-        .post("/api/v1/operator/experiments/sweep?day=2026-11-08", json!({}))
+        .post(
+            "/api/v1/operator/experiments/sweep?day=2026-11-08",
+            json!({}),
+        )
         .await;
     assert_eq!(status, StatusCode::NOT_FOUND);
 }
@@ -1718,7 +1729,10 @@ async fn a_held_surface_is_skipped_and_a_hand_promotion_is_recorded_as_manual() 
     assert_eq!(status, StatusCode::OK, "body: {body}");
 
     let (status, body) = operator
-        .post("/api/v1/operator/experiments/sweep?day=2026-11-08", json!({}))
+        .post(
+            "/api/v1/operator/experiments/sweep?day=2026-11-08",
+            json!({}),
+        )
         .await;
     assert_eq!(status, StatusCode::OK, "body: {body}");
     let outcomes = body["surfaces"].as_array().expect("surfaces");
@@ -1779,7 +1793,10 @@ async fn a_held_surface_is_skipped_and_a_hand_promotion_is_recorded_as_manual() 
                 .expect("count"),
         }
     };
-    assert_eq!(manual, 1, "the row says a person decided this, not the sweep");
+    assert_eq!(
+        manual, 1,
+        "the row says a person decided this, not the sweep"
+    );
 
     // A set nothing implements is refused by name, because the surface would otherwise serve nothing.
     let (status, _) = operator
@@ -1862,7 +1879,11 @@ async fn a_shelved_reader_feed_pulls_toward_what_they_already_know() {
         .await;
     }
     // The shelved work and the aligned candidate share a tag; the cold one carries a tag the reader has never touched.
-    for (work, tag) in [(&seeded, &warm_tag), (&aligned, &warm_tag), (&cold, &cold_tag)] {
+    for (work, tag) in [
+        (&seeded, &warm_tag),
+        (&aligned, &warm_tag),
+        (&cold, &cold_tag),
+    ] {
         bind_exec(
             &harness.db,
             "INSERT INTO work_tags (work_id, node_id, prominence, added_at)
@@ -1905,7 +1926,11 @@ async fn a_shelved_reader_feed_pulls_toward_what_they_already_know() {
          VALUES (?, ?, ?, '2026-01-01T00:00:00Z')",
         "INSERT INTO shelf_items (id, shelf_id, library_item_id, created_at)
          VALUES (?::uuid, ?::uuid, ?::uuid, '2026-01-01T00:00:00Z'::timestamptz)",
-        &[uuid::Uuid::new_v4().to_string(), shelf.clone(), item.clone()],
+        &[
+            uuid::Uuid::new_v4().to_string(),
+            shelf.clone(),
+            item.clone(),
+        ],
     )
     .await;
 
@@ -1923,7 +1948,8 @@ async fn a_shelved_reader_feed_pulls_toward_what_they_already_know() {
             .iter()
             .position(|item| item["work_id"].as_str() == Some(id))
     };
-    let aligned_at = position(&aligned).unwrap_or_else(|| panic!("the aligned work is served: {body}"));
+    let aligned_at =
+        position(&aligned).unwrap_or_else(|| panic!("the aligned work is served: {body}"));
     let cold_at = position(&cold).unwrap_or_else(|| panic!("the cold work is served: {body}"));
     assert!(
         aligned_at < cold_at,
@@ -2012,7 +2038,10 @@ async fn because_you_shelved_answers_from_public_shelves_only() {
         std::slice::from_ref(&other),
     )
     .await;
-    for (name, public, peer) in [("Public list", 1, &public_peer), ("Private list", 0, &private_peer)] {
+    for (name, public, peer) in [
+        ("Public list", 1, &public_peer),
+        ("Private list", 0, &private_peer),
+    ] {
         let shelf = uuid::Uuid::new_v4().to_string();
         bind_exec(
             &harness.db,
@@ -2021,7 +2050,12 @@ async fn because_you_shelved_answers_from_public_shelves_only() {
             "INSERT INTO shelves (id, account_id, name, is_public, created_at, updated_at, version)
              VALUES (?::uuid, ?::uuid, ?, ?, '2026-01-01T00:00:00Z'::timestamptz,
                      '2026-01-01T00:00:00Z'::timestamptz, 1)",
-            &[shelf.clone(), other.clone(), name.to_owned(), public.to_string()],
+            &[
+                shelf.clone(),
+                other.clone(),
+                name.to_owned(),
+                public.to_string(),
+            ],
         )
         .await;
         for work in [&mine, peer] {
@@ -2045,7 +2079,11 @@ async fn because_you_shelved_answers_from_public_shelves_only() {
                  VALUES (?, ?, ?, '2026-01-01T00:00:00Z')",
                 "INSERT INTO shelf_items (id, shelf_id, library_item_id, created_at)
                  VALUES (?::uuid, ?::uuid, ?::uuid, '2026-01-01T00:00:00Z'::timestamptz)",
-                &[uuid::Uuid::new_v4().to_string(), shelf.clone(), item.clone()],
+                &[
+                    uuid::Uuid::new_v4().to_string(),
+                    shelf.clone(),
+                    item.clone(),
+                ],
             )
             .await;
         }
@@ -2106,7 +2144,10 @@ async fn the_reader_gravity_dial_narrows_never_widens_and_cannot_move_a_locked_i
     assert_eq!(status, StatusCode::OK, "body: {body}");
     let (status, body) = reader.get("/api/v1/discovery/gravity").await;
     assert_eq!(status, StatusCode::OK);
-    assert_eq!(body["yours"], 0.0, "zero is a choice, not an absence: {body}");
+    assert_eq!(
+        body["yours"], 0.0,
+        "zero is a choice, not an absence: {body}"
+    );
     assert_eq!(body["effective"], 0.0, "{body}");
 
     // Widening is refused, and the refusal says what would have been accepted.
@@ -2114,7 +2155,10 @@ async fn the_reader_gravity_dial_narrows_never_widens_and_cannot_move_a_locked_i
         .put("/api/v1/discovery/gravity", json!({ "strength": 0.4 }))
         .await;
     assert_eq!(status, StatusCode::UNPROCESSABLE_ENTITY, "body: {body}");
-    let message = body["error"]["message"].as_str().unwrap_or_default().to_lowercase();
+    let message = body["error"]["message"]
+        .as_str()
+        .unwrap_or_default()
+        .to_lowercase();
     assert!(
         message.contains("narrows"),
         "the refusal explains the rule rather than saying 'invalid': {body}"
@@ -2130,13 +2174,23 @@ async fn the_reader_gravity_dial_narrows_never_widens_and_cannot_move_a_locked_i
             json!({ "email": "DialReader@example.com", "password": GOOD_PASSWORD }),
         )
         .await;
-    assert_eq!(status, StatusCode::OK, "the same reader on the locked instance");
+    assert_eq!(
+        status,
+        StatusCode::OK,
+        "the same reader on the locked instance"
+    );
     let (status, body) = locked
         .put("/api/v1/discovery/gravity", json!({ "strength": 0.0 }))
         .await;
     assert_eq!(status, StatusCode::UNPROCESSABLE_ENTITY, "body: {body}");
-    let message = body["error"]["message"].as_str().unwrap_or_default().to_lowercase();
-    assert!(message.contains("locked"), "the refusal names the lock: {body}");
+    let message = body["error"]["message"]
+        .as_str()
+        .unwrap_or_default()
+        .to_lowercase();
+    assert!(
+        message.contains("locked"),
+        "the refusal names the lock: {body}"
+    );
 
     // And clearing returns the reader to the instance's number rather than to zero.
     let (status, body) = reader
@@ -2144,7 +2198,10 @@ async fn the_reader_gravity_dial_narrows_never_widens_and_cannot_move_a_locked_i
         .await;
     assert_eq!(status, StatusCode::OK, "body: {body}");
     assert_eq!(body["cleared"], true, "{body}");
-    assert_eq!(body["effective"], 0.2, "back to the instance, not to zero: {body}");
+    assert_eq!(
+        body["effective"], 0.2,
+        "back to the instance, not to zero: {body}"
+    );
 }
 
 #[tokio::test]

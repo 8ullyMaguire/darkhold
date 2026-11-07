@@ -147,13 +147,17 @@ fn row_to_mirror_postgres(row: &sqlx::postgres::PgRow) -> WorkMirror {
 
 /// One work's mirror to one peer, in any state.
 pub async fn find(db: &Database, work_id: &str, peer_instance: &str) -> Result<Option<WorkMirror>> {
-    const COLUMNS: &str = "id, work_id, peer_instance, peer_url, CAST(similarity_bp AS BIGINT) AS similarity_bp, \
+    const COLUMNS: &str =
+        "id, work_id, peer_instance, peer_url, CAST(similarity_bp AS BIGINT) AS similarity_bp, \
                            state, mirrored_at, last_seen_at, retired_at, retire_reason";
     match db.backend() {
         Backend::Sqlite => {
             let row = sqlx::query(&format!(
                 "SELECT {} FROM work_mirrors WHERE work_id = ? AND peer_instance = ?",
-                COLUMNS.replace("CAST(similarity_bp AS BIGINT) AS similarity_bp", "similarity_bp")
+                COLUMNS.replace(
+                    "CAST(similarity_bp AS BIGINT) AS similarity_bp",
+                    "similarity_bp"
+                )
             ))
             .bind(work_id)
             .bind(peer_instance)
@@ -180,7 +184,8 @@ pub async fn find(db: &Database, work_id: &str, peer_instance: &str) -> Result<O
 /// Retired rows are included on purpose: the attribution line has to be able to say "this copy was withdrawn", which it can
 /// only do if the row is still there.
 pub async fn for_work(db: &Database, work_id: &str) -> Result<Vec<WorkMirror>> {
-    const COLUMNS: &str = "id, work_id, peer_instance, peer_url, CAST(similarity_bp AS BIGINT) AS similarity_bp, \
+    const COLUMNS: &str =
+        "id, work_id, peer_instance, peer_url, CAST(similarity_bp AS BIGINT) AS similarity_bp, \
                            state, mirrored_at, last_seen_at, retired_at, retire_reason";
     match db.backend() {
         Backend::Sqlite => {
@@ -212,29 +217,27 @@ pub async fn for_work(db: &Database, work_id: &str) -> Result<Vec<WorkMirror>> {
 pub async fn active_count(db: &Database, work_id: &str) -> Result<i64> {
     let count: i64 = match db.backend() {
         Backend::Sqlite => {
-            sqlx::query_scalar("SELECT COUNT(*) FROM work_mirrors WHERE work_id = ? AND state = 'active'")
-                .bind(work_id)
-                .fetch_one(db.sqlite_pool().expect("sqlite"))
-                .await?
+            sqlx::query_scalar(
+                "SELECT COUNT(*) FROM work_mirrors WHERE work_id = ? AND state = 'active'",
+            )
+            .bind(work_id)
+            .fetch_one(db.sqlite_pool().expect("sqlite"))
+            .await?
         }
         Backend::Postgres => {
-            sqlx::query_scalar("SELECT COUNT(*) FROM work_mirrors WHERE work_id = $1 AND state = 'active'")
-                .bind(work_id)
-                .fetch_one(db.postgres_pool().expect("postgres"))
-                .await?
+            sqlx::query_scalar(
+                "SELECT COUNT(*) FROM work_mirrors WHERE work_id = $1 AND state = 'active'",
+            )
+            .bind(work_id)
+            .fetch_one(db.postgres_pool().expect("postgres"))
+            .await?
         }
     };
     Ok(count)
 }
 
 /// Retire a mirror: it exists but no longer serves. Returns whether anything changed.
-pub async fn retire(
-    db: &Database,
-    id: &str,
-    state: &str,
-    reason: &str,
-    now: &str,
-) -> Result<bool> {
+pub async fn retire(db: &Database, id: &str, state: &str, reason: &str, now: &str) -> Result<bool> {
     if !matches!(state, "lost" | "withdrawn") {
         return Err(anyhow::anyhow!(
             "a mirror retires as 'lost' or 'withdrawn', not '{state}'"
@@ -246,32 +249,28 @@ pub async fn retire(
         ));
     }
     let affected = match db.backend() {
-        Backend::Sqlite => {
-            sqlx::query(
-                "UPDATE work_mirrors SET state = ?, retired_at = ?, retire_reason = ?
+        Backend::Sqlite => sqlx::query(
+            "UPDATE work_mirrors SET state = ?, retired_at = ?, retire_reason = ?
                   WHERE id = ? AND state = 'active'",
-            )
-            .bind(state)
-            .bind(now)
-            .bind(reason)
-            .bind(id)
-            .execute(db.sqlite_pool().expect("sqlite"))
-            .await?
-            .rows_affected()
-        }
-        Backend::Postgres => {
-            sqlx::query(
-                "UPDATE work_mirrors SET state = $1, retired_at = $2, retire_reason = $3
+        )
+        .bind(state)
+        .bind(now)
+        .bind(reason)
+        .bind(id)
+        .execute(db.sqlite_pool().expect("sqlite"))
+        .await?
+        .rows_affected(),
+        Backend::Postgres => sqlx::query(
+            "UPDATE work_mirrors SET state = $1, retired_at = $2, retire_reason = $3
                   WHERE id = $4 AND state = 'active'",
-            )
-            .bind(state)
-            .bind(now)
-            .bind(reason)
-            .bind(id)
-            .execute(db.postgres_pool().expect("postgres"))
-            .await?
-            .rows_affected()
-        }
+        )
+        .bind(state)
+        .bind(now)
+        .bind(reason)
+        .bind(id)
+        .execute(db.postgres_pool().expect("postgres"))
+        .await?
+        .rows_affected(),
     };
     Ok(affected > 0)
 }

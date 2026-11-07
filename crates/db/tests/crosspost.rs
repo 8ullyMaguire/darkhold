@@ -136,18 +136,72 @@ async fn one_story_ranks_once_with_all_of_its_archives() {
     .await;
 
     // 1 + 2. The same story on three archives, with spacing and case differences the normalisation must absorb.
-    copy(&db, 1, "The Long Road", "Someone", "ao3", 40, ("published", "public")).await;
-    copy(&db, 2, "the long road ", " someone ", "sb", 25, ("published", "public")).await;
-    copy(&db, 3, "THE LONG ROAD", "SOMEONE", "ffnet", 7, ("published", "public")).await;
+    copy(
+        &db,
+        1,
+        "The Long Road",
+        "Someone",
+        "ao3",
+        40,
+        ("published", "public"),
+    )
+    .await;
+    copy(
+        &db,
+        2,
+        "the long road ",
+        " someone ",
+        "sb",
+        25,
+        ("published", "public"),
+    )
+    .await;
+    copy(
+        &db,
+        3,
+        "THE LONG ROAD",
+        "SOMEONE",
+        "ffnet",
+        7,
+        ("published", "public"),
+    )
+    .await;
 
     // 3. A different author with the same title is a different story.
-    copy(&db, 4, "The Long Road", "Else", "ao3", 5, ("published", "public")).await;
+    copy(
+        &db,
+        4,
+        "The Long Road",
+        "Else",
+        "ao3",
+        5,
+        ("published", "public"),
+    )
+    .await;
 
     // 4. An unpublished copy of a second story: its likes must not count, and it cannot be the face.
-    copy(&db, 5, "Hidden Draft", "Someone", "sv", 500, ("draft", "private")).await;
+    copy(
+        &db,
+        5,
+        "Hidden Draft",
+        "Someone",
+        "sv",
+        500,
+        ("draft", "private"),
+    )
+    .await;
 
     // 5. A story with no readable copy at all.
-    copy(&db, 6, "Nowhere", "Someone", "qq", 300, ("draft", "private")).await;
+    copy(
+        &db,
+        6,
+        "Nowhere",
+        "Someone",
+        "qq",
+        300,
+        ("draft", "private"),
+    )
+    .await;
 
     let ranked = union_ranking(&db, 50).await.expect("ranking");
     assert_eq!(
@@ -157,7 +211,10 @@ async fn one_story_ranks_once_with_all_of_its_archives() {
     );
 
     let long_road = &ranked[0];
-    assert_eq!(long_road.total_likes, 72, "40 + 25 + 7, across three archives");
+    assert_eq!(
+        long_road.total_likes, 72,
+        "40 + 25 + 7, across three archives"
+    );
     assert_eq!(long_road.sources, 3);
     assert!(
         long_road.work_id == "01955d00-0000-4000-8000-000000000001",
@@ -165,7 +222,10 @@ async fn one_story_ranks_once_with_all_of_its_archives() {
     );
 
     let other = &ranked[1];
-    assert_eq!(other.total_likes, 5, "another author's work of the same name");
+    assert_eq!(
+        other.total_likes, 5,
+        "another author's work of the same name"
+    );
     assert_eq!(other.sources, 1);
 
     // 4 + 5, said explicitly: the 500-like draft and the 300-like unreadable story are absent, not ranked low.

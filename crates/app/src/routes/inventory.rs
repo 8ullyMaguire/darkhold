@@ -842,7 +842,9 @@ pub const ROUTE_TABLE: &[RouteEntry] = &[
         method: "GET",
         path: "/admin/anomalies",
         // Site-local: triage of this community's own posts is what earned standing in this community is for.
-        audience: Audience::AdminOf { site: Some("darkhold") },
+        audience: Audience::AdminOf {
+            site: Some("darkhold"),
+        },
     },
     RouteEntry {
         file: "rating_integrity.rs",
@@ -850,7 +852,9 @@ pub const ROUTE_TABLE: &[RouteEntry] = &[
         method: "POST",
         path: "/admin/anomalies/{id}/clear",
         // Site-local: same triage, one decision.
-        audience: Audience::AdminOf { site: Some("darkhold") },
+        audience: Audience::AdminOf {
+            site: Some("darkhold"),
+        },
     },
     RouteEntry {
         file: "works.rs",
@@ -6413,7 +6417,3 @@ pub const ROUTE_TABLE: &[RouteEntry] = &[
         audience: Audience::Operator,
     },
 ];
-
-
-
-

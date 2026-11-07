@@ -167,10 +167,7 @@ async fn a_declared_neighbour_is_reached_with_its_weight_and_nothing_unreadable(
     let db = connect("related").await;
     seed(&db).await;
 
-    let fandoms = vec![
-        ("Ward".to_owned(), 0.9),
-        ("Naruto".to_owned(), 0.2),
-    ];
+    let fandoms = vec![("Ward".to_owned(), 0.9), ("Naruto".to_owned(), 0.2)];
     let found = related_works(&db, &fandoms, &[SEED.to_owned()], 10)
         .await
         .expect("related works");
@@ -182,17 +179,28 @@ async fn a_declared_neighbour_is_reached_with_its_weight_and_nothing_unreadable(
         "only readable works, and the weight orders them: {titles:?}"
     );
     assert_eq!(found[0].weight, 0.9);
-    assert_eq!(found[0].fandom, "Ward", "the operator's spelling, not the stored norm");
-    assert_eq!(found[0].likes, 3, "the endorsement count travels for the caller");
+    assert_eq!(
+        found[0].fandom, "Ward",
+        "the operator's spelling, not the stored norm"
+    );
+    assert_eq!(
+        found[0].likes, 3,
+        "the endorsement count travels for the caller"
+    );
     assert_eq!(found[1].weight, 0.2);
 
     // The seed is never its own relation, even though it is in a neighbouring fandom's map.
     assert!(!found.iter().any(|w| w.work_id == SEED));
 
     // A fandom the map does not mention knows nothing — and says so with an empty page, not an error.
-    let unmapped = related_works(&db, &[("Some Fandom Nobody Mapped".to_owned(), 0.5)], &[], 10)
-        .await
-        .expect("unmapped");
+    let unmapped = related_works(
+        &db,
+        &[("Some Fandom Nobody Mapped".to_owned(), 0.5)],
+        &[],
+        10,
+    )
+    .await
+    .expect("unmapped");
     assert!(unmapped.is_empty());
 
     // An empty map is the shipped state of every instance until an operator publishes one.

@@ -984,18 +984,14 @@ pub async fn sitemap_works(db: &Database, limit: i64) -> Result<Vec<(String, Str
                        AND w.deleted_at IS NULL \
                      ORDER BY w.updated_at DESC, w.id::text DESC LIMIT $1";
     match db.backend() {
-        Backend::Sqlite => {
-            Ok(sqlx::query_as(sqlite)
-                .bind(limit)
-                .fetch_all(db.sqlite_pool().expect("sqlite"))
-                .await?)
-        }
-        Backend::Postgres => {
-            Ok(sqlx::query_as(postgres)
-                .bind(limit)
-                .fetch_all(db.postgres_pool().expect("postgres"))
-                .await?)
-        }
+        Backend::Sqlite => Ok(sqlx::query_as(sqlite)
+            .bind(limit)
+            .fetch_all(db.sqlite_pool().expect("sqlite"))
+            .await?),
+        Backend::Postgres => Ok(sqlx::query_as(postgres)
+            .bind(limit)
+            .fetch_all(db.postgres_pool().expect("postgres"))
+            .await?),
     }
 }
 
@@ -1017,18 +1013,14 @@ pub async fn sitemap_tags(db: &Database, limit: i64) -> Result<Vec<String>> {
                             AND w.visibility = 'public' AND w.deleted_at IS NULL) \
                      ORDER BY tn.canonical LIMIT $1";
     match db.backend() {
-        Backend::Sqlite => {
-            Ok(sqlx::query_scalar(sqlite)
-                .bind(limit)
-                .fetch_all(db.sqlite_pool().expect("sqlite"))
-                .await?)
-        }
-        Backend::Postgres => {
-            Ok(sqlx::query_scalar(postgres)
-                .bind(limit)
-                .fetch_all(db.postgres_pool().expect("postgres"))
-                .await?)
-        }
+        Backend::Sqlite => Ok(sqlx::query_scalar(sqlite)
+            .bind(limit)
+            .fetch_all(db.sqlite_pool().expect("sqlite"))
+            .await?),
+        Backend::Postgres => Ok(sqlx::query_scalar(postgres)
+            .bind(limit)
+            .fetch_all(db.postgres_pool().expect("postgres"))
+            .await?),
     }
 }
 

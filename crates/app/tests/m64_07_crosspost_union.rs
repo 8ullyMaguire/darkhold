@@ -38,10 +38,10 @@ fn config_for(dir: &Path) -> Config {
         dir.display()
     ));
     // One algorithm, because the registry allows a surface to start narrow and the test is about this engine, not the blend.
-    config
-        .discovery
-        .surfaces
-        .insert("discover.feed".to_owned(), vec!["crosspost_union".to_owned()]);
+    config.discovery.surfaces.insert(
+        "discover.feed".to_owned(),
+        vec!["crosspost_union".to_owned()],
+    );
     config
 }
 
@@ -149,7 +149,10 @@ async fn a_crossposted_story_ranks_once_with_all_of_its_archives() {
         union_rows, 1,
         "one story is one row whatever its copies are: {ids:?}"
     );
-    assert!(ids.contains(&SOLO), "the solo story is still served: {ids:?}");
+    assert!(
+        ids.contains(&SOLO),
+        "the solo story is still served: {ids:?}"
+    );
 
     // 2. The representative of the union is first: 65 beats 50.
     assert_eq!(

@@ -25,7 +25,8 @@ const TAG_A: &str = "01955000-0000-4000-8000-000000006009";
 const TAG_B: &str = "01955000-0000-4000-8000-00000000600a";
 
 fn scratch_dir(tag: &str) -> PathBuf {
-    let dir = std::env::temp_dir().join(format!("darkhold-tastesignal-{tag}-{}", std::process::id()));
+    let dir =
+        std::env::temp_dir().join(format!("darkhold-tastesignal-{tag}-{}", std::process::id()));
     let _ = std::fs::remove_dir_all(&dir);
     std::fs::create_dir_all(&dir).expect("create scratch dir");
     dir
@@ -46,10 +47,8 @@ async fn database(tag: &str) -> (darkhold_db::Database, PathBuf) {
                 .expect("an empty PostgreSQL database")
         }
         _ => {
-            let config = DatabaseConfig::new(format!(
-                "sqlite://{}/taste.sqlite?mode=rwc",
-                dir.display()
-            ));
+            let config =
+                DatabaseConfig::new(format!("sqlite://{}/taste.sqlite?mode=rwc", dir.display()));
             darkhold_db::Database::connect(&config)
                 .await
                 .expect("open database")

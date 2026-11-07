@@ -202,9 +202,15 @@ async fn the_facet_scan_decodes_the_word_sum_on_this_engine() {
     );
     assert_eq!(length.unknown, 1, "{length:?}");
     let measured: i64 = length.buckets.iter().map(|bucket| bucket.count).sum();
-    assert_eq!(measured, 1, "the 12,000-word work lands in exactly one bucket");
+    assert_eq!(
+        measured, 1,
+        "the 12,000-word work lands in exactly one bucket"
+    );
     assert!(
-        length.buckets.iter().any(|bucket| bucket.key == "5k_20k" && bucket.count == 1),
+        length
+            .buckets
+            .iter()
+            .any(|bucket| bucket.key == "5k_20k" && bucket.count == 1),
         "12,000 words is in 5k_20k: {:?}",
         length.buckets
     );

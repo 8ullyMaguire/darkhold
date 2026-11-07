@@ -143,7 +143,11 @@ pub fn required_pairs() -> &'static [(Token, Token, Requirement)] {
         (Token::Ink, Token::SurfaceRaised, Requirement::BodyText),
         (Token::InkMuted, Token::Surface, Requirement::BodyText),
         (Token::AccentInk, Token::Accent, Requirement::BodyText),
-        (Token::ReadingInk, Token::ReadingSurface, Requirement::BodyText),
+        (
+            Token::ReadingInk,
+            Token::ReadingSurface,
+            Requirement::BodyText,
+        ),
     ]
 }
 
@@ -474,7 +478,8 @@ impl Theme {
         required_pairs()
             .iter()
             .filter_map(|(foreground, background, requirement)| {
-                let (Some(fg), Some(bg)) = (palette.get(foreground), palette.get(background)) else {
+                let (Some(fg), Some(bg)) = (palette.get(foreground), palette.get(background))
+                else {
                     return None;
                 };
                 let measured = contrast_hundredths(fg, bg)?;
@@ -691,7 +696,11 @@ mod tests {
         // Black on white is the canonical 21:1.
         assert_eq!(contrast_hundredths("#000000", "#ffffff"), Some(2100));
         assert_eq!(contrast_hundredths("#ffffff", "#ffffff"), Some(100));
-        assert_eq!(contrast_hundredths("#fff", "#ffffff"), None, "one accepted form");
+        assert_eq!(
+            contrast_hundredths("#fff", "#ffffff"),
+            None,
+            "one accepted form"
+        );
         assert_eq!(contrast_hundredths("red", "#ffffff"), None);
     }
 
@@ -699,7 +708,9 @@ mod tests {
     fn a_theme_that_makes_text_unreadable_is_refused_with_the_measured_ratio() {
         let mut unreadable = theme();
         unreadable.palette.insert(Token::Ink, "#141418".to_owned());
-        unreadable.palette.insert(Token::Surface, "#121216".to_owned());
+        unreadable
+            .palette
+            .insert(Token::Surface, "#121216".to_owned());
 
         let failures = unreadable.contrast_failures();
         let ink = failures
@@ -720,15 +731,25 @@ mod tests {
         moved.layout.insert(Slot::Nav, Placement::Aside);
 
         let layout = moved.layout_with_core();
-        assert_eq!(layout.len(), Slot::all().len(), "every region is still placed");
-        assert_eq!(layout[&Slot::Nav], Placement::Aside, "the change is honoured");
+        assert_eq!(
+            layout.len(),
+            Slot::all().len(),
+            "every region is still placed"
+        );
+        assert_eq!(
+            layout[&Slot::Nav],
+            Placement::Aside,
+            "the change is honoured"
+        );
         assert_eq!(layout[&Slot::Footer], Placement::Full, "the rest is core");
     }
 
     #[test]
     fn a_reader_theme_may_not_lay_out_the_building() {
         let mut reader = theme();
-        assert!(reader.validate(&Scope::Reader("acct".to_owned())).is_empty());
+        assert!(reader
+            .validate(&Scope::Reader("acct".to_owned()))
+            .is_empty());
 
         reader.layout.insert(Slot::Content, Placement::Inline);
         let refusals = reader.validate(&Scope::Reader("acct".to_owned()));
@@ -740,17 +761,23 @@ mod tests {
     #[test]
     fn a_bad_value_names_the_token_and_what_it_takes() {
         let mut broken = theme();
-        broken.palette.insert(Token::Accent, "url(https://tracker/x)".to_owned());
+        broken
+            .palette
+            .insert(Token::Accent, "url(https://tracker/x)".to_owned());
         broken.palette.insert(Token::Measure, "68px".to_owned());
 
         let refusals = broken.validate(&Scope::Instance);
         let messages: Vec<String> = refusals.iter().map(Refusal::message).collect();
         assert!(
-            messages.iter().any(|m| m.contains("--dh-accent") && m.contains("#rrggbb")),
+            messages
+                .iter()
+                .any(|m| m.contains("--dh-accent") && m.contains("#rrggbb")),
             "a value that is not a colour must be named as one: {messages:?}"
         );
         assert!(
-            messages.iter().any(|m| m.contains("--dh-measure") && m.contains("68ch")),
+            messages
+                .iter()
+                .any(|m| m.contains("--dh-measure") && m.contains("68ch")),
             "{messages:?}"
         );
     }
@@ -761,7 +788,10 @@ mod tests {
         themed.palette.insert(Token::Accent, "#c9a227".to_owned());
         let css = themed.declarations();
         assert!(css.contains("--dh-accent: #c9a227;"), "{css}");
-        assert!(css.contains("--dh-surface:"), "absent tokens fall back to core: {css}");
+        assert!(
+            css.contains("--dh-surface:"),
+            "absent tokens fall back to core: {css}"
+        );
         assert!(
             !css.contains('{') && !css.contains('}'),
             "a theme emits no rule set, so it has no selector to aim: {css}"
@@ -787,7 +817,9 @@ mod tests {
         // With safe mode off the preview is what a previewing session sees, and it is named as such.
         let live = effective(&SafeMode::off(), Some(&instance), None, Some(&preview));
         match live {
-            Effective::Themed { source, palette, .. } => {
+            Effective::Themed {
+                source, palette, ..
+            } => {
                 assert_eq!(source, "preview");
                 assert_eq!(palette[&Token::Accent], "#ff00ff");
             }
@@ -803,9 +835,17 @@ mod tests {
         reader.palette.insert(Token::Ink, "#101014".to_owned());
 
         match effective(&SafeMode::off(), Some(&instance), Some(&reader), None) {
-            Effective::Themed { layout, palette, source } => {
+            Effective::Themed {
+                layout,
+                palette,
+                source,
+            } => {
                 assert_eq!(source, "reader");
-                assert_eq!(layout[&Slot::Aside], Placement::Stacked, "the building stays arranged");
+                assert_eq!(
+                    layout[&Slot::Aside],
+                    Placement::Stacked,
+                    "the building stays arranged"
+                );
                 assert_eq!(palette[&Token::Ink], "#101014");
             }
             other => panic!("{other:?}"),
@@ -815,7 +855,11 @@ mod tests {
     #[test]
     fn nothing_stored_means_core_and_it_says_so() {
         match effective(&SafeMode::off(), None, None, None) {
-            Effective::Themed { source, palette, layout } => {
+            Effective::Themed {
+                source,
+                palette,
+                layout,
+            } => {
                 assert_eq!(source, "core");
                 assert_eq!(palette, core_palette());
                 assert_eq!(layout, core_layout());
@@ -827,7 +871,10 @@ mod tests {
     #[test]
     fn a_preview_expires() {
         assert!(preview_is_live(1_000, 999));
-        assert!(!preview_is_live(1_000, 1_000), "expiry is the moment it is no longer a preview");
+        assert!(
+            !preview_is_live(1_000, 1_000),
+            "expiry is the moment it is no longer a preview"
+        );
         assert!(!preview_is_live(1_000, 1_001));
     }
 

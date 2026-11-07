@@ -112,15 +112,42 @@ async fn seed(db: &Database) {
     .await;
 
     let works = [
-        ("01957000-0000-4000-8000-000000000101", "published", "public", None),
-        ("01957000-0000-4000-8000-000000000102", "published", "public", None),
-        ("01957000-0000-4000-8000-000000000103", "published", "private", None),
-        ("01957000-0000-4000-8000-000000000104", "draft", "public", None),
+        (
+            "01957000-0000-4000-8000-000000000101",
+            "published",
+            "public",
+            None,
+        ),
+        (
+            "01957000-0000-4000-8000-000000000102",
+            "published",
+            "public",
+            None,
+        ),
+        (
+            "01957000-0000-4000-8000-000000000103",
+            "published",
+            "private",
+            None,
+        ),
+        (
+            "01957000-0000-4000-8000-000000000104",
+            "draft",
+            "public",
+            None,
+        ),
         // Deleted but published and public: still unreadable, and the trap for a query that forgets `deleted_at`.
-        ("01957000-0000-4000-8000-000000000105", "published", "public", Some(T0)),
+        (
+            "01957000-0000-4000-8000-000000000105",
+            "published",
+            "public",
+            Some(T0),
+        ),
     ];
     for (id, lifecycle, visibility, deleted_at) in works {
-        let deleted = deleted_at.map(|at| format!("'{at}'")).unwrap_or_else(|| "NULL".to_owned());
+        let deleted = deleted_at
+            .map(|at| format!("'{at}'"))
+            .unwrap_or_else(|| "NULL".to_owned());
         exec(
             db,
             &format!(
@@ -143,14 +170,22 @@ async fn seed(db: &Database) {
 
 async fn json_of(app: axum::Router, uri: &str) -> (StatusCode, Value) {
     let response = app
-        .oneshot(Request::builder().uri(uri).body(Body::empty()).expect("request"))
+        .oneshot(
+            Request::builder()
+                .uri(uri)
+                .body(Body::empty())
+                .expect("request"),
+        )
         .await
         .expect("response");
     let status = response.status();
     let bytes = axum::body::to_bytes(response.into_body(), 1 << 20)
         .await
         .expect("body");
-    (status, serde_json::from_slice(&bytes).unwrap_or(Value::Null))
+    (
+        status,
+        serde_json::from_slice(&bytes).unwrap_or(Value::Null),
+    )
 }
 
 #[tokio::test]
@@ -158,10 +193,17 @@ async fn a_collection_states_how_many_of_its_entries_a_visitor_can_open() {
     let harness = Harness::new("route").await;
     seed(&harness.db).await;
 
-    let (status, body) = json_of(harness.client(), &format!("/api/v1/collections/{COLLECTION}")).await;
+    let (status, body) = json_of(
+        harness.client(),
+        &format!("/api/v1/collections/{COLLECTION}"),
+    )
+    .await;
     assert_eq!(status, StatusCode::OK, "{body}");
     let coverage = &body["coverage"];
-    assert_eq!(coverage["entries"], 5, "the list is five long, private or not: {coverage}");
+    assert_eq!(
+        coverage["entries"], 5,
+        "the list is five long, private or not: {coverage}"
+    );
     assert_eq!(
         coverage["readable"], 2,
         "two are published and public and undeleted: {coverage}"
@@ -172,7 +214,8 @@ async fn a_collection_states_how_many_of_its_entries_a_visitor_can_open() {
     );
     let sentence = coverage["sentence"].as_str().expect("sentence");
     assert!(
-        sentence.contains("2 of 5") && sentence.contains("3 entries are private, unpublished or deleted"),
+        sentence.contains("2 of 5")
+            && sentence.contains("3 entries are private, unpublished or deleted"),
         "the gap is stated with its number and its reason: {sentence}"
     );
 }

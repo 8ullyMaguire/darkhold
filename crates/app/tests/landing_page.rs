@@ -160,7 +160,12 @@ impl Client {
         }
     }
 
-    async fn raw(&mut self, method: &str, uri: &str, body: Option<Value>) -> axum::response::Response {
+    async fn raw(
+        &mut self,
+        method: &str,
+        uri: &str,
+        body: Option<Value>,
+    ) -> axum::response::Response {
         let mut builder = Request::builder()
             .method(method)
             .uri(uri)

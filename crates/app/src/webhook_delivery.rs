@@ -106,9 +106,7 @@ pub async fn deliver_notification(state: &AppState, event: &OutboxEvent) -> Resu
         // 2. Sign with every admissible key. During a rotation's grace window that is two keys, so a
         //    subscriber that has not deployed the new secret yet keeps verifying instead of failing
         //    twenty times and switching itself off.
-        let rotated_at_epoch = wh["rotated_at"]
-            .as_str()
-            .and_then(epoch_seconds);
+        let rotated_at_epoch = wh["rotated_at"].as_str().and_then(epoch_seconds);
         let previous = wh["previous_secret"].as_str();
         let keys: Vec<(darkhold_domain::webhook::KeyId, String)> =
             darkhold_domain::webhook::admissible_keys(

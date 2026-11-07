@@ -165,10 +165,12 @@ async fn a_second_sweep_writes_no_event() {
                 .fetch_one(db.sqlite_pool().expect("sqlite"))
                 .await
                 .expect("count"),
-            darkhold_db::Backend::Postgres => sqlx::query_scalar("SELECT COUNT(*) FROM trust_events")
-                .fetch_one(db.postgres_pool().expect("pg"))
-                .await
-                .expect("count"),
+            darkhold_db::Backend::Postgres => {
+                sqlx::query_scalar("SELECT COUNT(*) FROM trust_events")
+                    .fetch_one(db.postgres_pool().expect("pg"))
+                    .await
+                    .expect("count")
+            }
         }
     }
 
@@ -209,7 +211,8 @@ async fn a_second_sweep_writes_no_event() {
 #[tokio::test]
 #[ignore]
 async fn live_sweep() {
-    let url = std::env::var("DARKHOLD_LADDER_DB").expect("DARKHOLD_LADDER_DB must name the database to sweep");
+    let url = std::env::var("DARKHOLD_LADDER_DB")
+        .expect("DARKHOLD_LADDER_DB must name the database to sweep");
     let db = Database::connect(&make_config(url)).await.expect("connect");
     let settings = darkhold_db::governance::TrustSettings {
         ladder: &darkhold_domain::trust::TrustLadder::default_ladder(),

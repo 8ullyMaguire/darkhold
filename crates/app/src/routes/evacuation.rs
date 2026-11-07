@@ -103,9 +103,7 @@ async fn exportable_works(state: &AppState, limit: i64) -> anyhow::Result<Vec<Wo
 }
 
 /// The peers eligible to receive, by the same rule that governs mirrors.
-async fn recipients(
-    state: &AppState,
-) -> ApiResult<Vec<darkhold_domain::mirroring::Eligible>> {
+async fn recipients(state: &AppState) -> ApiResult<Vec<darkhold_domain::mirroring::Eligible>> {
     let Some(own) = well_known::current(state).await? else {
         return Err(validation(
             "this instance has published no taste fingerprint, so no peer can be checked against it".to_owned(),
@@ -114,7 +112,10 @@ async fn recipients(
     let peers = darkhold_db::peer_fingerprints::list(state.db())
         .await
         .map_err(internal)?;
-    let documents: Vec<_> = peers.into_iter().map(|(fingerprint, _)| fingerprint).collect();
+    let documents: Vec<_> = peers
+        .into_iter()
+        .map(|(fingerprint, _)| fingerprint)
+        .collect();
     let floor = state
         .config()
         .discovery
@@ -212,7 +213,9 @@ async fn read(State(state): State<AppState>, session: RequireSession) -> ApiResu
         .await
         .map_err(internal)?
     else {
-        return Ok(Json(json!({ "notice": Value::Null, "note": "no evacuation is announced" })));
+        return Ok(Json(
+            json!({ "notice": Value::Null, "note": "no evacuation is announced" }),
+        ));
     };
     let assignments = darkhold_db::evacuation::assignments_for(state.db(), &notice.id)
         .await

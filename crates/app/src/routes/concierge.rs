@@ -193,8 +193,10 @@ pub async fn render_queue(
                 Ok(Some(signals)) => blended
                     .into_iter()
                     .map(|mut candidate| {
-                        candidate.taste_signal =
-                            signals.get(&candidate.work_id.as_uuid()).copied().unwrap_or(0.0);
+                        candidate.taste_signal = signals
+                            .get(&candidate.work_id.as_uuid())
+                            .copied()
+                            .unwrap_or(0.0);
                         candidate
                     })
                     .collect(),
@@ -211,7 +213,12 @@ pub async fn render_queue(
             None => None,
         };
         let strength = darkhold_domain::gravity_dial::effective(instance_strength, reader_strength);
-        darkhold_domain::discovery::apply_taste_gravity(blended, strength, &taste.signal_weight_mode).0
+        darkhold_domain::discovery::apply_taste_gravity(
+            blended,
+            strength,
+            &taste.signal_weight_mode,
+        )
+        .0
     };
 
     // The mood filter works on ids — `filter_by_mood(db, &[String], mood)` — so it

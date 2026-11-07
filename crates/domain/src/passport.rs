@@ -295,13 +295,18 @@ pub fn public_key_hex(key_hex: &str) -> Option<String> {
     let bytes: [u8; 32] = hex::decode(key_hex.trim())
         .ok()
         .and_then(|bytes| bytes.try_into().ok())?;
-    Some(hex::encode(SigningKey::from_bytes(&bytes).verifying_key().to_bytes()))
+    Some(hex::encode(
+        SigningKey::from_bytes(&bytes).verifying_key().to_bytes(),
+    ))
 }
 
 /// Verify a signed passport and return the document it carries.
 ///
 /// `now` is passed in rather than read, so "an expired passport is refused" is a test rather than a hope.
-pub fn verify(signed: &SignedPassport, now: time::OffsetDateTime) -> Result<&Passport, PassportError> {
+pub fn verify(
+    signed: &SignedPassport,
+    now: time::OffsetDateTime,
+) -> Result<&Passport, PassportError> {
     check_shape(&signed.passport)?;
 
     let key_bytes: [u8; 32] = hex::decode(&signed.key)
@@ -345,7 +350,11 @@ pub fn verify(signed: &SignedPassport, now: time::OffsetDateTime) -> Result<&Pas
 /// map rather than a division by zero — "the origin measured no tags" is a fact, and the receiving side treats it as one.
 #[must_use]
 pub fn normalised(passport: &Passport) -> BTreeMap<String, u32> {
-    let total: u64 = passport.taste.values().map(|weight| u64::from(*weight)).sum();
+    let total: u64 = passport
+        .taste
+        .values()
+        .map(|weight| u64::from(*weight))
+        .sum();
     if total == 0 {
         return BTreeMap::new();
     }
@@ -390,8 +399,11 @@ mod tests {
     }
 
     fn now() -> time::OffsetDateTime {
-        time::OffsetDateTime::parse("2026-11-07T00:00:00Z", &time::format_description::well_known::Rfc3339)
-            .expect("now")
+        time::OffsetDateTime::parse(
+            "2026-11-07T00:00:00Z",
+            &time::format_description::well_known::Rfc3339,
+        )
+        .expect("now")
     }
 
     #[test]
@@ -422,8 +434,10 @@ mod tests {
 
     #[test]
     fn canonical_json_does_not_depend_on_key_order() {
-        let a: serde_json::Value = serde_json::from_str(r#"{"b":1,"a":{"z":"x","y":[1,2]}}"#).expect("json");
-        let b: serde_json::Value = serde_json::from_str(r#"{"a":{"y":[1,2],"z":"x"},"b":1}"#).expect("json");
+        let a: serde_json::Value =
+            serde_json::from_str(r#"{"b":1,"a":{"z":"x","y":[1,2]}}"#).expect("json");
+        let b: serde_json::Value =
+            serde_json::from_str(r#"{"a":{"y":[1,2],"z":"x"},"b":1}"#).expect("json");
         assert_eq!(canonical_json(&a), canonical_json(&b));
         assert_eq!(canonical_json(&a), r#"{"a":{"y":[1,2],"z":"x"},"b":1}"#);
     }
@@ -434,7 +448,9 @@ mod tests {
         stale.issued_at = "2025-01-01T00:00:00Z".to_owned();
         let signed = sign(&stale, &key(1)).expect("sign");
         match verify(&signed, now()) {
-            Err(PassportError::Expired { age_days, .. }) => assert!(age_days > MAX_AGE_DAYS, "{age_days}"),
+            Err(PassportError::Expired { age_days, .. }) => {
+                assert!(age_days > MAX_AGE_DAYS, "{age_days}")
+            }
             other => panic!("expected an expiry refusal, got {other:?}"),
         }
 
@@ -442,7 +458,10 @@ mod tests {
         let mut future = passport();
         future.issued_at = "2027-01-01T00:00:00Z".to_owned();
         let signed = sign(&future, &key(1)).expect("sign");
-        assert!(matches!(verify(&signed, now()), Err(PassportError::Expired { .. })));
+        assert!(matches!(
+            verify(&signed, now()),
+            Err(PassportError::Expired { .. })
+        ));
     }
 
     #[test]
@@ -463,15 +482,24 @@ mod tests {
         huge.taste = (0..MAX_TAGS as u32 + 1)
             .map(|index| (format!("tag-{index}"), 1))
             .collect();
-        assert!(matches!(sign(&huge, &key(1)), Err(PassportError::Oversized(_))));
+        assert!(matches!(
+            sign(&huge, &key(1)),
+            Err(PassportError::Oversized(_))
+        ));
 
         let mut heavy = passport();
         heavy.taste.insert("angst".to_owned(), 10_001);
-        assert!(matches!(sign(&heavy, &key(1)), Err(PassportError::Malformed(_))));
+        assert!(matches!(
+            sign(&heavy, &key(1)),
+            Err(PassportError::Malformed(_))
+        ));
 
         let mut anonymous = passport();
         anonymous.subject = "  ".to_owned();
-        assert!(matches!(sign(&anonymous, &key(1)), Err(PassportError::Malformed(_))));
+        assert!(matches!(
+            sign(&anonymous, &key(1)),
+            Err(PassportError::Malformed(_))
+        ));
     }
 
     #[test]
@@ -488,7 +516,9 @@ mod tests {
         let mut zero = passport();
         zero.affinity_bp = Some(0);
         let signed = sign(&zero, &key(1)).expect("sign");
-        assert!(serde_json::to_string(&signed).expect("json").contains(r#""affinity_bp":0"#));
+        assert!(serde_json::to_string(&signed)
+            .expect("json")
+            .contains(r#""affinity_bp":0"#));
     }
 
     #[test]

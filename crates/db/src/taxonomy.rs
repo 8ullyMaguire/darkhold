@@ -1068,14 +1068,18 @@ pub async fn related_tags_by_npmi(
         "SELECT canonical FROM canonical_entities WHERE kind = 'tag' AND norm = $1",
     );
     let tag_canonical: Option<String> = match db.backend() {
-        Backend::Sqlite => sqlx::query_scalar(&canonical_sql)
-            .bind(tag_norm)
-            .fetch_optional(db.sqlite_pool().expect("sqlite"))
-            .await?,
-        Backend::Postgres => sqlx::query_scalar(&canonical_sql)
-            .bind(tag_norm)
-            .fetch_optional(db.postgres_pool().expect("postgres"))
-            .await?,
+        Backend::Sqlite => {
+            sqlx::query_scalar(&canonical_sql)
+                .bind(tag_norm)
+                .fetch_optional(db.sqlite_pool().expect("sqlite"))
+                .await?
+        }
+        Backend::Postgres => {
+            sqlx::query_scalar(&canonical_sql)
+                .bind(tag_norm)
+                .fetch_optional(db.postgres_pool().expect("postgres"))
+                .await?
+        }
     };
     let Some(tag_canonical) = tag_canonical else {
         return Ok(Vec::new());
@@ -1703,11 +1707,7 @@ pub struct Coverage {
 }
 
 /// The coverage of one `(dimension, value)` pair.
-pub async fn dimension_coverage(
-    db: &Database,
-    dimension: &str,
-    value: &str,
-) -> Result<Coverage> {
+pub async fn dimension_coverage(db: &Database, dimension: &str, value: &str) -> Result<Coverage> {
     let norm = darkhold_domain::exchange::normalise(value);
     // One statement, two scalar counts: a second round trip would let the catalogue change between the halves and report a share of two
     // different archives.
@@ -1740,8 +1740,9 @@ pub async fn dimension_coverage(
             sqlx::query_as(&sql)
                 .bind(&norm)
                 .fetch_one(
-                    db.postgres_pool()
-                        .ok_or_else(|| anyhow::anyhow!("no postgres pool on a postgres database"))?,
+                    db.postgres_pool().ok_or_else(|| {
+                        anyhow::anyhow!("no postgres pool on a postgres database")
+                    })?,
                 )
                 .await?
         }
@@ -1761,7 +1762,13 @@ pub async fn dimension_coverage(
     })
 }
 
-fn coverage_sentence(dimension: &str, value: &str, works: i64, catalogue: i64, share: f64) -> String {
+fn coverage_sentence(
+    dimension: &str,
+    value: &str,
+    works: i64,
+    catalogue: i64,
+    share: f64,
+) -> String {
     if catalogue == 0 {
         // An empty archive: a percentage of nothing is not a measurement, and "0 of 0" reads as a fault.
         return "This archive has no published works yet, so there is nothing to measure against."

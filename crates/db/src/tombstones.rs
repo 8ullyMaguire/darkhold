@@ -375,45 +375,35 @@ pub async fn list(db: &Database, limit: i64) -> Result<Vec<Tombstone>> {
 }
 
 /// Withdraw a tombstone, so it stops refusing and still explains itself.
-pub async fn withdraw(
-    db: &Database,
-    id: &str,
-    by: &str,
-    reason: &str,
-    now: &str,
-) -> Result<bool> {
+pub async fn withdraw(db: &Database, id: &str, by: &str, reason: &str, now: &str) -> Result<bool> {
     if reason.trim().is_empty() {
         return Err(anyhow::anyhow!(
             "a withdrawal needs a reason: the row is the answer to 'why did my work vanish?'"
         ));
     }
     let affected = match db.backend() {
-        Backend::Sqlite => {
-            sqlx::query(
-                "UPDATE work_tombstones SET withdrawn_at = ?, withdrawn_by = ?, withdraw_reason = ?
+        Backend::Sqlite => sqlx::query(
+            "UPDATE work_tombstones SET withdrawn_at = ?, withdrawn_by = ?, withdraw_reason = ?
                   WHERE id = ? AND withdrawn_at IS NULL",
-            )
-            .bind(now)
-            .bind(by)
-            .bind(reason)
-            .bind(id)
-            .execute(db.sqlite_pool().expect("sqlite"))
-            .await?
-            .rows_affected()
-        }
-        Backend::Postgres => {
-            sqlx::query(
-                "UPDATE work_tombstones SET withdrawn_at = $1, withdrawn_by = $2, withdraw_reason = $3
+        )
+        .bind(now)
+        .bind(by)
+        .bind(reason)
+        .bind(id)
+        .execute(db.sqlite_pool().expect("sqlite"))
+        .await?
+        .rows_affected(),
+        Backend::Postgres => sqlx::query(
+            "UPDATE work_tombstones SET withdrawn_at = $1, withdrawn_by = $2, withdraw_reason = $3
                   WHERE id = $4 AND withdrawn_at IS NULL",
-            )
-            .bind(now)
-            .bind(by)
-            .bind(reason)
-            .bind(id)
-            .execute(db.postgres_pool().expect("postgres"))
-            .await?
-            .rows_affected()
-        }
+        )
+        .bind(now)
+        .bind(by)
+        .bind(reason)
+        .bind(id)
+        .execute(db.postgres_pool().expect("postgres"))
+        .await?
+        .rows_affected(),
     };
     Ok(affected > 0)
 }

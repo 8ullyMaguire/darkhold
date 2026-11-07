@@ -74,9 +74,11 @@ async fn record_one(
     })?;
     darkhold_db::source_engagement::record(state.db(), &id, metric, body.value, &body.reported_at)
         .await
-        .map_err(|error| ApiError(AppError::Validation {
-            message: error.to_string(),
-            field_errors: Default::default(),
-        }))?;
+        .map_err(|error| {
+            ApiError(AppError::Validation {
+                message: error.to_string(),
+                field_errors: Default::default(),
+            })
+        })?;
     Ok(StatusCode::NO_CONTENT)
 }

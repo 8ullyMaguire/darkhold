@@ -45,9 +45,10 @@ async fn my_affinity(
     State(state): State<AppState>,
     crate::auth::RequireSession(user): crate::auth::RequireSession,
 ) -> ApiResult<Json<Value>> {
-    let affinity = darkhold_db::reader_affinity::for_account(state.db(), &user.account_id.to_string())
-        .await
-        .map_err(|e| ApiError(AppError::Internal(e)))?;
+    let affinity =
+        darkhold_db::reader_affinity::for_account(state.db(), &user.account_id.to_string())
+            .await
+            .map_err(|e| ApiError(AppError::Internal(e)))?;
 
     Ok(Json(match affinity {
         Some(row) => json!({
@@ -88,9 +89,7 @@ async fn my_badges(
     // reader who has the badge feature turned off should not learn that this instance measures them and decided not to
     // show it.
     if !state.config().discovery.live_badges {
-        return Err(ApiError(AppError::NotFound {
-            resource: "badges",
-        }));
+        return Err(ApiError(AppError::NotFound { resource: "badges" }));
     }
     let account = user.account_id.to_string();
     let states = darkhold_db::live_badges::for_account(state.db(), &account)
@@ -174,8 +173,8 @@ async fn recompute(
         &now,
         state.config().discovery.live_badges,
     )
-        .await
-        .map_err(|e| ApiError(AppError::Internal(e)))?;
+    .await
+    .map_err(|e| ApiError(AppError::Internal(e)))?;
 
     let rows = darkhold_db::reader_affinity::ranked(state.db(), 1_000)
         .await
@@ -183,7 +182,8 @@ async fn recompute(
 
     let mut body = report.to_json(rows.len());
     if operator.is_none() {
-        body["trigger"] = json!("no operator account is configured, so every candidate was reported unscored");
+        body["trigger"] =
+            json!("no operator account is configured, so every candidate was reported unscored");
     } else {
         body["trigger"] = json!(
             "operator-triggered: this tree has no scheduler, so the interval in config is an intent and this door is the trigger"

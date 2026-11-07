@@ -160,7 +160,8 @@ async fn similar(
     // Before this, an operator override on `story.similar` changed the registry, the console and the sweep while the page kept
     // serving tag Jaccard — a surface that reports one thing and does another. The tag engines share one implementation here,
     // so `tag_jaccard`, `tag_cooccurrence` and `npmi` all turn it on together.
-    let engines = crate::routes::discovery::enabled_engines_for_bucket(&state, "story.similar", None);
+    let engines =
+        crate::routes::discovery::enabled_engines_for_bucket(&state, "story.similar", None);
     let runs = |reason: &str| engines.is_empty() || engines.contains(reason);
 
     let mut works = Vec::new();

@@ -24,9 +24,9 @@ use serde::Deserialize;
 use serde_json::{json, Value};
 
 use crate::auth::RequireSession;
-use crate::state::AppState;
-use crate::routes::admin_scope::require_admin_of;
 use crate::http::ApiError;
+use crate::routes::admin_scope::require_admin_of;
+use crate::state::AppState;
 use darkhold_domain::AppError;
 
 /// One reversible verb. `inverse: None` means the verb has no inverse and is never offered as a one click.
@@ -93,9 +93,10 @@ async fn perform(
     let actor = user.account_id.to_string();
     match spec.name {
         "ban" => {
-            let applied = darkhold_db::governance::execute_sanction(state.db(), &body.target, &actor)
-                .await
-                .map_err(|e| ApiError(AppError::field("sanction", e.to_string())))?;
+            let applied =
+                darkhold_db::governance::execute_sanction(state.db(), &body.target, &actor)
+                    .await
+                    .map_err(|e| ApiError(AppError::field("sanction", e.to_string())))?;
             if !applied {
                 return Err(ApiError(AppError::field(
                     "sanction",
@@ -163,7 +164,10 @@ async fn undo(
         .strip_prefix("admin.action.")
         .unwrap_or(action.as_str());
     let Some(spec) = spec(original) else {
-        return Err(ApiError(AppError::field("audit_id", "that row is not a registered action and cannot be undone")));
+        return Err(ApiError(AppError::field(
+            "audit_id",
+            "that row is not a registered action and cannot be undone",
+        )));
     };
     require_admin_of(&state, &user, spec.site).await?;
 
@@ -183,7 +187,10 @@ async fn undo(
     }
 
     let Some(inverse) = spec.inverse else {
-        return Err(ApiError(AppError::field("audit_id", "that action has no inverse; it requires a typed confirmation instead")));
+        return Err(ApiError(AppError::field(
+            "audit_id",
+            "that action has no inverse; it requires a typed confirmation instead",
+        )));
     };
 
     let actor = user.account_id.to_string();
@@ -194,9 +201,10 @@ async fn undo(
                 .map_err(|e| ApiError(AppError::field("sanction", e.to_string())))?;
         }
         "ban" => {
-            let applied = darkhold_db::governance::execute_sanction(state.db(), &subject_id, &actor)
-                .await
-                .map_err(|e| ApiError(AppError::field("sanction", e.to_string())))?;
+            let applied =
+                darkhold_db::governance::execute_sanction(state.db(), &subject_id, &actor)
+                    .await
+                    .map_err(|e| ApiError(AppError::field("sanction", e.to_string())))?;
             if !applied {
                 return Err(ApiError(AppError::field(
                     "sanction",
@@ -223,5 +231,7 @@ async fn undo(
     .await
     .map_err(|e| ApiError(AppError::field("audit", e.to_string())))?;
 
-    Ok(Json(json!({ "audit_id": undo_id, "undo_of": body.audit_id })))
+    Ok(Json(
+        json!({ "audit_id": undo_id, "undo_of": body.audit_id }),
+    ))
 }

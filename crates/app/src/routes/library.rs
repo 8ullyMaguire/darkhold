@@ -83,10 +83,7 @@ pub fn router() -> Router<AppState> {
         // segment before a parameter, so `/shelves/following` never reaches `get_shelf`.
         .route("/shelves/following", get(list_followed_shelves))
         // M64-11: the surface the registry calls `library.because_you_shelved`.
-        .route(
-            "/library/because-you-shelved",
-            get(because_you_shelved),
-        )
+        .route("/library/because-you-shelved", get(because_you_shelved))
         .route(
             "/shelves/{id}/follow",
             post(follow_shelf).delete(unfollow_shelf),
@@ -109,10 +106,7 @@ pub fn router() -> Router<AppState> {
             get(read_status).put(set_status).delete(clear_status),
         )
         .route("/saved-views", get(list_views).post(create_view))
-        .route(
-            "/saved-views/by-slug/{slug}",
-            get(get_saved_view_by_slug),
-        )
+        .route("/saved-views/by-slug/{slug}", get(get_saved_view_by_slug))
         .route(
             "/saved-views/{id}/slug",
             axum::routing::put(set_saved_view_slug),
@@ -343,8 +337,8 @@ async fn because_you_shelved(
 
     let mut works = Vec::new();
     if engines.is_empty() || engines.contains("co_shelving") {
-        let ids = darkhold_db::discovery::co_shelving_recommendations(state.db(), &account, 40)
-            .await?;
+        let ids =
+            darkhold_db::discovery::co_shelving_recommendations(state.db(), &account, 40).await?;
         // Position, not a share of anything: `co_shelving_recommendations` orders by how many public shelves carry both works,
         // and the strongest recommendation is the first. Scaling to `0..=1` here would invent a similarity the query does not
         // compute — this surface says "because you shelved", and the order is the whole of its claim.
@@ -368,8 +362,9 @@ async fn list_followed_shelves(
     State(state): State<AppState>,
     RequireSession(user): RequireSession,
 ) -> ApiResult<Json<serde_json::Value>> {
-    let shelves = darkhold_db::shelf_follows::followed_shelves(state.db(), &user.account_id.to_string())
-        .await?;
+    let shelves =
+        darkhold_db::shelf_follows::followed_shelves(state.db(), &user.account_id.to_string())
+            .await?;
     Ok(Json(serde_json::json!({
         "items": shelves,
         "next_cursor": null,
@@ -593,7 +588,11 @@ async fn list_bookmarks(
     let works: Vec<String> = items
         .iter()
         .filter(|item| item.get("subject_type").and_then(|v| v.as_str()) == Some("work"))
-        .filter_map(|item| item.get("subject_id").and_then(|v| v.as_str()).map(str::to_owned))
+        .filter_map(|item| {
+            item.get("subject_id")
+                .and_then(|v| v.as_str())
+                .map(str::to_owned)
+        })
         .collect();
     if !works.is_empty() {
         let provenance = super::provenance::for_work_ids(&state, &works).await;
@@ -601,7 +600,11 @@ async fn list_bookmarks(
             if item.get("subject_type").and_then(|v| v.as_str()) != Some("work") {
                 continue;
             }
-            let Some(id) = item.get("subject_id").and_then(|v| v.as_str()).map(str::to_owned) else {
+            let Some(id) = item
+                .get("subject_id")
+                .and_then(|v| v.as_str())
+                .map(str::to_owned)
+            else {
                 continue;
             };
             if let (Some(word), Some(object)) = (provenance.get(&id), item.as_object_mut()) {
@@ -1308,13 +1311,19 @@ async fn set_saved_view_slug(
             }))
         }
     };
-    let changed =
-        darkhold_db::library::set_saved_view_slug(state.db(), &user.account_id.to_string(), &id, slug)
-            .await
-            .map_err(|error| ApiError(AppError::Validation {
-                message: error.to_string(),
-                field_errors: BTreeMap::new(),
-            }))?;
+    let changed = darkhold_db::library::set_saved_view_slug(
+        state.db(),
+        &user.account_id.to_string(),
+        &id,
+        slug,
+    )
+    .await
+    .map_err(|error| {
+        ApiError(AppError::Validation {
+            message: error.to_string(),
+            field_errors: BTreeMap::new(),
+        })
+    })?;
     if !changed {
         return Err(ApiError(AppError::NotFound {
             resource: "saved view",
@@ -1332,14 +1341,18 @@ async fn get_saved_view_by_slug(
     let account = user.account_id.to_string();
     let id = darkhold_db::library::saved_view_id_for_slug(state.db(), &account, &slug)
         .await?
-        .ok_or_else(|| ApiError(AppError::NotFound {
-            resource: "saved view",
-        }))?;
+        .ok_or_else(|| {
+            ApiError(AppError::NotFound {
+                resource: "saved view",
+            })
+        })?;
     let row = darkhold_db::library::find_saved_view(state.db(), &account, &id)
         .await?
-        .ok_or_else(|| ApiError(AppError::NotFound {
-            resource: "saved view",
-        }))?;
+        .ok_or_else(|| {
+            ApiError(AppError::NotFound {
+                resource: "saved view",
+            })
+        })?;
     Ok(Json(view_json(&row)))
 }
 

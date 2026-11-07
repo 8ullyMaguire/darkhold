@@ -108,22 +108,26 @@ impl Report {
 /// of zeros — they are nobody the sweep has anything to say about.
 async fn candidates(db: &Database) -> Result<Vec<String>> {
     let rows: Vec<(String,)> = match db.backend() {
-        Backend::Sqlite => sqlx::query_as(
-            "SELECT account_id FROM bookmarks
+        Backend::Sqlite => {
+            sqlx::query_as(
+                "SELECT account_id FROM bookmarks
              UNION SELECT account_id FROM arena_ballots
              ORDER BY account_id",
-        )
-        .fetch_all(db.sqlite_pool().expect("sqlite"))
-        .await?,
+            )
+            .fetch_all(db.sqlite_pool().expect("sqlite"))
+            .await?
+        }
         // Account ids are `uuid` on PostgreSQL: a plain `SELECT` decodes to `Uuid` and fails the `String` shape, which
         // is a runtime error on the engine the tests do not default to. The cast belongs in the statement.
-        Backend::Postgres => sqlx::query_as(
-            "SELECT CAST(account_id AS TEXT) AS account_id FROM bookmarks
+        Backend::Postgres => {
+            sqlx::query_as(
+                "SELECT CAST(account_id AS TEXT) AS account_id FROM bookmarks
              UNION SELECT CAST(account_id AS TEXT) FROM arena_ballots
              ORDER BY account_id",
-        )
-        .fetch_all(db.postgres_pool().expect("postgres"))
-        .await?,
+            )
+            .fetch_all(db.postgres_pool().expect("postgres"))
+            .await?
+        }
     };
     Ok(rows.into_iter().map(|(account,)| account).collect())
 }
@@ -193,7 +197,10 @@ async fn tag_counts(db: &Database, works: &[String]) -> Result<BTreeMap<String, 
                 query = query.bind(work);
             }
             for row in query.fetch_all(db.sqlite_pool().expect("sqlite")).await? {
-                counts.insert(row.get::<String, _>("node_id"), row.get::<i64, _>("n") as f64);
+                counts.insert(
+                    row.get::<String, _>("node_id"),
+                    row.get::<i64, _>("n") as f64,
+                );
             }
         }
         Backend::Postgres => {
@@ -210,8 +217,14 @@ async fn tag_counts(db: &Database, works: &[String]) -> Result<BTreeMap<String, 
             for work in works {
                 query = query.bind(work);
             }
-            for row in query.fetch_all(db.postgres_pool().expect("postgres")).await? {
-                counts.insert(row.get::<String, _>("node_id"), row.get::<i64, _>("n") as f64);
+            for row in query
+                .fetch_all(db.postgres_pool().expect("postgres"))
+                .await?
+            {
+                counts.insert(
+                    row.get::<String, _>("node_id"),
+                    row.get::<i64, _>("n") as f64,
+                );
             }
         }
     }
@@ -324,7 +337,14 @@ pub async fn recompute_all(
         // instance enabled it, and when off nothing is decided at all: a state row would be the instance measuring a
         // reader for a badge it has told nobody about.
         let outcomes = if live_badges {
-            crate::live_badges::recompute_all(db, &account, Some(score.basis_points), score.evidence_bp, now).await?
+            crate::live_badges::recompute_all(
+                db,
+                &account,
+                Some(score.basis_points),
+                score.evidence_bp,
+                now,
+            )
+            .await?
         } else {
             Vec::new()
         };

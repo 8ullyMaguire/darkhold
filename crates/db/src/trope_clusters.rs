@@ -67,7 +67,9 @@ pub async fn create_cluster(
 ) -> Result<TropeCluster> {
     let slug = slug.trim();
     if !valid_slug(slug) {
-        anyhow::bail!("a cluster slug is lowercase letters, digits and single hyphens, up to 64 characters");
+        anyhow::bail!(
+            "a cluster slug is lowercase letters, digits and single hyphens, up to 64 characters"
+        );
     }
     if label.trim().is_empty() {
         anyhow::bail!("a cluster needs a label");
@@ -138,22 +140,18 @@ pub async fn add_node(db: &Database, slug: &str, node_id: &str) -> Result<bool> 
          ON CONFLICT (cluster_id, node_id) DO NOTHING",
     );
     let affected = match db.backend() {
-        Backend::Sqlite => {
-            sqlx::query(&sql)
-                .bind(slug)
-                .bind(node_id)
-                .execute(db.sqlite_pool().expect("sqlite handle"))
-                .await?
-                .rows_affected()
-        }
-        Backend::Postgres => {
-            sqlx::query(&sql)
-                .bind(slug)
-                .bind(node_id)
-                .execute(db.postgres_pool().expect("postgres handle"))
-                .await?
-                .rows_affected()
-        }
+        Backend::Sqlite => sqlx::query(&sql)
+            .bind(slug)
+            .bind(node_id)
+            .execute(db.sqlite_pool().expect("sqlite handle"))
+            .await?
+            .rows_affected(),
+        Backend::Postgres => sqlx::query(&sql)
+            .bind(slug)
+            .bind(node_id)
+            .execute(db.postgres_pool().expect("postgres handle"))
+            .await?
+            .rows_affected(),
     };
     Ok(affected > 0)
 }
@@ -188,17 +186,19 @@ pub async fn all_clusters(db: &Database) -> Result<Vec<TropeCluster>> {
     };
     Ok(rows
         .into_iter()
-        .map(|(id, slug, label, description, priority, joined)| TropeCluster {
-            id,
-            slug,
-            label,
-            description,
-            priority,
-            node_ids: joined
-                .filter(|value| !value.is_empty())
-                .map(|value| value.split(',').map(str::to_owned).collect())
-                .unwrap_or_default(),
-        })
+        .map(
+            |(id, slug, label, description, priority, joined)| TropeCluster {
+                id,
+                slug,
+                label,
+                description,
+                priority,
+                node_ids: joined
+                    .filter(|value| !value.is_empty())
+                    .map(|value| value.split(',').map(str::to_owned).collect())
+                    .unwrap_or_default(),
+            },
+        )
         .collect())
 }
 

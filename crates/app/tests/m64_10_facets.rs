@@ -105,10 +105,38 @@ impl Harness {
         // Three public works: a short one, a long one, and one whose units carry no revision at all — the imported work whose
         // length nobody measured. Plus an unlisted one, which must appear in no facet.
         for (id, title, rating, visibility, published, updated) in [
-            (SHORT, "A Short One", "general", "public", "2026-01-01", "2026-01-08"),
-            (LONG, "A Long One", "mature", "public", "2026-01-01", "2026-02-05"),
-            (UNMEASURED, "An Unmeasured One", "general", "public", "2026-01-01", "2026-01-02"),
-            (HIDDEN, "An Unlisted One", "explicit", "unlisted", "2026-01-01", "2026-01-02"),
+            (
+                SHORT,
+                "A Short One",
+                "general",
+                "public",
+                "2026-01-01",
+                "2026-01-08",
+            ),
+            (
+                LONG,
+                "A Long One",
+                "mature",
+                "public",
+                "2026-01-01",
+                "2026-02-05",
+            ),
+            (
+                UNMEASURED,
+                "An Unmeasured One",
+                "general",
+                "public",
+                "2026-01-01",
+                "2026-01-02",
+            ),
+            (
+                HIDDEN,
+                "An Unlisted One",
+                "explicit",
+                "unlisted",
+                "2026-01-01",
+                "2026-01-02",
+            ),
         ] {
             self.exec(&format!(
                 "INSERT INTO works (id, owner_pseud_id, title, language, rating, visibility, lifecycle,
@@ -129,7 +157,10 @@ impl Harness {
             ("01955000-0000-4000-8000-0000000e0001", SHORT, 500i64),
             ("01955000-0000-4000-8000-0000000e0002", LONG, 12_000i64),
         ] {
-            let revision = format!("01955000-0000-4000-8000-0000000f000{}", &unit[unit.len() - 1..]);
+            let revision = format!(
+                "01955000-0000-4000-8000-0000000f000{}",
+                &unit[unit.len() - 1..]
+            );
             // The unit first, pointing at nothing; the revision next, because each has a foreign key to the other and only
             // one of them can be first.
             self.exec(&format!(
@@ -198,11 +229,15 @@ async fn the_four_facets_describe_the_public_catalogue_and_a_missing_measurement
     );
     let buckets = length["buckets"].as_array().expect("buckets");
     assert!(
-        buckets.iter().any(|bucket| bucket["key"] == "under_1k" && bucket["count"] == 1),
+        buckets
+            .iter()
+            .any(|bucket| bucket["key"] == "under_1k" && bucket["count"] == 1),
         "500 words is in the lowest band: {length}"
     );
     assert!(
-        buckets.iter().any(|bucket| bucket["key"] == "5k_20k" && bucket["count"] == 1),
+        buckets
+            .iter()
+            .any(|bucket| bucket["key"] == "5k_20k" && bucket["count"] == 1),
         "12,000 words is in the third band: {length}"
     );
     assert!(
@@ -231,13 +266,12 @@ async fn the_four_facets_describe_the_public_catalogue_and_a_missing_measurement
         "the long work is the mature one: {rating}"
     );
     assert_eq!(facet(&body, "status")["known"], 3);
-    assert_eq!(
-        facet(&body, "status")["buckets"][0]["key"], "published"
-    );
+    assert_eq!(facet(&body, "status")["buckets"][0]["key"], "published");
 
     // Cadence needs words and dates both, so it is measured for the same two works.
     assert_eq!(
-        facet(&body, "cadence")["known"], 2,
+        facet(&body, "cadence")["known"],
+        2,
         "a work with no words has no cadence: {}",
         facet(&body, "cadence")
     );
@@ -254,7 +288,8 @@ async fn the_four_facets_describe_the_public_catalogue_and_a_missing_measurement
     let (status, browsed) = json_of(harness.client(), "/api/v1/tags/slow%20burn").await;
     assert_eq!(status, StatusCode::OK, "{browsed}");
     assert_eq!(
-        facet(&browsed, "length")["known"], 1,
+        facet(&browsed, "length")["known"],
+        1,
         "the by-tag page answers about its own works: {browsed}"
     );
 
@@ -272,7 +307,8 @@ async fn the_four_facets_describe_the_public_catalogue_and_a_missing_measurement
 }
 
 #[tokio::test]
-async fn a_search_response_carries_the_facets_of_the_catalogue_it_narrowed_and_says_which_set_they_describe() {
+async fn a_search_response_carries_the_facets_of_the_catalogue_it_narrowed_and_says_which_set_they_describe(
+) {
     // The other half of M64-10: the facets must reach the surface a reader narrows from, and the response must not let anyone
     // believe they describe the twenty hits on screen.
     let harness = Harness::new("search").await;
@@ -280,11 +316,7 @@ async fn a_search_response_carries_the_facets_of_the_catalogue_it_narrowed_and_s
 
     // A rating ceiling of `general` must exclude the mature long work from the facet as well as from the hits; a facet that
     // counted it would offer a `mature` bucket the same search then refuses to fill.
-    let (status, body) = json_of(
-        harness.client(),
-        "/api/v1/search?q=one&max_rating=general",
-    )
-    .await;
+    let (status, body) = json_of(harness.client(), "/api/v1/search?q=one&max_rating=general").await;
     assert_eq!(status, StatusCode::OK, "{body}");
     assert!(
         body["facets_over"]
@@ -306,8 +338,14 @@ async fn a_search_response_carries_the_facets_of_the_catalogue_it_narrowed_and_s
     let (status, body) = json_of(harness.client(), "/api/v1/search?q=one&min_words=1000").await;
     assert_eq!(status, StatusCode::OK, "{body}");
     let length = facet(&body, "length");
-    assert_eq!(length["known"], 1, "only the long work clears the floor: {length}");
-    assert_eq!(length["unknown"], 0, "the unmeasured work cannot clear a floor: {length}");
+    assert_eq!(
+        length["known"], 1,
+        "only the long work clears the floor: {length}"
+    );
+    assert_eq!(
+        length["unknown"], 0,
+        "the unmeasured work cannot clear a floor: {length}"
+    );
 }
 
 #[tokio::test]
@@ -344,7 +382,10 @@ async fn the_word_histogram_door_serves_a_distribution_over_the_same_filtered_se
 
     let (status, body) = json_of(harness.client(), "/api/v1/facets/words?buckets=5").await;
     assert_eq!(status, StatusCode::OK, "{body}");
-    assert_eq!(body["unit"], "words", "the chart says what it counts: {body}");
+    assert_eq!(
+        body["unit"], "words",
+        "the chart says what it counts: {body}"
+    );
     assert_eq!(body["measured"], 2, "the short and the long work: {body}");
     assert_eq!(
         body["unknown"], 1,
@@ -355,9 +396,13 @@ async fn the_word_histogram_door_serves_a_distribution_over_the_same_filtered_se
         .iter()
         .map(|bucket| bucket["count"].as_i64().expect("count"))
         .sum();
-    assert_eq!(counted, 2, "every measured work lands in exactly one bucket: {body}");
     assert_eq!(
-        buckets.last().expect("buckets")["high"], 12_000,
+        counted, 2,
+        "every measured work lands in exactly one bucket: {body}"
+    );
+    assert_eq!(
+        buckets.last().expect("buckets")["high"],
+        12_000,
         "the top edge is the longest work in this view: {body}"
     );
     assert!(
@@ -369,8 +414,7 @@ async fn the_word_histogram_door_serves_a_distribution_over_the_same_filtered_se
     );
 
     // A view where nothing is measured answers with the sentence and no buckets — the page must not draw a flat line at zero.
-    let (status, body) =
-        json_of(harness.client(), "/api/v1/facets/words?q=Unmeasured").await;
+    let (status, body) = json_of(harness.client(), "/api/v1/facets/words?q=Unmeasured").await;
     assert_eq!(status, StatusCode::OK, "{body}");
     assert_eq!(body["measured"], 0, "{body}");
     assert!(

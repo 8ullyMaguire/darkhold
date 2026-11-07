@@ -68,7 +68,8 @@ pub async fn import(
     let at = time::OffsetDateTime::parse(now, &time::format_description::well_known::Rfc3339)
         .map_err(|error| anyhow::anyhow!("the clock is not RFC 3339: {error}"))?;
     // Verification first: a forged document must not create a row, an event, or a signal.
-    let passport: &Passport = passport::verify(signed, at).map_err(|error| anyhow::anyhow!("{error}"))?;
+    let passport: &Passport =
+        passport::verify(signed, at).map_err(|error| anyhow::anyhow!("{error}"))?;
 
     let id = passport::document_id(passport);
     let document = serde_json::to_string(signed)?;
@@ -213,20 +214,24 @@ pub async fn import(
 
     match db.backend() {
         Backend::Sqlite => {
-            sqlx::query("UPDATE taste_passports SET signals = ? WHERE account_id = ? AND origin = ?")
-                .bind(i64::try_from(seeded).unwrap_or(0))
-                .bind(account)
-                .bind(&passport.origin)
-                .execute(db.sqlite_pool().expect("sqlite"))
-                .await?;
+            sqlx::query(
+                "UPDATE taste_passports SET signals = ? WHERE account_id = ? AND origin = ?",
+            )
+            .bind(i64::try_from(seeded).unwrap_or(0))
+            .bind(account)
+            .bind(&passport.origin)
+            .execute(db.sqlite_pool().expect("sqlite"))
+            .await?;
         }
         Backend::Postgres => {
-            sqlx::query("UPDATE taste_passports SET signals = $1 WHERE account_id = $2 AND origin = $3")
-                .bind(i64::try_from(seeded).unwrap_or(0))
-                .bind(account)
-                .bind(&passport.origin)
-                .execute(db.postgres_pool().expect("postgres"))
-                .await?;
+            sqlx::query(
+                "UPDATE taste_passports SET signals = $1 WHERE account_id = $2 AND origin = $3",
+            )
+            .bind(i64::try_from(seeded).unwrap_or(0))
+            .bind(account)
+            .bind(&passport.origin)
+            .execute(db.postgres_pool().expect("postgres"))
+            .await?;
         }
     }
 
@@ -298,12 +303,13 @@ pub async fn revoke(db: &Database, account: &str, origin: &str) -> Result<bool> 
                 .bind(&source_key)
                 .execute(db.sqlite_pool().expect("sqlite"))
                 .await?;
-            let removed = sqlx::query("DELETE FROM taste_passports WHERE account_id = ? AND origin = ?")
-                .bind(account)
-                .bind(origin)
-                .execute(db.sqlite_pool().expect("sqlite"))
-                .await?
-                .rows_affected();
+            let removed =
+                sqlx::query("DELETE FROM taste_passports WHERE account_id = ? AND origin = ?")
+                    .bind(account)
+                    .bind(origin)
+                    .execute(db.sqlite_pool().expect("sqlite"))
+                    .await?
+                    .rows_affected();
             i64::try_from(removed).unwrap_or(0)
         }
         Backend::Postgres => {
@@ -312,12 +318,13 @@ pub async fn revoke(db: &Database, account: &str, origin: &str) -> Result<bool> 
                 .bind(&source_key)
                 .execute(db.postgres_pool().expect("postgres"))
                 .await?;
-            let removed = sqlx::query("DELETE FROM taste_passports WHERE account_id = $1 AND origin = $2")
-                .bind(account)
-                .bind(origin)
-                .execute(db.postgres_pool().expect("postgres"))
-                .await?
-                .rows_affected();
+            let removed =
+                sqlx::query("DELETE FROM taste_passports WHERE account_id = $1 AND origin = $2")
+                    .bind(account)
+                    .bind(origin)
+                    .execute(db.postgres_pool().expect("postgres"))
+                    .await?
+                    .rows_affected();
             i64::try_from(removed).unwrap_or(0)
         }
     };

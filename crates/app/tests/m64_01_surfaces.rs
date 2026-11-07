@@ -57,10 +57,7 @@ impl Harness {
     }
 
     fn client(&self) -> axum::Router {
-        server::build_router(AppState::new(
-            self.config.clone(),
-            self.tdb.db().clone(),
-        ))
+        server::build_router(AppState::new(self.config.clone(), self.tdb.db().clone()))
     }
 }
 
@@ -179,7 +176,10 @@ async fn a_surface_stops_refusing_once_its_table_has_rows() {
     // Still refused: a tag entity is not a tag *application*. The dependency is `work_tags`, and it is empty until a
     // work carries a tag — which is exactly the distinction an operator needs, so the probe counts the right table.
     assert!(
-        !tag_surface["refused"].as_array().expect("refused").is_empty(),
+        !tag_surface["refused"]
+            .as_array()
+            .expect("refused")
+            .is_empty(),
         "an entity row is not a work_tag row: {tag_surface}"
     );
 
@@ -227,7 +227,10 @@ async fn a_surface_stops_refusing_once_its_table_has_rows() {
         .find(|s| s["id"] == "tag.adjacent")
         .expect("tag.adjacent is registered");
     assert!(
-        tag_surface["refused"].as_array().expect("refused").is_empty(),
+        tag_surface["refused"]
+            .as_array()
+            .expect("refused")
+            .is_empty(),
         "one tagged, engaged work is enough for the surface to answer: {tag_surface}"
     );
 }
@@ -278,9 +281,13 @@ async fn a_tag_surface_refuses_when_tags_and_engagement_never_meet() {
     }
 
     // Seed a work, an author and two tags: plenty of rows, none of them engaged.
-    exec(db, "INSERT INTO accounts (id, status, email, age_state, created_at, updated_at, version)
+    exec(
+        db,
+        "INSERT INTO accounts (id, status, email, age_state, created_at, updated_at, version)
               VALUES ('01955a00-0000-4000-8000-000000000001','active','t@example.invalid','adult',
-                      '2026-01-01T00:00:00Z','2026-01-01T00:00:00Z',1)").await;
+                      '2026-01-01T00:00:00Z','2026-01-01T00:00:00Z',1)",
+    )
+    .await;
     exec(db, "INSERT INTO pseuds (id, account_id, handle, display_name, discoverability, created_at, updated_at, version)
               VALUES ('01955a00-0000-4000-8000-000000000002','01955a00-0000-4000-8000-000000000001',
                       'tagger','Tagger','listed','2026-01-01T00:00:00Z','2026-01-01T00:00:00Z',1)").await;
@@ -291,12 +298,22 @@ async fn a_tag_surface_refuses_when_tags_and_engagement_never_meet() {
         ("01955a00-0000-4000-8000-000000000004", "slow burn"),
         ("01955a00-0000-4000-8000-000000000005", "angst"),
     ] {
-        exec(db, &format!(
-            "INSERT INTO canonical_entities (id, kind, canonical, norm, created_at)
-             VALUES ('{node}','tag','{name}','{name}','2026-01-01T00:00:00Z')")).await;
-        exec(db, &format!(
-            "INSERT INTO work_tags (work_id, node_id, prominence, added_at)
-             VALUES ('01955a00-0000-4000-8000-000000000003','{node}',1,'2026-01-01T00:00:00Z')")).await;
+        exec(
+            db,
+            &format!(
+                "INSERT INTO canonical_entities (id, kind, canonical, norm, created_at)
+             VALUES ('{node}','tag','{name}','{name}','2026-01-01T00:00:00Z')"
+            ),
+        )
+        .await;
+        exec(
+            db,
+            &format!(
+                "INSERT INTO work_tags (work_id, node_id, prominence, added_at)
+             VALUES ('01955a00-0000-4000-8000-000000000003','{node}',1,'2026-01-01T00:00:00Z')"
+            ),
+        )
+        .await;
     }
 
     let find = |body: &Value, id: &str| -> Value {
@@ -329,16 +346,22 @@ async fn a_tag_surface_refuses_when_tags_and_engagement_never_meet() {
     );
 
     // 3. One engaged tagged work makes the surface usable again.
-    exec(db, "INSERT INTO work_metric_aggregates (work_id, views, complete_reads, reactions, kudos,
+    exec(
+        db,
+        "INSERT INTO work_metric_aggregates (work_id, views, complete_reads, reactions, kudos,
                      bookmarks, collection_adds, reviews, updated_at)
               VALUES ('01955a00-0000-4000-8000-000000000003', 5, 1, 0, 2, 0, 0, 0,
-                      '2026-01-01T00:00:00Z')").await;
+                      '2026-01-01T00:00:00Z')",
+    )
+    .await;
     let (status, body) = get(harness.client(), "/api/v1/recommendation/surfaces").await;
     assert_eq!(status, StatusCode::OK, "{body}");
     let similar = find(&body, "story.similar");
     let refused = similar["refused"].as_array().expect("refused");
     assert!(
-        !refused.iter().any(|entry| entry["algorithm"] == "tag_jaccard"),
+        !refused
+            .iter()
+            .any(|entry| entry["algorithm"] == "tag_jaccard"),
         "with one tagged, engaged work there is something to rank: {refused:?}"
     );
 }

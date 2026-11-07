@@ -154,19 +154,51 @@ pub async fn get_arena(
         .await
         .map_err(|e| ApiError(AppError::Internal(e.into())))?;
 
+    // M69-10: under Glicko-2 the ballot tells the reader how settled each card is. `null` rather than a number when the
+    // switch is off, and `null` per card when the card has never been rated under it — an absent deviation is "not
+    // measured", never 0, for the same reason an absent volatility is not 0.06.
+    let positions = if state.config().roadmap.glicko {
+        Some(
+            darkhold_db::roadmap_glicko::load_all(state.db())
+                .await
+                .map_err(|e| ApiError(AppError::Internal(e)))?,
+        )
+    } else {
+        None
+    };
+    let cards: Vec<Value> = candidates
+        .iter()
+        .map(|c| {
+            let mut card = json!({
+                "id": c.id,
+                "title": c.title,
+                // §44.1: a MaxDiff choice is a judgement about the feature, so the
+                // ballot carries the body. Four cards is not a payload problem, and
+                // this is the surface where the judgement is actually made.
+                "body": c.body,
+                "category": c.category,
+                "elo_rating": c.elo_rating,
+            });
+            if let Some(positions) = &positions {
+                let stored = positions.get(&c.id).copied();
+                let rating = darkhold_db::roadmap_glicko::position_for(c.elo_rating, stored);
+                card["glicko"] = json!({
+                    "rating": rating.rating,
+                    "deviation": rating.deviation,
+                    "volatility": rating.volatility,
+                    "confidence": rating.confidence(),
+                    "diverged": stored.map(|position| position.diverged).unwrap_or(false),
+                });
+            }
+            card
+        })
+        .collect();
+
     Ok(Json(json!({
         "ballot_id": ballot_id,
-        "cards": candidates.iter().map(|c| json!({
-            "id": c.id,
-            "title": c.title,
-            // §44.1: a MaxDiff choice is a judgement about the feature, so the
-            // ballot carries the body. Four cards is not a payload problem, and
-            // this is the surface where the judgement is actually made.
-            "body": c.body,
-            "category": c.category,
-            "elo_rating": c.elo_rating,
-        })).collect::<Vec<_>>(),
+        "cards": cards,
         "served_elo": served_elo,
+        "ladder": if state.config().roadmap.glicko { "glicko2" } else { "elo" },
     })))
 }
 
@@ -261,42 +293,101 @@ pub async fn post_arena_vote(
         })
         .collect();
 
-    let unchosen_ratings: Vec<f64> = unchosen.iter().map(|(_, r)| *r).collect();
-    let outcome = darkhold_domain::consensus::maxdiff_elo_updates(
-        best_rating,
-        worst_rating,
-        &unchosen_ratings,
-        K_FACTOR,
-    );
+    // M69-10: when the instance ranks by Glicko-2, the ballot produces a rating **and** the uncertainty that goes with it.
+    // The Elo column keeps receiving the same number so the board's existing ordering, and every reader of it, is unchanged:
+    // `rating` is Glicko-2's position on the same 1500-mean scale, not a second ladder.
+    let mut glicko_report: Vec<Value> = Vec::new();
+    let updates: Vec<(String, f64, bool, bool)> = if state.config().roadmap.glicko {
+        let stored = darkhold_db::roadmap_glicko::load_all(state.db())
+            .await
+            .map_err(|e| ApiError(AppError::Internal(e)))?;
+        let positions: Vec<(String, darkhold_domain::glicko::Rating)> = card_ids
+            .iter()
+            .map(|id| {
+                let elo = find_rating(id).unwrap_or(START_RATING);
+                let position = stored.get(id).copied();
+                (
+                    id.clone(),
+                    darkhold_db::roadmap_glicko::position_for(elo, position),
+                )
+            })
+            .collect();
+        let rated = darkhold_domain::glicko::rate_ballot(&positions, &body.best_id, &body.worst_id);
+        let now = darkhold_db::identity::now_rfc3339();
+        for (card_id, update) in &rated {
+            darkhold_db::roadmap_glicko::save(
+                state.db(),
+                card_id,
+                update.after,
+                update.diverged,
+                &now,
+            )
+            .await
+            .map_err(|e| ApiError(AppError::Internal(e)))?;
+            glicko_report.push(json!({
+                "card_id": card_id,
+                "rating": update.after.rating,
+                "deviation": update.after.deviation,
+                "volatility": update.after.volatility,
+                "confidence": update.after.confidence(),
+                "diverged": update.diverged,
+            }));
+        }
+        rated
+            .iter()
+            .map(|(card_id, update)| {
+                (
+                    card_id.clone(),
+                    update.after.rating,
+                    card_id == &body.best_id,
+                    card_id == &body.worst_id,
+                )
+            })
+            .collect()
+    } else {
+        let unchosen_ratings: Vec<f64> = unchosen.iter().map(|(_, r)| *r).collect();
+        let outcome = darkhold_domain::consensus::maxdiff_elo_updates(
+            best_rating,
+            worst_rating,
+            &unchosen_ratings,
+            K_FACTOR,
+        );
 
-    // Build updates: (card_id, new_elo, is_best, is_worst).
-    let mut updates: Vec<(String, f64, bool, bool)> = Vec::new();
-    updates.push((
-        body.best_id.clone(),
-        best_rating + outcome.best_delta,
-        true,
-        false,
-    ));
-    updates.push((
-        body.worst_id.clone(),
-        worst_rating + outcome.worst_delta,
-        false,
-        true,
-    ));
-    for (i, (id, orig_r)) in unchosen.iter().enumerate() {
+        // Build updates: (card_id, new_elo, is_best, is_worst).
+        let mut updates: Vec<(String, f64, bool, bool)> = Vec::new();
         updates.push((
-            id.clone(),
-            orig_r + outcome.unchosen_deltas[i],
-            false,
+            body.best_id.clone(),
+            best_rating + outcome.best_delta,
+            true,
             false,
         ));
-    }
+        updates.push((
+            body.worst_id.clone(),
+            worst_rating + outcome.worst_delta,
+            false,
+            true,
+        ));
+        for (i, (id, orig_r)) in unchosen.iter().enumerate() {
+            updates.push((
+                id.clone(),
+                orig_r + outcome.unchosen_deltas[i],
+                false,
+                false,
+            ));
+        }
+        updates
+    };
 
     roadmap::apply_elo_and_counters(state.db(), &updates)
         .await
         .map_err(|e| ApiError(AppError::Internal(e.into())))?;
 
-    Ok(Json(json!({ "status": "recorded" })))
+    if state.config().roadmap.glicko {
+        return Ok(Json(
+            json!({ "status": "recorded", "ladder": "glicko2", "cards": glicko_report }),
+        ));
+    }
+    Ok(Json(json!({ "status": "recorded", "ladder": "elo" })))
 }
 
 /// `POST /api/v1/roadmap/suggest` — suggest a feature (TL>=1).

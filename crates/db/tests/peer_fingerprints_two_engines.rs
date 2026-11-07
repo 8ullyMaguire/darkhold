@@ -36,7 +36,9 @@ async fn connect() -> Database {
         return db;
     };
     let name = format!("lh_peer_{}", uuid::Uuid::new_v4().simple());
-    let admin_db = Database::connect(&make_config(admin.clone())).await.expect("admin");
+    let admin_db = Database::connect(&make_config(admin.clone()))
+        .await
+        .expect("admin");
     sqlx::query(&format!("CREATE DATABASE {name}"))
         .execute(admin_db.postgres_pool().expect("postgres handle"))
         .await
@@ -111,14 +113,21 @@ async fn a_recorded_document_reads_back_with_the_layer_it_declared() {
     // Recording again replaces, and the newer layer is the one kept.
     peer_fingerprints::record(
         db,
-        &document("https://peer.example", &[("angst", 0.5), ("smut", 0.5)], &[]),
+        &document(
+            "https://peer.example",
+            &[("angst", 0.5), ("smut", 0.5)],
+            &[],
+        ),
         "2026-11-08T00:00:00Z",
     )
     .await
     .expect("record again");
     assert_eq!(row_count(db).await, 1, "one peer, one document");
     let listed = peer_fingerprints::list(db).await.expect("list");
-    assert!(listed[0].0.enforced.is_empty(), "the newer document is the one kept");
+    assert!(
+        listed[0].0.enforced.is_empty(),
+        "the newer document is the one kept"
+    );
     assert_eq!(listed[0].1, "2026-11-08T00:00:00Z");
 }
 
@@ -133,7 +142,10 @@ async fn an_anonymous_document_is_refused_and_forgetting_reports_whether_it_was_
     let error = peer_fingerprints::record(db, &anonymous.to_string(), "2026-11-07T00:00:00Z")
         .await
         .expect_err("a document that does not name itself cannot be filed");
-    assert!(error.to_string().contains("name its own instance"), "{error}");
+    assert!(
+        error.to_string().contains("name its own instance"),
+        "{error}"
+    );
 
     assert!(!peer_fingerprints::forget(db, "https://never.example")
         .await

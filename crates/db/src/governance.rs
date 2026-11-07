@@ -68,8 +68,7 @@ pub async fn evidence_for(
     accepted_since: Option<&str>,
 ) -> Result<darkhold_domain::trust::TrustEvidence, sqlx::Error> {
     let tenure_days = tenure_days(db, account).await?;
-    let accepted_contributions =
-        accepted_contributions(db, account, accepted_since).await?;
+    let accepted_contributions = accepted_contributions(db, account, accepted_since).await?;
     let vote_score = vote_score(db, account).await?;
     let report_accuracy = report_accuracy(db, account).await?;
     let activity_volume = activity_volume(db, account).await?;
@@ -127,7 +126,8 @@ fn parse_timestamp(timestamp: &str) -> Option<time::OffsetDateTime> {
     let mut text = timestamp.trim().replace(' ', "T");
     if let Some(index) = text.rfind('+').or_else(|| {
         // A negative offset only counts when it follows the time, not the date: look past the `T`.
-        text.find('T').and_then(|t| text[t..].rfind('-').map(|i| t + i))
+        text.find('T')
+            .and_then(|t| text[t..].rfind('-').map(|i| t + i))
     }) {
         let tail = text.len() - index;
         if tail == 3 {
@@ -224,14 +224,16 @@ async fn accepted_contributions(
                 if let Some(cutoff) = accepted_since {
                     q = q.bind(cutoff);
                 }
-                q.fetch_one(db.sqlite_pool().expect("sqlite handle")).await?
+                q.fetch_one(db.sqlite_pool().expect("sqlite handle"))
+                    .await?
             }
             Backend::Postgres => {
                 let mut q = sqlx::query_as(&sql).bind(account);
                 if let Some(cutoff) = accepted_since {
                     q = q.bind(cutoff);
                 }
-                q.fetch_one(db.postgres_pool().expect("postgres handle")).await?
+                q.fetch_one(db.postgres_pool().expect("postgres handle"))
+                    .await?
             }
         };
         total += count.0;
@@ -1976,12 +1978,11 @@ pub async fn audit_undone_by(db: &Database, id: &str) -> Result<Option<String>, 
             Ok(row.map(|r| r.0))
         }
         Backend::Postgres => {
-            let row: Option<(String,)> = sqlx::query_as(
-                "SELECT id FROM audit_log WHERE document->>'undo_of' = $1 LIMIT 1",
-            )
-            .bind(id)
-            .fetch_optional(db.postgres_pool().expect("postgres"))
-            .await?;
+            let row: Option<(String,)> =
+                sqlx::query_as("SELECT id FROM audit_log WHERE document->>'undo_of' = $1 LIMIT 1")
+                    .bind(id)
+                    .fetch_optional(db.postgres_pool().expect("postgres"))
+                    .await?;
             Ok(row.map(|r| r.0))
         }
     }
@@ -2159,8 +2160,14 @@ mod timestamp_tests {
     #[test]
     fn the_servers_own_timestamp_rendering_is_parsed() {
         let now = time::OffsetDateTime::now_utc();
-        let stamp = now.format(&time::format_description::well_known::Rfc3339).expect("format");
-        assert_eq!(days_since(&stamp), 0, "a fresh account has zero tenure, not a negative one");
+        let stamp = now
+            .format(&time::format_description::well_known::Rfc3339)
+            .expect("format");
+        assert_eq!(
+            days_since(&stamp),
+            0,
+            "a fresh account has zero tenure, not a negative one"
+        );
 
         // PostgreSQL's rendering of the same instant, 30 days back.
         let back = (now - time::Duration::days(30))
@@ -2174,9 +2181,15 @@ mod timestamp_tests {
         );
 
         // A fractional second and a two-digit offset, as PostgreSQL writes them.
-        assert_eq!(days_since("2026-03-02 20:38:18.441367+00"), days_since("2026-03-02T20:38:18.441367Z"));
+        assert_eq!(
+            days_since("2026-03-02 20:38:18.441367+00"),
+            days_since("2026-03-02T20:38:18.441367Z")
+        );
         // A full offset with a colon round-trips as itself.
-        assert_eq!(days_since("2026-03-02 20:38:18+01:00"), days_since("2026-03-02T19:38:18Z"));
+        assert_eq!(
+            days_since("2026-03-02 20:38:18+01:00"),
+            days_since("2026-03-02T19:38:18Z")
+        );
         // Garbage is zero rather than a panic.
         assert_eq!(days_since("not a timestamp"), 0);
     }

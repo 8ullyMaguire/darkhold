@@ -592,7 +592,8 @@ async fn a_signed_out_visitor_may_read() {
 async fn the_reader_needs_no_javascript_at_all() {
     let harness = Harness::new("nojs").await;
     let mut client = harness.client();
-    let (work_id, first_unit, second_unit) = published_work_with_two_units(&mut client, "nojsreader").await;
+    let (work_id, first_unit, second_unit) =
+        published_work_with_two_units(&mut client, "nojsreader").await;
 
     let (status, body, _) = client
         .get(&format!("/works/{work_id}/units/{first_unit}"))
@@ -626,7 +627,9 @@ async fn the_reader_needs_no_javascript_at_all() {
         "a reader without a script can record their place: {body}"
     );
     assert!(
-        body.contains(&format!("action=\"/works/{work_id}/units/{first_unit}/dnf\"")),
+        body.contains(&format!(
+            "action=\"/works/{work_id}/units/{first_unit}/dnf\""
+        )),
         "and can say they did not finish: {body}"
     );
 

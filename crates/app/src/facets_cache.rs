@@ -44,13 +44,16 @@ fn cache() -> &'static Mutex<HashMap<String, Entry>> {
 /// database in production, so this changes nothing there — but a test process opens a database per test, and a key without the database
 /// served one test's counts to another. A memo that can answer about the wrong catalogue is worse than no memo.
 fn key_of(db: &darkhold_db::Database, filter: &FacetFilter) -> String {
-    format!(
-        "db={}",
-        std::ptr::from_ref(db) as usize
-    ) + &format!(
-        "tag={:?}|kind={:?}|title={:?}|min={:?}|max={:?}|rating={:?}",
-        filter.tag, filter.tag_kind, filter.title_contains, filter.min_words, filter.max_words, filter.max_rating
-    )
+    format!("db={}", std::ptr::from_ref(db) as usize)
+        + &format!(
+            "tag={:?}|kind={:?}|title={:?}|min={:?}|max={:?}|rating={:?}",
+            filter.tag,
+            filter.tag_kind,
+            filter.title_contains,
+            filter.min_words,
+            filter.max_words,
+            filter.max_rating
+        )
 }
 
 /// Counts for one filter set, from the cache when a fresh answer exists.
@@ -105,7 +108,12 @@ mod tests {
     fn filter_key(filter: &FacetFilter) -> String {
         format!(
             "tag={:?}|kind={:?}|title={:?}|min={:?}|max={:?}|rating={:?}",
-            filter.tag, filter.tag_kind, filter.title_contains, filter.min_words, filter.max_words, filter.max_rating
+            filter.tag,
+            filter.tag_kind,
+            filter.title_contains,
+            filter.min_words,
+            filter.max_words,
+            filter.max_rating
         )
     }
 

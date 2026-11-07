@@ -415,13 +415,15 @@ async fn search(
         sort: sort.clone(),
         pinned: filters
             .iter()
-            .map(|(kind, value)| darkhold_domain::filter_state::PinnedFilter {
-                // The filter's own type, so the panel can group `tag` apart from `warning` without a second mapping.
-                kind: kind.clone(),
-                value: value.clone(),
-                label: format!("not showing {value}"),
-                reason: "the query grammar has no field for a content filter",
-            })
+            .map(
+                |(kind, value)| darkhold_domain::filter_state::PinnedFilter {
+                    // The filter's own type, so the panel can group `tag` apart from `warning` without a second mapping.
+                    kind: kind.clone(),
+                    value: value.clone(),
+                    label: format!("not showing {value}"),
+                    reason: "the query grammar has no field for a content filter",
+                },
+            )
             .collect(),
     };
     // Sorted so two searches that differ only in filter order produce the same chips.

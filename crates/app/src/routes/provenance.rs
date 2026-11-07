@@ -52,10 +52,7 @@ impl Provenance {
 ///
 /// Ids that name nothing are absent from the map rather than defaulted to `known`: a caller that receives no entry has
 /// asked about a work that does not exist, which is a different fact from a work with no text.
-pub(crate) async fn for_work_ids(
-    state: &AppState,
-    ids: &[String],
-) -> HashMap<String, Provenance> {
+pub(crate) async fn for_work_ids(state: &AppState, ids: &[String]) -> HashMap<String, Provenance> {
     let mut out = HashMap::with_capacity(ids.len());
     if ids.is_empty() {
         return out;
@@ -92,7 +89,10 @@ pub(crate) async fn for_work_ids(
             for id in ids {
                 query = query.bind(id);
             }
-            match query.fetch_all(state.db().sqlite_pool().expect("sqlite")).await {
+            match query
+                .fetch_all(state.db().sqlite_pool().expect("sqlite"))
+                .await
+            {
                 Ok(rows) => rows,
                 Err(error) => {
                     tracing::warn!(%error, "provenance lookup failed; reporting known");

@@ -136,11 +136,15 @@ async fn a_script_is_a_mode_that_writes_attributed_tags() {
     seed(&db).await;
 
     // 1. Nodes keep their order and come back in it.
-    let script = create_script(&db, ME, "Comfort reads").await.expect("create");
+    let script = create_script(&db, ME, "Comfort reads")
+        .await
+        .expect("create");
     assert!(add_node(&db, ME, &script.id, TAG_B).await.expect("add b"));
     assert!(add_node(&db, ME, &script.id, TAG_A).await.expect("add a"));
     assert!(
-        !add_node(&db, ME, &script.id, TAG_A).await.expect("add a again"),
+        !add_node(&db, ME, &script.id, TAG_A)
+            .await
+            .expect("add a again"),
         "adding what is already there is a no-op"
     );
     let listed = scripts_for(&db, ME).await.expect("list");

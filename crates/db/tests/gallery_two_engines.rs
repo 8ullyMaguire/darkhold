@@ -8,8 +8,8 @@
 //! Runs on whichever engine `DARKHOLD_TEST_PG_URL` names: SQLite when unset, PostgreSQL when set.
 
 use darkhold_db::gallery::{
-    install, install_count, my_installations, published_versions, rate, reviews, score, set_version,
-    uninstall,
+    install, install_count, my_installations, published_versions, rate, reviews, score,
+    set_version, uninstall,
 };
 use darkhold_db::Database;
 use darkhold_domain::gallery::UpdatePolicy;
@@ -158,9 +158,11 @@ async fn an_update_moves_the_version_and_the_scope_list_reads_it_back() {
         .await
         .expect("install");
 
-    assert!(set_version(&db, PSEUD, PACKAGE, "1.0.0", UpdatePolicy::Minor)
-        .await
-        .expect("set"));
+    assert!(
+        set_version(&db, PSEUD, PACKAGE, "1.0.0", UpdatePolicy::Minor)
+            .await
+            .expect("set")
+    );
     let listings = my_installations(&db, PSEUD).await.expect("list");
     assert_eq!(listings.len(), 1, "{listings:?}");
     assert_eq!(listings[0]["update_policy"], "minor", "{listings:?}");

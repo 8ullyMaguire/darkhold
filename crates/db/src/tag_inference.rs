@@ -89,13 +89,15 @@ pub async fn coverage(db: &Database) -> Result<Vec<SourceCoverage>> {
     };
     Ok(rows
         .into_iter()
-        .map(|(source_key, items, tagged, with_likes, tagged_and_liked)| SourceCoverage {
-            source_key,
-            items,
-            tagged,
-            with_likes,
-            tagged_and_liked,
-        })
+        .map(
+            |(source_key, items, tagged, with_likes, tagged_and_liked)| SourceCoverage {
+                source_key,
+                items,
+                tagged,
+                with_likes,
+                tagged_and_liked,
+            },
+        )
         .collect())
 }
 
@@ -144,15 +146,7 @@ pub async fn propose_from_text(db: &Database, limit: i64) -> Result<InferenceRep
             }
         }
         for (node_id, _) in kept {
-            assert_tag(
-                db,
-                &candidate.work_id,
-                node_id,
-                Claimant::Model,
-                false,
-                0.5,
-            )
-            .await?;
+            assert_tag(db, &candidate.work_id, node_id, Claimant::Model, false, 0.5).await?;
             proposed += 1;
         }
     }

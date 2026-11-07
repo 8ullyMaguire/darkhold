@@ -105,7 +105,9 @@ impl Client {
     }
 
     async fn send(&mut self, method: &str, uri: &str, body: Option<Value>) -> (StatusCode, Value) {
-        let mut builder = Request::builder().method(Method::from_bytes(method.as_bytes()).expect("method")).uri(uri);
+        let mut builder = Request::builder()
+            .method(Method::from_bytes(method.as_bytes()).expect("method"))
+            .uri(uri);
         if body.is_some() {
             builder = builder.header(header::CONTENT_TYPE, "application/json");
         }
@@ -138,7 +140,10 @@ impl Client {
         let bytes = axum::body::to_bytes(response.into_body(), usize::MAX)
             .await
             .expect("body");
-        (status, serde_json::from_slice(&bytes).unwrap_or(Value::Null))
+        (
+            status,
+            serde_json::from_slice(&bytes).unwrap_or(Value::Null),
+        )
     }
 
     async fn register(&mut self, handle: &str) -> String {
@@ -238,14 +243,22 @@ async fn a_package_walks_the_whole_workflow_and_lands_published() {
     assert!(message(&body).contains("own package"), "{}", message(&body));
 
     let (status, body) = reviewer_a
-        .send("POST", "/api/v1/extensions/reviews/shelf-sorter/1.0.0/advance", None)
+        .send(
+            "POST",
+            "/api/v1/extensions/reviews/shelf-sorter/1.0.0/advance",
+            None,
+        )
         .await;
     assert_eq!(status, StatusCode::OK, "{body}");
     assert_eq!(body["stage"], "permission_review", "{body}");
 
     // The same operator cannot be the security reviewer too.
     let (status, body) = reviewer_a
-        .send("POST", "/api/v1/extensions/reviews/shelf-sorter/1.0.0/advance", None)
+        .send(
+            "POST",
+            "/api/v1/extensions/reviews/shelf-sorter/1.0.0/advance",
+            None,
+        )
         .await;
     assert_eq!(status, StatusCode::UNPROCESSABLE_ENTITY, "{body}");
     assert!(
@@ -255,20 +268,32 @@ async fn a_package_walks_the_whole_workflow_and_lands_published() {
     );
 
     let (status, body) = reviewer_b
-        .send("POST", "/api/v1/extensions/reviews/shelf-sorter/1.0.0/advance", None)
+        .send(
+            "POST",
+            "/api/v1/extensions/reviews/shelf-sorter/1.0.0/advance",
+            None,
+        )
         .await;
     assert_eq!(status, StatusCode::OK, "{body}");
     assert_eq!(body["stage"], "security_review", "{body}");
 
     let (status, body) = reviewer_c
-        .send("POST", "/api/v1/extensions/reviews/shelf-sorter/1.0.0/advance", None)
+        .send(
+            "POST",
+            "/api/v1/extensions/reviews/shelf-sorter/1.0.0/advance",
+            None,
+        )
         .await;
     assert_eq!(status, StatusCode::OK, "{body}");
     assert_eq!(body["stage"], "quorum", "{body}");
 
     // One approval is not quorum, and it is not an error either: the vote counted and the package is simply not published.
     let (status, body) = reviewer_a
-        .send("POST", "/api/v1/extensions/reviews/shelf-sorter/1.0.0/approve", None)
+        .send(
+            "POST",
+            "/api/v1/extensions/reviews/shelf-sorter/1.0.0/approve",
+            None,
+        )
         .await;
     assert_eq!(status, StatusCode::OK, "{body}");
     assert_eq!(body["published"], false, "{body}");
@@ -276,13 +301,25 @@ async fn a_package_walks_the_whole_workflow_and_lands_published() {
     assert_eq!(body["quorum"]["need"], 2, "{body}");
 
     let (status, body) = reviewer_a
-        .send("POST", "/api/v1/extensions/reviews/shelf-sorter/1.0.0/approve", None)
+        .send(
+            "POST",
+            "/api/v1/extensions/reviews/shelf-sorter/1.0.0/approve",
+            None,
+        )
         .await;
     assert_eq!(status, StatusCode::UNPROCESSABLE_ENTITY, "{body}");
-    assert!(message(&body).contains("already approved"), "{}", message(&body));
+    assert!(
+        message(&body).contains("already approved"),
+        "{}",
+        message(&body)
+    );
 
     let (status, body) = reviewer_b
-        .send("POST", "/api/v1/extensions/reviews/shelf-sorter/1.0.0/approve", None)
+        .send(
+            "POST",
+            "/api/v1/extensions/reviews/shelf-sorter/1.0.0/approve",
+            None,
+        )
         .await;
     assert_eq!(status, StatusCode::OK, "{body}");
     assert_eq!(body["published"], true, "{body}");
@@ -328,9 +365,13 @@ async fn revocation_pulls_the_version_and_names_what_readers_fall_back_to() {
         let mut b = h.operator(&format!("sec-{tag}")).await;
         let mut c = h.operator(&format!("third-{tag}")).await;
         let path = format!("/api/v1/extensions/reviews/shelf-sorter/{version}");
-        a.send("POST", &format!("{path}/checks"), Some(json!({
-            "checks": [{ "name": "sandbox.runs", "passed": true }]
-        })))
+        a.send(
+            "POST",
+            &format!("{path}/checks"),
+            Some(json!({
+                "checks": [{ "name": "sandbox.runs", "passed": true }]
+            })),
+        )
         .await;
         a.send("POST", &format!("{path}/advance"), None).await;
         b.send("POST", &format!("{path}/advance"), None).await;
@@ -371,9 +412,14 @@ async fn revocation_pulls_the_version_and_names_what_readers_fall_back_to() {
         "the revoked version's grants stop counting: {body}"
     );
     assert!(
-        !darkhold_db::marketplace::holds_grant(h.tdb.db(), &author_account, "shelf-sorter", "work.read")
-            .await
-            .expect("read"),
+        !darkhold_db::marketplace::holds_grant(
+            h.tdb.db(),
+            &author_account,
+            "shelf-sorter",
+            "work.read"
+        )
+        .await
+        .expect("read"),
         "and the reader's grant no longer holds for that version"
     );
     assert_eq!(
@@ -387,9 +433,7 @@ async fn only_operators_see_the_queue() {
     let h = Harness::new("queue").await;
     let mut reader = h.client();
     reader.register("plain-reader").await;
-    let (status, body) = reader
-        .send("GET", "/api/v1/extensions/reviews", None)
-        .await;
+    let (status, body) = reader.send("GET", "/api/v1/extensions/reviews", None).await;
     assert_eq!(status, StatusCode::FORBIDDEN, "{body}");
 
     let mut operator = h.operator("queue-op").await;
@@ -451,12 +495,37 @@ async fn a_version_that_asks_for_more_invalidates_the_older_grant() {
     let mut perm = h.operator("perm").await;
     let mut sec = h.operator("sec").await;
     let mut third = h.operator("third").await;
-    perm.send("POST", "/api/v1/extensions/reviews/shelf-sorter/1.0.0/advance", None).await;
-    sec.send("POST", "/api/v1/extensions/reviews/shelf-sorter/1.0.0/advance", None).await;
-    third.send("POST", "/api/v1/extensions/reviews/shelf-sorter/1.0.0/advance", None).await;
-    perm.send("POST", "/api/v1/extensions/reviews/shelf-sorter/1.0.0/approve", None).await;
+    perm.send(
+        "POST",
+        "/api/v1/extensions/reviews/shelf-sorter/1.0.0/advance",
+        None,
+    )
+    .await;
+    sec.send(
+        "POST",
+        "/api/v1/extensions/reviews/shelf-sorter/1.0.0/advance",
+        None,
+    )
+    .await;
+    third
+        .send(
+            "POST",
+            "/api/v1/extensions/reviews/shelf-sorter/1.0.0/advance",
+            None,
+        )
+        .await;
+    perm.send(
+        "POST",
+        "/api/v1/extensions/reviews/shelf-sorter/1.0.0/approve",
+        None,
+    )
+    .await;
     let (status, body) = sec
-        .send("POST", "/api/v1/extensions/reviews/shelf-sorter/1.0.0/approve", None)
+        .send(
+            "POST",
+            "/api/v1/extensions/reviews/shelf-sorter/1.0.0/approve",
+            None,
+        )
         .await;
     assert_eq!(status, StatusCode::OK, "{body}");
     assert_eq!(body["published"], true, "{body}");
@@ -498,12 +567,37 @@ async fn a_version_that_asks_for_more_invalidates_the_older_grant() {
         Some(json!({ "checks": [{ "name": "sandbox.runs", "passed": true }] })),
     )
     .await;
-    perm.send("POST", "/api/v1/extensions/reviews/shelf-sorter/1.1.0/advance", None).await;
-    sec.send("POST", "/api/v1/extensions/reviews/shelf-sorter/1.1.0/advance", None).await;
-    third.send("POST", "/api/v1/extensions/reviews/shelf-sorter/1.1.0/advance", None).await;
-    perm.send("POST", "/api/v1/extensions/reviews/shelf-sorter/1.1.0/approve", None).await;
+    perm.send(
+        "POST",
+        "/api/v1/extensions/reviews/shelf-sorter/1.1.0/advance",
+        None,
+    )
+    .await;
+    sec.send(
+        "POST",
+        "/api/v1/extensions/reviews/shelf-sorter/1.1.0/advance",
+        None,
+    )
+    .await;
+    third
+        .send(
+            "POST",
+            "/api/v1/extensions/reviews/shelf-sorter/1.1.0/advance",
+            None,
+        )
+        .await;
+    perm.send(
+        "POST",
+        "/api/v1/extensions/reviews/shelf-sorter/1.1.0/approve",
+        None,
+    )
+    .await;
     let (status, body) = sec
-        .send("POST", "/api/v1/extensions/reviews/shelf-sorter/1.1.0/approve", None)
+        .send(
+            "POST",
+            "/api/v1/extensions/reviews/shelf-sorter/1.1.0/approve",
+            None,
+        )
         .await;
     assert_eq!(status, StatusCode::OK, "{body}");
     assert_eq!(body["published"], true, "{body}");

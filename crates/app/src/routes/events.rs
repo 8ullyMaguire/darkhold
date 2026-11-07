@@ -111,7 +111,9 @@ async fn get_collection(
             let coverage = darkhold_db::events::collection_coverage(state.db(), &c.id)
                 .await
                 .map_err(|e| ApiError(darkhold_domain::AppError::Internal(e)))?;
-            Ok(Json(json!({ "collection": c, "items": items, "coverage": coverage })))
+            Ok(Json(
+                json!({ "collection": c, "items": items, "coverage": coverage }),
+            ))
         }
         None => Err(ApiError(darkhold_domain::AppError::NotFound {
             resource: "collection",

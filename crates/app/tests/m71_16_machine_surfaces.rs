@@ -70,10 +70,7 @@ impl Harness {
     }
 
     fn client(&self) -> axum::Router {
-        server::build_router(AppState::new(
-            self.config.clone(),
-            self.tdb.db().clone(),
-        ))
+        server::build_router(AppState::new(self.config.clone(), self.tdb.db().clone()))
     }
 
     async fn exec(&self, statement: &str) {
@@ -150,7 +147,11 @@ async fn body_of(response: Response) -> (StatusCode, String, String) {
     let bytes = axum::body::to_bytes(response.into_body(), usize::MAX)
         .await
         .unwrap();
-    (status, content_type, String::from_utf8_lossy(&bytes).into_owned())
+    (
+        status,
+        content_type,
+        String::from_utf8_lossy(&bytes).into_owned(),
+    )
 }
 
 #[tokio::test]
@@ -167,12 +168,21 @@ async fn the_sitemap_lists_what_a_crawler_may_index_and_nothing_else() {
     assert!(body.contains("<urlset"), "{body}");
 
     assert!(body.contains(&format!("/works/{PUBLIC}")), "{body}");
-    assert!(body.contains("/tags/open%20trope"), "the tag is a page: {body}");
+    assert!(
+        body.contains("/tags/open%20trope"),
+        "the tag is a page: {body}"
+    );
 
     for (id, why) in [
-        (UNLISTED, "unlisted means reachable by link, not by enumeration"),
+        (
+            UNLISTED,
+            "unlisted means reachable by link, not by enumeration",
+        ),
         (PRIVATE, "private is not published to anyone"),
-        (RESTRICTED, "restricted is absent from the anonymous door and so from here"),
+        (
+            RESTRICTED,
+            "restricted is absent from the anonymous door and so from here",
+        ),
     ] {
         assert!(
             !body.contains(&format!("/works/{id}")),

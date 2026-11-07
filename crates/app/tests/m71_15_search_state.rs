@@ -107,7 +107,12 @@ impl Client {
         }
     }
 
-    async fn request(&mut self, method: &str, uri: &str, body: Option<Value>) -> (StatusCode, Value) {
+    async fn request(
+        &mut self,
+        method: &str,
+        uri: &str,
+        body: Option<Value>,
+    ) -> (StatusCode, Value) {
         let mut builder = Request::builder()
             .method(method)
             .uri(uri)
@@ -133,10 +138,17 @@ impl Client {
             Some(value) => Body::from(value.to_string()),
             None => Body::empty(),
         };
-        let response = self.app.clone().oneshot(builder.body(body).unwrap()).await.unwrap();
+        let response = self
+            .app
+            .clone()
+            .oneshot(builder.body(body).unwrap())
+            .await
+            .unwrap();
         let status = response.status();
         self.capture(&response);
-        let bytes = axum::body::to_bytes(response.into_body(), usize::MAX).await.unwrap();
+        let bytes = axum::body::to_bytes(response.into_body(), usize::MAX)
+            .await
+            .unwrap();
         let value = serde_json::from_slice(&bytes).unwrap_or(Value::Null);
         (status, value)
     }

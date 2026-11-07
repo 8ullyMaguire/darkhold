@@ -1249,7 +1249,11 @@ fn collection_sentence(entries: i64, readable: i64) -> String {
     // The gap is named with its number, always with the same words, because "some entries are private" leaves the reader guessing whether
     // it is one or twelve and whether they are missing something worth opening.
     let hidden = entries - readable;
-    let noun = if hidden == 1 { "entry is" } else { "entries are" };
+    let noun = if hidden == 1 {
+        "entry is"
+    } else {
+        "entries are"
+    };
     format!(
         "{readable} of {entries} entries are readable; {hidden} {noun} private, unpublished or deleted."
     )

@@ -154,11 +154,19 @@ async fn seed(db: &Database) {
         .await;
     }
     // Ten measured works spread over three orders of magnitude, plus two unmeasured ones — the shape of the real catalogue.
-    for (index, words) in [1_000, 2_500, 4_000, 8_000, 12_000, 20_000, 45_000, 90_000, 200_000, 900_000]
-        .into_iter()
-        .enumerate()
+    for (index, words) in [
+        1_000, 2_500, 4_000, 8_000, 12_000, 20_000, 45_000, 90_000, 200_000, 900_000,
+    ]
+    .into_iter()
+    .enumerate()
     {
-        work(db, index + 1, Some(words), Some(if index % 2 == 0 { "Naruto" } else { "Worm" })).await;
+        work(
+            db,
+            index + 1,
+            Some(words),
+            Some(if index % 2 == 0 { "Naruto" } else { "Worm" }),
+        )
+        .await;
     }
     work(db, 11, None, Some("Naruto")).await;
     work(db, 12, None, Some("Worm")).await;
@@ -186,7 +194,10 @@ async fn the_histogram_is_population_equal_and_partitions_the_measured_set() {
     );
 
     let counted: i64 = histogram.buckets.iter().map(|bucket| bucket.count).sum();
-    assert_eq!(counted, histogram.measured, "every measured work lands once");
+    assert_eq!(
+        counted, histogram.measured,
+        "every measured work lands once"
+    );
     // Population-equal: no bucket holds more than a third of the set on ten evenly spread works.
     for bucket in &histogram.buckets {
         assert!(
@@ -199,10 +210,18 @@ async fn the_histogram_is_population_equal_and_partitions_the_measured_set() {
     }
     // Contiguous and ordered: each bucket starts where the previous one ended or later, and the last reaches the maximum.
     for pair in histogram.buckets.windows(2) {
-        assert!(pair[0].low <= pair[1].low, "ordered: {:?}", histogram.buckets);
+        assert!(
+            pair[0].low <= pair[1].low,
+            "ordered: {:?}",
+            histogram.buckets
+        );
     }
     // Indices are the bars' slots: after empty buckets are dropped they run 0..n with no gaps, which is what a chart draws.
-    let indices: Vec<usize> = histogram.buckets.iter().map(|bucket| bucket.index).collect();
+    let indices: Vec<usize> = histogram
+        .buckets
+        .iter()
+        .map(|bucket| bucket.index)
+        .collect();
     assert_eq!(
         indices,
         (0..histogram.buckets.len()).collect::<Vec<_>>(),
@@ -211,7 +230,10 @@ async fn the_histogram_is_population_equal_and_partitions_the_measured_set() {
     );
     let last = histogram.buckets.last().expect("buckets");
     assert_eq!(last.high, 900_000, "the top edge is the longest work");
-    assert_eq!(histogram.buckets[0].low, 1_000, "the bottom edge is the shortest");
+    assert_eq!(
+        histogram.buckets[0].low, 1_000,
+        "the bottom edge is the shortest"
+    );
 
     // Ties: twelve works of the same length still partition, and the empty buckets are dropped rather than drawn.
     let db = connect("ties").await;
@@ -220,8 +242,16 @@ async fn the_histogram_is_population_equal_and_partitions_the_measured_set() {
     let tied = facets::word_histogram(&db, &FacetFilter::default(), 10)
         .await
         .expect("histogram");
-    assert_eq!(tied.measured, 10, "the ten measured works, all now the same length");
-    assert_eq!(tied.buckets.len(), 1, "one populated bucket: {:?}", tied.buckets);
+    assert_eq!(
+        tied.measured, 10,
+        "the ten measured works, all now the same length"
+    );
+    assert_eq!(
+        tied.buckets.len(),
+        1,
+        "one populated bucket: {:?}",
+        tied.buckets
+    );
     assert_eq!(tied.buckets[0].count, 10);
     assert_eq!(tied.buckets[0].low, 5_000);
     assert_eq!(tied.buckets[0].high, 5_000);
@@ -241,7 +271,10 @@ async fn the_histogram_describes_the_filtered_set() {
     let histogram = facets::word_histogram(&db, &filter, 5)
         .await
         .expect("histogram");
-    assert_eq!(histogram.total, 6, "six Naruto works, one of them unmeasured");
+    assert_eq!(
+        histogram.total, 6,
+        "six Naruto works, one of them unmeasured"
+    );
     assert_eq!(histogram.measured, 5);
     assert_eq!(
         histogram.buckets.iter().map(|b| b.count).sum::<i64>(),

@@ -60,8 +60,8 @@ pub async fn eligible_top(
     limit: i64,
     min_matches: i64,
 ) -> anyhow::Result<Vec<LadderWork>> {
-// INFER: no surface concludes from a restricted work. Nobody could have read a work they were never shown,
-// so an edge or a count built on one is a claim about people made from a non-event. See `db::visibility`.
+    // INFER: no surface concludes from a restricted work. Nobody could have read a work they were never shown,
+    // so an edge or a count built on one is a claim about people made from a non-event. See `db::visibility`.
     if limit <= 0 {
         return Err(anyhow::anyhow!("limit must be positive"));
     }
@@ -178,8 +178,14 @@ mod tests {
         };
         let too_few = candidate("too-few", 1);
 
-        assert!(is_settled(&settled, 3), "no flag, no volatility, enough matches");
-        assert!(!is_settled(&contested, 3), "the arena says readers disagree");
+        assert!(
+            is_settled(&settled, 3),
+            "no flag, no volatility, enough matches"
+        );
+        assert!(
+            !is_settled(&contested, 3),
+            "the arena says readers disagree"
+        );
         assert!(!is_settled(&volatile, 3), "the rating is still moving");
         assert!(is_settled(&at_the_cap, 3), "the cap is inclusive");
         assert!(!is_settled(&too_few, 3), "the evidence floor still applies");

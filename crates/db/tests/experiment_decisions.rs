@@ -212,11 +212,14 @@ async fn a_conversion_collapse_on_two_days_demotes_without_anyone_passing_guardr
         .await;
     }
 
-    let history =
-        darkhold_db::experiment_decisions::guardrail_history(&db, "discover.feed", 0, 1)
-            .await
-            .expect("read guardrails");
-    assert_eq!(history.len(), 8, "one entry per day both arms were measured");
+    let history = darkhold_db::experiment_decisions::guardrail_history(&db, "discover.feed", 0, 1)
+        .await
+        .expect("read guardrails");
+    assert_eq!(
+        history.len(),
+        8,
+        "one entry per day both arms were measured"
+    );
     assert!(
         history[0].iter().all(|reading| reading.in_bounds),
         "the early days are healthy: {history:?}"

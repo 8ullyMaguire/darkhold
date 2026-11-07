@@ -41,7 +41,8 @@ async fn connect(tag: &str) -> Database {
                 .expect("an empty PostgreSQL database")
         }
         _ => {
-            let config = DatabaseConfig::new(format!("sqlite://{}/rate.sqlite?mode=rwc", dir.display()));
+            let config =
+                DatabaseConfig::new(format!("sqlite://{}/rate.sqlite?mode=rwc", dir.display()));
             Database::connect(&config).await.expect("connect")
         }
     };
@@ -68,7 +69,14 @@ async fn exec(db: &Database, statement: &str) {
 
 /// One imported item. `views_column` fills `library_items.views` — the old importer's column — and stays NULL for rows that only have
 /// a recorded metric, which is the case the join has to handle.
-async fn item(db: &Database, id: &str, account: &str, key: &str, likes: i64, views_column: Option<i64>) {
+async fn item(
+    db: &Database,
+    id: &str,
+    account: &str,
+    key: &str,
+    likes: i64,
+    views_column: Option<i64>,
+) {
     let views = views_column
         .map(|value| value.to_string())
         .unwrap_or_else(|| "NULL".to_owned());
@@ -114,20 +122,52 @@ async fn seed(db: &Database) {
     .await;
 
     // `big`: 400 kudos over 9,000 hits, recorded under AO3's own word `hits`.
-    item(db, "01956000-0000-4000-8000-000000000001", ACCOUNT, "big", 400, None).await;
+    item(
+        db,
+        "01956000-0000-4000-8000-000000000001",
+        ACCOUNT,
+        "big",
+        400,
+        None,
+    )
+    .await;
     metric(db, "01956000-0000-4000-8000-000000000001", "hits", 9_000).await;
     metric(db, "01956000-0000-4000-8000-000000000001", "kudos", 400).await;
 
     // `lucky`: 1 kudos over 10 hits — a 10% rate, and one person clicking.
-    item(db, "01956000-0000-4000-8000-000000000002", ACCOUNT, "lucky", 1, None).await;
+    item(
+        db,
+        "01956000-0000-4000-8000-000000000002",
+        ACCOUNT,
+        "lucky",
+        1,
+        None,
+    )
+    .await;
     metric(db, "01956000-0000-4000-8000-000000000002", "hits", 10).await;
     metric(db, "01956000-0000-4000-8000-000000000002", "kudos", 1).await;
 
     // `legacy`: no engagement rows, but the old importer filled the column.
-    item(db, "01956000-0000-4000-8000-000000000003", ACCOUNT, "legacy", 50, Some(1_000)).await;
+    item(
+        db,
+        "01956000-0000-4000-8000-000000000003",
+        ACCOUNT,
+        "legacy",
+        50,
+        Some(1_000),
+    )
+    .await;
 
     // `silent`: nothing measured at all.
-    item(db, "01956000-0000-4000-8000-000000000004", ACCOUNT, "silent", 0, None).await;
+    item(
+        db,
+        "01956000-0000-4000-8000-000000000004",
+        ACCOUNT,
+        "silent",
+        0,
+        None,
+    )
+    .await;
 }
 
 /// The three sources of a view count all reach the ranker, and the rate prefers evidence over a ratio.
@@ -169,7 +209,10 @@ async fn a_rate_ranks_from_the_archives_own_views_and_prefers_evidence() {
         "the lower bound ranks evidence first: {bounded_order:?}"
     );
     assert!(
-        bounded_order.iter().position(|key| *key == "lucky").unwrap()
+        bounded_order
+            .iter()
+            .position(|key| *key == "lucky")
+            .unwrap()
             > bounded_order.iter().position(|key| *key == "big").unwrap(),
         "1/10 must not outrank 400/9,000 on the bound: {bounded_order:?}"
     );

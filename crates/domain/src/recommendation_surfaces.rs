@@ -85,30 +85,155 @@ pub const SURFACES: &[Surface] = &[
     // The discover feed's default set is the four engines `build_candidate_engines` actually runs, in the order they
     // contribute: the works ladder, tag affinity, popularity and media-reference collaboration. A default that named an
     // algorithm no engine implements would be documentation of a feed that does not exist.
-    Surface { id: "discover.feed", label: "Discover", need: DataNeed::WorkTags, defaults: &["rated_by_readers", "tag_jaccard", "popular", "media_ref_collab"] },
-    Surface { id: "story.similar", label: "Similar works", need: DataNeed::WorkTags, defaults: &["tag_jaccard", "tag_cooccurrence", "co_shelving"] },
-    Surface { id: "story.also_enjoyed", label: "Also enjoyed", need: DataNeed::Shelves, defaults: &["co_read", "engagement_overlap"] },
-    Surface { id: "story.more_by_author", label: "More by this author", need: DataNeed::None, defaults: &["same_author"] },
-    Surface { id: "story.lists_containing", label: "Lists containing this", need: DataNeed::Shelves, defaults: &["co_shelving"] },
-    Surface { id: "search.results", label: "Search results", need: DataNeed::None, defaults: &["text_relevance"] },
-    Surface { id: "search.facets", label: "Search facets", need: DataNeed::None, defaults: &["text_relevance"] },
-    Surface { id: "author.works", label: "An author's works", need: DataNeed::None, defaults: &["same_author"] },
-    Surface { id: "author.similar", label: "Similar authors", need: DataNeed::WorkTags, defaults: &["author_graph", "tag_jaccard"] },
-    Surface { id: "author.colists", label: "Co-listed authors", need: DataNeed::Shelves, defaults: &["co_shelving"] },
-    Surface { id: "author.fandoms", label: "An author's fandoms", need: DataNeed::WorkTags, defaults: &["fandom_graph"] },
-    Surface { id: "home.trending", label: "Trending", need: DataNeed::None, defaults: &["crosspost_union", "time_decay", "popular"] },
-    Surface { id: "home.hidden_gems", label: "Hidden gems", need: DataNeed::WorkTags, defaults: &["tag_jaccard", "quality_signals"] },
-    Surface { id: "home.popular_in_fandom", label: "Popular in a fandom", need: DataNeed::WorkTags, defaults: &["popular", "fandom_graph"] },
-    Surface { id: "home.recently_updated", label: "Recently updated", need: DataNeed::None, defaults: &["time_decay"] },
-    Surface { id: "home.new_this_week", label: "New this week", need: DataNeed::None, defaults: &["time_decay"] },
-    Surface { id: "home.curated", label: "Curated", need: DataNeed::None, defaults: &["operator_picks"] },
-    Surface { id: "library.because_you_shelved", label: "Because you shelved", need: DataNeed::Shelves, defaults: &["co_shelving", "tag_jaccard"] },
-    Surface { id: "library.fill_the_gap", label: "Fill the gap", need: DataNeed::WorkTags, defaults: &["tag_cooccurrence", "fandom_graph"] },
-    Surface { id: "library.authors_updated", label: "Authors you follow, updated", need: DataNeed::None, defaults: &["time_decay"] },
-    Surface { id: "tag.default_sort", label: "A tag's works", need: DataNeed::None, defaults: &["time_decay", "popular"] },
-    Surface { id: "tag.adjacent", label: "Adjacent tags", need: DataNeed::WorkTags, defaults: &["tag_cooccurrence", "npmi"] },
-    Surface { id: "tag.cross_fandom", label: "Cross-fandom tags", need: DataNeed::WorkTags, defaults: &["fandom_graph"] },
-    Surface { id: "tag.facets", label: "A tag's facets", need: DataNeed::None, defaults: &["text_relevance"] },
+    Surface {
+        id: "discover.feed",
+        label: "Discover",
+        need: DataNeed::WorkTags,
+        defaults: &[
+            "rated_by_readers",
+            "tag_jaccard",
+            "popular",
+            "media_ref_collab",
+        ],
+    },
+    Surface {
+        id: "story.similar",
+        label: "Similar works",
+        need: DataNeed::WorkTags,
+        defaults: &["tag_jaccard", "tag_cooccurrence", "co_shelving"],
+    },
+    Surface {
+        id: "story.also_enjoyed",
+        label: "Also enjoyed",
+        need: DataNeed::Shelves,
+        defaults: &["co_read", "engagement_overlap"],
+    },
+    Surface {
+        id: "story.more_by_author",
+        label: "More by this author",
+        need: DataNeed::None,
+        defaults: &["same_author"],
+    },
+    Surface {
+        id: "story.lists_containing",
+        label: "Lists containing this",
+        need: DataNeed::Shelves,
+        defaults: &["co_shelving"],
+    },
+    Surface {
+        id: "search.results",
+        label: "Search results",
+        need: DataNeed::None,
+        defaults: &["text_relevance"],
+    },
+    Surface {
+        id: "search.facets",
+        label: "Search facets",
+        need: DataNeed::None,
+        defaults: &["text_relevance"],
+    },
+    Surface {
+        id: "author.works",
+        label: "An author's works",
+        need: DataNeed::None,
+        defaults: &["same_author"],
+    },
+    Surface {
+        id: "author.similar",
+        label: "Similar authors",
+        need: DataNeed::WorkTags,
+        defaults: &["author_graph", "tag_jaccard"],
+    },
+    Surface {
+        id: "author.colists",
+        label: "Co-listed authors",
+        need: DataNeed::Shelves,
+        defaults: &["co_shelving"],
+    },
+    Surface {
+        id: "author.fandoms",
+        label: "An author's fandoms",
+        need: DataNeed::WorkTags,
+        defaults: &["fandom_graph"],
+    },
+    Surface {
+        id: "home.trending",
+        label: "Trending",
+        need: DataNeed::None,
+        defaults: &["crosspost_union", "time_decay", "popular"],
+    },
+    Surface {
+        id: "home.hidden_gems",
+        label: "Hidden gems",
+        need: DataNeed::WorkTags,
+        defaults: &["tag_jaccard", "quality_signals"],
+    },
+    Surface {
+        id: "home.popular_in_fandom",
+        label: "Popular in a fandom",
+        need: DataNeed::WorkTags,
+        defaults: &["popular", "fandom_graph"],
+    },
+    Surface {
+        id: "home.recently_updated",
+        label: "Recently updated",
+        need: DataNeed::None,
+        defaults: &["time_decay"],
+    },
+    Surface {
+        id: "home.new_this_week",
+        label: "New this week",
+        need: DataNeed::None,
+        defaults: &["time_decay"],
+    },
+    Surface {
+        id: "home.curated",
+        label: "Curated",
+        need: DataNeed::None,
+        defaults: &["operator_picks"],
+    },
+    Surface {
+        id: "library.because_you_shelved",
+        label: "Because you shelved",
+        need: DataNeed::Shelves,
+        defaults: &["co_shelving", "tag_jaccard"],
+    },
+    Surface {
+        id: "library.fill_the_gap",
+        label: "Fill the gap",
+        need: DataNeed::WorkTags,
+        defaults: &["tag_cooccurrence", "fandom_graph"],
+    },
+    Surface {
+        id: "library.authors_updated",
+        label: "Authors you follow, updated",
+        need: DataNeed::None,
+        defaults: &["time_decay"],
+    },
+    Surface {
+        id: "tag.default_sort",
+        label: "A tag's works",
+        need: DataNeed::None,
+        defaults: &["time_decay", "popular"],
+    },
+    Surface {
+        id: "tag.adjacent",
+        label: "Adjacent tags",
+        need: DataNeed::WorkTags,
+        defaults: &["tag_cooccurrence", "npmi"],
+    },
+    Surface {
+        id: "tag.cross_fandom",
+        label: "Cross-fandom tags",
+        need: DataNeed::WorkTags,
+        defaults: &["fandom_graph"],
+    },
+    Surface {
+        id: "tag.facets",
+        label: "A tag's facets",
+        need: DataNeed::None,
+        defaults: &["text_relevance"],
+    },
 ];
 
 /// The algorithms one arm of a surface runs (M64-02).
@@ -169,7 +294,10 @@ pub fn surface(id: &str) -> Option<&'static Surface> {
 
 /// Every algorithm name this registry knows, in sorted order. The closed set a config may choose from.
 pub fn known_algorithms() -> Vec<&'static str> {
-    let mut names: Vec<&'static str> = SURFACES.iter().flat_map(|s| s.defaults.iter().copied()).collect();
+    let mut names: Vec<&'static str> = SURFACES
+        .iter()
+        .flat_map(|s| s.defaults.iter().copied())
+        .collect();
     names.sort_unstable();
     names.dedup();
     names
@@ -182,7 +310,11 @@ pub fn algorithms_for(
 ) -> Vec<String> {
     match configured.get(surface.id) {
         Some(names) => names.clone(),
-        None => surface.defaults.iter().map(|name| (*name).to_owned()).collect(),
+        None => surface
+            .defaults
+            .iter()
+            .map(|name| (*name).to_owned())
+            .collect(),
     }
 }
 
@@ -242,7 +374,12 @@ mod tests {
         // together cover the surface — which is what makes the comparison fair. Hashing the algorithm name instead would
         // give arms of different sizes and a lopsided result nobody could read.
         let surface = surface("discover.feed").expect("the feed is registered");
-        let set = configured(&["popular", "tag_jaccard", "media_ref_collab", "rated_by_readers"]);
+        let set = configured(&[
+            "popular",
+            "tag_jaccard",
+            "media_ref_collab",
+            "rated_by_readers",
+        ]);
 
         let first = algorithms_for_bucket(surface, &set, 0, 2);
         let second = algorithms_for_bucket(surface, &set, 1, 2);
@@ -346,7 +483,10 @@ mod tests {
         configured.insert("story.similar".to_owned(), vec!["tag_jaccrad".to_owned()]);
         let error = validate_configured(&configured).expect_err("a typo is refused");
         assert!(error.contains("tag_jaccrad"), "{error}");
-        assert!(error.contains("known:"), "the error lists what is known: {error}");
+        assert!(
+            error.contains("known:"),
+            "the error lists what is known: {error}"
+        );
     }
 
     #[test]
@@ -365,7 +505,10 @@ mod tests {
         let surface = surface("tag.adjacent").expect("declared");
         let mut configured = BTreeMap::new();
         configured.insert("tag.adjacent".to_owned(), vec!["npmi".to_owned()]);
-        assert_eq!(algorithms_for(surface, &configured), vec!["npmi".to_owned()]);
+        assert_eq!(
+            algorithms_for(surface, &configured),
+            vec!["npmi".to_owned()]
+        );
         assert_eq!(
             algorithms_for(surface, &BTreeMap::new()),
             vec!["tag_cooccurrence".to_owned(), "npmi".to_owned()]

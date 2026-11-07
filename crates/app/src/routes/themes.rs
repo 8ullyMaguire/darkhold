@@ -34,7 +34,9 @@ use std::collections::BTreeMap;
 
 use crate::http::{ApiError, ApiResult};
 use crate::state::AppState;
-use darkhold_domain::theme_model::{self, Effective, Placement, SafeMode, Scope, Slot, Theme, Token};
+use darkhold_domain::theme_model::{
+    self, Effective, Placement, SafeMode, Scope, Slot, Theme, Token,
+};
 use darkhold_domain::AppError;
 
 /// How long a preview lasts. Long enough to look at a page twice, short enough that a forgotten preview is a
@@ -44,7 +46,10 @@ const PREVIEW_SECONDS: i64 = 15 * 60;
 /// The theme routes.
 pub fn router() -> Router<AppState> {
     Router::new()
-        .route("/themes", get(list_themes).post(save_theme).delete(reset_theme))
+        .route(
+            "/themes",
+            get(list_themes).post(save_theme).delete(reset_theme),
+        )
         .route("/themes/effective", get(effective_theme))
         .route("/themes/{id}/publish", post(publish_theme))
         .route("/themes/{id}/preview", post(preview_theme))
@@ -77,9 +82,10 @@ impl SaveBody {
         }
         let mut layout = BTreeMap::new();
         for (name, value) in &self.layout {
-            if let (Some(slot), Some(placement)) =
-                (Slot::all().iter().find(|s| s.name() == name), Placement::parse(value))
-            {
+            if let (Some(slot), Some(placement)) = (
+                Slot::all().iter().find(|s| s.name() == name),
+                Placement::parse(value),
+            ) {
                 layout.insert(*slot, placement);
             }
         }
@@ -105,7 +111,11 @@ fn scope_for(
 ) -> ApiResult<(Scope, &'static str, String)> {
     if requested == Some("instance") {
         crate::routes::experiment_sweep::require_operator(state, user)?;
-        return Ok((Scope::Instance, "instance", darkhold_db::theme_profiles::INSTANCE_OWNER.to_owned()));
+        return Ok((
+            Scope::Instance,
+            "instance",
+            darkhold_db::theme_profiles::INSTANCE_OWNER.to_owned(),
+        ));
     }
     let account = user.account_id.to_string();
     Ok((Scope::Reader(account.clone()), "reader", account))
@@ -148,15 +158,13 @@ async fn save_theme(
     let refusals = theme.validate(&scope);
     if !refusals.is_empty() {
         let reasons: Vec<String> = refusals.iter().map(|r| r.message()).collect();
-        return Err(ApiError(AppError::field(
-            "theme",
-            reasons.join("; "),
-        )));
+        return Err(ApiError(AppError::field("theme", reasons.join("; "))));
     }
 
-    let id = darkhold_db::theme_profiles::save(state.db(), scope_name, &owner, &theme, &now_rfc3339())
-        .await
-        .map_err(ApiError::from)?;
+    let id =
+        darkhold_db::theme_profiles::save(state.db(), scope_name, &owner, &theme, &now_rfc3339())
+            .await
+            .map_err(ApiError::from)?;
     Ok(Json(json!({
         "id": id,
         "state": "draft",
@@ -174,9 +182,10 @@ async fn publish_theme(
 ) -> ApiResult<Json<Value>> {
     // Publishing is the moment a theme becomes an appearance, so the check runs here rather than only on
     // save: a draft written when the rule was looser must not be published by a later call.
-    let rows = darkhold_db::theme_profiles::list(state.db(), "reader", &user.account_id.to_string())
-        .await
-        .map_err(ApiError::from)?;
+    let rows =
+        darkhold_db::theme_profiles::list(state.db(), "reader", &user.account_id.to_string())
+            .await
+            .map_err(ApiError::from)?;
     let mut candidates: Vec<(String, Value)> = rows
         .iter()
         .filter(|r| r["id"] == json!(id))
@@ -197,7 +206,10 @@ async fn publish_theme(
         );
     }
     let Some((scope_name, row)) = candidates.into_iter().next() else {
-        return Err(ApiError(AppError::field("id", "no theme with that id belongs to you")));
+        return Err(ApiError(AppError::field(
+            "id",
+            "no theme with that id belongs to you",
+        )));
     };
 
     let scope = if scope_name == "instance" {
@@ -219,15 +231,10 @@ async fn publish_theme(
         return Err(ApiError(AppError::field("theme", reasons.join("; "))));
     }
 
-    let published = darkhold_db::theme_profiles::publish(
-        state.db(),
-        &scope_name,
-        &owner,
-        &id,
-        &now_rfc3339(),
-    )
-    .await
-    .map_err(ApiError::from)?;
+    let published =
+        darkhold_db::theme_profiles::publish(state.db(), &scope_name, &owner, &id, &now_rfc3339())
+            .await
+            .map_err(ApiError::from)?;
     Ok(Json(json!({
         "id": id,
         "published": published,
@@ -291,16 +298,18 @@ async fn resolve(state: &AppState, user: &crate::auth::SessionUser) -> ApiResult
     .await
     .map_err(ApiError::from)?
     .map(|stored| stored.theme);
-    let reader = darkhold_db::theme_profiles::published(state.db(), "reader", &user.account_id.to_string())
-        .await
-        .map_err(ApiError::from)?
-        .map(|stored| stored.theme);
+    let reader =
+        darkhold_db::theme_profiles::published(state.db(), "reader", &user.account_id.to_string())
+            .await
+            .map_err(ApiError::from)?
+            .map(|stored| stored.theme);
 
     let now = time::OffsetDateTime::now_utc().unix_timestamp();
-    let preview = darkhold_db::theme_profiles::preview_for(state.db(), &user.session_id.to_string(), now)
-        .await
-        .map_err(ApiError::from)?
-        .map(|stored| stored.theme);
+    let preview =
+        darkhold_db::theme_profiles::preview_for(state.db(), &user.session_id.to_string(), now)
+            .await
+            .map_err(ApiError::from)?
+            .map(|stored| stored.theme);
 
     let effective = theme_model::effective(
         &safe_mode,
@@ -328,7 +337,11 @@ fn render(effective: &Effective, safe_mode: &SafeMode) -> Value {
             "layout": wire_layout(&theme_model::core_layout()),
             "declarations": Theme { name: String::new(), palette: BTreeMap::new(), layout: BTreeMap::new() }.declarations(),
         }),
-        Effective::Themed { palette, layout, source } => json!({
+        Effective::Themed {
+            palette,
+            layout,
+            source,
+        } => json!({
             "source": source,
             "safe_mode": safe_mode.active,
             "palette": wire_palette(palette),
@@ -351,9 +364,10 @@ async fn reset_theme(
     State(state): State<AppState>,
     crate::auth::RequireSession(user): crate::auth::RequireSession,
 ) -> ApiResult<Json<Value>> {
-    let removed = darkhold_db::theme_profiles::reset(state.db(), "reader", &user.account_id.to_string())
-        .await
-        .map_err(ApiError::from)?;
+    let removed =
+        darkhold_db::theme_profiles::reset(state.db(), "reader", &user.account_id.to_string())
+            .await
+            .map_err(ApiError::from)?;
     Ok(Json(json!({
         "reset": true,
         "removed": removed,

@@ -171,7 +171,9 @@ async fn a_follow_is_public_only_and_survives_the_shelf_going_private() {
     // 6. Unfollowing reports whether there was anything to remove.
     assert!(unfollow(&db, ME, PUBLIC_SHELF).await.expect("unfollow"));
     assert!(
-        !unfollow(&db, ME, PUBLIC_SHELF).await.expect("unfollow twice"),
+        !unfollow(&db, ME, PUBLIC_SHELF)
+            .await
+            .expect("unfollow twice"),
         "the second unfollow removed nothing and says so"
     );
 

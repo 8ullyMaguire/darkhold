@@ -512,10 +512,7 @@ pub async fn similar_works(db: &Database, work_id: &str, limit: i64) -> Result<V
 /// Extracted so the co-shelving engine (`co_shelved_works`) hydrates its rows with the same statement, the same UUID binding and
 /// the same tie-break as the tag engine: two hydrations of the same table is how one of them ends up with a `::uuid` cast the
 /// other lacks, and the two-engine run is the only place that shows up.
-pub async fn works_by_score(
-    db: &Database,
-    scored: Vec<(String, f64)>,
-) -> Result<Vec<SurfaceWork>> {
+pub async fn works_by_score(db: &Database, scored: Vec<(String, f64)>) -> Result<Vec<SurfaceWork>> {
     hydrate_scored(db, scored).await
 }
 

@@ -819,8 +819,8 @@ pub async fn list_discoverable_pseuds(
     limit: i64,
     offset: i64,
 ) -> Result<Vec<(String, String, String, i64)>> {
-// INFER: no surface concludes from a restricted work. Nobody could have read a work they were never shown,
-// so an edge or a count built on one is a claim about people made from a non-event. See `db::visibility`.
+    // INFER: no surface concludes from a restricted work. Nobody could have read a work they were never shown,
+    // so an edge or a count built on one is a claim about people made from a non-event. See `db::visibility`.
     let sql = db.sql(
         "SELECT p.id, p.handle, p.display_name, (
             SELECT COUNT(*) FROM works w
@@ -1004,11 +1004,7 @@ pub async fn privacy_value_with_origin(
 /// later change to the instance's default would silently not reach them, and the settings page would claim the reader "chose" a value they
 /// never saw. Returns whether a row was there; both answers are success, because resetting a setting that is already inherited is exactly
 /// what a reader who has not chosen it would find.
-pub async fn delete_privacy(
-    db: &Database,
-    scope: PrivacyScope<'_>,
-    key: &str,
-) -> Result<bool> {
+pub async fn delete_privacy(db: &Database, scope: PrivacyScope<'_>, key: &str) -> Result<bool> {
     let (sql, bind) = match scope {
         PrivacyScope::Account(id) => (
             db.sql(
@@ -1026,24 +1022,20 @@ pub async fn delete_privacy(
         ),
     };
     let affected = match db.backend() {
-        crate::Backend::Sqlite => {
-            sqlx::query(&sql)
-                .bind(&bind)
-                .bind(key)
-                .execute(db.sqlite_pool().expect("sqlite handle"))
-                .await
-                .context("deleting privacy setting")?
-                .rows_affected()
-        }
-        crate::Backend::Postgres => {
-            sqlx::query(&sql)
-                .bind(&bind)
-                .bind(key)
-                .execute(db.postgres_pool().expect("postgres handle"))
-                .await
-                .context("deleting privacy setting")?
-                .rows_affected()
-        }
+        crate::Backend::Sqlite => sqlx::query(&sql)
+            .bind(&bind)
+            .bind(key)
+            .execute(db.sqlite_pool().expect("sqlite handle"))
+            .await
+            .context("deleting privacy setting")?
+            .rows_affected(),
+        crate::Backend::Postgres => sqlx::query(&sql)
+            .bind(&bind)
+            .bind(key)
+            .execute(db.postgres_pool().expect("postgres handle"))
+            .await
+            .context("deleting privacy setting")?
+            .rows_affected(),
     };
     Ok(affected > 0)
 }

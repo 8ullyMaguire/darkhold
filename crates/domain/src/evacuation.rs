@@ -186,7 +186,8 @@ impl Receipt {
     /// about to exist in two places under one author, and the operator has to choose which receipt stands.
     #[must_use]
     pub fn forks(&self) -> Vec<(String, Vec<String>)> {
-        let mut by_work: std::collections::BTreeMap<&str, Vec<&str>> = std::collections::BTreeMap::new();
+        let mut by_work: std::collections::BTreeMap<&str, Vec<&str>> =
+            std::collections::BTreeMap::new();
         for acceptance in &self.accepted {
             by_work
                 .entry(acceptance.work_id.as_str())
@@ -201,7 +202,10 @@ impl Receipt {
                 recipients.dedup();
                 (
                     work_id.to_owned(),
-                    recipients.into_iter().map(str::to_owned).collect::<Vec<String>>(),
+                    recipients
+                        .into_iter()
+                        .map(str::to_owned)
+                        .collect::<Vec<String>>(),
                 )
             })
             .filter(|(_, recipients)| recipients.len() > 1)
@@ -262,7 +266,11 @@ mod tests {
         let plan = plan(&works(10), &recipients());
         assert_eq!(plan.placements.len(), 10);
         assert!(plan.unplaced.is_empty());
-        let mut ids: Vec<&str> = plan.placements.iter().map(|row| row.work_id.as_str()).collect();
+        let mut ids: Vec<&str> = plan
+            .placements
+            .iter()
+            .map(|row| row.work_id.as_str())
+            .collect();
         ids.sort_unstable();
         ids.dedup();
         assert_eq!(ids.len(), 10, "one placement per work, never two");
@@ -294,7 +302,10 @@ mod tests {
         }];
         let plan = plan(&works(3), &only);
         assert_eq!(plan.placements.len(), 3);
-        assert!(plan.placements.iter().all(|row| row.recipient == "https://solo.example"));
+        assert!(plan
+            .placements
+            .iter()
+            .all(|row| row.recipient == "https://solo.example"));
     }
 
     #[test]

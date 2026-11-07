@@ -80,10 +80,16 @@ pub async fn submit(
     let account = user.account_id.to_string();
     let version = body.version.trim().to_owned();
     if version.is_empty() {
-        return Err(ApiError(AppError::field("version", "a submission needs a version")));
+        return Err(ApiError(AppError::field(
+            "version",
+            "a submission needs a version",
+        )));
     }
     if body.document.trim().is_empty() {
-        return Err(ApiError(AppError::field("document", "a submission needs a manifest")));
+        return Err(ApiError(AppError::field(
+            "document",
+            "a submission needs a manifest",
+        )));
     }
 
     // The manifest row is created here, in `pending`: a submission is a package that exists and has not been approved, which is exactly
@@ -134,9 +140,8 @@ async fn queue_route(
     let stage = match query.stage.as_deref() {
         // Default to the first human stage: the queue a reviewer opens is "what needs a person", and automated checks are not a person.
         None => Stage::PermissionReview,
-        Some(name) => Stage::from_str(name).ok_or_else(|| {
-            ApiError(AppError::field("stage", "that is not a review stage"))
-        })?,
+        Some(name) => Stage::from_str(name)
+            .ok_or_else(|| ApiError(AppError::field("stage", "that is not a review stage")))?,
     };
     let items = darkhold_db::extension_review::queue(state.db(), stage, 100)
         .await
@@ -174,19 +179,23 @@ async fn record_checks(
         review.checks.clear();
     }
     for check in &body.checks {
-        review.checks.push(darkhold_domain::extension_review::Check {
-            name: check.name.clone(),
-            outcome: if check.passed {
-                Ok(())
-            } else {
-                Err(check
-                    .reason
-                    .clone()
-                    .unwrap_or_else(|| "failed, with no reason recorded".to_owned()))
-            },
-        });
+        review
+            .checks
+            .push(darkhold_domain::extension_review::Check {
+                name: check.name.clone(),
+                outcome: if check.passed {
+                    Ok(())
+                } else {
+                    Err(check
+                        .reason
+                        .clone()
+                        .unwrap_or_else(|| "failed, with no reason recorded".to_owned()))
+                },
+            });
     }
-    let stage = review.apply(darkhold_domain::extension_review::Action::RecordChecks).map_err(refused)?;
+    let stage = review
+        .apply(darkhold_domain::extension_review::Action::RecordChecks)
+        .map_err(refused)?;
     save(&state, &slug, &version, &review, None).await?;
     Ok(Json(json!({
         "stage": stage.as_str(),
@@ -231,17 +240,26 @@ async fn approve(
     match outcome {
         Ok(stage) => {
             save(&state, &slug, &version, &review, None).await?;
-            darkhold_db::extension_review::set_manifest_state(state.db(), &slug, &version, "approved")
-                .await
-                .map_err(|error| ApiError(AppError::Internal(error.into())))?;
+            darkhold_db::extension_review::set_manifest_state(
+                state.db(),
+                &slug,
+                &version,
+                "approved",
+            )
+            .await
+            .map_err(|error| ApiError(AppError::Internal(error.into())))?;
             // §21.5's renewal clause: publishing a version that asks for more than an existing grant covers invalidates that grant, and
             // the response says how many readers have to be asked again. Done at publish because that is the moment the wider
             // permission set becomes the thing on offer -- a check at grant time would ask the reader to notice the difference.
             let requested = declared_capabilities(&state, &slug, &version).await?;
-            let renewed =
-                darkhold_db::extension_review::renewal_on_growth(state.db(), &slug, &version, &requested)
-                    .await
-                    .map_err(|error| ApiError(AppError::Internal(error.into())))?;
+            let renewed = darkhold_db::extension_review::renewal_on_growth(
+                state.db(),
+                &slug,
+                &version,
+                &requested,
+            )
+            .await
+            .map_err(|error| ApiError(AppError::Internal(error.into())))?;
             Ok(Json(json!({
                 "stage": stage.as_str(),
                 "approvals": review.approvals,
@@ -286,7 +304,9 @@ async fn reject(
     darkhold_db::extension_review::set_manifest_state(state.db(), &slug, &version, "rejected")
         .await
         .map_err(|error| ApiError(AppError::Internal(error.into())))?;
-    Ok(Json(json!({ "stage": stage.as_str(), "reason": body.reason })))
+    Ok(Json(
+        json!({ "stage": stage.as_str(), "reason": body.reason }),
+    ))
 }
 
 async fn revoke(
@@ -310,12 +330,14 @@ async fn revoke(
     darkhold_db::extension_review::set_manifest_state(state.db(), &slug, &version, "revoked")
         .await
         .map_err(|error| ApiError(AppError::Internal(error.into())))?;
-    let revoked_grants = darkhold_db::extension_review::require_renewal(state.db(), &slug, &version)
-        .await
-        .map_err(|error| ApiError(AppError::Internal(error.into())))?;
-    let rollback_to = darkhold_db::extension_review::previous_published(state.db(), &slug, &version)
-        .await
-        .map_err(|error| ApiError(AppError::Internal(error.into())))?;
+    let revoked_grants =
+        darkhold_db::extension_review::require_renewal(state.db(), &slug, &version)
+            .await
+            .map_err(|error| ApiError(AppError::Internal(error.into())))?;
+    let rollback_to =
+        darkhold_db::extension_review::previous_published(state.db(), &slug, &version)
+            .await
+            .map_err(|error| ApiError(AppError::Internal(error.into())))?;
 
     Ok(Json(json!({
         "stage": stage.as_str(),
@@ -343,15 +365,17 @@ async fn declared_capabilities(
     let Some(document) = document else {
         return Ok(std::collections::BTreeSet::new());
     };
-    Ok(serde_json::from_str::<darkhold_domain::extension::Manifest>(&document)
-        .map(|manifest| {
-            manifest
-                .permissions
-                .iter()
-                .map(|capability| capability.as_str().to_owned())
-                .collect()
-        })
-        .unwrap_or_default())
+    Ok(
+        serde_json::from_str::<darkhold_domain::extension::Manifest>(&document)
+            .map(|manifest| {
+                manifest
+                    .permissions
+                    .iter()
+                    .map(|capability| capability.as_str().to_owned())
+                    .collect()
+            })
+            .unwrap_or_default(),
+    )
 }
 
 async fn load(state: &AppState, slug: &str, version: &str) -> ApiResult<Review> {

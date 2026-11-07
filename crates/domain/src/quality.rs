@@ -528,7 +528,13 @@ fn logistic(z: f64) -> f64 {
 /// which block a row is in.
 #[must_use]
 pub fn rank(metric: Metric, candidates: &[Candidate], limit: usize, offset: usize) -> Ranking {
-    rank_with(metric, candidates, limit, offset, &QualityWeights::default())
+    rank_with(
+        metric,
+        candidates,
+        limit,
+        offset,
+        &QualityWeights::default(),
+    )
 }
 
 /// [`rank`] with an operator's weights (M63-38). The same population sorted two ways is two judgements, and the caller that owns the
@@ -712,7 +718,6 @@ pub fn rank_with(
     }
 }
 
-
 /// Wilson score interval lower bound for `successes` out of `trials`, at 95%.
 ///
 /// Why a bound and not the plain ratio: 1 kudos over 10 hits is a 10% rate and 400 over 9,000 is 4.4%, and a reader told the first is
@@ -739,7 +744,6 @@ pub fn wilson_lower_bound(successes: u64, trials: u64) -> Option<f64> {
     let margin = Z * ((p * (1.0 - p) / n) + z2 / (4.0 * n * n)).sqrt();
     Some(((centre - margin) / denominator).clamp(0.0, 1.0))
 }
-
 
 /// The weights of the `quality` composite, as data instead of literals (M63-38).
 ///
@@ -815,7 +819,9 @@ impl QualityWeights {
             ("confidence", self.confidence),
         ] {
             if !value.is_finite() {
-                return Err(format!("quality weight `{name}` is {value}, which is not a number"));
+                return Err(format!(
+                    "quality weight `{name}` is {value}, which is not a number"
+                ));
             }
             if value < 0.0 {
                 return Err(format!(
@@ -824,7 +830,10 @@ impl QualityWeights {
             }
         }
         if self.total() <= 0.0 {
-            return Err("every quality weight is zero, which makes `quality` identical for every row".to_owned());
+            return Err(
+                "every quality weight is zero, which makes `quality` identical for every row"
+                    .to_owned(),
+            );
         }
         Ok(())
     }
@@ -935,7 +944,6 @@ mod tests {
         }
     }
 
-
     /// M63-38: two operators, one catalogue, two defensible orderings. The weights are data, so this is provable without a config file.
     #[test]
     fn different_weights_rank_the_same_population_differently() {
@@ -948,7 +956,12 @@ mod tests {
             candidate("dense", "sb", 900, Some(2_000)),
         ];
         for i in 0..8 {
-            population.push(candidate(&format!("f{i}"), "sb", 100 + i * 50, Some(50_000)));
+            population.push(candidate(
+                &format!("f{i}"),
+                "sb",
+                100 + i * 50,
+                Some(50_000),
+            ));
         }
         // Two single-signal profiles, because the property is that the mixture is data: one operator trusts position in the archive,
         // the other trusts engagement per word, and the same population answers both questions differently.
@@ -972,7 +985,10 @@ mod tests {
         let a = rank_with(Metric::Quality, &population, 2, 0, &percentile);
         let b = rank_with(Metric::Quality, &population, 2, 0, &density);
         assert_eq!(a.hits[0].id, "wide", "percentile weights trust position");
-        assert_eq!(b.hits[0].id, "dense", "density weights trust likes per 1k words");
+        assert_eq!(
+            b.hits[0].id, "dense",
+            "density weights trust likes per 1k words"
+        );
         // The signals are the same rows observed the same way; only the mixture changed, so `dense` carries the better density in both
         // rankings even where it loses the page.
         let density_of = |ranking: &Ranking, id: &str| {
@@ -988,12 +1004,18 @@ mod tests {
         );
 
         // Weights that cannot rank are refused rather than silently producing id order.
-        assert!(QualityWeights { source_pct: -0.1, ..QualityWeights::default() }
-            .validate()
-            .is_err());
-        assert!(QualityWeights { source_pct: f64::NAN, ..QualityWeights::default() }
-            .validate()
-            .is_err());
+        assert!(QualityWeights {
+            source_pct: -0.1,
+            ..QualityWeights::default()
+        }
+        .validate()
+        .is_err());
+        assert!(QualityWeights {
+            source_pct: f64::NAN,
+            ..QualityWeights::default()
+        }
+        .validate()
+        .is_err());
         assert!(QualityWeights {
             source_pct: 0.0,
             consensus: 0.0,
@@ -1045,7 +1067,10 @@ mod tests {
         // No views is undefined, not zero — a rate over nothing is not a bad rate.
         assert_eq!(wilson_lower_bound(0, 0), None);
         // Successes above trials are a source bug clamped to certainty, not a fabricated above-100% bound.
-        assert_eq!(wilson_lower_bound(1_001, 1_000), wilson_lower_bound(1_000, 1_000));
+        assert_eq!(
+            wilson_lower_bound(1_001, 1_000),
+            wilson_lower_bound(1_000, 1_000)
+        );
     }
 
     /// A rate is only computed from a row whose archive published both halves; the metric then scores it, and a row with no view count
@@ -1063,7 +1088,11 @@ mod tests {
         let ranking = rank(Metric::LikesPerView, &population, 10, 0);
         let first = ranking.hits.first().expect("a hit");
         assert_eq!(first.id, "a", "5% beats 0.5% and beats a row with no views");
-        let c = ranking.hits.iter().find(|hit| hit.id == "c").expect("c ranked");
+        let c = ranking
+            .hits
+            .iter()
+            .find(|hit| hit.id == "c")
+            .expect("c ranked");
         assert_eq!(c.signals.rate, None, "no views published, no rate invented");
         // Wilson orders the same pair the same way, with a tighter gap.
         let wilson = rank(Metric::Wilson, &population, 10, 0);

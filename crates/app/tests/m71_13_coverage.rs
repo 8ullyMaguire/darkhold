@@ -124,7 +124,14 @@ async fn node(db: &Database, id: &str, kind: &str, canonical: &str) {
     .await;
 }
 
-async fn work(db: &Database, index: usize, title: &str, lifecycle: &str, visibility: &str, tag: Option<&str>) {
+async fn work(
+    db: &Database,
+    index: usize,
+    title: &str,
+    lifecycle: &str,
+    visibility: &str,
+    tag: Option<&str>,
+) {
     let id = format!("01956000-0000-4000-8000-0000000f00{index:02}");
     exec(
         db,
@@ -156,7 +163,15 @@ async fn seed(db: &Database) {
 
     work(db, 1, "Public burn", "published", "public", Some(SLOWBURN)).await;
     work(db, 2, "Another burn", "published", "public", Some(SLOWBURN)).await;
-    work(db, 3, "Private burn", "published", "private", Some(SLOWBURN)).await;
+    work(
+        db,
+        3,
+        "Private burn",
+        "published",
+        "private",
+        Some(SLOWBURN),
+    )
+    .await;
     work(db, 4, "Draft burn", "draft", "public", Some(SLOWBURN)).await;
     // Unrelated published works: they are the denominator.
     work(db, 5, "Plain one", "published", "public", None).await;
@@ -168,19 +183,32 @@ async fn seed(db: &Database) {
 
 async fn json_of(app: axum::Router, uri: &str) -> (StatusCode, Value) {
     let response = app
-        .oneshot(Request::builder().uri(uri).body(Body::empty()).expect("request"))
+        .oneshot(
+            Request::builder()
+                .uri(uri)
+                .body(Body::empty())
+                .expect("request"),
+        )
         .await
         .expect("response");
     let status = response.status();
     let bytes = axum::body::to_bytes(response.into_body(), 1 << 20)
         .await
         .expect("body");
-    (status, serde_json::from_slice(&bytes).unwrap_or(Value::Null))
+    (
+        status,
+        serde_json::from_slice(&bytes).unwrap_or(Value::Null),
+    )
 }
 
 async fn html_of(app: axum::Router, uri: &str) -> (StatusCode, String) {
     let response: Response = app
-        .oneshot(Request::builder().uri(uri).body(Body::empty()).expect("request"))
+        .oneshot(
+            Request::builder()
+                .uri(uri)
+                .body(Body::empty())
+                .expect("request"),
+        )
         .await
         .expect("response");
     let status = response.status();
@@ -211,7 +239,9 @@ async fn a_tag_page_states_the_share_of_the_archive_it_describes() {
     assert!((share - 0.4).abs() < 1e-9, "2 of 5: {coverage}");
     let sentence = coverage["sentence"].as_str().expect("sentence");
     assert!(
-        sentence.contains("2 of 5") && sentence.contains("tagged slow burn") && sentence.contains("40.0%"),
+        sentence.contains("2 of 5")
+            && sentence.contains("tagged slow burn")
+            && sentence.contains("40.0%"),
         "the sentence carries both numbers and the share: {sentence}"
     );
 

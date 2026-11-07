@@ -80,23 +80,19 @@ pub async fn clear(db: &Database, pseud_id: Uuid) -> Result<bool> {
         Backend::Postgres => "DELETE FROM reader_gravity WHERE pseud_id = $1",
     };
     let affected = match db.backend() {
-        Backend::Sqlite => {
-            sqlx::query(sql)
-                .bind(pseud_id.to_string())
-                .execute(db.sqlite_pool().expect("sqlite pool for sqlite backend"))
-                .await?
-                .rows_affected()
-        }
-        Backend::Postgres => {
-            sqlx::query(sql)
-                .bind(pseud_id)
-                .execute(
-                    db.postgres_pool()
-                        .expect("postgres pool for postgres backend"),
-                )
-                .await?
-                .rows_affected()
-        }
+        Backend::Sqlite => sqlx::query(sql)
+            .bind(pseud_id.to_string())
+            .execute(db.sqlite_pool().expect("sqlite pool for sqlite backend"))
+            .await?
+            .rows_affected(),
+        Backend::Postgres => sqlx::query(sql)
+            .bind(pseud_id)
+            .execute(
+                db.postgres_pool()
+                    .expect("postgres pool for postgres backend"),
+            )
+            .await?
+            .rows_affected(),
     };
     Ok(affected > 0)
 }

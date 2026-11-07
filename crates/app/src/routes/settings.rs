@@ -16,8 +16,8 @@ use std::collections::{BTreeMap, HashMap};
 use std::str::FromStr;
 
 use axum::extract::{Query, State};
-use axum::routing::{get, post};
 use axum::http::StatusCode;
+use axum::routing::{get, post};
 use axum::{Json, Router};
 use darkhold_db::identity::{self, PrivacyScope};
 use darkhold_db::sessions;
@@ -220,15 +220,16 @@ async fn get_privacy(
                 }),
                 None,
             ),
-            None => (darkhold_domain::settings::SettingSource::Instance, None, None),
+            None => (
+                darkhold_domain::settings::SettingSource::Instance,
+                None,
+                None,
+            ),
         };
         account_provenance.insert(
             key.name.to_owned(),
             Provenance {
-                value: account_settings
-                    .get(key.name)
-                    .cloned()
-                    .unwrap_or_default(),
+                value: account_settings.get(key.name).cloned().unwrap_or_default(),
                 source,
                 reset,
                 note,
@@ -242,7 +243,11 @@ async fn get_privacy(
         for key in privacy::keys_in(privacy::Scope::Pseud) {
             let at_pseud = identity::privacy_value_with_origin(
                 state.db(),
-                PrivacyScope::Pseud(&pseud_id.parse().map_err(|_| ApiError(AppError::AuthRequired))?),
+                PrivacyScope::Pseud(
+                    &pseud_id
+                        .parse()
+                        .map_err(|_| ApiError(AppError::AuthRequired))?,
+                ),
                 key.name,
             )
             .await?;
@@ -254,10 +259,7 @@ async fn get_privacy(
                     darkhold_domain::settings::SettingSource::Pseud,
                     Some(Reset {
                         method: "DELETE",
-                        path: format!(
-                            "/api/v1/settings/privacy/{}?pseud_id={pseud_id}",
-                            key.name
-                        ),
+                        path: format!("/api/v1/settings/privacy/{}?pseud_id={pseud_id}", key.name),
                         becomes: "this account's value for the same setting",
                     }),
                     None,
@@ -268,15 +270,20 @@ async fn get_privacy(
                     None,
                     Some("The instance's starting default for this face; you have not changed it."),
                 )
-            } else if account_provenance
-                .get(key.name)
-                .is_some_and(|provenance| {
-                    provenance.source == darkhold_domain::settings::SettingSource::Account
-                })
-            {
-                (darkhold_domain::settings::SettingSource::Account, None, None)
+            } else if account_provenance.get(key.name).is_some_and(|provenance| {
+                provenance.source == darkhold_domain::settings::SettingSource::Account
+            }) {
+                (
+                    darkhold_domain::settings::SettingSource::Account,
+                    None,
+                    None,
+                )
             } else {
-                (darkhold_domain::settings::SettingSource::Instance, None, None)
+                (
+                    darkhold_domain::settings::SettingSource::Instance,
+                    None,
+                    None,
+                )
             };
             entries.insert(
                 key.name.to_owned(),
@@ -334,12 +341,8 @@ async fn delete_privacy_setting(
                 // oracle, and this route has no reason to be one.
                 return Err(ApiError(AppError::NotFound { resource: "pseud" }));
             }
-            identity::delete_privacy(
-                state.db(),
-                PrivacyScope::Pseud(&pseud_id),
-                description.name,
-            )
-            .await?;
+            identity::delete_privacy(state.db(), PrivacyScope::Pseud(&pseud_id), description.name)
+                .await?;
         }
         None => {
             identity::delete_privacy(

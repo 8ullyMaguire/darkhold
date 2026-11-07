@@ -117,7 +117,9 @@ pub async fn announce(
     }
 
     for placement in &plan.placements {
-        let similarity_bp = (placement.similarity * 10_000.0).round().clamp(0.0, 10_000.0) as i64;
+        let similarity_bp = (placement.similarity * 10_000.0)
+            .round()
+            .clamp(0.0, 10_000.0) as i64;
         let assignment_id = uuid::Uuid::new_v4().to_string();
         match db.backend() {
             Backend::Sqlite => {
@@ -186,8 +188,7 @@ fn notice_from_postgres(row: &sqlx::postgres::PgRow) -> Notice {
     }
 }
 
-const NOTICE_COLUMNS: &str =
-    "id, reason, announced_by, announced_at, state, note, completed_at";
+const NOTICE_COLUMNS: &str = "id, reason, announced_by, announced_at, state, note, completed_at";
 
 /// The notice currently announced, if any.
 pub async fn open_notice(db: &Database) -> Result<Option<Notice>> {
@@ -328,7 +329,9 @@ pub async fn settle(
         // announced, closed, and announced again, or one revived under a new operator. So the check spans every notice, and
         // it only bites when the earlier home was a DIFFERENT recipient: recording the same peer twice is one home with two
         // receipts, which is history rather than a fork.
-        if let Some((other_notice, holder)) = accepted_holder_anywhere(db, &assignment.work_id).await? {
+        if let Some((other_notice, holder)) =
+            accepted_holder_anywhere(db, &assignment.work_id).await?
+        {
             if holder != assignment.recipient_instance {
                 return Err(anyhow::anyhow!(
                     "{} already took '{}' in evacuation {}; one work gets one home, or the author's page forks",
@@ -406,7 +409,11 @@ pub async fn accepted_holder_anywhere(
 }
 
 /// Which recipient, if any, already accepted this work in this notice.
-pub async fn accepted_holder(db: &Database, notice_id: &str, work_id: &str) -> Result<Option<String>> {
+pub async fn accepted_holder(
+    db: &Database,
+    notice_id: &str,
+    work_id: &str,
+) -> Result<Option<String>> {
     match db.backend() {
         Backend::Sqlite => {
             let holder: Option<String> = sqlx::query_scalar(
@@ -506,12 +513,14 @@ pub async fn close(db: &Database, reason: &str, now: &str) -> Result<Notice> {
                 .await?;
         }
         Backend::Postgres => {
-            sqlx::query("UPDATE evacuation_notices SET state = $1, completed_at = $2 WHERE id = $3")
-                .bind(reason)
-                .bind(now)
-                .bind(&open.id)
-                .execute(db.postgres_pool().expect("postgres"))
-                .await?;
+            sqlx::query(
+                "UPDATE evacuation_notices SET state = $1, completed_at = $2 WHERE id = $3",
+            )
+            .bind(reason)
+            .bind(now)
+            .bind(&open.id)
+            .execute(db.postgres_pool().expect("postgres"))
+            .await?;
         }
     }
     find_notice(db, &open.id)

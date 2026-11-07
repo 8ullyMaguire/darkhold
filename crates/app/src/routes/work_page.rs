@@ -26,7 +26,9 @@ use crate::assets;
 use crate::auth::MaybeSession;
 use crate::routes::document as docs;
 use crate::routes::provenance::Provenance;
-use crate::routes::works::{actor_for, parse_work_id, reading_decision_publishing_metadata, Reading};
+use crate::routes::works::{
+    actor_for, parse_work_id, reading_decision_publishing_metadata, Reading,
+};
 use crate::state::AppState;
 
 pub fn router() -> Router<AppState> {
@@ -96,7 +98,9 @@ async fn document(state: &AppState, work: &darkhold_db::content::Work) -> Respon
         .await
         .unwrap_or_default();
     let metrics = if work.show_public_ratings {
-        darkhold_db::work_metrics::get_metrics(db, &work.id).await.ok()
+        darkhold_db::work_metrics::get_metrics(db, &work.id)
+            .await
+            .ok()
     } else {
         None
     };
@@ -179,20 +183,17 @@ async fn document(state: &AppState, work: &darkhold_db::content::Work) -> Respon
 
     // ── the primary action, before the summary: a reader who already knows what this is should not scroll ──
     if let Some(first) = readable.first() {
-        page.open(
-            "p",
-            &[("class", "start")],
-        )
-        .open(
-            "a",
-            &[
-                ("class", "start-link"),
-                ("href", &format!("/works/{}/units/{}", work.id, first.id)),
-            ],
-        )
-        .text("Start reading")
-        .close("a")
-        .close("p");
+        page.open("p", &[("class", "start")])
+            .open(
+                "a",
+                &[
+                    ("class", "start-link"),
+                    ("href", &format!("/works/{}/units/{}", work.id, first.id)),
+                ],
+            )
+            .text("Start reading")
+            .close("a")
+            .close("p");
     }
 
     if !work.summary.trim().is_empty() {
@@ -225,14 +226,11 @@ async fn document(state: &AppState, work: &darkhold_db::content::Work) -> Respon
         page.open("h2", &[]).text("Tags").close("h2");
         page.open("ul", &[("class", "tag-list")]);
         for tag in &tags {
-            page.open(
-                "li",
-                &[],
-            )
-            .open("a", &[("href", &tag_href(tag))])
-            .text(tag)
-            .close("a")
-            .close("li");
+            page.open("li", &[])
+                .open("a", &[("href", &tag_href(tag))])
+                .text(tag)
+                .close("a")
+                .close("li");
         }
         page.close("ul");
         page.close("section");

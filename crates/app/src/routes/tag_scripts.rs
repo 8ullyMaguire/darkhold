@@ -76,13 +76,9 @@ async fn add_node(
     crate::auth::RequireSession(user): crate::auth::RequireSession,
     Path((id, node_id)): Path<(String, String)>,
 ) -> ApiResult<StatusCode> {
-    let changed = darkhold_db::tag_scripts::add_node(
-        state.db(),
-        &user.account_id.to_string(),
-        &id,
-        &node_id,
-    )
-    .await?;
+    let changed =
+        darkhold_db::tag_scripts::add_node(state.db(), &user.account_id.to_string(), &id, &node_id)
+            .await?;
     // `false` means either "not your script" or "already in it". Both answer the same way on purpose: the second is a no-op the
     // caller asked for, and the first must not be distinguishable from it or the endpoint becomes a probe for other scripts.
     let _ = changed;
@@ -95,13 +91,8 @@ async fn remove_node(
     crate::auth::RequireSession(user): crate::auth::RequireSession,
     Path((id, node_id)): Path<(String, String)>,
 ) -> ApiResult<StatusCode> {
-    darkhold_db::tag_scripts::remove_node(
-        state.db(),
-        &user.account_id.to_string(),
-        &id,
-        &node_id,
-    )
-    .await?;
+    darkhold_db::tag_scripts::remove_node(state.db(), &user.account_id.to_string(), &id, &node_id)
+        .await?;
     Ok(StatusCode::NO_CONTENT)
 }
 
@@ -118,8 +109,10 @@ async fn apply(
         &work_id,
     )
     .await?
-    .ok_or_else(|| ApiError(AppError::NotFound {
-        resource: "tag script",
-    }))?;
+    .ok_or_else(|| {
+        ApiError(AppError::NotFound {
+            resource: "tag script",
+        })
+    })?;
     Ok(Json(serde_json::json!(report)))
 }

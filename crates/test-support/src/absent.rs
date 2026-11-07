@@ -41,7 +41,9 @@ fn headings(html: &str) -> Vec<Heading<'_>> {
                 continue;
             }
         };
-        let Some(open_end) = lower[start..].find('>') else { break };
+        let Some(open_end) = lower[start..].find('>') else {
+            break;
+        };
         let text_start = start + open_end + 1;
         let close = format!("</h{level}>");
         let Some(text_end_rel) = lower[text_start..].find(&close) else {
@@ -57,12 +59,7 @@ fn headings(html: &str) -> Vec<Heading<'_>> {
         let next_heading = lower[after..]
             .find("<h")
             .map(|i| after + i)
-            .filter(|end| {
-                matches!(
-                    lower.as_bytes().get(end + 2),
-                    Some(b'1'..=b'4')
-                )
-            })
+            .filter(|end| matches!(lower.as_bytes().get(end + 2), Some(b'1'..=b'4')))
             .unwrap_or(html.len());
         let block_end = ["</section>", "</main>", "</article>", "</body>"]
             .iter()
@@ -160,7 +157,10 @@ mod tests {
 
     #[test]
     fn a_heading_over_text_passes() {
-        assert_no_empty_section("<section><h2>Tags</h2><ul><li>slow burn</li></ul></section>", "test");
+        assert_no_empty_section(
+            "<section><h2>Tags</h2><ul><li>slow burn</li></ul></section>",
+            "test",
+        );
     }
 
     #[test]
@@ -188,6 +188,9 @@ mod tests {
 
     #[test]
     fn hr_and_header_are_not_headings() {
-        assert_no_empty_section("<header><p>Darkhold</p></header><hr><main><p>x</p></main>", "test");
+        assert_no_empty_section(
+            "<header><p>Darkhold</p></header><hr><main><p>x</p></main>",
+            "test",
+        );
     }
 }

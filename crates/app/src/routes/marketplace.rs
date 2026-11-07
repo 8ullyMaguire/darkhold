@@ -414,7 +414,11 @@ pub async fn fork_extension(
 ) -> ApiResult<Json<Value>> {
     let account = user.account_id.to_string();
     let id = body.id.trim().to_lowercase();
-    if id.is_empty() || !id.chars().all(|c| c.is_ascii_lowercase() || c.is_ascii_digit() || c == '-' || c == '_') {
+    if id.is_empty()
+        || !id
+            .chars()
+            .all(|c| c.is_ascii_lowercase() || c.is_ascii_digit() || c == '-' || c == '_')
+    {
         return Err(ApiError(darkhold_domain::AppError::field(
             "id",
             "a package id is lowercase letters, digits, `-` and `_`",
@@ -429,16 +433,26 @@ pub async fn fork_extension(
     // A fork under a different licence is relabelled deliberately, and the check happens before anything is written: a copyleft source
     // may not be republished under a permissive licence, and an unrecognised one is refused rather than assumed compatible.
     let mut document_override: Option<String> = None;
-    if let Some(requested) = body.license.as_deref().map(str::trim).filter(|text| !text.is_empty()) {
-        let source_document = darkhold_db::marketplace::manifest_document_for_latest(state.db(), &slug)
-            .await
-            .map_err(|error| ApiError(darkhold_domain::AppError::Internal(error.into())))?
-            .ok_or_else(|| ApiError(darkhold_domain::AppError::NotFound {
-                resource: "extension",
-            }))?;
+    if let Some(requested) = body
+        .license
+        .as_deref()
+        .map(str::trim)
+        .filter(|text| !text.is_empty())
+    {
+        let source_document =
+            darkhold_db::marketplace::manifest_document_for_latest(state.db(), &slug)
+                .await
+                .map_err(|error| ApiError(darkhold_domain::AppError::Internal(error.into())))?
+                .ok_or_else(|| {
+                    ApiError(darkhold_domain::AppError::NotFound {
+                        resource: "extension",
+                    })
+                })?;
         let mut manifest: darkhold_domain::extension::Manifest =
             serde_json::from_str(&source_document).map_err(|error| {
-                ApiError(darkhold_domain::AppError::Internal(anyhow::Error::from(error)))
+                ApiError(darkhold_domain::AppError::Internal(anyhow::Error::from(
+                    error,
+                )))
             })?;
         darkhold_domain::gallery::compatible(&manifest.license, requested).map_err(|refusal| {
             ApiError(darkhold_domain::AppError::Validation {
@@ -449,7 +463,9 @@ pub async fn fork_extension(
         if manifest.license != requested {
             manifest.license = requested.to_owned();
             document_override = Some(serde_json::to_string(&manifest).map_err(|error| {
-                ApiError(darkhold_domain::AppError::Internal(anyhow::Error::from(error)))
+                ApiError(darkhold_domain::AppError::Internal(anyhow::Error::from(
+                    error,
+                )))
             })?);
         }
     }
@@ -469,18 +485,26 @@ pub async fn fork_extension(
             // preserved, which is a claim about what a reader sees, not only about a column. The licence comes from the fork's own
             // document: the row does not carry one, and the document is what the reader would be granting.
             if let (Some(source), Some(version)) = (
-                fork.get("derived_from").and_then(serde_json::Value::as_str).map(str::to_owned),
-                fork.get("derived_from_version").and_then(serde_json::Value::as_str).map(str::to_owned),
+                fork.get("derived_from")
+                    .and_then(serde_json::Value::as_str)
+                    .map(str::to_owned),
+                fork.get("derived_from_version")
+                    .and_then(serde_json::Value::as_str)
+                    .map(str::to_owned),
             ) {
-                let license = darkhold_db::marketplace::manifest_document(state.db(), &id, body.version.trim())
-                    .await
-                    .ok()
-                    .flatten()
-                    .and_then(|document| {
-                        serde_json::from_str::<darkhold_domain::extension::Manifest>(&document).ok()
-                    })
-                    .map(|manifest| manifest.license)
-                    .unwrap_or_else(|| "licence unrecorded".to_owned());
+                let license = darkhold_db::marketplace::manifest_document(
+                    state.db(),
+                    &id,
+                    body.version.trim(),
+                )
+                .await
+                .ok()
+                .flatten()
+                .and_then(|document| {
+                    serde_json::from_str::<darkhold_domain::extension::Manifest>(&document).ok()
+                })
+                .map(|manifest| manifest.license)
+                .unwrap_or_else(|| "licence unrecorded".to_owned());
                 let sentence = darkhold_domain::gallery::attribution(&source, &version, &license);
                 if let Some(object) = fork.as_object_mut() {
                     object.insert("attribution".to_owned(), json!(sentence));
@@ -491,7 +515,9 @@ pub async fn fork_extension(
         Err(sqlx::Error::RowNotFound) => Err(ApiError(darkhold_domain::AppError::NotFound {
             resource: "extension",
         })),
-        Err(sqlx::Error::Protocol(message)) => Err(ApiError(darkhold_domain::AppError::field("id", &message))),
+        Err(sqlx::Error::Protocol(message)) => {
+            Err(ApiError(darkhold_domain::AppError::field("id", &message)))
+        }
         Err(error) => Err(ApiError(darkhold_domain::AppError::Internal(error.into()))),
     }
 }

@@ -244,7 +244,10 @@ pub async fn install_count(db: &Database, manifest_id: &str) -> Result<u64, sqlx
 }
 
 /// Every version of a package that readers may install, newest first.
-pub async fn published_versions(db: &Database, manifest_id: &str) -> Result<Vec<String>, sqlx::Error> {
+pub async fn published_versions(
+    db: &Database,
+    manifest_id: &str,
+) -> Result<Vec<String>, sqlx::Error> {
     let versions: Vec<String> = match db.backend() {
         Backend::Sqlite => sqlx::query(
             "SELECT version FROM extension_manifests WHERE id = ? AND state = 'approved'
@@ -362,7 +365,8 @@ pub async fn reviews(
     manifest_id: &str,
     limit: i64,
 ) -> Result<Vec<Value>, sqlx::Error> {
-    let sql_sqlite = "SELECT r.version_rated, r.stars, r.review, r.created_at, r.updated_at, p.handle
+    let sql_sqlite =
+        "SELECT r.version_rated, r.stars, r.review, r.created_at, r.updated_at, p.handle
          FROM extension_ratings r
          LEFT JOIN pseuds p ON p.id = r.scope
          WHERE r.manifest_id = ? AND r.review IS NOT NULL AND trim(r.review) <> ''
