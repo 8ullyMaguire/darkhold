@@ -177,6 +177,11 @@
       "why": "A UUID foreign key to accounts.id, so it must be re-keyed with snapshot_account -- the SAME derivation accounts.id uses, on the account salt, so the join survives (11.16.3b). rekey_text would emit a `snp_` TEXT hash that cannot be compared with a uuid: the relationship to accounts is destroyed while every behavioural column still reads as pseudonymous, so the snapshot LOOKS de-identified and is not. (account_id, work_id) is the UNIQUE key of the queue, so a constant or a collapsed hash would merge every reader's queue into one row and destroy the property the constraint enforces. The queue is also *not* a taste signal (M70-07), so a dump that joined it to bookmarks would manufacture the very inference the table exists to avoid.",
       "reviewed_by": "agent, 2026-11-05, against spec 11.16.3b (M70-07 migration 0158); awaiting the operator's review"
     },
+    "reader_affinity.account_id": {
+      "treatment": "drop_table",
+      "why": "M69-09 keeps one derived taste reading per reader: three similarities against the operator's taste. That is a psychometric profile, not behaviour that outlives the reader, and a re-keyed score would still say 'this pseudonymous person is 81% like the operator'. Nothing in it survives de-identification, so the table goes -- the same answer given to extern_seeds and supply_routing, for the same reason.",
+      "reviewed_by": "alvaro, 2026-11-07, M69-09"
+    },
     "revisions.created_at": {
       "treatment": "offset_timestamps",
       "why": "11.16.5 event time. Shifted per snapshot, so consecutive dumps cannot be joined row-for-row on the timestamp, while every interval and ordering inside one dump survives -- which is the research value 11.16.5 says the dataset exists for ('how long do people keep a work before abandoning it').",

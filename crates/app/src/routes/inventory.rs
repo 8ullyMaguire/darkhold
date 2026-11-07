@@ -6230,7 +6230,29 @@ pub const ROUTE_TABLE: &[RouteEntry] = &[
         path: "/extensions/{slug}/apply-recipe",
         audience: Audience::Authenticated,
     },
+    RouteEntry {
+        file: "affinity.rs",
+        handler: "my_affinity",
+        method: "GET",
+        path: "/me/affinity",
+        audience: Audience::Authenticated,
+    },
+    RouteEntry {
+        file: "affinity.rs",
+        handler: "operator_view",
+        method: "GET",
+        path: "/operator/affinity",
+        audience: Audience::Operator,
+    },
+    RouteEntry {
+        file: "affinity.rs",
+        handler: "recompute",
+        method: "POST",
+        path: "/operator/affinity/recompute",
+        audience: Audience::Operator,
+    },
 ];
+
 
 
 

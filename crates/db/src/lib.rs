@@ -109,6 +109,7 @@ pub mod ranking;
 pub mod rating_integrity;
 pub mod reader_body_copies;
 pub mod reader_surface;
+pub mod reader_affinity;
 pub mod reading;
 pub mod reading_goal;
 pub mod reasons_store;

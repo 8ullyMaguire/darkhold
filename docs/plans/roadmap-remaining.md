@@ -389,3 +389,20 @@ answers which categories run, the route asks it before reading anything out of t
 
 Gaps named in the ledger: the blend does not read recipe documents yet (M69/M64 own that), so an applied recipe is validated and stored
 but does not change the feed; and there is no engine runner to hand an engine package to.
+
+### M69-09 — reader affinity (implemented 2026-11-07)
+
+One stored 0..10000 score per reader with its three components (favourite overlap 0.5, tag similarity 0.3, arena
+agreement 0.2), computed in a sweep that starts from the evidence tables. An absent signal is removed from both halves of
+the mean instead of being counted as zero — a reader with no arena history is not "0.2 less aligned" — and a measured
+zero is still a score. `evidence_bp` travels with `score_bp`.
+
+The sweep is **operator-triggered** (`POST /operator/affinity/recompute`): there is no scheduler in this tree, so a
+`tokio::interval` inside a handler would be a timer per request multiplied by the process count. The upsert means a
+second run repairs rather than doubles, and a repeat over unchanged data reports zeros (a run that reports a change every
+time is a sweep matching nothing). New evidence is absorbed by the next run.
+
+Not wired yet: nothing consumes the score (trust speed, badges and membership are the intended consumers), so this is a
+reading of evidence with a door, not a feature a stranger can see. The four PostgreSQL casts (`::uuid` on account and
+work ids, `CAST(... AS TEXT)` on selects) are not decoration: the SQLite run passed while the PostgreSQL run failed on
+three separate decodes before them.

@@ -1,6 +1,7 @@
 //! Darkhold domain primitives.
 
 pub mod actor;
+pub mod affinity;
 pub mod ai;
 pub mod analytics;
 pub mod anchor;

@@ -1,5 +1,6 @@
 //! HTTP routes.
 
+pub mod affinity;
 pub mod admin_actions;
 pub mod admin_scope;
 pub mod atproto_feed;
