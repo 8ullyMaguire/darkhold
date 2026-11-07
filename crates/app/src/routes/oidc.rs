@@ -201,6 +201,24 @@ async fn callback(
                 .map(str::to_owned)
         });
 
+    // The roles the issuer asserted, read verbatim from the same verified token and stored on the session (ADR 0003).
+    // Not interpreted here: what a role means is polaris-id's `docs/ROLES.md`, and this site's job is to remember it and
+    // to check it where a route says which site it belongs to.
+    let roles: Vec<String> = tokens
+        .id_token
+        .as_deref()
+        .and_then(|token| decode_jwt_payload(token).ok())
+        .and_then(|claims| {
+            claims.get("roles").and_then(|v| {
+                v.as_array().map(|a| {
+                    a.iter()
+                        .filter_map(|s| s.as_str().map(str::to_owned))
+                        .collect()
+                })
+            })
+        })
+        .unwrap_or_default();
+
     // The profile comes from /userinfo over TLS rather than from the id_token's payload: one authority
     // decides who the user is, and no product has to grow a JWT verifier to find out.
     let profile = match provider.userinfo(access).await {
@@ -298,7 +316,7 @@ async fn callback(
         .and_then(|value| value.to_str().ok());
 
     let issued =
-        match auth::issue_session(&state, &account, initial, user_agent, acr.as_deref()).await {
+        match auth::issue_session(&state, &account, initial, user_agent, acr.as_deref(), &roles).await {
             Ok(issued) => issued,
             Err(error) => {
                 tracing::error!(%error, "could not issue a session after Polaris sign-in");

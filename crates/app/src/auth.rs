@@ -106,6 +106,11 @@ pub struct SessionUser {
     pub csrf_token_hash: String,
     /// The assurance level the issuer asserted at sign-in, verbatim. `None` for a password session.
     pub acr: Option<String>,
+    /// The roles the issuer asserted at sign-in, verbatim (ADR 0003).
+    ///
+    /// Empty for a password session and for sessions written before migration 0178. Both are "no claim" to every check,
+    /// which is why this is a `Vec` and not an `Option`.
+    pub roles: Vec<String>,
 }
 
 impl SessionUser {
@@ -218,6 +223,8 @@ pub async fn resolve_session(
         age_state: account.age_state,
         csrf_token_hash: session.csrf_token_hash.clone(),
         acr: session.acr.clone(),
+        // Parsed from the stored JSON once, here, so no check has to know how it is stored.
+        roles: serde_json::from_str(&session.roles).unwrap_or_default(),
     };
     Some((user, session))
 }
@@ -809,6 +816,7 @@ pub async fn issue_session(
     initial_pseud: Option<PseudId>,
     user_agent: Option<&str>,
     acr: Option<&str>,
+    roles: &[String],
 ) -> anyhow::Result<IssuedSession> {
     let token = crypto::generate_token();
     let csrf_token = crypto::generate_token();
@@ -825,6 +833,7 @@ pub async fn issue_session(
             active_pseud_id: initial_pseud,
             expires_at: &expires_at,
             acr,
+            roles,
         },
     )
     .await?;
