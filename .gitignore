@@ -72,3 +72,6 @@ __pycache__/
 # scripts/eval/02-export-set.sh and never committed; the salt beside it is what makes two runs
 # over the same history comparable, and it must not be shared either.
 /eval/
+# The gate writes one report per run; the committed one is the sweep being cited.
+docs/design/family/design-gate-*.json
+!docs/design/family/design-gate-2026-11-08T16-04-10-384Z.json
