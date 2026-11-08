@@ -20,7 +20,7 @@
 //!
 //! Delete a line when its function is wired or deleted. Never add one.
 
-use std::collections::BTreeSet;
+use std::collections::{BTreeMap, BTreeSet};
 use std::path::{Path, PathBuf};
 
 fn workspace_root() -> PathBuf {
@@ -139,6 +139,99 @@ fn reachable_sources() -> String {
         .join("\n")
 }
 
+/// Every top-level function in `crates/db/src`, with the text of its body.
+///
+/// A body is "the lines after its declaration and before the next declaration". That is a crude parse, and it is the right
+/// crude parse here: it cannot be fooled by a brace inside a string, a closure, or a `match` arm, because it never counts
+/// braces at all. A function nested inside another would be mis-sliced as a sibling, and a macro that declares functions
+/// would be invisible; neither exists in this crate, and both would show up as an unexpected name in the reachable set
+/// rather than as a silent pass.
+fn bodies(db_dir: &Path) -> BTreeMap<String, String> {
+    const PREFIXES: [&str; 6] = [
+        "pub async fn ",
+        "pub(crate) async fn ",
+        "async fn ",
+        "pub fn ",
+        "pub(crate) fn ",
+        "fn ",
+    ];
+    let mut files = Vec::new();
+    rs_files(db_dir, &mut files);
+    let mut out: BTreeMap<String, String> = BTreeMap::new();
+    for file in files {
+        let Ok(source) = std::fs::read_to_string(&file) else {
+            continue;
+        };
+        let mut current: Option<String> = None;
+        let mut buffer = String::new();
+        let flush = |current: &mut Option<String>,
+                     buffer: &mut String,
+                     out: &mut BTreeMap<String, String>| {
+            if let Some(name) = current.take() {
+                out.entry(name).or_default().push_str(buffer);
+            }
+            buffer.clear();
+        };
+        for line in source.lines() {
+            // Indentation is part of the question, not a detail: `connect`, `migrate`, `ping` and the whole `BlobStore`
+            // surface are methods inside `impl` blocks, and a scan that only reads column 0 sees their names in
+            // `declared()` and never in this map — so they can never be a root and never be reached.
+            let declared = PREFIXES.iter().find_map(|prefix| {
+                let rest = line.trim_start().strip_prefix(prefix)?;
+                let name: String = rest
+                    .chars()
+                    .take_while(|c| c.is_ascii_alphanumeric() || *c == '_')
+                    .collect();
+                (!name.is_empty()).then_some(name)
+            });
+            match declared {
+                Some(name) => {
+                    flush(&mut current, &mut buffer, &mut out);
+                    current = Some(name);
+                }
+                None => {
+                    if current.is_some() {
+                        buffer.push_str(line);
+                        buffer.push('\n');
+                    }
+                }
+            }
+        }
+        flush(&mut current, &mut buffer, &mut out);
+    }
+    out
+}
+
+/// Which declared functions are reachable once `crates/db` is allowed to call itself.
+///
+/// The scan's first version asked only "does any *app* source mention this name", which makes every internal helper an
+/// orphan: `velocity_signals`, `award`, `policy_version` and five `work_characters` writers were all reported dead while a
+/// route reached each of them through one more call. Reachability is transitive, so the answer is a closure — roots are the
+/// names an app source mentions, and the edges are db functions mentioning one another.
+fn reachable_via_db(declared: &BTreeMap<String, String>, app_sources: &str) -> BTreeSet<String> {
+    let mut queue: Vec<String> = declared
+        .keys()
+        .filter(|name| mentions(app_sources, name))
+        .cloned()
+        .collect();
+    let mut seen: BTreeSet<String> = queue.iter().cloned().collect();
+    while let Some(name) = queue.pop() {
+        let Some(body) = declared.get(&name) else {
+            continue;
+        };
+        for (other, _) in declared {
+            if seen.contains(other) || other == &name {
+                continue;
+            }
+            if mentions(body, other) {
+                seen.insert(other.clone());
+                queue.push(other.clone());
+            }
+        }
+    }
+    seen
+}
+
 fn allowlisted() -> BTreeSet<String> {
     let path = workspace_root().join("docs/plans/orphan-queries.txt");
     let Ok(text) = std::fs::read_to_string(path) else {
@@ -161,12 +254,14 @@ fn no_new_database_function_is_reachable_only_from_a_test() {
         declared.len()
     );
 
-    let reachable = reachable_sources();
+    let app_sources = reachable_sources();
+    let bodies = bodies(&root.join("crates/db/src"));
+    let reachable = reachable_via_db(&bodies, &app_sources);
     let allowed = allowlisted();
 
     let mut new_orphans: Vec<String> = Vec::new();
     for (name, file) in &declared {
-        if mentions(&reachable, name) || allowed.contains(name) {
+        if reachable.contains(name) || allowed.contains(name) {
             continue;
         }
         new_orphans.push(format!("{name} ({file})"));
@@ -175,8 +270,8 @@ fn no_new_database_function_is_reachable_only_from_a_test() {
 
     assert!(
         new_orphans.is_empty(),
-        "{} database function(s) are called by nothing outside crates/db — wire them to a route or delete them \
-         (M70-13), and do not add them to docs/plans/orphan-queries.txt:\n  {}",
+        "{} database function(s) are reachable from no app source, directly or through another db function — wire them to a \
+         route or delete them (M70-13), and do not add them to docs/plans/orphan-queries.txt:\n  {}",
         new_orphans.len(),
         new_orphans.join("\n  ")
     );

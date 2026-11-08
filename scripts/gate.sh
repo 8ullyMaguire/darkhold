@@ -204,6 +204,11 @@ run_dialects() {
 run_repo() {
     cd "$REPO_ROOT"
     python3 "$REPO_ROOT/scripts/reachability.py"
+    # The orphan baseline is generated, and a generated file that nobody regenerates becomes a lie: a function deleted from
+    # the tree leaves a line claiming it exists, and the ratchet's `the_allowlist_shrinks_rather_than_rots` test catches that
+    # only after someone runs the suite. `--check` is the cheap version, and it compares the whole file so a stale count or a
+    # stale list of names both fail here.
+    python3 "$REPO_ROOT/scripts/orphan-queries.py" --check
     # The ledger's line ending is a tree-level invariant, not a formatting taste:
     # `scripts/ledger.py` splits the header on `\r\n`, so a ledger that has drifted
     # to LF makes its only sanctioned writer crash — and the drift is invisible to
