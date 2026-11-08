@@ -6697,6 +6697,44 @@ pub const ROUTE_TABLE: &[RouteEntry] = &[
         audience: Audience::Public,
     },
     // ------------------------------------------------------------------
+    // Library reads the store had and no route did (M70-13)
+    // ------------------------------------------------------------------
+    RouteEntry {
+        file: "library.rs",
+        handler: "reading_status_counts",
+        method: "GET",
+        path: "/library/status-counts",
+        audience: Audience::Authenticated,
+    },
+    RouteEntry {
+        file: "library.rs",
+        handler: "tags_for_account",
+        method: "GET",
+        path: "/library/tags",
+        audience: Audience::Authenticated,
+    },
+    RouteEntry {
+        file: "library.rs",
+        handler: "bookmark_count",
+        method: "GET",
+        path: "/bookmarks/count",
+        audience: Audience::Authenticated,
+    },
+    RouteEntry {
+        file: "library.rs",
+        handler: "item_shelves",
+        method: "GET",
+        path: "/library/items/{id}/shelves",
+        audience: Audience::Authenticated,
+    },
+    RouteEntry {
+        file: "library.rs",
+        handler: "update_checks_since",
+        method: "GET",
+        path: "/library/updates",
+        audience: Audience::Authenticated,
+    },
+    // ------------------------------------------------------------------
     // Reader devices (M70-13: `user_devices` had no door)
     // ------------------------------------------------------------------
     RouteEntry {
