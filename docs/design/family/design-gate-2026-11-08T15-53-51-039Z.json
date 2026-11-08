@@ -1,0 +1,331 @@
+{
+  "generatedAt": "2026-11-08T15:53:51.039Z",
+  "pages": [
+    {
+      "label": "darkhold /discover after-hours 1280px",
+      "url": "https://darkhold.polarisocial.xyz/discover",
+      "status": 200,
+      "sizes": [
+        13,
+        14,
+        16,
+        22,
+        36
+      ],
+      "textNodes": 84,
+      "sampleText": [
+        {
+          "s": "Skip to content",
+          "ink": [
+            3,
+            7,
+            5,
+            1
+          ],
+          "paper": {
+            "rgba": [
+              216,
+              161,
+              123,
+              1
+            ],
+            "from": "a",
+            "css": "rgb(216, 161, 123)"
+          }
+        },
+        {
+          "s": "Darkhold",
+          "ink": [
+            238,
+            239,
+            231,
+            1
+          ],
+          "paper": {
+            "rgba": [
+              30,
+              41,
+              35,
+              1
+            ],
+            "from": "header",
+            "css": "rgb(30, 41, 35)"
+          }
+        },
+        {
+          "s": "Discover",
+          "ink": [
+            238,
+            239,
+            231,
+            1
+          ],
+          "paper": {
+            "rgba": [
+              30,
+              41,
+              35,
+              1
+            ],
+            "from": "header",
+            "css": "rgb(30, 41, 35)"
+          }
+        }
+      ],
+      "headings": "1·2",
+      "overflow": 0,
+      "motion": 0
+    },
+    {
+      "label": "darkhold /discover after-hours 390px",
+      "url": "https://darkhold.polarisocial.xyz/discover",
+      "status": 200,
+      "sizes": [
+        13,
+        14,
+        16,
+        22,
+        36
+      ],
+      "textNodes": 76,
+      "sampleText": [
+        {
+          "s": "Skip to content",
+          "ink": [
+            3,
+            7,
+            5,
+            1
+          ],
+          "paper": {
+            "rgba": [
+              216,
+              161,
+              123,
+              1
+            ],
+            "from": "a",
+            "css": "rgb(216, 161, 123)"
+          }
+        },
+        {
+          "s": "Darkhold",
+          "ink": [
+            238,
+            239,
+            231,
+            1
+          ],
+          "paper": {
+            "rgba": [
+              30,
+              41,
+              35,
+              1
+            ],
+            "from": "header",
+            "css": "rgb(30, 41, 35)"
+          }
+        },
+        {
+          "s": "Discover",
+          "ink": [
+            238,
+            239,
+            231,
+            1
+          ],
+          "paper": {
+            "rgba": [
+              30,
+              41,
+              35,
+              1
+            ],
+            "from": "header",
+            "css": "rgb(30, 41, 35)"
+          }
+        }
+      ],
+      "headings": "1·2",
+      "overflow": 0,
+      "motion": 0
+    },
+    {
+      "label": "darkhold /library after-hours 1280px",
+      "url": "https://darkhold.polarisocial.xyz/library",
+      "status": 200,
+      "sizes": [
+        14,
+        16,
+        22,
+        36
+      ],
+      "textNodes": 24,
+      "sampleText": [
+        {
+          "s": "Skip to content",
+          "ink": [
+            3,
+            7,
+            5,
+            1
+          ],
+          "paper": {
+            "rgba": [
+              216,
+              161,
+              123,
+              1
+            ],
+            "from": "a",
+            "css": "rgb(216, 161, 123)"
+          }
+        },
+        {
+          "s": "Darkhold",
+          "ink": [
+            238,
+            239,
+            231,
+            1
+          ],
+          "paper": {
+            "rgba": [
+              30,
+              41,
+              35,
+              1
+            ],
+            "from": "header",
+            "css": "rgb(30, 41, 35)"
+          }
+        },
+        {
+          "s": "Discover",
+          "ink": [
+            238,
+            239,
+            231,
+            1
+          ],
+          "paper": {
+            "rgba": [
+              30,
+              41,
+              35,
+              1
+            ],
+            "from": "header",
+            "css": "rgb(30, 41, 35)"
+          }
+        }
+      ],
+      "headings": "1·2",
+      "overflow": 0,
+      "motion": 0
+    },
+    {
+      "label": "darkhold /library after-hours 390px",
+      "url": "https://darkhold.polarisocial.xyz/library",
+      "status": 200,
+      "sizes": [
+        14,
+        16,
+        22,
+        36
+      ],
+      "textNodes": 16,
+      "sampleText": [
+        {
+          "s": "Skip to content",
+          "ink": [
+            3,
+            7,
+            5,
+            1
+          ],
+          "paper": {
+            "rgba": [
+              216,
+              161,
+              123,
+              1
+            ],
+            "from": "a",
+            "css": "rgb(216, 161, 123)"
+          }
+        },
+        {
+          "s": "Darkhold",
+          "ink": [
+            238,
+            239,
+            231,
+            1
+          ],
+          "paper": {
+            "rgba": [
+              30,
+              41,
+              35,
+              1
+            ],
+            "from": "header",
+            "css": "rgb(30, 41, 35)"
+          }
+        },
+        {
+          "s": "Discover",
+          "ink": [
+            238,
+            239,
+            231,
+            1
+          ],
+          "paper": {
+            "rgba": [
+              30,
+              41,
+              35,
+              1
+            ],
+            "from": "header",
+            "css": "rgb(30, 41, 35)"
+          }
+        }
+      ],
+      "headings": "1·2",
+      "overflow": 0,
+      "motion": 0
+    }
+  ],
+  "failures": [
+    {
+      "rule": "focus-ring",
+      "where": "darkhold /discover after-hours 1280px",
+      "detail": "<a class=\"skip-link svelte-1n46o8q\"> has no visible ring (outline: none 3px, shadow: none)"
+    },
+    {
+      "rule": "focus-ring",
+      "where": "darkhold /discover after-hours 390px",
+      "detail": "<a class=\"skip-link svelte-1n46o8q\"> has no visible ring (outline: none 3px, shadow: none)"
+    },
+    {
+      "rule": "focus-ring",
+      "where": "darkhold /library after-hours 1280px",
+      "detail": "<a class=\"skip-link svelte-1n46o8q\"> has no visible ring (outline: none 3px, shadow: none)"
+    },
+    {
+      "rule": "thin-page",
+      "where": "darkhold /library after-hours 390px",
+      "detail": "16 text nodes — too little content to review"
+    },
+    {
+      "rule": "focus-ring",
+      "where": "darkhold /library after-hours 390px",
+      "detail": "<a class=\"skip-link svelte-1n46o8q\"> has no visible ring (outline: none 3px, shadow: none)"
+    }
+  ],
+  "selfTest": []
+}

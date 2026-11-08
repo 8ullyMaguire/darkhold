@@ -1,0 +1,115 @@
+{
+  "generatedAt": "2026-11-08T15:52:17.614Z",
+  "pages": [
+    {
+      "label": "darkhold /discover after-hours 1280px",
+      "url": "https://darkhold.polarisocial.xyz/discover",
+      "status": 200,
+      "sizes": [
+        13,
+        14,
+        16,
+        22,
+        36
+      ],
+      "textNodes": 84,
+      "headings": "1·2",
+      "overflow": 0,
+      "motion": 0
+    },
+    {
+      "label": "darkhold /discover after-hours 390px",
+      "url": "https://darkhold.polarisocial.xyz/discover",
+      "status": 200,
+      "sizes": [
+        13,
+        14,
+        16,
+        22,
+        36
+      ],
+      "textNodes": 76,
+      "headings": "1·2",
+      "overflow": 0,
+      "motion": 0
+    },
+    {
+      "label": "darkhold /library after-hours 1280px",
+      "url": "https://darkhold.polarisocial.xyz/library",
+      "status": 200,
+      "sizes": [
+        14,
+        16,
+        22,
+        36
+      ],
+      "textNodes": 24,
+      "headings": "1·2",
+      "overflow": 0,
+      "motion": 0
+    },
+    {
+      "label": "darkhold /library after-hours 390px",
+      "url": "https://darkhold.polarisocial.xyz/library",
+      "status": 200,
+      "sizes": [
+        14,
+        16,
+        22,
+        36
+      ],
+      "textNodes": 16,
+      "headings": "1·2",
+      "overflow": 0,
+      "motion": 0
+    }
+  ],
+  "failures": [
+    {
+      "rule": "contrast",
+      "where": "darkhold /discover after-hours 1280px",
+      "element": "<a class=\"skip-link svelte-1n46o8q\">",
+      "sample": "Skip to content",
+      "ratio": 1.97,
+      "need": 4.5,
+      "ink": "rgb(246, 239, 226)",
+      "paper": "rgb(216, 161, 123) (from a)"
+    },
+    {
+      "rule": "contrast",
+      "where": "darkhold /discover after-hours 390px",
+      "element": "<a class=\"skip-link svelte-1n46o8q\">",
+      "sample": "Skip to content",
+      "ratio": 1.97,
+      "need": 4.5,
+      "ink": "rgb(246, 239, 226)",
+      "paper": "rgb(216, 161, 123) (from a)"
+    },
+    {
+      "rule": "contrast",
+      "where": "darkhold /library after-hours 1280px",
+      "element": "<a class=\"skip-link svelte-1n46o8q\">",
+      "sample": "Skip to content",
+      "ratio": 1.97,
+      "need": 4.5,
+      "ink": "rgb(246, 239, 226)",
+      "paper": "rgb(216, 161, 123) (from a)"
+    },
+    {
+      "rule": "thin-page",
+      "where": "darkhold /library after-hours 390px",
+      "detail": "16 text nodes — too little content to review"
+    },
+    {
+      "rule": "contrast",
+      "where": "darkhold /library after-hours 390px",
+      "element": "<a class=\"skip-link svelte-1n46o8q\">",
+      "sample": "Skip to content",
+      "ratio": 1.97,
+      "need": 4.5,
+      "ink": "rgb(246, 239, 226)",
+      "paper": "rgb(216, 161, 123) (from a)"
+    }
+  ],
+  "selfTest": []
+}

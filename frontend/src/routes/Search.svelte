@@ -11,6 +11,7 @@
   import EmptyState from '../lib/components/EmptyState.svelte';
   import ErrorSummary from '../lib/components/ErrorSummary.svelte';
   import Skeleton from '../lib/components/Skeleton.svelte';
+  import { WorkBlurb } from '@polaris/ui';
 
   type FilterField = 'fandom' | 'tag' | 'mood' | 'rating' | 'language' | 'status';
 
@@ -360,11 +361,20 @@
     <ul class="results">
       {#each results.items as item (item.work_id)}
         <li>
-          <a href={`/works/${item.work_id}`} class="result-card">
-            <span class="title">{item.title}</span>
-            <span class="author">by {item.author_handle}</span>
-            <span class="meta">{item.word_count} words</span>
-          </a>
+          <!--
+            A result is a work, so it is listed the family way (M72-06): title, byline, meta, in `WorkBlurb`'s order.
+            The old markup was an <a> wrapping the title — a link inside the heading's own link once the blurb renders
+            it, which is two tab stops for one destination.
+          -->
+          <WorkBlurb
+            work={{
+              title: item.title,
+              authors: [item.author_handle],
+              meta: [`${item.word_count.toLocaleString('en-US')} words`],
+              href: `/works/${item.work_id}`,
+            }}
+            size="inline"
+          />
         </li>
       {/each}
     </ul>
