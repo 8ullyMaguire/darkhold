@@ -56,6 +56,7 @@ pub mod safety;
 pub mod secrets;
 pub mod seed;
 pub mod server;
+pub mod rating_watch;
 pub mod source_sync;
 pub mod state;
 pub mod taste;

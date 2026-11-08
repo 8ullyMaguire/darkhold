@@ -912,3 +912,38 @@ second-resolution and the ordering tiebreak is a random UUID, so two events reco
 back in an arbitrary order. The test moves one row back a day to make "newest first" a real claim. A trail that
 cannot order two events in the same second is not wrong, but it is not an audit trail either — a monotonic
 sequence number belongs in that table the first time anyone needs to prove an order.
+
+### A queue with no producer reads like a healthy instance (rating_integrity.rs, 2026-11-08)
+
+`GET /admin/anomalies` answered `{count: n, items: []}`. It counted the queue and listed nothing, so an operator could
+learn that seven anomalies existed and never learn which works they belonged to — and `insert_rating_anomaly_event`,
+the one function that could have filled the queue, had no caller at all. "0 anomalies" from a detector that never ran
+is indistinguishable from "0 anomalies" from a clean instance, which is the worst property a moderation queue can have.
+
+The producer is `rating_watch::detect_bursts`, one rule: a work whose recent public ratings (six-hour window) came
+from freshly created accounts (younger than seven days), at a threshold of five. Severity is the observation — eleven
+fresh accounts is a stronger signal than five, and a constant would make the two identical to whoever reads the queue.
+The detail carries the rule and its parameters, so a curator can argue with the numbers rather than the verdict.
+
+Three refusals are deliberate, and each is written beside the code:
+
+* **It never marks a work contested.** §33.2 gives that to a quorum of curators. A detector that can hide a work's
+  aggregate by itself is a machine moderator, whatever its threshold.
+* **It never duplicates an event.** A second run inside the same brigade finds the same works and records nothing, or
+  severity would measure how often somebody pressed the button.
+* **It is a button, not a timer.** There is no scheduler in this binary for it to ride; the scheduled form is a
+  follow-up with a name, not a claim this file makes.
+
+The mark itself got its doors (`POST`/`DELETE /admin/works/{id}/contested`, reason required) and its *point*: the
+public `rating-summary` now refuses to publish a contested work's score and says `suppressed: "contested"` instead of
+answering a null. §33.2 asks for both halves — never published as a public score, and an aggregate display that states
+when a guard is suppressing a number — and a silent null would have lied in the second half: "nobody has rated this"
+is a different and untrue claim about a brigaded work with five ratings.
+
+One mistake worth keeping: the first version wrote `kind = 'fresh_account_burst'` and migration 0019's CHECK rejected
+every insert. The schema is the authority on the vocabulary of a column; the rule's name belongs in `detail`.
+
+**Deploy is batched, not skipped.** This pass adds four live admin routes and changes what `/admin/anomalies` answers,
+but each thinkcentre build costs ~16 minutes and a named backup. The rows since M45-14 (coordinates, leakage, devices,
+library reads, exports, imports, ratings) ship in one deploy with one `pg_dump` and one verification pass at the end of
+Batch 1, rather than six builds nobody reads the output of.
