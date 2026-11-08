@@ -3,7 +3,7 @@
 # Each line is a `pub async fn` in crates/db/src that nothing outside crates/db (and outside tests) mentions.
 # They are debt, not permission: crates/app/tests/orphan_queries.rs fails when a NEW one appears, so this list
 # can only shrink. Delete a line by wiring the function to a route or deleting the function.
-# measured 2026-11-06: 294 orphan(s)
+# measured 2026-11-08: 292 orphan(s)
 
 increment_abuse_counter  # crates/db/src/admin.rs
 complete_privacy_request  # crates/db/src/admin.rs
@@ -261,7 +261,6 @@ open_for  # crates/db/src/welcome.rs
 has_table  # crates/db/src/wip_adoption.rs
 get_offer  # crates/db/src/wip_adoption.rs
 upsert_character  # crates/db/src/work_characters.rs
-characters_for_work  # crates/db/src/work_characters.rs
 character_in_work  # crates/db/src/work_characters.rs
 add_character_attribute  # crates/db/src/work_characters.rs
 attributes_of_character  # crates/db/src/work_characters.rs
@@ -277,7 +276,6 @@ set_relationship_dynamics  # crates/db/src/work_characters.rs
 dynamics_of_relationship  # crates/db/src/work_characters.rs
 add_relationship_dynamic  # crates/db/src/work_characters.rs
 remove_relationship_dynamic  # crates/db/src/work_characters.rs
-relationships_for_work  # crates/db/src/work_characters.rs
 relationships_involving  # crates/db/src/work_characters.rs
 measure_work_and_store  # crates/db/src/work_coordinates.rs
 measure_and_store  # crates/db/src/work_coordinates.rs
