@@ -1191,3 +1191,28 @@ claim. `local` is computed as `total - external` from the same row set, so the t
 
 Ratchet 105 -> 102.
 
+### A monitor that was really a button (note_links.rs, 2026-11-08)
+
+A note link was checked **only when its author pressed "re-check" on the work that carried it**. `find_needing_check` — the
+queue — had no caller, so a dead link on an abandoned work was never noticed, and the `dead` count on that work's page was
+a number that could not change on its own. The page reported a monitor; the instance had a button.
+
+* **`POST /admin/notes/links/sweep`** (Operator, trust 5, `limit` clamped to 1..50) drains the queue's head through the
+  same `check_note_link` the author button uses — one fetch path, one SSRF guard. A refused URL is recorded dead by the
+  check itself, so one missing link never fails the sweep; a storage error is counted as `failed` and logged.
+* **The queue has no "due" predicate**, so a sweep re-checks never-checked links first and then the oldest, and the handler
+  says so. There is no scheduler in this binary (§37 puts recurring work on the operator): this is a button, and the
+  scheduled form is named as the follow-up rather than pretended.
+* **`GET /works/{id}/note-links?include=superseded`** answers the monitor's question instead of the reader's — every row
+  the checker still holds, with `superseded` computed from the live set rather than guessed from `revision_id`. The plain
+  read is unchanged: a corrected note still reports only what the work says now.
+* **`count_dead_for_work` was deleted.** The route counts the dead rows of the same list it returns; a second source for
+  that number could disagree with the list shown beside it.
+
+**The fixture was the first thing the mutants found.** The first draft had a single link, so after the correction the live
+set was empty — and a `superseded` flag that was always `true` passed, because there was nothing to compare it against. The
+test now uses two chapters, one corrected and one kept, so the flag is exercised on a mixed set. Two further mutant attempts
+never compiled and were re-targeted, not counted.
+
+Ratchet 102 -> 99.
+

@@ -736,6 +736,13 @@ async fn publish_work(
 /// asks for one by name gets a **404 naming the module**, not a
 /// `NOT_IMPLEMENTED`: the thing is not here *yet*, and 501 would be a claim
 /// about the instance rather than about the build.
+#[derive(Deserialize)]
+struct NoteLinksQuery {
+    /// `superseded` lists every link the monitor holds, including the ones a reader is no longer shown.
+    #[serde(default)]
+    include: Option<String>,
+}
+
 /// The note links a work's live revisions carry (M45-38, §32.7, gaps review D3).
 ///
 /// Public, and only the **live** revisions: a reader clicking a link needs to know it is dead, and a
@@ -746,6 +753,7 @@ async fn note_links_for_work(
     State(state): State<AppState>,
     MaybeSession(session): MaybeSession,
     Path(id): Path<String>,
+    Query(query): Query<NoteLinksQuery>,
 ) -> ApiResult<Json<Value>> {
     let work_id = parse_work_id(&id)?;
     let work = content::find_work(state.db(), work_id)
@@ -763,10 +771,22 @@ async fn note_links_for_work(
         }
     }
 
-    let links = note_links::list_for_live_revisions(state.db(), &work_id.to_string()).await?;
+    // `?include=superseded` answers a different question: which links does the *monitor* still hold for this work, not
+    // which ones a reader is shown. A superseded revision's links are still checked (the row is not deleted), so an
+    // author whose re-check keeps failing on a URL they already removed needs to see the row that is failing. The flag
+    // is computed from the live set rather than guessed from `revision_id`, so the two lists cannot disagree about what
+    // "live" means.
+    let live = note_links::list_for_live_revisions(state.db(), &work_id.to_string()).await?;
+    let links = if query.include.as_deref() == Some("superseded") {
+        note_links::list_for_work(state.db(), &work_id.to_string()).await?
+    } else {
+        live.clone()
+    };
+    let live_ids: std::collections::HashSet<&str> = live.iter().map(|link| link.id.as_str()).collect();
     let dead = links.iter().filter(|link| link.is_dead()).count();
     Ok(Json(json!({
         "links": links.iter().map(|link| json!({
+            "superseded": !live_ids.contains(link.id.as_str()),
             "id": link.id,
             "url": link.url,
             "host": link.host,

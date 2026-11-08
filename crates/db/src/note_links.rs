@@ -320,33 +320,6 @@ pub async fn mark_checked(
     Ok(())
 }
 
-/// How many of a work's live note links are dead. The number a work page shows.
-pub async fn count_dead_for_work(db: &Database, work_id: &str) -> Result<i64> {
-    let sql = db.sql(
-        "SELECT COUNT(*) FROM note_links
-          WHERE work_id = ? AND status = 'dead'
-            AND revision_id IN (SELECT current_revision_id FROM units WHERE work_id = ?)",
-        "SELECT COUNT(*) FROM note_links
-          WHERE work_id = $1 AND status = 'dead'
-            AND revision_id IN (SELECT current_revision_id::text FROM units WHERE work_id::text = $1)",
-    );
-    let count: i64 = match db.backend() {
-        Backend::Sqlite => {
-            sqlx::query_scalar(&sql)
-                .bind(work_id)
-                .bind(work_id)
-                .fetch_one(db.sqlite_pool().expect("sqlite handle"))
-                .await?
-        }
-        Backend::Postgres => {
-            sqlx::query_scalar(&sql)
-                .bind(work_id)
-                .fetch_one(db.postgres_pool().expect("postgres handle"))
-                .await?
-        }
-    };
-    Ok(count)
-}
 
 /// The row shape, so `query_as` can build it on both engines.
 #[derive(sqlx::FromRow)]
