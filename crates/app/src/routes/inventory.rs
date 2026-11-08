@@ -6515,6 +6515,20 @@ pub const ROUTE_TABLE: &[RouteEntry] = &[
         audience: Audience::Operator,
     },
     RouteEntry {
+        file: "admin.rs",
+        handler: "syndicated_pseuds",
+        method: "GET",
+        path: "/admin/syndication/pseuds",
+        audience: Audience::Operator,
+    },
+    RouteEntry {
+        file: "auth.rs",
+        handler: "my_guardian_authorization",
+        method: "GET",
+        path: "/me/guardian",
+        audience: Audience::Authenticated,
+    },
+    RouteEntry {
         file: "tag_assertions.rs",
         handler: "list",
         method: "GET",

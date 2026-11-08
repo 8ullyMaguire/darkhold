@@ -122,4 +122,31 @@ pub fn router() -> axum::Router<AppState> {
             get(list_privacy_requests).post(create_privacy_request),
         )
         .route("/admin/abuse-status/{key}", get(check_abuse_status))
+        // What have we imported, and from where. The question an operator asks after a sync run, and the answer is the
+        // `src-` prefixed pseuds — the prefix is the only record that a pseud is syndicated (M70-13).
+        .route("/admin/syndication/pseuds", get(syndicated_pseuds))
+}
+
+/// Every syndicated pseud, with the source it stands for.
+///
+/// Operator-only: the list is a map of this instance's imports, and a reader has no use for it. `pseuds` had a doc comment
+/// describing exactly this screen and no door to reach it (M70-13).
+pub async fn syndicated_pseuds(
+    State(state): State<AppState>,
+    RequireSession(user): RequireSession,
+) -> ApiResult<Json<Value>> {
+    crate::routes::discovery::require_operator(&state, &user)?;
+    let pseuds = darkhold_db::syndication::pseuds(state.db())
+        .await
+        .map_err(|e| ApiError(darkhold_domain::AppError::Internal(e)))?;
+    Ok(Json(json!({
+        "pseuds": pseuds
+            .into_iter()
+            .map(|(handle, pseud, source)| json!({
+                "handle": handle,
+                "pseud_id": pseud.to_string(),
+                "source": source,
+            }))
+            .collect::<Vec<Value>>(),
+    })))
 }

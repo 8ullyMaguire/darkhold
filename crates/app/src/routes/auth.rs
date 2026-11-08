@@ -32,6 +32,7 @@ use darkhold_db::sessions::{self, RecoveryPurpose};
 use darkhold_domain::policy::AgeState;
 use darkhold_domain::{AccountId, AppError, PseudId, SessionId};
 use serde::{Deserialize, Serialize};
+use serde_json::{json, Value};
 
 use crate::auth::{
     self, CookiePolicy, MaybeSession, RequireSession, SessionUser, CSRF_COOKIE, CSRF_HEADER,
@@ -54,6 +55,9 @@ pub fn router() -> Router<AppState> {
             post(password_reset_complete),
         )
         .route("/auth/sessions", get(list_sessions))
+        // The account's own guardian authorisation, if it has a live one (M70-13). The same row a takedown reads to ask
+        // "who was allowed to see this" — a reader is entitled to know whether theirs lapses and when.
+        .route("/me/guardian", get(my_guardian_authorization))
         .route("/auth/sessions/revoke-all", post(revoke_all_sessions))
         .route("/auth/sessions/{id}", delete(revoke_session))
         .route("/auth/me", get(me))
@@ -1098,6 +1102,28 @@ fn append_cookie(headers: &mut HeaderMap, cookie: String) {
     if let Ok(value) = HeaderValue::from_str(&cookie) {
         headers.append(header::SET_COOKIE, value);
     }
+}
+
+/// The caller's live guardian authorisation, or `null`.
+///
+/// `null` is an answer, not a refusal: most accounts have no guardian row at all, and an instance that answered `404` would
+/// be telling them their account is missing something it never had.
+async fn my_guardian_authorization(
+    State(state): State<AppState>,
+    RequireSession(user): RequireSession,
+) -> ApiResult<Json<Value>> {
+    let authorization = darkhold_db::identity::guardian_authorization(state.db(), user.account_id)
+        .await
+        .map_err(|e| ApiError(darkhold_domain::AppError::Internal(e.into())))?;
+    Ok(Json(json!({
+        "authorization": authorization.map(|a| json!({
+            "status": a.status,
+            "granted_at": a.granted_at,
+            // The reference is the guardian's own record — an agreement id, a document — and never a name or a contact
+            // detail: this instance stores a way to verify the authorisation, not the guardian.
+            "verification_reference": a.verification_reference,
+        })),
+    })))
 }
 
 #[cfg(test)]

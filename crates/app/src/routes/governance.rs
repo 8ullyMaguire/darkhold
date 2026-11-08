@@ -801,7 +801,17 @@ async fn my_trust(
         _ => "Unknown",
     };
 
-    Ok(Json(json!({ "level": level, "description": description })))
+    // What produced the level, in the one term a reader can act on. A trust page that shows a number and no evidence asks
+    // the reader to trust the ladder; `confirmed_spam_reports` is the input a reader can avoid feeding, and it was a query
+    // with a test and no caller (M70-13).
+    let confirmed_spam = darkhold_db::governance::confirmed_spam_reports(state.db(), &account, 90)
+        .await
+        .map_err(|e| ApiError(AppError::Internal(e.into())))?;
+    Ok(Json(json!({
+        "level": level,
+        "description": description,
+        "evidence": { "confirmed_spam_reports_90d": confirmed_spam },
+    })))
 }
 
 async fn my_audit_log(
