@@ -708,7 +708,7 @@ pub fn build_router(state: AppState) -> Router {
         .merge(module_mount(
             &state,
             "exchange",
-            routes::exchange::router(),
+            routes::exchange::router().merge(routes::exchange_admin::router()),
             RouteClass::Write,
         ))
         // The reader's library: shelves, bookmarks, private tags, reading
