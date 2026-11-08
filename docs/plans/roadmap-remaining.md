@@ -29,9 +29,13 @@ The order inside the batch is a dependency chain, not a preference:
 3. ~~**M72-03** the six primitives the estate has nowhere~~ **DONE** — @polaris/ui 0.3.1: checkbox/radio, avatar,
    breadcrumb, tooltip, kbd, action row; 11 render tests, six mutants red, adopted in WorkCard/Account/Docs/VoteBudget.
 4. **M72-04/05** the JSON contracts: one error envelope, one meta/health shape. Invisible on a page, and the reason a
-   `dh` command or an estate probe can talk to three products with one expression.
+   `dh` command or an estate probe can talk to three products with one expression. **M72-04 is half done**: this tree
+   answers `{error:{code,message,request_id}}` on every `/api/` refusal, including the ones the framework emits before a
+   handler (a 422 with an empty body was measured and fixed); kindred, ascend and ficnexus still answer their own shape,
+   which is what keeps the row `planned`.
 5. **M72-06** adoption, darkhold → kindred → ascend, each proved by deleting the local copy.
-6. **M72-07** the family nav module fed by `estate/generated/nav.json`.
+6. **M72-07** the family nav module fed by `estate/generated/nav.json` — **done for darkhold** (`FamilyNav` in the site
+   footer, three tests, three mutants); the sibling adoptions are one line each.
 7. **M72-08/10** the auth matrix and the noun/URL vocabulary — decisions plus their small code changes.
 8. **M72-09** the design review as a gate, last because it reviews what 1–8 produced.
 
