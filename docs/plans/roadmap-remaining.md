@@ -1008,3 +1008,37 @@ existence check — the mutant reddens (200 vs 422). Recorded because the lesson
 distinguish its own two failure modes proves only that something failed.
 
 Ratchet 136 -> 131.
+
+### A table nothing could fill (taste_health.rs, 2026-11-08)
+
+Five functions and no caller: the per-work vector's producer, its writer, its reader, and the two halves of the taste
+probe. The damage was a table nothing could fill — `work_taste_vectors` was read by `get_work_vector` and written by
+functions that nothing called, so every read answered `[]`. A cached vector that is never written reads exactly like a
+work nobody has taste in common with, and no error anywhere distinguishes them.
+
+Four doors, and the shape of the answer carries most of the decision. `[]` meant three different things and the door now
+says which: `unavailable` (this instance has no admin taste profile, so no work has a vector — a configuration fact),
+`computed` (there was a profile and no stored vector, so this call derived and stored one), `cached`. A bare `[]` would be
+a claim about the work that nobody made.
+
+**Serving a stale vector is a decision, written down rather than hidden.** A tag edit does not touch
+`work_taste_vectors`; recomputing on every read makes a hot work pay for its popularity; and there is no hook in the tag
+editor that would let the vector be invalidated where the tags change. So the read serves what is stored, `POST` on the
+same path is the only refresh, and the test asserts the staleness (`cached` still answers the old numbers after prominence
+30 → 90, then the refresh moves 0.8 → 1.0). The alternative — a silent recompute — would have looked correct and turned a
+read into a write on every request.
+
+**Operator-only, because the vector is a function of the operator's taste profile.** Publishing a work's vector would let
+anybody with enough works invert the profile one coordinate at a time. A reader with no standing gets `404`, not `403`
+(ADR 0030).
+
+**The schema owned a word the header guessed wrong.** The probe header implies `shown/answered/dismissed`; migration
+0054's CHECK says `positive | negative | neutral`, and `UNIQUE (account_id, work_id)` makes one answer per pair. The door
+copies the migration's vocabulary, so a bad word is a `422` naming `engagement` rather than the CHECK surfacing as a `500`
+— which is exactly what the mutant produced when the check was removed.
+
+The ratchet moved six, not five: `taxonomy::tag_weights_for_work` was an orphan too and became reachable through the
+vector producer. That is the transitive count doing its job — a door that calls a function that calls a query makes the
+query reachable, and the number should say so.
+
+Ratchet 131 -> 125.

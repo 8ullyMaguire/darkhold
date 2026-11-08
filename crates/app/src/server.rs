@@ -620,6 +620,15 @@ pub fn build_router(state: AppState) -> Router {
             routes::taste_import::router(),
             RouteClass::Write,
         ))
+        // Taste health (§0.4.1, §16.19): the per-work vector's producer, writer and reader, and the reader's probe.
+        // Not inside `tasting` or `quiz`, both of which are per-reader opt-ins: a work's vector is instance data that
+        // every ranking reads, so it cannot sit behind one reader's toggle.
+        .merge(module_mount(
+            &state,
+            "taste_health",
+            routes::taste_health::router(),
+            RouteClass::Default,
+        ))
         .merge(module_mount(
             &state,
             "media_resilience",
