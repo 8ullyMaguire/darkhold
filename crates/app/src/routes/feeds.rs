@@ -336,6 +336,10 @@ async fn saved_view_feed(
             "{base}/api/v1/saved-views/{id}/feed?format={}",
             format.extension()
         )),
+        // `FeedMeta` grew an explicit `id` (the feed's Atom `<id>`, when it is not the site URL). darkhold's
+        // `<id>` has always been the site URL — the crate's default — so declaring one here would invent a new
+        // identity and make every reader re-read the feed from scratch.
+        id: None,
     };
     let body = feed_http::render(&meta, &entries, format);
     respond(&body, format, &headers, true)
@@ -433,6 +437,10 @@ async fn render_catalogue(
         description: Some("The public catalogue, as a feed.".to_owned()),
         language: Some("en".to_owned()),
         self_url: Some(self_url),
+        // `FeedMeta` grew an explicit `id` (the feed's Atom `<id>`, when it is not the site URL). darkhold's
+        // `<id>` has always been the site URL — the crate's default — so declaring one here would invent a new
+        // identity and make every reader re-read the feed from scratch.
+        id: None,
     };
 
     let body = feed_http::render(&meta, &entries, format);
