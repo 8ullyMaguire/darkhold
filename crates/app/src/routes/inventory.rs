@@ -6501,6 +6501,20 @@ pub const ROUTE_TABLE: &[RouteEntry] = &[
         audience: Audience::Authenticated,
     },
     RouteEntry {
+        file: "exchanges.rs",
+        handler: "operator_participants",
+        method: "GET",
+        path: "/operator/exchanges/{event}/participants",
+        audience: Audience::Operator,
+    },
+    RouteEntry {
+        file: "exchanges.rs",
+        handler: "operator_assignments",
+        method: "GET",
+        path: "/operator/exchanges/{event}/assignments",
+        audience: Audience::Operator,
+    },
+    RouteEntry {
         file: "tag_assertions.rs",
         handler: "list",
         method: "GET",

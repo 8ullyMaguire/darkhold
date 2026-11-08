@@ -39,6 +39,16 @@ pub fn router() -> Router<AppState> {
         .route("/exchanges/{event}/match", post(post_match))
         .route("/exchanges/{event}/reveal", post(post_reveal))
         .route("/exchanges/{event}/mine", get(get_mine))
+        // The organiser's two questions (M70-13). Both are operator-only: a participant list names everyone who joined and
+        // the pairings name who drew whom, which is exactly what the public doors above refuse to say.
+        .route(
+            "/operator/exchanges/{event}/participants",
+            get(operator_participants),
+        )
+        .route(
+            "/operator/exchanges/{event}/assignments",
+            get(operator_assignments),
+        )
 }
 
 #[derive(Debug, Deserialize, Default)]
@@ -291,4 +301,50 @@ async fn get_mine(
             })))
         }
     }
+}
+
+/// Who is in this exchange, with the terms they wrote.
+///
+/// The organiser needs it for the two things an exchange goes wrong on: a participant whose wishlist the matcher cannot
+/// satisfy, and a pairing that has to be explained to someone. The public door deliberately answers counts only — "a
+/// public page that lists every pairing turns a gift exchange into a list" — and this one is not public.
+async fn operator_participants(
+    State(state): State<AppState>,
+    session: RequireSession,
+    Path(event_id): Path<String>,
+) -> ApiResult<Json<Value>> {
+    crate::routes::discovery::require_operator(&state, &session.0)?;
+    let participants = darkhold_db::exchanges::participants(state.db(), &event_id)
+        .await
+        .map_err(|e| ApiError(AppError::Internal(e)))?;
+    Ok(Json(json!({
+        "event_id": event_id,
+        "participants": participants.iter().map(|p| json!({
+            "account": p.account,
+            "offers": p.offers,
+            "wants": p.wants,
+            "excludes": p.excludes,
+        })).collect::<Vec<Value>>(),
+    })))
+}
+
+/// Who drew whom, as the pairing stands now.
+///
+/// Answers the two questions a participant writes in about — "did the matcher run" and "who does it think I am" — without
+/// the organiser having to open the database. Reveal still governs whether the *participant* is told; this door is the
+/// organiser's view and says nothing to them.
+async fn operator_assignments(
+    State(state): State<AppState>,
+    session: RequireSession,
+    Path(event_id): Path<String>,
+) -> ApiResult<Json<Value>> {
+    crate::routes::discovery::require_operator(&state, &session.0)?;
+    let assignments = darkhold_db::exchanges::assignments(state.db(), &event_id)
+        .await
+        .map_err(|e| ApiError(AppError::Internal(e)))?;
+    Ok(Json(json!({
+        "event_id": event_id,
+        "ran": !assignments.is_empty(),
+        "assignments": assignments.iter().map(assignment_json).collect::<Vec<Value>>(),
+    })))
 }
