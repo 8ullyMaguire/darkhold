@@ -42,7 +42,9 @@ The order inside the batch is a dependency chain, not a preference:
    footer, three tests, three mutants, live-verified at https://darkhold.polarisocial.xyz/works); the sibling adoptions are
    one line each and belong with item 6 since both need `@polaris/ui` in those trees first.
 8. **M72-08/10** the auth matrix and the noun/URL vocabulary — decisions plus their small code changes.
-9. **M72-09** the design review as a gate, last because it reviews what 1–8 produced.
+9. **M72-09** the design review as a gate — **done** (`gate.sh design`, 22 renders across three products, exit 0). It earned its place twice over: it is what proved ascend's `/fics` adoption renders, and it is what produced 14 contrast 'failures' on kindred that turned out to be the gate mis-measuring screen-reader labels.
+
+**Batch 0 is complete: M72 10 of 10.** What the batch leaves behind is a family that shares a token vocabulary, one error envelope, one meta/health contract, one blurb order, one nav module, a written auth matrix, one noun vocabulary, and a gate that fails when any of it drifts.
 
 What this batch is not: one skin. kindred reproduces AO3's visual grammar on purpose (`web/src/styles/kindred.css`
 cites the OTW stylesheets) and ficnexus has no frontend at all (`docs/EXPORTER-SCOPE.md`). The family resemblance is
