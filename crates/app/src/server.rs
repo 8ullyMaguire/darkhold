@@ -636,6 +636,12 @@ pub fn build_router(state: AppState) -> Router {
         ))
         .merge(module_mount(
             &state,
+            "taste_notifications",
+            routes::taste_notify::router(),
+            RouteClass::Write,
+        ))
+        .merge(module_mount(
+            &state,
             "media_resilience",
             routes::media_resilience::router(),
             RouteClass::Default,

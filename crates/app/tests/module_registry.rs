@@ -74,7 +74,7 @@ const PLANNED_ROWS: usize = 23;
 /// Shipped but still moving. Counted separately for the same reason as the other two: a row that arrives without a deliberate count
 /// update is a decision nobody made, and `MODULES.len() == stable + planned` only noticed that while `Beta` and `Experimental` were
 /// unused — the first experimental row (W7's `admin_actions`) went red on the arithmetic instead of on the decision.
-const BETA_ROWS: usize = 0;
+const BETA_ROWS: usize = 1;
 const EXPERIMENTAL_ROWS: usize = 1;
 
 fn server_source() -> String {

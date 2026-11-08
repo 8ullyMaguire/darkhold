@@ -58,6 +58,7 @@ pub mod seed;
 pub mod server;
 pub mod rating_watch;
 pub mod directory_seed;
+pub mod taste_notify;
 pub mod source_sync;
 pub mod state;
 pub mod taste;

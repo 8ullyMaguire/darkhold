@@ -1216,3 +1216,46 @@ never compiled and were re-targeted, not counted.
 
 Ratchet 102 -> 99.
 
+### A queue that could be neither filled nor emptied (engagement.rs, 2026-11-08)
+
+`taste_notification_queue` had no producer and no drainer. Three store functions, a passing store test, and no caller in the
+application — the table could be neither filled nor emptied, and migration 0055 states the intent in one sentence: *"When a
+work is published, aligned users are queued for notification. The worker drains this table."* Neither half existed.
+
+Both halves now do:
+
+* **`queue_aligned_readers`** runs from `publish_work` (not on a replay: the queue is keyed by `(work, account)` so it would
+  be a no-op, and a retried publish should not pay for a scan). It gates on the module switch itself, because the producer
+  lives inside a core route where a module mount cannot gate it. It queues readers inside the operator's taste band, never
+  the author for their own work, and skips a reader already holding `PENDING_CAP` unsent rows — which is what
+  `pending_taste_notification_count` existed for.
+* **"Aligned" is the instance's own notion**: distance to the operator's taste centroid, not a per-work relevance score.
+  darkhold has no accumulated reader-by-work evidence (§49.9 refuses to invent it), and a notification that arrives for a
+  reason the reader cannot name is worse than none.
+* **`POST /admin/taste-notifications/drain`** delivers through `notifications::notify`, so the reader's own settings decide
+  whether a row means anything. `delivered` counts rows *written* and the response says so.
+* **`GET /me/taste-notifications`** answers the reader's own queue depth — a count, not the rows: a queued row is a plan,
+  and showing it would deliver the notification without marking it sent.
+
+**Three defects, none in the code being added.**
+
+1. **`drain_taste_notification_queue` delivered twice.** It marked rows `sent_at = now` and then selected `WHERE sent_at =
+   now` — and `now_rfc3339()` has **second** resolution, so a second drain in the same second re-read the first drain's
+   rows. A queue whose entire purpose is exactly-once delivery handed everything to the worker twice. Rewritten as a single
+   `UPDATE … RETURNING`. The test's second drain (same second) is the regression test, and it is what caught this.
+2. **`list_users_by_centroid_distance` was undecodable on PostgreSQL** — `accounts.id` is a UUID column and the tuple
+   decodes a `String`. Invisible while nothing called it.
+3. **…and it failed on any account with no distance.** `taste_centroid_distance::float8` with no `IS NOT NULL`, on a column
+   whose default is NULL on PostgreSQL (SQLite's is `0.0`): one unranked account and the producer queued nobody, silently.
+   A reader with no distance is unranked, not unimaginably far.
+
+**The first version of the test passed a mutant.** On the off instance the reader was also the publisher — and the author is
+never queued for their own work, so author exclusion masked the module gate and removing the gate changed nothing. The
+fixture now gives that instance a bystander reader and a separate author. That is the same lesson as the single-link note
+test: a fixture whose two rules agree with each other cannot tell them apart.
+
+Module row `taste_notifications`: `default_on: false` (it writes to people who did not ask), `Beta`, operator toggle, spec
+cited as migration 0055 rather than the store's own `§9.9`, which points at Legal posture.
+
+Ratchet 99 -> 95.
+

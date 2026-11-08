@@ -136,6 +136,7 @@ pub mod tombstones;
 pub mod exchange_admin;
 pub mod identity_admin;
 pub mod taste_health;
+pub mod taste_notify;
 pub mod taste_import;
 pub mod translation;
 pub mod trends;

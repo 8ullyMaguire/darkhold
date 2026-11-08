@@ -280,60 +280,42 @@ pub async fn queue_taste_notification(
 
 /// Drain up to `limit` pending notifications, marking them as sent. Returns the
 /// queued rows with their taste scores so the worker can dispatch them.
+///
+/// **One statement, `UPDATE … RETURNING`, because the older two-statement form returned rows it had not marked.**
+/// It wrote `sent_at = now` and then selected `WHERE sent_at = now` — and `now_rfc3339()` has **second** resolution, so a
+/// second drain inside the same second matched the first drain's rows and handed them to the worker again. Two drains in
+/// one second therefore delivered every notification twice, which is exactly the failure a queue exists to prevent.
+/// `RETURNING` cannot have that window: the rows returned are the rows the update touched, whatever the clock says.
 pub async fn drain_taste_notification_queue(
     db: &Database,
     limit: i64,
 ) -> Result<Vec<(String, String, f64)>, sqlx::Error> {
     let now = crate::identity::now_rfc3339();
-    // We need to SELECT then UPDATE in a single dialect-portable way. Easiest:
-    // mark sent_at in one query, then read those rows.
-    match db.backend() {
-        Backend::Sqlite => {
-            let pool = db.sqlite_pool().ok_or(pool_err())?;
-            // Mark the oldest `limit` pending rows as sent.
-            sqlx::query(
-                "UPDATE taste_notification_queue SET sent_at = ? WHERE id IN (
-                    SELECT id FROM taste_notification_queue WHERE sent_at IS NULL ORDER BY queued_at ASC LIMIT ?
-                )"
-            )
+    let sql = db.sql(
+        "UPDATE taste_notification_queue SET sent_at = ?
+          WHERE id IN (
+              SELECT id FROM taste_notification_queue WHERE sent_at IS NULL ORDER BY queued_at ASC LIMIT ?
+          )
+        RETURNING work_id, account_id, taste_score",
+        "UPDATE taste_notification_queue SET sent_at = $1
+          WHERE id IN (
+              SELECT id FROM taste_notification_queue WHERE sent_at IS NULL ORDER BY queued_at ASC LIMIT $2
+          )
+        RETURNING work_id::text, account_id::text, taste_score",
+    );
+    let rows: Vec<(String, String, f64)> = match db.backend() {
+        Backend::Sqlite => sqlx::query_as(&sql)
             .bind(&now)
             .bind(limit)
-            .execute(pool)
-            .await?;
-
-            let rows: Vec<(String, String, f64)> = sqlx::query_as(
-                "SELECT work_id, account_id, taste_score FROM taste_notification_queue
-                 WHERE sent_at = ? ORDER BY queued_at ASC LIMIT ?",
-            )
+            .fetch_all(db.sqlite_pool().ok_or(pool_err())?)
+            .await?,
+        Backend::Postgres => sqlx::query_as(&sql)
             .bind(&now)
             .bind(limit)
-            .fetch_all(pool)
-            .await?;
-            Ok(rows)
-        }
-        Backend::Postgres => {
-            let pool = db.postgres_pool().ok_or(pool_err())?;
-            sqlx::query(
-                "UPDATE taste_notification_queue SET sent_at = $1 WHERE id IN (
-                    SELECT id FROM taste_notification_queue WHERE sent_at IS NULL ORDER BY queued_at ASC LIMIT $2
-                )"
-            )
-            .bind(&now)
-            .bind(limit)
-            .execute(pool)
-            .await?;
-
-            let rows: Vec<(String, String, f64)> = sqlx::query_as(
-                "SELECT work_id::text, account_id::text, taste_score FROM taste_notification_queue
-                 WHERE sent_at = $1 ORDER BY queued_at ASC LIMIT $2",
-            )
-            .bind(&now)
-            .bind(limit)
-            .fetch_all(pool)
-            .await?;
-            Ok(rows)
-        }
-    }
+            .fetch_all(db.postgres_pool().ok_or(pool_err())?)
+            .await?,
+    };
+    Ok(rows)
 }
 
 /// Count of pending notifications for an account (used to enforce daily cap).
