@@ -167,6 +167,8 @@ mod tests {
             summary: None,
             author: None,
             published: None,
+            // No filter vocabulary on a new-work alert yet; see the note in `feeds.rs`.
+            categories: Vec::new(),
         }
     }
 

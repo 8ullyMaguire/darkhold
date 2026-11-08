@@ -420,6 +420,10 @@ async fn render_catalogue(
             author: author_of(&row.author_text),
             // The catalogue row carries no source clock; the feed says so rather than inventing one.
             published: None,
+            // `commons-feed` grew a `categories` slot for a reader's filter vocabulary (suki puts a
+            // rating there). These rows carry no labels yet, so the slot stays empty rather than being
+            // filled with something invented — the renderers then emit nothing at all for it.
+            categories: Vec::new(),
         })
         .collect();
 
@@ -526,6 +530,10 @@ pub(crate) async fn library_items(
             // The source's own clock, never ours: `last_synced_at` says when we looked, and a feed that
             // dated items by when we polled would move every item on every poll.
             published: published_of(item.source_updated_at.as_deref()),
+            // `commons-feed` grew a `categories` slot for a reader's filter vocabulary (suki puts a
+            // rating there). These rows carry no labels yet, so the slot stays empty rather than being
+            // filled with something invented — the renderers then emit nothing at all for it.
+            categories: Vec::new(),
         })
         .collect())
 }
@@ -579,6 +587,10 @@ pub(crate) async fn catalogue_items(
             author: author_of(&row.author_text),
             // The catalogue row carries no source clock; the feed says so rather than inventing one.
             published: None,
+            // `commons-feed` grew a `categories` slot for a reader's filter vocabulary (suki puts a
+            // rating there). These rows carry no labels yet, so the slot stays empty rather than being
+            // filled with something invented — the renderers then emit nothing at all for it.
+            categories: Vec::new(),
         })
         .collect())
 }
