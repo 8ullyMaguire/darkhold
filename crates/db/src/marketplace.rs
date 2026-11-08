@@ -692,29 +692,6 @@ pub async fn submit_manifest(
     Ok(true)
 }
 
-/// Fork a published manifest into a new package (§21: "forks keep attribution and request their own grants").
-///
-/// Three things this deliberately does **not** do:
-///
-/// * It does not copy the grants. A grant is a consent given by a reader to one package id; a fork is a different package and asking for
-///   the original's permissions by inheritance is exactly the thing consent is meant to prevent. The fork's own grant starts empty and is
-///   requested through the same door as anyone else's.
-/// * It does not carry the source's `state`. A fork enters `pending`, because approval is a judgement about a package and a copy of an
-///   approved package is not one.
-/// * It does not rewrite the document. The manifest bytes are what the original author signed; attribution lives in `derived_from` and is
-///   published beside the document, so a reader can tell "written by X, derived from Y" without the JSON having been edited in transit.
-///
-/// Refuses a target id that already exists, because silently overwriting somebody's package with a fork is not a merge.
-pub async fn fork_manifest(
-    db: &Database,
-    source_id: &str,
-    target_id: &str,
-    version: &str,
-    forked_by: &str,
-) -> Result<Value, sqlx::Error> {
-    fork_manifest_document(db, source_id, target_id, version, forked_by, None).await
-}
-
 /// Fork a package, optionally with a document the caller has already rewritten.
 ///
 /// `document` exists for one case: a fork published under a different licence. The default (`None`) copies the source's document

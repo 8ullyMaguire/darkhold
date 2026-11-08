@@ -408,40 +408,6 @@ pub async fn accepted_holder_anywhere(
     }
 }
 
-/// Which recipient, if any, already accepted this work in this notice.
-pub async fn accepted_holder(
-    db: &Database,
-    notice_id: &str,
-    work_id: &str,
-) -> Result<Option<String>> {
-    match db.backend() {
-        Backend::Sqlite => {
-            let holder: Option<String> = sqlx::query_scalar(
-                "SELECT recipient_instance FROM evacuation_assignments
-                  WHERE notice_id = ? AND work_id = ? AND state = 'accepted' LIMIT 1",
-            )
-            .bind(notice_id)
-            .bind(work_id)
-            .fetch_optional(db.sqlite_pool().expect("sqlite"))
-            .await?
-            .flatten();
-            Ok(holder)
-        }
-        Backend::Postgres => {
-            let holder: Option<String> = sqlx::query_scalar(
-                "SELECT recipient_instance FROM evacuation_assignments
-                  WHERE notice_id = $1 AND work_id = $2 AND state = 'accepted' LIMIT 1",
-            )
-            .bind(notice_id)
-            .bind(work_id)
-            .fetch_optional(db.postgres_pool().expect("postgres"))
-            .await?
-            .flatten();
-            Ok(holder)
-        }
-    }
-}
-
 /// One placement by id.
 pub async fn find_assignment(db: &Database, id: &str) -> Result<Option<Assignment>> {
     match db.backend() {
