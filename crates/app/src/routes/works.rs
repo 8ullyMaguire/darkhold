@@ -344,6 +344,8 @@ struct PublicWorkMetricsView {
     complete_reads: i64,
     reactions: i64,
     kudos: i64,
+    /// How many of the kudos above carry a reason — the ones that train a taste profile.
+    kudos_with_reason: i64,
     bookmarks: i64,
     collection_adds: i64,
     reviews: i64,
@@ -2096,11 +2098,18 @@ async fn public_view(state: &AppState, work: &Work) -> ApiResult<PublicWorkView>
             "metrics",
             work_metrics::get_metrics(state.db(), &work.id).await,
         )?;
+        // §50.1 makes a reason OPTIONAL on the write and REQUIRED by the training path, so the page reports both numbers: the
+        // kudos it has, and how many of them carry a reason. The second is the one that says what a reader's endorsement
+        // actually taught this instance, and it was a query with a test and no caller (M70-13).
+        let kudos_with_reason =
+            darkhold_db::reasons_store::reason_bearing_kudos(state.db(), &work.id.to_string())
+                .await?;
         Some(PublicWorkMetricsView {
             views: m.views,
             complete_reads: m.complete_reads,
             reactions: m.reactions,
             kudos: m.kudos,
+            kudos_with_reason,
             bookmarks: m.bookmarks,
             collection_adds: m.collection_adds,
             reviews: m.reviews,

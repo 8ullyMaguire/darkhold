@@ -444,7 +444,9 @@ async fn vote(
 
     let now = darkhold_db::sessions::now();
     let decay = cfg.decay();
-    let (score, live) = db::set_vote(
+    // The second half of the pair is whether the vote counts. The response now reads the stored row rather than turning
+    // that flag into a claim about what was written, so the flag is deliberately unused here (M70-13).
+    let (score, _live) = db::set_vote(
         state.db(),
         &id,
         &session.account_id.to_string(),
@@ -463,9 +465,17 @@ async fn vote(
     // `my_vote` is always the direction just voted. Voting the same way again
     // refreshes rather than clears, so there is no longer a state where
     // voting leaves you with no vote.
+    // Read back rather than assumed. The comment below used to say the direction just voted is always the answer, and that
+    // is true of today's `set_vote` — but a response that echoes the request cannot notice the day it stops being true, and
+    // this column is what the reader's own page marks as their vote. The row is the fact; the request is what was asked for.
+    // (M70-13: the reader was the only caller of a query nothing else read.)
+    let my_vote = db::my_vote(state.db(), &id, &session.account_id.to_string())
+        .await
+        .map_err(internal)?;
+
     Ok(Json(json!({
         "score": score,
-        "my_vote": if live { Value::from(body.value) } else { Value::Null },
+        "my_vote": my_vote.map_or(Value::Null, Value::from),
         "decay": {
             "enabled": decay.enabled,
             "cutoff_days": decay.cutoff_days,

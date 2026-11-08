@@ -38,7 +38,36 @@ async fn list(
 ) -> ApiResult<Json<serde_json::Value>> {
     crate::routes::experiment_sweep::require_operator(&state, &user)?;
     let readings = darkhold_db::source_engagement::readings(state.db(), &id).await?;
-    Ok(Json(serde_json::json!({ "metrics": readings })))
+    // The ratio is computed here rather than by a `ROUND(likes / views)` in a page's SQL, because **the denominator's
+    // provenance is the rule**: a source's endorsements over *that same source's* views, `null` when either is missing or
+    // views is zero. An inline division returns 0 for "no views" and an error or a zero for "not published", and both are
+    // wrong in a way that reads as a real number. (M70-13)
+    let likes_per_view = match (
+        darkhold_db::source_engagement::likes_per_view(
+            state.db(),
+            &id,
+            darkhold_db::source_engagement::Metric::Likes,
+            darkhold_db::source_engagement::Metric::Views,
+        )
+        .await,
+        darkhold_db::source_engagement::likes_per_view(
+            state.db(),
+            &id,
+            darkhold_db::source_engagement::Metric::Kudos,
+            darkhold_db::source_engagement::Metric::Hits,
+        )
+        .await,
+    ) {
+        (Ok(Some(ratio)), _) => Some(ratio),
+        (_, Ok(Some(ratio))) => Some(ratio),
+        _ => None,
+    };
+    Ok(Json(serde_json::json!({
+        "metrics": readings,
+        // `null` is a real answer: the archive did not publish one half, or published no views. `0.0` would be a claim
+        // that nobody liked it.
+        "likes_per_view": likes_per_view,
+    })))
 }
 
 #[derive(Deserialize)]
