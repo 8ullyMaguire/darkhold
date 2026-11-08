@@ -64,7 +64,27 @@ pub async fn set_keybind(
         if !darkhold_domain::saved_filter::keybind_is_valid(bind) {
             anyhow::bail!("a keybind is one digit from 1 to 9, not {bind}");
         }
-        if let Some(taken) = keybind_holder(db, account_id, bind).await? {
+        let holder_sql = db.sql(
+            "SELECT id FROM saved_views WHERE account_id = ? AND keybind = ?",
+            "SELECT id::text FROM saved_views WHERE account_id = $1::uuid AND keybind = $2::bigint",
+        );
+        let taken: Option<String> = match db.backend() {
+            Backend::Sqlite => {
+                sqlx::query_scalar(&holder_sql)
+                    .bind(account_id)
+                    .bind(bind)
+                    .fetch_optional(db.sqlite_pool().expect("sqlite"))
+                    .await?
+            }
+            Backend::Postgres => {
+                sqlx::query_scalar(&holder_sql)
+                    .bind(account_id)
+                    .bind(bind)
+                    .fetch_optional(db.postgres_pool().expect("postgres"))
+                    .await?
+            }
+        };
+        if let Some(taken) = taken {
             if taken != view_id {
                 anyhow::bail!(
                     "digit {bind} is already bound to another of your filters; clear it first or choose another digit"
@@ -95,35 +115,6 @@ pub async fn set_keybind(
             .rows_affected(),
     };
     Ok(changed > 0)
-}
-
-/// Which of this account's filters already holds a digit.
-pub async fn keybind_holder(
-    db: &Database,
-    account_id: &str,
-    keybind: i64,
-) -> Result<Option<String>> {
-    let sql = db.sql(
-        "SELECT id FROM saved_views WHERE account_id = ? AND keybind = ?",
-        "SELECT id::text FROM saved_views WHERE account_id = $1::uuid AND keybind = $2::bigint",
-    );
-    let row: Option<String> = match db.backend() {
-        Backend::Sqlite => {
-            sqlx::query_scalar(&sql)
-                .bind(account_id)
-                .bind(keybind)
-                .fetch_optional(db.sqlite_pool().expect("sqlite"))
-                .await?
-        }
-        Backend::Postgres => {
-            sqlx::query_scalar(&sql)
-                .bind(account_id)
-                .bind(keybind)
-                .fetch_optional(db.postgres_pool().expect("postgres"))
-                .await?
-        }
-    };
-    Ok(row)
 }
 
 /// Every keybinding this account has, ordered by digit.

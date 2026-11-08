@@ -459,6 +459,22 @@ pub fn build_router(state: AppState) -> Router {
             routes::meta::router(),
             RouteClass::Default,
         ))
+        // The catalogue's own facets and a fandom's declared neighbours (M45-28, M64-08).
+        //
+        // These declared their paths WITH the `/api/v1` prefix and were merged into the ROOT router, which works — the doors
+        // answer — but makes the OpenAPI document claim a path that already carries the prefix its `servers` entry supplies, so a
+        // client resolving it asks for `/api/v1/api/v1/facets`. The table also stopped being a description of the API and became a
+        // description of where each router happens to be mounted. The prefix now lives in one place, the `nest` below.
+        .merge(classified(
+            routes::facets::router(),
+            RouteClass::Default,
+            &state,
+        ))
+        .merge(classified(
+            routes::fandom_graph::router(),
+            RouteClass::Default,
+            &state,
+        ))
         // The catalogue is core (§59.2): a page must be able to ask why it is empty.
         .merge(classified(
             routes::modules::router(),
@@ -1365,10 +1381,6 @@ pub fn build_router(state: AppState) -> Router {
         // The sitemap (M71-16). No session layer: the file a crawler gets must be the file everyone gets, which is why
         // its audience is `Anonymous` rather than a `MaybeSession` nobody reads.
         .merge(routes::sitemap::router())
-        .merge(routes::facets::router())
-        // M64-08: a fandom's declared neighbours. The map is the operator's, so every caller gets the same answer and no session
-        // layer is needed — the same reason the sitemap is `Anonymous`.
-        .merge(routes::fandom_graph::router())
         // The work page (ADR 0006, M71-20): the most-linked page on an archive, as a document. Registered before the
         // SPA fallback so `/works/{id}` is HTML for a reader, a crawler and a preview; the application keeps the routes
         // that are only meaningful with a session.

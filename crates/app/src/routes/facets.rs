@@ -27,11 +27,11 @@ struct FacetsQuery {
 
 pub fn router() -> Router<AppState> {
     Router::new()
-        .route("/api/v1/facets", get(facets))
+        .route("/facets", get(facets))
         // M71-12: the word-count distribution under the same filters. A separate door because it answers a different question with a
         // different shape — ten population-equal buckets with their edges, not a list of named values — and because a chart is fetched by
         // pages that never render the other four facets.
-        .route("/api/v1/facets/words", get(word_histogram))
+        .route("/facets/words", get(word_histogram))
 }
 
 #[derive(Deserialize)]

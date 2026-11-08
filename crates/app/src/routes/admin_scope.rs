@@ -29,6 +29,21 @@ pub async fn require_admin_of(
 ) -> Result<(), ApiError> {
     if !require_admin_of_decision(state, user, site).await {
         audit_refusal(state, user, site).await;
+        // **Two refusals, and which one a caller gets is a statement about them** (ADR 0030).
+        //
+        // A caller with no standing at all -- no estate claim and no role that could ever open a door -- is answered
+        // `404`, because "403" tells them the surface exists: that this instance holds a retention policy, or a succession
+        // plan, or an extension review queue. A caller who *does* hold a role and is merely not the right one for this
+        // site is answered `403`, because for them the surface's existence is not the disclosure -- their standing is.
+        //
+        // The check is deliberately "could this caller ever open any admin door" rather than "is this caller privileged
+        // here": a site moderator asking about another site's retention policy is refused `403`, and needs to be, or the
+        // answer to "why can't I?" is impossible to find.
+        let has_any_standing = holds_estate_claim(state, user)
+            || user.roles.iter().any(|role| role.starts_with("role:"));
+        if !has_any_standing {
+            return Err(ApiError(AppError::NotFound { resource: "page" }));
+        }
         return Err(ApiError(AppError::AccessDenied));
     }
     Ok(())

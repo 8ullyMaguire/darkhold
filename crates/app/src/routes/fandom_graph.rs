@@ -22,7 +22,7 @@ use crate::state::AppState;
 
 /// The route.
 pub fn router() -> Router<AppState> {
-    Router::new().route("/api/v1/fandoms/{fandom}/related", get(related))
+    Router::new().route("/fandoms/{fandom}/related", get(related))
 }
 
 #[derive(Debug, Deserialize)]

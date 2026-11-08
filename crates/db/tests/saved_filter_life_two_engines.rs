@@ -107,11 +107,13 @@ async fn one_digit_belongs_to_one_filter_and_the_collision_is_refused() {
             .expect("bind"),
         "the first binding lands"
     );
+    let binds = saved_filter_life::keybinds(db, &owner)
+        .await
+        .expect("keybinds");
     assert_eq!(
-        saved_filter_life::keybind_holder(db, &owner, 3)
-            .await
-            .expect("holder"),
-        Some(first.clone())
+        binds,
+        vec![(3, first.clone(), "Morning".to_owned())],
+        "the digit is bound to the first filter, and the answer names it"
     );
 
     // Binding the same filter to the same digit again is a no-op, not a collision.

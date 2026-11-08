@@ -166,6 +166,8 @@ async fn write_plan(
     RequireSession(user): RequireSession,
     Json(request): Json<PlanRequest>,
 ) -> ApiResult<Json<SuccessionView>> {
+    // `require_admin_of` answers `404` to a caller with no standing at all and `403` to one whose role is real but wrong
+    // for this door (ADR 0030), so these doors need no shape check of their own.
     crate::routes::admin_scope::require_admin_of(&state, &user, None).await?;
     let draft = darkhold_domain::succession::validate(PlanDraft {
         destination: request.destination,
@@ -183,6 +185,8 @@ async fn confirm_plan(
     RequireSession(user): RequireSession,
     Json(request): Json<ConfirmRequest>,
 ) -> ApiResult<Json<SuccessionView>> {
+    // `require_admin_of` answers `404` to a caller with no standing at all and `403` to one whose role is real but wrong
+    // for this door (ADR 0030), so these doors need no shape check of their own.
     crate::routes::admin_scope::require_admin_of(&state, &user, None).await?;
     let review_days = request.review_days.map(|days| {
         days.clamp(
@@ -203,6 +207,8 @@ async fn withdraw_plan(
     State(state): State<AppState>,
     RequireSession(user): RequireSession,
 ) -> ApiResult<Json<SuccessionView>> {
+    // `require_admin_of` answers `404` to a caller with no standing at all and `403` to one whose role is real but wrong
+    // for this door (ADR 0030), so these doors need no shape check of their own.
     crate::routes::admin_scope::require_admin_of(&state, &user, None).await?;
     darkhold_db::succession::clear(state.db()).await?;
     read_plan(State(state), MaybeSession(None)).await
@@ -213,6 +219,8 @@ async fn write_redirect(
     RequireSession(user): RequireSession,
     Json(request): Json<RedirectRequest>,
 ) -> ApiResult<Json<ResolveView>> {
+    // `require_admin_of` answers `404` to a caller with no standing at all and `403` to one whose role is real but wrong
+    // for this door (ADR 0030), so these doors need no shape check of their own.
     crate::routes::admin_scope::require_admin_of(&state, &user, None).await?;
     if !request.to_url.starts_with("https://") {
         return Err(ApiError(AppError::field(

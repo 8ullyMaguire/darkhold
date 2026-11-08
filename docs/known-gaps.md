@@ -743,6 +743,7 @@ so the count can only go down and every fix is visible.**
 | `commissions` | written, never read | the row is written on every event and read by nothing |
 | `dmca_takedowns` | written, never read | the row is written on every event and read by nothing |
 | `encryption_keys` | written, never read | the row is written on every event and read by nothing |
+| `refunds` | written, never read | a refund is recorded as an event and the balance it adjusts lives on `payments.refunded_minor`; no surface reads the event log yet |
 | `work_ratings` | read, never written | migration 0129's arena ladder. A reader still asks it for a work's standing; the writes belong to the `polaris-taste` service that now keeps the ladder (ADR 0001), so on a fresh instance the table is empty and the reader falls back. Kept so an instance migrated from the pre-move ladder does not lose its rating history |
 | `exchange_signal_entities` | written, never read | the row is written on every event and read by nothing |
 | `federation_inbound` | written, never read | the row is written on every event and read by nothing |
@@ -761,9 +762,7 @@ so the count can only go down and every fix is visible.**
 | `translation_glossaries` | written, never read | the row is written on every event and read by nothing |
 | `translation_publications` | written, never read | the row is written on every event and read by nothing |
 | `translation_reviews` | written, never read | the row is written on every event and read by nothing |
-| `webhook_deliveries` | written, never read | the row is written on every event and read by nothing |
 | `curator_standing_bounties` | read, never written | a reader with no writer: the feature's other half was never built |
-| `extension_manifests` | read, never written | a reader with no writer: the feature's other half was never built |
 | `forum_vote_types` | read, never written | a reader with no writer: the feature's other half was never built |
 | `identity_merge_history` | read, never written | a reader with no writer: the feature's other half was never built |
 | `identity_merge_proposals` | read, never written | a reader with no writer: the feature's other half was never built |
