@@ -78,18 +78,28 @@ pub async fn create_translation(
 pub async fn get_translation(
     State(state): State<AppState>,
     Path(job_id): Path<String>,
-    MaybeSession(_user): MaybeSession,
+    MaybeSession(user): MaybeSession,
 ) -> ApiResult<Json<Value>> {
+    let account = user.map(|u| u.account_id.to_string()).unwrap_or_default();
+    if account.is_empty() {
+        return Err(ApiError(darkhold_domain::AppError::field(
+            "session",
+            "sign in to read a translation job",
+        )));
+    }
+
     let job = darkhold_db::translation::get_job(state.db(), &job_id)
         .await
         .map_err(|e| ApiError(darkhold_domain::AppError::Internal(e.into())))?;
 
+    // Scoped, where it used to answer anybody with a job id. A translation job carries the provider, the quote and the
+    // language pair of somebody's work, and `get_job` has no idea who asked: the check belongs here, and the refusal is
+    // 404 rather than 403 because confirming that a job exists is itself a disclosure (ADR 0030).
     match job {
-        Some(j) => Ok(Json(j)),
-        None => Err(ApiError(darkhold_domain::AppError::field(
-            "job",
-            "not found",
-        ))),
+        Some(j) if j.get("created_by").and_then(Value::as_str) == Some(account.as_str()) => Ok(Json(j)),
+        _ => Err(ApiError(darkhold_domain::AppError::NotFound {
+            resource: "translation",
+        })),
     }
 }
 
@@ -227,6 +237,17 @@ pub fn router() -> axum::Router<AppState> {
     axum::Router::new()
         .route("/works/{id}/translations", post(create_translation))
         .route("/translations/{job_id}", get(get_translation))
+        // M70-13: the job's own units, its publication, and the memory pair (write + lookup) beside the existing list.
+        .route(
+            "/translations/{job_id}/units",
+            get(list_units).post(record_unit),
+        )
+        .route("/translations/{job_id}/publish", post(publish_translation))
+        .route(
+            "/me/translation-memory",
+            post(add_memory_entry),
+        )
+        .route("/me/translation-memory/lookup", get(lookup_memory_entry))
         .route(
             "/translations/{job_id}/transition",
             post(transition_translation),
@@ -369,4 +390,278 @@ pub async fn fund_translation(
             ),
         ))),
     }
+}
+
+// ---------------------------------------------------------------------------
+// The job's units, its publication, and translation memory (M70-13)
+// ---------------------------------------------------------------------------
+
+/// Confirm the job exists and belongs to the caller, or answer 404.
+///
+/// Every door below needs the job's `source_work` and `state`, and every one of them must answer a stranger the same way
+/// `get_translation` now does. One helper, so the refusal cannot drift between four routes.
+async fn owned_job(state: &AppState, account: &str, job_id: &str) -> ApiResult<Value> {
+    let job = darkhold_db::translation::get_job(state.db(), job_id)
+        .await
+        .map_err(|e| ApiError(darkhold_domain::AppError::Internal(e.into())))?;
+    match job {
+        Some(job) if job.get("created_by").and_then(Value::as_str) == Some(account) => Ok(job),
+        _ => Err(ApiError(darkhold_domain::AppError::NotFound {
+            resource: "translation",
+        })),
+    }
+}
+
+fn account_of(user: Option<crate::auth::SessionUser>) -> ApiResult<String> {
+    let account = user.map(|u| u.account_id.to_string()).unwrap_or_default();
+    if account.is_empty() {
+        return Err(ApiError(darkhold_domain::AppError::field(
+            "session",
+            "sign in to work on a translation",
+        )));
+    }
+    Ok(account)
+}
+
+/// The translated paragraphs recorded for one job.
+///
+/// A job in progress is a list of paragraphs, each with its own state: one job can have three paragraphs approved and
+/// four still pending, and a caller that only sees the job's state cannot tell.
+async fn list_units(
+    State(state): State<AppState>,
+    Path(job_id): Path<String>,
+    MaybeSession(user): MaybeSession,
+) -> ApiResult<Json<Value>> {
+    let account = account_of(user)?;
+    owned_job(&state, &account, &job_id).await?;
+    let units = darkhold_db::translation::units_for_job(state.db(), &job_id)
+        .await
+        .map_err(|e| ApiError(darkhold_domain::AppError::Internal(e.into())))?;
+    Ok(Json(json!({ "job_id": job_id, "units": units })))
+}
+
+/// Record one paragraph's translation.
+#[derive(Debug, Deserialize)]
+pub struct RecordUnitBody {
+    /// The source unit the paragraph belongs to.
+    pub unit_id: String,
+    /// Which paragraph of that unit.
+    pub paragraph_index: i64,
+    /// The source sentence, as it was translated from.
+    pub source_text: String,
+    /// The translated sentence, when there is one.
+    pub target_text: Option<String>,
+    /// `pending`, `translated`, `reviewed` or `approved`.
+    pub state: String,
+    /// The memory row this came from, when it came from memory rather than a person.
+    pub memory_hit: Option<String>,
+}
+
+async fn record_unit(
+    State(state): State<AppState>,
+    Path(job_id): Path<String>,
+    MaybeSession(user): MaybeSession,
+    Json(body): Json<RecordUnitBody>,
+) -> ApiResult<Json<Value>> {
+    let account = account_of(user)?;
+    owned_job(&state, &account, &job_id).await?;
+
+    let unit_state =
+        darkhold_domain::translation::TranslationUnitState::from_str(&body.state).map_err(|error| {
+            let mut field_errors = std::collections::BTreeMap::new();
+            field_errors.insert("state".to_string(), error);
+            ApiError(darkhold_domain::AppError::Validation {
+                message: "unknown translation unit state".to_string(),
+                field_errors,
+            })
+        })?;
+
+    // A paragraph cannot be "translated" with nothing in it: the state is a claim about the text beside it, and accepting
+    // the claim without the text would put a paragraph in the reviewed pile that nobody can review.
+    if unit_state != darkhold_domain::translation::TranslationUnitState::Pending
+        && body.target_text.as_deref().is_none_or(|text| text.trim().is_empty())
+    {
+        return Err(ApiError(darkhold_domain::AppError::field(
+            "target_text",
+            "a translated paragraph needs its translation",
+        )));
+    }
+
+    darkhold_db::translation::upsert_unit(
+        state.db(),
+        &job_id,
+        &body.unit_id,
+        body.paragraph_index,
+        &body.source_text,
+        body.target_text.as_deref(),
+        &unit_state,
+        body.memory_hit.as_deref(),
+    )
+    .await
+    .map_err(|e| ApiError(darkhold_domain::AppError::Internal(e.into())))?;
+
+    Ok(Json(json!({
+        "job_id": job_id,
+        "unit_id": body.unit_id,
+        "paragraph_index": body.paragraph_index,
+        "state": unit_state.as_str(),
+    })))
+}
+
+/// Publish an approved translation.
+///
+/// The gate is the job's state, and it is a refusal rather than a coercion: §40's pipeline publishes from `approved`, and
+/// a door that accepted a publish from `in_progress` would let a half-translated work appear as a finished one. The
+/// publication row is written *after* the transition, because a publication row for a job that never moved would be a
+/// claim about an event that did not happen.
+async fn publish_translation(
+    State(state): State<AppState>,
+    Path(job_id): Path<String>,
+    MaybeSession(user): MaybeSession,
+) -> ApiResult<Json<Value>> {
+    let account = account_of(user)?;
+    let job = owned_job(&state, &account, &job_id).await?;
+    let current = job.get("state").and_then(Value::as_str).unwrap_or_default();
+    if current != "approved" {
+        return Err(ApiError(darkhold_domain::AppError::Validation {
+            message: format!(
+                "a translation is published from `approved`, and this job is `{current}`"
+            ),
+            field_errors: Default::default(),
+        }));
+    }
+    let from = darkhold_domain::translation::TranslationJobState::Approved;
+    let to = darkhold_domain::translation::TranslationJobState::Published;
+    darkhold_db::translation::transition_job(state.db(), &job_id, &from, &to)
+        .await
+        .map_err(|e| ApiError(darkhold_domain::AppError::Internal(e.into())))?;
+
+    let work_id = job
+        .get("source_work")
+        .and_then(Value::as_str)
+        .unwrap_or_default()
+        .to_owned();
+    let publication =
+        darkhold_db::translation::record_publication(state.db(), &job_id, &work_id)
+            .await
+            .map_err(|e| ApiError(darkhold_domain::AppError::Internal(e.into())))?;
+
+    Ok(Json(json!({
+        "job_id": job_id,
+        "work_id": work_id,
+        "publication_id": publication,
+        "state": to.as_str(),
+    })))
+}
+
+/// Add a sentence pair to the caller's translation memory.
+#[derive(Debug, Deserialize)]
+pub struct AddMemoryBody {
+    pub source_lang: String,
+    pub target_lang: String,
+    pub source_text: String,
+    pub target_text: String,
+    /// Quality in basis points, 0–10000.
+    #[serde(default)]
+    pub quality_bp: i64,
+    /// Whether other translators may reuse this pair.
+    #[serde(default)]
+    pub shared: bool,
+}
+
+/// The key a sentence pair is stored under: SHA-256 of the source text.
+///
+/// The hash is computed here rather than accepted from the client, because the writer and the reader must agree on it
+/// exactly. A client that normalised differently — trimmed, lowercased, collapsed whitespace — would store a pair that
+/// its own lookup could never find, and the failure would look like "memory is not working" rather than "two hashings".
+fn memory_key(source_text: &str) -> String {
+    use sha2::{Digest, Sha256};
+    format!("{:x}", Sha256::digest(source_text.trim().as_bytes()))
+}
+
+async fn add_memory_entry(
+    State(state): State<AppState>,
+    MaybeSession(user): MaybeSession,
+    Json(body): Json<AddMemoryBody>,
+) -> ApiResult<Json<Value>> {
+    let account = account_of(user)?;
+    for (field, value) in [
+        ("source_lang", &body.source_lang),
+        ("target_lang", &body.target_lang),
+        ("source_text", &body.source_text),
+        ("target_text", &body.target_text),
+    ] {
+        if value.trim().is_empty() {
+            return Err(ApiError(darkhold_domain::AppError::field(field, "must not be empty")));
+        }
+    }
+    if !(0..=10_000).contains(&body.quality_bp) {
+        return Err(ApiError(darkhold_domain::AppError::field(
+            "quality_bp",
+            "between 0 and 10000",
+        )));
+    }
+    let source_hash = memory_key(&body.source_text);
+    let id = darkhold_db::translation::add_memory(
+        state.db(),
+        &account,
+        &body.source_lang,
+        &body.target_lang,
+        &source_hash,
+        body.source_text.trim(),
+        &body.target_text,
+        body.quality_bp,
+        body.shared,
+    )
+    .await
+    .map_err(|e| ApiError(darkhold_domain::AppError::Internal(e.into())))?;
+    Ok(Json(json!({ "id": id, "source_hash": source_hash })))
+}
+
+/// What the caller's memory has for this sentence, if anything.
+///
+/// The lookup takes the sentence, not a hash: the client that stores a pair should not have to reproduce the writer's
+/// key, and one hashing function is the only way the two can be guaranteed to agree.
+async fn lookup_memory_entry(
+    State(state): State<AppState>,
+    MaybeSession(user): MaybeSession,
+    axum::extract::Query(query): axum::extract::Query<LookupQuery>,
+) -> ApiResult<Json<Value>> {
+    let account = account_of(user)?;
+    for (field, value) in [
+        ("source_lang", &query.source_lang),
+        ("target_lang", &query.target_lang),
+        ("source_text", &query.source_text),
+    ] {
+        if value.trim().is_empty() {
+            return Err(ApiError(darkhold_domain::AppError::field(field, "must not be empty")));
+        }
+    }
+    let source_hash = memory_key(&query.source_text);
+    let hit = darkhold_db::translation::lookup_memory(
+        state.db(),
+        &account,
+        &query.source_lang,
+        &query.target_lang,
+        &source_hash,
+    )
+    .await
+    .map_err(|e| ApiError(darkhold_domain::AppError::Internal(e.into())))?;
+    Ok(Json(match hit {
+        Some((target_text, quality_bp, shared)) => json!({
+            "source_hash": source_hash,
+            "target_text": target_text,
+            "quality_bp": quality_bp,
+            "shared": shared,
+        }),
+        None => json!({ "source_hash": source_hash, "target_text": Value::Null }),
+    }))
+}
+
+/// The lookup's query string.
+#[derive(Debug, Deserialize)]
+pub struct LookupQuery {
+    pub source_lang: String,
+    pub target_lang: String,
+    pub source_text: String,
 }

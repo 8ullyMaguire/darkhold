@@ -947,3 +947,34 @@ every insert. The schema is the authority on the vocabulary of a column; the rul
 but each thinkcentre build costs ~16 minutes and a named backup. The rows since M45-14 (coordinates, leakage, devices,
 library reads, exports, imports, ratings) ship in one deploy with one `pg_dump` and one verification pass at the end of
 Batch 1, rather than six builds nobody reads the output of.
+
+### A job id was a capability (translation.rs, 2026-11-08)
+
+Five store functions had no caller — `units_for_job`, `upsert_unit`, `record_publication`, `add_memory`,
+`lookup_memory` — and reading them for the doors turned up a sixth problem that was not an orphan at all:
+`GET /translations/{job_id}` answered **anybody who had the id**, with no ownership check anywhere. A
+translation job carries the provider, the quote transaction and the language pair of somebody's work. It is
+owner-scoped now and answers 404 to a stranger (ADR 0030), and the four new doors all go through one
+`owned_job` helper so the refusal cannot drift between them.
+
+The units are per paragraph, and that is the point of the read: one job can have three paragraphs approved and
+seven pending, and a caller who only sees the job's state cannot tell. The upsert is keyed on `(job, unit,
+paragraph)`, so recording the same paragraph twice updates it rather than appending a second translation of the
+same sentence. A paragraph cannot be `translated` with no target text — the state is a claim about the text
+beside it, and accepting the claim without the text puts a paragraph in the reviewed pile that nobody can
+review.
+
+Publication is gated on `approved` and the order is load-bearing: the job transitions first, the publication
+row second. A publication row for a job that never moved is a claim about an event that did not happen.
+
+Translation memory got its write and its match beside the existing list. Both are keyed by `memory_key`, one
+SHA-256 of the **trimmed** source sentence computed in the app rather than accepted from the client: a client
+that normalised differently — trimmed, lowercased, collapsed whitespace — would store a pair its own lookup
+could never find, and the failure would read as "memory is not working" rather than "two hashings". The lookup
+therefore takes the *sentence*, not the hash, so there is exactly one place that decides what a key is.
+
+**A note on mutation discipline.** The unscoped-job mutant survived its first run, and the reason was not a
+test gap: the predicate is duplicated — once inlined in the handler, once in the new `owned_job` helper — and
+`replace(..., 1)` rewrote the helper while the test exercises the handler. Re-targeted at the handler it reddens
+(200 vs 404). That trap is now recorded in `mutation-gate-discipline/references/mutation-survivor-triage.md`,
+because it is the second time in this session a survivor was a misplaced edit rather than a blind test.
