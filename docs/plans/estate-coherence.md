@@ -126,11 +126,14 @@ Three findings worth keeping:
 * **ficnexus had no `/healthz` at all**, so the same fallback answered, and its readiness probe (`/api/health`,
   which pings Postgres *and* Redis) is the wrong thing to point a supervisor at: a liveness check that fails
   when the database does gets a healthy process restarted. Liveness now touches neither.
-* **Two deployment facts the survey got wrong, corrected by probing.** `:8050` is shortwave, not ficnexus — that
-  product has no process and no unit on this host at all, so the probe marks it optional rather than failing on
-  absence. And `ascend-api.service` runs from `~/code/ascend/app/backend` with its binary in
-  `~/.cargo-target/ascend/release/`, not from the `code-local` checkout this session edited: deploying ascend is a
-  merge between two checkouts, not a rebuild.
+* **Three deployment facts the survey got wrong, corrected by probing.** `:8050` is shortwave, not ficnexus — that
+  product has no process and no unit on this host at all, so it is out of the probe entirely (probing a port
+  something else owns is how a green board reports the wrong product). `ascend-api.service` runs from
+  `~/code/ascend/app/backend`, a separate **non-git** tree on the host, so deploying the change written in this
+  session's `code-local` checkout is a cross-tree carry, not a rebuild. And kindred's deployed tree
+  (`~/kindred-rs-build`) is non-git too — it came up green on the probe without this session deploying it, with
+  `src/api.rs` at 14:28, the binary at 14:29 and the service at 14:35: some other actor synced it, which is worth
+  knowing before assuming a tree is yours alone.
 * **The probe is the test.** `estate/scripts/meta-probe.mjs` asks every product the same two questions and
   exits non-zero naming the field that is wrong ("`api_version` renamed?" is a different repair from "the
   service is down"). It was run against the live estate before any of this landed and failed on all four —
