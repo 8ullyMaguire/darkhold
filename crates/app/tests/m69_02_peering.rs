@@ -327,8 +327,13 @@ async fn the_door_is_shut_unless_the_instance_opened_it_and_shut_means_404() {
     );
 }
 
+/// A non-operator learns nothing: `404` and not `403`.
+///
+/// The shape is the instance's rule for every operator door (`admin_scope::require_estate_hidden`): 403 says "yes, and you may
+/// not", which tells a signed-in reader that this instance runs a peering surface. This test asserted 403 when the door was
+/// written, before the rule was one place; the rule won.
 #[tokio::test]
-async fn a_non_operator_is_refused_when_the_door_is_open() {
+async fn a_non_operator_is_told_the_door_does_not_exist() {
     server::set_trust_proxy(false);
     let dir = scratch_dir("peering-forbidden");
     let tdb = TestDb::connect_with_dir("m69-02-forbidden", &dir).await;
@@ -340,5 +345,9 @@ async fn a_non_operator_is_refused_when_the_door_is_open() {
     let (status, body) = reader
         .send("GET", "/api/v1/operator/peering/suggestions", None)
         .await;
-    assert_eq!(status, StatusCode::FORBIDDEN, "{body}");
+    assert_eq!(
+        status,
+        StatusCode::NOT_FOUND,
+        "403 would confirm the peering surface exists: {body}"
+    );
 }

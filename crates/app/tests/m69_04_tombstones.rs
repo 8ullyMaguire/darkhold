@@ -264,11 +264,16 @@ async fn a_withdrawal_without_a_reason_is_refused_and_a_non_operator_is_told_403
         "{body}"
     );
 
-    // A reader who is not the operator gets 403 — the door exists, they may not open it.
+    // A reader who is not the operator gets 404, not 403: the door's existence is the disclosure, which is the rule every
+    // operator surface follows (`admin_scope::require_estate_hidden`).
     let mut reader = Client::new(router(&tdb, &dir, true, Some(&boss_account)));
     reader.register("tombstone-reader").await;
     let (status, body) = reader.send("GET", "/api/v1/admin/tombstones", None).await;
-    assert_eq!(status, StatusCode::FORBIDDEN, "{body}");
+    assert_eq!(
+        status,
+        StatusCode::NOT_FOUND,
+        "403 would confirm the tombstone surface exists: {body}"
+    );
 }
 
 #[tokio::test]

@@ -454,9 +454,14 @@ async fn only_an_operator_reads_the_subscription_health_and_no_secret_is_in_it()
         .await;
     let id = created["id"].as_str().expect("id").to_owned();
 
-    // A signed-in reader who is not an operator.
+    // A signed-in reader who is not an operator. `404` and not `403` (ADR 0030): the operator surface's existence is the
+    // disclosure, and a webhook console is a surface.
     let (status, body) = owner.send("GET", "/api/v1/operator/webhooks", None).await;
-    assert_eq!(status, StatusCode::FORBIDDEN, "{body}");
+    assert_eq!(
+        status,
+        StatusCode::NOT_FOUND,
+        "403 would confirm the webhook console exists: {body}"
+    );
 
     // Now the same account as the configured operator.
     let (_, me) = owner.send("GET", "/api/v1/auth/me", None).await;

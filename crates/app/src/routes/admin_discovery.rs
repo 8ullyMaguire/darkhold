@@ -40,7 +40,7 @@ use darkhold_domain::leakage::{Disposition, Ease, LeakageReview, LeakageRow};
 fn require_operator(state: &AppState, user: &crate::auth::SessionUser) -> ApiResult<()> {
     // One decision, one place (ADR 0003): fourteen copies of this predicate, all keyed on a config value that is
     // unset on this host, meant every one of these doors answered 404 to everybody.
-    crate::routes::admin_scope::estate_admin_allowed(state, user)
+    crate::routes::admin_scope::require_estate_hidden(state, user)
 }
 
 /// What the caller may filter by. No pagination parameter on purpose.

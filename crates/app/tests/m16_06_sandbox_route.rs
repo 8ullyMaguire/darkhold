@@ -234,10 +234,12 @@ async fn a_reader_cannot_run_code() {
     let (status, body) = client
         .post("/api/v1/operator/sandbox/run", request_body(writer(8)))
         .await;
+    // `404`, not `403`: an operator door's existence is itself the disclosure (ADR 0030), so a reader learns only that there
+    // is nothing at this path -- not that the instance can run code on their behalf.
     assert_eq!(
         status,
-        StatusCode::FORBIDDEN,
-        "running untrusted code is not a reader's verb: {body}"
+        StatusCode::NOT_FOUND,
+        "running untrusted code is not a reader's verb, and 403 would say the sandbox exists: {body}"
     );
     assert!(
         body["output_base64"].is_null(),

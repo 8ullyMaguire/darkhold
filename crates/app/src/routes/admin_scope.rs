@@ -141,6 +141,28 @@ pub fn estate_admin_allowed(state: &AppState, user: &SessionUser) -> Result<(), 
     Err(ApiError(AppError::AccessDenied))
 }
 
+/// The same decision, refusing with `NotFound` so the door does not disclose that it exists.
+///
+/// **This exists because centralising the authority lost the shape.** `estate_admin_allowed` answers `403`, which is right for
+/// a door that is allowed to admit it exists (`/admin/retention` is in the manual). A door whose existence *is* the disclosure —
+/// the decision audit, the economy dashboard — must answer `404`, and two of them documented exactly that while delegating to
+/// the 403 helper, because the refactor that removed fourteen copies of the predicate kept only one refusal shape. The tests
+/// that had asserted `404` went red on the next full run, which is the only reason it was noticed at all.
+///
+/// The resource name is deliberately generic: `AppError::NotFound { resource }` renders the name into the message, so naming
+/// the surface here would put the disclosure back in the body of the refusal.
+pub fn require_estate_hidden(state: &AppState, user: &SessionUser) -> Result<(), ApiError> {
+    if holds_estate_claim(state, user) {
+        return Ok(());
+    }
+    tracing::debug!(
+        operator_configured = state.config().administration.operator_account_id.is_some(),
+        roles = ?user.roles,
+        "a hidden operator door was reached by a caller with no estate claim"
+    );
+    Err(ApiError(AppError::NotFound { resource: "page" }))
+}
+
 /// The same decision as a plain predicate, for doors that must refuse with `NotFound` rather than `403` because confirming
 /// their existence to a stranger would map the operator's configuration (see `operator_hit_rate`'s module doc). One
 /// authority, two refusal shapes — the shape is a property of the door, the authority is not.

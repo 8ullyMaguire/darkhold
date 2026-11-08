@@ -433,8 +433,14 @@ async fn only_operators_see_the_queue() {
     let h = Harness::new("queue").await;
     let mut reader = h.client();
     reader.register("plain-reader").await;
+    // One refusal shape for the whole operator surface (ADR 0030): `404`, because "yes, and you may not" tells a reader the
+    // review queue exists.
     let (status, body) = reader.send("GET", "/api/v1/extensions/reviews", None).await;
-    assert_eq!(status, StatusCode::FORBIDDEN, "{body}");
+    assert_eq!(
+        status,
+        StatusCode::NOT_FOUND,
+        "403 would confirm the review queue exists: {body}"
+    );
 
     let mut operator = h.operator("queue-op").await;
     let (status, body) = operator

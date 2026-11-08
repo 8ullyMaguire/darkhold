@@ -310,9 +310,14 @@ async fn an_aligned_reader_scores_high_a_stranger_low_and_a_silent_reader_has_no
         "a reader with no evidence has no score, and '0% aligned' would be a judgement never made: {me}"
     );
 
-    // And the instance's ranking is not the reader's: a plain reader is refused it.
+    // And the instance's ranking is not the reader's: a plain reader is refused it — 404 rather than 403, because the
+    // operator surface's existence is itself the disclosure.
     let (status, body) = aligned.send("GET", "/api/v1/operator/affinity", None).await;
-    assert_eq!(status, StatusCode::FORBIDDEN, "{body}");
+    assert_eq!(
+        status,
+        StatusCode::NOT_FOUND,
+        "403 would confirm the operator surface exists: {body}"
+    );
 }
 
 #[tokio::test]

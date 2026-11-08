@@ -151,9 +151,9 @@ async fn list_tasks(
 /// reader can see — and not at an operator endpoint whose existence is the
 /// disclosure.
 fn require_operator(state: &AppState, user: &crate::auth::SessionUser) -> ApiResult<()> {
-    // One decision, one place (ADR 0003): fourteen copies of this predicate, all keyed on a config value that is
-    // unset on this host, meant every one of these doors answered 404 to everybody.
-    crate::routes::admin_scope::estate_admin_allowed(state, user)
+    // One decision, one place (ADR 0003) — and the **shape** is one place too. This door's doc says 404 and not 403, and the
+    // 403 helper it was delegating to made that doc a lie until a full-suite run caught it.
+    crate::routes::admin_scope::require_estate_hidden(state, user)
 }
 
 /// How many rows the audit read may return when the caller asks for nothing.
