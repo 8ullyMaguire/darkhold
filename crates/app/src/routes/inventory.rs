@@ -2036,6 +2036,34 @@ pub const ROUTE_TABLE: &[RouteEntry] = &[
     // Exports — session-scoped (authed_router)
     // ------------------------------------------------------------------
     RouteEntry {
+        file: "imports.rs",
+        handler: "set_source_enabled_route",
+        method: "PUT",
+        path: "/admin/sources/{key}/enabled",
+        audience: Audience::Operator,
+    },
+    RouteEntry {
+        file: "imports.rs",
+        handler: "set_source_verification_route",
+        method: "PUT",
+        path: "/admin/sources/{key}/verification",
+        audience: Audience::Operator,
+    },
+    RouteEntry {
+        file: "imports.rs",
+        handler: "credential_events",
+        method: "GET",
+        path: "/source-credentials/{id}/events",
+        audience: Audience::Pseudonymous,
+    },
+    RouteEntry {
+        file: "imports.rs",
+        handler: "unconsented_credentials",
+        method: "GET",
+        path: "/admin/credentials/unconsented",
+        audience: Audience::Operator,
+    },
+    RouteEntry {
         file: "library.rs",
         handler: "item_latest_update",
         method: "GET",

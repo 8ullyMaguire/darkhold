@@ -91,6 +91,10 @@ pub fn router() -> Router<AppState> {
             axum::routing::delete(delete_credential),
         )
         .route("/source-credentials/{id}/test", post(test_credential))
+        .route(
+            "/source-credentials/{id}/events",
+            get(credential_events),
+        )
 }
 
 /// The operator surface for the source catalogue.
@@ -108,6 +112,18 @@ pub fn admin_router() -> Router<AppState> {
             get(revision_cache_stats).delete(clear_revision_cache),
         )
         .route("/admin/sources/revisions/purge", post(purge_revision_cache))
+        .route(
+            "/admin/sources/{key}/enabled",
+            axum::routing::put(set_source_enabled_route),
+        )
+        .route(
+            "/admin/sources/{key}/verification",
+            axum::routing::put(set_source_verification_route),
+        )
+        .route(
+            "/admin/credentials/unconsented",
+            get(unconsented_credentials),
+        )
 }
 
 /// What the revision cache is holding.
@@ -1526,9 +1542,10 @@ async fn get_import(
     RequireSession(user): RequireSession,
     Path(id): Path<String>,
 ) -> ApiResult<Json<serde_json::Value>> {
-    let row = imports::get_import_job(state.db(), &id)
+    // Scoped in the query, not after it: `get_import_job_for` is the account-scoped read the store already had, and this
+    // handler was the second implementation of that rule (fetch, then compare in Rust). One of the two had to go.
+    let row = imports::get_import_job_for(state.db(), &id, &user.account_id.to_string())
         .await?
-        .filter(|row| row.account_id == user.account_id.to_string())
         .ok_or_else(|| ApiError(AppError::NotFound { resource: "import" }))?;
 
     let units = imports::list_import_units(state.db(), &row.id).await?;
@@ -2423,4 +2440,113 @@ fn shelf_import_input(
         source_updated_at: None,
         provenance_json: item.provenance_json.clone(),
     }
+}
+
+// ---------------------------------------------------------------------------
+// The catalogue's two switches and its two reports (M70-13)
+// ---------------------------------------------------------------------------
+
+/// Pause or resume a source, with the reason a reader will see.
+///
+/// `set_source_enabled` writes `disabled_reason` beside the flag because a source that silently disappears from the
+/// import list is a bug report waiting to happen, and "paused: their robots.txt changed" is an answer.
+async fn set_source_enabled_route(
+    State(state): State<AppState>,
+    RequireSession(user): RequireSession,
+    Path(key): Path<String>,
+    Json(body): Json<serde_json::Value>,
+) -> ApiResult<Json<serde_json::Value>> {
+    require_operator(&state, &user)?;
+    let enabled = body
+        .get("enabled")
+        .and_then(serde_json::Value::as_bool)
+        .ok_or_else(|| {
+            let mut field_errors = std::collections::BTreeMap::new();
+            field_errors.insert("enabled".to_string(), "true or false".to_string());
+            ApiError(AppError::Validation {
+                message: "`enabled` is required".to_string(),
+                field_errors,
+            })
+        })?;
+    let reason = body.get("reason").and_then(serde_json::Value::as_str);
+    if !enabled && reason.is_none_or(|note| note.trim().is_empty()) {
+        let mut field_errors = std::collections::BTreeMap::new();
+        field_errors.insert(
+            "reason".to_string(),
+            "why the source is paused, for the reader who looks for it".to_string(),
+        );
+        return Err(ApiError(AppError::Validation {
+            message: "a paused source needs a reason".to_string(),
+            field_errors,
+        }));
+    }
+    let changed = imports::set_source_enabled(state.db(), &key, enabled, reason).await?;
+    if !changed {
+        return Err(ApiError(AppError::NotFound { resource: "source" }));
+    }
+    Ok(Json(serde_json::json!({ "key": key, "enabled": enabled })))
+}
+
+/// Record how this host can (or cannot) verify a source.
+///
+/// Two states, and the store refuses the one that needs an explanation without it: `blocked-here` with no note is
+/// indistinguishable from a source nobody ever checked, and an operator can act on neither.
+async fn set_source_verification_route(
+    State(state): State<AppState>,
+    RequireSession(user): RequireSession,
+    Path(key): Path<String>,
+    Json(body): Json<serde_json::Value>,
+) -> ApiResult<Json<serde_json::Value>> {
+    require_operator(&state, &user)?;
+    let status = body.get("status").and_then(serde_json::Value::as_str);
+    let reason = body.get("reason").and_then(serde_json::Value::as_str);
+    imports::set_source_verification(state.db(), &key, status, reason)
+        .await
+        .map_err(|error| {
+            // The store's bail is the rule; a client that breaks it gets a 422 naming the field rather than a 500.
+            let mut field_errors = std::collections::BTreeMap::new();
+            field_errors.insert("reason".to_string(), error.to_string());
+            ApiError(AppError::Validation {
+                message: error.to_string(),
+                field_errors,
+            })
+        })?;
+    Ok(Json(serde_json::json!({ "key": key, "status": status })))
+}
+
+/// One credential's audit trail, for the reader who owns it.
+///
+/// `credential_audit_events` is not a foreign key to the credential (migration 0096) precisely so the trail outlives a
+/// revocation — which means this read is the only way to see that a login was revoked rather than quietly replaced.
+async fn credential_events(
+    State(state): State<AppState>,
+    RequirePseud { pseud_id, .. }: RequirePseud,
+    Path(id): Path<String>,
+) -> ApiResult<Json<serde_json::Value>> {
+    let owned = imports::get_source_credential(state.db(), &id)
+        .await?
+        .filter(|row| row.pseud_id == pseud_id.to_string())
+        .ok_or_else(|| ApiError(AppError::NotFound { resource: "credential" }))?;
+    let events = imports::list_credential_events(state.db(), &owned.id).await?;
+    Ok(Json(serde_json::json!({
+        "credential_id": owned.id,
+        "events": events,
+    })))
+}
+
+/// The pseudonyms holding a credential that has no consent record.
+///
+/// §11.6's re-consent is only enforceable if something asks the question, and this is the sweep that does. It answers
+/// **pseud ids**, not account ids: the migration records consent per pseudonym, and an operator chasing consent needs
+/// the identity the credential was stored under.
+async fn unconsented_credentials(
+    State(state): State<AppState>,
+    RequireSession(user): RequireSession,
+) -> ApiResult<Json<serde_json::Value>> {
+    require_operator(&state, &user)?;
+    let pseuds = imports::pseuds_with_unconsented_credentials(state.db()).await?;
+    Ok(Json(serde_json::json!({
+        "count": pseuds.len(),
+        "pseud_ids": pseuds,
+    })))
 }

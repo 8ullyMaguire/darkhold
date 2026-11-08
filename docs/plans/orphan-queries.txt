@@ -3,7 +3,7 @@
 # Each line is a `pub async fn` in crates/db/src that no app source can reach, directly or through another db
 # function. They are debt, not permission: crates/app/tests/orphan_queries.rs fails when a NEW one appears, so
 # this list can only shrink. Delete a line by wiring the function to a route or deleting the function.
-# measured 2026-11-08: 152 orphan(s)
+# measured 2026-11-08: 146 orphan(s)
 
 increment_abuse_counter  # crates/db/src/admin.rs
 complete_privacy_request  # crates/db/src/admin.rs
@@ -68,12 +68,6 @@ grant_guardian_authorization  # crates/db/src/identity.rs
 fold_account  # crates/db/src/identity.rs
 account_facts  # crates/db/src/identity.rs
 count_excluding_system_accounts  # crates/db/src/identity.rs
-upsert_source  # crates/db/src/imports.rs
-set_source_enabled  # crates/db/src/imports.rs
-set_source_verification  # crates/db/src/imports.rs
-get_import_job_for  # crates/db/src/imports.rs
-list_credential_events  # crates/db/src/imports.rs
-pseuds_with_unconsented_credentials  # crates/db/src/imports.rs
 compute_theme_from_bookmarks  # crates/db/src/instance_theme.rs
 heartbeat  # crates/db/src/jobs.rs
 counts_by_state  # crates/db/src/jobs.rs
