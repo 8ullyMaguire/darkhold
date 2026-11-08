@@ -322,6 +322,59 @@ impl Worker {
         // from `expires_at`, so this is not what frees a copy — it is what turns
         // "the clock passed it" into a recorded transition that a borrower's
         // loan list and an operator's sweep can both read.
+        // **Derived tables that nothing refreshes are tables that were right the day they were built.** The entity
+        // closure, the floor counts and the experiment snapshots are all computed rather than stored at the source, and
+        // each had an idempotent writer with no caller — a schedule, not a door, is what they were missing (M70-13).
+        // Each step is a warning rather than a stop: a maintenance pass that failed at the closure would leave expired
+        // leases unrequeued and loans unexpired, which are worse things to skip than a count.
+        match darkhold_db::entity_closure::rebuild(state.db()).await {
+            Ok(report) => tracing::debug!(
+                rows = report.rows,
+                skipped = report.skipped,
+                "the entity closure was rebuilt"
+            ),
+            Err(error) => {
+                tracing::warn!(%error, "the entity closure could not be rebuilt this pass");
+            }
+        }
+        match darkhold_db::entity_floor::recount(state.db(), &state.config().taxonomy.floors())
+            .await
+        {
+            Ok(report) => tracing::debug!(
+                counted = report.counted,
+                browsable = report.browsable,
+                changed = report.changed,
+                "entity counts were recounted"
+            ),
+            Err(error) => {
+                tracing::warn!(%error, "entity counts could not be recounted this pass");
+            }
+        }
+        // Yesterday, not today: a day is complete when it has ended, and a snapshot of a day still in progress is a number
+        // that will be wrong in an hour and look authoritative now.
+        let yesterday = (now - time::Duration::days(1))
+            .format(&time::format_description::well_known::Iso8601::DATE)
+            .context("formatting yesterday for the snapshot")?;
+        match darkhold_db::experiment_snapshots::day_snapshots(state.db(), &yesterday).await {
+            Ok(existing) if existing.is_empty() => {
+                match darkhold_db::experiment_snapshots::snapshot_day(state.db(), &yesterday).await
+                {
+                    Ok(written) => tracing::info!(
+                        day = %yesterday,
+                        written,
+                        "the experiment snapshot for a completed day was written"
+                    ),
+                    Err(error) => {
+                        tracing::warn!(%error, day = %yesterday, "the experiment snapshot could not be written");
+                    }
+                }
+            }
+            Ok(_) => {}
+            Err(error) => {
+                tracing::warn!(%error, day = %yesterday, "could not read whether yesterday was snapshotted");
+            }
+        }
+
         let now_rfc3339 = now
             .format(&time::format_description::well_known::Rfc3339)
             .context("formatting the sweep's clock")?;
