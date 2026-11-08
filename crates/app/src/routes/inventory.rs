@@ -6486,4 +6486,32 @@ pub const ROUTE_TABLE: &[RouteEntry] = &[
         path: "/saved-view-blends/{id}/items",
         audience: Audience::Authenticated,
     },
+    RouteEntry {
+        file: "tag_assertions.rs",
+        handler: "list",
+        method: "GET",
+        path: "/works/{id}/tag-assertions",
+        audience: Audience::Authenticated,
+    },
+    RouteEntry {
+        file: "tag_assertions.rs",
+        handler: "assert",
+        method: "POST",
+        path: "/works/{id}/tags/{node}/assert",
+        audience: Audience::Authenticated,
+    },
+    RouteEntry {
+        file: "tag_assertions.rs",
+        handler: "confirm",
+        method: "POST",
+        path: "/works/{id}/tags/{node}/confirm",
+        audience: Audience::Authenticated,
+    },
+    RouteEntry {
+        file: "tag_assertions.rs",
+        handler: "retract",
+        method: "DELETE",
+        path: "/works/{id}/tags/{node}",
+        audience: Audience::Authenticated,
+    },
 ];

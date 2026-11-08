@@ -145,4 +145,5 @@ pub mod media_rescue;
 pub mod mirroring;
 pub mod morning;
 pub mod saved_filters;
+pub mod tag_assertions;
 pub mod well_known;
