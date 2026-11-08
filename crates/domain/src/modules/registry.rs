@@ -1105,6 +1105,23 @@ pub const MODULES: &[Module] = &[
         source: "crates/app/src/routes/taste_health.rs",
     },
     Module {
+        id: "taste_notifications",
+        name: "Taste Notifications",
+        summary: "The taste-weighted notification queue (migration 0055, M18 phase 3). When a work is published, \
+                  readers inside the operator's taste band are queued; an operator drains the queue into their inboxes. \
+                  Off by default: it writes to people who did not ask for it, which is an operator decision rather than \
+                  a default.",
+        default_on: false,
+        stability: Stability::Beta,
+        toggle: Toggle::Operator,
+        requires: &[],
+        milestone: "pre-M65",
+        spec: "migration 0055 (M18 phase 3)",
+        nav: &[],
+        relevance: 3,
+        source: "crates/app/src/routes/taste_notify.rs",
+    },
+    Module {
         id: "taste_import",
         name: "Imported Taste",
         summary: "Imported taste signals and the discount they carry (spec §49.6–§49.8, M45-20). \

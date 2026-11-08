@@ -5485,6 +5485,20 @@ pub const ROUTE_TABLE: &[RouteEntry] = &[
     // (spec §32.7)
     // ------------------------------------------------------------------
     RouteEntry {
+        file: "taste_notify.rs",
+        handler: "drain",
+        method: "POST",
+        path: "/admin/taste-notifications/drain",
+        audience: Audience::Authenticated,
+    },
+    RouteEntry {
+        file: "taste_notify.rs",
+        handler: "my_pending",
+        method: "GET",
+        path: "/me/taste-notifications",
+        audience: Audience::Authenticated,
+    },
+    RouteEntry {
         file: "media_resilience.rs",
         handler: "sweep_note_links",
         method: "POST",

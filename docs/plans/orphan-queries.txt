@@ -3,7 +3,7 @@
 # Each line is a `pub async fn` in crates/db/src that no app source can reach, directly or through another db
 # function. They are debt, not permission: crates/app/tests/orphan_queries.rs fails when a NEW one appears, so
 # this list can only shrink. Delete a line by wiring the function to a route or deleting the function.
-# measured 2026-11-09: 99 orphan(s)
+# measured 2026-11-09: 95 orphan(s)
 
 increment_abuse_counter  # crates/db/src/admin.rs
 complete_privacy_request  # crates/db/src/admin.rs
@@ -28,9 +28,6 @@ list_dnf_for_work  # crates/db/src/dnf.rs
 work_allows_dnf_feedback  # crates/db/src/dnf.rs
 enqueue_job  # crates/db/src/economy.rs
 bump_counter  # crates/db/src/economy.rs
-queue_taste_notification  # crates/db/src/engagement.rs
-drain_taste_notification_queue  # crates/db/src/engagement.rs
-pending_taste_notification_count  # crates/db/src/engagement.rs
 descendants_of  # crates/db/src/entity_closure.rs
 expire_claims  # crates/db/src/events.rs
 issue_token_expiring  # crates/db/src/external.rs
@@ -95,7 +92,6 @@ redirects_for  # crates/db/src/succession.rs
 record_payout  # crates/db/src/taste_leakage.rs
 get_payout  # crates/db/src/taste_leakage.rs
 update_taste_vector_incremental  # crates/db/src/taste_vectors.rs
-list_users_by_centroid_distance  # crates/db/src/taste_vectors.rs
 taste_signal_for_works  # crates/db/src/taste_vectors.rs
 curate_node  # crates/db/src/taxonomy.rs
 recompute_confidence  # crates/db/src/taxonomy.rs

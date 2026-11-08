@@ -284,13 +284,18 @@ pub async fn list_users_by_centroid_distance(
 ) -> Result<Vec<(String, f64)>, sqlx::Error> {
     let rows: Vec<(String, f64)> = match db.backend() {
         Backend::Sqlite => {
-            sqlx::query_as::<_, (String, f64)>("SELECT id, taste_centroid_distance FROM accounts WHERE taste_vector != '[]' ORDER BY taste_centroid_distance ASC LIMIT ?")
+            sqlx::query_as::<_, (String, f64)>("SELECT id, taste_centroid_distance FROM accounts WHERE taste_vector != '[]' AND taste_centroid_distance IS NOT NULL ORDER BY taste_centroid_distance ASC LIMIT ?")
                 .bind(limit)
                 .fetch_all(db.sqlite_pool().ok_or(pool_err())?)
                 .await?
         }
         Backend::Postgres => {
-            sqlx::query_as::<_, (String, f64)>("SELECT id, taste_centroid_distance::float8 FROM accounts WHERE taste_vector != '[]'::jsonb ORDER BY taste_centroid_distance ASC LIMIT $1")
+            sqlx::query_as::<_, (String, f64)>(// `IS NOT NULL` is load-bearing on this engine: the column's default is NULL here (SQLite's is 0.0), so without it a
+            // single account that has never had a distance computed makes `::float8` decode a NULL into an `f64` and the whole
+            // query fails — a reader with no distance is unranked, not unimaginably far.
+            // `id::text`: `accounts.id` is a UUID column on this engine and the tuple decodes a `String`. Without the cast this
+            // function was undecodable on PostgreSQL — invisible while nothing called it.
+            "SELECT id::text, taste_centroid_distance::float8 FROM accounts WHERE taste_vector != '[]'::jsonb AND taste_centroid_distance IS NOT NULL ORDER BY taste_centroid_distance ASC LIMIT $1")
                 .bind(limit)
                 .fetch_all(db.postgres_pool().ok_or(pool_err())?)
                 .await?

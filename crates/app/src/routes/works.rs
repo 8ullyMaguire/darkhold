@@ -718,6 +718,23 @@ async fn publish_work(
 
     if matches!(outcome, PublicationOutcome::AlreadyApplied) {
         tracing::debug!(work = %work.id, "publication replayed for an idempotency key");
+    } else {
+        // The taste-weighted queue's producer (migration 0055): "when a work is published, aligned users are queued for
+        // notification". Best-effort, like the lifecycle events beside it — a queueing failure must never fail a
+        // publication the author was already told succeeded. A replay is skipped rather than re-run: the queue is keyed by
+        // (work, account) so it would be a no-op, and running it would make a retried publish cost a scan.
+        let work_id = work.id.to_string();
+        match crate::taste_notify::queue_aligned_readers(&state, &work_id, &user.account_id.to_string()).await
+        {
+            Ok(queued) if queued.queued > 0 || queued.skipped_at_cap > 0 => tracing::info!(
+                work = %work_id,
+                queued = queued.queued,
+                skipped_at_cap = queued.skipped_at_cap,
+                "queued taste notifications for the readers aligned with this instance"
+            ),
+            Ok(_) => {}
+            Err(error) => tracing::warn!(work = %work_id, %error, "could not queue taste notifications"),
+        }
     }
 
     Ok(Json(author_view(&state, &user, &updated).await?))
