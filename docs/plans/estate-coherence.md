@@ -111,6 +111,25 @@ three required fields on at least three different failure classes, and why each 
 id, constant id, dropped legacy pair, codes not uppercased, `details` dropped). The remaining Layer 4 items are the
 meta/health shape (M72-05) and the noun vocabulary (M72-10).
 
+### Adoption, and the refusal that is not laziness (M72-06)
+
+darkhold renders works through `WorkBlurb` now: its own `<header>`, byline, summary and chips markup is **deleted**,
+with the four CSS blocks that styled them, and the card supplies only what is darkhold's — the title as a button when
+the card opens a panel, and `MetadataChip` through the chips slot so the tones and aria labels survive. The visible
+order in a card changed (chips before summary) because the order is the contract.
+
+**kindred cannot adopt it, and that is a finding rather than a gap.** Its work blurbs are not components: they are
+`format!` strings in `src/pages.rs` emitting AO3's own DOM (`li.work.blurb.group`, `h4.heading` with the byline
+inside it, fandoms, tags, summary, a `dl.stats`). There is no component runtime on that path, so "adopt the Svelte
+component" would mean either porting the renderer to a component framework — which is a rewrite of the product's only
+page layer — or putting a component runtime inside a Rust string. Neither is adoption; both are the second system this
+batch exists to prevent. And even with a runtime, the *order* is AO3's by design: kindred reproduces the Archive's
+grammar because its readers navigate by it, which is the refusal `estate-coherence.md` already records.
+
+What kindred shares with the family is therefore the **vocabulary and the paper**, not the component: the same nouns
+(`/works/{id}`, `/tags`, `/authors`), the same token names once M72-02's palettes reach its CSS, and the same JSON
+contracts. Stated that way round, the row is honest: a component is portable, a rendered DOM is a decision.
+
 ### The vocabulary (M72-10)
 
 One noun, one URL — where the noun means the same thing:
