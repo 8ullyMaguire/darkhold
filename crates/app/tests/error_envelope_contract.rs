@@ -181,9 +181,7 @@ async fn every_refusal_carries_code_message_and_request_id() {
         .await;
     assert!(status.is_success(), "register: {body}");
 
-    let (status, body) = client
-        .send("GET", "/api/v1/no-such-collection", None)
-        .await;
+    let (status, body) = client.send("GET", "/api/v1/no-such-collection", None).await;
     assert_eq!(status, StatusCode::NOT_FOUND, "{body}");
     assert_envelope("unknown-route", &body);
 

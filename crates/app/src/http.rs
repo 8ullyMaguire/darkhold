@@ -168,7 +168,6 @@ pub fn api_not_found() -> Response {
     response
 }
 
-
 /// Framework-level refusals answer the same envelope as `ApiError`.
 ///
 /// A body axum cannot parse, a wrong content type, a request that timed out or one over the size limit never
