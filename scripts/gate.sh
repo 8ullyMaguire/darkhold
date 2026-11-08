@@ -295,6 +295,21 @@ case "$cmd" in
         # the writers' idempotency, without the rest of the tree checks.
         run_gate ledger python3 "$REPO_ROOT/scripts/ledger_test.py"
         ;;
+    design)
+        # M72-09. Deliberately NOT part of `all`: the sweep renders the LIVE estate
+        # over the network, so folding it into the offline gate would make a test run
+        # depend on Cloudflare. Run it before a deploy that touches a surface, and on
+        # a schedule — a gate nobody runs is a document.
+        #
+        # The script lives in the estate repo because it reviews all four products;
+        # absent, say so (exit 0 with a note) rather than pretending it ran.
+        est="${ESTATE_UI:-$HOME/code/estate/ui}"
+        if [ ! -f "$est/design-gate.mjs" ]; then
+            echo "design: skipped — $est/design-gate.mjs not found (set ESTATE_UI)" >&2
+            exit 0
+        fi
+        run_gate design node "$est/design-gate.mjs" --all
+        ;;
     budget)
         # The archive's RSS budget (T-M1-06). It boots the real binary against the
         # real catalogue, reads the kernel's high-water mark after each step, and
