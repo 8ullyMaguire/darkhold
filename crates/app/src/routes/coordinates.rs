@@ -39,6 +39,7 @@ pub fn router() -> Router<AppState> {
     Router::new()
         .route("/works/{id}/coordinates", get(read_coordinates))
         .route("/admin/works/{id}/coordinates", post(recompute))
+        .route("/admin/coordinates/recompute", post(recompute_stale))
 }
 
 /// The work's owner, or the instance's answer to a stranger.
@@ -154,4 +155,90 @@ async fn recompute(
         .await
         .map_err(|error| ApiError(AppError::Internal(error)))?;
     Ok(Json(view(&id, stored)))
+}
+
+/// Re-measure the works that already have a row, oldest question first — the backfill door.
+///
+/// `stored_work_ids` is the enumeration this exists for: without it an operator can only recompute a work they already
+/// know about, which is not a backfill. `stale_only` is the default and the honest one — a row whose `text_version`
+/// still matches the work has nothing to recompute, and re-deriving it would spend the work's reading time to write the
+/// same numbers back. `limit` bounds one request (default 50, at most 500): the catalogue is 58,042 works, and an
+/// endpoint that tries to walk all of them in one request is an endpoint that times out half-done and leaves the
+/// operator guessing how far it got.
+///
+/// The answer reports what happened rather than a bare `ok`: `scanned` is what the limit allowed, `remaining` is how
+/// much the limit left behind, and `no_text` is a work with no revisions at all — a fact about the work, not a failure
+/// of this request.
+async fn recompute_stale(
+    State(state): State<AppState>,
+    session: RequireSession,
+    Json(body): Json<Value>,
+) -> ApiResult<Json<Value>> {
+    crate::routes::discovery::require_operator(&state, &session.0)?;
+
+    let limit = body["limit"].as_u64().unwrap_or(50).clamp(1, 500) as usize;
+    let stale_only = body["stale_only"].as_bool().unwrap_or(true);
+
+    let all = darkhold_db::work_coordinates::stored_work_ids(state.db())
+        .await
+        .map_err(|error| ApiError(AppError::Internal(error)))?;
+
+    let mut scanned = 0usize;
+    let mut skipped_current = 0usize;
+    let mut recomputed = 0usize;
+    let mut measured = 0usize;
+    let mut unmeasurable = 0usize;
+    let mut no_text = 0usize;
+
+    for work in &all {
+        if scanned >= limit {
+            break;
+        }
+        scanned += 1;
+        let Ok(work_id) = work.parse::<WorkId>() else {
+            continue;
+        };
+        let current = darkhold_db::content::current_work_version(state.db(), work_id)
+            .await
+            .map_err(|error| ApiError(AppError::Internal(error)))?;
+        if stale_only {
+            let stored = darkhold_db::work_coordinates::stored_coordinates(state.db(), work)
+                .await
+                .map_err(|error| ApiError(AppError::Internal(error)))?;
+            if stored.is_some_and(|s| s.text_version == current) {
+                skipped_current += 1;
+                continue;
+            }
+        }
+        let computed_at = crate::format_rfc3339(time::OffsetDateTime::now_utc());
+        let outcome = darkhold_db::work_coordinates::measure_work_and_store(
+            state.db(),
+            work,
+            current,
+            &computed_at,
+        )
+        .await
+        .map_err(|error| ApiError(AppError::Internal(error)))?;
+        match outcome {
+            None => no_text += 1,
+            Some(stored) => {
+                recomputed += 1;
+                match stored.coordinates {
+                    Coordinates::Measured(_) => measured += 1,
+                    Coordinates::Unmeasurable(_) => unmeasurable += 1,
+                }
+            }
+        }
+    }
+
+    Ok(Json(json!({
+        "scanned": scanned,
+        "recomputed": recomputed,
+        "measured": measured,
+        "unmeasurable": unmeasurable,
+        "no_text": no_text,
+        "skipped_current": skipped_current,
+        "remaining": all.len().saturating_sub(scanned),
+        "stale_only": stale_only,
+    })))
 }
