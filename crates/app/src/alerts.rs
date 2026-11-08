@@ -167,6 +167,7 @@ mod tests {
             summary: None,
             author: None,
             published: None,
+            categories: Vec::new(),
         }
     }
 

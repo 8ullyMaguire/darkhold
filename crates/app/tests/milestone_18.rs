@@ -268,6 +268,7 @@ async fn feed_building_produces_valid_xml() {
         description: Some("Description".to_string()),
         language: Some("en".to_string()),
         self_url: None,
+        id: None,
     };
     let entries = vec![commons_feed::FeedEntry {
         id: "work-1".to_string(),
@@ -276,6 +277,7 @@ async fn feed_building_produces_valid_xml() {
         summary: Some("A **test** story".to_string()),
         author: Some("someone".to_string()),
         published: None,
+        categories: Vec::new(),
     }];
 
     let rss = commons_feed::rss2(&meta, &entries);

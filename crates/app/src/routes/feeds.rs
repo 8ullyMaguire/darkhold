@@ -336,6 +336,7 @@ async fn saved_view_feed(
             "{base}/api/v1/saved-views/{id}/feed?format={}",
             format.extension()
         )),
+        id: None,
     };
     let body = feed_http::render(&meta, &entries, format);
     respond(&body, format, &headers, true)
@@ -420,6 +421,7 @@ async fn render_catalogue(
             author: author_of(&row.author_text),
             // The catalogue row carries no source clock; the feed says so rather than inventing one.
             published: None,
+            categories: Vec::new(),
         })
         .collect();
 
@@ -429,6 +431,7 @@ async fn render_catalogue(
         description: Some("The public catalogue, as a feed.".to_owned()),
         language: Some("en".to_owned()),
         self_url: Some(self_url),
+        id: None,
     };
 
     let body = feed_http::render(&meta, &entries, format);
@@ -526,6 +529,7 @@ pub(crate) async fn library_items(
             // The source's own clock, never ours: `last_synced_at` says when we looked, and a feed that
             // dated items by when we polled would move every item on every poll.
             published: published_of(item.source_updated_at.as_deref()),
+            categories: Vec::new(),
         })
         .collect())
 }
@@ -579,6 +583,7 @@ pub(crate) async fn catalogue_items(
             author: author_of(&row.author_text),
             // The catalogue row carries no source clock; the feed says so rather than inventing one.
             published: None,
+            categories: Vec::new(),
         })
         .collect())
 }
