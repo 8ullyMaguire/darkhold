@@ -42,7 +42,7 @@
    * marker that disappears at a smaller size is a marker the reader will think
    * they lost.
    */
-  import { CardActions, Checkbox } from '@polaris/ui';
+  import { CardActions, Checkbox, WorkBlurb } from '@polaris/ui';
   import MetadataChip from './MetadataChip.svelte';
   // `WorkSummary` is declared in this file's module <script>, which the
   // instance script can see without importing it back from itself.
@@ -157,6 +157,26 @@
   }
 </script>
 
+  {#snippet openTitle()}
+    <button type="button" class="title" onclick={() => onopen?.(work.id)}>{work.title}</button>
+  {/snippet}
+
+  {#snippet chipRow()}
+    <MetadataChip label={COMPLETION_LABEL[work.completion]} tone={work.completion === 'complete' ? 'primary' : 'neutral'} />
+    {#if variant !== 'compact'}
+      <MetadataChip label={RATING_LABEL[work.rating]} />
+    {/if}
+    {#if work.units !== undefined}
+      <MetadataChip label="Units" value={work.units} />
+    {/if}
+    {#if formatWords(work.wordCount)}
+      <MetadataChip label={formatWords(work.wordCount)!} />
+    {/if}
+    {#if readingTime(work.wordCount)}
+      <MetadataChip label={readingTime(work.wordCount)!} />
+    {/if}
+  {/snippet}
+
 <article class="card {variant}" class:selected>
   {#if work.bookmarked}
     <!-- The bookmark-ribbon motif from the theme, not a colour-coded badge. -->
@@ -177,36 +197,23 @@
     />
   {/if}
 
-  <header>
-    <h3>
-      {#if onopen}
-        <button type="button" class="title" onclick={() => onopen?.(work.id)}>{work.title}</button>
-      {:else}
-        {work.title}
-      {/if}
-    </h3>
-    <p class="byline">by {work.authorDisplayName}</p>
-  </header>
-
-  {#if variant === 'full' && work.summary}
-    <p class="summary">{work.summary}</p>
-  {/if}
-
-  <div class="chips">
-    <MetadataChip label={COMPLETION_LABEL[work.completion]} tone={work.completion === 'complete' ? 'primary' : 'neutral'} />
-    {#if variant !== 'compact'}
-      <MetadataChip label={RATING_LABEL[work.rating]} />
-    {/if}
-    {#if work.units !== undefined}
-      <MetadataChip label="Units" value={work.units} />
-    {/if}
-    {#if formatWords(work.wordCount)}
-      <MetadataChip label={formatWords(work.wordCount)!} />
-    {/if}
-    {#if readingTime(work.wordCount)}
-      <MetadataChip label={readingTime(work.wordCount)!} />
-    {/if}
-  </div>
+  <!--
+    The blurb, not this card's own header (M72-06): title, byline, chips and summary in the family's order, so a
+    reader who moves between products is not re-learning a layout. What stays here is what only a card has — the
+    reading status, the shelves, the reader's own tags, the engagement bar — and the chips keep their darkhold tones
+    and semantics through the `chips` slot rather than being flattened into plain strings.
+  -->
+  <WorkBlurb
+    work={{
+      title: work.title,
+      authors: work.authorDisplayName ? [work.authorDisplayName] : [],
+      summary: work.summary,
+    }}
+    size={variant === 'compact' ? 'inline' : 'card'}
+    showSummary={variant === 'full'}
+    titleAction={onopen ? openTitle : undefined}
+    chips={chipRow}
+  />
 
   {#if hasMetrics}
     <!-- Engagement counts, gated by the owner's public-ratings preference.
@@ -299,11 +306,6 @@
     clip-path: polygon(0 0, 100% 0, 100% 100%, 50% 78%, 0 100%);
   }
 
-  h3 {
-    margin: 0;
-    font-size: var(--text-xl);
-  }
-
   .title {
     background: transparent;
     border: 0;
@@ -317,24 +319,6 @@
   .title:hover {
     text-decoration: underline;
     text-underline-offset: 2px;
-  }
-
-  .byline {
-    margin: var(--space-1) 0 0;
-    color: var(--color-muted);
-    font-size: var(--text-sm);
-  }
-
-  .summary {
-    margin: var(--space-3) 0;
-    color: var(--color-text);
-  }
-
-  .chips {
-    display: flex;
-    flex-wrap: wrap;
-    gap: var(--space-2);
-    margin-top: var(--space-3);
   }
 
   .library-facts {

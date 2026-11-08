@@ -111,6 +111,55 @@ three required fields on at least three different failure classes, and why each 
 id, constant id, dropped legacy pair, codes not uppercased, `details` dropped). The remaining Layer 4 items are the
 meta/health shape (M72-05) and the noun vocabulary (M72-10).
 
+### Adoption, and the refusal that is not laziness (M72-06)
+
+darkhold renders works through `WorkBlurb` now: its own `<header>`, byline, summary and chips markup is **deleted**,
+with the four CSS blocks that styled them, and the card supplies only what is darkhold's — the title as a button when
+the card opens a panel, and `MetadataChip` through the chips slot so the tones and aria labels survive. The visible
+order in a card changed (chips before summary) because the order is the contract.
+
+**kindred cannot adopt it, and that is a finding rather than a gap.** Its work blurbs are not components: they are
+`format!` strings in `src/pages.rs` emitting AO3's own DOM (`li.work.blurb.group`, `h4.heading` with the byline
+inside it, fandoms, tags, summary, a `dl.stats`). There is no component runtime on that path, so "adopt the Svelte
+component" would mean either porting the renderer to a component framework — which is a rewrite of the product's only
+page layer — or putting a component runtime inside a Rust string. Neither is adoption; both are the second system this
+batch exists to prevent. And even with a runtime, the *order* is AO3's by design: kindred reproduces the Archive's
+grammar because its readers navigate by it, which is the refusal `estate-coherence.md` already records.
+
+What kindred shares with the family is therefore the **vocabulary and the paper**, not the component: the same nouns
+(`/works/{id}`, `/tags`, `/authors`), the same token names once M72-02's palettes reach its CSS, and the same JSON
+contracts. Stated that way round, the row is honest: a component is portable, a rendered DOM is a decision.
+
+### The vocabulary (M72-10)
+
+One noun, one URL — where the noun means the same thing:
+
+| object | darkhold | kindred | ascend | ficnexus | rule |
+|---|---|---|---|---|---|
+| a story with text, tags, chapters | `/works/{id}` | `/works/{id}` | — (it has no such object) | — | **work** |
+| a pointer to a story elsewhere + a deck of built cards | — | — | `/fics/{id}` | `/api/epub?url=…` | **fic** — see below |
+| a tag | `/tags/{slug}` | `/tags/{id}` | `/fics/fandoms` | — | **tag** |
+| a person | `/authors/{id}` | `/authors/{id}` | `/authors/{id}` | — | **author** |
+| an entry in someone's list | `/library` | — (browser-only) | `/decks` | — | the product's own noun |
+
+**The deviation, written down rather than renamed:** ascend calls its object a *fic* and mounts `/fics/{id}`, and
+that is correct for what ascend holds. A darkhold work is a text with tags and chapters that darkhold can render; an
+ascend fic is a pointer to a story on another site plus the deck of card images built from it — no text, no tag
+taxonomy, no chapters. Renaming it a work would imply two products hold the same object, and the first feature built
+on that assumption would fail. What ascend owes the family instead is the **link**: `/works/{id}` answering a 302 to
+`/fics/{id}`, so a link copied from darkhold lands on a 200 rather than a 404. *(Not yet implemented — it belongs in
+ascend's web router, which lives in the non-git tree on the host; named here so it is not mistaken for done.)*
+
+**The blurb:** `WorkBlurb` in `@polaris/ui` (0.5.2) fixes the field order every product renders a listed work in —
+title, byline ("by A and B"), meta chips, warnings, tags, summary — with the summary clamped by CSS rather than
+sliced, and absent fields omitted rather than rendered empty. Five render tests assert the order by reading element
+order, not by snapshotting markup (a snapshot breaks on a class rename and passes on a field moving, which is
+backwards), and three mutants red: title always a link, byline losing its conjunction, warnings dropped.
+*(Adopted by nobody yet: darkhold renders works through `WorkCard`, which owns its own typed `MetadataChip` tones and
+aria labels, so adopting the blurb means deciding what a chip's tone and semantics become in a shared component.
+That decision belongs with the adoption row (M72-06), not made twice — and a component published and tested but not
+rendered is the thing M72-03 called dead code, which is exactly why it is named here instead of counted as done.)*
+
 *(Layer 4, M72-05 — the contract is written and the code is in all four; two of the four are deployed.)*
 `GET /api/v1/meta` returns `{name, version, build, api_version, environment, base_url}` and `GET /healthz`
 returns `{status, version}`. Product extras live beside those fields, never instead of them — darkhold keeps

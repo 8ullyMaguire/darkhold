@@ -336,6 +336,9 @@ async fn saved_view_feed(
             "{base}/api/v1/saved-views/{id}/feed?format={}",
             format.extension()
         )),
+        // `FeedMeta` grew an explicit `id` (the feed's Atom `<id>`, when it is not the site URL). darkhold's
+        // `<id>` has always been the site URL — the crate's default — so declaring one here would invent a new
+        // identity and make every reader re-read the feed from scratch.
         id: None,
     };
     let body = feed_http::render(&meta, &entries, format);
@@ -421,6 +424,9 @@ async fn render_catalogue(
             author: author_of(&row.author_text),
             // The catalogue row carries no source clock; the feed says so rather than inventing one.
             published: None,
+            // `commons-feed` grew a `categories` slot for a reader's filter vocabulary (suki puts a
+            // rating there). These rows carry no labels yet, so the slot stays empty rather than being
+            // filled with something invented — the renderers then emit nothing at all for it.
             categories: Vec::new(),
         })
         .collect();
@@ -431,6 +437,9 @@ async fn render_catalogue(
         description: Some("The public catalogue, as a feed.".to_owned()),
         language: Some("en".to_owned()),
         self_url: Some(self_url),
+        // `FeedMeta` grew an explicit `id` (the feed's Atom `<id>`, when it is not the site URL). darkhold's
+        // `<id>` has always been the site URL — the crate's default — so declaring one here would invent a new
+        // identity and make every reader re-read the feed from scratch.
         id: None,
     };
 
@@ -529,6 +538,9 @@ pub(crate) async fn library_items(
             // The source's own clock, never ours: `last_synced_at` says when we looked, and a feed that
             // dated items by when we polled would move every item on every poll.
             published: published_of(item.source_updated_at.as_deref()),
+            // `commons-feed` grew a `categories` slot for a reader's filter vocabulary (suki puts a
+            // rating there). These rows carry no labels yet, so the slot stays empty rather than being
+            // filled with something invented — the renderers then emit nothing at all for it.
             categories: Vec::new(),
         })
         .collect())
@@ -583,6 +595,9 @@ pub(crate) async fn catalogue_items(
             author: author_of(&row.author_text),
             // The catalogue row carries no source clock; the feed says so rather than inventing one.
             published: None,
+            // `commons-feed` grew a `categories` slot for a reader's filter vocabulary (suki puts a
+            // rating there). These rows carry no labels yet, so the slot stays empty rather than being
+            // filled with something invented — the renderers then emit nothing at all for it.
             categories: Vec::new(),
         })
         .collect())

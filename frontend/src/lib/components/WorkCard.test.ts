@@ -45,4 +45,30 @@ describe('WorkCard', () => {
     expect(getByText('12k views')).toBeTruthy();
     expect(getByText('6.8k kudos')).toBeTruthy();
   });
+
+  it('renders the blurb in the family order — title, byline, chips, summary', () => {
+    // M72-06: the card no longer owns this order; `WorkBlurb` does. The assertion reads document order because
+    // that is the contract two products have to agree on — a snapshot would break on a class rename and pass on a
+    // field moving, which is exactly backwards.
+    const { container } = render(WorkCard, {
+      props: {
+        work: sampleWork({ summary: 'A summary that should come after the chips.' }),
+        variant: 'full',
+      },
+    });
+
+    const title = container.querySelector('h3');
+    const byline = container.querySelector('.byline');
+    const meta = container.querySelector('.meta');
+    const summary = container.querySelector('.summary');
+    for (const [name, node] of Object.entries({ title, byline, meta, summary })) {
+      expect(node, `${name} missing from the card`).toBeTruthy();
+    }
+
+    const before = (a: Element, b: Element) =>
+      Boolean(a.compareDocumentPosition(b) & Node.DOCUMENT_POSITION_FOLLOWING);
+    expect(before(title!, byline!)).toBe(true);
+    expect(before(byline!, meta!)).toBe(true);
+    expect(before(meta!, summary!)).toBe(true);
+  });
 });
