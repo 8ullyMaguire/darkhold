@@ -53,19 +53,36 @@ from an app test is not wired (that is what the scan already excludes). That is 
 B before A. Class B is missing product; class A is a visibility correction, and doing it first would make the list greener
 without adding anything a reader can use.
 
-## Measured on 2026-11-08: the detector is a substring search, and it is passing things it should not
+## Correction, and the measurement that replaced it (2026-11-08)
 
-`orphan_queries::reachable_sources` builds one string of every non-db, non-test source and checks
-`mentions(&reachable, name)` — a plain `contains`, not a word-boundary match. So a function passes the test when its name is a
-substring of unrelated prose or another identifier:
+I first wrote here that the scan used a plain `contains`. It did not — it already required an identifier boundary. The real
+weakness was the *other* end: it accepted any whole-identifier occurrence, so `name(` was not required and a name in prose
+counted. Measured cases:
 
-| function | why it passes today | why that is wrong |
+| function | what satisfied the scan | why that was wrong |
 |---|---|---|
-| `confirm` | `confirm_plan`, `confirm` in HTML copy | **no route calls it.** The tag-confirmation writer is unreachable and the test says it is fine. |
-| `retract` | `retract` in prose | same |
-| `assertions_for_work` | `tag_inference.rs` line 10, a doc comment | a comment is not a caller |
+| `assertions_for_work` | a doc comment in `tag_inference.rs` | a comment is not a caller |
+| `confirm` | a local variable in `erasure.rs` (`if let Some(confirm) = …`) | a binding is not a call |
+| `retract` | `cta.rs` declares its own `retract` route handler | same word, unrelated function |
 
-So the tag-assertion feature has **no door at all** — not even `assert_tag`'s, which the list at least names. The fix is two
-changes and they belong together: give the tag-assertion writers a router (`POST /works/{id}/tags/{node}/assert`,
-`POST …/confirm`, `DELETE …`), and make the scan match whole identifiers (`assert_tag(` rather than `assert_tag`), because a
-detector that passes on a doc comment will keep passing on nothing.
+The scan now requires `(` after the name. **That took the list from 11 to 30**, and the nineteen it added are not new debt;
+they are debt the old rule was hiding. Each was measured: the name exists in `crates/app` only as a **local variable, a JSON
+key, or a route function that shares the word** — never as a call:
+
+| db function | what looks like a caller | what the route actually calls |
+|---|---|---|
+| `work_mirrors::active_count` | `let active_count = …` in `lending.rs` | `lending::count_active_loans` |
+| `storage::usage` | `"usage": []` and `let usage = …` in `economy.rs` | `economy::usage_for` |
+| `whole_work::total_words` | `"total_words": lengths.iter().sum()` | computed inline |
+| `peer_fingerprints::forget` | the word in three route files | nothing |
+
+That pattern — a db function written for a feature, then the route computing the same thing inline next to it — is the most
+common shape in the nineteen, and it is a drift risk rather than a tidy-up: two implementations of one number, one tested and
+one served.
+
+### What the scan still cannot see
+
+`name(` matches a call *and a declaration*, so a route that declares its own `fn retract` still satisfies `retract`. Closing
+that needs module paths (`darkhold_db::<mod>::retract(`) plus the caller's `use` imports; the scan is a ratchet, and the
+triage file is what makes its over-reporting safe.
+

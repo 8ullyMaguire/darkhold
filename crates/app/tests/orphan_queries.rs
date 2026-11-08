@@ -45,7 +45,18 @@ fn rs_files(dir: &Path, out: &mut Vec<PathBuf>) {
     }
 }
 
-/// The identifier, so `fn foo` matches `foo(` but not `foobar`.
+/// Whether the source **calls** `name`, as far as text can tell.
+///
+/// Three conditions, each of which closed a false green measured on 2026-11-08:
+///
+/// 1. the character before is not an identifier byte, so `foo` does not match `foobar`;
+/// 2. the character after is `(`, so a name mentioned in prose or in a doc comment does not count — the first version of this
+///    function accepted any whole identifier, and `assertions_for_work` passed on the line "inspect `assertions_for_work` before
+///    anything becomes a fact" in another module's **doc comment**;
+/// 3. `name(` alone is a call *or a declaration*, which is the residual this scan cannot close: `cta.rs` declares its own
+///    `retract`, so the database's `retract` was reported reachable by a route handler that shares nothing with it but a word.
+///    Closing that needs module paths and the caller's imports; until then the ratchet over-reports reachability, which is the
+///    direction that hides work — and it is why the triage file exists rather than the scan alone.
 fn mentions(source: &str, name: &str) -> bool {
     let bytes = source.as_bytes();
     let needle = name.as_bytes();
@@ -54,7 +65,7 @@ fn mentions(source: &str, name: &str) -> bool {
         let start = from + offset;
         let end = start + needle.len();
         let before_ok = start == 0 || !is_ident_byte(bytes[start - 1]);
-        let after_ok = end >= bytes.len() || !is_ident_byte(bytes[end]);
+        let after_ok = end < bytes.len() && bytes[end] == b'(';
         if before_ok && after_ok {
             return true;
         }
