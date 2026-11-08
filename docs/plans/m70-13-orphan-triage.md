@@ -130,7 +130,7 @@ the number from 292 to **233**, and none of the 59 were work: every one was an i
 function. The row stays `planned` until 233 is zero — the requirement's own words are "no function exists only to satisfy its
 own test".
 
-**233 functions across 72 modules.** The largest:
+**216 functions across 72 modules** (233 before the `work_characters` write doors). The largest:
 
 | module | orphans |
 |---|---|
@@ -157,8 +157,10 @@ own test".
 
 ### Order of work, and why
 
-1. **Modules whose feature has a door already** — the write half usually follows the read half. `work_characters` is 17 and
-   is exactly this: the read door shipped today, and what remains is authoring characters, roles, relationships and dynamics.
+1. **Modules whose feature has a door already** — the write half usually follows the read half. `work_characters` was 17 and
+   is done: `PUT/DELETE /works/{id}/characters/{node}`, `/roles/{role}`, `/attributes/{attribute}`,
+   `PUT /works/{id}/relationships/{node}` (the pairing in one write, ends and dynamics together), `/dynamics/{dynamic}`,
+   plus `GET /roles`, `GET /dynamics` and `GET /characters/{node}/relationships`. Owner-scoped, and a stranger gets `404`.
 2. **Modules with no route at all.** These are features that were built to the store and never surfaced. Each one is a
    decision, not a chore: build the door (and the ledger row it belongs to) or delete the store code and its tests. Deleting is
    allowed and is sometimes right — a function kept because it has a test is the defect the row was opened on — but the

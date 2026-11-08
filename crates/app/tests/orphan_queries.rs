@@ -219,7 +219,7 @@ fn reachable_via_db(declared: &BTreeMap<String, String>, app_sources: &str) -> B
         let Some(body) = declared.get(&name) else {
             continue;
         };
-        for (other, _) in declared {
+        for other in declared.keys() {
             if seen.contains(other) || other == &name {
                 continue;
             }

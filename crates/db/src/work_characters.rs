@@ -105,6 +105,11 @@ pub struct WorkCharacter {
 pub const PROMINENCE_VALUES: [&str; 4] = ["protagonist", "supporting", "cameo", "mentioned"];
 
 /// §15.2's relationship kinds.
+/// The prominence vocabulary of a *pairing*, which is not the character one: a relationship is `primary`, `secondary` or
+/// `background` in a work, and `supporting` — a character word — is refused by the schema's CHECK. Two lists because they are
+/// two vocabularies that happen to share three of four words.
+pub const REL_PROMINENCE_VALUES: [&str; 3] = ["primary", "secondary", "background"];
+
 pub const REL_TYPE_VALUES: [&str; 7] = [
     "romantic",
     "platonic",
@@ -738,6 +743,12 @@ pub async fn remove_relationship_participant(
 /// upserting a row and replacing its dynamics in one statement would make "change
 /// the prominence" and "change the dynamics" the same edit.
 pub async fn upsert_relationship(db: &Database, rel: &WorkRelationship) -> Result<bool> {
+    if !REL_PROMINENCE_VALUES.contains(&rel.prominence.as_str()) {
+        return Err(anyhow!(
+            "prominence must be one of {REL_PROMINENCE_VALUES:?}, got {:?}",
+            rel.prominence
+        ));
+    }
     if !REL_TYPE_VALUES.contains(&rel.rel_type.as_str()) {
         return Err(anyhow!(
             "rel_type must be one of {REL_TYPE_VALUES:?}, got {:?}",
