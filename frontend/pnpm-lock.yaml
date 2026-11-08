@@ -12,8 +12,8 @@ importers:
         specifier: ^0.1.1
         version: 0.1.1
       '@polaris/ui':
-        specifier: ^0.1.2
-        version: 0.1.2(svelte@5.57.3)
+        specifier: ^0.2.0
+        version: 0.2.0(svelte@5.57.3)
       '@tiptap/core':
         specifier: ^2.27.3
         version: 2.27.3(@tiptap/pm@2.27.3)
@@ -293,8 +293,8 @@ packages:
   '@polaris/inbox-client@0.1.1':
     resolution: {integrity: sha512-LtsRVjqbHJB5TrcNXQfQelHWdTkwX015Lq3Y8XI3eCifZilVCGQlL0nPYpek7T/cXJnD1dYZ4fl3la7MMcER9w==, tarball: https://git.polarisocial.xyz/api/packages/hirrolot19/npm/%40polaris%2Finbox-client/-/0.1.1/inbox-client-0.1.1.tgz}
 
-  '@polaris/ui@0.1.2':
-    resolution: {integrity: sha512-Zs+BHc70Y0N8bsF1N7WF0bgbOqLiz9DQHMeGnV+egq6EJ6SiSsQINWOUCHEUE9dEZNytvuM4ozAMZGkHwoCWoQ==, tarball: https://git.polarisocial.xyz/api/packages/hirrolot19/npm/%40polaris%2Fui/-/0.1.2/ui-0.1.2.tgz}
+  '@polaris/ui@0.2.0':
+    resolution: {integrity: sha512-6Dkh6l8XCrnB7rrF5Msg8WgVuoXT7nHmfjOcRH/EQE6jjnAcp0mHDRmRjmiQwgqd7DQk/r0TVO2FBmu1iXd+Hg==, tarball: https://git.polarisocial.xyz/api/packages/hirrolot19/npm/%40polaris%2Fui/-/0.2.0/ui-0.2.0.tgz}
     peerDependencies:
       svelte: ^5.0.0
 
@@ -1494,7 +1494,7 @@ snapshots:
 
   '@polaris/inbox-client@0.1.1': {}
 
-  '@polaris/ui@0.1.2(svelte@5.57.3)':
+  '@polaris/ui@0.2.0(svelte@5.57.3)':
     dependencies:
       svelte: 5.57.3
 

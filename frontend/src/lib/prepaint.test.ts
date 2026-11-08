@@ -34,6 +34,7 @@ function runPrepaint(): void {
 function resetDocument(): void {
   const root = document.documentElement;
   delete root.dataset.theme;
+  delete root.dataset.palette;
   delete root.dataset.reader;
   delete root.dataset.distractionFree;
   root.style.removeProperty('--reader-font-scale');
@@ -62,6 +63,8 @@ describe('the shell and the content-security-policy', () => {
     localStorage.setItem('darkhold.theme', 'clear-day');
     runPrepaint();
     expect(document.documentElement.dataset.theme).toBe('clear-day');
+    // Without this the first paint is the default palette and the page flashes the wrong paper.
+    expect(document.documentElement.dataset.palette).toBe('clear-day');
   });
 });
 

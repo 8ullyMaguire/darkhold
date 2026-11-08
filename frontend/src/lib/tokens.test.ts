@@ -94,10 +94,31 @@ function definitions(files: string[]): Set<string> {
   return defined;
 }
 
+/**
+ * The estate's palettes, as the browser receives them.
+ *
+ * Since M72-02 the theme VALUES live in `@polaris/ui/dist/palettes/*.css` (contrast-checked there, per
+ * palette) and `src/styles/tokens.css` maps them to this product's `--color-*` names. A check that only
+ * read `src/` would call every one of those aliases undefined and the honest fix is to follow the
+ * definitions to the file that declares them — not to stop checking.
+ */
+function paletteFiles(): string[] {
+  const dir = join(ROOT, 'node_modules/@polaris/ui/dist/palettes');
+  const found = readdirSync(dir)
+    .filter((name) => name.endsWith('.css'))
+    .map((name) => join(dir, name));
+  if (!found.length) {
+    throw new Error(
+      `no palettes at ${dir} — run pnpm install; a check with nothing to read passes for the wrong reason`,
+    );
+  }
+  return found;
+}
+
 describe('design tokens', () => {
   const files = walk(join(ROOT, 'src'));
   const used = reads(files);
-  const defined = definitions(files);
+  const defined = new Set([...definitions(files), ...definitions(paletteFiles())]);
 
   it('finds the sources it is meant to check', () => {
     // A glob that matches nothing reports success, and this file's whole value

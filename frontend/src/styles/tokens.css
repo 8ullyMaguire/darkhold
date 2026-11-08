@@ -11,6 +11,10 @@
  * want a dark interface with a warm-paper reading page.
  */
 
+@import '@polaris/ui/palettes/reading-room.css';
+@import '@polaris/ui/palettes/after-hours.css';
+@import '@polaris/ui/palettes/clear-day.css';
+
 :root {
   /* ---- typography ------------------------------------------------------ */
   --font-interface: 'Source Sans 3', 'Segoe UI', system-ui, -apple-system, sans-serif;
@@ -72,6 +76,12 @@
    */
   --header-height: 4.2875rem;
 
+  /*
+   * The one component that reads a radius by number (WorkPage's cover art) used `var(--radius-2, 4px)`
+   * for a token nobody declared, so the check that every read has a definition was red on it. Declared
+   * at the value the fallback already produced: the token set is complete and the render is unchanged.
+   */
+  --radius-2: 4px;
   --radius-sm: 3px;
   --radius-md: 6px;
   --radius-lg: 10px;
@@ -85,27 +95,42 @@
   --duration-base: 200ms;
 }
 
-/* ---- Reading Room: warm paper and evergreen (default) ------------------ */
+/*
+ * ---- Colour: the estate's palettes, aliased to this product's names ------
+ *
+ * The palette *values* are data in `@polaris/ui/tokens/palettes.json`, where every one of them is
+ * contrast-checked against the pairs a component may rely on (dist/contrast-report.txt). This file
+ * keeps only the product's vocabulary: `--color-*` is what 103 components speak, and mapping it here
+ * means the theme can be re-measured and re-tuned without touching a component.
+ *
+ * The three presets are the same three palettes, so `data-theme` and `data-palette` carry the same
+ * value (see lib/theme.ts and static/prepaint.js — both set it, or the first paint is the wrong paper).
+ *
+ * `--color-accent` is deliberately NOT an estate token: the estate's vocabulary has one accent (the
+ * interactive hue), and this product carries a second brand colour beside it. A token added to the
+ * shared set for one product is how a design system becomes a pile, so the terracotta stays local,
+ * unmeasured by the shared gate, and used only for emphasis that is not a control.
+ */
 :root,
 [data-theme='reading-room'] {
   color-scheme: light;
-  --color-bg: #f6f3ec;
-  --color-surface: #fffdfa;
-  --color-surface-raised: #ffffff;
-  --color-text: #202b25;
-  --color-muted: #59645c;
-  --color-primary: #245c46;
-  --color-primary-hover: #1d4c3a;
-  --color-primary-contrast: #fbfaf6;
+  --color-bg: var(--surface-0);
+  --color-surface: var(--surface-1);
+  --color-surface-raised: var(--surface-2);
+  --color-text: var(--text-1);
+  --color-muted: var(--text-2);
+  --color-primary: var(--accent);
+  --color-primary-hover: var(--accent-hover);
+  --color-primary-contrast: var(--text-inverse);
   --color-accent: #955333;
-  --color-accent-soft: #f0e3d9;
-  --color-border: #d9dfd5;
-  --color-border-strong: #b9c4b7;
-  --color-danger: #8c2f27;
-  --color-success: #2c6046;
-  --color-warning: #8a5a15;
-  --color-focus: #245c46;
-  --color-overlay: rgb(20 28 24 / 55%);
+  --color-accent-soft: var(--accent-subtle);
+  --color-border: var(--border-1);
+  --color-border-strong: var(--border-strong);
+  --color-danger: var(--status-danger);
+  --color-success: var(--status-success);
+  --color-warning: var(--status-warning);
+  --color-focus: var(--accent);
+  --color-overlay: var(--overlay);
 
   --shadow-sm: 0 1px 2px rgb(32 43 37 / 8%);
   --shadow-md: 0 4px 16px rgb(32 43 37 / 10%);
@@ -114,51 +139,50 @@
 
 /* ---- After Hours: forest charcoal and pale ivory ----------------------- */
 [data-theme='after-hours'] {
-  --color-bg: #151c19;
-  --color-surface: #1e2923;
-  --color-surface-raised: #24312a;
-  --color-text: #eeefe7;
-  --color-muted: #adb9ae;
-  --color-primary: #9bcbaa;
-  --color-primary-hover: #b3dabf;
-  --color-primary-contrast: #12201a;
+  color-scheme: dark;
+  --color-bg: var(--surface-0);
+  --color-surface: var(--surface-1);
+  --color-surface-raised: var(--surface-2);
+  --color-text: var(--text-1);
+  --color-muted: var(--text-2);
+  --color-primary: var(--accent);
+  --color-primary-hover: var(--accent-hover);
+  --color-primary-contrast: var(--text-inverse);
   --color-accent: #d8a17b;
-  --color-accent-soft: #33291f;
-  --color-border: #39483e;
-  --color-border-strong: #4d6053;
-  --color-danger: #e39b93;
-  --color-success: #9bcbaa;
-  --color-warning: #e0b877;
-  --color-focus: #9bcbaa;
-  --color-overlay: rgb(6 10 8 / 65%);
+  --color-accent-soft: var(--accent-subtle);
+  --color-border: var(--border-1);
+  --color-border-strong: var(--border-strong);
+  --color-danger: var(--status-danger);
+  --color-success: var(--status-success);
+  --color-warning: var(--status-warning);
+  --color-focus: var(--accent);
+  --color-overlay: var(--overlay);
 
   --shadow-sm: 0 1px 2px rgb(0 0 0 / 30%);
   --shadow-md: 0 4px 16px rgb(0 0 0 / 35%);
   --shadow-lg: 0 12px 40px rgb(0 0 0 / 45%);
-
-  color-scheme: dark;
 }
 
 /* ---- Clear Day: neutral white and charcoal ----------------------------- */
 [data-theme='clear-day'] {
   color-scheme: light;
-  --color-bg: #ffffff;
-  --color-surface: #fafafa;
-  --color-surface-raised: #ffffff;
-  --color-text: #171717;
-  --color-muted: #595959;
-  --color-primary: #333b38;
-  --color-primary-hover: #222826;
-  --color-primary-contrast: #ffffff;
+  --color-bg: var(--surface-0);
+  --color-surface: var(--surface-1);
+  --color-surface-raised: var(--surface-2);
+  --color-text: var(--text-1);
+  --color-muted: var(--text-2);
+  --color-primary: var(--accent);
+  --color-primary-hover: var(--accent-hover);
+  --color-primary-contrast: var(--text-inverse);
   --color-accent: #7a5c46;
-  --color-accent-soft: #f0ebe6;
-  --color-border: #e2e2e2;
-  --color-border-strong: #c6c6c6;
-  --color-danger: #a52a1f;
-  --color-success: #2f6b4f;
-  --color-warning: #8a5a15;
-  --color-focus: #333b38;
-  --color-overlay: rgb(0 0 0 / 45%);
+  --color-accent-soft: var(--accent-subtle);
+  --color-border: var(--border-1);
+  --color-border-strong: var(--border-strong);
+  --color-danger: var(--status-danger);
+  --color-success: var(--status-success);
+  --color-warning: var(--status-warning);
+  --color-focus: var(--accent);
+  --color-overlay: var(--overlay);
 
   --shadow-sm: 0 1px 2px rgb(0 0 0 / 6%);
   --shadow-md: 0 4px 16px rgb(0 0 0 / 8%);

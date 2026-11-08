@@ -67,6 +67,13 @@ sibling installs and builds. Two things the exercise taught: the token is per-ma
 unanswered `allowBuilds` placeholder, so every install exited non-zero and a clean clone installed without ever
 linking esbuild. ascend and kindred pin when they adopt (M72-06) — a dependency nobody imports is not a consumer.
 
+**Layer 2 — tokens, palettes as data.** *(Done 2026-11-08, M72-02: `@polaris/ui@0.2.0` ships six palettes —
+reading-room, after-hours, clear-day, ascend, ao3 — resolved to literal values at build time and contrast-checked per
+palette (0 failures over 6 × 84 tokens). Light mode is a written ramp, not `100 - L`. A palette is also allowed
+`tokens` overrides, so an identity that already ships is recorded exactly as hex rather than re-invented in a hue;
+darkhold's three presets are now those overrides, and darkhold's `tokens.css` keeps its `--color-*` names as aliases.
+The gate found two real defects on the way: darkhold's control boundary was 1.8:1 (WCAG 1.4.11 wants 3:1) and its dark
+preset had no dim ink at all. ascend's and kindred's palettes are measured but not yet adopted — that is M72-06.)*
 **Layer 2 — tokens, palettes as data.** One token vocabulary (`--polaris-*`: surface, ink, ink-soft, line,
 accent, ok/warn/err, radius, space, type scale), three palettes that are *values* of it: darkhold's
 Archive/Reading Room, ascend's dark, kindred's AO3. The contrast report (`ui/a11y.mjs`) runs over every palette

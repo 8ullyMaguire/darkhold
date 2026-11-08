@@ -67,7 +67,9 @@ describe('theme resolution', () => {
     const root = document.createElement('div');
     applyTheme('clear-day', root);
     expect(root.dataset.theme).toBe('clear-day');
+    expect(root.dataset.palette).toBe('clear-day');
     applyTheme('after-hours', root);
     expect(root.dataset.theme).toBe('after-hours');
+    expect(root.dataset.palette).toBe('after-hours');
   });
 });

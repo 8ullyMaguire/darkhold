@@ -68,4 +68,8 @@ export function writePreference(
 /** Apply a resolved theme to the document. */
 export function applyTheme(theme: Theme, root: HTMLElement): void {
   root.dataset.theme = theme;
+  // The estate palette is scoped by its own attribute so one shared stylesheet can carry every
+  // product's paper; here the two names happen to coincide, and setting one without the other is a
+  // page painted in the default palette — the same defect as a theme that never applies.
+  root.dataset.palette = theme;
 }

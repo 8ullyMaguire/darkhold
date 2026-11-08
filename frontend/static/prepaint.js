@@ -29,8 +29,10 @@
           : 'reading-room'
         : stored;
     document.documentElement.dataset.theme = resolved;
+    document.documentElement.dataset.palette = resolved;
   } catch (error) {
     document.documentElement.dataset.theme = 'reading-room';
+    document.documentElement.dataset.palette = 'reading-room';
   }
 
   // --- the reading surface --------------------------------------------------

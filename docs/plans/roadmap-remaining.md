@@ -20,10 +20,12 @@ nothing with the other two. The survey, the decisions and the rejected alternati
 
 The order inside the batch is a dependency chain, not a preference:
 
-1. **M72-01** publish `@polaris/ui` to the estate registry — today it is a `file:` tarball path that only resolves on
+1. ~~**M72-01** publish `@polaris/ui` to the estate registry~~ **DONE** — 0.1.2 and inbox-client 0.1.1 published; a clone
+   with no `estate/` sibling installs and builds. — today it is a `file:` tarball path that only resolves on
    this machine, so nothing else is adoptable until there is a version to depend on.
-2. **M72-02** one token vocabulary, palettes as data (darkhold Archive/Reading Room, ascend dark, kindred AO3) and a
-   contrast gate over every palette.
+2. ~~**M72-02** one token vocabulary, palettes as data and a contrast gate over every palette~~ **DONE** — 0.2.0: six
+   palettes, a written light ramp, per-palette literal CSS, 0 contrast failures; darkhold's three presets now come from
+   it (browser-measured identical), and the gate caught a 1.8:1 control boundary in darkhold's own palette.
 3. **M72-03** the six primitives the estate has nowhere (checkbox/radio, avatar, breadcrumb, tooltip, `kbd`, card
    action row) — the census names them; nothing here is a new invention.
 4. **M72-04/05** the JSON contracts: one error envelope, one meta/health shape. Invisible on a page, and the reason a
