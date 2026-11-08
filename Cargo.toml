@@ -34,6 +34,9 @@ axum = { version = "0.8", default-features = false, features = [
     "matched-path",
 ] }
 base64 = "0.22"
+# HTTP Signatures on the federation inbox (ADR 0031): a peer signs with RSA-SHA256, and verifying it needs the primitive rather
+# than a reimplementation. Already in the local registry, so this adds no new download to a build.
+rsa = "0.9"
 clap = { version = "4", features = ["derive", "env", "wrap_help"] }
 # The EPUB container is a ZIP, and these two are already in the tree
 # transitively (via `sqlx`), so writing the container costs no new dependency
@@ -68,7 +71,9 @@ serde_json = "1"
 # M45-23 (§55.3): curator-submitted adapter manifests are YAML, because the
 # review argument for the declarative path is that a steward can read one.
 serde_yaml = "0.9"
-sha2 = "0.10"
+# `oid` is what RSA PKCS#1 v1.5 needs: the DigestInfo prefix is built from the algorithm's OID, and without the feature the
+# verifier will not compile at all (measured — `AssociatedOid` unsatisfied).
+sha2 = { version = "0.10", features = ["oid"] }
 unicode-normalization = "0.1"
 ed25519-dalek = { version = "2.1", features = ["rand_core"] }
 hmac = "0.12"

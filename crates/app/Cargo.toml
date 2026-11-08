@@ -49,6 +49,8 @@ reqwest = { version = "0.12", default-features = false, features = [
 # The taste service authenticates a product with an HMAC over sub/exp/method/path — the same construction
 # `polaris-taste/src/assertion.rs` verifies (ADR 0001, W3 §10).
 hmac = "0.12"
+# Federation inbox signatures (draft-cavage). See `http_signature.rs`.
+rsa.workspace = true
 rust-embed.workspace = true
 serde.workspace = true
 serde_json.workspace = true

@@ -59,6 +59,11 @@ struct Inner {
     taste: crate::taste::TasteClient,
     /// Webhook sender configuration.
     webhook_config: WebhookSenderConfig,
+    /// Peer signing keys, fetched at most once each (`http_signature.rs`).
+    ///
+    /// Per instance rather than a process static, for the reason the shadow report is: a test binary builds many instances in
+    /// one process, and a shared cache would let one test's peer key verify another test's inbox post.
+    peer_keys: crate::http_signature::KeyCache,
     /// The most recent shadow-mode evaluation, for the operator surface.
     ///
     /// Per instance, inside the `Arc`, rather than the process-global static
@@ -117,6 +122,9 @@ impl AppState {
             .redirect(reqwest::redirect::Policy::none()) // Disable redirects to prevent SSRF via redirect chains
             .build()
             .expect("reqwest client");
+        // Built before the literal moves the client: the key cache shares the one HTTP client, which is what keeps a peer's
+        // key fetch on the same redirect policy and user agent as every other outbound call this instance makes.
+        let peer_keys = crate::http_signature::KeyCache::new(reqwest_client.clone());
         let webhook_config = crate::webhook_sender::WebhookSenderConfig {
             timeout: Duration::from_secs(config.administration.webhook_timeout_secs),
             max_attempts: config.administration.webhook_max_attempts,
@@ -143,6 +151,7 @@ impl AppState {
                 tts,
                 reqwest_client,
                 webhook_config,
+                peer_keys,
                 taste: crate::taste::TasteClient::from_env(),
                 shadow_report: crate::rec_shadow::ReportSlot::default(),
                 modules,
@@ -239,6 +248,12 @@ impl AppState {
     #[must_use]
     pub fn db(&self) -> &Database {
         &self.inner.db
+    }
+
+    /// The peer signing-key cache. Seedable, so a test can prove verification without a network.
+    #[must_use]
+    pub fn peer_keys(&self) -> &crate::http_signature::KeyCache {
+        &self.inner.peer_keys
     }
 
     /// The resolved module state (§59).

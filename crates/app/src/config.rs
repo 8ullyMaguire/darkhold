@@ -118,6 +118,8 @@ pub struct Config {
     pub logging: LoggingConfig,
     /// Static asset settings.
     pub assets: AssetsConfig,
+    /// What this instance accepts from other instances (spec §25.1, ADR 0031).
+    pub federation: FederationConfig,
     /// Development-only affordances.
     pub dev: DevConfig,
     /// Account and registration settings.
@@ -344,6 +346,26 @@ impl Default for MediaResilienceConfig {
             require_curator_confirmation_below: 3,
             require_curator_confirmation_above: 0,
             audio_fingerprint: AudioFingerprint::Chromaprint,
+        }
+    }
+}
+
+/// Federation intake settings (spec §25.1).
+#[derive(Debug, Clone, Deserialize, Serialize)]
+#[serde(default, deny_unknown_fields)]
+pub struct FederationConfig {
+    /// Whether an activity without a valid HTTP signature is refused.
+    ///
+    /// **`true` by default**, and that default is the point: an inbox that accepts unsigned writes is a public write endpoint
+    /// with a federation-shaped path. An operator who wants to run an open inbox for a trusted LAN peer turns this off and the
+    /// activity is recorded `quarantined` for review instead of being refused — the ledger still says nothing verified it.
+    pub require_signature: bool,
+}
+
+impl Default for FederationConfig {
+    fn default() -> Self {
+        Self {
+            require_signature: true,
         }
     }
 }
@@ -3235,6 +3257,9 @@ impl Config {
             age,
             rate_limits,
             imports,
+            // A `[federation]` section this build cannot read is refused at parse time by `deny_unknown_fields`, so the
+            // fallback here only ever fires for a file that omits the section entirely.
+            federation: file.federation.clone().unwrap_or_default(),
             syndication,
             atproto,
             // Present on the struct and reachable from the file, or neither. The
@@ -3999,6 +4024,7 @@ impl Config {
             exports: ExportsConfig::default(),
             directory: DirectoryConfig::default(),
             works: WorksConfig::default(),
+            federation: FederationConfig::default(),
             adoption: AdoptionConfig::default(),
             community: CommunityConfig::default(),
             bounties: BountiesConfig::default(),
@@ -4607,6 +4633,8 @@ struct FileConfig {
     exports: Option<ExportsSection>,
     directory: Option<DirectorySection>,
     works: Option<WorksSection>,
+    /// `[federation]`: what this instance accepts from other instances.
+    federation: Option<FederationConfig>,
     adoption: Option<AdoptionSection>,
     revisions: Option<RevisionsSection>,
     jobs: Option<JobsSection>,

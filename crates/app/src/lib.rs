@@ -29,6 +29,7 @@ pub mod feed_http;
 pub mod fixity;
 pub mod html;
 pub mod http;
+pub mod http_signature;
 pub mod imports;
 pub mod inbox;
 pub mod keys;

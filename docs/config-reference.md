@@ -463,6 +463,37 @@ Age-gate settings.
 
 ---
 
+## `[federation]` — what this instance accepts from other instances
+
+Spec §25.1. One key.
+
+```toml
+[federation]
+# Default: true.
+require_signature = true
+```
+
+`require_signature` decides what `POST /federation/inbox` does with an activity that carries no valid HTTP signature
+(draft-cavage, `rsa-sha256`). With the default every arriving activity must carry a `Signature` header covering
+`(request-target)`, `host`, `date` and `digest`, with a `Date` inside a five-minute window and a `Digest` matching the bytes
+actually received; the peer's key is read from its actor document (`publicKey.publicKeyPem`) and cached for the life of the
+process.
+
+**Why the default is `true`.** An inbox that accepts unsigned writes is a public write endpoint with a federation-shaped path:
+anybody on the network can write an activity, and the instance has no way to tell a peer from an impersonator. Every arrival is
+recorded in the intake ledger either way, and the ledger's `state` is the answer to "was this verified":
+
+| Outcome | Response | Ledger row |
+|---|---|---|
+| Signature verifies | `200 {"status":"received"}` | `accepted`, note names the key id |
+| Signature does not verify | `401` | `rejected`, note says why |
+| No signature, `require_signature = true` | `401` | `rejected`, note `no Signature header` |
+| No signature, `require_signature = false` | `200` | `quarantined` — waiting for the operator |
+
+An operator who runs an open inbox for a peer they trust at the network layer turns this off; the rows stay `quarantined` so the
+difference between "verified" and "allowed" never disappears from the record. Review and decide rows at
+`GET /operator/federation/inbound` and `POST /operator/federation/inbound/{id}/state`.
+
 ## Startup errors
 
 A malformed value refuses to start with a clear error message. Examples:

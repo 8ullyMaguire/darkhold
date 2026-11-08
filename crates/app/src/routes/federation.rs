@@ -375,8 +375,61 @@ pub async fn set_peer_state(
 pub async fn ap_inbox(
     State(state): State<AppState>,
     MaybeSession(_session): MaybeSession,
+    method: axum::http::Method,
+    uri: axum::http::Uri,
+    headers: axum::http::HeaderMap,
     body: String,
 ) -> ApiResult<Json<Value>> {
+    // Signature first, and before the body is parsed: an unsigned request must not get the courtesy of a `422` that tells the
+    // sender their JSON shape was wrong, because the shape is not what is wrong with it.
+    let target = uri
+        .path_and_query()
+        .map_or_else(|| uri.path().to_owned(), |pq| pq.as_str().to_owned());
+    let verdict = crate::http_signature::check(
+        state.peer_keys(),
+        method.as_str(),
+        &target,
+        &headers,
+        body.as_bytes(),
+    )
+    .await;
+
+    // A refusal is recorded, not only returned: an inbox under probe is a fact the operator should be able to see, and a 401
+    // that leaves no trace makes "was anyone knocking" unanswerable.
+    let refused = match &verdict {
+        crate::http_signature::Verdict::Verified(key_id) => {
+            tracing::info!(%key_id, "AP inbox: signature verified");
+            None
+        }
+        crate::http_signature::Verdict::Refused(reason) => {
+            tracing::warn!(%reason, "AP inbox: signature refused");
+            Some(reason.clone())
+        }
+        crate::http_signature::Verdict::Unsigned => {
+            if state.config().federation.require_signature {
+                Some("no Signature header".to_owned())
+            } else {
+                None
+            }
+        }
+    };
+    if let Some(reason) = refused {
+        let (kind, actor) = peek_identity(&body);
+        if let Ok(id) =
+            darkhold_db::external::record_inbound(state.db(), &peer_host_of(&actor), &kind, &actor)
+                .await
+        {
+            if let Err(error) =
+                darkhold_db::external::set_inbound_state(state.db(), &id, "rejected", Some(&reason))
+                    .await
+            {
+                tracing::warn!(%error, "a refused intake row could not be marked rejected");
+            }
+        }
+        // `AuthRequired` is the estate's 401: the request carried no credential this instance could verify.
+        return Err(ApiError(darkhold_domain::AppError::AuthRequired));
+    }
+
     let activity: Value = serde_json::from_str(&body)
         .map_err(|_| ApiError(darkhold_domain::AppError::field("body", "invalid JSON")))?;
 
@@ -435,7 +488,7 @@ pub async fn ap_inbox(
     // this request has been verified. Anybody can POST here, and until signatures are checked the ledger is the only record
     // that says so.
     let peer = peer_host_of(actor_id);
-    if let Err(error) = darkhold_db::external::record_inbound(
+    match darkhold_db::external::record_inbound(
         state.db(),
         &peer,
         activity_type,
@@ -443,12 +496,52 @@ pub async fn ap_inbox(
     )
     .await
     {
-        // The activity is already stored and the peer is waiting for an answer; a bookkeeping failure must not become a
-        // refusal that makes them retry and leaves the activity written twice.
-        tracing::warn!(%error, "an inbound activity could not be entered in the intake ledger");
+        Ok(id) => {
+            // The state is the answer to "was this request verified": `accepted` is what a verified signature earns, and it is
+            // not an operator's opinion — it is the one thing the instance can check for itself. An unsigned activity on an
+            // instance that allows unsigned traffic stays `quarantined`, because nothing verified it.
+            if let crate::http_signature::Verdict::Verified(key_id) = &verdict {
+                if let Err(error) = darkhold_db::external::set_inbound_state(
+                    state.db(),
+                    &id,
+                    "accepted",
+                    Some(&format!("signature verified: {key_id}")),
+                )
+                .await
+                {
+                    tracing::warn!(%error, "a verified intake row could not be marked accepted");
+                }
+            }
+        }
+        Err(error) => {
+            // The activity is already stored and the peer is waiting for an answer; a bookkeeping failure must not become a
+            // refusal that makes them retry and leaves the activity written twice.
+            tracing::warn!(%error, "an inbound activity could not be entered in the intake ledger");
+        }
     }
 
     Ok(Json(serde_json::json!({ "status": "received" })))
+}
+
+/// The activity's type and actor, read from the body **without** deciding whether the body is acceptable.
+///
+/// Only used on the refusal path, where the point is to record what arrived: an unsigned request that could not be parsed still
+/// names itself as `Unknown`, and a row saying "something refused arrived from this host" is more useful than no row at all.
+fn peek_identity(body: &str) -> (String, String) {
+    let Ok(value) = serde_json::from_str::<Value>(body) else {
+        return ("Unknown".to_owned(), String::new());
+    };
+    let kind = value
+        .get("type")
+        .and_then(|kind| kind.as_str())
+        .unwrap_or("Unknown")
+        .to_owned();
+    let actor = value
+        .get("actor")
+        .and_then(|actor| actor.as_str())
+        .unwrap_or_default()
+        .to_owned();
+    (kind, actor)
 }
 
 /// The host an activity came from, for the ledger's `peer_host`.

@@ -126,6 +126,9 @@ impl Client {
 fn base_config(dir: &std::path::Path) -> Config {
     let mut config = Config::development_defaults();
     config.storage.root = dir.to_path_buf();
+    // This file is about the *ledger*, not the signature: unsigned traffic is allowed here so an arrival still reaches the
+    // table. `m70_13_inbox_signature` is where the default refusal is proven.
+    config.federation.require_signature = false;
     config
 }
 

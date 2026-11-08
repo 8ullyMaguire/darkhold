@@ -810,6 +810,7 @@ dependencies = [
  "polaris-oidc-client",
  "rand 0.8.8",
  "reqwest",
+ "rsa",
  "rust-embed",
  "serde",
  "serde_json",
