@@ -378,7 +378,7 @@ pub async fn settle(
 ///
 /// "Earliest" by `settled_at` then id, so the answer is stable: when two rows claim one work, the first one to be recorded is
 /// the home and the later one is the fork.
-pub async fn accepted_holder_anywhere(
+pub(crate) async fn accepted_holder_anywhere(
     db: &Database,
     work_id: &str,
 ) -> Result<Option<(String, String)>> {
@@ -409,7 +409,7 @@ pub async fn accepted_holder_anywhere(
 }
 
 /// One placement by id.
-pub async fn find_assignment(db: &Database, id: &str) -> Result<Option<Assignment>> {
+pub(crate) async fn find_assignment(db: &Database, id: &str) -> Result<Option<Assignment>> {
     match db.backend() {
         Backend::Sqlite => {
             let row = sqlx::query(&format!(

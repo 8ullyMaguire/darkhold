@@ -765,11 +765,6 @@ pub struct DiscoveryConfig {
     pub morning_queue: bool,
     /// Whether saved filters have a public life — a keybind, follow, and blends (M69-21). Default: off.
     pub saved_filters: bool,
-    /// Whether the discovery feed says *why* each work is there (a reason chip and a relative match percentage).
-    ///
-    /// Default off, and off is the spec's silent rule (§16.3, §20): ranking must not narrate itself. A reason chip is an
-    /// influence disclosure however friendly it looks, so an instance turns it on deliberately or not at all.
-    pub explanations: bool,
     /// The slug of the saved filter the morning queue is drawn from (M69-22). `None` means the queue is on but unconfigured,
     /// which answers `404` rather than inventing a filter: a queue with no filter behind it cannot be shown to a reader.
     pub morning_queue_view: Option<String>,
@@ -814,7 +809,6 @@ impl Default for DiscoveryConfig {
             evacuation: false,
             morning_queue: false,
             saved_filters: false,
-            explanations: false,
             morning_queue_view: None,
             morning_queue_size: None,
             daily_surprise: None,
@@ -3407,9 +3401,6 @@ impl Config {
                 if let Some(saved) = d.saved_filters {
                     cfg.saved_filters = saved;
                 }
-                if let Some(explanations) = d.explanations {
-                    cfg.explanations = explanations;
-                }
                 if let Some(view) = d
                     .morning_queue_view
                     .as_ref()
@@ -5047,9 +5038,6 @@ struct DiscoverySection {
     /// Whether saved filters have a public life (M69-21). Absent means off.
     #[serde(default)]
     saved_filters: Option<bool>,
-    /// Whether the feed explains each recommendation. Absent means off — the silent rule is the default.
-    #[serde(default)]
-    explanations: Option<bool>,
 }
 
 /// The `[theme]` table (spec §0.4.6): theme mode and gravity settings.

@@ -86,3 +86,24 @@ one served.
 that needs module paths (`darkhold_db::<mod>::retract(`) plus the caller's `use` imports; the scan is a ratchet, and the
 triage file is what makes its over-reporting safe.
 
+## Class A executed (2026-11-08)
+
+Seven internal helpers were candidates; four took `pub(crate)` with no call-site change, because every caller was already inside
+`crates/db`: `accepted_holder_anywhere`, `find_assignment` (evacuation), `arm_totals`, `clear_override` (experiment decisions).
+
+Three are held back, and the reason is worth stating because it is the ratchet working: an **integration test in `crates/db/tests`
+or `crates/app/tests` is a separate crate, so it sees only `pub`**. `find_notice` (m69_07), `install_override` (m29) and
+`velocity_signals` (trust_velocity) are each read by a test and by nothing else. Narrowing them to `pub(crate)` would only move the
+problem into a compile error, and the honest fix is the one this file already prescribed: **give the behaviour a door, then assert
+the door**. `velocity_signals` is the cheapest of the three — `recompute_trust` already records the appraisal it computes into the
+trust event's `velocity_basis`, so its two test assertions can be made about that stored basis, which is the reader-visible fact.
+
+## Also reversed: `[discovery] explanations`
+
+The previous session put the reason chip and `match_percent` behind a default-off switch, on the argument that a reason chip is an
+influence disclosure (§16.3, §20). Three M29 tests disagreed, and they are right: the handler is the **served** path — it records the
+slot it is about to hand back — and §29.2 requires a served recommendation to carry its reason and its relative score. Hiding them
+made the served row less accountable than the explanation door that describes it. The switch is gone from `config.rs` and
+`docs/config-reference.md`; the fields are unconditional again. The §16.3 concern stays answered where it belongs — in what the
+sentence may *say* (the closed vocabulary) and in the fact that a reader asked for the recommendation at all.
+

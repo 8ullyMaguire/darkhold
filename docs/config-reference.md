@@ -394,7 +394,6 @@ Discovery settings: the feed's diversity, the recommender, the arena, and the sw
 | `morning_queue_size` | `int` | `5` | Works in the queue, clamped to 1–10 |
 | `daily_surprise` | `bool` | on when the queue is on | Whether one work is drawn by (day, reader) |
 | `saved_filters` | `bool` | `false` | Whether saved filters have a keybind, follows and blends (M69-21) |
-| `explanations` | `bool` | `false` | Whether the discovery feed says why each work is there — a reason chip and a relative match percentage. Off is the spec's silent rule: a reason chip is an influence disclosure (§16.3, §20) |
 | `surfaces` | `[table]` | `{}` | Per-surface algorithm choice (M64-01) |
 
 **Everything from `live_badges` down is off by default, and that is the rule, not an accident.** A switch that makes a

@@ -1084,22 +1084,21 @@ async fn get_discovery(
             item["title"] = serde_json::Value::String(title.clone());
             item["author_handle"] = serde_json::Value::String(author.clone());
         }
-        // **The silent rule, at the last moment before it could be broken.** A reason chip is an influence disclosure
-        // however friendly it looks: it says this work is here because the instance ranked you, and it names the axis. §16.3
-        // and §20 say the feed does not narrate itself, so the fields are emitted only on an instance that turned
-        // `[discovery] explanations` on — and the switch is off by default, like every other claim about a reader.
-        if !state.config().discovery.explanations {
-            continue;
-        }
         if let Some((reason, score)) = explanations.get(&id) {
-            // Absent, not empty: a row with no mapped reason shows nothing, which is the honest rendering of "we
-            // cannot say why in the vocabulary".
+            // **The sentence is not optional.** §29.2 requires a served recommendation to carry its reason, so a reader who
+            // was sent a work is told which axis put it there — hiding it would make the served row less accountable than
+            // the explanation door that describes it. Absent, not empty: a row with no mapped reason shows nothing, which
+            // is the honest rendering of "we cannot say why in this vocabulary".
             if let Some(reason) = reason {
                 item["reason"] = serde_json::Value::String(reason.sentence().to_owned());
                 item["reason_code"] = serde_json::Value::String(reason.as_str().to_owned());
             }
             // Percentage of the best score on this page, so the first row is 100 and the rest are relative to it. An
             // absolute score is meaningless to a reader; a relative one is checkable against the order they see.
+            // Unconditional, and it has to be: this handler is the SERVED path — it records the slot it is about to hand
+            // back — and §29.2's transparency is exactly about rows an instance chose and delivered. An earlier attempt to
+            // hide these behind `[discovery] explanations` made the served row less accountable than the explanation door
+            // that describes it, and three M29 tests said so.
             if top_score > 0 && *score > 0 {
                 let percent = ((*score as f64 / top_score as f64) * 100.0).round() as i64;
                 item["match_percent"] = serde_json::Value::from(percent);
