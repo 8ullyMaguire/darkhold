@@ -247,8 +247,18 @@ const EXPORT_COLUMNS_PG: &str = concat!(
 
 const GRANT_COLUMNS_PG: &str = concat!(
     "id::text AS id, export_job_id::text AS export_job_id, token_hash, ",
-    "expires_at::text AS expires_at, used_at::text AS used_at, single_use, ",
-    "created_at::text AS created_at",
+    // `single_use` is INTEGER here and INT4 to sqlx, while the row type asks for i64 — the same cast-or-fail trap the
+    // comment above describes for the timestamps. It went unseen because `grants_for_export` had no caller until the
+    // grant list got a door: a query nobody runs cannot fail to decode.
+    //
+    // The timestamps are rendered, not cast. `::text` on a timestamptz gives `2026-02-01 00:00:00+00`, which is the same
+    // instant as SQLite's canonical `2026-02-01T00:00:00Z` and a different string — so a reader of this door got one
+    // format from the test engine and another from production, and any client parsing RFC 3339 broke on exactly one of
+    // them. The table below stores canonical TEXT, so the read that comes back out of PostgreSQL is made to match it.
+    "to_char(expires_at AT TIME ZONE 'UTC', 'YYYY-MM-DD\"T\"HH24:MI:SS\"Z\"') AS expires_at, ",
+    "to_char(used_at AT TIME ZONE 'UTC', 'YYYY-MM-DD\"T\"HH24:MI:SS\"Z\"') AS used_at, ",
+    "single_use::bigint AS single_use, ",
+    "to_char(created_at AT TIME ZONE 'UTC', 'YYYY-MM-DD\"T\"HH24:MI:SS\"Z\"') AS created_at",
 );
 
 // ---------------------------------------------------------------------------
@@ -971,10 +981,15 @@ pub async fn bulk_items_for_export(
     db: &Database,
     export_job_id: &str,
 ) -> Result<Vec<BulkExportItem>> {
+    // The PostgreSQL arm casts its UUID columns to text and its byte count to bigint — the same two traps
+    // `export_jobs` and `download_grants` already have comments about, repeated here because this query had no caller
+    // until the bulk item list was put in the export's body. A query nobody runs cannot fail to decode, and the SELECT
+    // list is where the portability of an unexercised query hides.
     let sql = db.sql(
         "SELECT id, export_job_id, work_id, decision, reason, blob_checksum, byte_size \
          FROM bulk_export_items WHERE export_job_id = ? ORDER BY created_at",
-        "SELECT id, export_job_id, work_id, decision, reason, blob_checksum, byte_size \
+        "SELECT id::text AS id, export_job_id::text AS export_job_id, work_id::text AS work_id, decision, reason, \
+         blob_checksum, byte_size::bigint AS byte_size \
          FROM bulk_export_items WHERE export_job_id::text = ? ORDER BY created_at",
     );
     let rows: Vec<BulkExportItem> = match db.backend() {

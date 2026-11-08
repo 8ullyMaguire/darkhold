@@ -52,6 +52,25 @@ the grammar — component anatomy, spacing, focus treatment, motion budget, stat
 product's own paper. A row that would restyle kindred into the Archive palette is out of scope and should be refused
 in the ledger rather than half-done.
 
+### A query nobody runs cannot fail to decode (exports.rs, 2026-11-08)
+
+Closing `exports.rs` took three functions and turned up four defects, none of them in the code being added:
+
+* `grants_for_export` selected `single_use` as INT4 into an `i64` field — PostgreSQL only.
+* `bulk_items_for_export` had **no** PostgreSQL casts at all: three UUID columns and a `byte_size` INT4.
+* `::text` on a `timestamptz` answers `2026-02-01 00:00:00+00` where SQLite's canonical TEXT answers
+  `2026-02-01T00:00:00Z`. Same instant, different string: every RFC 3339 client parsed one engine and
+  broke on the other. The grant columns are now rendered with `to_char(... AT TIME ZONE 'UTC', …)` so a
+  read out of PostgreSQL matches the format the table stores.
+* The fourth was not a bug but a duplicate: `owned()` in the route layer fetched an export and compared
+  account ids in Rust while `find_export_for` did the same thing in SQL. It had never been called.
+  `owned()` now *is* `find_export_for`, so the ownership rule exists once, in the place that cannot
+  forget it.
+
+The pattern holds across this whole ratchet: the orphan is never the bug. The orphan is the reason the
+bug survived — a SELECT list, a cast, or a timestamp format is only exercised when something asks for
+the row.
+
 ## Batch 1 — DONE
 
 | row | what shipped |
