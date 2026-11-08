@@ -6697,6 +6697,44 @@ pub const ROUTE_TABLE: &[RouteEntry] = &[
         audience: Audience::Public,
     },
     // ------------------------------------------------------------------
+    // Batch windows and resonance labels (§52.2/§52.3's store, given its surface — M70-13)
+    // ------------------------------------------------------------------
+    RouteEntry {
+        file: "leakage.rs",
+        handler: "latest_window",
+        method: "GET",
+        path: "/admin/leakage/window",
+        audience: Audience::Operator,
+    },
+    RouteEntry {
+        file: "leakage.rs",
+        handler: "open_window",
+        method: "POST",
+        path: "/admin/leakage/window",
+        audience: Audience::Operator,
+    },
+    RouteEntry {
+        file: "leakage.rs",
+        handler: "close_window",
+        method: "POST",
+        path: "/admin/leakage/window/{id}/close",
+        audience: Audience::Operator,
+    },
+    RouteEntry {
+        file: "leakage.rs",
+        handler: "read_resonance",
+        method: "GET",
+        path: "/works/{id}/resonance",
+        audience: Audience::Authenticated,
+    },
+    RouteEntry {
+        file: "leakage.rs",
+        handler: "set_resonance",
+        method: "PUT",
+        path: "/admin/works/{id}/resonance",
+        audience: Audience::Operator,
+    },
+    // ------------------------------------------------------------------
     // Work coordinates (M45-14's store, given its surface — M70-13)
     // ------------------------------------------------------------------
     RouteEntry {
