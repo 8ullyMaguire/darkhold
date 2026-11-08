@@ -12,6 +12,7 @@
    * answers it before the SPA shell ever sees it.
    */
 import { Button } from '@polaris/ui';
+  import { FamilyNav } from '@polaris/ui';
   import { clearCopies, copiesUsage } from './lib/offline';
   import Drawer from './lib/components/Drawer.svelte';
   import NavMenu from './lib/components/NavMenu.svelte';
@@ -613,6 +614,12 @@ import { Button } from '@polaris/ui';
       A self-hosted home for fanfiction. Built in the open; the plan, the
       decision records and the verification log all live in the repository.
     </p>
+    <!--
+      The siblings, read from the estate's own document rather than written here: a hand-written list is a
+      list that goes stale the first time a site is added (M72-07). Renders nothing when the document is not
+      served — development, a proxy that drops it — which is the same posture the injected topbar takes.
+    -->
+    <FamilyNav self="darkhold" />
   </div>
 </footer>
 
