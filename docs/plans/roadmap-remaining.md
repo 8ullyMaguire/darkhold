@@ -1109,3 +1109,34 @@ later it reddens (200 vs 404). A guard mutant survives exactly the doors no test
 blind spots as much as the code's.
 
 Ratchet 120 -> 115.
+
+### The mention that was never recorded (community.rs, 2026-11-08)
+
+Five orphans, four of them missing surfaces and one a missing behaviour — and the behaviour was the interesting one.
+`record_mentions` checked blocks and never checked mutes, and its own doc said *"Mute is checked separately in the
+notification layer."* Nothing checked it anywhere. A reader who muted somebody still received mention notifications from
+them: the one notification they had explicitly asked the instance not to send. `is_muted` gates the producer now, and the
+comment says what it used to claim.
+
+Making that true turned up three more defects, none of them in the code being added:
+
+* **`post_comment` passed a pseud id where an account id belongs.** `mention_events.mentioned_by` references
+  `accounts(id)`, so every comment mention failed its foreign key — and the insert was wrapped in `let _ =`, so the failure
+  was silent in both directions: nothing recorded, nothing logged. Comment mentions had never worked. The same parameter is
+  compared against each mentioned pseud's account to skip self-mentions, so that check could never fire either.
+* **The mention parser refused hyphens.** `com-a` is a legal handle; the parser's character check was alphanumeric-or-
+  underscore, so a hyphenated handle was permanently unmentionable and the symptom would read as "mentions don't work for
+  that person". The trailing-punctuation trim keeps hyphens now.
+* **`comment_by_id` selected eight columns and decoded eleven.** Its first caller — the permalink door — got a 500. The
+  anchor columns are selected now, with the rule beside them: a `pub async fn` nobody calls cannot fail to decode, which
+  is why this was invisible.
+
+The four doors: `GET /comments/{id}` (anonymous; a deleted comment is the soft delete's tombstone, not a 404 — the comment
+existed, and "no such comment" would rewrite history for everyone who replied), `GET /presence/{account}` (one person's
+presence under the stream's **own** rule via `presence_visible_to`: muted or blocked is absent, and a person who turned
+presence off is absent to others while their own read still answers `enabled: false` with no last-seen — an opt-out that
+still reports when you were last here is not an opt-out), `member_role` in `GET /groups/{id}` as `viewer_role` (`null` is
+"not a member", not "no access"), and `category_exists` at the **writer**: `create_topic_with_mode` refuses a category that
+does not exist, which is what its own doc claimed and only one route enforced.
+
+Ratchet 115 -> 110.

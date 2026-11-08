@@ -97,8 +97,15 @@ pub async fn insert_comment(
 /// Fetch a single comment by id.
 pub async fn comment_by_id(db: &Database, comment_id: &str) -> Result<Option<Comment>> {
     let sql = db.sql(
-        "SELECT id, subject_type, subject_id, author_pseud, body, created_at, edited_at, deleted_at FROM comments WHERE id = ?",
-        "SELECT id, subject_type, subject_id, author_pseud, body, created_at, edited_at, deleted_at FROM comments WHERE id = $1",
+        // The three anchor columns are selected because `CommentRow` declares them: the first version of this query left
+        // them out, and the decode failure only appeared the day something finally called it — a `pub async fn` nobody
+        // calls cannot fail to decode.
+        "SELECT id, subject_type, subject_id, author_pseud, body, created_at, edited_at, deleted_at,
+                anchor_kind, anchor_value, anchor_unit_id
+           FROM comments WHERE id = ?",
+        "SELECT id, subject_type, subject_id, author_pseud, body, created_at, edited_at, deleted_at,
+                anchor_kind, anchor_value, anchor_unit_id
+           FROM comments WHERE id = $1",
     );
     let row = match db.backend() {
         Backend::Sqlite => sqlx::query_as::<_, CommentRow>(&sql)
@@ -929,6 +936,13 @@ pub async fn create_topic_with_mode(
     title: &str,
     mode: &str,
 ) -> Result<String> {
+    // The schema carries no foreign key from `forum_topics.category_id` (SQLite cannot add one by ALTER), so the check
+    // lives at the writer rather than at any one route: a route that forgets it — a seeder, an importer, a future
+    // endpoint — would otherwise leave a topic pointing at nothing, and a dangling category is invisible until somebody
+    // opens the topic page.
+    if !category_exists(db, category_id).await? {
+        anyhow::bail!("no forum category {category_id}, so a topic cannot point at it");
+    }
     let id = uuid::Uuid::new_v4().to_string();
     super::thread_modes::create_topic(db, &id, category_id, author_pseud, title, mode).await?;
     Ok(id)
@@ -1924,9 +1938,14 @@ pub fn parse_mention_handles(text: &str) -> Vec<String> {
     for word in text.split_whitespace() {
         if let Some(rest) = word.strip_prefix('@') {
             // Handle may be followed by punctuation or end of string.
-            let handle = rest.trim_end_matches(|c: char| !c.is_alphanumeric() && c != '_');
+            // A **hyphen is part of a handle**: registration accepts `com-a`, and a parser that did not would make a legal
+            // handle permanently unmentionable — the failure would look like "mentions never work for that person".
+            // Trailing punctuation still ends the handle, which is what makes `@com-a,` and `(@com-a)` parse.
+            let handle = rest.trim_end_matches(|c: char| !(c.is_alphanumeric() || c == '_' || c == '-'));
             if (3..=32).contains(&handle.len())
-                && handle.chars().all(|c| c.is_alphanumeric() || c == '_')
+                && handle
+                    .chars()
+                    .all(|c| c.is_alphanumeric() || c == '_' || c == '-')
                 && seen.insert(handle.to_lowercase())
             {
                 handles.push(handle.to_lowercase());
@@ -1938,10 +1957,13 @@ pub fn parse_mention_handles(text: &str) -> Vec<String> {
 
 /// Record mention events for a newly created forum post or comment.
 ///
-/// Checks visibility (pseud must be discoverable) and blocks (spec §17.5):
-/// no mention event is created when either party has blocked the other.
-/// Mute is checked separately in the notification layer. Best-effort: a
-/// mention failure must never fail the post.
+/// Checks visibility (pseud must be discoverable), blocks (spec §17.5) and
+/// mutes: no mention event is created when either party has blocked the other,
+/// and none when the mentioned reader has muted the author — a mention from
+/// somebody you muted is the one notification you told the instance not to send.
+/// (This used to say "mute is checked separately in the notification layer";
+/// nothing checked it anywhere, which is what an unread promise looks like.)
+/// Best-effort: a mention failure must never fail the post.
 pub async fn record_mentions(
     db: &Database,
     source_type: &str,
@@ -2046,6 +2068,12 @@ pub async fn record_mentions(
         if blocked {
             continue;
         }
+        // A mute is the reader saying "not this person". A mention notification from somebody you muted is the one
+        // notification you told the instance not to send, so the producer consults it here rather than leaving the mutes
+        // table to be read by the muter's own screens only.
+        if is_muted(db, &pseud.account_id.to_string(), author_account_id).await? {
+            continue;
+        }
 
         let mention_id = uuid::Uuid::new_v4().to_string();
         let sql = db.sql(
@@ -2054,9 +2082,13 @@ pub async fn record_mentions(
             "INSERT INTO mention_events (id, source_type, source_id, mentioned_pseud, mentioned_by, created_at)
              VALUES ($1, $2, $3, $4::uuid, $5::uuid, $6)",
         );
+        // Best-effort, but **not silent**: a swallowed error here hid a foreign-key violation on every comment mention
+        // for as long as the route passed a pseud where an account belongs. A mention that cannot be recorded should
+        // still leave a line in the log, because "mentions never work" is otherwise indistinguishable from "nobody
+        // mentioned anybody".
         match db.backend() {
             Backend::Sqlite => {
-                let _ = sqlx::query(&sql)
+                if let Err(error) = sqlx::query(&sql)
                     .bind(&mention_id)
                     .bind(source_type)
                     .bind(source_id)
@@ -2064,10 +2096,13 @@ pub async fn record_mentions(
                     .bind(author_account_id)
                     .bind(&now)
                     .execute(db.sqlite_pool().expect("sqlite"))
-                    .await;
+                    .await
+                {
+                    tracing::warn!(%error, %source_id, "a mention event could not be recorded");
+                }
             }
             Backend::Postgres => {
-                let _ = sqlx::query(&sql)
+                if let Err(error) = sqlx::query(&sql)
                     .bind(&mention_id)
                     .bind(source_type)
                     .bind(source_id)
@@ -2075,7 +2110,10 @@ pub async fn record_mentions(
                     .bind(author_account_id)
                     .bind(&now)
                     .execute(db.postgres_pool().expect("postgres"))
-                    .await;
+                    .await
+                {
+                    tracing::warn!(%error, %source_id, "a mention event could not be recorded");
+                }
             }
         }
 

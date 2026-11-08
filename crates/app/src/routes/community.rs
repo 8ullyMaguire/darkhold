@@ -25,6 +25,7 @@ pub fn router() -> Router<AppState> {
             "/works/{id}/comments",
             get(get_work_comments).post(post_comment),
         )
+        .route("/comments/{id}", get(get_comment))
         .route("/comments/{id}/delete", post(delete_comment))
         // forums
         .route("/forums", get(get_forums))
@@ -67,6 +68,7 @@ pub fn router() -> Router<AppState> {
         .route("/me/mutes/{id}", delete(delete_mute))
         // presence
         .route("/presence/stream", get(get_presence_stream))
+        .route("/presence/{account}", get(get_presence))
         .route("/me/presence", put(set_presence_preference))
 }
 
@@ -223,7 +225,11 @@ async fn post_comment(
     .await;
     // Record @handle mentions in the comment body (spec §17.5). Best-effort.
     let _ =
-        darkhold_db::community::record_mentions(state.db(), "comment", &id, &pseud_id.to_string())
+        // The author is an **account**, not a pseud: `mention_events.mentioned_by` references `accounts(id)`, and
+        // `record_mentions` compares this id against each mentioned pseud's account to skip self-mentions. Passing the
+        // pseud here made every comment mention fail its foreign key — and the insert's error was swallowed, so nothing
+        // recorded and nothing complained.
+        darkhold_db::community::record_mentions(state.db(), "comment", &id, &user.account_id.to_string())
             .await;
 
     let stored = match darkhold_db::positivity::classify_comment(
@@ -678,14 +684,20 @@ async fn post_group(
 
 async fn get_group(
     State(state): State<AppState>,
-    RequireSession(_): RequireSession,
+    RequireSession(user): RequireSession,
     Path(id): Path<String>,
 ) -> ApiResult<Json<serde_json::Value>> {
     let group = darkhold_db::community::group_by_id(state.db(), &id)
         .await
         .map_err(|e| ApiError(darkhold_domain::AppError::Internal(e)))?;
+    // Whether the viewer may manage this group is a fact about the viewer, and a client that has to guess it either shows
+    // buttons that 403 or hides ones that would have worked. `null` means "not a member", which is not the same as "no
+    // permission to look": the group is readable to any signed-in reader.
+    let viewer_role = darkhold_db::community::member_role(state.db(), &id, &user.account_id.to_string())
+        .await
+        .map_err(|e| ApiError(darkhold_domain::AppError::Internal(e)))?;
     match group {
-        Some(g) => Ok(Json(serde_json::json!({ "group": g }))),
+        Some(g) => Ok(Json(serde_json::json!({ "group": g, "viewer_role": viewer_role }))),
         None => Err(ApiError(darkhold_domain::AppError::NotFound {
             resource: "group",
         })),
@@ -1082,6 +1094,103 @@ async fn get_presence_stream(
         .collect();
 
     Ok(Json(serde_json::json!({ "items": items })))
+}
+
+/// One comment, by its own id — the permalink a notification links to.
+///
+/// Public, like the thread it belongs to: a comment's id is an address, and a reader who follows a link to one should not
+/// need a session to read what they were notified about. A deleted comment is returned as the tombstone the soft delete
+/// left (`body == "[deleted]"`), not as a 404: the comment existed, and answering "no such comment" would rewrite history
+/// for everybody who replied to it.
+async fn get_comment(
+    State(state): State<AppState>,
+    Path(id): Path<String>,
+) -> ApiResult<Json<serde_json::Value>> {
+    let comment = darkhold_db::community::comment_by_id(state.db(), &id)
+        .await
+        .map_err(|e| ApiError(darkhold_domain::AppError::Internal(e)))?
+        .ok_or_else(|| {
+            ApiError(darkhold_domain::AppError::NotFound {
+                resource: "comment",
+            })
+        })?;
+    Ok(Json(serde_json::json!({
+        "id": comment.id,
+        "subject_type": comment.subject_type,
+        "subject_id": comment.subject_id,
+        "author_pseud": comment.author_pseud,
+        "body": comment.body,
+        "created_at": comment.created_at,
+        "edited_at": comment.edited_at,
+        "deleted": comment.deleted_at.is_some(),
+        "deleted_at": comment.deleted_at,
+        "anchor": {
+            "kind": comment.anchor_kind,
+            "value": comment.anchor_value,
+            "unit_id": comment.anchor_unit_id,
+        },
+    })))
+}
+
+/// One account's presence, under the same rules as the stream.
+///
+/// Three separate facts decide what a single read may say, and each has its own reason:
+///
+/// * **A person who turned presence off is absent to everybody else**, exactly as they are absent from the stream: one
+///   rule, two surfaces. Their own read still answers `enabled: false` with no `last_seen_at`, because an opt-out that
+///   hides you from yourself would just look broken.
+/// * **A blocked or muted account is absent, not greyed out** — the stream's rule, applied to the single read: "who is
+///   online" is a statement about a person, and somebody you blocked should not learn they are online because you looked.
+/// * **Never seen is 404.** No row means this account has never polled, which is different from "signed in but hidden".
+async fn get_presence(
+    State(state): State<AppState>,
+    RequireSession(user): RequireSession,
+    Path(account): Path<String>,
+) -> ApiResult<Json<serde_json::Value>> {
+    let viewer = user.account_id.to_string();
+    let row = darkhold_db::community::presence_for(state.db(), &account)
+        .await
+        .map_err(|e| ApiError(darkhold_domain::AppError::Internal(e)))?;
+    let Some((last_seen_at, typing_until, enabled)) = row else {
+        return Err(ApiError(darkhold_domain::AppError::NotFound {
+            resource: "presence",
+        }));
+    };
+
+    if account != viewer {
+        let (blocked, muted) = darkhold_db::community::hidden_accounts(state.db(), &viewer)
+            .await
+            .map_err(|e| ApiError(darkhold_domain::AppError::Internal(e)))?;
+        if !darkhold_domain::community::presence_visible_to(
+            enabled,
+            blocked.iter().any(|b| b == &account),
+            muted.iter().any(|m| m == &account),
+        ) {
+            return Err(ApiError(darkhold_domain::AppError::NotFound {
+                resource: "presence",
+            }));
+        }
+    }
+
+    if !enabled {
+        return Ok(Json(serde_json::json!({
+            "account": account,
+            "enabled": false,
+            "active_now": false,
+            "typing": false,
+            "last_seen_at": serde_json::Value::Null,
+        })));
+    }
+
+    Ok(Json(serde_json::json!({
+        "account": account,
+        "enabled": true,
+        "active_now": is_active_now(&last_seen_at),
+        "typing": typing_until.as_ref().is_some_and(|t| {
+            parse_datetime(t).is_some_and(|dt| dt > OffsetDateTime::now_utc())
+        }),
+        "last_seen_at": last_seen_at,
+    })))
 }
 
 // ---------------------------------------------------------------------------

@@ -3663,6 +3663,20 @@ pub const ROUTE_TABLE: &[RouteEntry] = &[
     // history to exclude already-read works, so an unauthenticated call has no
     // account to scope any of that to.
     RouteEntry {
+        file: "community.rs",
+        handler: "get_comment",
+        method: "GET",
+        path: "/comments/{id}",
+        audience: Audience::Anonymous,
+    },
+    RouteEntry {
+        file: "community.rs",
+        handler: "get_presence",
+        method: "GET",
+        path: "/presence/{account}",
+        audience: Audience::Authenticated,
+    },
+    RouteEntry {
         file: "concierge.rs",
         handler: "render_queue",
         method: "GET",
