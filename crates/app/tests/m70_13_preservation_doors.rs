@@ -537,3 +537,103 @@ async fn the_leaderboard_is_public_and_empty_until_something_is_verified() {
     );
     assert_eq!(body["days"], json!(28), "{body}");
 }
+
+/// The edition list, which is how "this work exists in N places" is answered exactly once (A0).
+///
+/// `members_of` and `member_counts` had no caller, so the grouping table was written by the claim path and read by nobody:
+/// a work could accumulate external locations that no page ever listed, and "this work has one copy" and "this work has
+/// four" were indistinguishable from outside.
+///
+/// The claims: a work nobody has crossposted answers an **empty list and zero counts** (not a 404, because "not
+/// crossposted" is a state), the local copy is first, and the counts are the same rows rather than a second query that
+/// could disagree.
+#[tokio::test]
+async fn the_edition_list_is_local_first_and_counts_what_the_claim_wrote() {
+    let dir = scratch_dir("editions");
+    let tdb = TestDb::connect_with_dir("m7013presed", &dir).await;
+
+    let mut operator = Client::new(server::build_router(AppState::new(
+        config(&dir, None),
+        tdb.db().clone(),
+    )));
+    let operator_id = operator.register("ed-operator").await;
+    let mut operator = operator.rejoin(server::build_router(AppState::new(
+        config(&dir, Some(operator_id)),
+        tdb.db().clone(),
+    )));
+    let (status, body) = operator
+        .send(
+            "PUT",
+            "/api/v1/admin/preservation/destinations/ao3-mirror",
+            Some(json!({
+                "name": "AO3 mirror",
+                "base_url": "https://mirror.example",
+                "match_rule": "/works/",
+                "accepts_automated": true,
+            })),
+        )
+        .await;
+    assert_eq!(status, StatusCode::OK, "{body}");
+
+    let mut author = Client::new(server::build_router(AppState::new(
+        config(&dir, None),
+        tdb.db().clone(),
+    )));
+    author.register("ed-author").await;
+    let work = published(&mut author, "A Work With Editions").await;
+
+    // Never crossposted: no identity, so no members and no counts — and that is a normal answer, not a missing page.
+    let (status, body) = author
+        .send("GET", &format!("/api/v1/works/{work}/preservation"), None)
+        .await;
+    assert_eq!(status, StatusCode::OK, "{body}");
+    assert_eq!(body["editions"], json!([]), "{body}");
+    assert_eq!(
+        body["copies"],
+        json!({"total": 0, "external": 0, "local": 0}),
+        "{body}"
+    );
+
+    // One claim: the identity is created with this instance's own copy, then the external member is recorded.
+    let (status, body) = author
+        .send(
+            "PUT",
+            &format!("/api/v1/works/{work}/preservation/ao3-mirror"),
+            Some(json!({
+                "external_record_id": "444222",
+                "external_url": "https://mirror.example/works/444222",
+            })),
+        )
+        .await;
+    assert_eq!(status, StatusCode::OK, "{body}");
+
+    let (status, body) = author
+        .send("GET", &format!("/api/v1/works/{work}/preservation"), None)
+        .await;
+    assert_eq!(status, StatusCode::OK, "{body}");
+    let editions = body["editions"].as_array().expect("editions");
+    assert_eq!(editions.len(), 2, "the local copy and one external: {body}");
+    assert!(
+        editions[0]["work_id"].as_str().is_some(),
+        "local first — the copy a reader can actually open: {body}"
+    );
+    assert!(
+        editions[0]["external_url"].is_null(),
+        "the local member has no external location: {body}"
+    );
+    assert_eq!(
+        editions[1]["external_url"],
+        json!("https://mirror.example/works/444222"),
+        "{body}"
+    );
+    assert_eq!(
+        editions[1]["external_source_key"],
+        json!("ao3-mirror"),
+        "{body}"
+    );
+    assert_eq!(
+        body["copies"],
+        json!({"total": 2, "external": 1, "local": 1}),
+        "the counts are the same rows: {body}"
+    );
+}

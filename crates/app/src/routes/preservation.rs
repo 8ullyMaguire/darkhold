@@ -220,6 +220,24 @@ async fn work_preservation(
     let redistribution = darkhold_db::preservation::read_redistribution(state.db(), &work_id)
         .await
         .map_err(|error| ApiError(AppError::Internal(error)))?;
+    // The edition list and the copy count, which is how "this work exists in N places" is answered exactly once (A0). A
+    // work with no identity yet has no members — an empty list and 0/0, not a 404: the identity is created by the first
+    // crosspost, and "not crossposted" is a state, not a missing page.
+    let identity = darkhold_db::story_identity::identity_for_work(state.db(), &work_id)
+        .await
+        .map_err(|error| ApiError(AppError::Internal(error)))?;
+    let (members, copies) = match identity.as_ref() {
+        Some(identity) => {
+            let members = darkhold_db::story_identity::members_of(state.db(), &identity.id)
+                .await
+                .map_err(|error| ApiError(AppError::Internal(error)))?;
+            let (total, external) = darkhold_db::story_identity::member_counts(state.db(), &identity.id)
+                .await
+                .map_err(|error| ApiError(AppError::Internal(error)))?;
+            (members, json!({"total": total, "external": external, "local": total - external}))
+        }
+        None => (Vec::new(), json!({"total": 0, "external": 0, "local": 0})),
+    };
     let config = &state.config().preservation;
 
     // Both live numbers, from the tables rather than from the target list: a dead destination is not
@@ -239,6 +257,22 @@ async fn work_preservation(
         "fully_preserved": eligibility.is_reached(),
         "shortfall": eligibility.reason(),
         "redistribution": redistribution.as_str(),
+        // Local copy first, then each external location, in a stable order: the copy a reader can open, then the ones they
+        // cannot. `copies` is the count of the same rows, so a client never has to count the list to know whether this
+        // work has one copy or several.
+        "editions": members
+            .iter()
+            .map(|member| json!({
+                "id": member.id,
+                "work_id": member.work_id,
+                "edition_relation": member.edition_relation,
+                "external_source_key": member.external_source_key,
+                "external_url": member.external_url,
+                "external_record_id": member.external_record_id,
+                "created_at": member.created_at,
+            }))
+            .collect::<Vec<_>>(),
+        "copies": copies,
         "targets": targets
             .iter()
             .map(|t| json!({

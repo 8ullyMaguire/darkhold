@@ -496,32 +496,3 @@ pub async fn member_counts(db: &Database, identity_id: &str) -> Result<(i64, i64
     Ok((total, external))
 }
 
-/// Both merge tables are empty, and this is what proves it.
-///
-/// Not a convenience for a caller — an assertion. §3 promises these tables, a
-/// reader browsing the data model will find them, and the moment anything writes
-/// to them this returns non-zero and the test that calls it fails. Phase E is
-/// what fills them, and it will have to delete this function or invert it,
-/// which is the point: a table nobody writes to should be a claim someone made,
-/// not a thing that quietly accumulated rows.
-pub async fn merge_table_is_empty(db: &Database) -> Result<bool> {
-    let sql = db.sql(
-        "SELECT (SELECT COUNT(*) FROM identity_merge_proposals)
-              + (SELECT COUNT(*) FROM identity_merge_history)",
-        "SELECT (SELECT COUNT(*) FROM identity_merge_proposals)::bigint
-              + (SELECT COUNT(*) FROM identity_merge_history)::bigint",
-    );
-    let (n,): (i64,) = match db.backend() {
-        Backend::Sqlite => {
-            sqlx::query_as(&sql)
-                .fetch_one(db.sqlite_pool().expect("sqlite handle"))
-                .await?
-        }
-        Backend::Postgres => {
-            sqlx::query_as(&sql)
-                .fetch_one(db.postgres_pool().expect("postgres handle"))
-                .await?
-        }
-    };
-    Ok(n == 0)
-}

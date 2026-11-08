@@ -1170,3 +1170,24 @@ The boot wiring is asserted against `server.rs` source, the way `route_inventory
 routers: `serve` binds a listener and no test may boot one, so the source is the only place the call can be observed.
 
 Ratchet 110 -> 105.
+
+### A table written and never read (story_identity.rs, 2026-11-08)
+
+The grouping table was **written by the claim path and read by nobody**. `members_of` and `member_counts` had no caller, so
+a work could accumulate external locations that no page ever listed, and "this work has one copy" and "this work has four"
+were indistinguishable from outside — the import path did the expensive part (deciding two URLs are the same story) and
+then kept the conclusion to itself.
+
+`GET /works/{id}/preservation` now answers `editions` and `copies`. The list is **local copy first**, then each external
+location: the copy a reader can open, then the ones they cannot. A work nobody has crossposted answers an empty list and
+`0/0/0` rather than a 404 — "not crossposted" is a state, not a missing page, and the identity is created by the first
+claim. `local` is computed as `total - external` from the same row set, so the three numbers cannot contradict each other.
+
+**`merge_table_is_empty` was deleted rather than wired.** Its only caller was a test assertion, and its own doc said so:
+"Phase E will have to delete this function or invert it, which is the point." The test now counts
+`identity_merge_proposals` and `identity_merge_history` directly and carries the reasoning: a helper that always answered
+`true` would have made the claim unfalsifiable, and that claim is the one standing between "the merge tables exist" and
+"the merge tables are used".
+
+Ratchet 105 -> 102.
+
