@@ -1085,6 +1085,26 @@ pub const MODULES: &[Module] = &[
         source: "crates/app/src/routes/tasting.rs (opt-in by design)",
     },
     Module {
+        id: "taste_health",
+        name: "Taste Health",
+        summary: "The instance's taste model and the reader's probe (spec §0.4.1, §16.19, M17 phase 2). \
+                  Operator routes read and refresh a work's taste vector — a diagnosis, not a publication, \
+                  because a vector is a function of the operator's taste profile and enough works would \
+                  invert it. Readers record one probe answer per work.",
+        // Instance data every ranking reads, so it cannot sit behind a per-reader toggle (`tasting`, `quiz`
+        // are both opt-in). Off by default would leave `work_taste_vectors` unfillable, which is the defect
+        // this row's module exists to close.
+        default_on: true,
+        stability: Stability::Stable,
+        toggle: Toggle::Operator,
+        requires: &[],
+        milestone: "pre-M65",
+        spec: "§0.4.1, §16.19",
+        nav: &[],
+        relevance: 5,
+        source: "crates/app/src/routes/taste_health.rs",
+    },
+    Module {
         id: "taste_import",
         name: "Imported Taste",
         summary: "Imported taste signals and the discount they carry (spec §49.6–§49.8, M45-20). \

@@ -67,8 +67,9 @@ const MIN_MOUNT_SITES: usize = 100;
 // 81 → 82 on 2026-11-05: `admin_fixity` (W5 task 7). The count is asserted so a row added without a mount, or a
 // mount added without a row, cannot both pass — which is exactly the defect the first fixity deploy had.
 //
-// 2026-11-08: 82 → 83 for `taste_import` (M45-20, §49.6–§49.8), a shipped module whose store existed with no route.
-const STABLE_ROWS: usize = 83;
+// 2026-11-08: 82 → 83 for `taste_import` (M45-20, §49.6–§49.8), a shipped module whose store existed with no route;
+// 83 → 84 for `taste_health` (§0.4.1, §16.19), whose vector had no producer and whose probe had no door.
+const STABLE_ROWS: usize = 84;
 const PLANNED_ROWS: usize = 23;
 /// Shipped but still moving. Counted separately for the same reason as the other two: a row that arrives without a deliberate count
 /// update is a decision nobody made, and `MODULES.len() == stable + planned` only noticed that while `Beta` and `Experimental` were
