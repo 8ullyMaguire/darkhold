@@ -1382,6 +1382,27 @@ pub const ROUTE_TABLE: &[RouteEntry] = &[
         audience: Audience::Public,
     },
     RouteEntry {
+        file: "feeds.rs",
+        handler: "handle_feed",
+        method: "GET",
+        path: "/feeds/{handle}",
+        audience: Audience::Public,
+    },
+    RouteEntry {
+        file: "feeds.rs",
+        handler: "handle_atom_feed",
+        method: "GET",
+        path: "/feeds/{handle}/atom",
+        audience: Audience::Public,
+    },
+    RouteEntry {
+        file: "feeds.rs",
+        handler: "name_handle",
+        method: "PUT",
+        path: "/admin/feeds/{handle}",
+        audience: Audience::Scoped,
+    },
+    RouteEntry {
         file: "extension_documents.rs",
         handler: "browse",
         method: "GET",
@@ -3895,20 +3916,6 @@ pub const ROUTE_TABLE: &[RouteEntry] = &[
         handler: "register_bot",
         method: "POST",
         path: "/me/bots",
-        audience: Audience::Public,
-    },
-    RouteEntry {
-        file: "external.rs",
-        handler: "get_rss_feed",
-        method: "GET",
-        path: "/feeds/{handle}",
-        audience: Audience::Public,
-    },
-    RouteEntry {
-        file: "external.rs",
-        handler: "get_atom_feed",
-        method: "GET",
-        path: "/feeds/{handle}/atom",
         audience: Audience::Public,
     },
     RouteEntry {

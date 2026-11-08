@@ -33,7 +33,7 @@
 use axum::extract::{Path, Query, RawQuery, State};
 use axum::http::{header, HeaderMap, HeaderValue, StatusCode};
 use axum::response::{IntoResponse, Response};
-use axum::routing::get;
+use axum::routing::{get, put};
 use axum::{middleware, Router};
 use chrono::{DateTime, Utc};
 use commons_feed::{FeedEntry, FeedMeta};
@@ -41,13 +41,16 @@ use serde::Deserialize;
 
 use darkhold_db::library::{self, SavedViewKind};
 
-use crate::auth::{MaybeSession, RequireActorScoped};
+use crate::auth::{MaybeSession, RequireActorScoped, RequireSession};
 use crate::feed_http::{self, Format};
 use crate::http::{ApiError, ApiResult};
 use crate::routes::catalogue::{self, CatalogueParams};
+use crate::routes::discovery::require_operator;
 use crate::state::AppState;
+use axum::Json;
 use darkhold_domain::api_scopes::Scope;
 use darkhold_domain::error::AppError;
+use serde_json::json;
 
 /// A 422 with a sentence, in the shape the rest of the API answers with.
 fn invalid(message: impl Into<String>) -> ApiError {
@@ -71,6 +74,14 @@ pub fn router() -> Router<AppState> {
         .route("/saved-views/{id}/feed", get(saved_view_feed))
         .layer(middleware::from_fn(token_from_query))
         .route("/catalogue/feed", get(catalogue_feed))
+        // A short handle as a feed: `feed_handles` names a subject, and a reader who wants "the naruto feed" should not have to
+        // reconstruct a query string. `/feeds/{handle}/atom` is the same feed with the format fixed, because a feed reader's
+        // "add by URL" dialog is where the path gets typed and some of them append the format.
+        .route("/feeds/{handle}", get(handle_feed))
+        // Handles are curation, not content: the operator decides what `/feeds/{name}` means, because a handle is a public
+        // name and whoever picks it picks what the instance says at that address.
+        .route("/admin/feeds/{handle}", put(name_handle))
+        .route("/feeds/{handle}/atom", get(handle_atom_feed))
 }
 
 #[derive(Debug, Deserialize)]
@@ -92,6 +103,138 @@ struct FeedParams {
 /// A feed reader has no field for an auth header, so the token travels in the URL. Doing it here rather than
 /// in the handler means the handler sees exactly the request a browser sends, and [`RequireActorScoped`]
 /// stays the only thing that knows what a token is.
+/// The catalogue query a handle names, or an answer saying the handle's kind is one this build cannot serve.
+///
+/// Only two kinds map onto the catalogue's own filters: `tag` is a search term and `user` an author. `work` and `series` were in
+/// the table's vocabulary from migration 0020 and have no filter behind them — a feed of one work and its siblings is a
+/// different query, and inventing a mapping here would be a feed that silently returns the wrong works. Those kinds answer
+/// `422` with the kind named.
+fn handle_query(kind: &str, subject: &str) -> ApiResult<(&'static str, String)> {
+    match kind {
+        "tag" => Ok(("q", subject.to_owned())),
+        "user" => Ok(("author", subject.to_owned())),
+        other => Err(invalid(format!(
+            "this handle names a {other}, and only tag and user handles are served as feeds"
+        ))),
+    }
+}
+
+async fn handle_feed(
+    State(state): State<AppState>,
+    MaybeSession(_session): MaybeSession,
+    Path(handle): Path<String>,
+    Query(params): Query<FeedParams>,
+    headers: HeaderMap,
+) -> ApiResult<Response> {
+    handle_feed_inner(
+        state,
+        handle,
+        params.format.as_deref(),
+        params.limit,
+        &headers,
+    )
+    .await
+}
+
+/// The same feed with Atom fixed, for readers that append the format to the path.
+async fn handle_atom_feed(
+    State(state): State<AppState>,
+    MaybeSession(_session): MaybeSession,
+    Path(handle): Path<String>,
+    Query(params): Query<FeedParams>,
+    headers: HeaderMap,
+) -> ApiResult<Response> {
+    let _ = params.format;
+    handle_feed_inner(state, handle, Some("atom"), params.limit, &headers).await
+}
+
+async fn handle_feed_inner(
+    state: AppState,
+    handle: String,
+    format_raw: Option<&str>,
+    limit_raw: Option<i64>,
+    headers: &HeaderMap,
+) -> ApiResult<Response> {
+    let format = format_from(format_raw)?;
+    let limit = limit_raw.unwrap_or(DEFAULT_LIMIT).clamp(1, MAX_LIMIT);
+    let Some((kind, subject)) = darkhold_db::external::feed_handle(state.db(), &handle)
+        .await
+        .map_err(|error| ApiError(AppError::Internal(error.into())))?
+    else {
+        return Err(ApiError(AppError::NotFound {
+            resource: "feed handle",
+        }));
+    };
+    let (field, value) = handle_query(&kind, &subject)?;
+    let rest = vec![
+        (field.to_owned(), value),
+        ("limit".to_owned(), limit.to_string()),
+    ];
+    let base = state.config().site.base_url.clone();
+    render_catalogue(
+        state,
+        rest,
+        format,
+        format!("handle {handle}"),
+        format!("{base}/api/v1/feeds/{handle}?format={}", format.extension()),
+        headers,
+    )
+    .await
+}
+
+/// Name a feed handle: `{"kind":"tag"|"user","subject":"..."}`.
+///
+/// The upsert is not a plain insert: naming a handle that already exists **repoints** it, because a handle is a public address
+/// and an address that grows duplicates is a set of feeds nobody can link to. Re-pointing is the operator's call and is
+/// answered with the handle, so the change is visible in the response rather than only in the table.
+async fn name_handle(
+    State(state): State<AppState>,
+    RequireSession(session): RequireSession,
+    Path(handle): Path<String>,
+    Json(body): Json<NameHandleBody>,
+) -> ApiResult<Json<serde_json::Value>> {
+    require_operator(&state, &session)?;
+    let handle = handle.trim();
+    if handle.is_empty() || handle.len() > 64 {
+        return Err(invalid("a handle is one to sixty-four characters"));
+    }
+    if !handle
+        .chars()
+        .all(|ch| ch.is_ascii_alphanumeric() || ch == '-' || ch == '_' || ch == '.')
+    {
+        // It goes in a URL path: a handle with a slash or a space in it is a feed nobody can type.
+        return Err(invalid(
+            "a handle is letters, digits, hyphens, underscores and dots",
+        ));
+    }
+    if !matches!(body.kind.as_str(), "tag" | "user") {
+        return Err(invalid(format!(
+            "a {} handle names nothing this build can serve; tag and user are the kinds it can",
+            body.kind
+        )));
+    }
+    let subject = body.subject.trim();
+    if subject.is_empty() {
+        return Err(invalid("a handle needs a subject"));
+    }
+    let id = darkhold_db::external::upsert_feed_handle(state.db(), &body.kind, subject, handle)
+        .await
+        .map_err(|error| ApiError(AppError::Internal(error.into())))?;
+    Ok(Json(json!({
+        "id": id,
+        "handle": handle,
+        "kind": body.kind,
+        "subject": subject,
+        "url": format!("{}/api/v1/feeds/{handle}", state.config().site.base_url),
+    })))
+}
+
+#[derive(Debug, Deserialize)]
+struct NameHandleBody {
+    kind: String,
+    subject: String,
+}
+
 async fn token_from_query(mut request: axum::extract::Request, next: middleware::Next) -> Response {
     if request.headers().get(header::AUTHORIZATION).is_none() {
         let token = request
@@ -223,6 +366,37 @@ async fn catalogue_feed(
             .map(|(key, value)| (key.into_owned(), value.into_owned()))
             .collect();
     rest.push(("limit".to_owned(), limit.to_string()));
+
+    let base = state.config().site.base_url.clone();
+    let self_url = format!("{base}/api/v1/catalogue/feed?format={}", format.extension());
+    render_catalogue(
+        state,
+        rest.clone(),
+        format,
+        note_of(&rest),
+        self_url,
+        &headers,
+    )
+    .await
+}
+
+/// A filtered feed says so in its title, so a reader subscribed to three of them can tell them apart.
+fn note_of(rest: &[(String, String)]) -> String {
+    filters_note(rest).unwrap_or_else(|| "catalogue".to_owned())
+}
+
+/// Render the catalogue query `rest` describes as a feed.
+///
+/// Extracted so the handle feeds and the catalogue feed are one renderer and one query path: a second copy is how two machine
+/// surfaces come to disagree about what is eligible (M71-16), and the eligibility rules live in `catalogue::search_raw`.
+async fn render_catalogue(
+    state: AppState,
+    rest: Vec<(String, String)>,
+    format: Format,
+    note: String,
+    self_url: String,
+    headers: &HeaderMap,
+) -> ApiResult<Response> {
     let query = url::form_urlencoded::Serializer::new(String::new())
         .extend_pairs(&rest)
         .finish();
@@ -249,23 +423,16 @@ async fn catalogue_feed(
         })
         .collect();
 
-    let mut meta = FeedMeta {
-        title: "darkhold — catalogue".to_owned(),
+    let meta = FeedMeta {
+        title: format!("darkhold — {note}"),
         link: format!("{base}/catalogue"),
         description: Some("The public catalogue, as a feed.".to_owned()),
         language: Some("en".to_owned()),
-        self_url: Some(format!(
-            "{base}/api/v1/catalogue/feed?format={}",
-            format.extension()
-        )),
+        self_url: Some(self_url),
     };
-    // A filtered feed says so in its title, so a reader subscribed to three of them can tell them apart.
-    if let Some(note) = filters_note(&rest) {
-        meta.title = format!("darkhold — catalogue ({note})");
-    }
 
     let body = feed_http::render(&meta, &entries, format);
-    respond(&body, format, &headers, false)
+    respond(&body, format, headers, false)
 }
 
 /// A short human note for a filtered catalogue feed, from the parameters the reader sent.

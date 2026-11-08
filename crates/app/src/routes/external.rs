@@ -674,28 +674,6 @@ async fn set_bot_state(
 }
 
 // ---------------------------------------------------------------------------
-// Feeds
-// ---------------------------------------------------------------------------
-
-/// Get RSS feed.
-pub async fn get_rss_feed(
-    State(_state): State<AppState>,
-    Path(_handle): Path<String>,
-    MaybeSession(_user): MaybeSession,
-) -> ApiResult<Json<Value>> {
-    Ok(Json(json!({ "feed": "rss" })))
-}
-
-/// Get Atom feed.
-pub async fn get_atom_feed(
-    State(_state): State<AppState>,
-    Path(_handle): Path<String>,
-    MaybeSession(_user): MaybeSession,
-) -> ApiResult<Json<Value>> {
-    Ok(Json(json!({ "feed": "atom" })))
-}
-
-// ---------------------------------------------------------------------------
 // Push
 // ---------------------------------------------------------------------------
 
@@ -871,8 +849,8 @@ pub fn router() -> axum::Router<AppState> {
         // active for ever.
         .route("/admin/bots/{id}/state", post(set_bot_state))
         // Feeds
-        .route("/feeds/{handle}", get(get_rss_feed))
-        .route("/feeds/{handle}/atom", get(get_atom_feed))
+        // `/feeds/{handle}` lives in `routes::feeds` now: it was a stub here that answered `{"feed":"rss"}`, which is a route
+        // telling a reader it serves a feed and serving a word.
         // Push
         .route("/me/push/subscribe", post(subscribe_push))
         // AI

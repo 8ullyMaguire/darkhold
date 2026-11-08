@@ -787,6 +787,35 @@ pub async fn rebind_bot_token(
     Ok(previous)
 }
 
+/// Resolve a short feed handle to the subject it names.
+///
+/// `kind` says how the subject is to be read — `tag` is a search term, `user` an author — because a handle is a *name* and the
+/// same string means different things in different kinds. Returns `None` for an unknown handle, which is a `404` rather than an
+/// empty feed: a feed that answers with nothing forever looks like a quiet subject and is usually a typo.
+pub async fn feed_handle(
+    db: &Database,
+    handle: &str,
+) -> Result<Option<(String, String)>, sqlx::Error> {
+    let sql = db.sql(
+        "SELECT kind, subject FROM feed_handles WHERE handle = ?1",
+        "SELECT kind, subject FROM feed_handles WHERE handle = $1",
+    );
+    match db.backend() {
+        Backend::Sqlite => {
+            sqlx::query_as::<_, (String, String)>(&sql)
+                .bind(handle)
+                .fetch_optional(db.sqlite_pool().expect("sqlite handle"))
+                .await
+        }
+        Backend::Postgres => {
+            sqlx::query_as::<_, (String, String)>(&sql)
+                .bind(handle)
+                .fetch_optional(db.postgres_pool().expect("postgres handle"))
+                .await
+        }
+    }
+}
+
 /// A bot registration's state, by id.
 pub async fn bot_by_id(db: &Database, bot_id: &str) -> Result<Option<String>, sqlx::Error> {
     let sql = db.sql(
