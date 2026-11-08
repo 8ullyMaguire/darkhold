@@ -2036,6 +2036,34 @@ pub const ROUTE_TABLE: &[RouteEntry] = &[
     // Exports — session-scoped (authed_router)
     // ------------------------------------------------------------------
     RouteEntry {
+        file: "rating_integrity.rs",
+        handler: "list_work_anomalies",
+        method: "GET",
+        path: "/works/{id}/anomalies",
+        audience: Audience::Operator,
+    },
+    RouteEntry {
+        file: "rating_integrity.rs",
+        handler: "detect_anomalies",
+        method: "POST",
+        path: "/admin/anomalies/detect",
+        audience: Audience::Operator,
+    },
+    RouteEntry {
+        file: "rating_integrity.rs",
+        handler: "contest_work",
+        method: "POST",
+        path: "/admin/works/{id}/contested",
+        audience: Audience::Operator,
+    },
+    RouteEntry {
+        file: "rating_integrity.rs",
+        handler: "uncontest_work",
+        method: "DELETE",
+        path: "/admin/works/{id}/contested",
+        audience: Audience::Operator,
+    },
+    RouteEntry {
         file: "imports.rs",
         handler: "set_source_enabled_route",
         method: "PUT",

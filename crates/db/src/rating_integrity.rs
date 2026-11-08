@@ -216,6 +216,155 @@ pub async fn get_work_anomaly_events(
     Ok(events)
 }
 
+/// Works whose recent public ratings came from freshly created accounts.
+///
+/// Spec §33.2's "burst detection per work and per reviewer cohort". The rule is stated as parameters rather than baked
+/// into the query, because the threshold is a judgement: `window_start` is how far back "recent" reaches, `account_cutoff`
+/// is how old an account must be to count as established, and `min_ratings` is how many fresh-account ratings in that
+/// window stop being plausible interest and start being a brigade.
+///
+/// Returned as `(work_id, count)` so the caller can write the severity it observed rather than a constant: "11 fresh
+/// accounts rated this in six hours" is the fact, and a severity that does not carry it is a number nobody can argue with.
+pub async fn works_with_fresh_account_rating_bursts(
+    db: &Database,
+    window_start: &str,
+    account_cutoff: &str,
+    min_ratings: i64,
+) -> Result<Vec<(String, i64)>> {
+    // `created_at` is canonical TEXT on both engines, so the comparison is the same string comparison the indexes use.
+    // A timestamp column would need a cast per engine and would make the two arms diverge in a way this query cannot be
+    // tested for.
+    let sql = db.sql(
+        "SELECT r.work_id AS work_id, COUNT(*) AS n \
+           FROM rating r JOIN accounts a ON a.id = r.account_id \
+          WHERE r.is_public = 1 AND r.deleted_at IS NULL \
+            AND r.created_at >= ? AND a.created_at >= ? \
+          GROUP BY r.work_id HAVING COUNT(*) >= ? \
+          ORDER BY n DESC, r.work_id",
+        "SELECT r.work_id::text AS work_id, COUNT(*) AS n \
+           FROM rating r JOIN accounts a ON a.id = r.account_id \
+          WHERE r.is_public = TRUE AND r.deleted_at IS NULL \
+            AND r.created_at >= $1 AND a.created_at >= $2 \
+          GROUP BY r.work_id HAVING COUNT(*) >= $3 \
+          ORDER BY n DESC, r.work_id::text",
+    );
+    let rows: Vec<(String, i64)> = match db.backend() {
+        Backend::Sqlite => {
+            sqlx::query_as(&sql)
+                .bind(window_start)
+                .bind(account_cutoff)
+                .bind(min_ratings)
+                .fetch_all(db.sqlite_pool().expect("sqlite"))
+                .await?
+        }
+        Backend::Postgres => {
+            sqlx::query_as(&sql)
+                .bind(window_start)
+                .bind(account_cutoff)
+                .bind(min_ratings)
+                .fetch_all(db.postgres_pool().expect("postgres"))
+                .await?
+        }
+    };
+    Ok(rows)
+}
+
+/// Whether a work already has an uncleared event of this kind.
+///
+/// Detection runs on demand, and an operator who runs it twice must not get two events for the same brigade: the second
+/// run would double the severity a moderator reads and make the anomaly list a log of how often the button was pressed.
+pub async fn has_uncleared_anomaly(db: &Database, work_id: &str, kind: &str) -> Result<bool> {
+    let sql = db.sql(
+        "SELECT COUNT(*) FROM rating_anomaly_events WHERE work_id = ? AND kind = ? AND cleared_at IS NULL",
+        "SELECT COUNT(*) FROM rating_anomaly_events WHERE work_id = $1::uuid AND kind = $2 AND cleared_at IS NULL",
+    );
+    let count: i64 = match db.backend() {
+        Backend::Sqlite => {
+            sqlx::query_scalar(&sql)
+                .bind(work_id)
+                .bind(kind)
+                .fetch_one(db.sqlite_pool().expect("sqlite"))
+                .await?
+        }
+        Backend::Postgres => {
+            sqlx::query_scalar(&sql)
+                .bind(work_id)
+                .bind(kind)
+                .fetch_one(db.postgres_pool().expect("postgres"))
+                .await?
+        }
+    };
+    Ok(count > 0)
+}
+
+/// Every uncleared anomaly event, newest first.
+///
+/// This is the list `/admin/anomalies` used to fake: it counted rows and answered `items: []`, so an operator could see
+/// that seven anomalies existed and could never learn which works they belonged to. `get_work_anomaly_events` answers
+/// the per-work question; this answers the queue's.
+pub async fn list_uncleared_anomalies(db: &Database, limit: i64) -> Result<Vec<RatingAnomalyEvent>> {
+    let sql = db.sql(
+        "SELECT id, work_id, cohort_id, kind, severity, detail, detected_at, cleared_at, cleared_by \
+           FROM rating_anomaly_events WHERE cleared_at IS NULL \
+          ORDER BY detected_at DESC, id DESC LIMIT ?",
+        "SELECT id::text, work_id::text, cohort_id::text, kind, CAST(severity AS BIGINT), detail::text, \
+                to_char(detected_at AT TIME ZONE 'UTC', 'YYYY-MM-DD\"T\"HH24:MI:SS\"Z\"'), \
+                to_char(cleared_at    AT TIME ZONE 'UTC', 'YYYY-MM-DD\"T\"HH24:MI:SS\"Z\"'), \
+                cleared_by::text \
+           FROM rating_anomaly_events WHERE cleared_at IS NULL \
+          ORDER BY detected_at DESC, id::text DESC LIMIT $1",
+    );
+    let mut events = Vec::new();
+    // The two engines answer different row types (`SqliteRow` and `PgRow`), so the mapping is written once per arm
+    // rather than behind a generic: the column order is the same in both SELECTs above, and a shared helper would have
+    // to be generic over `Row` to be honest about it.
+    match db.backend() {
+        Backend::Sqlite => {
+            let rows = sqlx::query(&sql)
+                .bind(limit)
+                .fetch_all(db.sqlite_pool().expect("sqlite"))
+                .await?;
+            for r in rows {
+                events.push(RatingAnomalyEvent {
+                    id: r.get::<String, _>(0),
+                    work_id: r.get::<String, _>(1),
+                    cohort_id: Some(r.get::<String, _>(2)).filter(|s| !s.is_empty()),
+                    kind: r.get::<String, _>(3),
+                    severity: r.get::<i64, _>(4),
+                    detail: r.get::<String, _>(5),
+                    detected_at: r.get::<String, _>(6),
+                    cleared_at: Some(r.get::<String, _>(7)).filter(|s| !s.is_empty()),
+                    cleared_by: Some(r.get::<String, _>(8))
+                        .filter(|s| !s.is_empty())
+                        .and_then(|s| s.parse::<AccountId>().ok()),
+                });
+            }
+        }
+        Backend::Postgres => {
+            let rows = sqlx::query(&sql)
+                .bind(limit)
+                .fetch_all(db.postgres_pool().expect("postgres"))
+                .await?;
+            for r in rows {
+                events.push(RatingAnomalyEvent {
+                    id: r.get::<String, _>(0),
+                    work_id: r.get::<Option<String>, _>(1).unwrap_or_default(),
+                    cohort_id: r.get::<Option<String>, _>(2),
+                    kind: r.get::<String, _>(3),
+                    severity: r.get::<i64, _>(4),
+                    detail: r.get::<String, _>(5),
+                    detected_at: r.get::<String, _>(6),
+                    cleared_at: r.get::<Option<String>, _>(7),
+                    cleared_by: r
+                        .get::<Option<String>, _>(8)
+                        .and_then(|s| s.parse::<AccountId>().ok()),
+                });
+            }
+        }
+    }
+    Ok(events)
+}
+
 /// Set a work's contested mark.
 pub async fn set_work_contested(db: &Database, work_id: &WorkId, reason: &str) -> Result<()> {
     let sql = db.sql(
