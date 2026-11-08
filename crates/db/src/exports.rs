@@ -862,7 +862,11 @@ pub async fn list_devices(db: &Database, account_id: &str) -> Result<Vec<UserDev
     let sql = db.sql(
         "SELECT id, account_id, label, push_subscription_json, last_seen_at, created_at, updated_at \
          FROM user_devices WHERE account_id = ? ORDER BY updated_at DESC",
-        "SELECT id, account_id, label, push_subscription_json, last_seen_at, created_at, updated_at \
+        // `id::text`/`account_id::text` on the PostgreSQL arm: both are `UUID` there and `TEXT` on SQLite, so a bare
+        // `SELECT id` decodes into the SQLite arm and fails the other with "Rust type String (as SQL type TEXT) is not
+        // compatible with SQL type UUID". This is the same `::text` the module's other reads carry — and the first
+        // caller this function ever had (the devices door) found it missing, answering 500 on the PostgreSQL run.
+        "SELECT id::text, account_id::text, label, push_subscription_json, last_seen_at, created_at, updated_at \
          FROM user_devices WHERE account_id::text = ? ORDER BY updated_at DESC",
     );
     let rows: Vec<DeviceRow> = match db.backend() {

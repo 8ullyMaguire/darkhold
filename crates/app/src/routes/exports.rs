@@ -42,6 +42,7 @@ use serde_json::{json, Value};
 use darkhold_db::exports as repo;
 use darkhold_db::storage::BlobStore;
 use darkhold_domain::exports::{ExportFormat, ExportOptions};
+use darkhold_domain::AppError;
 
 use crate::auth::{MaybeSession, RequireActorScoped, RequireSession};
 use crate::http::{ApiError, ApiResult};
@@ -80,6 +81,9 @@ pub fn authed_router() -> Router<AppState> {
         .route("/exports/{id}/download", get(download_own))
         .route("/exports/{id}/deliver", post(deliver_export))
         .route("/exports/{id}", delete(forget_export))
+        // Devices this reader can receive an export on (M70-13: `user_devices` had no door).
+        .route("/devices", get(list_devices).post(register_device))
+        .route("/devices/{id}", delete(delete_device))
 }
 
 /// Query for the list.
@@ -560,4 +564,119 @@ async fn deliver_export(
             })),
         )),
     }
+}
+
+/// What a reader says about a device.
+///
+/// `id` is the caller's own, not the server's: a device registers before it has a session-stable identity, and the
+/// store's upsert is keyed on it, so a re-registration after a browser restart updates the row instead of leaving a
+/// second one. That is also why the route is `POST /devices` with the id in the body rather than `PUT /devices/{id}`:
+/// the browser knows the id, the server has never seen the device.
+#[derive(Debug, Deserialize)]
+struct DeviceRequest {
+    id: String,
+    #[serde(default)]
+    label: String,
+    /// A Web Push subscription, as the browser gave it. Never echoed back — see [`device_view`].
+    #[serde(default)]
+    push_subscription: Option<Value>,
+}
+
+/// A device, as the reader's own interface may see it.
+///
+/// The push subscription is **not** returned. It is a delivery credential: the endpoint and its keys let whoever holds
+/// them push to the reader's browser, so echoing it turns any read of this list into a leak, and a reader's own page
+/// does not need it back — the browser kept its copy. `has_push_subscription` is the fact the interface actually uses
+/// (whether "notify this device" is on), and it is a boolean on purpose.
+fn device_view(device: &darkhold_db::exports::UserDevice) -> Value {
+    json!({
+        "id": device.id,
+        "label": device.label,
+        "has_push_subscription": device.push_subscription_json.is_some(),
+        "last_seen_at": device.last_seen_at,
+        "created_at": device.created_at,
+    })
+}
+
+fn validation(message: &str, field: &str, detail: &str) -> ApiError {
+    let mut field_errors = std::collections::BTreeMap::new();
+    field_errors.insert(field.to_string(), detail.to_string());
+    ApiError(AppError::Validation {
+        message: message.to_string(),
+        field_errors,
+    })
+}
+
+async fn list_devices(
+    State(state): State<AppState>,
+    RequireSession(user): RequireSession,
+) -> ApiResult<Json<Value>> {
+    let rows = repo::list_devices(state.db(), &user.account_id.to_string()).await?;
+    let devices: Vec<Value> = rows.iter().map(device_view).collect();
+    Ok(Json(json!({ "devices": devices })))
+}
+
+/// Register or update one of the caller's devices.
+///
+/// Scoped by the session's account at the store, so a body naming somebody else's device id writes a row for the
+/// caller instead of taking over the other account's — the id is client-chosen, which makes that the only safe rule.
+async fn register_device(
+    State(state): State<AppState>,
+    RequireSession(user): RequireSession,
+    Json(body): Json<DeviceRequest>,
+) -> ApiResult<Json<Value>> {
+    // A UUID, because `user_devices.id` is `UUID` on PostgreSQL and `TEXT` on SQLite (0008): a free-form id decodes on
+    // the default engine and fails `22P02` on the other, which is how this door answered 500 to its first PostgreSQL
+    // run. The browser has `crypto.randomUUID()`; asking for one keeps the two engines honest without a column change.
+    if uuid::Uuid::parse_str(body.id.trim()).is_err() {
+        return Err(validation(
+            "a device id must be a UUID",
+            "id",
+            "the string crypto.randomUUID() returns",
+        ));
+    }
+    if body.label.len() > 64 {
+        return Err(validation(
+            "the label is too long",
+            "label",
+            "at most 64 characters",
+        ));
+    }
+    if let Some(subscription) = &body.push_subscription {
+        if !subscription.is_object() {
+            return Err(validation(
+                "a push subscription is a JSON object",
+                "push_subscription",
+                "the object the browser's PushManager returned",
+            ));
+        }
+    }
+
+    let account = user.account_id.to_string();
+    let subscription = body.push_subscription.as_ref().map(ToString::to_string);
+    let device = repo::upsert_device(
+        state.db(),
+        &body.id,
+        &account,
+        &body.label,
+        subscription.as_deref(),
+    )
+    .await?;
+    Ok(Json(device_view(&device)))
+}
+
+/// Remove one of the caller's devices.
+///
+/// `404` when the row is not the caller's — the store's `DELETE ... AND account_id = ?` already refuses it, and the
+/// answer does not distinguish "no such device" from "not yours", for the same reason the coordinates door does not.
+async fn delete_device(
+    State(state): State<AppState>,
+    RequireSession(user): RequireSession,
+    Path(id): Path<String>,
+) -> ApiResult<Json<Value>> {
+    let removed = repo::delete_device(state.db(), &id, &user.account_id.to_string()).await?;
+    if !removed {
+        return Err(ApiError(AppError::NotFound { resource: "device" }));
+    }
+    Ok(Json(json!({ "removed": true, "id": id })))
 }
