@@ -114,13 +114,8 @@ async fn migrations_apply_once_and_are_idempotent() {
     // asserts. `count(accounts) == 0` would be a claim about the number of
     // migrations that insert rows, wearing the costume of a claim about users.
     assert_eq!(
-        identity::count_excluding_system_accounts(
-            &db,
-            "accounts",
-            &darkhold_db::SYSTEM_ACCOUNT.to_string(),
-        )
-        .await
-        .expect("count"),
+        test_support::count_excluding_system_accounts(&db, "accounts", &darkhold_db::SYSTEM_ACCOUNT.to_string())
+            .await,
         0,
         "migrating a fresh database creates no user; the system account is not one"
     );
@@ -185,13 +180,8 @@ async fn seeding_creates_a_usable_account_and_is_idempotent() {
     // question is what this action produced, and the instance's own bookkeeping
     // row is not part of the answer.
     assert_eq!(
-        identity::count_excluding_system_accounts(
-            &db,
-            "accounts",
-            &darkhold_db::SYSTEM_ACCOUNT.to_string(),
-        )
-        .await
-        .expect("accounts"),
+        test_support::count_excluding_system_accounts(&db, "accounts", &darkhold_db::SYSTEM_ACCOUNT.to_string())
+            .await,
         1,
         "the seed creates one account, and the system account is not it"
     );
@@ -215,13 +205,8 @@ async fn seeding_creates_a_usable_account_and_is_idempotent() {
     // Idempotence, and the same exclusion as above: re-seeding must not multiply
     // rows, and the system account is not one of the seed's rows either way.
     assert_eq!(
-        identity::count_excluding_system_accounts(
-            &db,
-            "accounts",
-            &darkhold_db::SYSTEM_ACCOUNT.to_string(),
-        )
-        .await
-        .expect("accounts"),
+        test_support::count_excluding_system_accounts(&db, "accounts", &darkhold_db::SYSTEM_ACCOUNT.to_string())
+            .await,
         1,
         "re-seeding must not multiply accounts"
     );

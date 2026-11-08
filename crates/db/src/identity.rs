@@ -1310,52 +1310,6 @@ pub async fn count(db: &Database, table: &str) -> Result<i64> {
     }
 }
 
-/// `count`, less the instance's own system account.
-///
-/// Exists because `count(db, "accounts")` stopped answering "how many accounts
-/// did this action create?" when migration 0094 began inserting one row nobody
-/// registered. Both callers of it are tests asserting what the *application*
-/// created — a fresh migrate creating no user, a seed creating one — and neither
-/// of those claims is about the instance's own bookkeeping row.
-///
-/// The excluded id is a parameter rather than an internal constant: the function
-/// name says what it excludes, and a helper named for the system account that
-/// excluded something else would be a trap. Callers pass
-/// [`crate::SYSTEM_ACCOUNT`], which is the same value both dialects' migration
-/// 0094 inserts.
-pub async fn count_excluding_system_accounts(
-    db: &Database,
-    table: &str,
-    exclude: &str,
-) -> Result<i64> {
-    let table = match table {
-        "accounts" | "pseuds" | "sessions" => table,
-        other => anyhow::bail!("refusing to count unknown table {other}"),
-    };
-    // **Each arm gets its own placeholder.** `?1` is SQLite syntax and `$1` is
-    // Postgres syntax; writing `?1` on both arms gives the Postgres parser a `?`
-    // with no bound parameter, and the error it reports is
-    // `cannot cast type integer to uuid` — which names a CAST while the fault
-    // is numbering. `PREPARE … $1::uuid` succeeds, so that is the way to tell
-    // the two apart. The rule is stated at `crates/db/src/retention_proposals.rs`:
-    // "`$1`..`$6` and never `?::uuid, $1::uuid, ...` — sqlx numbers placeholders
-    // per arm".
-    let sql = match db.backend() {
-        crate::Backend::Sqlite => format!("SELECT COUNT(*) FROM {table} WHERE id != ?1"),
-        crate::Backend::Postgres => format!("SELECT COUNT(*) FROM {table} WHERE id != $1::uuid"),
-    };
-    match db.backend() {
-        crate::Backend::Sqlite => Ok(sqlx::query_scalar(&sql)
-            .bind(exclude)
-            .fetch_one(db.sqlite_pool().expect("sqlite handle"))
-            .await?),
-        crate::Backend::Postgres => Ok(sqlx::query_scalar(&sql)
-            .bind(exclude)
-            .fetch_one(db.postgres_pool().expect("postgres handle"))
-            .await?),
-    }
-}
-
 /// Delete every row from the identity tables. Development seed reset only.
 pub async fn wipe_identity(db: &Database) -> Result<()> {
     let statements = [

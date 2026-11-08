@@ -751,10 +751,20 @@ pub struct ModlogQuery {
 /// operator who wants to know why somebody's level fell needs the same events.
 async fn account_trust_history(
     State(state): State<AppState>,
-    RequireSession(_user): RequireSession,
+    RequireSession(user): RequireSession,
     Path(id): Path<String>,
     Query(q): Query<ModlogQuery>,
 ) -> ApiResult<Json<Value>> {
+    // A trust history is the modlog's record of one person: every level change, why, and who made it. It is the
+    // account's own, or an operator's — anybody else with a session would be reading somebody's disciplinary record for
+    // no reason, and a `404` (not `403`) keeps the question of whether the record exists out of the answer (ADR 0030).
+    if user.account_id.to_string() != id
+        && !crate::routes::admin_scope::holds_estate_claim(&state, &user)
+    {
+        return Err(ApiError(AppError::NotFound {
+            resource: "account",
+        }));
+    }
     let limit = q.limit.unwrap_or(50).clamp(1, 200);
     let events = darkhold_db::trust_events::list_for_account(state.db(), &id, limit)
         .await

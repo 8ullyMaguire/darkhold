@@ -1850,6 +1850,34 @@ pub const ROUTE_TABLE: &[RouteEntry] = &[
     // Imports — session-scoped
     // ------------------------------------------------------------------
     RouteEntry {
+        file: "identity_admin.rs",
+        handler: "account_facts_route",
+        method: "GET",
+        path: "/admin/accounts/{id}/facts",
+        audience: Audience::Operator,
+    },
+    RouteEntry {
+        file: "identity_admin.rs",
+        handler: "set_age_state_route",
+        method: "POST",
+        path: "/admin/accounts/{id}/age-state",
+        audience: Audience::Operator,
+    },
+    RouteEntry {
+        file: "identity_admin.rs",
+        handler: "grant_guardian_authorization_route",
+        method: "POST",
+        path: "/admin/accounts/{id}/guardian-authorization",
+        audience: Audience::Operator,
+    },
+    RouteEntry {
+        file: "identity_admin.rs",
+        handler: "fold_account_route",
+        method: "POST",
+        path: "/admin/accounts/{id}/fold",
+        audience: Audience::Operator,
+    },
+    RouteEntry {
         file: "imports.rs",
         handler: "list_sources",
         method: "GET",

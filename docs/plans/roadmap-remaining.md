@@ -1042,3 +1042,35 @@ vector producer. That is the transitive count doing its job — a door that call
 query reachable, and the number should say so.
 
 Ratchet 131 -> 125.
+
+### A promise the binary never asked it to keep (identity.rs, 2026-11-08)
+
+`grant_guardian_authorization` carries the finding in its own header: before it, "a minor could never participate, whatever
+the operator set up", because `guardian_authorizations` existed and nothing wrote to it. The function was written, the
+documented reason was written, and no call site existed — so the instance advertised a guardian workflow it could not
+perform. Four doors now, and each keeps one rule:
+
+* **An age decision takes a reason.** It is the change with the least audit trail and the most consequence: a restricted
+  account cannot participate, and the modlog's contract says every entry carries a reason. The `reason` field is
+  `Option<String>` *in the type* so that its absence is this handler's 422 naming `reason`, not the JSON extractor's
+  generic "Unprocessable Entity." — the field matters, so the error says which.
+* **The guardian grant does both halves.** It records the authorisation *and* moves the state; the door reads the row back
+  rather than assuming the second half, because a recorded authorisation that leaves the account stuck is a row nobody
+  reads.
+* **A fold points at a live account, and a tombstone is terminal.** Self-fold, a nonexistent target, a folded target and
+  an already-folded source are all refused. The last one was found by the test, not by reading: the first version happily
+  rewrote a tombstone's `folded_into`, which would silently re-attribute every row the first fold re-pointed.
+* **Facts are operator-only, and `404` for a missing account.** The store returns `Option` precisely so the caller can
+  tell "no such account" from "an account with nothing yet"; collapsing that into an empty object would have thrown the
+  distinction away at the last step.
+
+`count_excluding_system_accounts` got **no door**. Its own header said both of its callers were tests; inventing an
+operator metric to lower a counter is bad faith, so it moved to `crates/test-support` and the store stopped exporting it.
+Deleting a helper whose only callers are tests is the other legitimate end of this ratchet, and the one that needs no
+surface invented for it.
+
+**A live leak in the same module.** `GET /accounts/{id}/trust` took `RequireSession(_user)` — the underscore says nobody
+looked — and answered any signed-in reader with another account's trust history: the modlog's record of one person, every
+level change, why, and who made it. It is the account's own or an operator's now, `404` otherwise (ADR 0030).
+
+Ratchet 125 -> 120.

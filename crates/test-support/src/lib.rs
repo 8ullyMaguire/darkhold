@@ -1726,3 +1726,41 @@ mod tests {
         );
     }
 }
+
+/// `COUNT(*)`, less one excluded row — the instance's own system account.
+///
+/// **Lives with the tests because every caller is a test.** It was written in `crates/db/src/identity.rs` and its own
+/// header said so ("both callers of it are tests asserting what the application created"), which made it an orphan the
+/// moment a route census was taken: the store exported a helper only tests used, and the honest fix is to put it where
+/// its callers are rather than invent an operator metric to justify it.
+///
+/// The exclusion is a parameter rather than a constant: the function's name says what it excludes, and a helper named for
+/// the system account that excluded something else would be a trap. Callers pass `darkhold_db::SYSTEM_ACCOUNT`, the same
+/// value both dialects' migration 0094 inserts.
+///
+/// **Each dialect gets its own placeholder.** `?1` is SQLite and `$1` is PostgreSQL; one string for both gives the
+/// PostgreSQL parser a `?` with no bound parameter and an error (`cannot cast type integer to uuid`) that names a cast
+/// while the fault is numbering.
+pub async fn count_excluding_system_accounts(db: &Database, table: &str, exclude: &str) -> i64 {
+    let table = match table {
+        "accounts" | "pseuds" | "sessions" => table,
+        other => panic!("refusing to count unknown table {other}"),
+    };
+    let sql = match db.backend() {
+        Backend::Sqlite => format!("SELECT COUNT(*) FROM {table} WHERE id != ?1"),
+        Backend::Postgres => format!("SELECT COUNT(*) FROM {table} WHERE id != $1::uuid"),
+    };
+    let row: (i64,) = match db.backend() {
+        Backend::Sqlite => sqlx::query_as(&sql)
+            .bind(exclude)
+            .fetch_one(db.sqlite_pool().expect("sqlite handle"))
+            .await
+            .expect("count rows"),
+        Backend::Postgres => sqlx::query_as(&sql)
+            .bind(exclude)
+            .fetch_one(db.postgres_pool().expect("postgres handle"))
+            .await
+            .expect("count rows"),
+    };
+    row.0
+}
