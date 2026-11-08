@@ -7,8 +7,8 @@
         "implemented-locally-tested": 269,
         "unsupported": 4,
         "implemented-fully-tested": 435,
-        "implemented": 32,
-        "planned": 66,
+        "implemented": 35,
+        "planned": 63,
         "evaluated-and-rejected": 7
       }
     },
@@ -361,24 +361,6 @@
       "notes": "Opened by M71-01 (8a51f9de), which shipped the landing page. Order and reasons are in docs/adr/0006-one-binary-two-renderers.md. The work page is next and is the one that matters for link previews and crawlers: it needs the public view (works::public_view) plus a session-aware split, because the SPA work page carries the signed-in actions (bookmark, kudos, author tools) - a signed-in reader keeps the application, an anonymous one gets the document. Acceptance per page: a test that fetches the HTML, parses it and asserts the content with no script execution, plus a live probe; the Svelte route is removed in the same commit so the count only goes down. PROGRESS 50635a36: landing page (8a51f9de) and work page /works/{id} shipped as documents, each with a no-script test and a live probe. The work page uses reading_decision_publishing_metadata, answers every denial with one 404 page (bodies compared byte for byte in the test), shows a restricted work's record and withholds its text, and hands a signed-in reader the application per ADR 0006. REMAINING per ADR 0006's order: fandom and tag pages, search results, author page, collection and series pages - each deletes its Svelte route in the same commit. TAG PAGE ed9c7088: GET /tags/{tag} is a document listing the works behind a tag (query filters published public works; empty tag = 404 page; capped at 50 with 'more than 50' rather than a false total). The document shell moved to routes/document.rs at the third caller and work_page's copy was deleted. REMAINING: search results, author page, collection and series pages; then delete the Svelte routes for the pages already served as documents."
     },
     {
-      "id": "M72-01",
-      "milestone": "M72",
-      "requirement": "`@polaris/ui` is published to the estate registry and one version is pinned by every consumer, so adoption is a dependency line and not a filesystem path",
-      "notes": "Today darkhold is the only consumer and it installs `file:../../../estate/ui/dist/polaris-ui-0.1.2.tgz` \u2014 a path that resolves only with the estate checkout at that relative position, so a clean clone cannot install and ascend/kindred cannot adopt a version at all. Publish 0.2.0 to the Forgejo npm registry declared in estate.toml `[registry] npm`, tag the source, and pin `^0.2` in darkhold, ascend and kindred. Proof: `pnpm install --frozen-lockfile` in all three from a clone that has no `estate/` beside it; mutant = restore the `file:` spec and the clean-clone install must fail."
-    },
-    {
-      "id": "M72-02",
-      "milestone": "M72",
-      "requirement": "One token vocabulary with three palettes: darkhold Archive/Reading Room, ascend dark, kindred AO3 \u2014 same scale and rhythm, different paper",
-      "notes": "`@polaris/ui/tokens.css` becomes the only `--polaris-*` vocabulary (surface, ink, ink-soft, ink-faint, line, accent, ok/warn/err, radius, space, type). Palettes are values of it: `palettes/archive.css`, `palettes/reading-room.css`, `palettes/ascend.css`, `palettes/ao3.css`. kindred keeps its AO3 look \u2014 the row is about the scale and the token names, not the colour. Proof: `node estate/ui/a11y.mjs` reports contrast for every palette; mutant = set body ink to 4.4:1 and the report must fail. Adoption is per product, and each product's CSS file must lose its private variable definitions (`--ink`, `--paper`, `--color-bg`\u2026)."
-    },
-    {
-      "id": "M72-03",
-      "milestone": "M72",
-      "requirement": "The six primitives the estate has nowhere \u2014 checkbox/radio, avatar, breadcrumb, tooltip, kbd, card action row \u2014 exist once in `@polaris/ui`",
-      "notes": "`estate/ui/docs/census.md` names these six as `build` because no product has a shared implementation; five `title=` usages are the entire tooltip story and seven inlined `<img>` are the entire avatar story. Build them to the census's accessibility notes (44px targets, `role=tooltip` with pointer+touch, `nav[aria-label=Breadcrumb]`), and adopt each in darkhold first. Proof: each component's own test plus one page that renders it headlessly; mutant per component (e.g. tooltip without `aria-describedby`) must redden its test."
-    },
-    {
       "id": "M72-04",
       "milestone": "M72",
       "requirement": "One JSON error envelope across the estate's APIs: `{\"error\":{\"code\",\"message\",\"request_id\"}}`",
@@ -425,8 +407,8 @@
     "M63": 15,
     "M45": 11,
     "M71": 10,
-    "M72": 10,
     "M64": 8,
+    "M72": 7,
     "M66": 6,
     "M69": 3,
     "M29": 1,

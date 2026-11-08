@@ -80,7 +80,11 @@ Archive/Reading Room, ascend's dark, kindred's AO3. The contrast report (`ui/a11
 in CI, so a palette that fails 4.5:1 on body text cannot ship. This is what lets kindred stay AO3-shaped while
 still being recognisably from the same hand: same rhythm, same focus ring, same spacing scale, different paper.
 
-**Layer 3 — components, ported not invented.** The census's 24 primitives are the list. Port the six that do
+**Layer 3 — components, ported not invented.** *(The six that existed nowhere are built in `@polaris/ui@0.3.1` —
+M72-03 — and adopted here in WorkCard, Account, Docs and VoteBudget; the census's remaining ports (textarea, select,
+modal, tabs, table, menu, badge, skeleton, banner, toast) wait for their adoption wave, since a port nobody renders is
+dead code.)*
+ The census's 24 primitives are the list. Port the six that do
 not exist, adopt the five that do, and **prove adoption by deletion** — the local copy is removed in the same
 commit, or the product is running two design systems and the plan is not done.
 

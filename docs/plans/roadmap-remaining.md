@@ -26,8 +26,8 @@ The order inside the batch is a dependency chain, not a preference:
 2. ~~**M72-02** one token vocabulary, palettes as data and a contrast gate over every palette~~ **DONE** — 0.2.0: six
    palettes, a written light ramp, per-palette literal CSS, 0 contrast failures; darkhold's three presets now come from
    it (browser-measured identical), and the gate caught a 1.8:1 control boundary in darkhold's own palette.
-3. **M72-03** the six primitives the estate has nowhere (checkbox/radio, avatar, breadcrumb, tooltip, `kbd`, card
-   action row) — the census names them; nothing here is a new invention.
+3. ~~**M72-03** the six primitives the estate has nowhere~~ **DONE** — @polaris/ui 0.3.1: checkbox/radio, avatar,
+   breadcrumb, tooltip, kbd, action row; 11 render tests, six mutants red, adopted in WorkCard/Account/Docs/VoteBudget.
 4. **M72-04/05** the JSON contracts: one error envelope, one meta/health shape. Invisible on a page, and the reason a
    `dh` command or an estate probe can talk to three products with one expression.
 5. **M72-06** adoption, darkhold → kindred → ascend, each proved by deleting the local copy.
