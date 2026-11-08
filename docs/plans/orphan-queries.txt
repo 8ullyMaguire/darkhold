@@ -3,7 +3,7 @@
 # Each line is a `pub async fn` in crates/db/src that no app source can reach, directly or through another db
 # function. They are debt, not permission: crates/app/tests/orphan_queries.rs fails when a NEW one appears, so
 # this list can only shrink. Delete a line by wiring the function to a route or deleting the function.
-# measured 2026-11-08: 136 orphan(s)
+# measured 2026-11-08: 131 orphan(s)
 
 increment_abuse_counter  # crates/db/src/admin.rs
 complete_privacy_request  # crates/db/src/admin.rs
@@ -123,11 +123,6 @@ store_work_vector  # crates/db/src/taste_health.rs
 get_work_vector  # crates/db/src/taste_health.rs
 record_probe_engagement  # crates/db/src/taste_health.rs
 get_probe_engagements  # crates/db/src/taste_health.rs
-signals_for_dimension  # crates/db/src/taste_import.rs
-signals_by_origin  # crates/db/src/taste_import.rs
-import_signals  # crates/db/src/taste_import.rs
-import_run  # crates/db/src/taste_import.rs
-origin_split  # crates/db/src/taste_import.rs
 record_payout  # crates/db/src/taste_leakage.rs
 get_payout  # crates/db/src/taste_leakage.rs
 update_taste_vector_incremental  # crates/db/src/taste_vectors.rs

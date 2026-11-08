@@ -610,6 +610,16 @@ pub fn build_router(state: AppState) -> Router {
             routes::tasting::router(),
             RouteClass::Write,
         ))
+        // Imported taste signals (§49.6–§49.8, M45-20), in their own module rather than inside `tasting`: a reader
+        // bringing a history they already have is portability, not a calibration quiz, and `tasting` is opt-in by
+        // design. `Write` for the same reason the tasting menu is: an import moves the reader's weights, so the
+        // limiter's class has to be the one that costs.
+        .merge(module_mount(
+            &state,
+            "taste_import",
+            routes::taste_import::router(),
+            RouteClass::Write,
+        ))
         .merge(module_mount(
             &state,
             "media_resilience",
