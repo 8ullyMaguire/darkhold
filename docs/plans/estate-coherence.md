@@ -74,12 +74,6 @@ palette (0 failures over 6 × 84 tokens). Light mode is a written ramp, not `100
 darkhold's three presets are now those overrides, and darkhold's `tokens.css` keeps its `--color-*` names as aliases.
 The gate found two real defects on the way: darkhold's control boundary was 1.8:1 (WCAG 1.4.11 wants 3:1) and its dark
 preset had no dim ink at all. ascend's and kindred's palettes are measured but not yet adopted — that is M72-06.)*
-**Layer 2 — tokens, palettes as data.** One token vocabulary (`--polaris-*`: surface, ink, ink-soft, line,
-accent, ok/warn/err, radius, space, type scale), three palettes that are *values* of it: darkhold's
-Archive/Reading Room, ascend's dark, kindred's AO3. The contrast report (`ui/a11y.mjs`) runs over every palette
-in CI, so a palette that fails 4.5:1 on body text cannot ship. This is what lets kindred stay AO3-shaped while
-still being recognisably from the same hand: same rhythm, same focus ring, same spacing scale, different paper.
-
 **Layer 3 — components, ported not invented.** *(The six that existed nowhere are built in `@polaris/ui@0.3.1` —
 M72-03 — and adopted here in WorkCard, Account, Docs and VoteBudget; the census's remaining ports (textarea, select,
 modal, tabs, table, menu, badge, skeleton, banner, toast) wait for their adoption wave, since a port nobody renders is
@@ -92,6 +86,30 @@ commit, or the product is running two design systems and the plan is not done.
 invisible to a human reading the page and yet it is what makes the products feel like one thing to anyone
 scripting them (`dh`, the estate probes, the uptime board) — and it is what makes cross-product features
 (a "more from this maker" rail, a shared work blurb, one search box) cheap instead of repeated.
+
+*(Layer 4, 2026-11-08 — the error envelope is done on all four.)* The contract is
+`{"error": {"code", "message", "request_id"}}`, `code` UPPER_SNAKE, product extras allowed beside the three
+required fields. What each product had, and what it took:
+
+* **darkhold** — already `{code,message,request_id}` in a handler helper, but two classes escaped it: an unknown
+  path under `/api/` (empty 404 from the SPA fallback) and anything the framework refuses before a handler runs
+  (measured: an incomplete registration answered `422` with **no body**). Both fixed; a test asserts four failure
+  classes and that two anonymous refusals carry distinct ids.
+* **ficnexus** — `{"err": <int>, "msg": …}`, a numeric code no client can branch on without a table. Now emits the
+  envelope *and* keeps the legacy pair until the last exporter client moves (`FICNEXUS_LEGACY_ERROR_ALIAS=off`);
+  the PoW 429 payload passes through untouched because it carries the next challenge.
+* **ascend** — `{code,message,details}` frozen in its own `docs/CONTRACTS.md`, codes in lowercase. A frozen
+  contract is not a blocker, it is a document that has to change with the code: codes uppercased, `request_id`
+  added (that document had told clients to "correlate via request id" for years while sending none), `details`
+  kept exactly, and `CONTRACTS.md` edited in the same commit — the rule that file already sets for itself.
+* **kindred** — already UPPER_SNAKE and already minted `x-request-id`, but the value never reached the body, and a
+  header is not something a bug report carries. The middleware now re-serialises a JSON refusal to add
+  `error.request_id` and nothing else, so the handler's decision about status, code and message is untouched.
+
+Three of the four changed in the *body they send*, which is why every one of them has a test that asserts the
+three required fields on at least three different failure classes, and why each was proved with mutants (missing
+id, constant id, dropped legacy pair, codes not uppercased, `details` dropped). The remaining Layer 4 items are the
+meta/health shape (M72-05) and the noun vocabulary (M72-10).
 
 ## 4 — Decisions
 

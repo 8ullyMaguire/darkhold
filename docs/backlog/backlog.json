@@ -7,8 +7,8 @@
         "implemented-locally-tested": 269,
         "unsupported": 4,
         "implemented-fully-tested": 435,
-        "implemented": 36,
-        "planned": 62,
+        "implemented": 37,
+        "planned": 61,
         "evaluated-and-rejected": 7
       }
     },
@@ -361,12 +361,6 @@
       "notes": "Opened by M71-01 (8a51f9de), which shipped the landing page. Order and reasons are in docs/adr/0006-one-binary-two-renderers.md. The work page is next and is the one that matters for link previews and crawlers: it needs the public view (works::public_view) plus a session-aware split, because the SPA work page carries the signed-in actions (bookmark, kudos, author tools) - a signed-in reader keeps the application, an anonymous one gets the document. Acceptance per page: a test that fetches the HTML, parses it and asserts the content with no script execution, plus a live probe; the Svelte route is removed in the same commit so the count only goes down. PROGRESS 50635a36: landing page (8a51f9de) and work page /works/{id} shipped as documents, each with a no-script test and a live probe. The work page uses reading_decision_publishing_metadata, answers every denial with one 404 page (bodies compared byte for byte in the test), shows a restricted work's record and withholds its text, and hands a signed-in reader the application per ADR 0006. REMAINING per ADR 0006's order: fandom and tag pages, search results, author page, collection and series pages - each deletes its Svelte route in the same commit. TAG PAGE ed9c7088: GET /tags/{tag} is a document listing the works behind a tag (query filters published public works; empty tag = 404 page; capped at 50 with 'more than 50' rather than a false total). The document shell moved to routes/document.rs at the third caller and work_page's copy was deleted. REMAINING: search results, author page, collection and series pages; then delete the Svelte routes for the pages already served as documents."
     },
     {
-      "id": "M72-04",
-      "milestone": "M72",
-      "requirement": "One JSON error envelope across the estate's APIs: `{\"error\":{\"code\",\"message\",\"request_id\"}}`",
-      "notes": "Measured today: darkhold `{error:{code,message,request_id}}`, ascend `{error:{code,message,details}}`, kindred `{error:{code,message}}`, ficnexus `{\"err\":-1,\"msg\":\u2026}`. Align ascend (add `request_id`, keep `details`), kindred (add `request_id`), and ficnexus behind a documented alias: `err/msg` stays emitted for one release while `error.code` becomes the field clients branch on (config switch `[api] legacy_error_alias`, default on until the exporters' clients move). Proof: one test per service asserting the exact body; a live probe of 8081/8024/8030 with the same `jq -e '.error.code'`; mutant = drop `request_id` from a handler and the probe reddens. PARTIAL 2026-11-08 \u2014 darkhold's half is done and proven; the row stays `planned` because the requirement is an ESTATE contract and three services still answer their own shape. Done here: an unknown path under /api/ answers the JSON envelope instead of an empty 404 (the SPA fallback's not_found), and framework-level refusals (unparseable body, missing field, wrong content type, timeout, oversized upload) are translated into the same envelope by an `envelope_refusals` layer that only touches /api/ paths and only non-JSON bodies \u2014 measured before the change: an incomplete registration answered 422 with NO body. Codes are UPPER_SNAKE, which is what both this tree and kindred already use, so the contract records the convention rather than renaming a hundred codes. PROGRESS 2026-11-08 (second pass): ficnexus now emits {error:{code,message,request_id}} beside its legacy `err`/`msg` pair (UPPER_SNAKE codes, ids per response, x-request-id header; the PoW 429 payload passes through because it carries the next challenge); 23 lib tests pass, 3 mutants red; committed in that repo. REMAINING, in order: (1) kindred \u2014 `src/error.rs` already emits {error:{code,message}} and `src/api.rs` mints an x-request-id in middleware, so the id has to reach the body: buffer the refusal in the middleware and add the field, or thread the id through; (2) ascend \u2014 its frozen `docs/CONTRACTS.md` envelope is {error:{code,message,details}} with LOWERCASE codes, so this is a documented contract change, not just a field: uppercase the wire code (keep `details`), add request_id, update the CONTRACTS.md code table in the same commit (that file's own rule 2), and check nothing in web/src branches on the lowercase names \u2014 grepped 2026-11-08 and found none; (3) ficnexus \u2014 DONE 2026-11-08 (see above; the switch is FICNEXUS_LEGACY_ERROR_ALIAS, an env var because this product's config is env-based). Each needs its own test asserting the same three fields, and the estate probe (M72-05) should read them with one jq expression."
-    },
-    {
       "id": "M72-05",
       "milestone": "M72",
       "requirement": "One meta and health contract: `/api/v1/meta` names the product, version, build, api version, environment and base URL; `/healthz` answers `{status,version}`",
@@ -403,7 +397,7 @@
     "M71": 10,
     "M64": 8,
     "M66": 6,
-    "M72": 6,
+    "M72": 5,
     "M69": 3,
     "M29": 1,
     "M44": 1,
