@@ -86,7 +86,7 @@ pub fn router() -> Router<AppState> {
         .route("/library/because-you-shelved", get(because_you_shelved))
         .route(
             "/shelves/{id}/follow",
-            post(follow_shelf).delete(unfollow_shelf),
+            get(is_following).post(follow_shelf).delete(unfollow_shelf),
         )
         .route("/bookmarks", get(list_bookmarks).post(create_bookmark))
         .route(
@@ -395,6 +395,20 @@ async fn follow_shelf(
             field_errors: BTreeMap::new(),
         })),
     }
+}
+
+/// Whether this reader follows this shelf — the question a shelf page asks to choose between "Follow" and "Following".
+///
+/// `false` covers both "not followed" and "no such shelf", and that is deliberate: a followed shelf is one whose follow door
+/// already refused the caller for being their own or unpublished, so a follow state reveals nothing those refusals did not.
+async fn is_following(
+    State(state): State<AppState>,
+    RequireSession(user): RequireSession,
+    Path(id): Path<String>,
+) -> ApiResult<Json<serde_json::Value>> {
+    let following =
+        darkhold_db::shelf_follows::follows(state.db(), &user.account_id.to_string(), &id).await?;
+    Ok(Json(serde_json::json!({ "following": following })))
 }
 
 /// Stop following a shelf. Idempotent the other way too: unfollowing what you do not follow is `204`, not an error, because the

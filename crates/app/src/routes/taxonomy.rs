@@ -33,6 +33,13 @@ pub struct AutocompleteQuery {
     prefix: Option<String>,
     #[serde(default = "default_limit")]
     limit: i64,
+    /// Ask for the canonical prefix match rather than the fuzzy one.
+    ///
+    /// Two different questions share this door and they cannot share an answer. Typing into a tag box wants fuzzy — "slow
+    /// burn" should find "slow burn (tag)". The metadata exchange wants exact: it asks whether a canonical name is present
+    /// before importing, and a fuzzy hit would silently bind a work to a tag it never claimed (M70-13).
+    #[serde(default)]
+    exact: bool,
 }
 
 fn default_limit() -> i64 {
@@ -80,9 +87,15 @@ async fn autocomplete(
 ) -> ApiResult<Json<serde_json::Value>> {
     let kind = params.kind.as_deref();
     let prefix = params.prefix.as_deref().unwrap_or("");
-    let nodes = taxonomy::search_nodes_fuzzy(state.db(), kind, prefix, params.limit)
-        .await
-        .map_err(|e| ApiError(darkhold_domain::AppError::Internal(e)))?;
+    let nodes = if params.exact {
+        taxonomy::search_nodes(state.db(), kind, prefix, params.limit)
+            .await
+            .map_err(|e| ApiError(darkhold_domain::AppError::Internal(e)))?
+    } else {
+        taxonomy::search_nodes_fuzzy(state.db(), kind, prefix, params.limit)
+            .await
+            .map_err(|e| ApiError(darkhold_domain::AppError::Internal(e)))?
+    };
     Ok(Json(serde_json::json!({ "items": nodes })))
 }
 

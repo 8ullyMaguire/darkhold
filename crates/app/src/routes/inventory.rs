@@ -6494,6 +6494,13 @@ pub const ROUTE_TABLE: &[RouteEntry] = &[
         audience: Audience::Operator,
     },
     RouteEntry {
+        file: "library.rs",
+        handler: "is_following",
+        method: "GET",
+        path: "/shelves/{id}/follow",
+        audience: Audience::Authenticated,
+    },
+    RouteEntry {
         file: "tag_assertions.rs",
         handler: "list",
         method: "GET",
