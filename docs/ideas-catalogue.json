@@ -1,6 +1,6 @@
 {
  "generated_by": "scripts/ideas_catalogue.py",
- "count": 129,
+ "count": 133,
  "ideas": [
   {
    "why_summary": "",
@@ -595,6 +595,58 @@
     "docs/requirements.csv"
    ],
    "milestone": "M71",
+   "relevance": 4,
+   "because": "a requirements row exists (+4)",
+   "default_on": false,
+   "built": false
+  },
+  {
+   "why_summary": "-- Order is by size (darkhold 103 svelte files, ascend 40, kindred 14) and by risk (darkhold already imports the kit, so its adoption is a rewrite of imports; kindred's 14 files ar",
+   "id": "M72-06",
+   "title": "`@polaris/ui` is adopted by darkhold, then kindred, then ascend, and each adoption is proved by deleting the local component",
+   "sources": [
+    "docs/requirements.csv"
+   ],
+   "milestone": "M72",
+   "relevance": 4,
+   "because": "a requirements row exists (+4)",
+   "default_on": false,
+   "built": false
+  },
+  {
+   "why_summary": "-- darkhold signs in through polaris-id (OIDC + session cookie + bearer for machines); ascend runs its own cookie session with CSRF and no OIDC; kindred has no accounts on purpose ",
+   "id": "M72-08",
+   "title": "One auth story recorded as a matrix",
+   "sources": [
+    "docs/requirements.csv"
+   ],
+   "milestone": "M72",
+   "relevance": 4,
+   "because": "a requirements row exists (+4)",
+   "default_on": false,
+   "built": false
+  },
+  {
+   "why_summary": "-- One script renders each product's key pages (darkhold `/`, `/works/{id}`; ascend `/`, `/gallery`; kindred `/`, `/works/{id}`) at 1280 and 390 px, in each palette, headlessly; `e",
+   "id": "M72-09",
+   "title": "A family design review that runs as a gate",
+   "sources": [
+    "docs/requirements.csv"
+   ],
+   "milestone": "M72",
+   "relevance": 4,
+   "because": "a requirements row exists (+4)",
+   "default_on": false,
+   "built": false
+  },
+  {
+   "why_summary": "-- darkhold and kindred already agree on `/works/{id}`; ascend calls the same noun a fic (`/fics/\u2026`) and ficnexus has no page. Row = a vocabulary table in `docs/plans/estate-cohere",
+   "id": "M72-10",
+   "title": "One noun, one URL",
+   "sources": [
+    "docs/requirements.csv"
+   ],
+   "milestone": "M72",
    "relevance": 4,
    "because": "a requirements row exists (+4)",
    "default_on": false,

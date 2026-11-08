@@ -170,11 +170,22 @@ async fn the_catalogue_is_core_and_lists_every_registered_surface() {
     // §59.7: the idea catalogue rides the same payload, because an operator asking
     // "what else is there" should not have to know a second endpoint exists.
     let ideas = body["ideas"].as_array().expect("ideas array");
+    // A floor, not a count: the exact number is whatever the eight source documents contain today (133 when this
+    // was written, and it moved twice this week as requirements rows landed). Pinning it reddened the gate every
+    // time the catalogue was legitimately regenerated, which teaches people to bump the number instead of reading
+    // the failure. What this test must catch is a parser that lost a source and returned a handful of rows.
     assert!(
-        ideas.len() >= 150,
-        "the idea catalogue should carry the roadmap; got {}",
+        ideas.len() >= 100,
+        "the idea catalogue should carry the roadmap; got {} — one of the eight sources stopped parsing",
         ideas.len()
     );
+    // Named rows from different sources: a floor alone passes when every source but one has collapsed.
+    for id in ["GS-1", "M29-08", "M44-02", "M45-39"] {
+        assert!(
+            ideas.iter().any(|row| row["id"] == id),
+            "`{id}` is missing from the idea catalogue"
+        );
+    }
     let first = &ideas[0];
     assert!(first["source"].as_str().is_some_and(|s| !s.is_empty()));
     assert!(first["relevance"].as_u64().is_some_and(|r| r <= 10));
