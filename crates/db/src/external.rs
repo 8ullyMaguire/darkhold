@@ -982,6 +982,128 @@ pub async fn record_inbound(
     Ok(id)
 }
 
+/// One quarantined intake row as the operator sees it.
+#[derive(Debug, Clone, serde::Serialize)]
+pub struct InboundRecord {
+    pub id: String,
+    pub peer_host: String,
+    pub object_type: String,
+    pub object_id: String,
+    pub received_at: String,
+    pub state: String,
+    pub note: Option<String>,
+}
+
+/// Recent intake rows, newest first, optionally filtered to one state.
+///
+/// The ledger exists to be read: `record_inbound` writes `quarantined`, and something has to answer "what is waiting" or the
+/// queue is a table pretending to be a policy.
+pub async fn inbound_recent(
+    db: &Database,
+    state: Option<&str>,
+    limit: i64,
+) -> Result<Vec<InboundRecord>, sqlx::Error> {
+    let filter = if state.is_some() {
+        " AND state = ?2"
+    } else {
+        ""
+    };
+    let pg_filter = if state.is_some() {
+        " AND state = $2"
+    } else {
+        ""
+    };
+    // Bound to locals first: `db.sql` borrows both strings, and two temporaries inside the one call are dropped before the
+    // borrow ends (E0716) — the shape this workspace has been bitten by before.
+    let sqlite_sql = format!(
+        "SELECT id, peer_host, object_type, object_id, received_at, state, note
+         FROM federation_inbound WHERE 1 = 1{filter}
+         ORDER BY received_at DESC, id DESC LIMIT ?1"
+    );
+    let postgres_sql = format!(
+        "SELECT id, peer_host, object_type, object_id, received_at, state, note
+         FROM federation_inbound WHERE 1 = 1{pg_filter}
+         ORDER BY received_at DESC, id DESC LIMIT $1"
+    );
+    let sql = db.sql(&sqlite_sql, &postgres_sql);
+    type InboundRow = (
+        String,
+        String,
+        String,
+        String,
+        String,
+        String,
+        Option<String>,
+    );
+    let rows: Vec<InboundRow> = match db.backend() {
+        Backend::Sqlite => {
+            let mut query = sqlx::query_as(&sql).bind(limit);
+            if let Some(state) = state {
+                query = query.bind(state);
+            }
+            query
+                .fetch_all(db.sqlite_pool().expect("sqlite handle"))
+                .await?
+        }
+        Backend::Postgres => {
+            let mut query = sqlx::query_as(&sql).bind(limit);
+            if let Some(state) = state {
+                query = query.bind(state);
+            }
+            query
+                .fetch_all(db.postgres_pool().expect("postgres handle"))
+                .await?
+        }
+    };
+    Ok(rows
+        .into_iter()
+        .map(
+            |(id, peer_host, object_type, object_id, received_at, state, note)| InboundRecord {
+                id,
+                peer_host,
+                object_type,
+                object_id,
+                received_at,
+                state,
+                note,
+            },
+        )
+        .collect())
+}
+
+/// Move an intake row to a decided state, returning `false` if there is no such row.
+///
+/// Only `accepted` and `rejected` are reachable: `quarantined` is where intake *starts*, and a door that can put a row back
+/// there would be a door that erases the decision without erasing the row.
+pub async fn set_inbound_state(
+    db: &Database,
+    id: &str,
+    state: &str,
+    note: Option<&str>,
+) -> Result<bool, sqlx::Error> {
+    let sql = db.sql(
+        "UPDATE federation_inbound SET state = ?1, note = ?2 WHERE id = ?3",
+        "UPDATE federation_inbound SET state = $1, note = $2 WHERE id = $3",
+    );
+    let changed = match db.backend() {
+        Backend::Sqlite => sqlx::query(&sql)
+            .bind(state)
+            .bind(note)
+            .bind(id)
+            .execute(db.sqlite_pool().expect("sqlite handle"))
+            .await?
+            .rows_affected(),
+        Backend::Postgres => sqlx::query(&sql)
+            .bind(state)
+            .bind(note)
+            .bind(id)
+            .execute(db.postgres_pool().expect("postgres handle"))
+            .await?
+            .rows_affected(),
+    };
+    Ok(changed > 0)
+}
+
 // ---------------------------------------------------------------------------
 // AI
 // ---------------------------------------------------------------------------

@@ -1400,7 +1400,7 @@ pub const ROUTE_TABLE: &[RouteEntry] = &[
         handler: "name_handle",
         method: "PUT",
         path: "/admin/feeds/{handle}",
-        audience: Audience::Scoped,
+        audience: Audience::Operator,
     },
     RouteEntry {
         file: "extension_documents.rs",
@@ -4664,6 +4664,20 @@ pub const ROUTE_TABLE: &[RouteEntry] = &[
         method: "GET",
         path: "/forum/karma/{pseud}",
         audience: Audience::Authenticated,
+    },
+    RouteEntry {
+        file: "federation.rs",
+        handler: "list_inbound",
+        method: "GET",
+        path: "/operator/federation/inbound",
+        audience: Audience::Operator,
+    },
+    RouteEntry {
+        file: "federation.rs",
+        handler: "decide_inbound",
+        method: "POST",
+        path: "/operator/federation/inbound/{id}/state",
+        audience: Audience::Operator,
     },
     RouteEntry {
         file: "federation.rs",

@@ -13,9 +13,18 @@ use serde_json::Value;
 use darkhold_db::federation as fed;
 use darkhold_db::instance_theme;
 
-use crate::auth::{MaybeSession, RequirePseud};
+use crate::auth::{MaybeSession, RequirePseud, RequireSession};
 use crate::http::{ApiError, ApiResult};
+use crate::routes::discovery::require_operator;
 use crate::state::AppState;
+
+/// A 422 with a sentence, in the shape the rest of the API answers with.
+fn invalid(message: impl Into<String>) -> ApiError {
+    ApiError(darkhold_domain::AppError::Validation {
+        message: message.into(),
+        field_errors: std::collections::BTreeMap::new(),
+    })
+}
 
 const ADMIN_PSEUD_ID: &str = "9aa50758-bf73-44d3-bf65-9fddb4135925";
 
@@ -421,7 +430,40 @@ pub async fn ap_inbox(
     .await
     .map_err(|e| ApiError(darkhold_domain::AppError::Internal(e)))?;
 
+    // Every received activity is also an **intake row**, written `quarantined`. The activity is stored either way; what this
+    // adds is the accounting the operator needs — who sent it, what type, when — and the honest starting state: nothing about
+    // this request has been verified. Anybody can POST here, and until signatures are checked the ledger is the only record
+    // that says so.
+    let peer = peer_host_of(actor_id);
+    if let Err(error) = darkhold_db::external::record_inbound(
+        state.db(),
+        &peer,
+        activity_type,
+        obj_id.as_deref().unwrap_or(actor_id),
+    )
+    .await
+    {
+        // The activity is already stored and the peer is waiting for an answer; a bookkeeping failure must not become a
+        // refusal that makes them retry and leaves the activity written twice.
+        tracing::warn!(%error, "an inbound activity could not be entered in the intake ledger");
+    }
+
     Ok(Json(serde_json::json!({ "status": "received" })))
+}
+
+/// The host an activity came from, for the ledger's `peer_host`.
+///
+/// An actor id is a URL and the host is the part that identifies the peer. A missing or unparseable actor id is recorded as
+/// `unknown` rather than refused: the row's job is to disclose that something unverified arrived, and a refusal here would
+/// drop the evidence along with the claim.
+fn peer_host_of(actor_id: &str) -> String {
+    actor_id
+        .split("//")
+        .nth(1)
+        .and_then(|rest| rest.split('/').next())
+        .filter(|host| !host.is_empty())
+        .map(|host| host.to_ascii_lowercase())
+        .unwrap_or_else(|| "unknown".to_owned())
 }
 
 // ---------------------------------------------------------------------------
@@ -593,10 +635,89 @@ pub async fn revoke_theme_schedule(
     Ok(Json(serde_json::json!({ "id": id, "revoked_at": now })))
 }
 
+/// The operator's view of the intake ledger: what arrived, from whom, and what is still undecided.
+#[derive(Debug, serde::Deserialize)]
+struct InboundQuery {
+    /// `quarantined`, `accepted` or `rejected`. Absent means every state.
+    state: Option<String>,
+    limit: Option<i64>,
+}
+
+async fn list_inbound(
+    State(state): State<AppState>,
+    RequireSession(session): RequireSession,
+    axum::extract::Query(query): axum::extract::Query<InboundQuery>,
+) -> ApiResult<Json<serde_json::Value>> {
+    require_operator(&state, &session)?;
+    if let Some(named) = query.state.as_deref() {
+        if !matches!(named, "quarantined" | "accepted" | "rejected") {
+            return Err(invalid(format!(
+                "{named} is not an intake state; quarantined, accepted and rejected are"
+            )));
+        }
+    }
+    let limit = query.limit.unwrap_or(50).clamp(1, 200);
+    let rows = darkhold_db::external::inbound_recent(state.db(), query.state.as_deref(), limit)
+        .await
+        .map_err(|error| ApiError(darkhold_domain::AppError::Internal(error.into())))?;
+    let waiting = rows.iter().filter(|row| row.state == "quarantined").count();
+    Ok(Json(serde_json::json!({
+        "records": rows,
+        // The count is of the page, and says so: an operator deciding "is anything waiting" needs the number that belongs to
+        // the rows in front of them, not a total assembled from a second query that could disagree with the first.
+        "quarantined_in_page": waiting,
+        "limit": limit,
+    })))
+}
+
+#[derive(Debug, serde::Deserialize)]
+struct DecideBody {
+    /// `accepted` or `rejected`.
+    state: String,
+    /// Free text. Optional on acceptance, expected on rejection — but not required: a refusal that cannot be recorded without
+    /// a sentence is a refusal an operator would make without recording it.
+    note: Option<String>,
+}
+
+async fn decide_inbound(
+    State(state): State<AppState>,
+    RequireSession(session): RequireSession,
+    axum::extract::Path(id): axum::extract::Path<String>,
+    Json(body): Json<DecideBody>,
+) -> ApiResult<Json<serde_json::Value>> {
+    require_operator(&state, &session)?;
+    if !matches!(body.state.as_str(), "accepted" | "rejected") {
+        return Err(invalid(
+            "an intake row is accepted or rejected; quarantined is where intake starts, not where a decision goes",
+        ));
+    }
+    let changed = darkhold_db::external::set_inbound_state(
+        state.db(),
+        &id,
+        &body.state,
+        body.note.as_deref(),
+    )
+    .await
+    .map_err(|error| ApiError(darkhold_domain::AppError::Internal(error.into())))?;
+    if !changed {
+        return Err(ApiError(darkhold_domain::AppError::NotFound {
+            resource: "intake record",
+        }));
+    }
+    Ok(Json(serde_json::json!({ "id": id, "state": body.state })))
+}
+
 pub fn routes() -> axum::Router<AppState> {
     axum::Router::new()
         // ActivityPub endpoints (public inbox, actor discovery)
         .route("/federation/inbox", post(ap_inbox))
+        // The intake ledger's two doors: what arrived, and the operator's answer to it. A quarantine nothing can release is
+        // not a policy, it is a table.
+        .route("/operator/federation/inbound", get(list_inbound))
+        .route(
+            "/operator/federation/inbound/{id}/state",
+            post(decide_inbound),
+        )
         .route("/federation/actor", get(ap_actor))
         .route("/federation/outbox", get(ap_outbox))
         // Instance theme management (admin)
