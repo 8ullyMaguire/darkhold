@@ -51,8 +51,18 @@ pub async fn get_report(
     let report = crate::fixity::latest_report(state.db())
         .await
         .map_err(|error| ApiError(AppError::Internal(error)))?;
+    // How much this instance is storing, beside whether the bytes match. A fixity report that says "clean" over a store
+    // whose size nobody can see answers half of an operator's question, and `usage` is the other half — counted from the
+    // blob directory rather than kept as a running total, so a blob deleted outside the product cannot leave the number
+    // wrong in the optimistic direction (M70-13).
+    let store = darkhold_db::storage::BlobStore::new(state.config().storage.root.clone());
+    let (bytes, blobs) = store
+        .usage(state.db())
+        .await
+        .map_err(|error| ApiError(AppError::Internal(error)))?;
     Ok(Json(json!({
         "report": report,
+        "storage": { "bytes": bytes, "blobs": blobs },
         // The report never certifies that the archive is sound. A clean run says the bytes it read were the
         // bytes it expected; it says nothing about the blobs a budget kept it from opening.
         "note": "A clean run covers the blobs it checked. A run with complete=false stopped at its budget.",
