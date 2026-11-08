@@ -1140,3 +1140,33 @@ still reports when you were last here is not an opt-out), `member_role` in `GET 
 does not exist, which is what its own doc claimed and only one route enforced.
 
 Ratchet 115 -> 110.
+
+### A fresh instance had no categories (category_governance.rs, 2026-11-08)
+
+This module was *partly* wired — `routes/directory.rs` imports it as `cg_db` and runs proposals, votes, vetoes, changelog
+and the freeze — so the orphans were the edges of a working surface, and the edges were where the instance was broken in
+ways nothing logged: `seed_categories` and `upsert_category` had no caller, so a fresh instance had **no categories at
+all**. The directory's category filter offered nothing, and `create_proposal` answered "category not found" for every
+§39.2 slug an operator would try. An empty list is a valid list; that is why it survived.
+
+* **The seed runs at boot** through `crate::directory_seed::seed_directory_categories`, a named function so the count is
+  what gets logged. It is idempotent *by construction* — `upsert_category` is `ON CONFLICT(slug) DO NOTHING`, which is
+  §45.1's rule for a config upsert: it adds slugs the instance is missing and never resurrects a category the community
+  removed. The test proves the second half by deprecating one and re-seeding. A failed seed logs and does not refuse the
+  boot: an empty category list is a visible misconfiguration, a refused start is an outage.
+* **The queue expires on read.** `expire_proposal` is a per-row sweep and the binary has no scheduler, so the read is the
+  sweep — without it, `open` means "nobody has looked" rather than "still decidable". The route returns the number expired
+  rather than implying it, and a second read finds nothing to do because the status already moved.
+* **`count_active_categories` is the ceiling, visible and enforced.** `governance_state` reports `active_categories` and
+  `at_ceiling`, and a create proposal is refused at **propose** time when the ceiling is reached: a proposal that cannot
+  succeed spends quorum attention, and the queue is more expensive than the refusal.
+
+**And a door that lied.** `POST /directory/categories/governance/max` ignored its body (`let _ = body.max;`) and answered
+`200` with the unchanged configured value — a client reading that 200 could only conclude the change applied. The ceiling
+is an instance configuration, so the honest answer is a `422` naming `directory.governance.max_active_categories` and
+saying it is changed there; sending the value it already has is still a `200` the client can trust.
+
+The boot wiring is asserted against `server.rs` source, the way `route_inventory` checks the route table against the
+routers: `serve` binds a listener and no test may boot one, so the source is the only place the call can be observed.
+
+Ratchet 110 -> 105.

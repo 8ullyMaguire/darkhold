@@ -2409,6 +2409,13 @@ pub const ROUTE_TABLE: &[RouteEntry] = &[
     // Discovery — public reads, session-scoped writes
     // ------------------------------------------------------------------
     RouteEntry {
+        file: "directory.rs",
+        handler: "list_proposals",
+        method: "GET",
+        path: "/directory/categories/governance/proposals",
+        audience: Audience::Anonymous,
+    },
+    RouteEntry {
         file: "discovery.rs",
         handler: "get_discovery",
         method: "GET",
