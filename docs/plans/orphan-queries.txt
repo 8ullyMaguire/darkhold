@@ -3,14 +3,12 @@
 # Each line is a `pub async fn` in crates/db/src that no app source can reach, directly or through another db
 # function. They are debt, not permission: crates/app/tests/orphan_queries.rs fails when a NEW one appears, so
 # this list can only shrink. Delete a line by wiring the function to a route or deleting the function.
-# measured 2026-11-08: 181 orphan(s)
+# measured 2026-11-08: 174 orphan(s)
 
 increment_abuse_counter  # crates/db/src/admin.rs
 complete_privacy_request  # crates/db/src/admin.rs
 work_reader_count  # crates/db/src/analytics.rs
 published_uris  # crates/db/src/atproto.rs
-measure_work_and_store  # crates/db/src/canon_agnostic.rs
-store_canon_class  # crates/db/src/canon_agnostic.rs
 stored_canon  # crates/db/src/canon_agnostic.rs
 is_canon_dependent  # crates/db/src/canon_agnostic.rs
 is_canon_agnostic  # crates/db/src/canon_agnostic.rs
@@ -176,13 +174,8 @@ lookup_memory  # crates/db/src/translation.rs
 record_publication  # crates/db/src/translation.rs
 list_all  # crates/db/src/trust_events.rs
 meta_actions_on_vote  # crates/db/src/typed_votes.rs
-measure_work_and_store  # crates/db/src/work_coordinates.rs
-measure_and_store  # crates/db/src/work_coordinates.rs
-store_coordinates  # crates/db/src/work_coordinates.rs
 measured_coordinates  # crates/db/src/work_coordinates.rs
-stored_coordinates  # crates/db/src/work_coordinates.rs
 measured_coordinates_for  # crates/db/src/work_coordinates.rs
 stored_work_ids  # crates/db/src/work_coordinates.rs
 clear_coordinates  # crates/db/src/work_coordinates.rs
-corpus_for_work  # crates/db/src/work_coordinates.rs
 recompute_and_store  # crates/db/src/work_metrics.rs
