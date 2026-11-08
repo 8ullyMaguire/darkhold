@@ -1085,6 +1085,27 @@ pub const MODULES: &[Module] = &[
         source: "crates/app/src/routes/tasting.rs (opt-in by design)",
     },
     Module {
+        id: "taste_import",
+        name: "Imported Taste",
+        summary: "Imported taste signals and the discount they carry (spec §49.6–§49.8, M45-20). \
+                  An import is always `imported`, re-importing the same history adds nothing, and the \
+                  split between what a reader gave this instance and what was carried over is readable \
+                  as both rows and weight.",
+        // On by default and separate from `tasting`: importing a history a reader already has is data \
+        // portability, not a calibration quiz. `tasting` is opt-in by design and stays that way; \
+        // hiding this behind it would mean a reader cannot bring their bookmarks unless they first \
+        // answer questions about their taste.
+        default_on: true,
+        stability: Stability::Stable,
+        toggle: Toggle::Operator,
+        requires: &[],
+        milestone: "pre-M65",
+        spec: "§49.6, §49.7, §49.8",
+        nav: &[],
+        relevance: 6,
+        source: "crates/app/src/routes/taste_import.rs",
+    },
+    Module {
         id: "taxonomy",
         name: "Taxonomy",
         summary: "Taxonomy routes: autocomplete, tagging, alias management.",

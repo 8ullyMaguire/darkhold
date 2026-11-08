@@ -978,3 +978,33 @@ test gap: the predicate is duplicated — once inlined in the handler, once in t
 `replace(..., 1)` rewrote the helper while the test exercises the handler. Re-targeted at the handler it reddens
 (200 vs 404). That trap is now recorded in `mutation-gate-discipline/references/mutation-survivor-triage.md`,
 because it is the second time in this session a survivor was a misplaced edit rather than a blind test.
+
+### Nobody could import a history (taste_import.rs, 2026-11-08)
+
+The module with the longest header in the crate had no route and no mount: nothing outside `crates/db/src/taste_import.rs`
+named it, so `import_signals` — the producer — had no caller, and a reader who arrived with five years of bookmarks could
+not bring them. Unlike the earlier modules, the tests were not the problem: the store had five tested functions and no
+surface at all.
+
+Four doors later, §49.6–§49.8 are enforced at the door as well as in the store. The origin is **not a parameter** of
+`import_signals`, so a door cannot mint an organic signal even by mistake; `origins` reports both the row counts and the
+discounted weight because "how many" and "how much" are different questions with different answers — twenty imported
+bookmarks and ten ratings given today are thirty rows and twenty-five units of evidence (§49.6 fixes the direction of
+the discount and leaves the magnitude to us; the constant is now returned so the number is explainable without reading
+the crate).
+
+**A module decision, made rather than inherited.** These doors could have hung off `tasting`, which is the §49 section's
+own module — but `tasting` is opt-in by design (`PerUser`, default off), and putting the import behind it would mean a
+reader cannot bring their bookmarks unless they first answer questions about their taste. Importing a history you already
+have is data portability, not calibration. So `taste_import` is its own module: `default_on: true`, `Toggle::Operator`,
+`RouteClass::Write` (an import moves the reader's weights, so the limiter's class has to be the one that costs), and
+`STABLE_ROWS` went 82 → 83 with the reason written above the constant.
+
+**The mutant that survived for the right reason.** Dropping the credential-ownership check left the suite green, and that
+was not a misplaced edit: the test named an all-zero credential id, so "not yours" and "does not exist" were the same
+answer and the ownership filter was never the thing under test. Replaced with a sealed credential belonging to another
+reader — plus the control that its owner *may* use it, which is what makes the refusal an ownership check rather than an
+existence check — the mutant reddens (200 vs 422). Recorded because the lesson generalises: a negative test that cannot
+distinguish its own two failure modes proves only that something failed.
+
+Ratchet 136 -> 131.

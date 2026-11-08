@@ -133,6 +133,7 @@ pub mod taxonomy;
 pub mod taxonomy_export;
 pub mod thread_modes;
 pub mod tombstones;
+pub mod taste_import;
 pub mod translation;
 pub mod trends;
 pub mod trope_coverage;
