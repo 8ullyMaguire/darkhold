@@ -7,8 +7,8 @@
         "implemented-locally-tested": 269,
         "unsupported": 4,
         "implemented-fully-tested": 435,
-        "implemented": 35,
-        "planned": 63,
+        "implemented": 36,
+        "planned": 62,
         "evaluated-and-rejected": 7
       }
     },
@@ -364,7 +364,7 @@
       "id": "M72-04",
       "milestone": "M72",
       "requirement": "One JSON error envelope across the estate's APIs: `{\"error\":{\"code\",\"message\",\"request_id\"}}`",
-      "notes": "Measured today: darkhold `{error:{code,message,request_id}}`, ascend `{error:{code,message,details}}`, kindred `{error:{code,message}}`, ficnexus `{\"err\":-1,\"msg\":\u2026}`. Align ascend (add `request_id`, keep `details`), kindred (add `request_id`), and ficnexus behind a documented alias: `err/msg` stays emitted for one release while `error.code` becomes the field clients branch on (config switch `[api] legacy_error_alias`, default on until the exporters' clients move). Proof: one test per service asserting the exact body; a live probe of 8081/8024/8030 with the same `jq -e '.error.code'`; mutant = drop `request_id` from a handler and the probe reddens. PARTIAL 2026-11-08 \u2014 darkhold's half is done and proven; the row stays `planned` because the requirement is an ESTATE contract and three services still answer their own shape. Done here: an unknown path under /api/ answers the JSON envelope instead of an empty 404 (the SPA fallback's not_found), and framework-level refusals (unparseable body, missing field, wrong content type, timeout, oversized upload) are translated into the same envelope by an `envelope_refusals` layer that only touches /api/ paths and only non-JSON bodies \u2014 measured before the change: an incomplete registration answered 422 with NO body. Codes are UPPER_SNAKE, which is what both this tree and kindred already use, so the contract records the convention rather than renaming a hundred codes. REMAINING, in order: (1) kindred \u2014 `src/error.rs` already emits {error:{code,message}} and `src/api.rs` mints an x-request-id in middleware, so the id has to reach the body: buffer the refusal in the middleware and add the field, or thread the id through; (2) ascend \u2014 `backend/crates/*` error module needs request_id added and its `details` kept beside the three required fields; (3) ficnexus \u2014 `{err:-1,msg}` stays emitted behind `[api] legacy_error_alias` while `error.code` becomes the field clients branch on. Each needs its own test asserting the same three fields, and the estate probe (M72-05) should read them with one jq expression."
+      "notes": "Measured today: darkhold `{error:{code,message,request_id}}`, ascend `{error:{code,message,details}}`, kindred `{error:{code,message}}`, ficnexus `{\"err\":-1,\"msg\":\u2026}`. Align ascend (add `request_id`, keep `details`), kindred (add `request_id`), and ficnexus behind a documented alias: `err/msg` stays emitted for one release while `error.code` becomes the field clients branch on (config switch `[api] legacy_error_alias`, default on until the exporters' clients move). Proof: one test per service asserting the exact body; a live probe of 8081/8024/8030 with the same `jq -e '.error.code'`; mutant = drop `request_id` from a handler and the probe reddens. PARTIAL 2026-11-08 \u2014 darkhold's half is done and proven; the row stays `planned` because the requirement is an ESTATE contract and three services still answer their own shape. Done here: an unknown path under /api/ answers the JSON envelope instead of an empty 404 (the SPA fallback's not_found), and framework-level refusals (unparseable body, missing field, wrong content type, timeout, oversized upload) are translated into the same envelope by an `envelope_refusals` layer that only touches /api/ paths and only non-JSON bodies \u2014 measured before the change: an incomplete registration answered 422 with NO body. Codes are UPPER_SNAKE, which is what both this tree and kindred already use, so the contract records the convention rather than renaming a hundred codes. PROGRESS 2026-11-08 (second pass): ficnexus now emits {error:{code,message,request_id}} beside its legacy `err`/`msg` pair (UPPER_SNAKE codes, ids per response, x-request-id header; the PoW 429 payload passes through because it carries the next challenge); 23 lib tests pass, 3 mutants red; committed in that repo. REMAINING, in order: (1) kindred \u2014 `src/error.rs` already emits {error:{code,message}} and `src/api.rs` mints an x-request-id in middleware, so the id has to reach the body: buffer the refusal in the middleware and add the field, or thread the id through; (2) ascend \u2014 its frozen `docs/CONTRACTS.md` envelope is {error:{code,message,details}} with LOWERCASE codes, so this is a documented contract change, not just a field: uppercase the wire code (keep `details`), add request_id, update the CONTRACTS.md code table in the same commit (that file's own rule 2), and check nothing in web/src branches on the lowercase names \u2014 grepped 2026-11-08 and found none; (3) ficnexus \u2014 DONE 2026-11-08 (see above; the switch is FICNEXUS_LEGACY_ERROR_ALIAS, an env var because this product's config is env-based). Each needs its own test asserting the same three fields, and the estate probe (M72-05) should read them with one jq expression."
     },
     {
       "id": "M72-05",
@@ -377,12 +377,6 @@
       "milestone": "M72",
       "requirement": "`@polaris/ui` is adopted by darkhold, then kindred, then ascend, and each adoption is proved by deleting the local component",
       "notes": "Order is by size (darkhold 103 svelte files, ascend 40, kindred 14) and by risk (darkhold already imports the kit, so its adoption is a rewrite of imports; kindred's 14 files are small but its skin is the product; ascend's Tailwind markup is the largest mechanical change). Adoption means the local file is removed in the same commit \u2014 `git log --diff-filter=D` names it \u2014 and the page still renders, checked headlessly, not by a component unit test alone. A product mid-adoption runs two systems; that state must not be committed across more than one row."
-    },
-    {
-      "id": "M72-07",
-      "milestone": "M72",
-      "requirement": "A family navigation module: one component renders `more from this maker` from `estate/generated/nav.json`, by group and tier, replacing hand-written footers",
-      "notes": "The injected topbar already lists every site, but nothing says which products are siblings: `nav.json` carries `group` (content: darkhold, kindred, suki; social: ascend, gravity, \u2026), `tier` (sfw/nsfw) and `status`. One component in `@polaris/ui` reads that document, shows the same-group siblings, and degrades to nothing when the document is absent \u2014 the topbar's own contract. Replaces per-product footer lists. Proof: block `/estate/nav.json` and the module renders nothing; serve a filtered document and exactly the same-group siblings appear; a nsfw page must not link a sfw sibling above the tier line."
     },
     {
       "id": "M72-08",
@@ -408,8 +402,8 @@
     "M45": 11,
     "M71": 10,
     "M64": 8,
-    "M72": 7,
     "M66": 6,
+    "M72": 6,
     "M69": 3,
     "M29": 1,
     "M44": 1,

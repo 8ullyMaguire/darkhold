@@ -1,5 +1,34 @@
 # Handoff
 
+## The family batch, first four rows — 2026-11-08 (later still)
+
+**Shipped:** `M72-01` (registry: `@polaris/ui` and `@polaris/inbox-client` published to the estate's Forgejo npm registry;
+this tree depends on `^0.4.0`/`^0.1.1` and a clone with no `estate/` sibling installs and builds), `M72-02` (palettes as
+data: six of them, resolved to literal values and contrast-checked per palette — 0 failures over 6×84 tokens; light mode
+is a written ramp, not `100 - L`; darkhold's three presets now come from it, browser-measured identical), `M72-03` (the six
+primitives the census said existed nowhere — checkbox/radio, avatar, breadcrumb, tooltip, kbd, card action row — with 11
+render tests, six mutants red, adopted in WorkCard/Account/Docs/VoteBudget), `M72-07` for this product (`FamilyNav` reads
+`/estate/nav.json` and shows the `content` group's siblings in the footer).
+
+**Half done, and the ledger says so:** `M72-04` — this tree answers `{error:{code,message,request_id}}` on every `/api/`
+refusal, including the ones the framework emits before a handler runs (an incomplete registration answered `422` with no
+body at all; measured, then fixed by an `envelope_refusals` layer that only touches `/api/` and only non-JSON bodies) and
+the SPA fallback's empty `404`. kindred, ascend and ficnexus still answer their own shapes, so the row stays `planned`.
+
+**Two defects the gates found, which is the point of the gates:** darkhold's own control boundary was 1.8:1 on paper
+(WCAG 1.4.11 wants 3:1) and its dark preset had no dim ink at all; and `tokens.test.ts` had been red before this work on
+`--radius-2`, a token one route read and nobody declared.
+
+**What is next in the batch:** `M72-04`'s three siblings (kindred first — it already mints an `x-request-id` and already
+uses UPPER_SNAKE codes, so the id just has to reach the body), then `M72-05` (meta/health: ascend answers at `/api/meta`
+and 404s at `/api/v1/meta`, kindred has no meta document, ficnexus mounts `/api`), `M72-06` (ascend and kindred adopt the
+kit, proved by deleting local copies), `M72-08` (auth matrix), `M72-10` (noun/URL vocabulary), `M72-09` (the design-review
+gate, last because it reviews the rest).
+
+**Deploy state:** the release binary on thinkcentre was rebuilt for M72-02..04; `M72-07`'s footer needs one more frontend
+build + rebuild, which is the first thing to do next session (recipe below is unchanged; the frontend now installs from
+the registry, so `pnpm install` in `frontend/` must run before `vite build`).
+
 ## A family, not four sites — and the first thing that makes it adoptable — 2026-11-08 (later)
 
 **What changed and why.** The standing goal was "finish the roadmap". Before continuing it, the four products were read side by
