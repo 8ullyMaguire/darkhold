@@ -375,6 +375,20 @@ impl Worker {
             }
         }
 
+        // A `pending` link challenge whose `expires_at` has passed still reads `pending`, and a state column that can say
+        // something untrue is the defect migration 0080 was opened for — the row stays in the state its own expiry matches on.
+        // The transition belongs to the sweep for the same reason the closures do: nobody presses a button to expire a code.
+        match darkhold_db::external::expire_stale_challenges(state.db()).await {
+            Ok(0) => {}
+            Ok(expired) => tracing::info!(
+                expired,
+                "link challenges past their expiry were marked expired"
+            ),
+            Err(error) => {
+                tracing::warn!(%error, "stale link challenges could not be expired this pass");
+            }
+        }
+
         let now_rfc3339 = now
             .format(&time::format_description::well_known::Rfc3339)
             .context("formatting the sweep's clock")?;

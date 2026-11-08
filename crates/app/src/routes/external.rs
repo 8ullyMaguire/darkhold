@@ -13,7 +13,7 @@ use darkhold_db::collaboration;
 use darkhold_db::content;
 use darkhold_domain::WorkId;
 
-use crate::auth::{MaybeSession, MaybeToken, RequireActor};
+use crate::auth::{MaybeSession, MaybeToken, RequireActor, RequireSession};
 use crate::http::{ApiError, ApiResult};
 use crate::routes::works::{actor_for, reading_decision_publishing_metadata, Reading};
 use crate::state::AppState;
@@ -409,6 +409,271 @@ pub async fn register_bot(
 }
 
 // ---------------------------------------------------------------------------
+// Bot link flow (§23.2, M54-02)
+// ---------------------------------------------------------------------------
+
+/// How long a challenge lives. Short on purpose: the code is typed by a person into a bot's chat, and a code that survives a
+/// day is a code that gets screenshotted.
+const LINK_CHALLENGE_TTL_SECONDS: i64 = 600;
+
+#[derive(Debug, Deserialize)]
+pub struct LinkChallengeBody {
+    /// What the bot is asking for. Stored as the *request*, never as the grant — the reader decides, and the confirmation
+    /// re-checks against this list so a challenge cannot be widened afterwards.
+    #[serde(default)]
+    pub scopes: Vec<String>,
+}
+
+/// Mint a challenge code for a bot this account owns.
+async fn create_link_challenge(
+    State(state): State<AppState>,
+    session: RequireSession,
+    Path(bot_id): Path<String>,
+    Json(body): Json<LinkChallengeBody>,
+) -> ApiResult<Json<Value>> {
+    // The scopes are validated here rather than at confirmation: a bot asking for a scope this build does not know would
+    // otherwise produce a confirmation page promising something that cannot be granted.
+    if let Err(unknown) = darkhold_domain::api_scopes::parse_all(&body.scopes) {
+        return Err(ApiError(darkhold_domain::AppError::field(
+            "scopes",
+            format!("unrecognised scope(s): {unknown}"),
+        )));
+    }
+    let account = session.0.account_id.to_string();
+    let owned = darkhold_db::external::bot_owned_by(state.db(), &bot_id, &account)
+        .await
+        .map_err(|e| ApiError(darkhold_domain::AppError::Internal(e.into())))?;
+    if !owned {
+        return Err(ApiError(darkhold_domain::AppError::NotFound {
+            resource: "bot",
+        }));
+    }
+    let code = darkhold_db::external::create_link_challenge(
+        state.db(),
+        &bot_id,
+        &body.scopes,
+        LINK_CHALLENGE_TTL_SECONDS,
+    )
+    .await
+    .map_err(|e| ApiError(darkhold_domain::AppError::Internal(e.into())))?;
+    Ok(Json(json!({
+        "code": code,
+        "expires_in_seconds": LINK_CHALLENGE_TTL_SECONDS,
+        "requested_scopes": body.scopes,
+    })))
+}
+
+/// What a code is for, in the words the reader needs before granting anything.
+///
+/// Public and deliberately narrow: the bot's name and what it asked for. No pseud, no token, no account — a code is a short
+/// random string and whoever holds it should learn only what they are being asked to approve.
+async fn read_link_challenge(
+    State(state): State<AppState>,
+    // The same answer for everybody: whoever holds the code needs the disclosure, and nothing here varies by who they are.
+    MaybeSession(_viewer): MaybeSession,
+    Path(code): Path<String>,
+) -> ApiResult<Json<Value>> {
+    let challenge = darkhold_db::external::find_link_challenge(state.db(), &code)
+        .await
+        .map_err(|e| ApiError(darkhold_domain::AppError::Internal(e.into())))?
+        .ok_or_else(|| {
+            ApiError(darkhold_domain::AppError::NotFound {
+                resource: "link challenge",
+            })
+        })?;
+    Ok(Json(json!({
+        "code": challenge.code,
+        "bot_id": challenge.bot_id,
+        "state": challenge.state,
+        "requested_scopes": challenge.requested_scopes,
+        "expires_at": challenge.expires_at,
+    })))
+}
+
+#[derive(Debug, Deserialize)]
+pub struct ConfirmLinkBody {
+    /// What the reader is actually granting. Must be a subset of what the bot asked for — a confirmation that could add a
+    /// scope would make the disclosure page decorative.
+    #[serde(default)]
+    pub scopes: Option<Vec<String>>,
+}
+
+/// Grant a challenge: issue a token for this pseud and mark the challenge used.
+///
+/// The token is returned **once**, in this response, and stored as a hash. A link flow that could re-read the secret would be
+/// a link flow whose secret is in a table.
+async fn confirm_link_challenge(
+    State(state): State<AppState>,
+    session: RequireSession,
+    Path(code): Path<String>,
+    Json(body): Json<ConfirmLinkBody>,
+) -> ApiResult<Json<Value>> {
+    let Some(pseud) = session.0.pseud_id else {
+        return Err(ApiError(darkhold_domain::AppError::field(
+            "pseud",
+            "choose a pseud before linking a bot",
+        )));
+    };
+    let challenge = darkhold_db::external::find_link_challenge(state.db(), &code)
+        .await
+        .map_err(|e| ApiError(darkhold_domain::AppError::Internal(e.into())))?
+        .ok_or_else(|| {
+            ApiError(darkhold_domain::AppError::NotFound {
+                resource: "link challenge",
+            })
+        })?;
+    if challenge.state != "pending" {
+        // Three states, three answers: a used code and an expired code are different messages a bot shows its user, and
+        // "not found" would flatten both into one nobody can act on.
+        return Err(ApiError(darkhold_domain::AppError::field(
+            "code",
+            format!("this challenge is {}", challenge.state),
+        )));
+    }
+
+    let wanted = body
+        .scopes
+        .clone()
+        .unwrap_or_else(|| challenge.requested_scopes.clone());
+    for scope in &wanted {
+        if !challenge.requested_scopes.contains(scope) {
+            return Err(ApiError(darkhold_domain::AppError::field(
+                "scopes",
+                format!("{scope} was not requested by this challenge"),
+            )));
+        }
+    }
+    let scopes = darkhold_domain::api_scopes::parse_all(&wanted)
+        .map_err(|unknown| ApiError(darkhold_domain::AppError::field("scopes", &unknown)))?;
+    // A link that granted nothing would be a bot holding a token it cannot use, which is a worse answer than a refusal.
+    if scopes.is_empty() {
+        return Err(ApiError(darkhold_domain::AppError::field(
+            "scopes",
+            "a linked bot needs at least one scope",
+        )));
+    }
+
+    // The bot has to exist and be running: linking to a suspended registration would hand a token to a bot the operator has
+    // already stopped.
+    let bot = darkhold_db::external::bot_by_id(state.db(), &challenge.bot_id)
+        .await
+        .map_err(|e| ApiError(darkhold_domain::AppError::Internal(e.into())))?
+        .ok_or_else(|| ApiError(darkhold_domain::AppError::NotFound { resource: "bot" }))?;
+    if bot != "active" {
+        return Err(ApiError(darkhold_domain::AppError::field(
+            "bot",
+            format!("this bot is {}", bot),
+        )));
+    }
+
+    // A bot token acts as a pseud and expires: a bot is a program, and a program's credential is not the same claim as a
+    // person's. Thirty days is long enough for a bot to run without a re-link and short enough that a forgotten one stops.
+    let secret = Uuid::new_v4().to_string();
+    let token_hash = format!(
+        "{:x}",
+        Sha256::new().chain_update(secret.as_bytes()).finalize()
+    );
+    // `issue_token_acting` rather than `issue_token_expiring`: this token needs both an acting pseud and an expiry, and the
+    // expiry wrapper deliberately has no pseud parameter (a personal token has no actor to name).
+    let expires_at = (time::OffsetDateTime::now_utc() + time::Duration::days(30))
+        .format(&time::format_description::well_known::Rfc3339)
+        .map_err(|e| {
+            ApiError(darkhold_domain::AppError::Internal(anyhow::anyhow!(
+                e.to_string()
+            )))
+        })?;
+    let token_id = darkhold_db::external::issue_token_acting(
+        state.db(),
+        &session.0.account_id.to_string(),
+        "bot",
+        &challenge.bot_id,
+        &token_hash,
+        &scopes,
+        Some(&expires_at),
+        Some(&pseud.to_canonical_string()),
+    )
+    .await
+    .map_err(|e| ApiError(darkhold_domain::AppError::Internal(e.into())))?;
+
+    let confirmed = darkhold_db::external::confirm_link_challenge(
+        state.db(),
+        &code,
+        &pseud.to_canonical_string(),
+        &token_id,
+    )
+    .await
+    .map_err(|e| ApiError(darkhold_domain::AppError::Internal(e.into())))?;
+    if !confirmed {
+        // The UPDATE carries the expiry and the pending predicate, so a lost race means the code expired between the read and
+        // the write. The token is already issued; say so plainly rather than leaving a live credential nobody knows about.
+        return Err(ApiError(darkhold_domain::AppError::field(
+            "code",
+            "this challenge expired before it could be confirmed; the token was issued and must be revoked",
+        )));
+    }
+
+    // Rotate the registration's credential and revoke the one it replaces. Without this the registration names the token it
+    // was registered with, `bot_for_token` cannot see the linked one, and suspending the bot would leave the token the reader
+    // just granted still working.
+    let previous =
+        darkhold_db::external::rebind_bot_token(state.db(), &challenge.bot_id, &token_id)
+            .await
+            .map_err(|e| ApiError(darkhold_domain::AppError::Internal(e.into())))?;
+    if let Some(previous) = previous.filter(|previous| previous != &token_id) {
+        if let Err(error) = darkhold_db::external::revoke_token_for_account(
+            state.db(),
+            &previous,
+            &session.0.account_id.to_string(),
+        )
+        .await
+        {
+            // Logged rather than fatal: the link is confirmed and the new credential works. An old credential left alive is
+            // worth a warning, not a 500 that makes the reader think nothing happened.
+            tracing::warn!(%error, %token_id, "the bot's previous token could not be revoked");
+        }
+    }
+
+    Ok(Json(json!({
+        "linked": true,
+        "bot_id": challenge.bot_id,
+        "pseud_id": pseud.to_canonical_string(),
+        "scopes": wanted,
+        "token": secret,
+        "token_id": token_id,
+    })))
+}
+
+#[derive(Debug, Deserialize)]
+pub struct BotStateBody {
+    pub state: String,
+}
+
+/// Suspend or reactivate a bot registration.
+async fn set_bot_state(
+    State(state): State<AppState>,
+    session: RequireSession,
+    Path(bot_id): Path<String>,
+    Json(body): Json<BotStateBody>,
+) -> ApiResult<Json<Value>> {
+    crate::routes::discovery::require_operator(&state, &session.0)?;
+    if !["active", "suspended"].contains(&body.state.as_str()) {
+        return Err(ApiError(darkhold_domain::AppError::field(
+            "state",
+            "active · suspended",
+        )));
+    }
+    let changed = darkhold_db::external::set_bot_state(state.db(), &bot_id, &body.state)
+        .await
+        .map_err(|e| ApiError(darkhold_domain::AppError::Internal(e.into())))?;
+    if !changed {
+        return Err(ApiError(darkhold_domain::AppError::NotFound {
+            resource: "bot",
+        }));
+    }
+    Ok(Json(json!({ "bot_id": bot_id, "state": body.state })))
+}
+
+// ---------------------------------------------------------------------------
 // Feeds
 // ---------------------------------------------------------------------------
 
@@ -595,6 +860,16 @@ pub fn router() -> axum::Router<AppState> {
         .route("/me/tokens/{id}", post(revoke_token))
         // Bots
         .route("/me/bots", post(register_bot))
+        // §23.2's link flow: the bot asks, the reader is shown what it asked for, and the answer is a token the reader can
+        // revoke. Three doors and no shortcut — the challenge is what makes "what am I granting" a page rather than a promise.
+        .route("/me/bots/{id}/link-challenge", post(create_link_challenge))
+        .route(
+            "/bots/link/{code}",
+            get(read_link_challenge).post(confirm_link_challenge),
+        )
+        // D5's second half: the state column had a writer in the store and no way to reach it, so a suspended bot stayed
+        // active for ever.
+        .route("/admin/bots/{id}/state", post(set_bot_state))
         // Feeds
         .route("/feeds/{handle}", get(get_rss_feed))
         .route("/feeds/{handle}/atom", get(get_atom_feed))

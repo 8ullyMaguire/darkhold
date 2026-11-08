@@ -486,11 +486,13 @@ pub async fn create_link_challenge(
     let expires_at = crate::identity::in_seconds(ttl_seconds);
     let scopes_json = serde_json::to_string(requested_scopes).unwrap_or_else(|_| "[]".to_owned());
 
+    // The PostgreSQL arm needs its own placeholders. It had `?` for all of this function's life, which is a 500 on every
+    // insert on the deployed engine and invisible on SQLite — the class of defect that only a two-engine test finds.
     let sql = db.sql(
         "INSERT INTO link_challenges (code, state, bot_id, requested_scopes, created_at, expires_at)
-         VALUES (?, 'pending', ?, ?, ?, ?)",
+         VALUES (?1, 'pending', ?2, ?3, ?4, ?5)",
         "INSERT INTO link_challenges (code, state, bot_id, requested_scopes, created_at, expires_at)
-         VALUES (?, 'pending', ?, ?, ?, ?)",
+         VALUES ($1, 'pending', $2, $3, $4, $5)",
     );
     match db.backend() {
         Backend::Sqlite => {
@@ -680,7 +682,7 @@ pub async fn bot_for_token(
 ) -> Result<Option<(String, String)>, sqlx::Error> {
     let sql = db.sql(
         "SELECT id, state FROM bot_registrations WHERE token_id = ?",
-        "SELECT id::text, state FROM bot_registrations WHERE token_id = ?::uuid",
+        "SELECT id, state FROM bot_registrations WHERE token_id = $1::text",
     );
     let row = match db.backend() {
         Backend::Sqlite => {
@@ -699,6 +701,114 @@ pub async fn bot_for_token(
     Ok(row)
 }
 
+/// Whether this account registered this bot.
+///
+/// A bot id is a UUID and looks like any other; the challenge door needs to know that the id belongs to the caller before it
+/// mints a code for it, and a `404` for somebody else's bot is the answer that discloses least (ADR 0030).
+pub async fn bot_owned_by(db: &Database, bot_id: &str, account: &str) -> Result<bool, sqlx::Error> {
+    let sql = db.sql(
+        // `owner`, not `account_id`: migration 0020 named the column before the account model had settled, and it holds the
+        // registering account.
+        "SELECT EXISTS (SELECT 1 FROM bot_registrations WHERE id = ?1 AND owner = ?2)",
+        // `owner` is TEXT (0020 predates the uuid columns), so the bind is cast to text rather than the column to uuid:
+        // `owner = $2::uuid` is a type error on the deployed engine and works on SQLite, which is exactly the trap a
+        // two-engine test exists to catch.
+        // `bot_registrations` has TEXT ids (0020), so neither column is cast: `id = $1::uuid` is
+        // `operator does not exist: text = uuid` on the deployed engine, and a 500 that SQLite never shows.
+        "SELECT EXISTS (SELECT 1 FROM bot_registrations WHERE id = $1::text AND owner = $2::text)",
+    );
+    match db.backend() {
+        Backend::Sqlite => {
+            sqlx::query_scalar(&sql)
+                .bind(bot_id)
+                .bind(account)
+                .fetch_one(db.sqlite_pool().expect("sqlite handle"))
+                .await
+        }
+        Backend::Postgres => {
+            sqlx::query_scalar(&sql)
+                .bind(bot_id)
+                .bind(account)
+                .fetch_one(db.postgres_pool().expect("postgres handle"))
+                .await
+        }
+    }
+}
+
+/// Point a bot registration at its current credential, returning the token it pointed at before.
+///
+/// **Linking rotates the credential.** A linked bot's token is the one the reader just granted, and the registration has to
+/// point at it or nothing can check whether the bot is suspended — `bot_for_token` looks the registration up *by token*, so a
+/// token the registration does not name is a token whose bot is invisible. The previous token comes back so the caller can
+/// revoke it: two live credentials for one bot is one more than the suspension check can reason about.
+pub async fn rebind_bot_token(
+    db: &Database,
+    bot_id: &str,
+    token_id: &str,
+) -> Result<Option<String>, sqlx::Error> {
+    let select = db.sql(
+        "SELECT token_id FROM bot_registrations WHERE id = ?1",
+        "SELECT token_id FROM bot_registrations WHERE id = $1::text",
+    );
+    let previous: Option<String> = match db.backend() {
+        Backend::Sqlite => {
+            sqlx::query_scalar(&select)
+                .bind(bot_id)
+                .fetch_optional(db.sqlite_pool().expect("sqlite handle"))
+                .await?
+        }
+        Backend::Postgres => {
+            sqlx::query_scalar(&select)
+                .bind(bot_id)
+                .fetch_optional(db.postgres_pool().expect("postgres handle"))
+                .await?
+        }
+    };
+    let update = db.sql(
+        "UPDATE bot_registrations SET token_id = ?1 WHERE id = ?2",
+        "UPDATE bot_registrations SET token_id = $1::text WHERE id = $2::text",
+    );
+    match db.backend() {
+        Backend::Sqlite => {
+            sqlx::query(&update)
+                .bind(token_id)
+                .bind(bot_id)
+                .execute(db.sqlite_pool().expect("sqlite handle"))
+                .await?;
+        }
+        Backend::Postgres => {
+            sqlx::query(&update)
+                .bind(token_id)
+                .bind(bot_id)
+                .execute(db.postgres_pool().expect("postgres handle"))
+                .await?;
+        }
+    }
+    Ok(previous)
+}
+
+/// A bot registration's state, by id.
+pub async fn bot_by_id(db: &Database, bot_id: &str) -> Result<Option<String>, sqlx::Error> {
+    let sql = db.sql(
+        "SELECT state FROM bot_registrations WHERE id = ?1",
+        "SELECT state FROM bot_registrations WHERE id = $1::text",
+    );
+    match db.backend() {
+        Backend::Sqlite => {
+            sqlx::query_scalar(&sql)
+                .bind(bot_id)
+                .fetch_optional(db.sqlite_pool().expect("sqlite handle"))
+                .await
+        }
+        Backend::Postgres => {
+            sqlx::query_scalar(&sql)
+                .bind(bot_id)
+                .fetch_optional(db.postgres_pool().expect("postgres handle"))
+                .await
+        }
+    }
+}
+
 /// Suspend or reactivate a bot registration.
 ///
 /// The only writer of `state` after insert, which is what makes `bot_for_token`'s
@@ -706,7 +816,7 @@ pub async fn bot_for_token(
 pub async fn set_bot_state(db: &Database, bot_id: &str, state: &str) -> Result<bool, sqlx::Error> {
     let sql = db.sql(
         "UPDATE bot_registrations SET state = ? WHERE id = ?",
-        "UPDATE bot_registrations SET state = ? WHERE id = ?::uuid",
+        "UPDATE bot_registrations SET state = $1 WHERE id = $2::text",
     );
     match db.backend() {
         Backend::Sqlite => {

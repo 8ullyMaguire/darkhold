@@ -687,6 +687,20 @@ impl axum::extract::FromRequestParts<AppState> for MaybeToken {
                 return Ok(Self(None));
             }
         };
+        // A bot's token stops working when the bot is suspended. `bot_for_token` returns `None` for a token that is not a
+        // bot's, which is the ordinary case and not a refusal — only a row whose state is not `active` refuses.
+        match darkhold_db::external::bot_for_token(state.db(), &identity.token_id).await {
+            Ok(Some((bot_id, bot_state))) if bot_state != "active" => {
+                tracing::warn!(%bot_id, %bot_state, "a suspended bot presented its token; refusing");
+                return Ok(Self(None));
+            }
+            Ok(_) => {}
+            Err(err) => {
+                // A lookup that failed is not a suspension: refusing every bot call because the database hiccuped would turn
+                // a bookkeeping fault into an outage. The token's own checks already passed.
+                tracing::error!(error = %err, "resolving a token's bot registration failed");
+            }
+        }
         let account_id = match AccountId::from_str(&identity.account_id) {
             Ok(account_id) => account_id,
             Err(_) => return Ok(Self(None)),
