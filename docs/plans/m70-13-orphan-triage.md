@@ -52,3 +52,20 @@ from an app test is not wired (that is what the scan already excludes). That is 
 
 B before A. Class B is missing product; class A is a visibility correction, and doing it first would make the list greener
 without adding anything a reader can use.
+
+## Measured on 2026-11-08: the detector is a substring search, and it is passing things it should not
+
+`orphan_queries::reachable_sources` builds one string of every non-db, non-test source and checks
+`mentions(&reachable, name)` — a plain `contains`, not a word-boundary match. So a function passes the test when its name is a
+substring of unrelated prose or another identifier:
+
+| function | why it passes today | why that is wrong |
+|---|---|---|
+| `confirm` | `confirm_plan`, `confirm` in HTML copy | **no route calls it.** The tag-confirmation writer is unreachable and the test says it is fine. |
+| `retract` | `retract` in prose | same |
+| `assertions_for_work` | `tag_inference.rs` line 10, a doc comment | a comment is not a caller |
+
+So the tag-assertion feature has **no door at all** — not even `assert_tag`'s, which the list at least names. The fix is two
+changes and they belong together: give the tag-assertion writers a router (`POST /works/{id}/tags/{node}/assert`,
+`POST …/confirm`, `DELETE …`), and make the scan match whole identifiers (`assert_tag(` rather than `assert_tag`), because a
+detector that passes on a doc comment will keep passing on nothing.
