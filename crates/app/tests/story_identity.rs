@@ -452,19 +452,16 @@ async fn the_two_merge_tables_exist_and_nothing_writes_to_them() {
     .await
     .unwrap();
 
-    assert!(
-        ident::merge_table_is_empty(tdb.db()).await.unwrap(),
-        "§3 promises identity_merge_proposals and identity_merge_history, and A0 creates both \
-         empty. Building the grouping is not building the merge machinery: a merge is reversible \
-         and needs an operator decision, which is Phase E. A row here would mean a merge happened \
-         that nothing decided."
-    );
-
-    // Count the rows directly as well as trusting the helper's boolean. A
-    // helper that always answered `true` would make the assertion above
-    // unfalsifiable, and this is the one test standing between "the merge
-    // tables exist" and "the merge tables are used", which are very different
-    // claims about a reversible operation.
+    // §3 promises `identity_merge_proposals` and `identity_merge_history`, and A0 creates both empty. Building the
+    // grouping is not building the merge machinery: a merge is reversible and needs an operator decision, which is Phase
+    // E. A row here would mean a merge happened that nothing decided.
+    //
+    // The rows are counted directly, in this test. There used to be a store helper (`merge_table_is_empty`) returning the
+    // same boolean; it was deleted rather than wired, partly because its only caller was this assertion and partly
+    // because its own doc said so — "Phase E will have to delete this function or invert it, which is the point". A
+    // helper answering `true` unconditionally would make the claim unfalsifiable, and a test that cannot fail is not the
+    // thing standing between "the merge tables exist" and "the merge tables are used", which are very different claims
+    // about a reversible operation.
     for table in ["identity_merge_proposals", "identity_merge_history"] {
         let sql = format!("SELECT COUNT(*) FROM {table}");
         let (n,): (i64,) = match tdb.db().backend() {
