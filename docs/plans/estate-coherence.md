@@ -111,6 +111,26 @@ three required fields on at least three different failure classes, and why each 
 id, constant id, dropped legacy pair, codes not uppercased, `details` dropped). The remaining Layer 4 items are the
 meta/health shape (M72-05) and the noun vocabulary (M72-10).
 
+*(Layer 4, M72-05 — the contract is written and the code is in all four; two of the four are deployed.)*
+`GET /api/v1/meta` returns `{name, version, build, api_version, environment, base_url}` and `GET /healthz`
+returns `{status, version}`. Product extras live beside those fields, never instead of them — darkhold keeps
+its `policy` and `decisions` blocks, kindred keeps its budgets, `self_test` and `warm` flag, and ascend keeps
+`/api/meta` untouched for the deck catalogue's own numbers, because "what is this service" and "what is in
+this service" are different questions that were previously sharing one address.
+
+Three findings worth keeping:
+
+* **darkhold's `/healthz` was the SPA page.** `200 text/html`, from the fallback, to any monitor that asked
+  whether the process is alive. It is now an alias for `health/live` — two names, one handler, because a
+  second implementation is how two answers start disagreeing.
+* **ficnexus had no `/healthz` at all**, so the same fallback answered, and its readiness probe (`/api/health`,
+  which pings Postgres *and* Redis) is the wrong thing to point a supervisor at: a liveness check that fails
+  when the database does gets a healthy process restarted. Liveness now touches neither.
+* **The probe is the test.** `estate/scripts/meta-probe.mjs` asks every product the same two questions and
+  exits non-zero naming the field that is wrong ("`api_version` renamed?" is a different repair from "the
+  service is down"). It was run against the live estate before any of this landed and failed on all four —
+  four products, five different answers. Running it after a deploy is the whole verification.
+
 ## 4 — Decisions
 
 **A family shares grammar, not skin.** Rejected: one palette for all four. It would delete kindred's reason to
