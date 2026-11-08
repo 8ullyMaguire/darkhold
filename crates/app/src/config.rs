@@ -763,6 +763,8 @@ pub struct DiscoveryConfig {
     pub evacuation: bool,
     /// Whether `/discovery/morning` serves a queue and a daily surprise (M69-22). Default: off.
     pub morning_queue: bool,
+    /// Whether saved filters have a public life — a keybind, follow, and blends (M69-21). Default: off.
+    pub saved_filters: bool,
     /// The slug of the saved filter the morning queue is drawn from (M69-22). `None` means the queue is on but unconfigured,
     /// which answers `404` rather than inventing a filter: a queue with no filter behind it cannot be shown to a reader.
     pub morning_queue_view: Option<String>,
@@ -806,6 +808,7 @@ impl Default for DiscoveryConfig {
             media_rescue: false,
             evacuation: false,
             morning_queue: false,
+            saved_filters: false,
             morning_queue_view: None,
             morning_queue_size: None,
             daily_surprise: None,
@@ -3395,6 +3398,9 @@ impl Config {
                 if let Some(queue) = d.morning_queue {
                     cfg.morning_queue = queue;
                 }
+                if let Some(saved) = d.saved_filters {
+                    cfg.saved_filters = saved;
+                }
                 if let Some(view) = d
                     .morning_queue_view
                     .as_ref()
@@ -5029,6 +5035,9 @@ struct DiscoverySection {
     /// Whether the daily surprise is drawn alongside the queue (M69-22). Absent means on, when the queue is on.
     #[serde(default)]
     daily_surprise: Option<bool>,
+    /// Whether saved filters have a public life (M69-21). Absent means off.
+    #[serde(default)]
+    saved_filters: Option<bool>,
 }
 
 /// The `[theme]` table (spec §0.4.6): theme mode and gravity settings.

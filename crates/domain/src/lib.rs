@@ -132,4 +132,5 @@ pub mod glicko;
 pub mod media_rescue;
 pub mod mirroring;
 pub mod morning;
+pub mod saved_filter;
 pub mod work_identity;

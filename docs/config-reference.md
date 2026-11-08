@@ -362,12 +362,44 @@ Ranking weights (spec §16.16).
 
 ## `[discovery]`
 
-Discovery settings.
+Discovery settings: the feed's diversity, the recommender, the arena, and the switches that open one row's doors at a time.
 
 | Key | Type | Default | Purpose |
 |-----|------|---------|---------|
 | `taste_sources` | `[table]` | `[{ kind = "admin" }]` | Taste sources and members |
 | `taste_source_min_members` | `int` | `5` | Cohort-size floor |
+| `per_fandom_cap` | `int` | `0` | Most works from one fandom per feed response; `0` = unlimited |
+| `exploration_rate` | `float` | `0.0` | Fraction of a feed kept for fandoms the reader has not seen |
+| `enable_half_life` | `bool` | `true` | Whether the half-life job runs and scores influence ranking |
+| `half_life_min_age_days` | `int` | `14` | Age before a work is eligible for half-life scoring |
+| `half_life_window_days` | `int` | `30` | Window for both reader counts |
+| `rec_mode` | `string` | `"legacy"` | `legacy`, `pluggable` or `shadow` (§16.1a) |
+| `rec_rrf_k` | `float` | `60.0` | RRF constant for the strategy blend |
+| `rec_per_strategy_cap` | `int` | `100` | Most results one strategy may contribute |
+| `rec_enabled_strategies` | `[string]` | `[]` | Strategies in play; empty = all |
+| `experiment_buckets` | `int` | `0` | Arms per surface; `0` = no experiment (M64-02) |
+| `arena_epsilon` | `float` | `0.15` | Share of arena rounds that explore instead of pairing proximate works (M69-11) |
+| `live_badges` | `bool` | `false` | Whether badge state is decided and shown (M69-14) |
+| `peering_suggestions` | `bool` | `false` | Whether the operator's peering suggestions door is open (M69-02) |
+| `enforced_rules` | `[string]` | `[]` | Rules this instance enforces unconditionally, as declared here (M69-02) |
+| `taste_passports` | `bool` | `false` | Whether readers export and present signed passports (M69-03) |
+| `passport_key` | `string` | absent | Hex ed25519 signing key; export refuses without one (M69-03) |
+| `work_tombstones` | `bool` | `false` | Whether tombstones are enforced and their doors open (M69-04) |
+| `work_mirroring` | `bool` | `false` | Whether works may be mirrored and attribution shown (M69-05) |
+| `mirror_floor` | `float` | absent | Taste similarity a peer needs to hold a mirror (M69-05) |
+| `media_rescue` | `bool` | `false` | Whether the rescue ring is open (M69-06) |
+| `evacuation` | `bool` | `false` | Whether an evacuation may be announced and planned (M69-07) |
+| `morning_queue` | `bool` | `false` | Whether `/discovery/morning` serves a queue (M69-22) |
+| `morning_queue_view` | `string` | absent | Slug of the saved filter the queue is drawn from; absent = `404`, never an invented filter |
+| `morning_queue_size` | `int` | `5` | Works in the queue, clamped to 1–10 |
+| `daily_surprise` | `bool` | on when the queue is on | Whether one work is drawn by (day, reader) |
+| `saved_filters` | `bool` | `false` | Whether saved filters have a keybind, follows and blends (M69-21) |
+| `surfaces` | `[table]` | `{}` | Per-surface algorithm choice (M64-01) |
+
+**Everything from `live_badges` down is off by default, and that is the rule, not an accident.** A switch that makes a
+claim about a reader — a badge, a passport, a peering suggestion, a queue drawn from somebody's filter — is off until the
+operator turns it on, because a default-on claim is one nobody chose. When a switch is off its doors answer `404`, not `403`
+(ADR 0030), so a reader cannot tell a switched-off surface from one that never existed.
 
 ## `[directory]`
 

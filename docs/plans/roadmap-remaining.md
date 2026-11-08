@@ -696,3 +696,37 @@ filter's contents to every reader, and a **library**-scoped view is refused too:
 
 Missing piece named: M69-23 (a saved filter as an import's intake policy) and M69-21's public life (subscriptions, keybinds,
 blends) are separate rows; this one is the reading surface.
+
+### M69-21 — a saved filter's public life: the keybind, the follow, the blend (implemented 2026-11-08)
+
+The filter already existed (0009) and already had a slug (0173). What was missing was every way a reader *uses* one without
+rebuilding it, and all three additions are relations to that object rather than a second storage shape for a filter:
+
+    PATCH  /api/v1/saved-views/{id}/keybind   {keybind: 1..9 | null}
+    GET    /api/v1/me/keybinds
+    POST   /api/v1/saved-views/{id}/follow     DELETE the same path
+    GET    /api/v1/me/followed-filters
+    GET    /api/v1/saved-view-blends           POST the same path
+    GET    /api/v1/saved-view-blends/{id}/items   (the blend, answered)
+
+**Digits 1–9 and nothing else.** `0` is the key beside `backspace`: a binding there would be pressed by accident more often than
+on purpose, and ten is not a number key. The CHECK lives in the migration as well as the route, because the route is not the
+only writer a script has.
+
+**A collision is refused, not resolved.** Two filters on one digit means the reader presses one key and lands on a surface they
+did not expect, and the second filter is unreachable in a way they cannot see. The refusal names the digit so the choice is
+theirs.
+
+**Following is one row per (reader, view)**, and it is deliberately *not* `search_alerts`: an alert belongs to the pseud that
+owns the view, and a subscription belongs to the reader who asked. A private filter cannot be followed — otherwise the owner's
+next edit publishes into a stranger's feed — and that refusal is in the store as well as the door.
+
+**A blend is two filters answering one question.** `interleave` alternates by position, keeping each side's own order;
+`union` appends with the left-hand position winning a duplicate. Nothing is re-ranked: a blend that reordered a side would be a
+third ranking, and the reader who built each filter would not recognise their own results. A third mode (weighted) was
+considered and rejected — a weight is a ranking question dressed as a filter, and one filter with both conditions already
+expresses it. Both sides must be the caller's own filters: naming somebody else's private view would be a read of it through a
+new door.
+
+Off by default (`[discovery] saved_filters`), so every door answers 404 on an instance that has not chosen it — and the switch
+is on the `library` module, because a saved filter *is* a library object.

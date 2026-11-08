@@ -652,5 +652,6 @@ mod tests {
 
 pub mod evacuation;
 pub mod roadmap_glicko;
+pub mod saved_filter_life;
 pub mod tombstones;
 pub mod work_mirrors;

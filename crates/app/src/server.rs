@@ -622,6 +622,14 @@ pub fn build_router(state: AppState) -> Router {
             routes::morning::router(),
             RouteClass::Default,
         ))
+        // M69-21: the saved filter's public life. Mounted on the `library` module, because a saved filter IS a library
+        // object — an instance that switched the library off must not keep a door that returns a reader's shelves.
+        .merge(module_mount(
+            &state,
+            "library",
+            routes::saved_filters::router(),
+            RouteClass::Write,
+        ))
         .merge(module_mount(
             &state,
             "roadmap",
