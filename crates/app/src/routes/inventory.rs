@@ -2036,6 +2036,20 @@ pub const ROUTE_TABLE: &[RouteEntry] = &[
     // Exports — session-scoped (authed_router)
     // ------------------------------------------------------------------
     RouteEntry {
+        file: "library.rs",
+        handler: "item_latest_update",
+        method: "GET",
+        path: "/library/items/{id}/updates",
+        audience: Audience::Authenticated,
+    },
+    RouteEntry {
+        file: "library.rs",
+        handler: "public_bookmarks",
+        method: "GET",
+        path: "/works/{id}/bookmarks/public",
+        audience: Audience::Anonymous,
+    },
+    RouteEntry {
         file: "exports.rs",
         handler: "download_by_token",
         method: "GET",

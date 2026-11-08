@@ -133,6 +133,10 @@ pub fn router() -> Router<AppState> {
         .route("/bookmarks/count", get(bookmark_count))
         .route("/library/items/{id}/shelves", get(item_shelves))
         .route("/library/updates", get(update_checks_since))
+        .route("/library/items/{id}/updates", get(item_latest_update))
+        // The one read in this module that is not scoped to the caller: `public_bookmarks_for` filters on
+        // `is_public`, and that predicate is the whole security story. Anonymous audience, so no session extractor.
+        .route("/works/{id}/bookmarks/public", get(public_bookmarks))
 }
 
 // ---------------------------------------------------------------------------
@@ -1739,4 +1743,63 @@ async fn update_checks_since(
 struct UpdateChecksQuery {
     #[serde(default)]
     since: String,
+}
+
+/// The latest change check for one item.
+///
+/// `update_checks_since` answers "everything that moved since T" for a poll loop; this answers "what did the last check
+/// of *this* item find", which is the question an item's own page asks. Both read the same table, and the answer for an
+/// item nobody has checked is `null` rather than an empty object: "we have never looked" and "we looked and found
+/// nothing" are different facts, and only one of them is worth telling a reader.
+async fn item_latest_update(
+    State(state): State<AppState>,
+    RequireSession(user): RequireSession,
+    Path(id): Path<String>,
+) -> ApiResult<Json<Value>> {
+    let account = user.account_id.to_string();
+    let check = library::latest_update_check(state.db(), &account, &id).await?;
+    let body = match check {
+        Some(check) => json!({
+            "id": check.id,
+            "library_item_id": check.library_item_id,
+            "checked_at": check.checked_at,
+            "found_changes": check.found_changes,
+            // Parsed when JSON, passed through as text when not — see `update_checks_since`.
+            "report": serde_json::from_str::<Value>(&check.report_json)
+                .unwrap_or_else(|_| Value::String(check.report_json.clone())),
+        }),
+        None => Value::Null,
+    };
+    Ok(Json(json!({ "library_item_id": id, "last_check": body })))
+}
+
+/// The bookmarks other readers have made public on one subject.
+///
+/// The store function is the only query in its module that takes no `account_id`, because it exists to serve readers
+/// rather than its caller. What this door must not do is hand back the row as stored: a `Bookmark` carries the owner's
+/// **account id** and their **private note**, and a bookmark being public does not publish either. So the projection is
+/// the fact of the bookmark — when, where in the unit — and a count, never a reader identity. The id is omitted too:
+/// nothing public needs it, and a stable row id is a capability nobody granted.
+async fn public_bookmarks(
+    State(state): State<AppState>,
+    Path(id): Path<String>,
+) -> ApiResult<Json<Value>> {
+    let rows = library::public_bookmarks_for(state.db(), "work", &id).await?;
+    let count = rows.len();
+    let bookmarks: Vec<Value> = rows
+        .into_iter()
+        .map(|bookmark| {
+            json!({
+                "unit_id": bookmark.unit_id,
+                "position_permille": bookmark.position_permille,
+                "created_at": bookmark.created_at,
+            })
+        })
+        .collect();
+    Ok(Json(json!({
+        "subject_type": "work",
+        "subject_id": id,
+        "count": count,
+        "bookmarks": bookmarks,
+    })))
 }
