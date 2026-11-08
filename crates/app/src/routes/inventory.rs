@@ -4683,7 +4683,7 @@ pub const ROUTE_TABLE: &[RouteEntry] = &[
         file: "federation.rs",
         handler: "read_peer_picks",
         method: "GET",
-        path: "/discovery/peer-picks",
+        path: "/federation/peer-picks",
         audience: Audience::Public,
     },
     RouteEntry {

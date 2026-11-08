@@ -348,7 +348,7 @@ async fn subscribing_is_the_operators_and_the_fetch_replaces_rather_than_accumul
     );
 
     // The public reader surface answers an empty list rather than a 404: "no sister instances yet" is a state, not an absence.
-    let (status, body) = reader.send("GET", "/discovery/peer-picks", None).await;
+    let (status, body) = reader.send("GET", "/federation/peer-picks", None).await;
     assert_eq!(status, StatusCode::OK, "{body}");
     assert_eq!(body["picks"], json!([]), "{body}");
 

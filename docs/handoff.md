@@ -9,7 +9,7 @@
 
 **M45-44 shipped, and it is the first row where both halves of a federation phrase are real.** Publishing
 (`GET /federation/picks`), subscribing (`PUT /operator/federation/picks` + a sweep in the worker's maintenance pass), the reader
-surface (`GET /discovery/peer-picks`) and the directory (`GET /federation/directory?topic=`). The full decision record is in
+surface (`GET /federation/peer-picks`) and the directory (`GET /federation/directory?topic=`). The full decision record is in
 `docs/plans/roadmap-remaining.md` under the row; the two that a future session is most likely to undo are: **a pick is a public
 catalogue row at Aggregate order** (operator-curated picks need an editorial surface that does not exist; the anonymous discovery
 feed reorders hourly so a polling peer would read every fetch as a new set) and **a fetch replaces rather than accumulates**

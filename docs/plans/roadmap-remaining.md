@@ -735,7 +735,7 @@ is on the `library` module, because a saved filter *is* a library object.
 ### M45-44 — sister instances: publish, subscribe, and a directory by topic (implemented 2026-11-08)
 
 Four surfaces, one vocabulary. `GET /federation/picks` publishes an ActivityStreams `OrderedCollection`; an operator names a
-peer's collection at `PUT /operator/federation/picks`; the worker's maintenance pass fetches; `GET /discovery/peer-picks` shows
+peer's collection at `PUT /operator/federation/picks`; the worker's maintenance pass fetches; `GET /federation/peer-picks` shows
 what came back; `GET /federation/directory?topic=` finds instances by the topics they publish.
 
 **A pick is a public catalogue row at Aggregate order, and the alternatives lost for different reasons.** Operator-curated picks

@@ -945,7 +945,9 @@ pub fn routes() -> axum::Router<AppState> {
         // §0.4 sister instances: the publishing half of "subscribe to each other's public picks".
         .route("/federation/picks", get(ap_picks))
         .route("/federation/directory", get(instance_directory))
-        .route("/discovery/peer-picks", get(read_peer_picks))
+        // Not under `/discovery`: that path belongs to the reader's page surface (ADR 0006), and a JSON endpoint sharing a
+        // namespace with a server-rendered page is a URL that will one day be a page and an API at once.
+        .route("/federation/peer-picks", get(read_peer_picks))
         .route(
             "/operator/federation/picks",
             get(list_pick_subscriptions).put(subscribe_picks),
