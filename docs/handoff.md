@@ -45,6 +45,26 @@ creds `darkhold:darkhold`). Migrations **0163–0199** are in the tree and **not
 is still open, so a live `darkhold.service` restart before that is decided would run a binary expecting tables the live database
 does not have.
 
+**Deployed the same day, which had been pending for weeks.** The live instance on thinkcentre now runs `ad7eccd9`: a 3.7 GB
+`pg_dump` was taken first (`/personal/backups-darkhold-20261108-1023.dump`), then migrations **0193–0199** were applied with the
+service stopped, then the release binary was rebuilt out of the thinkcentre checkout and `darkhold.service` restarted. Probed
+live: `GET /federation/picks` answers real picks, `/federation/directory?topic=` answers, `/federation/peer-picks` answers, a
+directory search with no topic is 422, the operator door is 401 without a session. Two things the deploy taught that a local run
+cannot:
+
+* **`darkhold migrate` refused the batch on a checksum**: 0183 had been rewritten for SQLite parity *after* the live instance
+  applied the PostgreSQL-only form. The live key is already `(id, version)`, so the row's checksum was repaired to the compiled
+  one (ADR 0032) rather than deleting and re-applying a destructive rebuild. The rule that follows: correct a migration only
+  before it has been applied anywhere that matters.
+* **The federation module merges at the router root, not under `/api/v1`**, so `curl /api/v1/federation/picks` gets the SPA's
+  404 page while `/federation/picks` works. Also `/discovery/peer-picks` was renamed to `/federation/peer-picks` before the
+  restart: `/discovery` is the reader's page namespace (ADR 0006) and the old path now serves the SPA page, which is exactly the
+  collision the rename avoids.
+
+A stale binary is worth naming as a trap: `cargo build --release` on thinkcentre ran *before* the propagation merge landed and
+happily reported success, so the service restarted onto a binary three commits old and every new route 404'd. `strings
+$BIN | grep -c '<route>'` is the check that catches it; the timestamp on the binary is not.
+
 **Next highest value:** finish M70-13's remaining 181 orphans (triage doc `docs/plans/m70-13-orphan-triage.md`), then M45-58
 (erasure reaches the routing record) and the M66 guest-access sequence (GS-1..GS-5, must be taken in order).
 
