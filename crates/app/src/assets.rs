@@ -63,8 +63,11 @@ pub async fn serve(State(state): State<AppState>, uri: Uri) -> Response {
     // An API client sending a mistyped path is a bug in the client, and a body
     // of HTML cannot be a useful answer to one. The SPA shell is for the
     // browser's own routes, and the browser never asks for /api/.
+    // ...and it answers the estate's envelope, not an empty body (M72-04). A `404` with no JSON is a
+    // `404` a client reports as "no error": four products answered four shapes, and the one thing all
+    // their SDKs must be able to do is branch on `error.code`.
     if uri.path().starts_with("/api/") {
-        return not_found(requested);
+        return crate::http::api_not_found();
     }
 
     if !requested.contains('.') && requested != "index.html" {

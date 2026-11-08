@@ -140,6 +140,107 @@ struct ErrorEnvelope {
     error: ErrorBody,
 }
 
+/// The envelope for a path under `/api/` that this build does not serve.
+///
+/// Written here, next to the one `Impl IntoResponse` that renders every other refusal, so the fallback
+/// and the handlers cannot disagree about the shape of an error (M72-04). `resource` is deliberately
+/// the path's first segment rather than the whole path: the body is logged and read by clients, and a
+/// mistyped token in it is a token in every log line.
+pub fn api_not_found() -> Response {
+    let request_id =
+        current_request_id().map_or_else(|| "unavailable".to_owned(), |id| id.to_string());
+    let body = ErrorEnvelope {
+        error: ErrorBody {
+            code: darkhold_domain::error::ErrorCode::NotFound.as_str(),
+            message: "No such endpoint on this instance.".to_owned(),
+            field_errors: BTreeMap::new(),
+            conflict: None,
+            required_scope: None,
+            query: None,
+            request_id,
+        },
+    };
+    let mut response = (StatusCode::NOT_FOUND, axum::Json(body)).into_response();
+    response.headers_mut().insert(
+        header::CONTENT_TYPE,
+        HeaderValue::from_static("application/json"),
+    );
+    response
+}
+
+
+/// Framework-level refusals answer the same envelope as `ApiError`.
+///
+/// A body axum cannot parse, a wrong content type, a request that timed out or one over the size limit never
+/// reach a handler, so they never pass through [`ApiError`] — they answered `text/plain` with a bare status,
+/// and a client that parses JSON reported "no error" for a request that was refused (measured: an incomplete
+/// registration answered `422` with an empty body, so `error.code` was a parse failure rather than a refusal).
+///
+/// This is a translation, not a decision: it keeps the status, and it names the class of refusal the framework
+/// already chose. It only touches `/api/` paths and only responses that are not already JSON, so the reader's
+/// HTML pages and the media door pass through untouched.
+pub async fn envelope_refusals(
+    request: axum::extract::Request,
+    next: axum::middleware::Next,
+) -> Response {
+    let is_api = request.uri().path().starts_with("/api/");
+    let response = next.run(request).await;
+    if !is_api || response.status().is_success() || response.status().is_redirection() {
+        return response;
+    }
+    let already_json = response
+        .headers()
+        .get(header::CONTENT_TYPE)
+        .and_then(|value| value.to_str().ok())
+        .is_some_and(|value| value.starts_with("application/json"));
+    if already_json {
+        return response;
+    }
+    let status = response.status();
+    let retry_after = response.headers().get(header::RETRY_AFTER).cloned();
+    let mut shaped = api_refusal(status, status.canonical_reason().unwrap_or("Refused"));
+    if let Some(value) = retry_after {
+        shaped.headers_mut().insert(header::RETRY_AFTER, value);
+    }
+    shaped
+}
+
+/// The envelope for a status that arrived without one.
+fn api_refusal(status: StatusCode, reason: &str) -> Response {
+    let code = match status.as_u16() {
+        400 => "BAD_REQUEST",
+        401 => "AUTH_REQUIRED",
+        403 => "FORBIDDEN",
+        404 => "NOT_FOUND",
+        405 => "METHOD_NOT_ALLOWED",
+        408 => "REQUEST_TIMEOUT",
+        413 => "PAYLOAD_TOO_LARGE",
+        415 => "UNSUPPORTED_MEDIA_TYPE",
+        422 => "UNPROCESSABLE_ENTITY",
+        429 => "RATE_LIMITED",
+        _ => "INTERNAL",
+    };
+    let request_id =
+        current_request_id().map_or_else(|| "unavailable".to_owned(), |id| id.to_string());
+    let body = ErrorEnvelope {
+        error: ErrorBody {
+            code,
+            message: format!("{reason}."),
+            field_errors: BTreeMap::new(),
+            conflict: None,
+            required_scope: None,
+            query: None,
+            request_id,
+        },
+    };
+    let mut response = (status, axum::Json(body)).into_response();
+    response.headers_mut().insert(
+        header::CONTENT_TYPE,
+        HeaderValue::from_static("application/json"),
+    );
+    response
+}
+
 impl IntoResponse for ApiError {
     fn into_response(self) -> Response {
         let error = self.0;

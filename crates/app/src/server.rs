@@ -1425,7 +1425,10 @@ pub fn build_router(state: AppState) -> Router {
             routes::well_known::router(),
             RouteClass::Default,
         ))
+        // Every refusal under /api/ answers the estate's envelope, including the ones the framework emits
+        // before a handler runs (M72-04). Installed after the API is merged so it sees every route.
         .nest("/api/v1", api)
+        .layer(middleware::from_fn(crate::http::envelope_refusals))
         // `/metrics` is mounted on the ROOT router, not under `/api/v1`: a scraper asks `/metrics`, and the SPA
         // fallback below would otherwise answer it with HTML and a 200 (measured 2026-11-05 — a status-code
         // monitor called that "published").
