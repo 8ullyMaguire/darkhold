@@ -357,11 +357,10 @@ async fn the_plan_spreads_the_works_and_the_receipt_names_who_took_what() {
     assert_eq!(stored.accepted.len(), 1);
     assert_eq!(stored.accepted[0].work_id, work_id);
     assert!(stored.forks().is_empty());
-    let notice = darkhold_db::evacuation::find_notice(tdb.db(), &notice_id)
-        .await
-        .expect("find")
-        .expect("the notice stays");
-    assert_eq!(notice.state, "completed");
+    // `find_notice` used to be asserted here, and the assertion was already made twice above: `close` returns
+    // `notice.state == "completed"`, and the `GET` that follows shows `notice: null` because a closed notice is no longer
+    // announced. Reading the row directly proved nothing the door had not, and it was the last thing keeping an internal
+    // helper `pub` (M70-13).
 }
 
 #[tokio::test]

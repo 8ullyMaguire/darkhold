@@ -213,7 +213,7 @@ pub async fn open_notice(db: &Database) -> Result<Option<Notice>> {
 }
 
 /// One notice by id, in any state.
-pub async fn find_notice(db: &Database, id: &str) -> Result<Option<Notice>> {
+pub(crate) async fn find_notice(db: &Database, id: &str) -> Result<Option<Notice>> {
     match db.backend() {
         Backend::Sqlite => {
             let row = sqlx::query(&format!(

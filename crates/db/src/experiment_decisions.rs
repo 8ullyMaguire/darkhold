@@ -340,7 +340,7 @@ pub async fn override_for(db: &Database, surface_id: &str) -> Result<Option<Vec<
 
 /// Remove a surface's override, returning the algorithms to the configured set. Rollback is this call plus the row that
 /// says who asked for it.
-pub(crate) async fn clear_override(db: &Database, surface_id: &str) -> Result<()> {
+pub async fn clear_override(db: &Database, surface_id: &str) -> Result<()> {
     let sql = match db.backend() {
         Backend::Sqlite => "DELETE FROM surface_algorithm_overrides WHERE surface_id = ?1",
         Backend::Postgres => "DELETE FROM surface_algorithm_overrides WHERE surface_id = $1",

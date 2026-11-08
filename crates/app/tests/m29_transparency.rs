@@ -1600,13 +1600,21 @@ async fn a_promoted_surface_runs_the_algorithms_the_experiment_installed() {
     // M64-04's precedence, proved from the reader's side: the configured set says popularity, a promotion installed the
     // media engine, and the feed must serve what the promotion installed — not what the file says, and not the arm split,
     // which existed to choose between sets the experiment has now decided.
-    let mut harness = Harness::new("promoted").await;
+    let mut harness = Harness::with_operator("promoted", "Operator").await;
     harness
         .config
         .discovery
         .surfaces
         .insert("discover.feed".to_owned(), vec!["popular".to_owned()]);
 
+    let mut operator = harness.client();
+    let (status, _) = operator
+        .post(
+            "/api/v1/auth/login",
+            json!({ "email": "Operator@example.com", "password": GOOD_PASSWORD }),
+        )
+        .await;
+    assert_eq!(status, StatusCode::OK, "the operator signs in");
     let mut reader = harness.reader("Promoted").await;
     let account = account_of(&harness.db, "Promoted").await;
     let pseud = pseud_of(&harness.db, &account.to_string()).await;
@@ -1619,14 +1627,17 @@ async fn a_promoted_surface_runs_the_algorithms_the_experiment_installed() {
     assert_eq!(status, StatusCode::OK, "body: {body}");
     assert_eq!(body["items"].as_array().expect("items").len(), 3, "{body}");
 
-    darkhold_db::experiment_decisions::install_override(
-        &harness.db,
-        "discover.feed",
-        &["media_ref_collab".to_owned()],
-        None,
-    )
-    .await
-    .expect("install the override a promotion would install");
+    // The promotion goes through the door, because that is what an operator does. This test used to write the override
+    // directly into the store, which is how the missing wiring stayed invisible: the door recorded the promotion and went
+    // on serving the configured algorithms, and the test proved the store worked while the operator's action did nothing.
+    let (status, body) = operator
+        .post(
+            "/api/v1/operator/experiments/discover.feed/promote",
+            json!({ "algorithms": ["media_ref_collab"] }),
+        )
+        .await;
+    assert_eq!(status, StatusCode::OK, "{body}");
+    assert_eq!(body["decision"], "promote", "{body}");
 
     let (status, body) = reader.get("/api/v1/discovery").await;
     assert_eq!(status, StatusCode::OK, "body: {body}");

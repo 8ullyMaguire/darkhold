@@ -107,3 +107,19 @@ made the served row less accountable than the explanation door that describes it
 `docs/config-reference.md`; the fields are unconditional again. The §16.3 concern stays answered where it belongs — in what the
 sentence may *say* (the closed vocabulary) and in the fact that a reader asked for the recommendation at all.
 
+## Second pass: 30 -> 17
+
+Wired rather than narrowed, because each had a reader who should have seen it:
+
+| function | what the door now does |
+|---|---|
+| `work_mirrors::active_count` | `/works/{id}/mirrors` asks the store instead of counting the rows it just read |
+| `whole_work::total_words` | the chapter list asks the store instead of summing its own spans |
+| `source_engagement::likes_per_view` | `/metrics/{id}` serves the ratio; the only other copy was a doc example dividing by zero |
+| `directory::my_vote` | the vote response reads the row back instead of echoing the request |
+| `reasons_store::reason_bearing_kudos` | the work page reports `kudos` and `kudos_with_reason` |
+| `peer_fingerprints::forget` | new `DELETE /operator/peering/fingerprints/{instance}` |
+| `experiment_decisions::install_override`, `clear_override` | **a real defect**: `/operator/experiments/{surface}/promote` recorded the decision and never installed the override, while its own doc comment said it did. An operator's promotion changed nothing and the feed kept serving the configured set |
+
+Narrowed to `pub(crate)` after their last external reader moved: `velocity_signals` (the test now asserts the stored basis `recompute_trust` writes), `find_notice` (the app test's assertion was already made twice over the door).
+

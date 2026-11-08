@@ -206,6 +206,27 @@ async fn decide_by_hand(
     .await
     .map_err(|error| ApiError(AppError::internal("recording a hand decision", error)))?;
 
+    // **The override, which the comment above this function promised and the code did not do.** A recorded decision that
+    // changes nothing is a note about an intention: the surface kept serving what it served, and an operator who promoted
+    // an algorithm by hand would have watched the feed not change. The automatic path does this inside `decide`; the hand
+    // path has to do it here, because `record_manual` only writes the history row (M70-13).
+    if decision == "promote" {
+        darkhold_db::experiment_decisions::install_override(
+            state.db(),
+            surface_id,
+            algorithms,
+            Some(&id),
+        )
+        .await
+        .map_err(|error| ApiError(AppError::internal("installing the override", error)))?;
+    } else {
+        // A demotion clears rather than installs an empty set: an override row with no algorithms is a surface that ranks
+        // with nothing, which is not the same as a surface that ranks with the configured default.
+        darkhold_db::experiment_decisions::clear_override(state.db(), surface_id)
+            .await
+            .map_err(|error| ApiError(AppError::internal("clearing the override", error)))?;
+    }
+
     Ok(Json(json!({
         "decision": decision,
         "id": id,
