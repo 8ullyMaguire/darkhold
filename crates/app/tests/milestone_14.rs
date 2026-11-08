@@ -262,7 +262,9 @@ async fn a_report_can_be_submitted_and_listed() {
             json!({
                 "subject_type": "work",
                 "subject_id": work_id,
-                "reason": "inappropriate content",
+                // A closed vocabulary since 2026-11-07 (`estate/contracts/reason-codes.json`, gate 57): a report's
+                // reason is one of seven codes, not a phrase. This test predates the contract and used a sentence.
+                "reason": "harassment",
             }),
         )
         .await;
@@ -380,7 +382,7 @@ async fn a_steward_can_issue_a_sanction() {
             json!({
                 "subject_type": "work",
                 "subject_id": work_id,
-                "reason": "policy violation",
+                "reason": "other", // one of the seven contract codes; a sentence is refused since 2026-11-07
             }),
         )
         .await;

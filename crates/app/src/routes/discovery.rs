@@ -1084,6 +1084,13 @@ async fn get_discovery(
             item["title"] = serde_json::Value::String(title.clone());
             item["author_handle"] = serde_json::Value::String(author.clone());
         }
+        // **The silent rule, at the last moment before it could be broken.** A reason chip is an influence disclosure
+        // however friendly it looks: it says this work is here because the instance ranked you, and it names the axis. §16.3
+        // and §20 say the feed does not narrate itself, so the fields are emitted only on an instance that turned
+        // `[discovery] explanations` on — and the switch is off by default, like every other claim about a reader.
+        if !state.config().discovery.explanations {
+            continue;
+        }
         if let Some((reason, score)) = explanations.get(&id) {
             // Absent, not empty: a row with no mapped reason shows nothing, which is the honest rendering of "we
             // cannot say why in the vocabulary".

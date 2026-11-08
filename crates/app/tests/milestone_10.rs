@@ -516,7 +516,17 @@ async fn search_is_deterministic_for_same_input() {
     let mut client = harness.client();
     let (_, body1) = client.get("/api/v1/search?q=deterministic").await;
     let (_, body2) = client.get("/api/v1/search?q=deterministic").await;
-    assert_eq!(body1, body2, "search should be deterministic");
+    // **Determinism is a claim about the answer, not about the clock.** `facets_computed_at_ms_ago` reports how stale the
+    // facet cache was when the response was built, so it differs by a millisecond between two identical requests -- which
+    // made this test fail about one run in three while the results it exists to guard were identical. Comparing it would
+    // be testing the wall clock; leaving it out is comparing what the reader asked for.
+    let strip = |mut body: Value| {
+        if let Some(object) = body.as_object_mut() {
+            object.remove("facets_computed_at_ms_ago");
+        }
+        body
+    };
+    assert_eq!(strip(body1), strip(body2), "search should be deterministic");
     harness.cleanup().await;
 }
 
