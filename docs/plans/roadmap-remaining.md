@@ -1,6 +1,6 @@
 # The remaining roadmap, ordered for execution
 
-`docs/requirements.csv` holds 101 planned rows as of 2026-11-06. This file is the order they will be taken in and the
+`docs/requirements.csv` holds **66 planned rows** as of 2026-11-08 (10 of them the new M72 batch below). This file is the order they will be taken in and the
 reason for that order, so a later session does not have to re-derive it. The ledger stays the source of truth: a row
 moves when `scripts/ledger.py upsert` says so, not when this file says so.
 
@@ -10,6 +10,34 @@ Two rules that decide the order:
   changes what a stranger can read or find is worth more than a row that changes what an operator can tune.
 * **A row that gates other rows is taken as soon as its blocker clears.** Nine of the M64 rows read a snapshot built by
   M64-01..M64-03; taking them first would mean writing the same aggregation three times.
+
+## Batch 0 — the family of products (M72, 10 rows) — take this first
+
+Added 2026-11-08 at the user's direction, ahead of everything else, because it changes the *shape* of the work that
+follows: the estate now runs four products on one host from one maker, and three of them have a frontend that shares
+nothing with the other two. The survey, the decisions and the rejected alternatives are in
+`docs/plans/estate-coherence.md`; the rows are `M72-01` … `M72-10` in the ledger.
+
+The order inside the batch is a dependency chain, not a preference:
+
+1. **M72-01** publish `@polaris/ui` to the estate registry — today it is a `file:` tarball path that only resolves on
+   this machine, so nothing else is adoptable until there is a version to depend on.
+2. **M72-02** one token vocabulary, palettes as data (darkhold Archive/Reading Room, ascend dark, kindred AO3) and a
+   contrast gate over every palette.
+3. **M72-03** the six primitives the estate has nowhere (checkbox/radio, avatar, breadcrumb, tooltip, `kbd`, card
+   action row) — the census names them; nothing here is a new invention.
+4. **M72-04/05** the JSON contracts: one error envelope, one meta/health shape. Invisible on a page, and the reason a
+   `dh` command or an estate probe can talk to three products with one expression.
+5. **M72-06** adoption, darkhold → kindred → ascend, each proved by deleting the local copy.
+6. **M72-07** the family nav module fed by `estate/generated/nav.json`.
+7. **M72-08/10** the auth matrix and the noun/URL vocabulary — decisions plus their small code changes.
+8. **M72-09** the design review as a gate, last because it reviews what 1–8 produced.
+
+What this batch is not: one skin. kindred reproduces AO3's visual grammar on purpose (`web/src/styles/kindred.css`
+cites the OTW stylesheets) and ficnexus has no frontend at all (`docs/EXPORTER-SCOPE.md`). The family resemblance is
+the grammar — component anatomy, spacing, focus treatment, motion budget, state language, URL shape — with each
+product's own paper. A row that would restyle kindred into the Archive palette is out of scope and should be refused
+in the ledger rather than half-done.
 
 ## Batch 1 — DONE
 

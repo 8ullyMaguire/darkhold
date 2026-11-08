@@ -1,5 +1,36 @@
 # Handoff
 
+## A family, not four sites — and the first thing that makes it adoptable — 2026-11-08 (later)
+
+**What changed and why.** The standing goal was "finish the roadmap". Before continuing it, the four products were read side by
+side — this tree, `ascend`, `kindred`, `ficnexus` — and the finding is that they share a host, a domain, a topbar injected by
+nginx, and a maker, and share **almost nothing else**: `@polaris/ui` has exactly one consumer (darkhold), and it consumes it
+through `file:../../../estate/ui/dist/polaris-ui-0.1.2.tgz`, a path that only resolves with the estate checkout in that relative
+position. Four error envelopes (`{error:{code,message,request_id}}`, `{error:{code,message,details}}`,
+`{error:{code,message}}`, `{"err":-1,"msg":…}`), three API roots (`/api/v1`, `/api`, `/api/v1`), one service with no meta
+document at all, and three different account stories including one product (kindred) that deliberately has none.
+
+**The survey is `docs/plans/estate-coherence.md`** and it is measured, not remembered: `estate/ui/docs/census.md` already
+censused 24 primitives across eight frontends and named six that exist nowhere (checkbox/radio, avatar, breadcrumb, tooltip,
+`kbd`, card action row); `estate/ui/src/chrome/topbar.js` already renders on every page and degrades to nothing when its
+documents are missing; `estate.toml`/`generated/nav.json` already carry each site's group, tier, ports and unit.
+
+**Ten rows, `M72-01` … `M72-10`, sequenced as a dependency chain** (ledger 942 → 952 rows, 56 → 66 planned): registry →
+tokens/palettes → the six missing primitives → JSON contracts → adoption (darkhold → kindred → ascend, each proved by deleting
+the local copy) → family nav → auth matrix → noun/URL vocabulary → the design-review gate.
+
+**Two refusals are part of the decision, and a future session must not undo them.** kindred reproduces AO3's visual grammar on
+purpose (`web/src/styles/kindred.css` cites `otwarchive/…/site/2.0/`) — the family resemblance is the grammar (component
+anatomy, spacing scale, focus ring, motion budget, state language, URL shape), not the paper, and a row that restyles kindred
+into darkhold's Archive palette should be refused rather than half-done. ficnexus has no frontend and no accounts by
+construction (`docs/EXPORTER-SCOPE.md`): its coherence obligation is the contract — `/api/v1`, the envelope, the meta shape —
+because `dh` and the download UI both call it.
+
+**Where to start:** `M72-01`. It is last-mile infrastructure and it gates every other row in the batch.
+
+**State at this checkpoint:** branch `master` at the commit that adds this section; `docs/plans/estate-coherence.md`,
+`docs/plans/roadmap-remaining.md` Batch 0, and `~/secondbrain/10-Projects/darkhold/GOAL-2026-11-08.md` all carry it.
+
 ## M45-44 closes, and the ratchet measures itself — 2026-11-08
 
 **Where it stands:** 942 requirements. 139 verified-e2e, 269 locally-tested, 435 fully-tested, 32 implemented,
