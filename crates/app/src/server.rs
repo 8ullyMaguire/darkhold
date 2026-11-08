@@ -134,6 +134,11 @@ pub async fn serve(config: Config, db: Database, args: &ServeArgs) -> Result<()>
     let state = AppState::new(config.clone(), db);
     let backend = state.db().backend().as_str();
 
+    // The catalogue a reader chooses from is the adapters this build carries (M70-13). `upsert_source` claimed in its
+    // doc comment that startup called it for every registered adapter; nothing did, so the `sources` table was whatever
+    // a migration had seeded and a deploy that added an adapter showed a source nobody could pick.
+    crate::source_sync::sync_source_catalogue(&state).await;
+
     // One process is the easier deployment for a self-hosted instance; a second
     // `darkhold worker` process is the better one when the queue is busy. Both
     // are supported and both stop on the same signal.

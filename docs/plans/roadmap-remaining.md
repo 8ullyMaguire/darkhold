@@ -882,3 +882,33 @@ is **TEXT** in the PostgreSQL schema (`0009_library.sql`), unlike `download_gran
 `export_jobs` timestamps, which are `timestamptz`. Wrapping it in `to_char(... AT TIME ZONE 'UTC', ...)` — the
 fix that *was* right one module over — turned every item view into a 500. Cast-or-render is per column, and
 the migration, not the previous module, is the authority.
+
+### The catalogue was never recorded (imports.rs, 2026-11-08)
+
+`upsert_source`'s doc comment, written when the function was, says: *"Called at startup for every registered
+adapter, so the catalogue a reader sees cannot drift from the adapters the binary actually has."* Nothing
+called it. The `sources` table was whatever a migration had seeded, so a deploy that added an adapter showed a
+source nobody could pick, and one that removed an adapter left a row pointing at a parser that no longer
+existed. `serve` calls `source_sync::sync_source_catalogue` now, straight after `AppState::new`, before the
+listener binds.
+
+Two things it deliberately does not do. It does not touch `enabled`, so a paused source stays paused across a
+deploy, which is `upsert_source`'s other half. And it does not fail the boot: a source that cannot be written is
+logged and skipped, because a stale catalogue row is a better trade than a server that will not start. The
+adapter version recorded is the build id — a source's capabilities are its parser's, and the parser ships in
+the binary, so "which build wrote this row" is the only version string that means anything.
+
+**Two of the six have no live producer, and that is a finding, not a gap left open.** `list_credential_events`
+and `pseuds_with_unconsented_credentials` read `source_credentials`, and every adapter in
+`crates/scrapers/src/sites` declares `authentication: AuthKind::None` — no shipped source needs a login, so no
+credential row can be created through the API at all. They have their doors and are exercised against rows the
+store writes (`m70_13_imports_catalogue`), because the tables and the audit trail exist and a door is the only
+way their SQL is ever decoded; the honest statement is that the doors are tested, not that they are reachable
+live. The first authenticated source is what turns them on, and the same pass that adds it will find whatever
+those two queries get wrong — as every other first caller in this ratchet has.
+
+One limitation is worth naming because the test had to work around it: `credential_audit_events.occurred_at` is
+second-resolution and the ordering tiebreak is a random UUID, so two events recorded inside the same second come
+back in an arbitrary order. The test moves one row back a day to make "newest first" a real claim. A trail that
+cannot order two events in the same second is not wrong, but it is not an audit trail either — a monotonic
+sequence number belongs in that table the first time anyone needs to prove an order.
