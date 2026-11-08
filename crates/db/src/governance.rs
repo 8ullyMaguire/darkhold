@@ -503,7 +503,7 @@ pub async fn recompute_trust(
 /// **Both are read from evidence that already exists.** Affinity is M69-09's stored reading, and a reader with no row
 /// has not been measured — which is `None`, not zero. Report counts come from the same join the trust axis uses, counted
 /// rather than netted because the behaviour factor wants the ratio and the axis wants the difference.
-pub async fn velocity_signals(
+pub(crate) async fn velocity_signals(
     db: &Database,
     account: &str,
 ) -> Result<darkhold_domain::trust_velocity::VelocitySignals, sqlx::Error> {

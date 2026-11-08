@@ -219,27 +219,44 @@ async fn a_dropped_multiplier_slows_the_next_level_and_never_takes_the_held_one(
                 .expect("clear affinity");
         }
     }
-    let signals = governance::velocity_signals(db, id).await.expect("signals");
-    assert_eq!(
-        signals.alignment_bp, None,
-        "no row is 'not measured', which is different from a score of zero"
+    // Read from the stored basis, which is the fact a reader can be shown, rather than from the query that produced it:
+    // `velocity_signals` is an internal helper and this is the last external reader it had (M70-13).
+    governance::recompute_trust(db, id, &settings(&ladder, &axes, &requirements, true).await)
+        .await
+        .expect("recompute");
+    let basis = stored_basis(db, id).await;
+    let velocity = &basis["velocity"];
+    assert!(
+        (velocity["velocity"].as_f64().expect("velocity") - 1.0).abs() < 1e-9,
+        "no row is 'not measured', which is different from a score of zero: {basis}"
     );
-    assert!((signals.velocity() - 1.0).abs() < 1e-9);
+    assert!(
+        (velocity["unadjusted_score"].as_f64().expect("unadjusted")
+            - velocity["adjusted_score"].as_f64().expect("adjusted"))
+        .abs()
+            < 1e-9,
+        "a neutral multiplier leaves the score where the axes put it: {basis}"
+    );
 }
 
+/// A reader who has never reported anything is neutral, not suspicious — asserted through the stored basis, because the
+/// behaviour factor is what the multiplier is *made of* and the multiplier is what a reader is affected by.
 #[tokio::test]
-async fn report_counts_are_read_from_the_same_join_the_trust_axis_uses() {
+async fn a_reader_who_never_reported_is_neutral_not_suspicious() {
     let db = connect().await;
     let db = &db;
     let id = "01955100-0000-4000-8000-000000e00002";
     seed_account(db, id, 5).await;
+    let ladder = darkhold_domain::trust::TrustLadder::default_ladder();
+    let axes = darkhold_domain::trust::TrustAxes::default();
+    let requirements = darkhold_domain::trust::TrustRequirements::default();
 
-    let signals = governance::velocity_signals(db, id).await.expect("signals");
-    assert_eq!(signals.confirmed_reports, 0);
-    assert_eq!(signals.dismissed_reports, 0);
-    assert_eq!(
-        signals.behaviour_factor(),
-        1.0,
-        "a reader who never reported anything is neutral, not suspicious"
+    governance::recompute_trust(db, id, &settings(&ladder, &axes, &requirements, true).await)
+        .await
+        .expect("recompute");
+    let basis = stored_basis(db, id).await;
+    assert!(
+        (basis["velocity"]["velocity"].as_f64().expect("velocity") - 1.0).abs() < 1e-9,
+        "no reports and no measurement is 1.0, not a discount: {basis}"
     );
 }
