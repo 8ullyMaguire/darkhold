@@ -16,8 +16,8 @@ work items are `M72-*` in `docs/requirements.csv`.
 | design system | `@polaris/ui` 0.1.2 (its only consumer) | Tailwind 4 `@theme`, dark-only | hand-written CSS reproducing AO3's grammar | — |
 | API root | `/api/v1` | `/api` | `/api/v1` | `/api` |
 | error body | `{"error":{code,message,request_id}}` | `{"error":{code,message,details}}` | `{"error":{code,message}}` (typed `code()`) | `{"err":-1,"msg":"…"}` |
-| meta | full (`name`, `version`, `build`, `api_version`, `environment`, `base_url`, `policy`) | none at `/api/v1/meta` | 404 at `/meta`; a budget-heavy payload at `/health` | `/api/meta` |
-| health | `/healthz`, `/health/live` | `/healthz` → `{"status":"ok"}` | `/api/v1/health` (index + budgets) | `/api/health` |
+| meta | `/api/v1/meta`: `name`, `version`, `build`, `api_version`, `environment`, `base_url`, `policy` | `/api/meta` only — `/api/v1/meta` is 404 | none: `/api/v1/meta` is 404; `/api/v1/health` carries the index and budget numbers | `/api/meta` |
+| health | `/healthz`, `/health/live` | `/healthz` at the root → `{"status":"ok"}` | `/api/v1/health` (index + budgets) | `/api/health` |
 | accounts | OIDC (polaris-id) + session cookie + bearer | own session cookies + CSRF | **deliberately none** | none |
 | unit / ports | `darkhold.service` 8081 → 8008 | `ascend-api.service` 8024 → 8023 | `kindred-rs.service` 8030 → 8009 | — |
 | work URL | `/works/{id}` | `/fics/…` | `/works/{id}` | — |
