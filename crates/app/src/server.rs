@@ -1112,7 +1112,7 @@ pub fn build_router(state: AppState) -> Router {
         .merge(module_mount(
             &state,
             "governance",
-            routes::governance::router(),
+            routes::governance::router().merge(routes::identity_admin::router()),
             RouteClass::Write,
         ))
         // Economy (credits, fair queues, bounties, billing) — M15.
