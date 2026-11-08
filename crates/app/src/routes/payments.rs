@@ -163,7 +163,25 @@ async fn my_payments(
         darkhold_db::payments::my_payments(state.db(), &user.account_id.to_string(), 100)
             .await
             .map_err(|error| ApiError(AppError::Internal(error.into())))?;
-    Ok(Json(json!({ "payments": payments })))
+    // What the seller is owed, per currency, computed from the payments rather than kept in a running total: the only
+    // question a payout asks is "what is captured and not refunded right now", and a stored total would be a second copy
+    // of the truth that drifts the first time a refund path forgets it (M70-13).
+    let account = user.account_id.to_string();
+    let mut currencies: Vec<String> = payments
+        .iter()
+        .filter_map(|payment| payment.get("currency").and_then(Value::as_str))
+        .map(str::to_owned)
+        .collect();
+    currencies.sort();
+    currencies.dedup();
+    let mut net = serde_json::Map::new();
+    for currency in currencies {
+        let amount = darkhold_db::payments::seller_net(state.db(), &account, &currency)
+            .await
+            .map_err(|error| ApiError(AppError::Internal(error.into())))?;
+        net.insert(currency, Value::from(amount));
+    }
+    Ok(Json(json!({ "payments": payments, "net": net })))
 }
 
 #[derive(Debug, Deserialize, Default)]

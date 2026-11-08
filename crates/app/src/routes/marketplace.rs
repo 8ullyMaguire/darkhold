@@ -141,13 +141,54 @@ pub async fn list_extensions(
 pub async fn get_extension(
     State(state): State<AppState>,
     Path(slug): Path<String>,
-    MaybeSession(_user): MaybeSession,
+    MaybeSession(user): MaybeSession,
 ) -> ApiResult<Json<Value>> {
     let ext = darkhold_db::marketplace::get_extension(state.db(), &slug)
         .await
         .map_err(|e| ApiError(darkhold_domain::AppError::Internal(e.into())))?;
     match ext {
-        Some(e) => Ok(Json(json!({ "extension": e }))),
+        Some(e) => {
+            // **A permission is a request, not a grant** (§21.3), and the page has to be able to say which of the two it is
+            // showing. For a signed-in reader, each capability the manifest asks for is answered by asking the store
+            // whether *this* account currently holds it — the same question the executor asks before calling a host
+            // function, so the page and the executor cannot disagree (M70-13).
+            let mut granted = serde_json::Map::new();
+            if let Some(user) = user {
+                let document = e
+                    .get("document")
+                    .and_then(Value::as_str)
+                    .unwrap_or_default()
+                    .to_owned();
+                if let Ok(manifest) =
+                    serde_json::from_str::<darkhold_domain::extension::Manifest>(&document)
+                {
+                    let account = user.account_id.to_string();
+                    let manifest_id = e
+                        .get("id")
+                        .and_then(Value::as_str)
+                        .unwrap_or_default()
+                        .to_owned();
+                    for permission in &manifest.permissions {
+                        let Ok(name) = serde_json::to_value(permission) else {
+                            continue;
+                        };
+                        let Some(name) = name.as_str() else { continue };
+                        let held = darkhold_db::marketplace::holds_grant(
+                            state.db(),
+                            &account,
+                            &manifest_id,
+                            name,
+                        )
+                        .await
+                        .map_err(|error| {
+                            ApiError(darkhold_domain::AppError::Internal(error.into()))
+                        })?;
+                        granted.insert(name.to_owned(), Value::Bool(held));
+                    }
+                }
+            }
+            Ok(Json(json!({ "extension": e, "granted": granted })))
+        }
         None => Err(ApiError(darkhold_domain::AppError::NotFound {
             resource: "extension",
         })),
@@ -231,7 +272,13 @@ pub async fn list_my_grants(
     let grants = darkhold_db::marketplace::list_my_grants(state.db(), &account)
         .await
         .map_err(|e| ApiError(darkhold_domain::AppError::Internal(e.into())))?;
-    Ok(Json(json!({ "grants": grants })))
+    // Two questions, two lists. `grants` is the history a settings page shows — a revoked grant is worth seeing — and
+    // `active` is the set that is in force right now, computed by the same reader the executor uses so a page cannot
+    // claim a permission that is not held (M70-13).
+    let active = darkhold_db::marketplace::active_grants(state.db(), &account)
+        .await
+        .map_err(|e| ApiError(darkhold_domain::AppError::Internal(e.into())))?;
+    Ok(Json(json!({ "grants": grants, "active": active })))
 }
 
 /// List webhooks for the caller.
