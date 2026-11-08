@@ -42,6 +42,7 @@
    * marker that disappears at a smaller size is a marker the reader will think
    * they lost.
    */
+  import { CardActions, Checkbox } from '@polaris/ui';
   import MetadataChip from './MetadataChip.svelte';
   // `WorkSummary` is declared in this file's module <script>, which the
   // instance script can see without importing it back from itself.
@@ -165,11 +166,15 @@
   {#if selectable}
     <!-- A real checkbox rather than a card-wide click: the card also holds links
          and buttons, and making the whole thing a control would swallow them.
-         The label is the work's title, so the control has a name of its own. -->
-    <label class="pick">
-      <input type="checkbox" checked={selected} onchange={toggle} />
-      <span class="pick-label">Select {work.title}</span>
-    </label>
+         The label is the work's title, so the control has a name of its own; it is
+         visually hidden because the title is the next thing on the card (estate
+         primitive, 44px target — `@polaris/ui` Checkbox). -->
+    <Checkbox
+      checked={selected}
+      onchange={(value) => (selected !== value ? toggle() : undefined)}
+      label={`Select ${work.title}`}
+      labelHidden
+    />
   {/if}
 
   <header>
@@ -250,9 +255,9 @@
   {/if}
 
   {#if actions}
-    <div class="actions">
+    <CardActions align="start">
       {@render actions()}
-    </div>
+    </CardActions>
   {/if}
 </article>
 
@@ -292,23 +297,6 @@
     height: 1.5rem;
     background: var(--color-accent);
     clip-path: polygon(0 0, 100% 0, 100% 100%, 50% 78%, 0 100%);
-  }
-
-  .pick {
-    display: flex;
-    align-items: center;
-    gap: var(--space-2);
-    margin-bottom: var(--space-2);
-  }
-
-  /* The label names the control for a screen reader; the checkbox is the mark. */
-  .pick-label {
-    position: absolute;
-    width: 1px;
-    height: 1px;
-    overflow: hidden;
-    clip-path: inset(50%);
-    white-space: nowrap;
   }
 
   h3 {
@@ -384,14 +372,6 @@
 
   .status {
     color: var(--color-accent);
-  }
-
-  .actions {
-    display: flex;
-    flex-wrap: wrap;
-    gap: var(--space-3);
-    margin-top: var(--space-3);
-    align-items: center;
   }
 
   .catalog {

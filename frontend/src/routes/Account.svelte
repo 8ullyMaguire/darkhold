@@ -23,7 +23,7 @@
   import { handleLinkClick } from '../lib/router';
   import { session } from '../lib/session.svelte.ts';
   import { formatTimestamp } from '../lib/time';
-import { Button } from '@polaris/ui';
+import { Avatar, Button } from '@polaris/ui';
   import ContentPreferences from '../lib/components/ContentPreferences.svelte';
   import EmptyState from '../lib/components/EmptyState.svelte';
   import ErrorSummary from '../lib/components/ErrorSummary.svelte';
@@ -177,17 +177,12 @@ import { Button } from '@polaris/ui';
         <h1>Your account</h1>
         {#if session.me}
           <div class="identity">
-            {#if session.me.account.avatar_url}
-              <img
-                class="avatar"
-                src={session.me.account.avatar_url}
-                alt=""
-                width="48"
-                height="48"
-                loading="lazy"
-                decoding="async"
-              />
-            {/if}
+            <Avatar
+              src={session.me.account.avatar_url}
+              name={session.me.account.display_name ?? session.me.account.email}
+              size="lg"
+              decorative
+            />
             <p class="who">
               {#if session.me.account.display_name}
                 <strong>{session.me.account.display_name}</strong> ·
@@ -420,13 +415,6 @@ import { Button } from '@polaris/ui';
     align-items: center;
     gap: 12px;
     margin-top: 6px;
-  }
-
-  .avatar {
-    border-radius: 50%;
-    border: 1px solid var(--border);
-    object-fit: cover;
-    background: var(--surface-2);
   }
 
   .head {

@@ -6,6 +6,7 @@
    * when it resets. A low or exhausted budget gets a warning style. The
    * component self-refreshes after each vote cast so the number stays live.
    */
+  import { Tooltip } from '@polaris/ui';
   import { getVoteBudget } from '../api';
   import { session } from '../session.svelte.ts';
 
@@ -61,14 +62,25 @@
   <span class="budget-badge error" title="Could not load vote budget">—</span>
 {:else if budget}
   {#if compact}
-    <span
-      class="budget-pill"
-      class:low={budget.remaining < 5}
-      class:exhausted={budget.exhausted}
-      title="Vote budget: {budget.remaining}/{budget.limit} remaining. {formatReset(budget.resets_at)}"
-    >
-      {budget.remaining}/{budget.limit}
-    </span>
+    <!--
+      The same sentence the `title` used to carry, now reachable: a title is invisible to a keyboard user
+      and to touch, which is the whole reason `@polaris/ui` has a Tooltip. `tabindex="0"` is the cost of
+      that — the pill becomes a focus stop, and it is one because this is the only place the remaining
+      count is explained in words.
+    -->
+    <Tooltip text={`Vote budget: ${budget.remaining}/${budget.limit} remaining. ${formatReset(budget.resets_at)}`}>
+      {#snippet tip(describedBy)}
+        <span
+          class="budget-pill"
+          class:low={budget.remaining < 5}
+          class:exhausted={budget.exhausted}
+          tabindex="0"
+          aria-describedby={describedBy}
+        >
+          {budget.remaining}/{budget.limit}
+        </span>
+      {/snippet}
+    </Tooltip>
   {:else}
     <div class="budget-badge" class:low={budget.remaining < 5} class:exhausted={budget.exhausted}>
       <div class="budget-row">

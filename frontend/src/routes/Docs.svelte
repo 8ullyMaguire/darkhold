@@ -8,6 +8,7 @@
    * server-sanitized unit HTML the Reader renders); user content never
    * passes through this path.
    */
+  import { Breadcrumb, Kbd } from '@polaris/ui';
   import { marked } from 'marked';
   import { DOCS, docBySlug } from '../lib/docs';
 
@@ -30,9 +31,7 @@
 
 <section class="docs-page">
   {#if doc}
-    <nav class="crumbs" aria-label="Breadcrumb">
-      <a href="/docs">Help</a> <span>/</span> <span>{doc.title}</span>
-    </nav>
+    <Breadcrumb items={[{ label: 'Help', href: '/docs' }, { label: doc.title }]} />
     <article class="doc" use:fixLinks>
       <h1>{doc.title}</h1>
       <p class="summary">{doc.summary}</p>
@@ -75,11 +74,6 @@
     max-width: 46rem;
     margin: 0 auto;
     padding: 1.5rem 1rem 4rem;
-  }
-  .crumbs {
-    color: var(--text-2, #666);
-    font-size: 0.85rem;
-    margin-bottom: 1rem;
   }
   .summary {
     color: var(--text-2, #666);
