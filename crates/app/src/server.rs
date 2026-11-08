@@ -138,6 +138,11 @@ pub async fn serve(config: Config, db: Database, args: &ServeArgs) -> Result<()>
     // doc comment that startup called it for every registered adapter; nothing did, so the `sources` table was whatever
     // a migration had seeded and a deploy that added an adapter showed a source nobody could pick.
     crate::source_sync::sync_source_catalogue(&state).await;
+    // The directory's built-in categories (§39.2): idempotent, and never a reason to refuse a start.
+    match crate::directory_seed::seed_directory_categories(&state).await {
+        Ok(active) => tracing::info!(active, "seeded the directory's built-in categories"),
+        Err(error) => tracing::warn!(%error, "could not seed the directory categories"),
+    }
 
     // One process is the easier deployment for a self-hosted instance; a second
     // `darkhold worker` process is the better one when the queue is busy. Both

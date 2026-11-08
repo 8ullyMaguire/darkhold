@@ -41,7 +41,7 @@ pub fn router() -> Router<AppState> {
         .route("/directory/categories/governance", get(governance_state))
         .route(
             "/directory/categories/governance/proposals",
-            post(create_proposal),
+            get(list_proposals).post(create_proposal),
         )
         .route(
             "/directory/categories/governance/proposals/{id}",
@@ -588,9 +588,14 @@ async fn governance_state(
             "open_proposals": open,
         }));
     }
+    // The ceiling is only useful if the operator can see where they are against it: §45.4 refuses the *next* create, and
+    // a number that only appears in the refusal is a number nobody can plan with.
+    let active = cg_db::count_active_categories(state.db()).await?;
     Ok(Json(json!({
         "frozen": frozen,
         "max_active_categories": max,
+        "active_categories": active,
+        "at_ceiling": active >= i64::from(max),
         "items": items,
     })))
 }
@@ -601,6 +606,75 @@ struct CreateProposalBody {
     category_slug: String,
     action: String,
     payload: Value,
+}
+
+/// One category's open proposals, with the lapsed ones expired first.
+///
+/// **[`expire_proposal`] is a per-row sweep, and this read is where it belongs.** The binary has no scheduler, so a
+/// proposal whose window closed would otherwise sit in the queue as `open` forever — "open" would mean "nobody has
+/// looked", not "still decidable". Expiring on read makes the queue self-healing without a timer, and the count of
+/// expired rows is returned so an operator can see the sweep happened rather than infer it.
+async fn list_proposals(
+    State(state): State<AppState>,
+    Query(query): Query<ProposalsQuery>,
+) -> ApiResult<Json<Value>> {
+    let slug = query.category.trim();
+    if slug.is_empty() {
+        return Err(ApiError(darkhold_domain::AppError::field(
+            "category",
+            "which category's proposals",
+        )));
+    }
+    if cg_db::get_category(state.db(), slug).await?.is_none() {
+        return Err(ApiError(darkhold_domain::AppError::NotFound {
+            resource: "forum category",
+        }));
+    }
+
+    let now = chrono::Utc::now().to_rfc3339();
+    let open = cg_db::list_open_proposals(state.db(), slug).await?;
+    let mut expired = 0_usize;
+    for proposal in &open {
+        if cg_db::expire_proposal(state.db(), &proposal.id, &now).await? {
+            expired += 1;
+        }
+    }
+    // Re-read only when the sweep changed something: an untouched queue is the common case and it should cost one query.
+    let open = if expired > 0 {
+        cg_db::list_open_proposals(state.db(), slug).await?
+    } else {
+        open
+    };
+
+    let items: Vec<Value> = open
+        .iter()
+        .map(|p| {
+            json!({
+                "id": p.id,
+                "action": p.action,
+                "category_slug": p.category_slug,
+                "payload": p.payload,
+                "yes_votes": p.yes_votes,
+                "no_votes": p.no_votes,
+                "quorum_needed": p.quorum_needed,
+                "closes_at": p.closes_at,
+                "created_by": p.created_by,
+                "created_at": p.created_at,
+            })
+        })
+        .collect();
+    Ok(Json(json!({
+        "category": slug,
+        "expired": expired,
+        "count": items.len(),
+        "items": items,
+    })))
+}
+
+#[derive(Deserialize)]
+struct ProposalsQuery {
+    #[serde(default)]
+    category: String,
 }
 
 async fn create_proposal(
@@ -661,12 +735,22 @@ async fn create_proposal(
 
     let payload_str = serde_json::to_string(&body.payload).map_err(anyhow::Error::from)?;
 
-    // For create, validate the new slug doesn't already exist.
+    // For create, validate the new slug doesn't already exist and the §45.4 ceiling is not reached.
     if action == cg::ProposalAction::Create {
         if let Some(new_slug) = body.payload["slug"].as_str() {
             if cg_db::get_category(state.db(), new_slug).await?.is_some() {
                 return Err(bad_request("category already exists"));
             }
+        }
+        // The ceiling is checked here rather than when the proposal is decided: a proposal that cannot succeed wastes
+        // quorum attention, and the queue is more expensive than the refusal.
+        let active = cg_db::count_active_categories(state.db()).await?;
+        let max = i64::from(state.config().directory.governance.max_active_categories);
+        if active >= max {
+            return Err(bad_request(&format!(
+                "this instance is at its ceiling of {max} active categories, so no create proposal can be accepted; \
+                 an existing category must be deprecated or merged first"
+            )));
         }
     }
 
@@ -911,6 +995,7 @@ async fn toggle_freeze(
 /// Set max active categories (operator only).
 #[derive(Deserialize)]
 struct MaxCategoriesBody {
+    /// Required, so a client cannot send `{}` and get a 200 that means nothing.
     max: u32,
 }
 
@@ -920,9 +1005,21 @@ async fn set_max_categories(
     Json(body): Json<MaxCategoriesBody>,
 ) -> ApiResult<Json<Value>> {
     require_operator(&state, &session).await?;
-    let _ = body.max;
-    let max = state.config().directory.governance.max_active_categories;
-    Ok(Json(json!({ "max_active_categories": max })))
+    // **This door used to answer 200 with the unchanged value** — `let _ = body.max;` and then the configured ceiling
+    // echoed back. A client that read the 200 could only conclude the change applied. The ceiling is an instance
+    // configuration (it belongs to the deployment, not to a keyboard), so the honest answer names where it lives and
+    // refuses, instead of pretending.
+    let current = state.config().directory.governance.max_active_categories;
+    if body.max != current {
+        return Err(ApiError(darkhold_domain::AppError::field(
+            "max",
+            &format!(
+                "the ceiling is {current} and is set by configuration \
+                 (directory.governance.max_active_categories), not at runtime; change it there and restart"
+            ),
+        )));
+    }
+    Ok(Json(json!({ "max_active_categories": current })))
 }
 
 /// Propose entry moderation (move/remove).
