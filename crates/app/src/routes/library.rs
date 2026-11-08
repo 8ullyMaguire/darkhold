@@ -48,6 +48,7 @@ use axum::{Json, Router};
 use base64::engine::general_purpose::URL_SAFE_NO_PAD as BASE64;
 use base64::Engine as _;
 use serde::Deserialize;
+use serde_json::{json, Value};
 
 use darkhold_db::library::status_json;
 use darkhold_db::storage::BlobStore;
@@ -126,6 +127,12 @@ pub fn router() -> Router<AppState> {
         .route("/library/updates/check", post(start_update_check))
         .route("/library/storage", get(storage_usage))
         .route("/library/items/batch", post(batch_remove_items))
+        // M70-13: four reads the store had and no route did.
+        .route("/library/status-counts", get(reading_status_counts))
+        .route("/library/tags", get(tags_for_account))
+        .route("/bookmarks/count", get(bookmark_count))
+        .route("/library/items/{id}/shelves", get(item_shelves))
+        .route("/library/updates", get(update_checks_since))
 }
 
 // ---------------------------------------------------------------------------
@@ -1618,4 +1625,118 @@ async fn shelf_documents(
 #[derive(Debug, serde::Deserialize)]
 struct ShelfDocumentParams {
     format: Option<String>,
+}
+
+// ---------------------------------------------------------------------------
+// M70-13: the four reads the library store already had
+// ---------------------------------------------------------------------------
+
+/// How many items sit in each reading status, for the reader's own dashboard.
+///
+/// Every status is reported, including the ones at zero: a chart that hides "0 finished" makes the reader wonder
+/// whether the number is missing or whether they have finished nothing, and the second answer is useful.
+async fn reading_status_counts(
+    State(state): State<AppState>,
+    RequireSession(user): RequireSession,
+) -> ApiResult<Json<Value>> {
+    let rows =
+        library::reading_status_counts(state.db(), &user.account_id.to_string()).await?;
+    let mut counts = serde_json::Map::new();
+    for status in [
+        ReadingStatus::WantToRead,
+        ReadingStatus::Reading,
+        ReadingStatus::OnHold,
+        ReadingStatus::Dropped,
+        ReadingStatus::Finished,
+    ] {
+        counts.insert(status.as_str().to_string(), json!(0));
+    }
+    let mut total = 0i64;
+    for (status, count) in rows {
+        counts.insert(status.as_str().to_string(), json!(count));
+        total += count;
+    }
+    Ok(Json(json!({ "counts": counts, "total": total })))
+}
+
+/// The reader's private tags and how often each is used.
+///
+/// Private tags are the reader's own vocabulary for their library, so this is the read behind a tag cloud, and the
+/// counts are the reader's own — no other account contributes to them.
+async fn tags_for_account(
+    State(state): State<AppState>,
+    RequireSession(user): RequireSession,
+) -> ApiResult<Json<Value>> {
+    let rows = library::tags_for_account(state.db(), &user.account_id.to_string()).await?;
+    let tags: Vec<Value> = rows
+        .into_iter()
+        .map(|(tag, count)| json!({ "tag": tag, "count": count }))
+        .collect();
+    Ok(Json(json!({ "tags": tags })))
+}
+
+async fn bookmark_count(
+    State(state): State<AppState>,
+    RequireSession(user): RequireSession,
+) -> ApiResult<Json<Value>> {
+    let count = library::bookmark_count(state.db(), &user.account_id.to_string()).await?;
+    Ok(Json(json!({ "count": count })))
+}
+
+/// Which of the reader's shelves hold one item.
+///
+/// The reason this is not already in the item view: an item can be in several shelves and the answer is a set, not a
+/// boolean — "is it shelved" loses the shelf names, and those are what the reader named the collection for.
+async fn item_shelves(
+    State(state): State<AppState>,
+    RequireSession(user): RequireSession,
+    Path(id): Path<String>,
+) -> ApiResult<Json<Value>> {
+    let shelves =
+        library::shelves_holding(state.db(), &user.account_id.to_string(), &id).await?;
+    Ok(Json(json!({ "library_item_id": id, "shelves": shelves })))
+}
+
+/// Differences an update check found, at or after `since` (RFC 3339), newest first.
+///
+/// `since` is required rather than defaulted: "everything ever found" is a different question with an unbounded answer,
+/// and a poll loop that forgot the parameter would read the whole history every time.
+async fn update_checks_since(
+    State(state): State<AppState>,
+    RequireSession(user): RequireSession,
+    Query(query): Query<UpdateChecksQuery>,
+) -> ApiResult<Json<Value>> {
+    let since = query.since.trim();
+    if since.is_empty() {
+        let mut field_errors = std::collections::BTreeMap::new();
+        field_errors.insert("since".to_string(), "an RFC 3339 timestamp".to_string());
+        return Err(ApiError(AppError::Validation {
+            message: "`since` is required".to_string(),
+            field_errors,
+        }));
+    }
+    let rows =
+        library::update_checks_since(state.db(), &user.account_id.to_string(), since).await?;
+    let checks: Vec<Value> = rows
+        .into_iter()
+        .map(|check| {
+            json!({
+                "id": check.id,
+                "library_item_id": check.library_item_id,
+                "checked_at": check.checked_at,
+                "found_changes": check.found_changes,
+                // The stored report, parsed when it is JSON and passed through as text when it is not — a corrupt
+                // report should be visible as corrupt rather than silently becoming `null`.
+                "report": serde_json::from_str::<Value>(&check.report_json)
+                    .unwrap_or_else(|_| Value::String(check.report_json.clone())),
+            })
+        })
+        .collect();
+    Ok(Json(json!({ "checks": checks })))
+}
+
+#[derive(Debug, Deserialize)]
+struct UpdateChecksQuery {
+    #[serde(default)]
+    since: String,
 }
