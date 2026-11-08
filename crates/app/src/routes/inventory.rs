@@ -6696,6 +6696,24 @@ pub const ROUTE_TABLE: &[RouteEntry] = &[
         path: "/works/{id}/characters/{node}/relationships",
         audience: Audience::Public,
     },
+    // ------------------------------------------------------------------
+    // Work coordinates (M45-14's store, given its surface — M70-13)
+    // ------------------------------------------------------------------
+    RouteEntry {
+        file: "coordinates.rs",
+        handler: "read_coordinates",
+        method: "GET",
+        path: "/works/{id}/coordinates",
+        // Owner or operator, and the door refuses a stranger with 404 rather than saying whether the work is theirs.
+        audience: Audience::Authenticated,
+    },
+    RouteEntry {
+        file: "coordinates.rs",
+        handler: "recompute",
+        method: "POST",
+        path: "/admin/works/{id}/coordinates",
+        audience: Audience::Operator,
+    },
     RouteEntry {
         file: "preservation.rs",
         handler: "preservers",

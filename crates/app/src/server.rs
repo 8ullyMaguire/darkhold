@@ -1171,6 +1171,7 @@ pub fn build_router(state: AppState) -> Router {
         // A work's cast is part of the work, not an extension: the store has had characters and relationships since 0127
         // and no door could read them (M70-13).
         .merge(routes::characters::router())
+        .merge(routes::coordinates::router())
         .merge(routes::preservation::router())
         // M16-06: the sandbox's only caller. Inside the `/api/v1` nest, not beside `facets`: running untrusted code needs the session
         // middleware (a caller must be known before it can be an operator) and CSRF, which the nest carries and the page router does not.

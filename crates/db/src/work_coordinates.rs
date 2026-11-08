@@ -122,6 +122,8 @@ type StoredRow = (
     Option<f64>,
     Option<f64>,
     Option<String>,
+    Option<i64>,
+    Option<i64>,
     i64,
     String,
 );
@@ -362,11 +364,13 @@ pub async fn measured_coordinates(db: &Database, work_id: &str) -> Result<Option
 pub async fn stored_coordinates(db: &Database, work_id: &str) -> Result<Option<StoredCoordinates>> {
     let sql = db.sql(
         "SELECT sentence_length_variance, dialogue_ratio, vocabulary_richness,
-                unit_length_spread, unmeasurable_reason, text_version, computed_at
+                unit_length_spread, unmeasurable_reason, word_count, sentence_count,
+                text_version, computed_at
          FROM work_coordinates
          WHERE work_id = ?",
         "SELECT sentence_length_variance, dialogue_ratio, vocabulary_richness,
-                unit_length_spread, unmeasurable_reason, text_version, computed_at
+                unit_length_spread, unmeasurable_reason, word_count, sentence_count,
+                text_version, computed_at
          FROM work_coordinates
          WHERE work_id = $1::uuid",
     );
@@ -386,7 +390,7 @@ pub async fn stored_coordinates(db: &Database, work_id: &str) -> Result<Option<S
         }
     };
 
-    let Some((variance, dialogue, vocabulary, spread, reason, text_version, computed_at)) = row
+    let Some((variance, dialogue, vocabulary, spread, reason, word_count, sentence_count, text_version, computed_at)) = row
     else {
         return Ok(None);
     };
@@ -397,12 +401,13 @@ pub async fn stored_coordinates(db: &Database, work_id: &str) -> Result<Option<S
             dialogue_ratio: require(dialogue, work_id, "dialogue_ratio")?,
             vocabulary_richness: require(vocabulary, work_id, "vocabulary_richness")?,
             unit_length_spread: spread,
-            // Not selected by this query. A caller needing the counts wants
-            // `measured_coordinates`, which reads them; recorded rather than left
-            // implicit because a defaulted zero is exactly the sort of value that
-            // gets compared against MIN_MEASURABLE_WORDS by accident later.
-            word_count: 0,
-            sentence_count: 0,
+            // Selected, not defaulted. This read used to leave both counts at zero with a comment pointing at
+            // `measured_coordinates`; the first caller it ever got (the coordinates door) returned "measured" with
+            // `word_count: 0` for a 5,880-word work — a zero that reads as a measurement is the exact value §49.3
+            // says an absent coordinate must never be. A measured row's counts are NOT NULL by the 0102 CHECK, so a
+            // NULL here means the row lies and the honest answer is an error, not a zero.
+            word_count: require_count(word_count, work_id, "word_count")? as usize,
+            sentence_count: require_count(sentence_count, work_id, "sentence_count")? as usize,
         }),
         Some(reason) => Coordinates::Unmeasurable(parse_reason(&reason)?),
     };
@@ -568,6 +573,16 @@ fn require(value: Option<f64>, work_id: &str, column: &str) -> Result<f64> {
         anyhow::anyhow!(
             "work_coordinates.{column} is NULL for work {work_id}, but the row claims \
              to be measured; the 0102 mutual-exclusion CHECK should have prevented this"
+        )
+    })
+}
+
+/// A count that a measured row must carry, or the error that says the row lies.
+fn require_count(value: Option<i64>, work_id: &str, column: &str) -> Result<i64> {
+    value.ok_or_else(|| {
+        anyhow::anyhow!(
+            "work_coordinates.{column} is NULL for work {work_id}, but the row claims to be measured; \
+             the 0102 mutual-exclusion CHECK should have prevented this"
         )
     })
 }

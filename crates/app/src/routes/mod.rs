@@ -32,6 +32,7 @@ pub mod collaborators;
 pub mod community;
 pub mod oidc;
 pub mod operator_hit_rate;
+pub mod coordinates;
 pub mod preservation;
 pub mod rec_run;
 // M45-22 (§54): the personal concierge.
