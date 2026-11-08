@@ -3,7 +3,7 @@
 # Each line is a `pub async fn` in crates/db/src that no app source can reach, directly or through another db
 # function. They are debt, not permission: crates/app/tests/orphan_queries.rs fails when a NEW one appears, so
 # this list can only shrink. Delete a line by wiring the function to a route or deleting the function.
-# measured 2026-11-08: 216 orphan(s)
+# measured 2026-11-08: 199 orphan(s)
 
 increment_abuse_counter  # crates/db/src/admin.rs
 complete_privacy_request  # crates/db/src/admin.rs
@@ -124,20 +124,6 @@ undelivered_count  # crates/db/src/outbox.rs
 topics_for_work  # crates/db/src/outbox.rs
 insert_exclusion_entry  # crates/db/src/permission.rs
 save_report  # crates/db/src/preread_store.rs
-list_destinations  # crates/db/src/preservation.rs
-enabled_destination_count  # crates/db/src/preservation.rs
-write_destination  # crates/db/src/preservation.rs
-set_destination_enabled  # crates/db/src/preservation.rs
-record_target  # crates/db/src/preservation.rs
-target_for_destination  # crates/db/src/preservation.rs
-targets_for_work  # crates/db/src/preservation.rs
-verified_count_for_work  # crates/db/src/preservation.rs
-top_preservers  # crates/db/src/preservation.rs
-is_imported  # crates/db/src/preservation.rs
-read_redistribution  # crates/db/src/preservation.rs
-write_redistribution  # crates/db/src/preservation.rs
-reward_account_for_work  # crates/db/src/preservation.rs
-grant_credits  # crates/db/src/preservation.rs
 record_interaction  # crates/db/src/ranking.rs
 insert_rating_anomaly_event  # crates/db/src/rating_integrity.rs
 get_work_anomaly_events  # crates/db/src/rating_integrity.rs
@@ -163,9 +149,6 @@ next_entries  # crates/db/src/series_recs.rs
 mark_email_verified  # crates/db/src/sessions.rs
 submissions_by  # crates/db/src/source_adapters.rs
 published_source_manifests  # crates/db/src/source_adapters.rs
-identity_by_id  # crates/db/src/story_identity.rs
-ensure_identity_for_work  # crates/db/src/story_identity.rs
-record_crossposted_location  # crates/db/src/story_identity.rs
 members_of  # crates/db/src/story_identity.rs
 member_counts  # crates/db/src/story_identity.rs
 merge_table_is_empty  # crates/db/src/story_identity.rs

@@ -130,6 +130,8 @@ pub struct Config {
     pub rate_limits: crate::limiter::Limits,
     /// What the importer may do about a source that refuses a plain request.
     pub imports: ImportsConfig,
+    /// What a verified preservation is worth, and when a work counts as preserved.
+    pub preservation: PreservationConfig,
     /// M67-03: the periodic walk over external sources. Off unless an operator says otherwise.
     pub syndication: SyndicationConfig,
     /// W6 §2: outbound ATProto. `None` (or `enabled = false`) means the bridge does not publish, and the worker
@@ -2121,6 +2123,37 @@ impl Default for SyndicationConfig {
     }
 }
 
+/// How much a verified preservation is worth, and how many of them "preserved" means.
+///
+/// The numbers are policy, so they are config and not constants: an instance that runs three archives and one that runs
+/// thirty want the same *shape* of answer and very different thresholds. `reward_for` in the domain takes them as arguments
+/// for this reason, and the defaults below are the specification's worked example (§2.2: threshold 3, ten credits each,
+/// twenty-five percent decay per position past the threshold, eight as the cap).
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(default)]
+pub struct PreservationConfig {
+    /// How many verified destinations make a work "preserved" (§2.1).
+    pub threshold: i64,
+    /// Credits for the destinations inside the threshold.
+    pub full_credits: i64,
+    /// Decay per position past the threshold, in basis points: 2_500 is a quarter.
+    pub decay_bp: i64,
+    /// The last position that pays anything. Past it a destination records and pays nothing, so a reader cannot farm
+    /// credits by claiming the same work on fifty archives.
+    pub cap: i64,
+}
+
+impl Default for PreservationConfig {
+    fn default() -> Self {
+        Self {
+            threshold: 3,
+            full_credits: 10,
+            decay_bp: 2_500,
+            cap: 8,
+        }
+    }
+}
+
 #[derive(Debug, Clone)]
 pub struct ImportsConfig {
     /// A FlareSolverr-compatible service this instance may drive.
@@ -3173,6 +3206,7 @@ impl Config {
             security,
             logging,
             assets,
+            preservation: file.preservation.clone().unwrap_or_default(),
             administration: AdministrationConfig {
                 operator_account_id,
                 webhook_timeout_secs: file
@@ -3946,6 +3980,7 @@ impl Config {
             // drove a solver by default would make every test that fetches a page
             // depend on which escalations happened to be configured.
             imports: ImportsConfig::default(),
+            preservation: PreservationConfig::default(),
             syndication: SyndicationConfig::default(),
             atproto: None,
             taxonomy: TaxonomyConfig::default(),
@@ -4559,6 +4594,9 @@ struct FileConfig {
     age: Option<AgeSection>,
     rate_limits: Option<RateLimitSection>,
     imports: Option<ImportsSection>,
+    /// `[preservation]` — what a verified preservation is worth.
+    #[serde(default)]
+    preservation: Option<PreservationConfig>,
     /// M67-03: `[syndication]`.
     syndication: Option<SyndicationSection>,
     /// W6 §2: `[atproto]`. Absent = the bridge is off.

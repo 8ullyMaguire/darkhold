@@ -60,6 +60,9 @@ pub struct RecheckSummary {
     pub dead: i64,
     pub unreachable: i64,
     pub reclaimed: i64,
+    /// Credits paid this pass. Separate from `alive` because a live destination can pay nothing — refused by the author, past
+    /// the cap, or already paid — and a summary that conflated the two would report money nobody received.
+    pub credited: i64,
 }
 
 impl RecheckSummary {
@@ -71,8 +74,8 @@ impl RecheckSummary {
     #[must_use]
     pub fn describe(&self) -> String {
         format!(
-            "checked {}: {} alive, {} dead ({} credits reclaimed), {} unreachable",
-            self.checked, self.alive, self.dead, self.reclaimed, self.unreachable
+            "checked {}: {} alive ({} credits paid), {} dead ({} credits reclaimed), {} unreachable",
+            self.checked, self.alive, self.credited, self.dead, self.reclaimed, self.unreachable
         )
     }
 }
@@ -192,6 +195,12 @@ pub async fn run(state: &crate::state::AppState) -> Result<RecheckSummary> {
         match verdict {
             Verdict::Alive { evidence } => {
                 summary.alive += 1;
+                // Counted **before** the state write: `verified_before` is how many destinations already paid, and the reward
+                // function turns that into a one-based position. Reading it after the write makes every target look like it
+                // is at position N+1 and pays the decay of one position past where it is.
+                let paid_before =
+                    preservation::verified_count_for_work(state.db(), &target.work_id).await?;
+                let was_verified = target.state == PreservationState::Verified;
                 preservation::set_state(
                     state.db(),
                     &target.member_id,
@@ -199,6 +208,9 @@ pub async fn run(state: &crate::state::AppState) -> Result<RecheckSummary> {
                     Some(&evidence),
                 )
                 .await?;
+                if !was_verified {
+                    summary.credited += award(state, &target, paid_before).await?;
+                }
             }
             Verdict::Dead { reason } => {
                 summary.dead += 1;
@@ -230,6 +242,48 @@ pub async fn run(state: &crate::state::AppState) -> Result<RecheckSummary> {
         }
     }
     Ok(summary)
+}
+
+/// Pay for a destination that has just been verified.
+///
+/// This is the only place in the tree that calls `reward_for`, and that is the point: §2.2 pays for *verified live*
+/// preservation, so the payment belongs to the job that verified it and not to the door that recorded the claim. A claim
+/// that pays is a claim anybody can make.
+///
+/// Returns the credits actually posted (zero when the author refused redistribution, past the cap, or already paid).
+async fn award(
+    state: &crate::state::AppState,
+    target: &preservation::PreservationTarget,
+    verified_before: i64,
+) -> Result<i64> {
+    let config = &state.config().preservation;
+    let permission = preservation::read_redistribution(state.db(), &target.work_id).await?;
+    let reward = darkhold_domain::preservation::reward_for(
+        verified_before,
+        config.threshold,
+        config.full_credits,
+        config.decay_bp,
+        config.cap,
+        permission,
+    );
+    if reward.credits <= 0 {
+        tracing::info!(
+            member = %target.member_id,
+            reason = ?reward.reason,
+            "a verified preservation pays nothing"
+        );
+        return Ok(0);
+    }
+    let account = preservation::reward_account_for_work(state.db(), &target.work_id).await?;
+    let outcome =
+        preservation::grant_credits(state.db(), &target.member_id, &account, reward.credits)
+            .await?;
+    if !outcome.wrote() {
+        // Not an error: the ledger key is `preservation:grant:<member>`, so a second pass over the same member is a no-op by
+        // construction. Saying so is cheaper than a reader wondering why the leaderboard disagrees with the ledger.
+        tracing::debug!(member = %target.member_id, credits = outcome.credits(), "preservation credits were already posted");
+    }
+    Ok(outcome.credits())
 }
 
 /// Fetch one destination's item page and compare it.
@@ -460,6 +514,7 @@ mod tests {
             dead: 0,
             unreachable: 90,
             reclaimed: 0,
+            credited: 0,
         };
         let line = summary.describe();
         assert!(

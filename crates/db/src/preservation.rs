@@ -1005,6 +1005,28 @@ pub async fn is_imported(db: &Database, work_id: &str) -> Result<bool> {
     })
 }
 
+/// The title a work was published under.
+///
+/// A story identity's canonical title is seeded from it, so this is the one field the preservation door needs from `works`
+/// and the only reason it reads that table. `None` for an unknown or deleted work rather than an error: "no such work" is a
+/// `404` at the door, and a store that turned it into an anyhow error would make every caller guess.
+pub async fn published_title(db: &Database, work_id: &str) -> Result<Option<String>> {
+    let sql = db.sql(
+        "SELECT title FROM works WHERE id = ?1 AND deleted_at IS NULL",
+        "SELECT title FROM works WHERE id::text = $1 AND deleted_at IS NULL",
+    );
+    match db.backend() {
+        Backend::Sqlite => Ok(sqlx::query_scalar(&sql)
+            .bind(work_id)
+            .fetch_optional(db.sqlite_pool().expect("sqlite handle"))
+            .await?),
+        Backend::Postgres => Ok(sqlx::query_scalar(&sql)
+            .bind(work_id)
+            .fetch_optional(db.postgres_pool().expect("postgres handle"))
+            .await?),
+    }
+}
+
 /// The work's redistribution assertion, as the column holds it.
 ///
 /// Read through the domain's `Redistribution::read`, so an unrecognised value
