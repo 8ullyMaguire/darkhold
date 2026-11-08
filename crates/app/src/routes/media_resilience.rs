@@ -335,11 +335,82 @@ pub fn router() -> Router<AppState> {
             "/media/references/{reference_id}/mirrors",
             post(add_mirror_link),
         )
+        .route("/admin/notes/links/sweep", post(sweep_note_links))
         .route("/media/match-proposals", get(list_match_proposals))
         .route(
             "/media/match-proposals/{proposal_id}",
             post(resolve_match_proposal),
         )
+}
+
+#[derive(Debug, Deserialize)]
+pub struct SweepBody {
+    /// How many links to check. Each one is an outbound request with an 8-second timeout, so this is bounded rather than
+    /// "all of them": an operator asking for a sweep should get an answer, not a request that runs past the client.
+    #[serde(default)]
+    pub limit: Option<i64>,
+    /// Re-check only links nobody has looked at yet, which is the cheap first pass on a fresh instance.
+    #[serde(default)]
+    pub never_checked_only: bool,
+}
+
+/// Check the note links the monitor has looked at least recently.
+///
+/// **`find_needing_check` had no caller, which made the monitor a per-work button rather than a monitor.** A link was
+/// checked only when its author pressed "re-check" on the work that carried it: a dead link on an abandoned work was
+/// never noticed, and the `dead` count on that work's page was a number that could not change on its own.
+///
+/// There is no scheduler in this binary (§37 puts recurring work on the operator), so this is a **button, not a timer** —
+/// the scheduled form is named as the follow-up rather than pretended. The queue is ordered never-checked first, then
+/// oldest, and the store's query has no "due" predicate: a sweep will happily re-check a link checked a minute ago. That
+/// is why `limit` exists and why the answer reports what it actually did.
+///
+/// A link that cannot be checked is recorded as a failure by [`check_note_link`] itself — a timeout is the answer, not an
+/// error — so a sweep never fails because one URL is gone. Only a storage failure aborts.
+async fn sweep_note_links(
+    State(state): State<AppState>,
+    RequireSession(user): RequireSession,
+    Json(body): Json<SweepBody>,
+) -> ApiResult<Json<Value>> {
+    require_operator(&state, &user).await?;
+    let limit = body.limit.unwrap_or(20).clamp(1, 50);
+    let queued = darkhold_db::note_links::find_needing_check(state.db(), limit * 4)
+        .await
+        .map_err(|error| ApiError(AppError::Internal(error)))?;
+    let selected: Vec<_> = queued
+        .into_iter()
+        .filter(|link| !body.never_checked_only || link.last_checked_at.is_none())
+        .take(limit as usize)
+        .collect();
+
+    let mut healthy = 0usize;
+    let mut degraded = 0usize;
+    let mut dead = 0usize;
+    let mut failed = 0usize;
+    for link in &selected {
+        match crate::note_link_job::check_note_link(&state, &link.id, None).await {
+            Ok(LinkStatus::Healthy) => healthy += 1,
+            Ok(LinkStatus::Degraded) => degraded += 1,
+            Ok(LinkStatus::Dead) => dead += 1,
+            // `check_note_link` returns a `HandlerError` only for a storage or lookup failure: the URL's answer is the
+            // recorded status. Counted rather than propagated, because one unreadable row must not stop the sweep, and
+            // reported rather than swallowed, because a sweep that silently skipped rows would look complete.
+            Ok(_) => failed += 1,
+            Err(error) => {
+                tracing::warn!(link_id = %link.id, %error, "a note link could not be swept");
+                failed += 1;
+            }
+        }
+    }
+
+    Ok(Json(json!({
+        "checked": selected.len(),
+        "healthy": healthy,
+        "degraded": degraded,
+        "dead": dead,
+        "failed": failed,
+        "limit": limit,
+    })))
 }
 
 /// Gate for the curator-facing media endpoints.

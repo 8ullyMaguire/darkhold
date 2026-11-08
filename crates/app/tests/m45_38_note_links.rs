@@ -505,3 +505,204 @@ async fn a_refused_url_is_recorded_dead_rather_than_left_pending() {
         "dead without a why is a verdict the author cannot act on: {body}"
     );
 }
+
+/// The monitor's own view, and the sweep (M70-13).
+///
+/// Two facts were unreachable: `list_for_work` (every link the monitor still holds, including the ones a reader is no
+/// longer shown) and `find_needing_check` (the queue). Without the second, a link was only ever checked when its author
+/// pressed "re-check" on the work that carried it — a dead link on an abandoned work was never noticed, and the `dead`
+/// count on its page was a number that could not change on its own.
+///
+/// **Two chapters, one corrected**: with a single link the live set is empty, and a "superseded" flag that was always
+/// `true` would pass. The interesting case is a mixed set — one link the work still says, one the author removed — which
+/// is what the flag exists to distinguish.
+#[tokio::test]
+async fn the_monitor_sees_superseded_links_alongside_live_ones_and_sweeps_its_own_queue() {
+    let harness = Harness::new("superseded-and-sweep").await;
+    let mut author = harness.client();
+    author.register("nl-monitor").await;
+
+    let document = json!({ "type": "doc", "content": [
+        { "type": "paragraph", "content": [{ "type": "text", "text": "Body." }] },
+    ] });
+
+    let (status, body) = author
+        .post("/api/v1/works", json!({ "title": "Swept" }))
+        .await;
+    assert_eq!(status, StatusCode::CREATED, "{body}");
+    let work = body["id"].as_str().expect("work").to_owned();
+    let work_version = body["version"].as_i64().expect("work version");
+
+    // Chapter one carries the link that will be removed; chapter two carries the one that stays.
+    let (status, body) = author
+        .post(
+            &format!("/api/v1/works/{work}/chapters"),
+            json!({ "title": "Chapter One" }),
+        )
+        .await;
+    assert_eq!(status, StatusCode::CREATED, "{body}");
+    let first = body["id"].as_str().expect("unit").to_owned();
+    let (status, body) = author
+        .patch(
+            &format!("/api/v1/chapters/{first}"),
+            json!({
+                "expected_version": body["version"].as_i64().expect("version"),
+                "document": document,
+                "note": "The archive is at http://127.0.0.1:9/archive"
+            }),
+        )
+        .await;
+    assert_eq!(status, StatusCode::OK, "{body}");
+    let first_version = body["version"].as_i64().expect("unit version after the first save");
+
+    let (status, body) = author
+        .post(
+            &format!("/api/v1/works/{work}/chapters"),
+            json!({ "title": "Chapter Two" }),
+        )
+        .await;
+    assert_eq!(status, StatusCode::CREATED, "{body}");
+    let second = body["id"].as_str().expect("unit").to_owned();
+    let (status, body) = author
+        .patch(
+            &format!("/api/v1/chapters/{second}"),
+            json!({
+                "expected_version": body["version"].as_i64().expect("version"),
+                "document": document,
+                "note": "The other archive is at http://127.0.0.1:9/archive-two"
+            }),
+        )
+        .await;
+    assert_eq!(status, StatusCode::OK, "{body}");
+
+    let (status, body) = author
+        .post(
+            &format!("/api/v1/works/{work}/publish"),
+            json!({ "expected_version": work_version, "idempotency_key": format!("nl-sweep-{work}") }),
+        )
+        .await;
+    assert_eq!(status, StatusCode::OK, "{body}");
+
+    // Both chapters' links are live: two rows, neither flagged.
+    let (status, body) = author
+        .get(&format!("/api/v1/works/{work}/note-links"))
+        .await;
+    assert_eq!(status, StatusCode::OK, "{body}");
+    assert_eq!(body["count"].as_u64(), Some(2), "{body}");
+    assert!(
+        body["links"]
+            .as_array()
+            .expect("links")
+            .iter()
+            .all(|link| link["superseded"].as_bool() == Some(false)),
+        "nothing has been revised yet: {body}"
+    );
+
+    // Correct chapter one's note so its URL is gone from what the work says today.
+    let (status, body) = author
+        .patch(
+            &format!("/api/v1/chapters/{first}"),
+            json!({
+                "expected_version": first_version,
+                "document": document,
+                "note": "No pointer any more."
+            }),
+        )
+        .await;
+    assert_eq!(status, StatusCode::OK, "{body}");
+
+    // The reader's report is about the live revision: chapter two's link only.
+    let (status, body) = author
+        .get(&format!("/api/v1/works/{work}/note-links"))
+        .await;
+    assert_eq!(status, StatusCode::OK, "{body}");
+    assert_eq!(
+        body["count"].as_u64(),
+        Some(1),
+        "a corrected note stops being reported: {body}"
+    );
+
+    // The monitor's list still holds both, and says which is which.
+    let (status, body) = author
+        .get(&format!("/api/v1/works/{work}/note-links?include=superseded"))
+        .await;
+    assert_eq!(status, StatusCode::OK, "{body}");
+    assert_eq!(
+        body["count"].as_u64(),
+        Some(2),
+        "the monitor still holds the link the author removed: {body}"
+    );
+    let links = body["links"].as_array().expect("links");
+    let kept = links
+        .iter()
+        .find(|link| link["url"] == json!("http://127.0.0.1:9/archive-two"))
+        .expect("the kept link");
+    let removed = links
+        .iter()
+        .find(|link| link["url"] == json!("http://127.0.0.1:9/archive"))
+        .expect("the removed link");
+    assert_eq!(
+        kept["superseded"].as_bool(),
+        Some(false),
+        "chapter two still says it: {body}"
+    );
+    assert_eq!(
+        removed["superseded"].as_bool(),
+        Some(true),
+        "chapter one no longer says it: {body}"
+    );
+
+    // A stranger cannot sweep...
+    let mut reader = harness.client();
+    reader.register("nl-reader").await;
+    let (status, body) = reader
+        .post("/api/v1/admin/notes/links/sweep", json!({ "limit": 5 }))
+        .await;
+    assert_eq!(status, StatusCode::FORBIDDEN, "{body}");
+
+    // ...an operator can, and a refusal is recorded as a dead link rather than a failure of the sweep.
+    let account = {
+        let (_, me) = author.get("/api/v1/auth/me").await;
+        me["account"]["id"]
+            .as_str()
+            .or_else(|| me["id"].as_str())
+            .expect("account id")
+            .to_owned()
+    };
+    darkhold_db::governance::set_trust(harness.tdb.db(), &account, 5, "test: link sweep")
+        .await
+        .expect("trust");
+    let (status, body) = author
+        .post("/api/v1/admin/notes/links/sweep", json!({ "limit": 5 }))
+        .await;
+    assert_eq!(status, StatusCode::OK, "{body}");
+    assert_eq!(body["checked"].as_u64(), Some(2), "{body}");
+    assert_eq!(
+        body["dead"].as_u64(),
+        Some(2),
+        "loopback URLs are refused by the SSRF guard and recorded dead: {body}"
+    );
+    assert_eq!(body["failed"].as_u64(), Some(0), "{body}");
+
+    // The rows now carry the check, which is what proves the queue was drained and not just counted.
+    let (status, body) = author
+        .get(&format!("/api/v1/works/{work}/note-links?include=superseded"))
+        .await;
+    assert_eq!(status, StatusCode::OK, "{body}");
+    assert_eq!(body["dead"].as_u64(), Some(2), "{body}");
+    for link in body["links"].as_array().expect("links") {
+        assert_eq!(link["status"].as_str(), Some("dead"), "{body}");
+        assert!(
+            link["last_checked_at"].as_str().is_some(),
+            "the check was recorded: {body}"
+        );
+    }
+
+    // A second sweep re-checks them — the queue has no "due" predicate, which is recorded in the handler rather than
+    // pretended away — so the row's failure count moves instead of the sweep finding nothing.
+    let (status, body) = author
+        .post("/api/v1/admin/notes/links/sweep", json!({ "limit": 5 }))
+        .await;
+    assert_eq!(status, StatusCode::OK, "{body}");
+    assert_eq!(body["checked"].as_u64(), Some(2), "{body}");
+}

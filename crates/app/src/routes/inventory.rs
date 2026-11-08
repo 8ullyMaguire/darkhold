@@ -5486,6 +5486,13 @@ pub const ROUTE_TABLE: &[RouteEntry] = &[
     // ------------------------------------------------------------------
     RouteEntry {
         file: "media_resilience.rs",
+        handler: "sweep_note_links",
+        method: "POST",
+        path: "/admin/notes/links/sweep",
+        audience: Audience::Authenticated,
+    },
+    RouteEntry {
+        file: "media_resilience.rs",
         handler: "get_media_reference",
         method: "GET",
         path: "/media/references/{reference_id}",
