@@ -24,6 +24,10 @@ use crate::version;
 pub fn router() -> Router<AppState> {
     Router::new()
         .route("/health/live", get(live))
+        // `/healthz` is the estate's name for the same document (M72-05). It used to fall through to the SPA
+        // fallback and answer `200 text/html` — a page, to a monitor that asked whether the process is alive.
+        // Two names, one handler: a second implementation is how two answers start disagreeing.
+        .route("/healthz", get(live))
         .route("/health/ready", get(ready))
 }
 

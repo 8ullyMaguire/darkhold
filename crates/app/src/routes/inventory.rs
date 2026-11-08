@@ -228,6 +228,13 @@ pub const ROUTE_TABLE: &[RouteEntry] = &[
     },
     RouteEntry {
         file: "health.rs",
+        handler: "live",
+        method: "GET",
+        path: "/healthz",
+        audience: Audience::Public,
+    },
+    RouteEntry {
+        file: "health.rs",
         handler: "ready",
         method: "GET",
         path: "/health/ready",
