@@ -313,6 +313,8 @@ struct GeneratedContentView {
     declared: bool,
     /// The instance's posture in force when the work was written.
     posture: String,
+    /// The version of the generated-content policy that posture came from.
+    policy_version: i64,
     /// The label, when the work needs one.
     ///
     /// `None` under a posture that does not require a label, and `None` for a
@@ -2177,6 +2179,12 @@ async fn generated_content_view(state: &AppState, work: &Work) -> Option<Generat
         Ok(Some(posture)) => Some(GeneratedContentView {
             declared: posture.declaration == GeneratedContentDeclaration::DeclaredGenerated,
             posture: posture.posture.as_str().to_owned(),
+            // **Which policy the label was judged under.** The posture is the instance's answer; the version is when it
+            // gave it, and without it a reader cannot tell a permissive policy's stamp from a strict one's — the same word
+            // and not the same claim (M70-13).
+            policy_version: darkhold_db::generated_content::policy_version(state.db())
+                .await
+                .unwrap_or_default(),
             label: posture
                 .needs_marker()
                 .then(|| "declared by its author as containing generated content".to_owned()),

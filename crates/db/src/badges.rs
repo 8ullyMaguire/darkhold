@@ -32,7 +32,7 @@ pub struct Award {
 /// Returns `true` when this call is what awarded it, `false` when the account already held it. A
 /// caller can tell "congratulate" from "nothing happened" without a second read, and a replay is
 /// silent rather than an error.
-pub async fn award(
+pub(crate) async fn award(
     db: &Database,
     account_id: &str,
     badge: Badge,

@@ -27,6 +27,7 @@ pub mod auth;
 pub mod author_media;
 pub mod browse;
 pub mod catalogue;
+pub mod characters;
 pub mod collaborators;
 pub mod community;
 pub mod oidc;
