@@ -130,7 +130,7 @@ the number from 292 to **233**, and none of the 59 were work: every one was an i
 function. The row stays `planned` until 233 is zero — the requirement's own words are "no function exists only to satisfy its
 own test".
 
-**199 functions across 71 modules** (233 before `work_characters`, 216 before `preservation`). The largest:
+**189 functions across 70 modules** (233 before `work_characters`, 216 before `preservation`, 199 before `subscriptions`). The largest:
 
 | module | orphans |
 |---|---|
