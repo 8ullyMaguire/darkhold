@@ -147,8 +147,9 @@ that is correct for what ascend holds. A darkhold work is a text with tags and c
 ascend fic is a pointer to a story on another site plus the deck of card images built from it — no text, no tag
 taxonomy, no chapters. Renaming it a work would imply two products hold the same object, and the first feature built
 on that assumption would fail. What ascend owes the family instead is the **link**: `/works/{id}` answering a 302 to
-`/fics/{id}`, so a link copied from darkhold lands on a 200 rather than a 404. *(Not yet implemented — it belongs in
-ascend's web router, which lives in the non-git tree on the host; named here so it is not mistaken for done.)*
+`/fics/{id}`, so a link copied from darkhold lands on a 200 rather than a 404. **Done and live**: ascend's SvelteKit
+router (adapter-node, `src/routes/works/[id]/+page.server.ts`) redirects, measured through the edge —
+`https://ascend.polarisocial.xyz/works/abc` → 302 → `/fics/abc`.
 
 **The blurb:** `WorkBlurb` in `@polaris/ui` (0.5.2) fixes the field order every product renders a listed work in —
 title, byline ("by A and B"), meta chips, warnings, tags, summary — with the summary clamped by CSS rather than
