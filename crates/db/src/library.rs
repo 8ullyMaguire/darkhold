@@ -2556,6 +2556,9 @@ struct UpdateCheckRow {
 const UPDATE_CHECK_COLUMNS: &str = "id, account_id, library_item_id, checked_at, \
      found_changes, report_json";
 
+// The UUID columns are cast to text for the two `String` fields; `checked_at` is already canonical TEXT and
+// `found_changes` is BIGINT, so neither needs anything — casting a timestamp that is *stored* as text with a time-zone
+// expression is not a portability fix but a bug, and the PostgreSQL run is what says which columns are which.
 const UPDATE_CHECK_COLUMNS_PG: &str = "id::text AS id, account_id::text AS account_id, \
      library_item_id::text AS library_item_id, checked_at, found_changes, report_json";
 

@@ -863,3 +863,22 @@ cannot fill, marked sent by a drain that cannot sign, verified by a test that on
 is a row with a spec — outbound AP delivery (signer, payload read, drain with the SSRF and backoff rules
 `webhook_sender` already implements, and one real enqueue path: outbound Follow) — and it is recorded here so the next
 pass starts from the finding instead of re-deriving it.
+
+### The public door is a projection, not the row (library.rs, 2026-11-08)
+
+`public_bookmarks_for` is the only query in `library` that takes no `account_id`, and its doc comment says
+why: it serves other readers, and `is_public` is what makes that safe. What the comment does not say — and
+what the door has to decide — is that the *row* is not the answer. A `Bookmark` carries the owner's account
+id and their private note. A bookmark being public publishes neither, so `GET /works/{id}/bookmarks/public`
+answers `{unit_id, position_permille, created_at}` and a count, and the bookmark's own id is left out too: a
+stable row id is a capability nobody granted.
+
+The companion read, `GET /library/items/{id}/updates`, is scoped by **account**, not by item — one reader's
+check history is not another's, and the honest answer for an item you have never had checked is `null`
+rather than an empty report.
+
+One correction belongs here because it is the trap in this file's own neighbours: `update_checks.checked_at`
+is **TEXT** in the PostgreSQL schema (`0009_library.sql`), unlike `download_grants.expires_at` and the
+`export_jobs` timestamps, which are `timestamptz`. Wrapping it in `to_char(... AT TIME ZONE 'UTC', ...)` — the
+fix that *was* right one module over — turned every item view into a 500. Cast-or-render is per column, and
+the migration, not the previous module, is the authority.
