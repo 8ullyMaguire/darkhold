@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-11-08T16:04:10.384Z",
+  "generatedAt": "2026-11-08T17:08:48.223Z",
   "pages": [
     {
       "label": "darkhold /discover after-hours 1280px",
@@ -12,8 +12,9 @@
         22,
         36
       ],
-      "textNodes": 84,
-      "evaluated": 84,
+      "textNodes": 83,
+      "hiddenText": 1,
+      "evaluated": 83,
       "sampleText": [
         {
           "s": "Skip to content",
@@ -89,6 +90,7 @@
         36
       ],
       "textNodes": 76,
+      "hiddenText": 1,
       "evaluated": 76,
       "sampleText": [
         {
@@ -164,8 +166,9 @@
         22,
         36
       ],
-      "textNodes": 84,
-      "evaluated": 84,
+      "textNodes": 83,
+      "hiddenText": 1,
+      "evaluated": 83,
       "sampleText": [
         {
           "s": "Skip to content",
@@ -241,6 +244,7 @@
         36
       ],
       "textNodes": 76,
+      "hiddenText": 1,
       "evaluated": 76,
       "sampleText": [
         {
@@ -316,8 +320,9 @@
         22,
         36
       ],
-      "textNodes": 84,
-      "evaluated": 84,
+      "textNodes": 83,
+      "hiddenText": 1,
+      "evaluated": 83,
       "sampleText": [
         {
           "s": "Skip to content",
@@ -393,6 +398,7 @@
         36
       ],
       "textNodes": 76,
+      "hiddenText": 1,
       "evaluated": 76,
       "sampleText": [
         {
@@ -471,8 +477,9 @@
         28,
         36
       ],
-      "textNodes": 33,
-      "evaluated": 33,
+      "textNodes": 32,
+      "hiddenText": 1,
+      "evaluated": 32,
       "sampleText": [
         {
           "s": "Skip to content",
@@ -551,6 +558,7 @@
         36
       ],
       "textNodes": 25,
+      "hiddenText": 1,
       "evaluated": 25,
       "sampleText": [
         {
@@ -629,8 +637,9 @@
         28,
         36
       ],
-      "textNodes": 33,
-      "evaluated": 33,
+      "textNodes": 32,
+      "hiddenText": 1,
+      "evaluated": 32,
       "sampleText": [
         {
           "s": "Skip to content",
@@ -709,6 +718,7 @@
         36
       ],
       "textNodes": 25,
+      "hiddenText": 1,
       "evaluated": 25,
       "sampleText": [
         {
@@ -787,8 +797,9 @@
         28,
         36
       ],
-      "textNodes": 33,
-      "evaluated": 33,
+      "textNodes": 32,
+      "hiddenText": 1,
+      "evaluated": 32,
       "sampleText": [
         {
           "s": "Skip to content",
@@ -867,6 +878,7 @@
         36
       ],
       "textNodes": 25,
+      "hiddenText": 1,
       "evaluated": 25,
       "sampleText": [
         {
@@ -928,6 +940,811 @@
         }
       ],
       "headings": "1·2·2",
+      "overflow": 0,
+      "motion": 0
+    },
+    {
+      "label": "kindred / archive 1280px",
+      "url": "https://kindred.polarisocial.xyz/",
+      "status": 200,
+      "sizes": [
+        10.5,
+        10.9,
+        11.2,
+        11.9,
+        12.3,
+        12.6,
+        12.9,
+        14,
+        14.7,
+        15.4,
+        17.5,
+        21,
+        28
+      ],
+      "textNodes": 640,
+      "hiddenText": 71,
+      "evaluated": 640,
+      "sampleText": [
+        {
+          "s": "Main Content",
+          "ink": [
+            153,
+            0,
+            0,
+            1
+          ],
+          "paper": {
+            "rgba": [
+              255,
+              255,
+              255,
+              1
+            ],
+            "from": "body",
+            "css": "rgb(255, 255, 255)"
+          }
+        },
+        {
+          "s": "Kindred",
+          "ink": [
+            153,
+            0,
+            0,
+            1
+          ],
+          "paper": {
+            "rgba": [
+              255,
+              255,
+              255,
+              1
+            ],
+            "from": "body",
+            "css": "rgb(255, 255, 255)"
+          }
+        },
+        {
+          "s": "Fandoms",
+          "ink": [
+            42,
+            42,
+            42,
+            1
+          ],
+          "paper": {
+            "rgba": [
+              255,
+              255,
+              255,
+              1
+            ],
+            "from": "body",
+            "css": "rgb(255, 255, 255)"
+          }
+        }
+      ],
+      "headings": "1·2·3·4·5·4·5·4·5·4·5·4·5·4·5·4·5·4·5·4·5·4·5·4·5·4·5",
+      "overflow": 0,
+      "motion": 0
+    },
+    {
+      "label": "kindred / archive 390px",
+      "url": "https://kindred.polarisocial.xyz/",
+      "status": 200,
+      "sizes": [
+        10.5,
+        10.9,
+        11.2,
+        11.9,
+        12.3,
+        12.6,
+        12.9,
+        14,
+        14.7,
+        15.4,
+        17.5,
+        21,
+        28
+      ],
+      "textNodes": 640,
+      "hiddenText": 71,
+      "evaluated": 640,
+      "sampleText": [
+        {
+          "s": "Main Content",
+          "ink": [
+            153,
+            0,
+            0,
+            1
+          ],
+          "paper": {
+            "rgba": [
+              255,
+              255,
+              255,
+              1
+            ],
+            "from": "body",
+            "css": "rgb(255, 255, 255)"
+          }
+        },
+        {
+          "s": "Kindred",
+          "ink": [
+            153,
+            0,
+            0,
+            1
+          ],
+          "paper": {
+            "rgba": [
+              255,
+              255,
+              255,
+              1
+            ],
+            "from": "body",
+            "css": "rgb(255, 255, 255)"
+          }
+        },
+        {
+          "s": "Fandoms",
+          "ink": [
+            42,
+            42,
+            42,
+            1
+          ],
+          "paper": {
+            "rgba": [
+              255,
+              255,
+              255,
+              1
+            ],
+            "from": "body",
+            "css": "rgb(255, 255, 255)"
+          }
+        }
+      ],
+      "headings": "1·2·3·4·5·4·5·4·5·4·5·4·5·4·5·4·5·4·5·4·5·4·5·4·5·4·5",
+      "overflow": 0,
+      "motion": 0
+    },
+    {
+      "label": "kindred /works/52802365 archive 1280px",
+      "url": "https://kindred.polarisocial.xyz/works/52802365",
+      "status": 200,
+      "sizes": [
+        10.3,
+        10.9,
+        11.2,
+        11.9,
+        12.3,
+        12.6,
+        12.9,
+        13.6,
+        14,
+        14.7,
+        17.5,
+        21,
+        26.6
+      ],
+      "textNodes": 981,
+      "hiddenText": 70,
+      "evaluated": 981,
+      "sampleText": [
+        {
+          "s": "Main Content",
+          "ink": [
+            153,
+            0,
+            0,
+            1
+          ],
+          "paper": {
+            "rgba": [
+              255,
+              255,
+              255,
+              1
+            ],
+            "from": "body",
+            "css": "rgb(255, 255, 255)"
+          }
+        },
+        {
+          "s": "Kindred",
+          "ink": [
+            153,
+            0,
+            0,
+            1
+          ],
+          "paper": {
+            "rgba": [
+              255,
+              255,
+              255,
+              1
+            ],
+            "from": "body",
+            "css": "rgb(255, 255, 255)"
+          }
+        },
+        {
+          "s": "Fandoms",
+          "ink": [
+            42,
+            42,
+            42,
+            1
+          ],
+          "paper": {
+            "rgba": [
+              255,
+              255,
+              255,
+              1
+            ],
+            "from": "body",
+            "css": "rgb(255, 255, 255)"
+          }
+        }
+      ],
+      "headings": "1·2·3·4·5·4·5·4·5·4·5·4·5·4·5·4·5·4·5·4·5·4·5",
+      "overflow": 0,
+      "motion": 0
+    },
+    {
+      "label": "kindred /works/52802365 archive 390px",
+      "url": "https://kindred.polarisocial.xyz/works/52802365",
+      "status": 200,
+      "sizes": [
+        10.3,
+        10.9,
+        11.2,
+        11.9,
+        12.3,
+        12.6,
+        12.9,
+        13.6,
+        14,
+        14.7,
+        17.5,
+        21
+      ],
+      "textNodes": 981,
+      "hiddenText": 70,
+      "evaluated": 981,
+      "sampleText": [
+        {
+          "s": "Main Content",
+          "ink": [
+            153,
+            0,
+            0,
+            1
+          ],
+          "paper": {
+            "rgba": [
+              255,
+              255,
+              255,
+              1
+            ],
+            "from": "body",
+            "css": "rgb(255, 255, 255)"
+          }
+        },
+        {
+          "s": "Kindred",
+          "ink": [
+            153,
+            0,
+            0,
+            1
+          ],
+          "paper": {
+            "rgba": [
+              255,
+              255,
+              255,
+              1
+            ],
+            "from": "body",
+            "css": "rgb(255, 255, 255)"
+          }
+        },
+        {
+          "s": "Fandoms",
+          "ink": [
+            42,
+            42,
+            42,
+            1
+          ],
+          "paper": {
+            "rgba": [
+              255,
+              255,
+              255,
+              1
+            ],
+            "from": "body",
+            "css": "rgb(255, 255, 255)"
+          }
+        }
+      ],
+      "headings": "1·2·3·4·5·4·5·4·5·4·5·4·5·4·5·4·5·4·5·4·5·4·5",
+      "overflow": 0,
+      "motion": 0
+    },
+    {
+      "label": "ascend / default 1280px",
+      "url": "https://ascend.polarisocial.xyz/",
+      "status": 200,
+      "sizes": [
+        11,
+        12,
+        14,
+        16,
+        18,
+        20,
+        30
+      ],
+      "textNodes": 168,
+      "hiddenText": 0,
+      "evaluated": 168,
+      "sampleText": [
+        {
+          "s": "ASCEND",
+          "ink": [
+            245,
+            245,
+            245,
+            1
+          ],
+          "paper": {
+            "rgba": [
+              0,
+              0,
+              0,
+              0
+            ],
+            "from": "html",
+            "css": "rgba(0, 0, 0, 0)"
+          }
+        },
+        {
+          "s": "🎲",
+          "ink": [
+            245,
+            245,
+            245,
+            1
+          ],
+          "paper": {
+            "rgba": [
+              0,
+              0,
+              0,
+              0
+            ],
+            "from": "html",
+            "css": "rgba(0, 0, 0, 0)"
+          }
+        },
+        {
+          "s": "Profile",
+          "ink": [
+            161,
+            161,
+            161,
+            1
+          ],
+          "paper": {
+            "rgba": [
+              0,
+              0,
+              0,
+              0
+            ],
+            "from": "html",
+            "css": "rgba(0, 0, 0, 0)"
+          }
+        }
+      ],
+      "headings": "1·2·2·3·2·2·2·2·2·2·2·2·2·2·2·2·2·2·2·2·3·3·3·3·3·3",
+      "overflow": 0,
+      "motion": 0
+    },
+    {
+      "label": "ascend / default 390px",
+      "url": "https://ascend.polarisocial.xyz/",
+      "status": 200,
+      "sizes": [
+        11,
+        12,
+        14,
+        16,
+        18,
+        20,
+        30
+      ],
+      "textNodes": 168,
+      "hiddenText": 0,
+      "evaluated": 168,
+      "sampleText": [
+        {
+          "s": "ASCEND",
+          "ink": [
+            245,
+            245,
+            245,
+            1
+          ],
+          "paper": {
+            "rgba": [
+              0,
+              0,
+              0,
+              0
+            ],
+            "from": "html",
+            "css": "rgba(0, 0, 0, 0)"
+          }
+        },
+        {
+          "s": "🎲",
+          "ink": [
+            245,
+            245,
+            245,
+            1
+          ],
+          "paper": {
+            "rgba": [
+              0,
+              0,
+              0,
+              0
+            ],
+            "from": "html",
+            "css": "rgba(0, 0, 0, 0)"
+          }
+        },
+        {
+          "s": "Profile",
+          "ink": [
+            161,
+            161,
+            161,
+            1
+          ],
+          "paper": {
+            "rgba": [
+              0,
+              0,
+              0,
+              0
+            ],
+            "from": "html",
+            "css": "rgba(0, 0, 0, 0)"
+          }
+        }
+      ],
+      "headings": "1·2·2·3·2·2·2·2·2·2·2·2·2·2·2·2·2·2·2·2·3·3·3·3·3·3",
+      "overflow": 0,
+      "motion": 0
+    },
+    {
+      "label": "ascend /gallery default 1280px",
+      "url": "https://ascend.polarisocial.xyz/gallery",
+      "status": 200,
+      "sizes": [
+        11,
+        12,
+        14,
+        16,
+        24
+      ],
+      "textNodes": 94,
+      "hiddenText": 0,
+      "evaluated": 94,
+      "sampleText": [
+        {
+          "s": "ASCEND",
+          "ink": [
+            245,
+            245,
+            245,
+            1
+          ],
+          "paper": {
+            "rgba": [
+              0,
+              0,
+              0,
+              0
+            ],
+            "from": "html",
+            "css": "rgba(0, 0, 0, 0)"
+          }
+        },
+        {
+          "s": "🎲",
+          "ink": [
+            245,
+            245,
+            245,
+            1
+          ],
+          "paper": {
+            "rgba": [
+              0,
+              0,
+              0,
+              0
+            ],
+            "from": "html",
+            "css": "rgba(0, 0, 0, 0)"
+          }
+        },
+        {
+          "s": "Profile",
+          "ink": [
+            161,
+            161,
+            161,
+            1
+          ],
+          "paper": {
+            "rgba": [
+              0,
+              0,
+              0,
+              0
+            ],
+            "from": "html",
+            "css": "rgba(0, 0, 0, 0)"
+          }
+        }
+      ],
+      "headings": "1·2·2·2·2·2·2·2",
+      "overflow": 0,
+      "motion": 0
+    },
+    {
+      "label": "ascend /gallery default 390px",
+      "url": "https://ascend.polarisocial.xyz/gallery",
+      "status": 200,
+      "sizes": [
+        11,
+        12,
+        14,
+        16,
+        24
+      ],
+      "textNodes": 94,
+      "hiddenText": 0,
+      "evaluated": 94,
+      "sampleText": [
+        {
+          "s": "ASCEND",
+          "ink": [
+            245,
+            245,
+            245,
+            1
+          ],
+          "paper": {
+            "rgba": [
+              0,
+              0,
+              0,
+              0
+            ],
+            "from": "html",
+            "css": "rgba(0, 0, 0, 0)"
+          }
+        },
+        {
+          "s": "🎲",
+          "ink": [
+            245,
+            245,
+            245,
+            1
+          ],
+          "paper": {
+            "rgba": [
+              0,
+              0,
+              0,
+              0
+            ],
+            "from": "html",
+            "css": "rgba(0, 0, 0, 0)"
+          }
+        },
+        {
+          "s": "Profile",
+          "ink": [
+            161,
+            161,
+            161,
+            1
+          ],
+          "paper": {
+            "rgba": [
+              0,
+              0,
+              0,
+              0
+            ],
+            "from": "html",
+            "css": "rgba(0, 0, 0, 0)"
+          }
+        }
+      ],
+      "headings": "1·2·2·2·2·2·2·2",
+      "overflow": 0,
+      "motion": 0
+    },
+    {
+      "label": "ascend /fics default 1280px",
+      "url": "https://ascend.polarisocial.xyz/fics",
+      "status": 200,
+      "sizes": [
+        11,
+        12,
+        14,
+        16,
+        24
+      ],
+      "textNodes": 410,
+      "hiddenText": 0,
+      "evaluated": 410,
+      "sampleText": [
+        {
+          "s": "ASCEND",
+          "ink": [
+            245,
+            245,
+            245,
+            1
+          ],
+          "paper": {
+            "rgba": [
+              0,
+              0,
+              0,
+              0
+            ],
+            "from": "html",
+            "css": "rgba(0, 0, 0, 0)"
+          }
+        },
+        {
+          "s": "🎲",
+          "ink": [
+            245,
+            245,
+            245,
+            1
+          ],
+          "paper": {
+            "rgba": [
+              0,
+              0,
+              0,
+              0
+            ],
+            "from": "html",
+            "css": "rgba(0, 0, 0, 0)"
+          }
+        },
+        {
+          "s": "Profile",
+          "ink": [
+            161,
+            161,
+            161,
+            1
+          ],
+          "paper": {
+            "rgba": [
+              0,
+              0,
+              0,
+              0
+            ],
+            "from": "html",
+            "css": "rgba(0, 0, 0, 0)"
+          }
+        }
+      ],
+      "headings": "1·2·3·3·3·3·3·3·3·3·3·3·3·3·3·3·3·3·3·3·3·3·3·3·3·3·3·3·3·3·3·3·3·3·3·3·3·3·2·2·2·2·2·2·2·2·2·2·2·2·2·2·2·2·2·2·2·2·2·2·2·2·2·2·2·2·2·2",
+      "overflow": 0,
+      "motion": 0
+    },
+    {
+      "label": "ascend /fics default 390px",
+      "url": "https://ascend.polarisocial.xyz/fics",
+      "status": 200,
+      "sizes": [
+        11,
+        12,
+        14,
+        16,
+        24
+      ],
+      "textNodes": 410,
+      "hiddenText": 0,
+      "evaluated": 410,
+      "sampleText": [
+        {
+          "s": "ASCEND",
+          "ink": [
+            245,
+            245,
+            245,
+            1
+          ],
+          "paper": {
+            "rgba": [
+              0,
+              0,
+              0,
+              0
+            ],
+            "from": "html",
+            "css": "rgba(0, 0, 0, 0)"
+          }
+        },
+        {
+          "s": "🎲",
+          "ink": [
+            245,
+            245,
+            245,
+            1
+          ],
+          "paper": {
+            "rgba": [
+              0,
+              0,
+              0,
+              0
+            ],
+            "from": "html",
+            "css": "rgba(0, 0, 0, 0)"
+          }
+        },
+        {
+          "s": "Profile",
+          "ink": [
+            161,
+            161,
+            161,
+            1
+          ],
+          "paper": {
+            "rgba": [
+              0,
+              0,
+              0,
+              0
+            ],
+            "from": "html",
+            "css": "rgba(0, 0, 0, 0)"
+          }
+        }
+      ],
+      "headings": "1·2·3·3·3·3·3·3·3·3·3·3·3·3·3·3·3·3·3·3·3·3·3·3·3·3·3·3·3·3·3·3·3·3·3·3·3·3·2·2·2·2·2·2·2·2·2·2·2·2·2·2·2·2·2·2·2·2·2·2·2·2·2·2·2·2·2·2",
       "overflow": 0,
       "motion": 0
     }
