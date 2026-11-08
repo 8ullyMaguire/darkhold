@@ -94,9 +94,15 @@ async fn whole(
         }
     };
 
+    let total = darkhold_db::whole_work::total_words(state.db(), &work)
+        .await
+        .map_err(|error| ApiError(AppError::Internal(error)))?;
+
     Ok(Json(json!({
         "work_id": work,
-        "total_words": lengths.iter().sum::<usize>(),
+        // From the store, not from a second sum over the spans above (M70-13): `whole_work::total_words` is what a test
+        // proves, and a page that added the numbers itself could drift from it without either test noticing.
+        "total_words": total,
         "chapters": spans
             .iter()
             .enumerate()

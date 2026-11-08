@@ -365,9 +365,15 @@ async fn attribution(
         })
         .collect();
 
+    // The count comes from the store's own query rather than a second `filter` over the rows above: one number, one
+    // definition, and the one a test proves is the one the page shows (M70-13).
+    let active = darkhold_db::work_mirrors::active_count(state.db(), &work_id)
+        .await
+        .map_err(internal)?;
+
     Ok(Json(json!({
         "work_id": work_id,
-        "active": rows.iter().filter(|row| row.state == "active").count(),
+        "active": active,
         "attribution": lines,
         "mirrors": rows.iter().map(|row| json!({
             "peer_instance": row.peer_instance,

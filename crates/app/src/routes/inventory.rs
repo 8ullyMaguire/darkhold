@@ -6487,6 +6487,13 @@ pub const ROUTE_TABLE: &[RouteEntry] = &[
         audience: Audience::Authenticated,
     },
     RouteEntry {
+        file: "peering.rs",
+        handler: "forget_fingerprint",
+        method: "DELETE",
+        path: "/operator/peering/fingerprints/{instance}",
+        audience: Audience::Operator,
+    },
+    RouteEntry {
         file: "tag_assertions.rs",
         handler: "list",
         method: "GET",

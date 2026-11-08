@@ -17,7 +17,7 @@
 //! score *means* something. The response carries `verdict` per peer and the ranking puts suggestions first, then vetoes,
 //! then near misses (see `peering::suggest`) — the order is the answer, and the reason sentence names the rule.
 
-use axum::extract::State;
+use axum::extract::{Path, State};
 use axum::routing::{get, put};
 use axum::{Json, Router};
 use serde::Deserialize;
@@ -36,6 +36,10 @@ pub fn router() -> Router<AppState> {
     Router::new()
         .route("/operator/peering/suggestions", get(suggestions))
         .route("/operator/peering/fingerprints", put(record_fingerprint))
+        .route(
+            "/operator/peering/fingerprints/{instance}",
+            axum::routing::delete(forget_fingerprint),
+        )
 }
 
 /// The closed door: 404 rather than 403, so a reader cannot learn the surface exists.
@@ -129,4 +133,30 @@ async fn record_fingerprint(
         "enforced": fingerprint.enforced,
         "fetched_at": fetched_at,
     })))
+}
+
+/// Stop suggesting a peer: remove the fingerprint the operator recorded.
+///
+/// The door is the counterpart of `PUT`, and it exists because a suggestion the operator cannot switch off is not a
+/// suggestion — a peer that turned out to sell placements, or to publish a fingerprint its rules do not match, would stay in
+/// the list forever. `404` for an unknown instance, because "I have forgotten this one" and "there was nothing here" are
+/// different answers and only one of them is checkable.
+async fn forget_fingerprint(
+    State(state): State<AppState>,
+    session: RequireSession,
+    Path(instance): Path<String>,
+) -> ApiResult<Json<Value>> {
+    if let Some(error) = closed(&state) {
+        return Err(error);
+    }
+    require_operator(&state, &session.0)?;
+    let removed = darkhold_db::peer_fingerprints::forget(state.db(), &instance)
+        .await
+        .map_err(|error| ApiError(AppError::Internal(error)))?;
+    if !removed {
+        return Err(ApiError(AppError::NotFound {
+            resource: "peer fingerprint",
+        }));
+    }
+    Ok(Json(json!({ "instance_id": instance, "forgotten": true })))
 }
