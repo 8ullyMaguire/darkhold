@@ -123,3 +123,48 @@ Wired rather than narrowed, because each had a reader who should have seen it:
 
 Narrowed to `pub(crate)` after their last external reader moved: `velocity_signals` (the test now asserts the stored basis `recompute_trust` writes), `find_notice` (the app test's assertion was already made twice over the door).
 
+## The measurement, after the scan learned to follow calls (2026-11-08)
+
+The scan now builds a call graph inside `crates/db` and propagates reachability from the names an app source calls. That took
+the number from 292 to **233**, and none of the 59 were work: every one was an internal helper reached through another
+function. The row stays `planned` until 233 is zero — the requirement's own words are "no function exists only to satisfy its
+own test".
+
+**233 functions across 72 modules.** The largest:
+
+| module | orphans |
+|---|---|
+| `work_characters.rs` | 17 |
+| `preservation.rs` | 14 |
+| `subscriptions.rs` | 10 |
+| `external.rs` | 9 |
+| `work_coordinates.rs` | 9 |
+| `federation.rs` | 8 |
+| `taste_leakage.rs` | 8 |
+| `exports.rs` | 7 |
+| `library.rs` | 7 |
+| `imports.rs` | 6 |
+| `story_identity.rs` | 6 |
+| `canon_agnostic.rs` | 5 |
+| `category_governance.rs` | 5 |
+| `community.rs` | 5 |
+| `exchange.rs` | 5 |
+| `identity.rs` | 5 |
+| `rating_integrity.rs` | 5 |
+| `taste_health.rs` | 5 |
+| `taste_import.rs` | 5 |
+| `translation.rs` | 5 |
+
+### Order of work, and why
+
+1. **Modules whose feature has a door already** — the write half usually follows the read half. `work_characters` is 17 and
+   is exactly this: the read door shipped today, and what remains is authoring characters, roles, relationships and dynamics.
+2. **Modules with no route at all.** These are features that were built to the store and never surfaced. Each one is a
+   decision, not a chore: build the door (and the ledger row it belongs to) or delete the store code and its tests. Deleting is
+   allowed and is sometimes right — a function kept because it has a test is the defect the row was opened on — but the
+   decision has to be recorded with the module, not taken in passing.
+3. **Infrastructure that is genuinely not a reader surface** (`Database::connect`-style constructors and the `BlobStore`
+   primitives) — the honest fix is a route that uses them or a narrower visibility, never an allowlist entry.
+
+Every line in the baseline is a promise to come back to it. The list can only shrink.
+
