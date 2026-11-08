@@ -6536,6 +6536,13 @@ pub const ROUTE_TABLE: &[RouteEntry] = &[
         audience: Audience::Public,
     },
     RouteEntry {
+        file: "admin.rs",
+        handler: "applied_migrations",
+        method: "GET",
+        path: "/admin/migrations",
+        audience: Audience::Operator,
+    },
+    RouteEntry {
         file: "tag_assertions.rs",
         handler: "list",
         method: "GET",

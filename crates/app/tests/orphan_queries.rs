@@ -117,7 +117,15 @@ fn reachable_sources() -> String {
     let crates = root.join("crates");
     for entry in std::fs::read_dir(&crates).expect("crates/").flatten() {
         let src = entry.path().join("src");
-        if entry.path().file_name().is_some_and(|name| name == "db") {
+        let dir_path = entry.path();
+        let name = dir_path
+            .file_name()
+            .and_then(|n| n.to_str())
+            .unwrap_or_default();
+        // `db` is the producer, and `test-support` is a **test** crate: helpers that only tests call are not a reader
+        // surface, and counting them let a store function stay public on the strength of a fixture that constructs it.
+        if name == "db" || name == "test-support" {
+            // `name` borrows `dir_path`, which outlives the block — the temporary `entry.path()` did not.
             continue;
         }
         if src.is_dir() {

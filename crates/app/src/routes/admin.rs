@@ -125,6 +125,9 @@ pub fn router() -> axum::Router<AppState> {
         // What have we imported, and from where. The question an operator asks after a sync run, and the answer is the
         // `src-` prefixed pseuds — the prefix is the only record that a pseud is syndicated (M70-13).
         .route("/admin/syndication/pseuds", get(syndicated_pseuds))
+        // Which migrations this instance has actually applied. The question a deploy asks, and the one thing a settings
+        // file cannot answer (M70-13).
+        .route("/admin/migrations", get(applied_migrations))
 }
 
 /// Every syndicated pseud, with the source it stands for.
@@ -147,6 +150,32 @@ pub async fn syndicated_pseuds(
                 "pseud_id": pseud.to_string(),
                 "source": source,
             }))
+            .collect::<Vec<Value>>(),
+    })))
+}
+
+/// The migrations this database has applied, newest first.
+///
+/// Operator-only, and worth a door rather than a script: "is the live instance the build I think it is" is answered by the
+/// migration list, and an operator who has to open `sqlite3` to find out will eventually guess instead.
+pub async fn applied_migrations(
+    State(state): State<AppState>,
+    RequireSession(user): RequireSession,
+) -> ApiResult<Json<Value>> {
+    crate::routes::discovery::require_operator(&state, &user)?;
+    let mut applied = state
+        .db()
+        .applied_migrations()
+        .await
+        .map_err(|e| ApiError(darkhold_domain::AppError::Internal(e)))?;
+    // Newest first, by application time: a migration id sorts as text and `0100` before `0099` is a trap for whoever reads
+    // the list.
+    applied.sort_by(|a, b| b.applied_at.cmp(&a.applied_at));
+    Ok(Json(json!({
+        "count": applied.len(),
+        "migrations": applied
+            .iter()
+            .map(|m| json!({ "id": m.id, "checksum": m.checksum, "applied_at": m.applied_at }))
             .collect::<Vec<Value>>(),
     })))
 }

@@ -47,10 +47,15 @@ async fn characters(
 
     let mut rows = Vec::with_capacity(relationships.len());
     for relationship in relationships {
-        let participants =
-            darkhold_db::work_characters::relationship_participants(state.db(), &relationship.id)
-                .await
-                .map_err(|error| ApiError(AppError::Internal(error)))?;
+        // Keyed by the pairing's **node**, not by this row's id: `relationship_participants` stores
+        // `relationship_node_id`, which is a `canonical_entities` row (§6.4), and a `work_relationships` row id looks
+        // equally plausible and returns an empty list — the shape of mistake this test caught on its first run.
+        let participants = darkhold_db::work_characters::relationship_participants(
+            state.db(),
+            &relationship.relationship_node_id,
+        )
+        .await
+        .map_err(|error| ApiError(AppError::Internal(error)))?;
         rows.push(json!({
             "id": relationship.id,
             "relationship_node_id": relationship.relationship_node_id,
