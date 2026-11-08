@@ -5,12 +5,12 @@
 //! require an authenticated session with a selected pseud.
 
 use axum::extract::{Path, State};
-use axum::routing::{post, put};
+use axum::routing::{get, post, put};
 use axum::Json;
 use serde::Deserialize;
 use serde_json::{json, Value};
 
-use crate::auth::RequireSession;
+use crate::auth::{MaybeSession, RequireSession};
 use crate::http::{ApiError, ApiResult};
 use crate::state::AppState;
 use darkhold_db::subscriptions;
@@ -210,6 +210,64 @@ pub async fn delete_alert(
     Ok(Json(json!({ "deleted": rows })))
 }
 
+/// The caller's own search alerts (M21-D15).
+async fn list_alerts(
+    State(state): State<AppState>,
+    session: RequireSession,
+) -> ApiResult<Json<Value>> {
+    // Alerts are per **pseud**, and a session that has not chosen one has no alerts to list: an empty answer, not a guessed
+    // default pseud.
+    let Some(pseud) = session.0.pseud_id else {
+        return Ok(Json(json!({ "alerts": [] })));
+    };
+    let rows = subscriptions::list_alerts(state.db(), &pseud.to_canonical_string())
+        .await
+        .map_err(|e| ApiError(darkhold_domain::AppError::Internal(e.into())))?;
+    Ok(Json(json!({
+        "alerts": rows
+            .iter()
+            .map(|row| json!({
+                "id": row.id,
+                "saved_search_id": row.saved_search_id,
+                "frequency": row.frequency,
+                "last_run_at": row.last_run_at,
+                "created_at": row.created_at,
+            }))
+            .collect::<Vec<Value>>(),
+    })))
+}
+
+/// Record that an alert ran (M21-D13).
+async fn mark_alert_run(
+    State(state): State<AppState>,
+    session: RequireSession,
+    Path(id): Path<String>,
+) -> ApiResult<Json<Value>> {
+    crate::routes::discovery::require_operator(&state, &session.0)?;
+    let rows = subscriptions::mark_alert_run(state.db(), &id)
+        .await
+        .map_err(|e| ApiError(darkhold_domain::AppError::Internal(e.into())))?;
+    if rows == 0 {
+        return Err(ApiError(darkhold_domain::AppError::NotFound {
+            resource: "search alert",
+        }));
+    }
+    Ok(Json(json!({ "id": id, "stamped": true })))
+}
+
+/// How many readers subscribe to this work.
+async fn subscriber_count(
+    State(state): State<AppState>,
+    // A count, and the same count for everybody: a reader may be signed in and nothing here varies by who.
+    MaybeSession(_viewer): MaybeSession,
+    Path(work_id): Path<String>,
+) -> ApiResult<Json<Value>> {
+    let count = subscriptions::count_subscribers(state.db(), "work", &work_id)
+        .await
+        .map_err(|e| ApiError(darkhold_domain::AppError::Internal(e.into())))?;
+    Ok(Json(json!({ "work_id": work_id, "subscribers": count })))
+}
+
 pub fn router() -> axum::Router<AppState> {
     axum::Router::new()
         .route("/subscriptions", post(subscribe).get(my_subscriptions))
@@ -217,7 +275,14 @@ pub fn router() -> axum::Router<AppState> {
             "/subscriptions/{id}",
             put(update_subscription).delete(unsubscribe),
         )
-        .route("/search-alerts", post(create_alert))
+        .route("/search-alerts", post(create_alert).get(list_alerts))
+        // The operator's marking door. An alert's *runner* — the job that would find new results and deliver them — is not
+        // built, and this door says only what it does: it records that a run happened. Naming it `run` and returning a
+        // delivery count would be a door claiming a feature nobody wrote.
+        .route("/admin/search-alerts/{id}/run", post(mark_alert_run))
+        // How many readers are waiting for this work's next chapter. A count and never a list: who subscribed to what is
+        // nobody's business but theirs.
+        .route("/works/{id}/subscribers", get(subscriber_count))
         .route(
             "/search-alerts/{id}",
             put(update_alert).delete(delete_alert),
@@ -280,5 +345,59 @@ pub async fn set_ai_training(
 }
 
 pub fn ai_training_router() -> axum::Router<AppState> {
-    axum::Router::new().route("/works/{work_id}/ai-training", put(set_ai_training))
+    axum::Router::new()
+        .route(
+            "/works/{work_id}/ai-training",
+            get(get_ai_training).put(set_ai_training),
+        )
+        // The instance's consent ledger. Operator-only: it is a list of pseuds and what each of them answered about their own
+        // work, which is personal data with a policy attached.
+        .route("/admin/ai-training", get(list_ai_training))
+}
+
+/// The author's stated answer about AI training on this work (§24.14).
+///
+/// Public, because the assertion is metadata shown with the work: a reader is entitled to know whether the author allowed it.
+/// The answer belongs to the *pseud*, so every work by one author reports the same value.
+async fn get_ai_training(
+    State(state): State<AppState>,
+    MaybeSession(_viewer): MaybeSession,
+    Path(work_id): Path<String>,
+) -> ApiResult<Json<Value>> {
+    let wid = work_id
+        .parse::<darkhold_domain::WorkId>()
+        .map_err(|_| ApiError(darkhold_domain::AppError::NotFound { resource: "work" }))?;
+    let work = darkhold_db::content::find_work(state.db(), wid)
+        .await
+        .map_err(|e| ApiError(darkhold_domain::AppError::Internal(e.into())))?
+        .ok_or_else(|| ApiError(darkhold_domain::AppError::NotFound { resource: "work" }))?;
+    // Opt-in is consent: a pseud with no row has not answered, and "has not answered" is not "allowed" (M21-D16).
+    let allowed =
+        subscriptions::ai_training_status(state.db(), &work.owner_pseud_id.to_canonical_string())
+            .await
+            .map_err(|e| ApiError(darkhold_domain::AppError::Internal(e.into())))?;
+    Ok(Json(json!({
+        "work_id": work_id,
+        "ai_training": if allowed { "allow" } else { "deny" },
+    })))
+}
+
+async fn list_ai_training(
+    State(state): State<AppState>,
+    session: RequireSession,
+) -> ApiResult<Json<Value>> {
+    crate::routes::discovery::require_operator(&state, &session.0)?;
+    let rows = subscriptions::list_ai_training_statuses(state.db())
+        .await
+        .map_err(|e| ApiError(darkhold_domain::AppError::Internal(e.into())))?;
+    let allowed = rows.iter().filter(|(_, opted_in)| *opted_in).count();
+    Ok(Json(json!({
+        "total": rows.len(),
+        "allowed": allowed,
+        "denied": rows.len() - allowed,
+        "authors": rows
+            .iter()
+            .map(|(pseud, opted_in)| json!({ "pseud_id": pseud, "ai_training": if *opted_in { "allow" } else { "deny" } }))
+            .collect::<Vec<Value>>(),
+    })))
 }

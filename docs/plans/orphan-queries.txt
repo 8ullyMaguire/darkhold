@@ -3,7 +3,7 @@
 # Each line is a `pub async fn` in crates/db/src that no app source can reach, directly or through another db
 # function. They are debt, not permission: crates/app/tests/orphan_queries.rs fails when a NEW one appears, so
 # this list can only shrink. Delete a line by wiring the function to a route or deleting the function.
-# measured 2026-11-08: 199 orphan(s)
+# measured 2026-11-08: 189 orphan(s)
 
 increment_abuse_counter  # crates/db/src/admin.rs
 complete_privacy_request  # crates/db/src/admin.rs
@@ -152,16 +152,6 @@ published_source_manifests  # crates/db/src/source_adapters.rs
 members_of  # crates/db/src/story_identity.rs
 member_counts  # crates/db/src/story_identity.rs
 merge_table_is_empty  # crates/db/src/story_identity.rs
-unsubscribe_work  # crates/db/src/subscriptions.rs
-count_subscribers  # crates/db/src/subscriptions.rs
-active_subscriber_for_subject  # crates/db/src/subscriptions.rs
-list_alerts  # crates/db/src/subscriptions.rs
-mark_alert_run  # crates/db/src/subscriptions.rs
-ai_training_status  # crates/db/src/subscriptions.rs
-ai_training_opt_out_handler  # crates/db/src/subscriptions.rs
-ai_training_opt_out_delayed  # crates/db/src/subscriptions.rs
-ai_training_opt_out_delayed_tx  # crates/db/src/subscriptions.rs
-list_ai_training_statuses  # crates/db/src/subscriptions.rs
 redirects_for  # crates/db/src/succession.rs
 compute_and_store_work_vector  # crates/db/src/taste_health.rs
 store_work_vector  # crates/db/src/taste_health.rs

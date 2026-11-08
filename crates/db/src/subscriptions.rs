@@ -71,30 +71,6 @@ async fn fetch_subs_postgres(
         .collect())
 }
 
-async fn fetch_active_sub_owner_sqlite(
-    pool: &sqlx::SqlitePool,
-    subject_type: &str,
-    subject_id: &str,
-) -> Result<Option<String>, sqlx::Error> {
-    let r: Option<String> = sqlx::query_scalar("SELECT subscriber_pseud_id FROM content_subscriptions WHERE subject_type = ? AND subject_id = ? AND state = 'active'")
-        .bind(subject_type).bind(subject_id)
-        .fetch_optional(pool)
-        .await?;
-    Ok(r)
-}
-
-async fn fetch_active_sub_owner_postgres(
-    pool: &sqlx::postgres::PgPool,
-    subject_type: &str,
-    subject_id: &str,
-) -> Result<Option<String>, sqlx::Error> {
-    let r: Option<String> = sqlx::query_scalar("SELECT subscriber_pseud_id::text FROM content_subscriptions WHERE subject_type = $1 AND subject_id = $2 AND state = 'active'")
-        .bind(subject_type).bind(subject_id)
-        .fetch_optional(pool)
-        .await?;
-    Ok(r)
-}
-
 async fn fetch_alerts_sqlite(
     pool: &sqlx::SqlitePool,
     owner_pseud_id: &str,
@@ -197,29 +173,6 @@ pub async fn set_subscription_state(
     }
 }
 
-/// Unsubscribe. Returns rows affected.
-pub async fn unsubscribe_work(
-    db: &Database,
-    subscriber_pseud_id: &str,
-    subject_type: &str,
-    subject_id: &str,
-) -> Result<u64, sqlx::Error> {
-    match db.backend() {
-        Backend::Sqlite => {
-            let r = sqlx::query("DELETE FROM content_subscriptions WHERE subscriber_pseud_id = ? AND subject_type = ? AND subject_id = ?")
-                .bind(subscriber_pseud_id).bind(subject_type).bind(subject_id)
-                .execute(db.sqlite_pool().expect("sqlite")).await?;
-            Ok(r.rows_affected())
-        }
-        Backend::Postgres => {
-            let r = sqlx::query("DELETE FROM content_subscriptions WHERE subscriber_pseud_id = $1::uuid AND subject_type = $2 AND subject_id = $3")
-                .bind(subscriber_pseud_id).bind(subject_type).bind(subject_id)
-                .execute(db.postgres_pool().expect("postgres")).await?;
-            Ok(r.rows_affected())
-        }
-    }
-}
-
 /// List all subscriptions for a pseud.
 pub async fn list_subscriptions(
     db: &Database,
@@ -276,32 +229,6 @@ async fn count_subs_postgres(
         .fetch_one(pool)
         .await?;
     Ok(r)
-}
-
-/// Get the owner pseud of the most recent active subscriber for a subject.
-pub async fn active_subscriber_for_subject(
-    db: &Database,
-    subject_type: &str,
-    subject_id: &str,
-) -> Result<Option<String>, sqlx::Error> {
-    match db.backend() {
-        Backend::Sqlite => {
-            fetch_active_sub_owner_sqlite(
-                db.sqlite_pool().expect("sqlite"),
-                subject_type,
-                subject_id,
-            )
-            .await
-        }
-        Backend::Postgres => {
-            fetch_active_sub_owner_postgres(
-                db.postgres_pool().expect("postgres"),
-                subject_type,
-                subject_id,
-            )
-            .await
-        }
-    }
 }
 
 /// Create a saved-search alert. Returns the alert id.
@@ -482,83 +409,6 @@ pub async fn ai_training_status(db: &Database, pseud_id: &str) -> Result<bool, s
             Ok(r.unwrap_or(0) != 0)
         }
     }
-}
-
-/// Post an AI-training opt-out handler for a pseud.
-pub async fn ai_training_opt_out_handler(db: &Database, pseud_id: &str) -> Result<(), sqlx::Error> {
-    match db.backend() {
-        Backend::Sqlite => {
-            sqlx::query("DELETE FROM author_ai_training WHERE pseud_id = ? AND opt_in = 0")
-                .bind(pseud_id)
-                .execute(db.sqlite_pool().expect("sqlite"))
-                .await?;
-        }
-        Backend::Postgres => {
-            sqlx::query("DELETE FROM author_ai_training WHERE pseud_id = $1 AND opt_in = 0")
-                .bind(pseud_id)
-                .execute(db.postgres_pool().expect("postgres"))
-                .await?;
-        }
-    }
-    Ok(())
-}
-
-/// Post an AI-training opt-out handler for a pseud, with a delay.
-pub async fn ai_training_opt_out_delayed(
-    db: &Database,
-    pseud_id: &str,
-    delay_seconds: i64,
-) -> Result<(), sqlx::Error> {
-    let now = crate::identity::now_rfc3339();
-    match db.backend() {
-        Backend::Sqlite => {
-            sqlx::query("UPDATE author_ai_training SET opt_in = 0, updated_at = datetime(?, '+' || ? || ' seconds') WHERE pseud_id = ?")
-                .bind(&now).bind(delay_seconds).bind(pseud_id)
-                .execute(db.sqlite_pool().expect("sqlite")).await?;
-        }
-        Backend::Postgres => {
-            // `updated_at` is a TEXT column (the whole schema stores
-            // timestamps as RFC 3339 text), so PostgreSQL has no `text +
-            // interval` operator and the arithmetic has to happen in SQL
-            // before the value is cast back to text. Doing the addition on the
-            // bound parameter -- the obvious form -- is a 42883 on every call.
-            sqlx::query("UPDATE author_ai_training SET opt_in = 0, updated_at = to_char(($1::timestamptz + ($2 || ' seconds')::interval), 'YYYY-MM-DD\"T\"HH24:MI:SSOF') WHERE pseud_id = $3")
-                .bind(&now).bind(delay_seconds).bind(pseud_id)
-                .execute(db.postgres_pool().expect("postgres")).await?;
-        }
-    }
-    Ok(())
-}
-
-/// Post an AI-training opt-out handler for a pseud, with a delay, as a transaction.
-pub async fn ai_training_opt_out_delayed_tx(
-    db: &Database,
-    pseud_id: &str,
-    delay_seconds: i64,
-) -> Result<(), sqlx::Error> {
-    let now = crate::identity::now_rfc3339();
-    match db.backend() {
-        Backend::Sqlite => {
-            let mut tx = db.sqlite_pool().expect("sqlite").begin().await?;
-            sqlx::query("UPDATE author_ai_training SET opt_in = 0, updated_at = datetime(?, '+' || ? || ' seconds') WHERE pseud_id = ?")
-                .bind(&now).bind(delay_seconds).bind(pseud_id)
-                .execute(&mut *tx).await?;
-            tx.commit().await?;
-        }
-        Backend::Postgres => {
-            let mut tx = db.postgres_pool().expect("postgres").begin().await?;
-            // `updated_at` is a TEXT column (the whole schema stores
-            // timestamps as RFC 3339 text), so PostgreSQL has no `text +
-            // interval` operator and the arithmetic has to happen in SQL
-            // before the value is cast back to text. Doing the addition on the
-            // bound parameter -- the obvious form -- is a 42883 on every call.
-            sqlx::query("UPDATE author_ai_training SET opt_in = 0, updated_at = to_char(($1::timestamptz + ($2 || ' seconds')::interval), 'YYYY-MM-DD\"T\"HH24:MI:SSOF') WHERE pseud_id = $3")
-                .bind(&now).bind(delay_seconds).bind(pseud_id)
-                .execute(&mut *tx).await?;
-            tx.commit().await?;
-        }
-    }
-    Ok(())
 }
 
 /// List AI-training opt-in status for all pseuds.
