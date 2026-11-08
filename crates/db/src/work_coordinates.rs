@@ -296,71 +296,11 @@ pub async fn store_coordinates(
     })
 }
 
-/// The stored coordinates for a work, or `None` when there is none.
+/// The full stored row for a work, including the reason, the counts and the version.
 ///
-/// `None` covers all three unmeasured shapes and does not say which: never
-/// measured, and measured-but-unmeasurable, are different facts and
-/// [`stored_coordinates`] is the read that tells them apart. This function exists
-/// for the caller that only needs "can I rank this", which is the common case and
-/// the one that must not care.
-pub async fn measured_coordinates(db: &Database, work_id: &str) -> Result<Option<WorkCoordinates>> {
-    let sql = db.sql(
-        "SELECT sentence_length_variance, dialogue_ratio, vocabulary_richness,
-                unit_length_spread, word_count, sentence_count
-         FROM work_coordinates
-         WHERE work_id = ? AND unmeasurable_reason IS NULL",
-        "SELECT sentence_length_variance, dialogue_ratio, vocabulary_richness,
-                unit_length_spread, word_count, sentence_count
-         FROM work_coordinates
-         WHERE work_id = $1::uuid AND unmeasurable_reason IS NULL",
-    );
-
-    let row: Option<MeasureRow> = match db.backend() {
-        Backend::Sqlite => {
-            sqlx::query_as(&sql)
-                .bind(work_id)
-                .fetch_optional(db.sqlite_pool().expect("sqlite"))
-                .await?
-        }
-        Backend::Postgres => {
-            sqlx::query_as(&sql)
-                .bind(work_id)
-                .fetch_optional(db.postgres_pool().expect("postgres"))
-                .await?
-        }
-    };
-
-    match row {
-        None => Ok(None),
-        // A row whose required measures are NULL cannot exist — 0102's
-        // mutual-exclusion CHECK forbids it — so this is an error rather than a
-        // silent None. A silent None would read as "unmeasured", which is a
-        // different claim, and would hide the write path that produced it.
-        Some((None, _, _, _, _, _)) | Some((_, None, _, _, _, _)) | Some((_, _, None, _, _, _)) => {
-            anyhow::bail!(
-                "a row for work {work_id} has unmeasurable_reason IS NULL but a NULL \
-                 measure; the 0102 CHECK should have made it impossible"
-            )
-        }
-        Some((variance, dialogue, vocabulary, spread, words, sentences)) => {
-            Ok(Some(WorkCoordinates {
-                sentence_length_variance: variance.expect("checked above"),
-                dialogue_ratio: dialogue.expect("checked above"),
-                vocabulary_richness: vocabulary.expect("checked above"),
-                // A single-unit work's absent spread survives the round trip as
-                // None, which is the whole point: measured, with no distribution.
-                unit_length_spread: spread,
-                word_count: words.unwrap_or(0) as usize,
-                sentence_count: sentences.unwrap_or(0) as usize,
-            }))
-        }
-    }
-}
-
-/// The full stored row for a work, including the reason and the version.
-///
-/// The read that keeps the three unmeasured shapes apart, so a route answering
-/// "why is this work not rankable" gets `too_short` rather than a null and a guess.
+/// The read that keeps the three unmeasured shapes apart, so a route answering "why is this work not rankable" gets
+/// `too_short` rather than a null and a guess. [`measured_coordinates_for`] is the batch read for ranking, which is a
+/// different question (many works, one query).
 pub async fn stored_coordinates(db: &Database, work_id: &str) -> Result<Option<StoredCoordinates>> {
     let sql = db.sql(
         "SELECT sentence_length_variance, dialogue_ratio, vocabulary_richness,

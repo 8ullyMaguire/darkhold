@@ -249,3 +249,86 @@ async fn the_door_answers_three_states_and_refuses_a_stranger() {
         "the reason travels with the absence: {body}"
     );
 }
+
+/// The backfill door, and the reason it needs `stored_work_ids` rather than a caller-supplied list: an operator
+/// backfilling the catalogue does not know the work ids, and a door that requires them is not a backfill.
+///
+/// Two stored works, not one. With a single work `remaining: 0` is true by arithmetic and true by luck at the same
+/// time — the first version of this test had one work and a mutant that hardcoded `remaining: 0` survived it.
+#[tokio::test]
+async fn the_backfill_recomputes_stale_rows_and_skips_current_ones() {
+    let dir = scratch_dir("coords-backfill");
+    let tdb = TestDb::connect_with_dir("m7013-coords-backfill", &dir).await;
+    let db: Database = tdb.db().clone();
+
+    let mut config = Config::development_defaults();
+    config.storage.root = dir.clone();
+
+    let mut writer = TestClient::new(build(&config, &db));
+    let account = register(&mut writer, "coordinates-backfill@example.test", "coordsbackfill").await;
+    let pseud = active_pseud_id(&mut writer, &account)
+        .await
+        .expect("active pseud");
+
+    let (prose, words) = measurable_prose();
+    let first = id("coords-bf-first");
+    let second = id("coords-bf-second");
+    for work in [&first, &second] {
+        insert_work(&tdb, work, &pseud).await;
+        insert_text(&tdb, work, &pseud, &prose, words).await;
+    }
+
+    let mut op_probe = TestClient::new(build(&config, &db));
+    let op_account = register(&mut op_probe, "coordinates-backfill-op@example.test", "coordsbfop").await;
+    let mut op_config = config.clone();
+    op_config.administration.operator_account_id = Some(op_account.parse().expect("account id"));
+    let mut operator = TestClient::new(build(&op_config, &db));
+    sign_in_as(&mut operator, &tdb, "coordinates-backfill-op@example.test", "coordsbfop").await;
+
+    // Both works measured once, each at its current version.
+    for work in [&first, &second] {
+        let (status, body) = operator
+            .post(
+                format!("/api/v1/admin/works/{work}/coordinates"),
+                serde_json::json!({}),
+            )
+            .await;
+        assert_eq!(status, StatusCode::OK, "{body}");
+    }
+
+    // Nothing is stale, so the default sweep does its job by doing nothing — and says so, rather than reporting zero
+    // work as zero progress.
+    let (status, body) = operator
+        .post("/api/v1/admin/coordinates/recompute", serde_json::json!({}))
+        .await;
+    assert_eq!(status, StatusCode::OK, "{body}");
+    assert_eq!(body["scanned"], serde_json::json!(2), "{body}");
+    assert_eq!(body["skipped_current"], serde_json::json!(2), "{body}");
+    assert_eq!(body["recomputed"], serde_json::json!(0), "{body}");
+    assert_eq!(body["remaining"], serde_json::json!(0), "{body}");
+
+    // The limit bounds one request and the answer says how much it left behind: one of two, and one remaining.
+    let (status, body) = operator
+        .post(
+            "/api/v1/admin/coordinates/recompute",
+            serde_json::json!({"stale_only": false, "limit": 1}),
+        )
+        .await;
+    assert_eq!(status, StatusCode::OK, "{body}");
+    assert_eq!(body["scanned"], serde_json::json!(1), "{body}");
+    assert_eq!(body["recomputed"], serde_json::json!(1), "{body}");
+    assert_eq!(body["measured"], serde_json::json!(1), "{body}");
+    assert_eq!(
+        body["remaining"],
+        serde_json::json!(1),
+        "a bounded sweep must say what it did not reach: {body}"
+    );
+
+    // A stranger cannot run a backfill. The door is the operator's, and it does not exist for anyone else.
+    let mut stranger = TestClient::new(build(&config, &db));
+    register(&mut stranger, "coordinates-bf-stranger@example.test", "coordsbfstranger").await;
+    let (status, body) = stranger
+        .post("/api/v1/admin/coordinates/recompute", serde_json::json!({}))
+        .await;
+    assert_eq!(status, StatusCode::NOT_FOUND, "{body}");
+}

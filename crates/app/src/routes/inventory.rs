@@ -6715,6 +6715,13 @@ pub const ROUTE_TABLE: &[RouteEntry] = &[
         audience: Audience::Operator,
     },
     RouteEntry {
+        file: "coordinates.rs",
+        handler: "recompute_stale",
+        method: "POST",
+        path: "/admin/coordinates/recompute",
+        audience: Audience::Operator,
+    },
+    RouteEntry {
         file: "preservation.rs",
         handler: "preservers",
         method: "GET",

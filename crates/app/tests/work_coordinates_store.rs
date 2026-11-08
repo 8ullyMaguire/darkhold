@@ -27,9 +27,25 @@ use darkhold_db::work_coordinates as wc;
 use darkhold_domain::coordinates::{
     Coordinates, Corpus, UnitText, Unmeasurable, WorkCoordinates, MIN_MEASURABLE_WORDS,
 };
+use darkhold_db::Database;
 use test_support::{id, scratch_dir, TestDb};
 
 /// A measurable corpus: `units` units of `words` words each.
+/// The four measures for a work, read through `stored_coordinates`.
+///
+/// `measured_coordinates` existed for exactly this and became a second read of the same row once `stored_coordinates`
+/// carried the counts; it is deleted rather than kept as a wrapper, and these lines are what replace it. `None` means
+/// "no measured row" — the same thing the deleted function said.
+async fn read_measured(
+    db: &Database,
+    work_id: &str,
+) -> std::result::Result<Option<WorkCoordinates>, String> {
+    let stored = wc::stored_coordinates(db, work_id)
+        .await
+        .map_err(|error| error.to_string())?;
+    Ok(stored.and_then(|stored| stored.coordinates.measured().cloned()))
+}
+
 fn corpus_of(units: usize, words: usize, dialogue: usize) -> Corpus {
     Corpus {
         units: (0..units)
@@ -79,7 +95,7 @@ async fn a_measured_work_reads_back_identically() {
         .await
         .expect("store coordinates");
 
-    let read = wc::measured_coordinates(db.db(), &work)
+    let read = read_measured(db.db(), &work)
         .await
         .expect("read coordinates")
         .expect("the work was just measured, so it must have coordinates");
@@ -122,7 +138,7 @@ async fn an_unmeasurable_work_is_absent_not_zero() {
 
     // The read that hands out coordinates must return None, NOT a zeroed struct.
     assert!(
-        wc::measured_coordinates(db.db(), &work)
+        read_measured(db.db(), &work)
             .await
             .expect("read")
             .is_none(),
@@ -153,7 +169,7 @@ async fn a_single_unit_work_is_measured_with_no_spread() {
         .await
         .expect("store");
 
-    let read = wc::measured_coordinates(db.db(), &work)
+    let read = read_measured(db.db(), &work)
         .await
         .expect("read")
         .expect("a single-unit work is still measured");
@@ -197,7 +213,7 @@ async fn a_recomputation_replaces_the_previous_row() {
         "one work has one set of coordinates; a recompute must replace, not duplicate"
     );
 
-    let read = wc::measured_coordinates(db.db(), &work)
+    let read = read_measured(db.db(), &work)
         .await
         .expect("read")
         .expect("measured");
@@ -366,7 +382,7 @@ async fn coordinates_can_be_measured_from_stored_units() {
         outcome.is_measured(),
         "2400 words of real prose must be measurable, got {outcome:?}"
     );
-    let read = wc::measured_coordinates(db.db(), &work)
+    let read = read_measured(db.db(), &work)
         .await
         .expect("read")
         .expect("measured");
@@ -410,7 +426,7 @@ async fn a_work_measures_itself_from_its_own_stored_units() {
     );
     // And it is readable afterwards, which is what makes it usable as a
     // dimension rather than a discarded computation.
-    let read = wc::measured_coordinates(db.db(), &work)
+    let read = read_measured(db.db(), &work)
         .await
         .expect("read")
         .expect("measured");
@@ -440,7 +456,7 @@ async fn a_work_with_no_units_gets_no_coordinates_at_all() {
         "a work with no units must produce no coordinates, got {outcome:?}"
     );
     assert!(
-        wc::measured_coordinates(db.db(), &work)
+        read_measured(db.db(), &work)
             .await
             .expect("read")
             .is_none(),
@@ -496,7 +512,7 @@ async fn a_cleared_work_is_absent_rather_than_stale() {
     .await
     .expect("store");
     assert!(
-        wc::measured_coordinates(db.db(), &work)
+        read_measured(db.db(), &work)
             .await
             .expect("read")
             .is_some(),
@@ -508,7 +524,7 @@ async fn a_cleared_work_is_absent_rather_than_stale() {
         "clearing an existing row must report that it removed one"
     );
     assert!(
-        wc::measured_coordinates(db.db(), &work)
+        read_measured(db.db(), &work)
             .await
             .expect("read")
             .is_none(),
@@ -587,7 +603,7 @@ async fn both_engines_report_the_same_coordinates() {
         .await
         .expect("store");
 
-    let read = wc::measured_coordinates(db.db(), &work)
+    let read = read_measured(db.db(), &work)
         .await
         .expect("read")
         .unwrap_or_else(|| panic!("[{which}] the work must be measured"));
