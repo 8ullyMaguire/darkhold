@@ -7,8 +7,8 @@
         "implemented-locally-tested": 269,
         "unsupported": 4,
         "implemented-fully-tested": 435,
-        "implemented": 37,
-        "planned": 61,
+        "implemented": 38,
+        "planned": 60,
         "evaluated-and-rejected": 7
       }
     },
@@ -361,12 +361,6 @@
       "notes": "Opened by M71-01 (8a51f9de), which shipped the landing page. Order and reasons are in docs/adr/0006-one-binary-two-renderers.md. The work page is next and is the one that matters for link previews and crawlers: it needs the public view (works::public_view) plus a session-aware split, because the SPA work page carries the signed-in actions (bookmark, kudos, author tools) - a signed-in reader keeps the application, an anonymous one gets the document. Acceptance per page: a test that fetches the HTML, parses it and asserts the content with no script execution, plus a live probe; the Svelte route is removed in the same commit so the count only goes down. PROGRESS 50635a36: landing page (8a51f9de) and work page /works/{id} shipped as documents, each with a no-script test and a live probe. The work page uses reading_decision_publishing_metadata, answers every denial with one 404 page (bodies compared byte for byte in the test), shows a restricted work's record and withholds its text, and hands a signed-in reader the application per ADR 0006. REMAINING per ADR 0006's order: fandom and tag pages, search results, author page, collection and series pages - each deletes its Svelte route in the same commit. TAG PAGE ed9c7088: GET /tags/{tag} is a document listing the works behind a tag (query filters published public works; empty tag = 404 page; capped at 50 with 'more than 50' rather than a false total). The document shell moved to routes/document.rs at the third caller and work_page's copy was deleted. REMAINING: search results, author page, collection and series pages; then delete the Svelte routes for the pages already served as documents."
     },
     {
-      "id": "M72-05",
-      "milestone": "M72",
-      "requirement": "One meta and health contract: `/api/v1/meta` names the product, version, build, api version, environment and base URL; `/healthz` answers `{status,version}`",
-      "notes": "Measured today: darkhold answers a full meta document, kindred 404s at `/meta` and puts budgets in `/health`, ascend answers `{status:ok}` at a root `/healthz` and 404s at `/api/v1/meta`, ficnexus mounts `/api`. Every service moves to `/api/v1` (ficnexus keeps `/api` as an alias), answers the same meta shape and the same health shape; product-specific numbers (kindred's algorithm budget, darkhold's policy block) stay as an extra object beside the common fields, never instead of them. Proof: the estate probe in `estate/scripts` reads one expression across the three live ports; mutant = rename `api_version` in one service and the probe fails. PROGRESS 2026-11-08. Contract written as `/api/v1/meta` (six named fields, product extras beside them) and `/healthz` ({status,version}) because that is what the row already said. Built: darkhold `/healthz` now answers the `health/live` document (it used to be the SPA page \u2014 200 text/html to a monitor), 3 tests, 2 mutants red; ascend `/api/v1/meta` added beside `/api/meta` and `/healthz` gained `version`; kindred `/api/v1/meta` added and `/healthz` gained `status` (its budgets stay); ficnexus gained both, with `/api/health` left as the readiness probe (DB+Redis) because liveness must not fail when the database does. Probe: `estate/scripts/meta-probe.mjs`, runs on the host, exits non-zero naming the field that is wrong. MEASURED RED on the live estate 2026-11-08 (all four fail at least one check). REMAINING: deploy, and the probe corrected the survey twice (2026-11-08): (a) :8050 is SHORTWAVE, not ficnexus \u2014 that product has no process and no unit on this host, so the probe now marks it optional; (b) `ascend-api.service` runs from `~/code/ascend/app/backend` on thinkcentre \u2014 a **separate, non-git tree** (probed 2026-11-08: `git status` refuses, `grep estate_meta` is 0 there) with its binary at `~/.cargo-target/ascend/release/ascend-api`. The edit in this session lives in the cachyos `~/code-local/rust/ascend` git checkout, so deploying ascend means carrying the change across two trees, not rebuilding \u2014 see `deploy-behind-a-diverged-branch`. NOT done. kindred deploys as a SYSTEM unit: build in `~/kindred-rs-build` (a non-git synced tree), install to `/usr/local/bin/kindred-rs`, restart `kindred-rs.service` \u2014 and it came up green on the probe without this session doing it: `src/api.rs` in that tree is timestamped 14:28, the binary 14:29 (installed by root), the service 14:35. Some other actor synced it; recorded here because a deployment nobody in this session made is a fact the next session needs, not a mystery to hide. Also unset: whether ficnexus keeps `/api` as an alias of `/api/v1` for its export routes (the row's parenthetical) \u2014 that is a route table refactor (the paths are hard-coded with the prefix), not a rename, so it is named here rather than half-done."
-    },
-    {
       "id": "M72-06",
       "milestone": "M72",
       "requirement": "`@polaris/ui` is adopted by darkhold, then kindred, then ascend, and each adoption is proved by deleting the local component",
@@ -397,7 +391,7 @@
     "M71": 10,
     "M64": 8,
     "M66": 6,
-    "M72": 5,
+    "M72": 4,
     "M69": 3,
     "M29": 1,
     "M44": 1,

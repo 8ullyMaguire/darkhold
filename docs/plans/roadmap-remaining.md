@@ -28,16 +28,21 @@ The order inside the batch is a dependency chain, not a preference:
    it (browser-measured identical), and the gate caught a 1.8:1 control boundary in darkhold's own palette.
 3. ~~**M72-03** the six primitives the estate has nowhere~~ **DONE** — @polaris/ui 0.3.1: checkbox/radio, avatar,
    breadcrumb, tooltip, kbd, action row; 11 render tests, six mutants red, adopted in WorkCard/Account/Docs/VoteBudget.
-4. **M72-04/05** the JSON contracts: one error envelope, one meta/health shape. Invisible on a page, and the reason a
-   `dh` command or an estate probe can talk to three products with one expression. **M72-04 is half done**: this tree
-   answers `{error:{code,message,request_id}}` on every `/api/` refusal, including the ones the framework emits before a
-   handler (a 422 with an empty body was measured and fixed); kindred, ascend and ficnexus still answer their own shape,
-   which is what keeps the row `planned`.
-5. **M72-06** adoption, darkhold → kindred → ascend, each proved by deleting the local copy.
-6. **M72-07** the family nav module fed by `estate/generated/nav.json` — **done for darkhold** (`FamilyNav` in the site
-   footer, three tests, three mutants); the sibling adoptions are one line each.
-7. **M72-08/10** the auth matrix and the noun/URL vocabulary — decisions plus their small code changes.
-8. **M72-09** the design review as a gate, last because it reviews what 1–8 produced.
+4. ~~**M72-04** one error envelope~~ **DONE on all four** — `{error:{code,message,request_id}}`, `code` UPPER_SNAKE,
+   product extras allowed. Two classes escaped in this tree (an unknown `/api/` path and framework refusals — a 422 with an
+   empty body was measured, then fixed); ficnexus keeps its legacy `err`/`msg` beside the envelope behind an env switch;
+   ascend's frozen `CONTRACTS.md` was amended in the same commit as its code; kindred's middleware now puts the id in the body
+   (its first test only exercised the helper and two mutants survived — the wiring is now tested through the router).
+5. ~~**M72-05** one meta/health shape~~ **DONE and live** where it runs: `/api/v1/meta` (six named fields) and `/healthz`
+   (`{status, version}`) on darkhold, ascend and kindred; `estate/scripts/meta-probe.mjs` exits 0 across the three, and the
+   mutant the row named — `api_version` renamed in ascend — fails it by name. Two survey errors came out of probing: `:8050`
+   is shortwave, not ficnexus (which has no process here), and ascend deploys from a non-git tree on the host.
+6. **M72-06** adoption, darkhold → kindred → ascend, each proved by deleting the local copy.
+7. **M72-07** the family nav module fed by `estate/generated/nav.json` — **done for darkhold** (`FamilyNav` in the site
+   footer, three tests, three mutants, live-verified at https://darkhold.polarisocial.xyz/works); the sibling adoptions are
+   one line each and belong with item 6 since both need `@polaris/ui` in those trees first.
+8. **M72-08/10** the auth matrix and the noun/URL vocabulary — decisions plus their small code changes.
+9. **M72-09** the design review as a gate, last because it reviews what 1–8 produced.
 
 What this batch is not: one skin. kindred reproduces AO3's visual grammar on purpose (`web/src/styles/kindred.css`
 cites the OTW stylesheets) and ficnexus has no frontend at all (`docs/EXPORTER-SCOPE.md`). The family resemblance is
