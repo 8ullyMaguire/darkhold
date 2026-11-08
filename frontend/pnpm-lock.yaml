@@ -9,11 +9,11 @@ importers:
   .:
     dependencies:
       '@polaris/inbox-client':
-        specifier: file:../../../estate/packages/inbox-client/dist/polaris-inbox-client-0.1.1.tgz
-        version: file:../../../estate/packages/inbox-client/dist/polaris-inbox-client-0.1.1.tgz
+        specifier: ^0.1.1
+        version: 0.1.1
       '@polaris/ui':
-        specifier: file:../../../estate/ui/dist/polaris-ui-0.1.2.tgz
-        version: file:../../../estate/ui/dist/polaris-ui-0.1.2.tgz(svelte@5.57.3)
+        specifier: ^0.1.2
+        version: 0.1.2(svelte@5.57.3)
       '@tiptap/core':
         specifier: ^2.27.3
         version: 2.27.3(@tiptap/pm@2.27.3)
@@ -290,14 +290,11 @@ packages:
     engines: {node: '>=20'}
     hasBin: true
 
-  '@polaris/inbox-client@file:../../../estate/packages/inbox-client/dist/polaris-inbox-client-0.1.1.tgz':
-    resolution: {integrity: sha512-LtsRVjqbHJB5TrcNXQfQelHWdTkwX015Lq3Y8XI3eCifZilVCGQlL0nPYpek7T/cXJnD1dYZ4fl3la7MMcER9w==, tarball: file:../../../estate/packages/inbox-client/dist/polaris-inbox-client-0.1.1.tgz}
-    version: 0.1.1
+  '@polaris/inbox-client@0.1.1':
+    resolution: {integrity: sha512-LtsRVjqbHJB5TrcNXQfQelHWdTkwX015Lq3Y8XI3eCifZilVCGQlL0nPYpek7T/cXJnD1dYZ4fl3la7MMcER9w==, tarball: https://git.polarisocial.xyz/api/packages/hirrolot19/npm/%40polaris%2Finbox-client/-/0.1.1/inbox-client-0.1.1.tgz}
 
-  '@polaris/ui@file:../../../estate/ui/dist/polaris-ui-0.1.2.tgz':
-    resolution: {integrity: sha512-T43WikMkCBVcO3+7tLn3yIutsts5i928C78egQjTDR51G5od33HfqFhaY88u26M6+uB7fLimzDgHKRtveqSFaw==, tarball: file:../../../estate/ui/dist/polaris-ui-0.1.2.tgz}
-    version: 0.1.2
-    engines: {node: '>=20'}
+  '@polaris/ui@0.1.2':
+    resolution: {integrity: sha512-Zs+BHc70Y0N8bsF1N7WF0bgbOqLiz9DQHMeGnV+egq6EJ6SiSsQINWOUCHEUE9dEZNytvuM4ozAMZGkHwoCWoQ==, tarball: https://git.polarisocial.xyz/api/packages/hirrolot19/npm/%40polaris%2Fui/-/0.1.2/ui-0.1.2.tgz}
     peerDependencies:
       svelte: ^5.0.0
 
@@ -1495,9 +1492,9 @@ snapshots:
     dependencies:
       playwright: 1.63.0
 
-  '@polaris/inbox-client@file:../../../estate/packages/inbox-client/dist/polaris-inbox-client-0.1.1.tgz': {}
+  '@polaris/inbox-client@0.1.1': {}
 
-  '@polaris/ui@file:../../../estate/ui/dist/polaris-ui-0.1.2.tgz(svelte@5.57.3)':
+  '@polaris/ui@0.1.2(svelte@5.57.3)':
     dependencies:
       svelte: 5.57.3
 

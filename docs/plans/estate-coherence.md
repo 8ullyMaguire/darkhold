@@ -60,6 +60,13 @@ That is the first row (M72-01): nothing else in this plan is adoptable until the
 `[registry] npm`), semver, one version pinned by every consumer. Adoption is then a `package.json` line rather
 than a filesystem coincidence.
 
+*Done 2026-11-08 (M72-01):* `@polaris/ui@0.1.2` and `@polaris/inbox-client@0.1.1` are published; this tree
+depends on `^0.1.2` / `^0.1.1` through `frontend/.npmrc`'s `@polaris:registry`, and a clone with no `estate/`
+sibling installs and builds. Two things the exercise taught: the token is per-machine (`~/.npmrc`, or
+`NPM_CONFIG_USERCONFIG`) and never in a tracked file; and `frontend/pnpm-workspace.yaml` still held pnpm's
+unanswered `allowBuilds` placeholder, so every install exited non-zero and a clean clone installed without ever
+linking esbuild. ascend and kindred pin when they adopt (M72-06) — a dependency nobody imports is not a consumer.
+
 **Layer 2 — tokens, palettes as data.** One token vocabulary (`--polaris-*`: surface, ink, ink-soft, line,
 accent, ok/warn/err, radius, space, type scale), three palettes that are *values* of it: darkhold's
 Archive/Reading Room, ascend's dark, kindred's AO3. The contrast report (`ui/a11y.mjs`) runs over every palette
