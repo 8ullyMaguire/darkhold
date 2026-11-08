@@ -425,62 +425,13 @@ pub async fn get_entities(
     Ok(out)
 }
 
-/// The review queue (§15.17): unverified entities, most-signal-counted first.
-///
-/// The ordering is the whole point of the function, so it lives in the ORDER BY
-/// rather than being sorted in Rust — the `canonical_entities_queue` index is
-/// defined in that order, and a Rust sort over a full table read would be both
-/// slower and would not use it.
-pub async fn list_review_queue(db: &Database, limit: i64) -> Result<Vec<CanonicalEntity>> {
-    #[derive(sqlx::FromRow)]
-    struct Row {
-        kind: String,
-        norm: String,
-        canonical: String,
-        review_status: String,
-        signal_count: i64,
-        curated_by: Option<String>,
-        curated_at: Option<String>,
-    }
-    let sql = db.sql(
-        "SELECT kind, norm, canonical, review_status, signal_count, curated_by, curated_at
-         FROM canonical_entities WHERE review_status = 'unverified'
-         ORDER BY signal_count DESC, norm ASC
-         LIMIT ?",
-        "SELECT kind, norm, canonical, review_status, signal_count::bigint,
-                curated_by::text, curated_at::text
-         FROM canonical_entities WHERE review_status = 'unverified'
-         ORDER BY signal_count DESC, norm ASC
-         LIMIT $1",
-    );
-    let rows: Vec<Row> = match db.backend() {
-        Backend::Sqlite => {
-            sqlx::query_as(&sql)
-                .bind(limit)
-                .fetch_all(db.sqlite_pool().expect("sqlite"))
-                .await?
-        }
-        Backend::Postgres => {
-            sqlx::query_as(&sql)
-                .bind(limit)
-                .fetch_all(db.postgres_pool().expect("postgres"))
-                .await?
-        }
-    };
-    Ok(rows
-        .into_iter()
-        .map(|r| CanonicalEntity {
-            kind: r.kind,
-            norm: r.norm,
-            canonical: r.canonical,
-            review_status: r.review_status,
-            signal_count: r.signal_count,
-            curated_by: r.curated_by,
-            curated_at: r.curated_at,
-        })
-        .collect())
-}
-
+// **`list_review_queue` was deleted here, not wired.** It ran the same query as
+// `taxonomy::list_unverified_nodes` with a narrower projection (its two extra columns, `curated_by` and
+// `curated_at`, are always NULL for a row it selects: the query only returns `review_status = 'unverified'`,
+// and a curated row is not unverified). Two implementations of one read, one of them unused, is the shape this
+// repository has already paid for twice — the copy drifts, and the drift is invisible because nothing calls it.
+// The door (`GET /exchange/review-queue`) calls the taxonomy function, which carries the id and the creation
+// time the queue needs anyway.
 /// Curate an entity (§19.4 quorum work, gated to TL3 by the caller).
 ///
 /// Sets the canonical form and marks it curated. The originating signals are

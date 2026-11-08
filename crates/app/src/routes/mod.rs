@@ -133,6 +133,7 @@ pub mod taxonomy;
 pub mod taxonomy_export;
 pub mod thread_modes;
 pub mod tombstones;
+pub mod exchange_admin;
 pub mod identity_admin;
 pub mod taste_health;
 pub mod taste_import;

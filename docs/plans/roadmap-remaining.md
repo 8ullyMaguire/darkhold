@@ -1074,3 +1074,38 @@ looked — and answered any signed-in reader with another account's trust histor
 level change, why, and who made it. It is the account's own or an operator's now, `404` otherwise (ADR 0030).
 
 Ratchet 125 -> 120.
+
+### The exchange could only be switched on with SQL (exchange.rs, 2026-11-08)
+
+`set_enabled` and `set_instance_id` had no caller. §11.17 makes the exchange a deliberately opt-in surface — "no request
+shape turns on a server that did not enable it" — and the switch that turns it on was reachable only by an operator with a
+database client. `list_latent_demand` had no caller either, so the instance accumulated demand it could not show anybody.
+
+Three doors, merged into the existing `exchange` mount:
+
+* **`GET|POST /admin/exchange/settings`** — the switch and the instance's own name in one place. `configured: false` is a
+  different answer from `enabled: false`: a row that was never written is not a decision, and reporting the two the same
+  way would make a fresh instance look like one an operator had deliberately closed. The first write creates the row with
+  §11.17's 1000/hour default, so flipping the switch does not require knowing the second knob. The instance id is
+  validated once (`[A-Za-z0-9._:-]`, ≤64 chars) because it travels as `source_instance` on every signal and is the dedup
+  key for latent demand, and every accepted change writes a modlog row with a required reason.
+* **`GET /admin/exchange/latent-demand`** — `signal_count` is how many times *this instance* has signalled, named that way
+  and with no submitter or holder field anywhere, because §16.16.1 says re-signalling adds no weight and a reader count is
+  not computable from the data the instance holds.
+* **`GET /admin/exchange/works/{id}/provenance`** — `count_provenance_signals`, the function whose name exists to keep
+  "provenance" from reading as "headcount". The response carries the number *and* a note saying it is not a count of
+  readers or holders, and the door is `Operator` so the number does not appear on a public page where nobody could correct
+  the misreading.
+
+**The fifth orphan was a twin.** `exchange::list_review_queue` ran the same query as `taxonomy::list_unverified_nodes`,
+with a narrower projection whose two extra columns (`curated_by`, `curated_at`) are always NULL — the query only selects
+`review_status = 'unverified'`, and a curated row is not unverified. It was deleted, with the reason written where it
+stood, and `GET /exchange/review-queue` keeps the taxonomy function. Deleting a redundant twin is the other end of this
+ratchet, and the one that needs no surface invented for it.
+
+**A guard mutant that survived for a reason worth keeping.** Removing the operator check from the latent-demand door left
+the suite green: the test asserted the guard on two of the four doors and never asked the third. One reader assertion
+later it reddens (200 vs 404). A guard mutant survives exactly the doors no test names, so the mutant is a map of the test's
+blind spots as much as the code's.
+
+Ratchet 120 -> 115.
