@@ -26,6 +26,7 @@ measured ratio. Exit 2 = the gate could not run at all (no browser, unknown targ
 | `thin-page` | fewer than 20 text nodes | a gate pointed at a URL that renders the router's "No such page" reports a clean sweep of nothing |
 | `palette-not-applied` | the document's `data-theme` equals the palette under test | three palettes that are silently the same page measured three times |
 | `colour-unreadable` | every text node's colour resolved | a regex over `getComputedStyle().color` dropped 99 of 100 nodes and the sweep stayed green |
+| — (measured, not a rule) | visually hidden text is counted but not judged | kindred's rating badges are a 1px clipped `<span>` behind a coloured square; judging its ink produced 14 "failures" on text no sighted reader sees |
 
 ## Three false greens this gate found in itself
 
@@ -57,4 +58,13 @@ sizes, the heading sequence, and every failure with the element, the sample text
 - **No palette-JSON audit.** `estate/ui/a11y.mjs` already checks the palette definitions; this checks what the page
   actually paints, because a component can override a token and leave the palette file correct.
 - **No verdict on kindred's AO3 grammar.** kindred reproduces the Archive's DOM on purpose; the gate measures
-  legibility and mechanics there, not resemblance to the other products.
+  legibility and mechanics there, not resemblance to the other products. Its type scale is AO3's em ladder — 13
+  distinct sizes at fractional values, measured 2026-11-08 — so the allowance is declared per product (`maxSizes`,
+  14 for kindred, 12 elsewhere) with the number written down instead of the rule being dropped: a 14th size fails.
+
+## The two failures this gate found that were its own
+
+Beyond the three false greens above, the first kindred sweep reported 14 contrast failures on the rating badges.
+They were the accessible label behind each badge — a `1px`, `clip: rect(0 0 0 0)` span. Fixing kindred's colours
+would have been "fixing" a design that was never broken; the probe now excludes visually-hidden text and counts it,
+so the exclusion is visible in every report (`hiddenText`).

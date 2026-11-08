@@ -74,4 +74,4 @@ __pycache__/
 /eval/
 # The gate writes one report per run; the committed one is the sweep being cited.
 docs/design/family/design-gate-*.json
-!docs/design/family/design-gate-2026-11-08T16-04-10-384Z.json
+!docs/design/family/design-gate-latest.json
