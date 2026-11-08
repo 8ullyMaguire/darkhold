@@ -78,6 +78,7 @@ pub fn authed_router() -> Router<AppState> {
         .route("/exports/bulk", post(start_bulk_export))
         .route("/exports/{id}", get(get_export))
         .route("/exports/{id}/grant", post(mint_grant))
+        .route("/exports/{id}/grants", get(list_grants))
         .route("/exports/{id}/download", get(download_own))
         .route("/exports/{id}/deliver", post(deliver_export))
         .route("/exports/{id}", delete(forget_export))
@@ -292,7 +293,25 @@ async fn get_export(
     // scope says what an account may do, not whose rows are its own.
     let actor = actor.require(Scope::LibraryRead)?;
     let row = owned(&state, &actor.account_id.to_string(), &id).await?;
-    Ok(Json(json!(ExportView::from(row))))
+
+    // A bulk export's answer carries its per-work decisions. Without them the reader sees "ready" and a file size and
+    // cannot tell which of the fifty works were included, skipped, or refused — and that list is the export's own audit
+    // trail (`record_bulk_item` writes it as the worker decides). The field is added for `query` subjects only, so every
+    // other export keeps the document shape it has always had.
+    let mut value = serde_json::to_value(ExportView::from(row.clone())).unwrap_or(Value::Null);
+    if row.subject_type == "query" {
+        let items = repo::bulk_items_for_export(state.db(), &row.id).await?;
+        value["items"] = json!(items
+            .into_iter()
+            .map(|item| json!({
+                "work_id": item.work_id,
+                "decision": item.decision,
+                "reason": item.reason,
+                "byte_size": item.byte_size,
+            }))
+            .collect::<Vec<_>>());
+    }
+    Ok(Json(value))
 }
 
 /// Forget an export and its file.
@@ -468,13 +487,14 @@ fn percent_encode(text: &str) -> String {
 /// A miss and someone else's export are answered the same way. The difference
 /// between them is exactly what an enumeration would want to learn.
 async fn owned(state: &AppState, account_id: &str, id: &str) -> ApiResult<repo::ExportJob> {
-    let row = repo::find_export(state.db(), id).await?;
-    match row {
-        Some(row) if row.account_id == account_id => Ok(row),
-        _ => Err(ApiError(darkhold_domain::AppError::NotFound {
+    // `find_export_for`, not `find_export` plus a comparison: the ownership predicate belongs in the query, where it
+    // cannot be forgotten by the next caller that fetches an export and only remembers to check the account sometimes.
+    // This used to be the other implementation of that rule, sitting beside the SQL one and never used.
+    repo::find_export_for(state.db(), id, account_id)
+        .await?
+        .ok_or(ApiError(darkhold_domain::AppError::NotFound {
             resource: "export",
-        })),
-    }
+        }))
 }
 
 /// §7.0 (M7-03) — Deliver an export to a device.
@@ -679,4 +699,32 @@ async fn delete_device(
         return Err(ApiError(AppError::NotFound { resource: "device" }));
     }
     Ok(Json(json!({ "removed": true, "id": id })))
+}
+
+/// The download links minted for one export, and whether they are still good.
+///
+/// `mint_grant` produces a token and never shows it again — the store keeps a hash, deliberately. What a reader can
+/// still learn is the *shape* of their access: when each link expires, whether that one has been spent, and how many
+/// are outstanding. Without this a reader who lost the URL has no way to tell whether a new one is needed or whether
+/// the old one is quietly still live.
+async fn list_grants(
+    State(state): State<AppState>,
+    RequireSession(user): RequireSession,
+    Path(id): Path<String>,
+) -> ApiResult<Json<Value>> {
+    let export = owned(&state, &user.account_id.to_string(), &id).await?;
+    let rows = repo::grants_for_export(state.db(), &export.id).await?;
+    let grants: Vec<Value> = rows
+        .into_iter()
+        .map(|grant| {
+            json!({
+                "id": grant.id,
+                "expires_at": grant.expires_at,
+                "used_at": grant.used_at,
+                "single_use": grant.single_use,
+                "created_at": grant.created_at,
+            })
+        })
+        .collect();
+    Ok(Json(json!({ "export_id": export.id, "grants": grants })))
 }

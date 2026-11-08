@@ -6696,6 +6696,13 @@ pub const ROUTE_TABLE: &[RouteEntry] = &[
         path: "/works/{id}/characters/{node}/relationships",
         audience: Audience::Public,
     },
+    RouteEntry {
+        file: "exports.rs",
+        handler: "list_grants",
+        method: "GET",
+        path: "/exports/{id}/grants",
+        audience: Audience::Authenticated,
+    },
     // ------------------------------------------------------------------
     // Library reads the store had and no route did (M70-13)
     // ------------------------------------------------------------------
