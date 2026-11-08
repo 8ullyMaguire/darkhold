@@ -268,6 +268,8 @@ async fn feed_building_produces_valid_xml() {
         description: Some("Description".to_string()),
         language: Some("en".to_string()),
         self_url: None,
+        // `commons-feed` added `id` (the Atom `<id>`), defaulting to the site URL, which is what darkhold's feeds have
+        // always emitted. `None` keeps the feed's identity stable, as the production call sites do.
         id: None,
     };
     let entries = vec![commons_feed::FeedEntry {
@@ -277,6 +279,9 @@ async fn feed_building_produces_valid_xml() {
         summary: Some("A **test** story".to_string()),
         author: Some("someone".to_string()),
         published: None,
+        // `commons-feed` grew `categories` after this test was written; the sibling crate resolves through an unpinned
+        // path dependency, so the host's copy can be a commit ahead of this checkout. An empty list is what this feed
+        // has always emitted — the item below has no categories.
         categories: Vec::new(),
     }];
 
