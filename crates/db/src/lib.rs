@@ -102,6 +102,7 @@ pub mod passports;
 pub mod payments;
 pub mod payout_store;
 pub mod peer_fingerprints;
+pub mod peer_picks;
 pub mod permission;
 pub mod positivity;
 pub mod preread_store;

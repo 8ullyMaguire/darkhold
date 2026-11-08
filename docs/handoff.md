@@ -1,5 +1,53 @@
 # Handoff
 
+## M45-44 closes, and the ratchet measures itself — 2026-11-08
+
+**Where it stands:** 942 requirements. 139 verified-e2e, 269 locally-tested, 435 fully-tested, 32 implemented,
+**56 planned**, 7 evaluated-and-rejected, 4 unsupported. Counted, not remembered:
+`python3 -c "import csv,collections;print(collections.Counter(r['status'] for r in csv.DictReader(open('docs/requirements.csv'))))"`.
+`gate.sh ledger` and `gate.sh repo` are green; `gate.sh all` was run at this checkpoint.
+
+**M45-44 shipped, and it is the first row where both halves of a federation phrase are real.** Publishing
+(`GET /federation/picks`), subscribing (`PUT /operator/federation/picks` + a sweep in the worker's maintenance pass), the reader
+surface (`GET /discovery/peer-picks`) and the directory (`GET /federation/directory?topic=`). The full decision record is in
+`docs/plans/roadmap-remaining.md` under the row; the two that a future session is most likely to undo are: **a pick is a public
+catalogue row at Aggregate order** (operator-curated picks need an editorial surface that does not exist; the anonymous discovery
+feed reorders hourly so a polling peer would read every fetch as a new set) and **a fetch replaces rather than accumulates**
+(the collection is the peer's current list, not an archive). Six mutants red, three tests on both engines, one fetch against a
+real loopback HTTP server.
+
+**Two engine-only defects found this session, both in new code, both caught by the PostgreSQL arm.**
+`federation_pick_subscriptions.enabled` is a boolean on PostgreSQL — decoding it into `i64` fails at runtime — so the list query
+reads it through `CASE WHEN enabled THEN 1 ELSE 0 END::bigint`. The `::bigint` cast is not decorative: the bare `CASE` returns
+INT4, and `i64` will not decode INT4 either. And `refresh_one` originally recorded a fetch failure only when the request reached
+an HTTP status, so a host that does not resolve left the operator's row showing the previous successful fetch. Every failure path
+now records.
+
+**M70-13 is a ratchet, and it moved 294 → 181.** The orphan scan was tightened to require a call site (`name(`, not a mention),
+which *raised* the count from 11 to 30 by exposing false greens, and every pass since has been either a door for a writer with no
+caller or a `pub` → `pub(crate)` narrowing. Fifteen passes so far. The ones that took judgement rather than plumbing: maintenance
+writers went into the **worker sweep, not behind doors** (a button nobody presses is not maintenance; snapshot targets yesterday);
+`entity_closure::rebuild`, `entity_floor::recount` and `experiment_snapshots::snapshot_day` now run on the existing cadence and a
+failure in one cannot leave leases unrequeued. `work_characters` read returns **participants folded in**, because a relationship
+row's identity is a `canonical_entities` node and returning the two ends as bare ids forces N+1 and renders a pairing with nobody
+in it.
+
+**Inbox signature verification (ADR 0031) is the decision that matters for federation.** `[federation] require_signature = true`
+by default: the header must cover `(request-target)`, `host`, `date` and `digest`; `Date` inside five minutes; the key is fetched
+from the actor document's `publicKey.pem` over TLS, cached per `keyId`, and a failed fetch is not cached. Turning it off does not
+make arrivals `accepted` — they land `quarantined`, because "verified" and "allowed" never collapse into one answer. An
+unparseable `Signature` header is refused, never treated as absent.
+
+**What a cold start needs:** the sibling checkouts (`polaris-eval`, `polaris-oidc-client`, `estate/ui/dist`) still must exist or
+nothing builds — see the 2026-11-05 section. `CARGO_TARGET_DIR=/home/alvaro/.cargo-target-darkhold-dev`, SQLite tests with
+`env -u DATABASE_URL -u DARKHOLD_TEST_PG_URL`, PostgreSQL arm with `DARKHOLD_TEST_PG_URL` on **55433** (container `lh-pg-test`,
+creds `darkhold:darkhold`). Migrations **0163–0199** are in the tree and **not applied to the live instance**; the deploy decision
+is still open, so a live `darkhold.service` restart before that is decided would run a binary expecting tables the live database
+does not have.
+
+**Next highest value:** finish M70-13's remaining 181 orphans (triage doc `docs/plans/m70-13-orphan-triage.md`), then M45-58
+(erasure reaches the routing record) and the M66 guest-access sequence (GS-1..GS-5, must be taken in order).
+
 ## Two lineages merged, and a class of bug that only PostgreSQL shows — 2026-11-05
 
 **Where it stands:** 894 requirements. 806 implemented (429 fully-tested, 129 verified-e2e, 248

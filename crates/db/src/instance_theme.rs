@@ -192,3 +192,57 @@ pub fn tag_weights(theme: &JsonValue) -> HashMap<String, f64> {
     }
     map
 }
+
+/// One entry in the public instance directory (§0.4): an instance, the weight it gives one topic, and how many topics it names.
+#[derive(Debug, Clone, serde::Serialize)]
+pub struct DirectoryHit {
+    pub instance_id: String,
+    /// The topic's weight in this instance's published theme vector, 0.0–1.0.
+    pub weight: f64,
+    /// How many topics the instance names at all — a weight of 0.4 means one thing on an instance with three topics and another
+    /// on one with eighty, and a searcher deserves to know which they are reading.
+    pub topics_named: usize,
+}
+
+/// Instances that name `topic` in their published theme, strongest first.
+///
+/// The match is on the **whole topic**, case-insensitively: a substring match would make `fluff` find every `fluffy` instance and
+/// turn a directory into a guess. Instances whose theme does not name the topic are omitted rather than returned with a zero —
+/// "we have nothing on this" and "we have a little" are different answers, and only one of them is a hit.
+///
+/// Reads the public theme list and matches in Rust rather than in SQL: the theme vector is a JSON object and the two engines
+/// treat JSON operators differently (SQLite stores it as TEXT), so a query that "works" on one would be a silent no-match on the
+/// other. A directory that is empty on PostgreSQL is exactly the failure this avoids.
+pub async fn search_public_by_topic(
+    db: &Database,
+    topic: &str,
+) -> Result<Vec<DirectoryHit>, anyhow::Error> {
+    let wanted = topic.trim().to_lowercase();
+    let themes = list_public_themes(db).await?;
+    let mut hits: Vec<DirectoryHit> = themes
+        .into_iter()
+        .filter_map(|theme| {
+            // The vector is a JSON object, not a map: `as_object` is the only access that works for both an object and a
+            // document that stored something else — and a theme that stored something else names no topics.
+            let object = theme.theme_vector.as_object()?.clone();
+            let topics_named = object.len();
+            let weight = object
+                .iter()
+                .find(|(key, _)| key.eq_ignore_ascii_case(&wanted))
+                .and_then(|(_, value)| value.as_f64())?;
+            Some(DirectoryHit {
+                instance_id: theme.instance_id,
+                weight,
+                topics_named,
+            })
+        })
+        .collect();
+    // Strongest first, then by id so two instances at the same weight keep a stable order across requests.
+    hits.sort_by(|a, b| {
+        b.weight
+            .partial_cmp(&a.weight)
+            .unwrap_or(std::cmp::Ordering::Equal)
+            .then_with(|| a.instance_id.cmp(&b.instance_id))
+    });
+    Ok(hits)
+}

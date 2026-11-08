@@ -378,6 +378,13 @@ impl Worker {
         // A `pending` link challenge whose `expires_at` has passed still reads `pending`, and a state column that can say
         // something untrue is the defect migration 0080 was opened for — the row stays in the state its own expiry matches on.
         // The transition belongs to the sweep for the same reason the closures do: nobody presses a button to expire a code.
+        // A peer's picks are fetched on the same cadence as the rest of the sweep. Not a button: a subscription is a standing
+        // request, and a subscription only refreshed when somebody presses refresh is a subscription that is usually stale.
+        let refreshed = crate::peer_picks::sweep(state).await;
+        if refreshed > 0 {
+            tracing::info!(refreshed, "peer picks refreshed in the sweep");
+        }
+
         match darkhold_db::external::expire_stale_challenges(state.db()).await {
             Ok(0) => {}
             Ok(expired) => tracing::info!(

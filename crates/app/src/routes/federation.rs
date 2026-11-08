@@ -800,10 +800,160 @@ async fn decide_inbound(
     Ok(Json(serde_json::json!({ "id": id, "state": body.state })))
 }
 
+/// This instance's public picks, as an ActivityStreams collection (§0.4).
+///
+/// Public and impersonal: the body is the same for everybody, because a collection a peer fetches must be the instance's answer
+/// and not a snapshot of one reader's feed.
+async fn ap_picks(State(state): State<AppState>) -> ApiResult<Json<Value>> {
+    let document = crate::peer_picks::publish(&state)
+        .await
+        .map_err(|error| ApiError(darkhold_domain::AppError::Internal(error)))?;
+    Ok(Json(document))
+}
+
+/// The operator's list of peer-picks subscriptions, with what the last fetch said.
+async fn list_pick_subscriptions(
+    State(state): State<AppState>,
+    RequireSession(session): RequireSession,
+) -> ApiResult<Json<Value>> {
+    require_operator(&state, &session)?;
+    let rows = darkhold_db::peer_picks::subscriptions(state.db())
+        .await
+        .map_err(|error| ApiError(darkhold_domain::AppError::Internal(error.into())))?;
+    Ok(Json(serde_json::json!({ "subscriptions": rows })))
+}
+
+/// The instance directory (§0.4): who publishes what, searchable by one public topic.
+///
+/// Anonymous because the themes it searches are already public documents — a directory behind a login would be a directory only
+/// operators can use, which is the opposite of what "sister instances find each other" means.
+async fn instance_directory(
+    State(state): State<AppState>,
+    MaybeSession(_session): MaybeSession,
+    Query(query): Query<TopicQuery>,
+) -> ApiResult<Json<Value>> {
+    let topic = query.topic.trim();
+    if topic.is_empty() {
+        return Err(invalid("a directory search names a topic"));
+    }
+    let hits = darkhold_db::instance_theme::search_public_by_topic(state.db(), topic)
+        .await
+        .map_err(|error| ApiError(darkhold_domain::AppError::Internal(error)))?;
+    Ok(Json(serde_json::json!({
+        "topic": topic,
+        "instances": hits,
+        "total": hits.len(),
+    })))
+}
+
+#[derive(Debug, serde::Deserialize)]
+struct TopicQuery {
+    #[serde(default)]
+    topic: String,
+}
+
+#[derive(Debug, serde::Deserialize)]
+struct SubscribeBody {
+    /// The peer's host, as it appears in its URLs. The identity of the subscription.
+    peer_host: String,
+    /// The collection document the sweep fetches.
+    collection_url: String,
+}
+
+/// Subscribe to a peer's picks, or re-point an existing subscription for the same host.
+async fn subscribe_picks(
+    State(state): State<AppState>,
+    RequireSession(session): RequireSession,
+    Json(body): Json<SubscribeBody>,
+) -> ApiResult<Json<Value>> {
+    require_operator(&state, &session)?;
+    let host = body.peer_host.trim().to_ascii_lowercase();
+    let url = body.collection_url.trim().to_owned();
+    if host.is_empty() || host.contains('/') || host.contains(' ') {
+        return Err(invalid(
+            "a peer host is a host name, without a scheme or a path",
+        ));
+    }
+    // The URL must be the host it is filed under, and it must be https: a subscription is a request made on the operator's
+    // behalf, and one filed under host A while pointing at host B is a way to make this instance fetch somewhere it did not say.
+    let parsed = url
+        .parse::<axum::http::Uri>()
+        .map_err(|error| invalid(format!("the collection URL is not a URL: {error}")))?;
+    if parsed.scheme_str() != Some("https") {
+        return Err(invalid("a collection URL must be https"));
+    }
+    if parsed.host().map(str::to_ascii_lowercase).as_deref() != Some(host.as_str()) {
+        return Err(invalid(format!(
+            "a collection URL for {host} must be on {host}"
+        )));
+    }
+    let id = darkhold_db::peer_picks::subscribe(state.db(), &host, &url)
+        .await
+        .map_err(|error| ApiError(darkhold_domain::AppError::Internal(error.into())))?;
+    Ok(Json(serde_json::json!({
+        "id": id,
+        "peer_host": host,
+        "collection_url": url,
+    })))
+}
+
+/// Stop following a peer. The picks go with the subscription.
+async fn unsubscribe_picks(
+    State(state): State<AppState>,
+    RequireSession(session): RequireSession,
+    Path(host): Path<String>,
+) -> ApiResult<Json<Value>> {
+    require_operator(&state, &session)?;
+    let removed = darkhold_db::peer_picks::unsubscribe(state.db(), &host)
+        .await
+        .map_err(|error| ApiError(darkhold_domain::AppError::Internal(error.into())))?;
+    if !removed {
+        return Err(ApiError(darkhold_domain::AppError::NotFound {
+            resource: "peer picks subscription",
+        }));
+    }
+    Ok(Json(
+        serde_json::json!({ "peer_host": host, "removed": true }),
+    ))
+}
+
+/// Recent picks from every enabled sister instance, attributed.
+///
+/// Public: a pick is a recommendation the peer published, and hiding it behind a session would make the feature invisible to the
+/// readers it exists for.
+async fn read_peer_picks(
+    State(state): State<AppState>,
+    MaybeSession(_session): MaybeSession,
+    Query(query): Query<LimitQuery>,
+) -> ApiResult<Json<Value>> {
+    let limit = query.limit.unwrap_or(50).clamp(1, 200);
+    let picks = darkhold_db::peer_picks::recent_picks(state.db(), limit)
+        .await
+        .map_err(|error| ApiError(darkhold_domain::AppError::Internal(error.into())))?;
+    Ok(Json(serde_json::json!({ "picks": picks, "limit": limit })))
+}
+
+#[derive(Debug, serde::Deserialize)]
+struct LimitQuery {
+    limit: Option<i64>,
+}
+
 pub fn routes() -> axum::Router<AppState> {
     axum::Router::new()
         // ActivityPub endpoints (public inbox, actor discovery)
         .route("/federation/inbox", post(ap_inbox))
+        // §0.4 sister instances: the publishing half of "subscribe to each other's public picks".
+        .route("/federation/picks", get(ap_picks))
+        .route("/federation/directory", get(instance_directory))
+        .route("/discovery/peer-picks", get(read_peer_picks))
+        .route(
+            "/operator/federation/picks",
+            get(list_pick_subscriptions).put(subscribe_picks),
+        )
+        .route(
+            "/operator/federation/picks/{host}",
+            axum::routing::delete(unsubscribe_picks),
+        )
         // The intake ledger's two doors: what arrived, and the operator's answer to it. A quarantine nothing can release is
         // not a policy, it is a table.
         .route("/operator/federation/inbound", get(list_inbound))

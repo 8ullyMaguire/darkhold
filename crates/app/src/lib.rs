@@ -44,6 +44,7 @@ pub mod metrics;
 pub mod narration;
 pub mod note_link_job;
 pub mod payout_recalc;
+pub mod peer_picks;
 pub mod preservation_recheck;
 pub mod privacy;
 pub mod rec_engine;

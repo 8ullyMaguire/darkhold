@@ -146,8 +146,9 @@ M16-12 stays `planned` on the recipe clause alone.
 
 M45-58 (erasure reaches the routing record) is the only M45 row that is a correctness obligation rather than a feature;
 take it first. Then M45-39 (instance-death protection), M45-45 (taste as a versioned blendable object), M45-46
-(preview-before-apply), M45-52/54/55 (notice-and-action, RPF knob, compliance tooling), M45-40/41/42/43/44 (curator
-views, share attribution, claim-your-works, Discord bot, sister instances), M45-65 (identity gates see every spelling).
+(preview-before-apply), M45-52/54/55 (notice-and-action, RPF knob, compliance tooling), M45-40/41/42/43 (curator
+views, share attribution, claim-your-works, Discord bot), ~~M45-44~~ (sister instances, shipped 2026-11-08 — see the
+section below), M45-65 (identity gates see every spelling).
 
 M66: GS-1..GS-5 are one feature (guest access with consent, the fold, the cookie pseudonym, trust from karma, juries)
 and must be taken in order. M66-08 (LAN file sharing) is independent.
@@ -730,3 +731,56 @@ new door.
 
 Off by default (`[discovery] saved_filters`), so every door answers 404 on an instance that has not chosen it — and the switch
 is on the `library` module, because a saved filter *is* a library object.
+
+### M45-44 — sister instances: publish, subscribe, and a directory by topic (implemented 2026-11-08)
+
+Four surfaces, one vocabulary. `GET /federation/picks` publishes an ActivityStreams `OrderedCollection`; an operator names a
+peer's collection at `PUT /operator/federation/picks`; the worker's maintenance pass fetches; `GET /discovery/peer-picks` shows
+what came back; `GET /federation/directory?topic=` finds instances by the topics they publish.
+
+**A pick is a public catalogue row at Aggregate order, and the alternatives lost for different reasons.** Operator-curated picks
+would need an editorial surface that does not exist (§16.11), so the federation feature would depend on an unbuilt admin UI.
+"This instance's own works" is nearly empty on an instance that imports more than it publishes — a peer subscribing would get
+nothing, which is the failure mode that looks like a working feature. The anonymous discovery feed is ordered by trend and
+freshness, which changes hourly: a polling peer would read every fetch as a new set of picks. Aggregate order is the catalogue's
+own default, so the collection is stable between fetches and inherits the catalogue's eligibility for free (M71-16) — a
+restricted work cannot appear in the collection for a different reason than it cannot appear on the page.
+
+**A fetch replaces, it does not accumulate.** The collection is the peer's *current* list. A work they stopped recommending must
+stop being shown here, or the surface becomes an archive of what a peer once liked and a reader cannot tell which is which. The
+delete and the inserts are one transaction, so a failure mid-write cannot leave a peer with no picks at all.
+
+**Every failure path records.** The first version recorded only the failures that got as far as an HTTP status, so a host that
+does not resolve — the case an operator most needs to see — left the row saying "1 picks" from a fetch that had worked an hour
+earlier. The test caught it. Now `last_status` and `last_error_at` are written on the transport error, the non-2xx, the parse
+failure and the store failure, and a failing fetch changes no picks: an unreachable peer is not evidence that its list is empty.
+
+**A failing peer still advances `last_fetched_at`.** The sweep orders by least recently *attempted*, not least recently
+succeeded: a peer that never advances would be retried every pass, at the head of the queue, forever.
+
+**The subscription URL must be the host it is filed under, and must be https.** A subscription is a request made on the
+operator's behalf; one filed under host A while pointing at host B is a way to make this instance fetch somewhere the operator
+did not say they were fetching. Loopback http is refused at the door too, which is why the fetch test seeds its subscription
+through the store — the door's rule is proven by its own assertions, and the test is about what happens to a peer's document.
+
+**Re-pointing is an update, not a second row.** The host is the identity: two feeds from one host would show every pick twice and
+no reader could tell the rows apart. Disabling is `enabled = 0`, kept rather than deleted, so turning a peer back on does not lose
+when it was first trusted — and `recent_picks` joins the subscription so a disabled peer's picks stop being shown without being
+destroyed.
+
+**A pick is never reconciled with a local work.** A pick that matches something in this library is still shown as the peer's, by
+URL. Attributing a pick is the point; guessing an identity match would turn "they recommend this" into "we think this is the same
+thing", which is M69-05's question asked badly.
+
+**The directory matches whole topics, case-insensitively, and omits what it does not have.** A substring match would make `fluff`
+find every `fluffy` instance, turning a directory into a guess. Instances that do not name the topic are omitted rather than
+returned at weight 0.0 — "we have nothing on this" and "we have a little" are different answers, and only one is a hit (a mutant
+that scored a miss 0.0 was caught by this). Each hit carries `topics_named`, because a weight of 0.4 means one thing on a
+three-topic instance and another on an eighty-topic one. Private themes are never listed; a topic nobody names is an empty list
+rather than the whole directory; a search with no topic is a 422 rather than a silent "everything".
+
+Proof: `crates/app/tests/m45_44_peer_picks.rs` — three tests on SQLite and PostgreSQL, the fetch one against a **real loopback
+HTTP server** (a mocked client proves the parser was called, not that a collection a peer actually serves is read). Six mutants
+red: replace→merge (the second fetch hits `UNIQUE (subscription_id, work_url)`), `recent_picks` ignoring `enabled`, the host-match
+rule off (200 for a URL on another host), the dedupe off, a missing topic scored 0.0 instead of omitted, and private themes in the
+public directory. `route_inventory` 5, `migration_catalogue` 6, clippy clean, orphan baseline unchanged at 181.
