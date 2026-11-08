@@ -825,3 +825,22 @@ HTTP server** (a mocked client proves the parser was called, not that a collecti
 red: replace→merge (the second fetch hits `UNIQUE (subscription_id, work_url)`), `recent_picks` ignoring `enabled`, the host-match
 rule off (200 for a URL on another host), the dedupe off, a missing topic scored 0.0 instead of omitted, and private themes in the
 public directory. `route_inventory` 5, `migration_catalogue` 6, clippy clean, orphan baseline unchanged at 181.
+
+### The ratchet found a missing half, not a missing door (federation.rs, 2026-11-08)
+
+`crates/db/src/federation.rs` holds 8 orphans and they are not a surface gap like the coordinates and batch-window
+modules were. Reading them before wiring produced the reason: **darkhold federates in, and has never federated out.**
+
+- `ap_inbox` verifies signatures and stores activities; `ap_actor`/`ap_outbox` answer remote servers. That half exists.
+- Nothing *sends*. `federation_queue` has one writer — `enqueue_activity`, itself orphaned — so nothing ever enqueues;
+  `get_pending_queue`/`mark_queue_sent`/`mark_queue_failed` have nothing to drain.
+- The two halves the sender would need are also missing: there is **no RSA signer** for outbound HTTP Signatures
+  (`http_signature.rs` verifies and builds signing strings; `keys.rs` loads a public PEM and can generate a pair, but
+  nothing signs), and there is **no reader for `ap_activities`** by id — the queue stores `activity_id` and the payload
+  is never read back.
+
+Building five admin doors over that would have been the most convincing possible fake: green tests over a queue that
+cannot fill, marked sent by a drain that cannot sign, verified by a test that only ever talks to itself. The honest end
+is a row with a spec — outbound AP delivery (signer, payload read, drain with the SSRF and backoff rules
+`webhook_sender` already implements, and one real enqueue path: outbound Follow) — and it is recorded here so the next
+pass starts from the finding instead of re-deriving it.

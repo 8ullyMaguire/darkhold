@@ -6697,6 +6697,30 @@ pub const ROUTE_TABLE: &[RouteEntry] = &[
         audience: Audience::Public,
     },
     // ------------------------------------------------------------------
+    // Reader devices (M70-13: `user_devices` had no door)
+    // ------------------------------------------------------------------
+    RouteEntry {
+        file: "exports.rs",
+        handler: "list_devices",
+        method: "GET",
+        path: "/devices",
+        audience: Audience::Authenticated,
+    },
+    RouteEntry {
+        file: "exports.rs",
+        handler: "register_device",
+        method: "POST",
+        path: "/devices",
+        audience: Audience::Authenticated,
+    },
+    RouteEntry {
+        file: "exports.rs",
+        handler: "delete_device",
+        method: "DELETE",
+        path: "/devices/{id}",
+        audience: Audience::Authenticated,
+    },
+    // ------------------------------------------------------------------
     // Batch windows and resonance labels (§52.2/§52.3's store, given its surface — M70-13)
     // ------------------------------------------------------------------
     RouteEntry {
