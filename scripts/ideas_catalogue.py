@@ -48,6 +48,10 @@ REPO = Path(__file__).resolve().parent.parent
 REGISTRY = REPO / "crates/domain/src/modules/registry.rs"
 JSON_OUT = REPO / "docs/ideas-catalogue.json"
 VAULT = Path("/home/alvaro/secondbrain/10-Projects")
+# The vault re-organises. A note that moved from `10-Projects/` to `40-Archive/brainstorm/` is the same input, and pinning the
+# generator to the old folder turned a re-organisation into "the generator refuses to run on this machine" — which is how the
+# committed catalogue drifted from the registry. The named file is searched for under the vault root before it counts as missing.
+VAULT_ROOT = Path("/home/alvaro/secondbrain")
 
 # Surfaces that exist and are opt-in by design. Each needs a reason: a surface
 # switched off by default is a promise the operator did not make, so the list
@@ -347,6 +351,11 @@ def candidate_documents() -> list[Path]:
         path = REPO / name
         if not path.is_file():
             continue
+        # An archived document is a record of what was considered, not a source of what is being considered: its headings are
+        # a filing label ("100 Ideas Scope") and a note to the author ("Need fleshing out"), and a gate that demands a home for
+        # them teaches the reader to skip the gate. Only live documents are candidates.
+        if "archive" in path.parts:
+            continue
         stem = path.stem.lower()
         in_ideas_dir = path.parent.name == "ideas"
         name_says = any(w in stem for w in ("brainstorm", "ideas", "roadmap"))
@@ -629,8 +638,20 @@ def main() -> int:
     ]:
         path = VAULT / name
         if not path.exists():
-            missing.append(str(path))
-            continue
+            candidates = sorted(VAULT_ROOT.rglob(name))
+            if len(candidates) == 1:
+                path = candidates[0]
+            elif not candidates:
+                missing.append(str(path))
+                continue
+            else:
+                print(
+                    f"refusing to generate: {name} is in more than one place in the vault:",
+                    file=sys.stderr,
+                )
+                for candidate in candidates:
+                    print(f"  - {candidate}", file=sys.stderr)
+                raise SystemExit(1)
         for title in headings(path, levels=(3,)):
             add(title, f"vault:{name}")
     if missing:

@@ -746,8 +746,6 @@ so the count can only go down and every fix is visible.**
 | `refunds` | written, never read | a refund is recorded as an event and the balance it adjusts lives on `payments.refunded_minor`; no surface reads the event log yet |
 | `work_ratings` | read, never written | migration 0129's arena ladder. A reader still asks it for a work's standing; the writes belong to the `polaris-taste` service that now keeps the ladder (ADR 0001), so on a fresh instance the table is empty and the reader falls back. Kept so an instance migrated from the pre-move ladder does not lose its rating history |
 | `exchange_signal_entities` | written, never read | the row is written on every event and read by nothing |
-| `federation_inbound` | written, never read | the row is written on every event and read by nothing |
-| `feed_handles` | written, never read | the row is written on every event and read by nothing |
 | `forum_post_first_vote_notified` | written, never read | the row is written on every event and read by nothing |
 | `forum_search_misses` | written, never read | the row is written on every event and read by nothing |
 | `forum_topic_activity` | written, never read | the row is written on every event and read by nothing |

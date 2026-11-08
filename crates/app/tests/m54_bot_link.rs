@@ -825,47 +825,29 @@ async fn a_browser_route_still_gets_the_shell() {
 // than something that happens in passing.
 // ---------------------------------------------------------------------------
 
+// The stub these tests used to pin is gone: `GET /feeds/{handle}` now resolves the handle through the catalogue's own query path
+// (M63-14), so an unknown handle is a 404 rather than a constant body, and two handles answer two documents. The three tests that
+// recorded the defect were written to go red when it was fixed — they did, and this is what replaced them. The full contract
+// (formats, eligibility inheritance, the operator door that re-points a handle) lives in `m63_14_handle_feeds.rs`; what belongs
+// here is only the part a bot's "return a link to continue" path depends on: an unknown handle does not answer 200.
+
 #[tokio::test]
-async fn a_feed_for_a_handle_that_does_not_exist_still_answers() {
+async fn a_feed_for_a_handle_that_does_not_exist_is_a_404() {
     let mut h = Harness::new("d7-feed-unknown").await;
-    // A handle that is certainly not on this instance: no account, no pseud.
     let (status, body) = h.client.get("/api/v1/feeds/no-such-handle").await;
     assert_eq!(
         status,
-        StatusCode::OK,
-        "KNOWN DEFECT: an unknown handle gets 200 and a body, not a 404"
+        StatusCode::NOT_FOUND,
+        "an empty feed reads as a quiet subject, so an unknown handle must refuse: {body}"
     );
-    assert_eq!(body["feed"], "rss", "and the body is a constant");
+    assert_eq!(body["error"]["code"], "NOT_FOUND", "{body}");
 }
 
 #[tokio::test]
-async fn every_handle_gets_the_same_feed() {
-    // The stronger statement, and the one that matters: the response does not
-    // depend on the handle at all, so this is not "a feed that is wrong for one
-    // pseud" but "a handler that ignores its input".
-    let mut h = Harness::new("d7-feed-constant").await;
-    let mut seen = Vec::new();
-    // No empty handle: `/feeds/` does not match a `{handle}` path segment, so
-    // it 404s at the router and says nothing about the handler.
-    for handle in ["alice", "bob", "no-such-handle"] {
-        let (status, body) = h.client.get(&format!("/api/v1/feeds/{handle}")).await;
-        assert_eq!(status, StatusCode::OK, "{handle}");
-        seen.push(body);
-    }
-    for body in &seen[1..] {
-        assert_eq!(
-            body, &seen[0],
-            "KNOWN DEFECT: the feed is the same for every handle"
-        );
-    }
-}
-
-#[tokio::test]
-async fn the_atom_feed_is_also_a_constant() {
-    let mut h = Harness::new("d7-atom-constant").await;
+async fn the_atom_path_refuses_an_unknown_handle_too() {
+    let mut h = Harness::new("d7-atom-unknown").await;
     let (status, body) = h.client.get("/api/v1/feeds/anyone/atom").await;
-    assert_eq!(status, StatusCode::OK, "{body}");
-    assert_eq!(body["feed"], "atom");
+    assert_eq!(status, StatusCode::NOT_FOUND, "{body}");
 }
 
 // ---------------------------------------------------------------------------

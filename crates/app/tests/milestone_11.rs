@@ -359,25 +359,24 @@ async fn operator_affinity_ranking_is_silent_field_shape_unchanged() {
     let items = body["items"].as_array().expect("items");
     assert!(!items.is_empty(), "{body}");
     // Influenced vs uninfluenced responses must differ only in result order,
-    // never in field presence or naming (spec §16.3, §20 silent rule).
-    // Influence-related fields must never leak: no score, reason, affinity, or
-    // ranking metadata. Display fields (title, author_handle) are the same in
-    // every response regardless of affinities, so they say nothing about
-    // influence and are allowed.
+    // never in field naming (spec §16.3). What is banned is the *score*: an
+    // affinity, a rank, a raw score. What is required is the opposite of what
+    // this test first asserted — §29.2 says a served row carries the reason it
+    // is there and how well it matches, unconditionally, because a match
+    // percent the reader cannot see is a ranking the reader cannot check. The
+    // reason fields are therefore asserted present, not banned; the first
+    // version of this test banned them and was wrong for exactly that reason.
     for item in items {
         let keys: Vec<String> = item.as_object().unwrap().keys().cloned().collect();
         assert!(
             keys.contains(&"work_id".to_string()),
             "every item needs its work_id: {item}"
         );
-        for banned in [
-            "score",
-            "reason",
-            "affinity",
-            "affinity_bp",
-            "influenced",
-            "rank",
-        ] {
+        assert!(
+            keys.contains(&"reason".to_string()) && keys.contains(&"match_percent".to_string()),
+            "a served row names why it is here (§29.2): {item}"
+        );
+        for banned in ["score", "affinity", "affinity_bp", "influenced", "rank"] {
             assert!(
                 !keys.iter().any(|k| k.contains(banned)),
                 "influence field `{banned}` leaked into the discovery feed: {item}"
