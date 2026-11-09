@@ -2827,3 +2827,10 @@ the input §47.4's discount needs.
 `strings` on the artifact was checked **before** the restart (`taxonomy/{id}/parent`, `admin/discovery/leakage` each present once),
 so the binary that shipped is the code that was built — the failure mode that put a three-commit-old binary in front of the unit on
 2026-11-08.
+
+**One loose end for whoever re-enables it:** the `[taste]` block in the host's `darkhold.toml` is still commented out with a dated
+note (it was commented out on 2026-11-09 when an older binary rejected `half_life_days`). The binary deployed now is built from a
+tree that **contains** that struct, so the block would parse again — but re-enabling it changes live taste behaviour and that is the
+other session's feature, so it stays off until they say otherwise. The trees are not identical by design: the deploy tree carries
+their 25 commits, my line carries the ratchet passes, and only the deploy tree has both.
+
