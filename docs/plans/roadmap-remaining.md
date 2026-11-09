@@ -1439,3 +1439,29 @@ crate compiles again (`cargo test -p darkhold-db --no-run`).
 
 Ratchet 79 -> 76.
 
+### A score nobody shows, and a fixture the binary carried (directory.rs, 2026-11-08)
+
+`entry_score` read `directory_entries.score` — the **stored, undecayed** column. Every surface that shows a score shows the
+decayed one: the list ranks by it, and the entry page computes `decayed_score` explicitly so that "a detail page that showed
+a different number from the list it was reached from" cannot happen. So `entry_score` was not merely unused, it was a
+narrower twin of a rule the product deliberately does not follow; it is deleted, and the comment in `cast_vote` that named it
+now describes the column instead of the function.
+
+The other two orphans were `set_account_trust_for_tests` and `votes_for_tests`: `#[doc(hidden)]` but compiled into the binary,
+carried by the product so that app tests could arrange a trust level and read vote rows. A writer that sets a trust level
+with `basis = 'tests'` belongs with the other test helpers, not on a surface anything can call; both moved to
+`crates/test-support` (`set_account_trust`, `directory_votes`), and the five call sites moved with them.
+
+**A hypothesis the mutants killed, recorded so the next reader does not repeat it.** The old `set_account_trust_for_tests`
+had identical SQL strings on both arms — `?` placeholders on the PostgreSQL arm too — which reads as a copy-paste bug that
+would panic the moment a milestone ran on PostgreSQL. It is not: `Database::sql` rewrites `?` to `$n` on the PostgreSQL arm,
+and a mutant that restored the `?` string passed on PostgreSQL. The duplicated strings were redundant, not wrong. Only the
+vote query genuinely needs two strings (`vote_value` needs a cast).
+
+**And a note on what these gates assert:** seeding level 7 instead of 6 leaves `milestone_39` green — its trust checks are
+threshold-shaped ("this level may do X"), so over-granting is invisible while under-granting is not (a mutant that lowered
+the level reddened with `ACCESS_DENIED`). That is a property of the gate's intent, not a defect, but it means the fixture is
+proved by *denial*, not by *exactness*.
+
+Ratchet 76 -> 73.
+
