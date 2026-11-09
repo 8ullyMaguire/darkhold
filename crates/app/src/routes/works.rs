@@ -735,6 +735,23 @@ async fn publish_work(
             Ok(_) => {}
             Err(error) => tracing::warn!(work = %work_id, %error, "could not queue taste notifications"),
         }
+
+        // §50.2's class, measured once when the text stops changing. `measure_work_and_store` had no caller at all, so the
+        // table stayed empty on a fresh instance and the canon-blind listing was empty in a way that read as a fact about
+        // the corpus. Best-effort like the queue above: a publication the author was told succeeded must not fail because a
+        // derived flag could not be written, and a work with no text yet is answered `Ok(None)` rather than stored as
+        // unclassified — "nobody measured" and "measured and unreadable" are different claims (§49.3's rule).
+        let measured_at = crate::format_rfc3339(time::OffsetDateTime::now_utc());
+        match darkhold_db::canon_agnostic::measure_work_and_store(state.db(), &work_id, &measured_at).await
+        {
+            Ok(Some(stored)) => tracing::debug!(
+                work = %work_id,
+                class = ?stored.verdict.class(),
+                "measured the work's canon class"
+            ),
+            Ok(None) => tracing::debug!(work = %work_id, "no text to classify yet; nothing was stored"),
+            Err(error) => tracing::warn!(work = %work_id, %error, "could not measure the work's canon class"),
+        }
     }
 
     Ok(Json(author_view(&state, &user, &updated).await?))

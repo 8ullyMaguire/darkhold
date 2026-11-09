@@ -1208,6 +1208,7 @@ pub fn build_router(state: AppState) -> Router {
         .merge(routes::characters::router())
         .merge(routes::leakage::router())
         .merge(routes::coordinates::router())
+        .merge(routes::canon::router())
         .merge(routes::preservation::router())
         // M16-06: the sandbox's only caller. Inside the `/api/v1` nest, not beside `facets`: running untrusted code needs the session
         // middleware (a caller must be known before it can be an operator) and CSRF, which the nest carries and the page router does not.

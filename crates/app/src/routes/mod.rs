@@ -5,6 +5,7 @@ pub mod admin_actions;
 pub mod admin_scope;
 pub mod affinity;
 pub mod atproto_feed;
+pub mod canon;
 pub mod collection_tags;
 pub mod extension_dispatch;
 pub mod extension_documents;
