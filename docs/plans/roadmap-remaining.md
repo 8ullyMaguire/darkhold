@@ -2715,3 +2715,28 @@ missing producer.
 Proof: red (200 to a stranger, carrying the other account's message), green on both engines (privacy 1/1, `m70_13_community_doors`
 1/1, `route_inventory` 5/5); mutants removing either guard redden their own assertion. Ratchet 43 → 42.
 
+### The tag confirmation state had no door, so no tag counted (2026-11-09)
+
+`tag_confirmation::confirm` writes `work_tags.confirmation`; `gravity_contributing_tags` — read by discovery, tasting and the
+concierge when they build a gravity vector — keeps only `reader`/`wrangler` rows. `confirm` had no caller, and the deployed
+database measures the consequence: **30,982 of 30,982 `work_tags` rows are `unconfirmed`**. §49.2's "only reader- or
+wrangler-confirmed tags move a ranking" had reduced to "no tag moves any ranking", silently, on every surface that reads gravity.
+
+This is the third pass to find the gravity layer starved of input (the taste signal, then the tags themselves). It is the first
+where the product's own rule names the missing act, which is why the repair is a door and not a default.
+
+`PUT /works/{id}/tags/{node}/confirmation`, Pseudonymous, `{"state": "reader" | "inaccurate" | "wrangler"}`:
+
+* a reader confirms or flags; **only a curator may claim `wrangler`** — a state is a claim about authority, and `is_active_curator`
+  is the same predicate the tag door beside it uses, so the two agree about who a curator is;
+* **`unconfirmed` is refused by name** — it is the absence of a judgement, and accepting it would erase somebody's confirmation;
+* **the flag records the pseud**, the identity that judged, not the account behind it;
+* **a tag the work does not carry is `404`**, the decision the vote door beside it made.
+
+Proof: red first (404, no route), then green on both engines — author-applied counts toward nothing, `reader`-confirmed is
+returned by the filter, `inaccurate` stops counting at once and names its flagger. `route_inventory` 5/5. Mutants: wrangler
+without the curator check (403 → 200) and ignoring `confirm`'s "pair not found" (404 → 200), both retargeted after their first
+versions failed to compile. Ratchet 42 → 41.
+
+Not deployed: queued behind the conversation privacy fix and the leakage writer, in that order.
+

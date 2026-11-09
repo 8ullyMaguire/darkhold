@@ -7,9 +7,10 @@ use crate::auth::{RequirePseud, RequireSession};
 use crate::http::{ApiError, ApiResult};
 use crate::state::AppState;
 use axum::extract::{Path, Query, State};
-use axum::routing::{get, post};
+use axum::routing::{get, post, put};
 use axum::{Json, Router};
 use darkhold_db::taxonomy::{self, TagAssertion, TagRole, TagSource};
+use darkhold_db::tag_confirmation::TagConfirmation;
 use darkhold_db::{collaboration, media_resilience};
 use darkhold_domain::WorkId;
 use serde::Deserialize;
@@ -29,12 +30,100 @@ pub fn router() -> Router<AppState> {
             "/works/{id}/tags/{node}/vote",
             get(my_tag_vote).put(cast_tag_vote),
         )
+        // §49.2's confirmation state, which decides whether a tag moves a reader's ranking at all. The store function had no caller
+        // and every row on the deployed instance is `unconfirmed`, so the gravity filter was reading an empty set.
+        .route(
+            "/works/{id}/tags/{node}/confirmation",
+            put(set_tag_confirmation),
+        )
         // The repair half of §6.4. A vote recomputes its own row, so this door exists for the window the vote path leaves open —
         // a crash between the vote row and the aggregate — and for a restore that replayed votes without their confidence.
         .route(
             "/admin/taxonomy/confidence/recompute",
             post(recompute_confidence),
         )
+}
+
+/// `PUT /works/{id}/tags/{node}/confirmation` — what the gravity filter was waiting for.
+///
+/// `tag_confirmation::confirm` writes the state `gravity_contributing_tags` reads, and had no caller: every row on the deployed
+/// instance is `unconfirmed`, so §49.2's filter returned nothing for every work and the gravity layer was reading an empty tag
+/// set on every surface.
+///
+/// **A reader confirms or flags; only a curator may claim `wrangler`.** §49.2 gives the reader two acts and the wrangler a third,
+/// and a state is a claim about authority — a session that could set `wrangler` would launder a scoped opinion into a curation.
+/// The check is the same `is_active_curator` the tag door above uses, so the two agree about who a curator is.
+///
+/// **`unconfirmed` is refused.** It is the absence of a judgement, which is what every imported row already says; accepting it
+/// would let a request erase somebody's confirmation, and erasing recorded speech is a different act with its own audit trail.
+///
+/// **A tag the work does not carry is `404`.** There is no claim to judge, and `422` would blame a well-formed request — the same
+/// decision the vote door beside it made.
+#[derive(Debug, Deserialize)]
+pub struct ConfirmationBody {
+    pub state: String,
+}
+
+async fn set_tag_confirmation(
+    State(state): State<AppState>,
+    RequirePseud { user, pseud_id }: RequirePseud,
+    Path((id, node)): Path<(String, String)>,
+    Json(body): Json<ConfirmationBody>,
+) -> ApiResult<Json<serde_json::Value>> {
+    let work_id: WorkId = id
+        .parse()
+        .map_err(|_| ApiError(darkhold_domain::AppError::NotFound { resource: "work" }))?;
+
+    let confirmation = match body.state.as_str() {
+        "reader" => TagConfirmation::Reader,
+        "inaccurate" => TagConfirmation::Inaccurate,
+        "wrangler" => {
+            let account_id = user.account_id.to_string();
+            let is_curator = media_resilience::is_active_curator(state.db(), &account_id)
+                .await
+                .map_err(|e| ApiError(darkhold_domain::AppError::Internal(e.into())))?;
+            if !is_curator {
+                return Err(ApiError(darkhold_domain::AppError::AccessDenied));
+            }
+            TagConfirmation::Wrangler
+        }
+        other => {
+            return Err(ApiError(darkhold_domain::AppError::field(
+                "state",
+                if other == "unconfirmed" {
+                    "`unconfirmed` is the absence of a judgement, not one a caller can assert; confirm or flag the tag instead"
+                } else {
+                    "must be `reader`, `wrangler` (curators only) or `inaccurate`"
+                },
+            )));
+        }
+    };
+
+    // The flag records the **pseud**: it is the identity that made the judgement, it is what the work's page can act on, and a
+    // review queue that needs the account can resolve it from the pseud. An account id here would name a person for what a
+    // persona said, which is the distinction 0110's column is for.
+    let flagged_by = if confirmation == TagConfirmation::Inaccurate {
+        Some(pseud_id.to_string())
+    } else {
+        None
+    };
+    let applied = darkhold_db::tag_confirmation::confirm(
+        state.db(),
+        &work_id.to_string(),
+        &node,
+        confirmation,
+        flagged_by.as_deref(),
+    )
+    .await
+    .map_err(|e| ApiError(darkhold_domain::AppError::Internal(e)))?;
+    if !applied {
+        return Err(ApiError(darkhold_domain::AppError::NotFound { resource: "tag" }));
+    }
+
+    Ok(Json(serde_json::json!({
+        "state": confirmation.as_str(),
+        "counts_toward_gravity": confirmation.counts_toward_gravity(),
+    })))
 }
 
 #[derive(Debug, Deserialize)]

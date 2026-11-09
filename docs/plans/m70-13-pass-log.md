@@ -180,3 +180,33 @@ community doors 1/1, `route_inventory` 5/5). Mutants from `/tmp`: removing the r
 404); removing the write guard reddens the same test one line later, where the refused message must not land.
 
 Ratchet: 43 → 42.
+
+## Pass 74 — the tag confirmation state had no door, so no tag counted (2026-11-09)
+
+`tag_confirmation::confirm` writes `work_tags.confirmation`, and `gravity_contributing_tags` — read by discovery, tasting and the
+concierge when they build a gravity vector — keeps only `reader`/`wrangler` rows. `confirm` had no caller, and the deployed
+database says what that means: **30,982 of 30,982 `work_tags` rows are `unconfirmed`**. §49.2's rule had reduced to "no tag moves
+any ranking", and the gravity layer has been fed an empty tag set on every surface that reads it.
+
+That is the third pass to find this layer starved of input (the taste signal, then the tags themselves); this is the first where
+the product's own rule names the missing act.
+
+`PUT /works/{id}/tags/{node}/confirmation` (Pseudonymous) takes `{"state": "reader" | "inaccurate" | "wrangler"}`.
+
+* **A reader confirms or flags; only a curator may claim `wrangler`.** A state is a claim about authority; a session that could
+  set `wrangler` would launder a scoped opinion into a curation. The check is `is_active_curator`, the same one the tag door
+  above uses, so the two agree about who a curator is.
+* **`unconfirmed` is refused by name.** It is the absence of a judgement — what every imported row already says — and accepting
+  it would let a request erase somebody's confirmation, which is a different act with its own audit.
+* **The flag records the pseud, not the account.** It is the identity that made the judgement, it is what the work's page can act
+  on, and the review queue can resolve the account from it. An account id there would name a person for what a persona said.
+* **A tag the work does not carry is `404`.** The vote door beside it settled this: there is no claim to judge, and `422` would
+  blame a well-formed request.
+
+**Proof.** Red first (404 — no route), then green: the test walks an author-applied tag from "counts toward nothing" to
+"`reader`-confirmed, the gravity filter returns it" to "flagged `inaccurate`, it stops counting at once and the flag names its
+flagger". Both engines (1/1, `route_inventory` 5/5). Mutants from /tmp: letting anyone claim `wrangler` reddens the 403 assertion
+(200 vs 403); ignoring `confirm`'s "pair not found" answer reddens the unknown-tag assertion (200 vs 404). Both were first written
+as compile failures (unused `user`, unused `applied`) and retargeted rather than counted.
+
+Ratchet: 42 → 41. Not deployed: queued behind the privacy fix and the leakage writer, in that order.
