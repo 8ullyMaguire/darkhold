@@ -2827,3 +2827,31 @@ the input §47.4's discount needs.
 `strings` on the artifact was checked **before** the restart (`taxonomy/{id}/parent`, `admin/discovery/leakage` each present once),
 so the binary that shipped is the code that was built — the failure mode that put a three-commit-old binary in front of the unit on
 2026-11-08.
+
+**One loose end for whoever re-enables it:** the `[taste]` block in the host's `darkhold.toml` is still commented out with a dated
+note (it was commented out on 2026-11-09 when an older binary rejected `half_life_days`). The binary deployed now is built from a
+tree that **contains** that struct, so the block would parse again — but re-enabling it changes live taste behaviour and that is the
+other session's feature, so it stays off until they say otherwise. The trees are not identical by design: the deploy tree carries
+their 25 commits, my line carries the ratchet passes, and only the deploy tree has both.
+
+### The audience panel read a table nothing wrote (2026-11-09)
+
+§41.2's warmth rule exists in full — `warmth_delta`, `tier_for`, `record_warmth`, `GET /me/audience` — and the writer had no caller.
+Measured live: `interaction_warmth` **0 rows**, so every author's panel answered five zeroes, indistinguishable from "nobody reads
+me" on an instance with 58,042 works.
+
+Wired **React** (kudos, both directions) and **Comment**. `warmth::thresholds` now reads `CommunityConfig::warmth_thresholds`, which
+was a JSON blob nothing parsed, with a per-key fallback that logs which key it could not use. A reader cannot warm themselves. A
+relationship that lands at ≤ 0 bp is **deleted** rather than left as `lurk`, so the un-kudos is symmetric and `total` means "currently
+warm" rather than "ever interacted".
+
+**Defect caught by probing rather than by reasoning:** the comment route passed `&id` after `let id = insert_comment(…)` had
+shadowed the path parameter with the *comment's* id. Both are uuids, so `WorkId::parse` accepted it, the author lookup answered
+`None`, and the panel stayed empty with no error anywhere. Fixed to `&work_id`, reason recorded at the call.
+
+**Named halves, not shipped:** `ReadUnit` (needs `save_progress`) and `FinishWork` (needs `reading_status`) have no producer yet; both
+need the same reversal discipline as the kudos toggle. Until they land the panel shows `react` and `comment` tiers only.
+
+Proof: red first (all zeros after a kudos), then both engines — kudos → `react:1`, un-kudos → `total:0`, three comments (1200 bp) →
+`comment:1`, author's own comment ignored. Mutants: comments recording nothing; self-warming allowed (`total:2`). Ratchet 39 → 38.
+

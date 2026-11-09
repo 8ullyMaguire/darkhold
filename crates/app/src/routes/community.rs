@@ -200,6 +200,21 @@ async fn post_comment(
     )
     .await
     .map_err(|e| ApiError(darkhold_domain::AppError::Internal(e)))?;
+    // §41.2's warmth: a comment is `Comment` (400 bp) toward the work's author, recorded on the same act that enqueues the webhook
+    // below. Best-effort, like the event: the comment is already stored and already counted, and a derived panel is a report about
+    // the corpus rather than one of its facts.
+    // `&work_id`, not `&id`: the `let id =` above shadows the path parameter with the **comment's** id, and both are uuids, so
+    // `WorkId::parse` accepts the comment id without complaint — the warmth then names a work that does not exist, the author
+    // lookup answers `None`, and the panel stays empty with no error anywhere. (Measured: this exact mistake, found by the probe
+    // printing a comment id in the work-id position.)
+    crate::warmth::record(
+        &state,
+        &user.account_id.to_string(),
+        &work_id.to_string(),
+        darkhold_domain::longevity::WarmthAction::Comment,
+    )
+    .await;
+
     // The comment exists in the database; from here on it can only be held, not un-written. Counted at the insert
     // rather than at the 200 so a hold or a moderation gate does not hide a comment that a reader can see.
     crate::metrics::comment_created();

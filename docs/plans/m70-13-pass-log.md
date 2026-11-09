@@ -284,3 +284,41 @@ mutant was first written uncompilable (`if id == child_id && false` is fine, but
 compiled; the curator mutant needed `let _ = user;` to compile, and was retargeted rather than counted as a kill.
 
 Ratchet: 40 → 39.
+
+## Pass 77 — the audience panel read a table nothing wrote (2026-11-09)
+
+§41.2 defines warmth as a reader→author score with tiers, and every part of the rule exists: `warmth_delta` (ReadUnit 100,
+FinishWork 500, React 200, Comment 400), `tier_for`, `record_warmth`, and `GET /me/audience` to aggregate it. The missing part was
+the writer — `record_warmth` had **no caller in `crates/app`**, and the deployed database held **0 rows**. Every author's panel
+answered `{lurk:0, react:0, comment:0, create:0, total:0}`: a number that cannot tell "nobody reads me" from "nothing is recorded",
+on an instance with 58,042 works.
+
+Four decisions:
+
+* **The config knob is read, not decorative.** `CommunityConfig::warmth_thresholds` was a `serde_json::Value` that nothing parsed,
+  so an operator override changed nothing. `warmth::thresholds` reads it, falls back to the documented defaults per key, and logs
+  which key was unusable — a mistyped threshold should be a log line, not a panel quietly using a different number.
+* **Best-effort.** A warmth failure is a `warn!`; a reader's kudos must not 500 because a derived panel could not update.
+* **A reader cannot warm themselves.** The author acting on their own work is skipped, or the panel's `create` tier would count the
+  one person guaranteed to be in it.
+* **A relationship at zero warmth is not a relationship.** The un-kudos subtracts the same 200 bp, and when the score lands at ≤ 0
+  the row is **deleted** rather than left as `tier='lurk'`. An add-only writer over an additive score makes the second press free
+  warmth; a left-behind zero row makes `total` mean "ever interacted" while the panel is read as "currently warm".
+
+**The defect that would have shipped silently.** The comment route passed `&id` to `warmth::record`, but `let id = insert_comment(…)`
+had **shadowed the path parameter with the comment's id**. Both are uuids, `WorkId::parse` accepts either, the author lookup then
+answered `None` for a work that does not exist, and the panel stayed empty with no error anywhere. The probe printed a comment id
+in the work-id position and settled it in one line; the fix is `&work_id.to_string()`, with the reason written above the call.
+
+**Also tried and rejected:** a second `longevity::author_account_for_work` of my own. `positivity::author_account_for_work` already
+answers that question (and excludes soft-deleted works); the duplicate was deleted before it could become another twin.
+
+**Proof.** Red first (panel all zeros after a kudos). Then both engines: kudos → `react:1`, un-kudos → `total:0`, three comments
+(1200 bp) → `comment:1`, the author's own comment → unchanged. Mutants from /tmp: comments recording nothing (panel zeros), and
+self-warming allowed (`total:2`, the author counted as their own reader).
+
+**Named halves, not shipped:** `ReadUnit` and `FinishWork` have no producer yet — both need the act's own choke point
+(`save_progress`, `reading_status`), and both must handle reversal the way the kudos toggle does. The panel will show `react` and
+`comment` tiers until they land.
+
+Ratchet: 39 → 38.
