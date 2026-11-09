@@ -409,6 +409,18 @@ impl Worker {
             }
         }
 
+        // A bounty past `closes_at` is still `open` until something sweeps it, and its `credit_holds` row keeps the asker's
+        // credits reserved while it sits there. The store's sweep has existed since M45-34 and nothing ran it, so on the
+        // deployed instance an unanswered bounty froze its asker's credits forever — the exact failure the store's own doc
+        // names first. Idempotent, so a pass a minute later finds nothing.
+        match darkhold_db::finder::sweep_expired(state.db()).await {
+            Ok(0) => {}
+            Ok(expired) => tracing::info!(expired, "bounties past their close date were expired"),
+            Err(error) => {
+                tracing::warn!(%error, "expired bounties could not be swept this pass");
+            }
+        }
+
         // A `pending` link challenge whose `expires_at` has passed still reads `pending`, and a state column that can say
         // something untrue is the defect migration 0080 was opened for — the row stays in the state its own expiry matches on.
         // The transition belongs to the sweep for the same reason the closures do: nobody presses a button to expire a code.

@@ -661,29 +661,3 @@ pub async fn sweep_expired(db: &Database) -> Result<usize> {
     Ok(expired)
 }
 
-/// Whether `account` has a proposal row on `bounty`, used for the "your answers" view.
-///
-/// # Errors
-/// As the store.
-pub async fn proposal_count(db: &Database, bounty_id: &str) -> Result<i64> {
-    let sql = sql_owned(
-        db,
-        "SELECT COUNT(*) FROM finder_proposals WHERE bounty_id = ?".to_owned(),
-        "SELECT COUNT(*) FROM finder_proposals WHERE bounty_id = $1".to_owned(),
-    );
-    let count: i64 = match db.backend() {
-        Backend::Sqlite => {
-            sqlx::query_scalar(&sql)
-                .bind(bounty_id)
-                .fetch_one(db.sqlite_pool().expect("sqlite handle"))
-                .await?
-        }
-        Backend::Postgres => {
-            sqlx::query_scalar(&sql)
-                .bind(bounty_id)
-                .fetch_one(db.postgres_pool().expect("postgres handle"))
-                .await?
-        }
-    };
-    Ok(count)
-}

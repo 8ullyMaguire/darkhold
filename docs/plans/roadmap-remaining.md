@@ -1742,3 +1742,30 @@ Its existence is the defect.
 
 Ratchet 61 -> 60.
 
+### A sweep nobody swept (finder.rs, 2026-11-08)
+
+`finder::sweep_expired` is the store half of M45-34: a bounty past `closes_at` becomes `expired`, and the `credit_holds` row
+its `budget` reserved is released. The store tests prove both halves ("wind the close date back and sweep: the credits come
+free again"). **No process called it.** On the deployed instance, a bounty nobody answered stayed `open` and kept its asker's
+credits reserved — permanently. That is the first failure the module's own doc names: "A cancelled bounty that kept its hold
+would quietly freeze someone's credits forever." Cancel was wired; expiry was not, so the doc's "or expiry" was a promise the
+running system did not keep.
+
+The fix is one call in the worker's maintenance pass, beside the other sweeps nobody presses a button for (import-resume
+reaping, credit grants, export removal), with a `warn` on failure rather than a stop — the pass is a series of independent
+sweeps and one failing should not strand the rest.
+
+**A store function with no scheduler is the same shape as a table with no writer.** The store's tests pass, the doc is
+correct, the credits are still frozen: nothing in the test suite could see the difference between "implemented and scheduled"
+and "implemented".
+
+`proposal_count` (same module) is deleted. Its doc said "whether `account` has a proposal row on `bounty`, used for the 'your
+answers' view"; its signature took no account and returned a count, and the detail route already returns the proposal list.
+The one caller was a store test, which now counts `proposals().len()` — the answer the route actually serves.
+
+That doc points at a **real gap, recorded and not built**: `GET /finder/me` answers "bounties I asked" and the caller's
+available credits, but not "answers I gave" — a finder cannot see their own proposals. No store query exists for it either;
+`proposal_count` only looked like one.
+
+Ratchet 60 -> 58.
+
