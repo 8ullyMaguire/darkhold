@@ -103,7 +103,7 @@ fn meta(scope: Scope) -> Value {
 ///   `operator_role` says so, and that is what keeps the admin panel a grant
 ///   rather than a score,
 /// * the preset is an operator's upper bound and can only remove capabilities.
-async fn viewer(state: &AppState, account: &str) -> ApiResult<(i64, Role, Preset)> {
+pub(crate) async fn viewer(state: &AppState, account: &str) -> ApiResult<(i64, Role, Preset)> {
     let trust = darkhold_db::governance::trust_for(state.db(), account)
         .await
         .map_err(internal)? as i64;
@@ -265,4 +265,34 @@ pub async fn one_capability(
         "meta": meta(scope),
         "value": value,
     })))
+}
+
+/// How many people read **this** work, for the work's own author.
+///
+/// `Scope::OwnWorkBasic` is the capability (`own.work.basic`: reader count, word count, unit count) and `work_reader_count`
+/// is its query — a query with no caller until now, while `/me/analytics/own.work.basic` answered `not_implemented`. The
+/// authoring view of a work is where the number belongs: an author looking at their own work asks "did anyone read it", and
+/// the dashboard's totals cannot answer for one work.
+///
+/// The authorisation is `allowed_under`, the same call `/me/analytics/{capability}` makes, so a preset that narrows the
+/// capability narrows it here too — one decision, not two. A refusal is a sentence rather than an absent key: an author who
+/// cannot see the number should learn which capability to earn, not wonder whether the feature exists.
+///
+/// The number itself is banded by `Reported::of` inside the store (ten distinct pseudonyms for a work's audience), so this
+/// door cannot be used to count a small work's readers exactly.
+pub(crate) async fn work_audience(
+    state: &AppState,
+    account: &str,
+    work_id: &str,
+) -> ApiResult<Value> {
+    let (trust, role, preset) = viewer(state, account).await?;
+    let scope = Scope::OwnWorkBasic;
+    if !allowed_under(scope, trust, role, preset) {
+        return Ok(json!({
+            "status": "unavailable",
+            "reason": format!("{} needs trust level {}", scope.as_str(), scope.minimum_trust()),
+        }));
+    }
+    let readers = darkhold_db::analytics::work_reader_count(state.db(), work_id).await?;
+    Ok(json!({ "status": "ok", "readers": readers }))
 }
