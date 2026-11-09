@@ -2795,3 +2795,35 @@ the `/tags` surface zero PG coverage. Now per-backend; its four tests pass on bo
 Proof: red first (404), then both engines — parentage 2/2, tag_page 4/4, route_inventory 5/5. Mutants: no curator check (403 →
 200), cycles accepted (422 → 200), `children` ignored (3 items → 2). Ratchet 40 → 39.
 
+
+## Deploy 2026-11-09 23:11 — the queued ratchet passes reached production
+
+The deploy tree (`/personal/documents/code/rust/darkhold`) went clean and the other session's taste rework was committed, so the
+queue could finally ship. Merged `lc/master` into it (`4b81ec4c`, 20 files, no conflicts, **no new migrations**), backed up
+`/personal/backups/darkhold-20261109-224441-pre-m70-13-passes-73-76.dump` (1.89 GB, verified `pg_restore -l | grep -c 'TABLE DATA'`
+= **392**), built release in 15m16s, `migrate` reported `197 applied, 0 pending`, restarted, `/api/v1/meta` now says
+**`0.1.0+4b81ec4c`**.
+
+Pre-flight worth recording, because it was the trap that took the site down on 2026-11-09 earlier: `darkhold.toml` mtime 21:45:27
+was **newer** than the installed binary (21:43:56). The discriminator was the unit's `ActiveEnterTimestamp` — 21:45:33, six seconds
+*after* the config edit — so the running binary had already accepted that config, and `migrate --status` from the tree confirmed
+the file parses (`197 applied, 0 pending`). Config newer than the binary is only dangerous when the service started before the
+edit.
+
+**What is now live, probed rather than assumed:**
+
+| surface | before | after |
+|---|---|---|
+| `PUT /api/v1/taxonomy/{id}/parent` | 404 (no route) | **401** anonymous — exists, curator-gated |
+| `PUT /api/v1/works/{id}/tags/{node}/confirmation` | 404 | **401** |
+| `POST /api/v1/admin/discovery/leakage` | 405 | **401** |
+| `GET /api/v1/tags/{tag}?children=true` | unknown param | **200** |
+| `work_view_log.source` on a real read | `unknown` (1,682 of 1,682) | **`direct` / `kind=earned`** on the first post-deploy row |
+
+That last row is the one that matters most: the ranking producer wrote its first truthful row in production. Every historical row
+says `unknown` because the writer never recorded an arrival path; from this build on, a row says how the reader got there, which is
+the input §47.4's discount needs.
+
+`strings` on the artifact was checked **before** the restart (`taxonomy/{id}/parent`, `admin/discovery/leakage` each present once),
+so the binary that shipped is the code that was built — the failure mode that put a three-commit-old binary in front of the unit on
+2026-11-08.
