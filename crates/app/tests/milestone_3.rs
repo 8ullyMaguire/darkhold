@@ -1080,3 +1080,72 @@ async fn a_contributor_who_may_not_edit_cannot_delete_a_unit() {
     assert_eq!(status, StatusCode::OK, "the refused delete changed nothing");
     harness.cleanup().await;
 }
+
+#[tokio::test]
+async fn an_owner_can_see_the_invitations_a_work_has_sent() {
+    let harness = Harness::new("invite-list").await;
+    let mut owner = harness.client();
+    register(&mut owner, "owner@example.com", "Quill").await;
+    let mut other = harness.client();
+    register(&mut other, "other@example.com", "Ink").await;
+
+    let work = create_work(&mut owner, "Shared").await;
+    let work_id = work["id"].as_str().expect("id").to_owned();
+    let list = format!("/api/v1/works/{work_id}/contributors/invitations");
+
+    // Nothing sent yet: the list exists and is empty. A `404` here would be indistinguishable from a work the caller cannot see,
+    // and "no invitations sent" is a fact about a work that exists.
+    let (status, body) = owner.get(&list).await;
+    assert_eq!(status, StatusCode::OK, "{body}");
+    assert_eq!(body.as_array().map(Vec::len), Some(0), "{body}");
+
+    let (status, sent) = owner
+        .post(&list, json!({ "handle": "Ink", "role": "editor" }))
+        .await;
+    assert_eq!(status, StatusCode::CREATED, "{sent}");
+    let invite_id = sent["id"].as_str().expect("invite id").to_owned();
+
+    let (status, body) = owner.get(&list).await;
+    assert_eq!(status, StatusCode::OK, "{body}");
+    let items = body.as_array().expect("invitations");
+    assert_eq!(items.len(), 1, "the invitation the owner just sent: {body}");
+    assert_eq!(items[0]["status"], "pending", "{body}");
+    assert_eq!(items[0]["invited_handle"], "Ink", "{body}");
+    assert_eq!(items[0]["invited_by_handle"], "Quill", "{body}");
+    assert!(
+        !body.to_string().contains("other@example.com"),
+        "an invitation names pseuds, never accounts: {body}"
+    );
+
+    // Once the invited pseud answers, the record is still listed and says how it ended. This is the owner's question a week later
+    // — "did Ink ever answer?" — and a pending-only list could not answer it.
+    let (status, _) = other
+        .post(&format!("/api/v1/invitations/{invite_id}/accept"), json!({}))
+        .await;
+    assert_eq!(status, StatusCode::OK);
+    let (status, body) = owner.get(&list).await;
+    assert_eq!(status, StatusCode::OK, "{body}");
+    assert_eq!(
+        body.as_array().and_then(|items| items.first()).map(|item| item["status"].clone()),
+        Some(json!("accepted")),
+        "an answered invitation stays on the owner's list: {body}"
+    );
+
+    // An editor contributes but does not manage: the invitation list names OTHER people the owner approached, and a collaborator
+    // is not entitled to the owner's recruitment. `403`, not `404` — Ink can see the work, and telling them it vanished would be a
+    // lie they can disprove by loading it.
+    let (status, body) = other.get(&list).await;
+    assert_eq!(
+        status,
+        StatusCode::FORBIDDEN,
+        "an editor may edit the work but not audit who else was invited: {body}"
+    );
+
+    // Somebody who is neither a contributor nor the owner gets the same answer as a work they cannot see.
+    let mut stranger = harness.client();
+    register(&mut stranger, "third@example.com", "Nib").await;
+    let (status, _) = stranger.get(&list).await;
+    assert_eq!(status, StatusCode::NOT_FOUND);
+
+    harness.cleanup().await;
+}

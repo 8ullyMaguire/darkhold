@@ -8,6 +8,7 @@ publish = false
 uuid.workspace = true
 axum.workspace = true
 darkhold-db = { path = "../db" }
+darkhold-domain = { path = "../domain" }
 serde_json.workspace = true
 sqlx = { workspace = true }
 tokio = { workspace = true, features = ["rt", "macros"] }

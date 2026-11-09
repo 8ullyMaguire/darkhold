@@ -2128,3 +2128,35 @@ with SIGTERM mid-compile — nothing in this repo's tooling or the tree, but wor
 takes half an hour and a killed build is expected, not exceptional, so the binary commit is verified against the tree before every
 restart (`/meta` `build` string) rather than assumed from a successful `cargo build` earlier in the session.
 
+### An invitation the sender could not see, and a grant that skipped consent (collaboration, 2026-11-09)
+
+Two orphans in one module, and they are the same question asked from both ends.
+
+**`invites_for_work` had no caller.** `POST /works/{id}/contributors/invitations` mints an invitation, `revoke_invite` kills one,
+and the invitee has `GET /invitations` — but the owner could not list what their own work had sent. That is the same shape as a
+registry nobody can audit: a decision recorded and unreadable. `GET` on the same path (same collection, same permission rule)
+returns **every** invitation, not only pending ones: the owner's question a week later is "did Ink ever answer", and an answered
+invitation is a record of a decision. The invitee's side stays pending-only, which is the opposite filter on purpose — a person's
+inbox is what still needs them.
+
+An editor reaches the work but may not manage it, so the list answers them `403`, not `404`: they can disprove "the work
+vanished" by loading it, and the list names *other people the owner approached* — a collaborator is not entitled to the owner's
+recruitment.
+
+**`add_contributor` was deleted and moved to `test-support`.** It wrote a contributor row directly, with no invitation. Nothing
+in the product called it — only eleven fixture call sites — and it was the non-transactional twin of `respond_to_invite`'s grant
+with two differences that made it the wrong function to keep: it could *change* an existing contributor's role and attribution
+(`DO UPDATE`, bypassing the owner-protection rule in `update_contributor`), and it could grant rights to a pseud that never
+consented. §4.3's model is that an accepted invitation grants rights to exactly that pseud, so a second path that skips acceptance
+is a consent bypass with a plausible signature. It is now `test_support::grant_contributor`, where a fixture can reach it and the
+binary cannot.
+
+The one honest gap in this pass's evidence: **the route was written before its test**, so the new test was never seen red. The
+remedy is recorded rather than glossed — the door-unmounted mutant stands in for that RED (it answers `405`, the test reddens),
+and the same run re-derived the RED for the management check and for a pending-only filter. Mutants red: the door at a path no
+client has, the management check removed (an editor audits the owner's recruitment), and only-pending listing (an answered
+invitation disappears from the record). One mutant had to be re-targeted because `manage_decision` appears in four handlers and
+the first `replace` hit `create_invitation` — the wrong edit, which proves nothing.
+
+Ratchet 49 -> 47 (one wired, one deleted).
+

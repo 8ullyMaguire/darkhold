@@ -1860,3 +1860,51 @@ pub async fn directory_votes(db: &darkhold_db::Database, entry_id: &str) -> Vec<
     }
 }
 
+/// Put a pseud on a work as a contributor, directly.
+///
+/// This is the **test-only** half of collaboration: it writes the same row an accepted invitation writes, without an invitation.
+/// It used to live in the product crate as `darkhold_db::collaboration::add_contributor`, which meant product code could grant
+/// a contributor's rights without the invitee's consent — the exact thing the invitation flow exists to require (§4.3: "an
+/// accepted invitation grants rights to exactly that pseud"). Nothing called it but fixtures, so it moved here, where a fixture
+/// can reach it and the binary cannot.
+pub async fn grant_contributor(
+    db: &darkhold_db::Database,
+    work: darkhold_domain::WorkId,
+    pseud: darkhold_domain::PseudId,
+    role: darkhold_domain::content::ContributorRole,
+    public_attribution: bool,
+) -> sqlx::Result<()> {
+    use darkhold_db::Backend;
+    let sql = db.sql(
+        "INSERT INTO work_contributors (work_id, pseud_id, role, public_attribution, created_at)
+         VALUES (?, ?, ?, ?, '2026-01-01T00:00:00Z')
+         ON CONFLICT (work_id, pseud_id) DO UPDATE SET role = excluded.role,
+             public_attribution = excluded.public_attribution",
+        "INSERT INTO work_contributors (work_id, pseud_id, role, public_attribution, created_at)
+         VALUES (?::uuid, ?::uuid, ?, ?, '2026-01-01T00:00:00Z')
+         ON CONFLICT (work_id, pseud_id) DO UPDATE SET role = excluded.role,
+             public_attribution = excluded.public_attribution",
+    );
+    let attribution: i64 = i64::from(public_attribution);
+    match db.backend() {
+        Backend::Sqlite => {
+            sqlx::query(&sql)
+                .bind(work.to_string())
+                .bind(pseud.to_string())
+                .bind(role.as_str())
+                .bind(attribution)
+                .execute(db.sqlite_pool().expect("sqlite handle"))
+                .await?;
+        }
+        Backend::Postgres => {
+            sqlx::query(&sql)
+                .bind(work.to_string())
+                .bind(pseud.to_string())
+                .bind(role.as_str())
+                .bind(attribution)
+                .execute(db.postgres_pool().expect("postgres handle"))
+                .await?;
+        }
+    }
+    Ok(())
+}

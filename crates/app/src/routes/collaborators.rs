@@ -40,9 +40,12 @@ use crate::state::AppState;
 /// Contributor and invitation routes.
 pub fn router() -> Router<AppState> {
     Router::new()
+        // M70-13: `collaboration::invites_for_work` had no caller. `POST` mints an invitation and `revoke_invite` kills one,
+        // but the owner could not list what they had sent — the same shape as a registry nobody can audit. `GET` on the same
+        // path, because it is the same collection.
         .route(
             "/works/{id}/contributors/invitations",
-            post(create_invitation),
+            get(list_work_invitations).post(create_invitation),
         )
         .route(
             "/works/{id}/contributors/{pseud}",
@@ -281,6 +284,24 @@ async fn list_invitations(
     Ok(Json(
         invites.into_iter().map(InvitationView::from).collect(),
     ))
+}
+
+/// Every invitation this work has sent, for the people who may send them.
+///
+/// Not `pending` only: an invitation is a record of a decision, and the owner's question after a week is usually "did Ink ever
+/// answer" — which means accepted, declined and expired rows as well as pending ones. The invitee's side
+/// (`pending_invites_for_pseud`) is the opposite filter on purpose: a person's inbox is what still needs them.
+async fn list_work_invitations(
+    State(state): State<AppState>,
+    RequireSession(user): RequireSession,
+    Path(id): Path<String>,
+) -> ApiResult<Json<Vec<InvitationView>>> {
+    let (work, contributors) = owned_work(&state, &user, &id).await?;
+    if let Decision::Deny(reason) = manage_decision(&user, &contributors) {
+        return Err(refusal(reason));
+    }
+    let invites = collaboration::invites_for_work(state.db(), work.id).await?;
+    Ok(Json(invites.into_iter().map(InvitationView::from).collect()))
 }
 
 async fn accept_invitation(

@@ -138,52 +138,13 @@ pub async fn public_contributors(
     Ok(rows)
 }
 
-/// Grant a pseud a role on a work, or replace the role it already holds.
-pub async fn add_contributor(
-    db: &Database,
-    work: WorkId,
-    pseud: PseudId,
-    role: ContributorRole,
-    public_attribution: bool,
-) -> Result<()> {
-    let now = now_rfc3339();
-    let sql = db.sql(
-        "INSERT INTO work_contributors (work_id, pseud_id, role, public_attribution, created_at)
-         VALUES (?, ?, ?, ?, ?)
-         ON CONFLICT (work_id, pseud_id)
-         DO UPDATE SET role = excluded.role, public_attribution = excluded.public_attribution",
-        "INSERT INTO work_contributors (work_id, pseud_id, role, public_attribution, created_at)
-         VALUES (?::uuid, ?::uuid, ?, ?, ?)
-         ON CONFLICT (work_id, pseud_id)
-         DO UPDATE SET role = excluded.role, public_attribution = excluded.public_attribution",
-    );
-
-    // The two drivers return different result types, so each arm is a
-    // statement rather than the value of the match.
-    match db.backend() {
-        Backend::Sqlite => {
-            sqlx::query(&sql)
-                .bind(work.to_string())
-                .bind(pseud.to_string())
-                .bind(role.as_str())
-                .bind(i64::from(public_attribution))
-                .bind(&now)
-                .execute(db.sqlite_pool().expect("sqlite handle"))
-                .await?;
-        }
-        Backend::Postgres => {
-            sqlx::query(&sql)
-                .bind(work.to_string())
-                .bind(pseud.to_string())
-                .bind(role.as_str())
-                .bind(i64::from(public_attribution))
-                .bind(&now)
-                .execute(db.postgres_pool().expect("postgres handle"))
-                .await?;
-        }
-    }
-    Ok(())
-}
+// `add_contributor` lived here: a direct grant that wrote a contributor row with no invitation. It had no product caller —
+// only fixtures — and it was the non-transactional twin of `respond_to_invite`'s grant, with two differences that made it the
+// wrong function to keep: it could CHANGE an existing contributor's role and attribution (`DO UPDATE`, bypassing the
+// owner-protection rule in `update_contributor`), and it could grant rights to a pseud that never consented. §4.3's model is
+// that an accepted invitation grants rights to exactly that pseud, so a second path that skips acceptance is a consent bypass
+// with a plausible signature. It now lives in `test-support` as `grant_contributor`, where a fixture can reach it and the
+// binary cannot.
 
 /// Change a contributor's role or attribution, or remove them (role `None`).
 ///

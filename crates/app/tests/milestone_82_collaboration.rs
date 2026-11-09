@@ -27,7 +27,7 @@ use std::path::PathBuf;
 use darkhold_db::collaboration as collab;
 use darkhold_domain::content::ContributorRole;
 use darkhold_domain::{CollaborationInviteId, PseudId, WorkId};
-use test_support::TestDb;
+use test_support::{grant_contributor, TestDb};
 
 fn scratch_dir(tag: &str) -> PathBuf {
     let dir = std::env::temp_dir().join(format!(
@@ -414,7 +414,7 @@ async fn adding_a_contributor_grants_the_role() {
     let work = h.work().await;
     let p = h.pseud("new-co").await;
 
-    collab::add_contributor(
+    grant_contributor(
         h.db(),
         work_id(&work),
         pseud_id(&p),
@@ -439,10 +439,10 @@ async fn adding_the_same_pseud_again_replaces_the_role_rather_than_duplicating()
     let w = work_id(&work);
     let pi = pseud_id(&p);
 
-    collab::add_contributor(h.db(), w, pi, ContributorRole::Editor, true)
+    grant_contributor(h.db(), w, pi, ContributorRole::Editor, true)
         .await
         .unwrap();
-    collab::add_contributor(h.db(), w, pi, ContributorRole::Coauthor, true)
+    grant_contributor(h.db(), w, pi, ContributorRole::Coauthor, true)
         .await
         .unwrap();
 
@@ -462,10 +462,10 @@ async fn adding_a_contributor_again_also_updates_their_attribution() {
     let w = work_id(&work);
     let pi = pseud_id(&p);
 
-    collab::add_contributor(h.db(), w, pi, ContributorRole::Coauthor, true)
+    grant_contributor(h.db(), w, pi, ContributorRole::Coauthor, true)
         .await
         .unwrap();
-    collab::add_contributor(h.db(), w, pi, ContributorRole::Coauthor, false)
+    grant_contributor(h.db(), w, pi, ContributorRole::Coauthor, false)
         .await
         .unwrap();
 
@@ -484,7 +484,7 @@ async fn a_private_contribution_can_be_granted_directly() {
     let h = Db::new("add-private").await;
     let work = h.work().await;
     let p = h.pseud("co").await;
-    collab::add_contributor(
+    grant_contributor(
         h.db(),
         work_id(&work),
         pseud_id(&p),
@@ -519,7 +519,7 @@ async fn a_contributors_role_can_be_changed() {
     let p = h.pseud("co").await;
     let w = work_id(&work);
     let pi = pseud_id(&p);
-    collab::add_contributor(h.db(), w, pi, ContributorRole::BetaReader, true)
+    grant_contributor(h.db(), w, pi, ContributorRole::BetaReader, true)
         .await
         .unwrap();
 
@@ -541,7 +541,7 @@ async fn updating_only_the_attribution_leaves_the_role_alone() {
     let p = h.pseud("co").await;
     let w = work_id(&work);
     let pi = pseud_id(&p);
-    collab::add_contributor(h.db(), w, pi, ContributorRole::Editor, true)
+    grant_contributor(h.db(), w, pi, ContributorRole::Editor, true)
         .await
         .unwrap();
 
@@ -642,7 +642,7 @@ async fn a_pseud_with_no_owner_row_is_not_protected_by_that_check() {
         None
     );
     let p = h.pseud("co").await;
-    collab::add_contributor(
+    grant_contributor(
         h.db(),
         work_id(&work),
         pseud_id(&p),
@@ -674,7 +674,7 @@ async fn a_contributor_can_be_removed() {
     let p = h.pseud("co").await;
     let w = work_id(&work);
     let pi = pseud_id(&p);
-    collab::add_contributor(h.db(), w, pi, ContributorRole::Coauthor, true)
+    grant_contributor(h.db(), w, pi, ContributorRole::Coauthor, true)
         .await
         .unwrap();
 
@@ -1065,7 +1065,7 @@ async fn accepting_does_not_overwrite_an_existing_contributor_row() {
     let (work, owner) = h.work_with_owner("own").await;
     let guest = h.pseud("guest").await;
     let w = work_id(&work);
-    collab::add_contributor(h.db(), w, pseud_id(&guest), ContributorRole::Coauthor, true)
+    grant_contributor(h.db(), w, pseud_id(&guest), ContributorRole::Coauthor, true)
         .await
         .unwrap();
 

@@ -4377,6 +4377,13 @@ pub const ROUTE_TABLE: &[RouteEntry] = &[
     // ------------------------------------------------------------------
     RouteEntry {
         file: "collaborators.rs",
+        handler: "list_work_invitations",
+        method: "GET",
+        path: "/works/{id}/contributors/invitations",
+        audience: Audience::Authenticated,
+    },
+    RouteEntry {
+        file: "collaborators.rs",
         handler: "create_invitation",
         method: "POST",
         path: "/works/{id}/contributors/invitations",
