@@ -1286,3 +1286,36 @@ exercise the rows it guards, on both engines.
 
 Ratchet 95 -> 92.
 
+### A lease nobody renewed (jobs.rs, 2026-11-08)
+
+The queue had producers and a worker. What it did not have was a caller for three of its own functions, and the first was
+the one that mattered.
+
+**`heartbeat`.** A claim is a *lease* — `options.lease`, 120 seconds by default — and `maintenance_pass` returns expired
+leases to the queue. Nothing renewed it, so a job that outlived its claim was requeued by the sweep and handed to a
+**second worker while the first was still writing it**. The same import, twice, over the same rows; the only trace was
+"the lease was lost before the job could complete" in a log nobody reads on a success path. `run_once` now spawns a keeper
+that renews at a third of the lease for exactly as long as the handler runs, and stops when the handler returns or when
+the renewal says the lease is somebody else's.
+
+Two facts about the test are worth keeping, because the first version of it proved nothing:
+
+* **Only a queued job is claimable.** A second worker calling `claim_next` alone can never take a leased job; the sweep is
+  what turns `leased` into `queued`. A thief that skips the sweep is a test of nothing — and it passed with renewal
+  disabled, which is how it was caught.
+* **The maintenance pass enqueues work of its own** (the syndication job). "The queue is empty afterwards" was the wrong
+  assertion; the second worker legitimately leased that job. The assertion is scoped to the probe's id.
+
+And a limit: lease stamps are written at **second resolution**, so a sub-second lease is expired the moment it is written
+and no renewal interval can save it. The test uses a two-second lease against nearly five seconds of work.
+
+**`counts_by_state`** is now `GET /admin/jobs/summary`, built from a new `ALL_STATES` in the domain rather than from
+`GROUP BY state`: a dashboard assembled from the rows can only show states something happens to be in, which makes "no
+failures today" and "nobody asked" the same line item. Every state is listed, empty or not.
+
+**`attempts_for`** is `GET /jobs/{id}/attempts`. The owner sees their job's history — four attempts and the error from
+each, not just the last one — and the operator additionally sees which worker ran it. A stranger gets the `404` an absent
+job gets: a job id is not a capability.
+
+Ratchet 92 -> 89.
+

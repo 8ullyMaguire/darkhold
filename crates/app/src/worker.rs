@@ -225,12 +225,46 @@ impl Worker {
             let id: JobId = job.id.parse().context("a job id is a UUID")?;
             let attempt = job.attempts + 1;
             jobs::attempt_started(state.db(), id, attempt, &self.inner.options.id).await?;
+            // **The lease is renewed while the handler runs, not only when it is taken.** A claim holds the job for
+            // `options.lease` (120s by default); an import of a hundred thousand rows outlives that comfortably, and the
+            // maintenance sweep returns expired leases to the queue — so the same job was handed to a second worker while
+            // this one was still writing. `heartbeat` existed and had no caller at all. Renewal is every third of the lease,
+            // so one slow beat is not a lost lease; a `false` answer means another worker owns the job now and that worker
+            // records the outcome (`record_outcome` refuses a write it does not own — see `complete` returning `false`).
+            let keeper = self.keep_lease(state, id);
             let outcome = self.run_handler(state, &job).await;
+            keeper.abort();
             let state_after = self.record_outcome(state, id, outcome).await?;
             report.job = Some((id, state_after));
         }
 
         Ok(report)
+    }
+
+    /// Renew this worker's lease on `job` at a third of its length until the returned handle is aborted.
+    fn keep_lease(&self, state: &AppState, job: JobId) -> tokio::task::JoinHandle<()> {
+        let state = state.clone();
+        let worker = self.inner.options.id.clone();
+        let lease = self.inner.options.lease;
+        // A lease shorter than a tick must still be renewable: never poll more often than a few times a second, and never
+        // less often than a third of the lease.
+        let every = (lease / 3).max(Duration::from_millis(25));
+        tokio::spawn(async move {
+            let mut ticker = tokio::time::interval(every);
+            ticker.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Delay);
+            ticker.tick().await; // the first tick is immediate
+            loop {
+                ticker.tick().await;
+                match jobs::heartbeat(&state.db(), job, &worker, lease, OffsetDateTime::now_utc()).await {
+                    Ok(true) => {}
+                    Ok(false) => {
+                        tracing::warn!(job = %job, worker = %worker, "the lease was lost while the job was running");
+                        return;
+                    }
+                    Err(error) => tracing::warn!(job = %job, %error, "could not renew the job lease"),
+                }
+            }
+        })
     }
 
     /// Loop until `shutdown` completes.

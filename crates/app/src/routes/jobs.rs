@@ -34,7 +34,7 @@ use axum::{Json, Router};
 use serde::{Deserialize, Serialize};
 
 use darkhold_db::jobs::{self, Job};
-use darkhold_domain::jobs::{can_cancel, JobKind, JobState, RetryPolicy};
+use darkhold_domain::jobs::{can_cancel, JobKind, JobState, RetryPolicy, ALL_STATES};
 use darkhold_domain::{AppError, JobId};
 
 use crate::auth::{RequireActorScoped, RequirePseud, RequireSession};
@@ -47,12 +47,14 @@ pub fn router() -> Router<AppState> {
     Router::new()
         .route("/jobs", get(list_jobs).post(start_job))
         .route("/jobs/{id}/cancel", post(cancel_job))
+        .route("/jobs/{id}/attempts", get(job_attempts))
 }
 
 /// The operator's view. Gated on `config.administration.operator_account_id`.
 pub fn admin_router() -> Router<AppState> {
     Router::new()
         .route("/admin/jobs", get(list_all_jobs))
+        .route("/admin/jobs/summary", get(job_summary))
         .route("/admin/jobs/{id}/retry", post(retry_job))
 }
 
@@ -303,6 +305,112 @@ async fn list_all_jobs(
     )
     .await?;
     Ok(Json(page(rows, PAGE)))
+}
+
+/// How many jobs sit in each state, for the operator's dashboard.
+///
+/// Every state is present, including the ones with nothing in them: a summary that omitted `failed` on a quiet day would
+/// make "no failures" and "nobody asked" the same row, which is the mistake a queue dashboard exists to prevent.
+async fn job_summary(
+    State(state): State<AppState>,
+    RequireSession(user): RequireSession,
+) -> ApiResult<Json<JobSummaryView>> {
+    require_operator(&state, &user)?;
+    let rows = jobs::counts_by_state(state.db()).await?;
+    let mut counts: Vec<StateCount> = ALL_STATES
+        .iter()
+        .map(|known| StateCount {
+            state: known.as_str().to_owned(),
+            count: rows
+                .iter()
+                .find(|(name, _)| name == known.as_str())
+                .map_or(0, |(_, count)| *count),
+        })
+        .collect();
+    // A state the binary does not know is still a row somebody could write; show it rather than silently folding it into
+    // nothing, because that is a job nobody would ever see.
+    for (name, count) in &rows {
+        if !counts.iter().any(|known| &known.state == name) {
+            counts.push(StateCount {
+                state: name.clone(),
+                count: *count,
+            });
+        }
+    }
+    let total = counts.iter().map(|c| c.count).sum();
+    Ok(Json(JobSummaryView { states: counts, total }))
+}
+
+/// The attempts made at one job, oldest first.
+///
+/// The owner sees their job's history — what an importer tells a person who asks "why is this still running?" — and the
+/// operator sees the same rows plus the worker id, which is an operational detail about this instance and not about the
+/// caller's job. A stranger gets the same `404` an absent job gets: a job id is not a capability.
+async fn job_attempts(
+    State(state): State<AppState>,
+    RequireSession(user): RequireSession,
+    Path(id): Path<String>,
+) -> ApiResult<Json<AttemptsView>> {
+    let job_id = parse_job_id(&id)?;
+    let job = jobs::find(state.db(), job_id)
+        .await?
+        .ok_or_else(|| ApiError(AppError::NotFound { resource: "job" }))?;
+
+    let owner = job.requested_by.as_deref() == Some(user.account_id.to_string().as_str());
+    let operator = require_operator(&state, &user).is_ok();
+    if !owner && !operator {
+        return Err(ApiError(AppError::NotFound { resource: "job" }));
+    }
+
+    let attempts = jobs::attempts_for(state.db(), job_id).await?;
+    Ok(Json(AttemptsView {
+        job_id: job_id.to_string(),
+        attempts: attempts
+            .into_iter()
+            .map(|attempt| AttemptView {
+                attempt: attempt.attempt,
+                started_at: attempt.started_at,
+                finished_at: attempt.finished_at,
+                outcome: attempt.outcome,
+                error: attempt.error,
+                worker: operator.then_some(attempt.worker),
+            })
+            .collect(),
+    }))
+}
+
+/// One attempt, as the job detail view shows it.
+#[derive(Debug, Serialize)]
+struct AttemptView {
+    attempt: i64,
+    started_at: String,
+    finished_at: Option<String>,
+    outcome: Option<String>,
+    error: Option<String>,
+    /// Present for the operator only.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    worker: Option<String>,
+}
+
+/// `GET /jobs/{id}/attempts`.
+#[derive(Debug, Serialize)]
+struct AttemptsView {
+    job_id: String,
+    attempts: Vec<AttemptView>,
+}
+
+/// One state's count.
+#[derive(Debug, Serialize)]
+struct StateCount {
+    state: String,
+    count: i64,
+}
+
+/// `GET /admin/jobs/summary`.
+#[derive(Debug, Serialize)]
+struct JobSummaryView {
+    states: Vec<StateCount>,
+    total: i64,
 }
 
 /// Queue a fresh attempt at a job that has finished failing.
