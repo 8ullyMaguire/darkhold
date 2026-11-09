@@ -4381,6 +4381,20 @@ pub const ROUTE_TABLE: &[RouteEntry] = &[
     },
     RouteEntry {
         file: "admin.rs",
+        handler: "list_all_privacy_requests",
+        method: "GET",
+        path: "/admin/privacy-requests",
+        audience: Audience::Operator,
+    },
+    RouteEntry {
+        file: "admin.rs",
+        handler: "complete_privacy_request",
+        method: "POST",
+        path: "/admin/privacy-requests/{id}/complete",
+        audience: Audience::Operator,
+    },
+    RouteEntry {
+        file: "admin.rs",
         handler: "create_privacy_request",
         method: "POST",
         path: "/me/privacy-requests",

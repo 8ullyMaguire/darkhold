@@ -1,6 +1,6 @@
 //! M19 — Administration routes: admin console, statistics, abuse defence, privacy.
 
-use axum::extract::{Path, State};
+use axum::extract::{Path, Query, State};
 use axum::routing::{get, post};
 use axum::Json;
 use serde::Deserialize;
@@ -121,6 +121,16 @@ pub fn router() -> axum::Router<AppState> {
             "/me/privacy-requests",
             get(list_privacy_requests).post(create_privacy_request),
         )
+        // The half that was missing: before this, a request could be filed and watched, and nothing could close it — the only
+        // way to finish one was a `psql` statement nobody had written down.
+        .route(
+            "/admin/privacy-requests",
+            get(list_all_privacy_requests),
+        )
+        .route(
+            "/admin/privacy-requests/{id}/complete",
+            post(complete_privacy_request),
+        )
         .route("/admin/abuse-status/{key}", get(check_abuse_status))
         // What have we imported, and from where. The question an operator asks after a sync run, and the answer is the
         // `src-` prefixed pseuds — the prefix is the only record that a pseud is syndicated (M70-13).
@@ -178,4 +188,82 @@ pub async fn applied_migrations(
             .map(|m| json!({ "id": m.id, "checksum": m.checksum, "applied_at": m.applied_at }))
             .collect::<Vec<Value>>(),
     })))
+}
+
+/// The operator's privacy queue: every account's requests, newest first, optionally one state.
+///
+/// `?state=pending` is the working queue; no filter is the audit — "what did we ever promise" is a question that a filter would
+/// hide the answer to. `limit` is clamped because a queue route is a paging device and not a dump.
+pub async fn list_all_privacy_requests(
+    State(state): State<AppState>,
+    RequireSession(user): RequireSession,
+    Query(params): Query<PrivacyQueueQuery>,
+) -> ApiResult<Json<Value>> {
+    crate::routes::admin_scope::require_admin_of(&state, &user, None).await?;
+    let limit = params.limit.unwrap_or(50).clamp(1, 200);
+    let requests = darkhold_db::admin::list_all_privacy_requests(state.db(), params.state.as_deref(), limit)
+        .await
+        .map_err(|e| ApiError(darkhold_domain::AppError::Internal(e.into())))?;
+    Ok(Json(json!({
+        "requests": requests,
+        "state": params.state,
+        "limit": limit,
+    })))
+}
+
+#[derive(Debug, Deserialize)]
+pub struct PrivacyQueueQuery {
+    #[serde(default)]
+    pub state: Option<String>,
+    #[serde(default)]
+    pub limit: Option<i64>,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct CompletePrivacyBody {
+    /// What the operator did: a case id, a storage key, a job id. Optional in the schema, and named in the answer either way —
+    /// a completion with no reference is a completion nobody can follow up.
+    #[serde(default)]
+    pub result_ref: Option<String>,
+}
+
+/// Close a request. Operator-only, and only from `pending`.
+///
+/// Three answers, each a different fact: `200` closed it, `422` because it is already `done` (naming that state — a second
+/// completion would rewrite `completed_at` and `result_ref`), `404` because no request has that id. A request id is not a
+/// capability, so the `404` reveals nothing about somebody else's request.
+pub async fn complete_privacy_request(
+    State(state): State<AppState>,
+    RequireSession(user): RequireSession,
+    Path(request_id): Path<String>,
+    Json(body): Json<CompletePrivacyBody>,
+) -> ApiResult<Json<Value>> {
+    crate::routes::admin_scope::require_admin_of(&state, &user, None).await?;
+    let ref_used = body.result_ref.as_deref().filter(|r| !r.trim().is_empty());
+    let closed = darkhold_db::admin::complete_privacy_request(state.db(), &request_id, ref_used)
+        .await
+        .map_err(|e| ApiError(darkhold_domain::AppError::Internal(e.into())))?;
+    if closed {
+        return Ok(Json(json!({
+            "id": request_id,
+            "state": "done",
+            "result_ref": ref_used,
+            "completed_at": darkhold_db::identity::now_rfc3339(),
+        })));
+    }
+    match darkhold_db::admin::privacy_request_state(state.db(), &request_id)
+        .await
+        .map_err(|e| ApiError(darkhold_domain::AppError::Internal(e.into())))?
+    {
+        None => Err(ApiError(darkhold_domain::AppError::NotFound {
+            resource: "privacy request",
+        })),
+        Some(current) => {
+            let message = format!("this request is already `{current}` and a completion is final");
+            Err(ApiError(darkhold_domain::AppError::Validation {
+                field_errors: std::iter::once(("state".to_owned(), message.clone())).collect(),
+                message,
+            }))
+        }
+    }
 }
