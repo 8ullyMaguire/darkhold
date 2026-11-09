@@ -1872,3 +1872,27 @@ in both, and zero in the other twenty tables.
 
 Ratchet unchanged (this row is M45-64's, not M70-13's).
 
+### A registry nobody could list (succession.rs, 2026-11-09)
+
+`PUT /succession/redirects` publishes a redirect; `GET /succession/redirects?host=&path=` resolves one path a reader
+guessed. `succession::redirects_for` — the query that lists what has been published — had no caller, so an operator could
+write a registry and never read it back. A duplicate, a typo'd host, or a target that has moved on stayed invisible until a
+reader hit the 404. **A registry nobody can list is a registry nobody can audit.**
+
+`GET /admin/succession/redirects?host=` (Operator) is the door. Three decisions inside it:
+
+* **Operator-only, though the resolve door beside it is public.** A single path with a known host is a reader's question;
+  every host and path this instance has ever answered for is instance internals, and enumerating it is not something a
+  stranger should be able to do one harmless query at a time.
+* **It is served in resolution order** — longest prefix first, which is the store's own sort — not alphabetically. That is the
+  question an operator has ("which rule wins for this URL"), and an alphabetical list silently implies `/works` catches
+  `/works/1234`.
+* **`?host=` is named in the response even when the registry is empty**, so "nothing is published for this host" is
+  distinguishable from "you asked about a host I did not understand" without a second request.
+
+Test `m70_13_succession_redirects.rs` asserts the listing, its order, the same rows through the public resolver, per-host
+isolation, and both refusals (a signed-in reader gets `404`, ADR 0030's no-standing answer; anonymous gets `401`). Mutants red:
+the door not mounted, the `require_admin_of` gate removed (a reader then reads the registry), and the sort made alphabetical.
+
+Ratchet 57 -> 56.
+

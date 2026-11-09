@@ -421,6 +421,13 @@ pub const ROUTE_TABLE: &[RouteEntry] = &[
     },
     RouteEntry {
         file: "succession.rs",
+        handler: "list_redirects",
+        method: "GET",
+        path: "/admin/succession/redirects",
+        audience: Audience::AdminOf { site: None },
+    },
+    RouteEntry {
+        file: "succession.rs",
         handler: "write_plan",
         method: "PUT",
         path: "/succession",

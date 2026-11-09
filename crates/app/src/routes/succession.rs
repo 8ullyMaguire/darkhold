@@ -40,6 +40,7 @@ pub fn router() -> Router<AppState> {
         .route("/succession/confirm", post(confirm_plan))
         .route("/succession", axum::routing::delete(withdraw_plan))
         .route("/succession/redirects", put(write_redirect))
+        .route("/admin/succession/redirects", get(list_redirects))
 }
 
 /// The public document.
@@ -159,6 +160,58 @@ async fn read_redirect(
             resource: "redirect",
         })),
     }
+}
+
+/// What one host's redirect registry says, in resolution order.
+#[derive(Debug, Serialize)]
+pub struct RedirectListView {
+    /// The normalised host that was asked about.
+    pub host: String,
+    /// Longest prefix first — the order the public door resolves in, so the listing answers "which rule wins" rather than
+    /// implying by alphabet that a short prefix catches a longer one.
+    pub redirects: Vec<RedirectRow>,
+}
+
+/// One published redirect.
+#[derive(Debug, Serialize)]
+pub struct RedirectRow {
+    /// The path prefix.
+    pub path: String,
+    /// Where a reader following it is sent.
+    pub to_url: String,
+}
+
+/// `?host=` for the registry listing.
+#[derive(Debug, Deserialize)]
+pub struct HostQuery {
+    /// The host whose redirects are being listed.
+    pub host: String,
+}
+
+/// The registry an operator has published for one host.
+///
+/// `PUT /succession/redirects` could write redirects and `GET /succession/redirects?path=` could resolve one guessed path;
+/// `succession::redirects_for`, the query that lists them, had no caller. So an operator could publish a registry and never
+/// read it back: a duplicate, a typo'd host, or a target that has moved again stayed invisible until a reader hit the 404.
+/// **A registry nobody can list is a registry nobody can audit**, and this is the door that closes that.
+///
+/// Operator-only, unlike the public resolve door beside it. A single path with a known host is a reader's question; every
+/// host and path this instance has ever answered for is instance internals, and enumerating it is not something a stranger
+/// should be able to do one harmless query at a time.
+async fn list_redirects(
+    State(state): State<AppState>,
+    RequireSession(user): RequireSession,
+    Query(query): Query<HostQuery>,
+) -> ApiResult<Json<RedirectListView>> {
+    crate::routes::admin_scope::require_admin_of(&state, &user, None).await?;
+    let redirects = darkhold_db::succession::redirects_for(state.db(), &query.host).await?;
+    Ok(Json(RedirectListView {
+        host: darkhold_domain::succession::normalise_host(&query.host).unwrap_or(query.host),
+        redirects: redirects
+            .into_iter()
+            .map(|(path, to_url)| RedirectRow { path, to_url })
+            .collect(),
+    }))
 }
 
 async fn write_plan(
