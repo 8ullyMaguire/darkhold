@@ -1465,3 +1465,38 @@ proved by *denial*, not by *exactness*.
 
 Ratchet 76 -> 73.
 
+### Every transaction recorded its fee, to a table nothing wrote (monetization.rs, 2026-11-08)
+
+§20.9.5 is an obligation, not a feature description: *every* monetary transaction records the processor's fee, and the range
+actually paid over ninety days is published on `/api/v1/meta` so §20.10's solidarity arithmetic is transparent about what
+processing costs. `record_payment_event` wrote the table that disclosure is made from and had no caller; `payment_events` had
+no reader at all. The table was therefore empty forever, and the only way to publish a fee range would have been to invent
+one.
+
+Three things had to be fixed before the write could honestly be made:
+
+* **The table could not express "already recorded".** `payment_events` had no idempotency key — which is *why* no money path
+  wrote to it: a retried tip posts one earnings row (that ledger has a key) and would have posted two payment events, inflating
+  the published range. Migration 0200 adds `event_key` with a unique index; `record_payment_event` takes it, inserts
+  `ON CONFLICT(event_key) DO NOTHING`, and answers `(id, recorded)` — when the row already existed it returns *that* row's id,
+  because a caller holding the UUID we minted and did not use holds a reference to nothing.
+* **Only money paths write here.** A purchase, a money tip and a payout move money. A credit tip moves credits between
+  buckets and records nothing: a credit is not a payment, and a fee booked against one is a fee nobody paid.
+* **Zero is stated, not implied.** No processor adapter exists in this binary, so every recorded fee is zero. `/meta` publishes
+  `processor_wired: false` beside the range so `0` cannot be read as "processing is free": it says nothing has been charged by
+  a processor and none is wired to charge one. `processor_fee_min_/max_minor` are `null` until a payment exists — "we have
+  never paid a processor" is not the same claim as "processing cost us nothing", and only the second is a zero.
+
+**What a client sees:** `payments: { window_days: 90, processor_fee_min_minor, processor_fee_max_minor, processor_wired }`.
+The window is the specification's and is deliberately not configuration — an operator shortening it would be shortening a
+transparency commitment.
+
+**A mutant survived the first version of the test**, and the fixture was wrong, not the code: it asserted the published fee
+range only, so recording the *wrong gross* (0 instead of the price) changed nothing it looked at. The test now reads the
+event row itself — kind, gross, net — and the mutant reddens.
+
+Live surface changed (`/meta` gained a field; migration 0200 is pending) — this ships in the batched thinkcentre deploy with
+the rest of Batch 1, and the backup must be taken with the migration applied, not before it.
+
+Ratchet 73 -> 72.
+

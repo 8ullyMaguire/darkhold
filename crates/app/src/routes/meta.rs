@@ -61,6 +61,23 @@ struct MetaResponse {
     channels: ChannelsSummary,
     /// The content policy and its version (spec §15.7, D-9).
     content_policy: ContentPolicySummary,
+    /// What processing money actually costs here (spec §20.9.5, §20.10.7).
+    payments: PaymentsSummary,
+}
+
+/// The processor fees this instance has actually paid, published because §20.10's solidarity arithmetic runs on amounts
+/// **after** them.
+///
+/// `processor_fee_min_minor` and `processor_fee_max_minor` are `null` when nothing has been recorded in the window: "no
+/// processor has charged us anything yet" is not "processing is free", and a published `0` would say the second. `wired`
+/// separates the two states for a reader who wants the short answer — this deployment has no processor adapter, so every
+/// fee it records is zero by construction, and the day one lands this flag is the one that flips.
+#[derive(Debug, Serialize)]
+struct PaymentsSummary {
+    window_days: i64,
+    processor_fee_min_minor: Option<i64>,
+    processor_fee_max_minor: Option<i64>,
+    processor_wired: bool,
 }
 
 /// The instance theme's publication, its weights and its opposition weight
@@ -207,6 +224,18 @@ async fn meta(
     // configured posture rather than the library default (spec §0.4.7).
     let policy = config.instance.mode.access_policy();
 
+    // §20.9.5's published range. `window_days` is the specification's 90 and is not configuration: it is the window the
+    // disclosure was designed around, and an operator shortening it would be shortening a transparency commitment.
+    const FEE_WINDOW_DAYS: i64 = 90;
+    let fee_range = darkhold_db::monetization::processor_fee_range(state.db(), FEE_WINDOW_DAYS)
+        .await
+        .unwrap_or_else(|error| {
+            // A missing range must not take the whole contract down: `/meta` is how a client discovers the instance. But an
+            // empty range is a claim, so a failed read answers `null`s — "we could not tell you right now" — rather than 0.
+            tracing::warn!(%error, "could not read the processor fee range for /meta");
+            None
+        });
+
     Json(MetaResponse {
         name: config.site.name.clone(),
         tagline: config.site.tagline.clone(),
@@ -275,6 +304,14 @@ async fn meta(
             max_shift_per_period: config.channels.max_shift_per_period,
             seed_floor: config.channels.seed_floor,
             tau: config.channels.tau,
+        },
+        payments: PaymentsSummary {
+            window_days: FEE_WINDOW_DAYS,
+            processor_fee_min_minor: fee_range.map(|(low, _)| low),
+            processor_fee_max_minor: fee_range.map(|(_, high)| high),
+            // No processor adapter exists in this binary: fees are recorded as zero by construction (see the money paths in
+            // `routes/monetization.rs`). Flipping this to `true` without wiring a fee read would publish a rate we invented.
+            processor_wired: false,
         },
         content_policy: ContentPolicySummary {
             version: config.consent.version,

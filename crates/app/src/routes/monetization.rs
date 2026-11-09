@@ -218,6 +218,23 @@ pub async fn purchase(
     .await
     .map_err(|e| ApiError(darkhold_domain::AppError::Internal(e.into())))?;
 
+    // §20.9.5: every monetary transaction records the processor's fee. There is no processor wired yet, so the fee is zero
+    // and saying so is the truth — but the event itself is written now, keyed by the purchase's idempotency key, because the
+    // cost of a fee range that starts being published only *after* the processor lands is a history with a hole in it.
+    let (_payment_event, _) = monetization::record_payment_event(
+        state.db(),
+        &idempotency,
+        "purchase",
+        Some(&user.account_id.to_string()),
+        Some(&work_id.to_canonical_string()),
+        Some(&author_pseud.account_id.to_string()),
+        pricing.price_minor,
+        0,
+        &pricing.currency,
+    )
+    .await
+    .map_err(|e| ApiError(darkhold_domain::AppError::Internal(e.into())))?;
+
     // Tell the author their work sold. A failure here must not fail the
     // purchase: the money state above is already committed.
     let _ = darkhold_db::notifications::notify(
@@ -315,6 +332,22 @@ pub async fn tip(
             )
             .await
             .map_err(|e| ApiError(darkhold_domain::AppError::Internal(e.into())))?;
+            // The tipper's money left their hands; that is a monetary transaction (§20.9.5) whether or not a processor was
+            // involved, and the key is the tip's own idempotency key so a retried tip does not become a second event.
+            monetization::record_payment_event(
+                state.db(),
+                &idempotency,
+                "tip",
+                Some(&user.account_id.to_string()),
+                Some(&work_id.to_canonical_string()),
+                Some(&author_account),
+                body.amount_minor,
+                0,
+                &body.currency,
+            )
+            .await
+            .map_err(|e| ApiError(darkhold_domain::AppError::Internal(e.into())))?;
+
             Ok(Json(json!({
                 "author_earning_id": auth_id,
                 "platform_fee_id": plat_id,
@@ -416,6 +449,22 @@ pub async fn request_payout(
         body.amount_minor,
         &body.currency,
         &body.processor_reference,
+    )
+    .await
+    .map_err(|e| ApiError(darkhold_domain::AppError::Internal(e.into())))?;
+    // A payout is the one flow that already has a processor in it — the caller supplies `processor_reference`, which is the
+    // processor's own id for the transfer. The fee is still zero because nothing in this deployment reads a fee back from a
+    // processor, and inventing one would make the published range a guess.
+    monetization::record_payment_event(
+        state.db(),
+        &format!("payout:{payout_id}"),
+        "payout",
+        Some(&user.account_id.to_string()),
+        None,
+        Some(&user.account_id.to_string()),
+        body.amount_minor,
+        0,
+        &body.currency,
     )
     .await
     .map_err(|e| ApiError(darkhold_domain::AppError::Internal(e.into())))?;
