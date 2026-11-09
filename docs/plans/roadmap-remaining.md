@@ -1944,3 +1944,30 @@ anonymous caller (present, session-gated); `GET /works/{id}/reviews/quote-consen
 belongs to another session, so every kill named `-p darkhold-app`. Each rebuild landed because a pass finished while a build was
 running: the rule is *restart only onto a binary whose commit equals the tree's*, and the cost of holding it is a build.
 
+### A loan you could not ask about (lending.rs, 2026-11-09)
+
+`lending::find_loan(loan_id)` had no caller while every surface around it was complete: `GET /me/loans` lists the caller's
+windows, `POST /media/{id}/lend` takes one, `PUT` revokes. So a client could read a loan id out of the list and then ask
+nothing about that loan; the only way to see one window was to re-fetch the whole list and pick the row out.
+
+`GET /me/loans/{id}` (Authenticated) closes it, owner-scoped:
+
+* **A loan id is not a capability.** Somebody else's loan answers `404`, not `403` — a `403` would confirm that the id names a
+  loan and that it belongs to somebody.
+* **State is computed, not stored.** `state_at(now)` answers `active` / `expired` / `revoked` from the timestamps, so a window
+  reads `expired` the moment the clock passes `expires_at`, not when the sweep next runs. The row outlives the window on
+  purpose (§32.4): the reader is entitled to see how it ended.
+
+**The test found a live PostgreSQL defect before the route ever shipped.** `find_loan` compared `id = $1::uuid`; a path
+parameter is whatever the caller typed, so `GET /me/loans/not-a-loan` raised `invalid input syntax for type uuid` and the
+route would have answered `500` — a malformed URL turning into an internal error, on the deployed engine only, because SQLite
+compares text to text and simply finds nothing. Fixed by casting the **column** (`id::text = $1`), which is the rule the repo
+already records for every id that arrives from outside: cast the column, not the parameter.
+
+Test `m70_13_loan_detail.rs`: the borrower reads their own window; a stranger gets `404`; a revoked loan still reads, as
+`revoked`; a random uuid and a non-uuid both answer `404`. Mutants red: the owner filter removed (a stranger reads the loan),
+and `state` hard-coded (`revoked` reads `active`). `milestone_25` stays green on both engines (11 each), which is what proves
+the cast change did not disturb the borrow/revoke path.
+
+Ratchet 54 -> 53.
+

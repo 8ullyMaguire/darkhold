@@ -4827,6 +4827,13 @@ pub const ROUTE_TABLE: &[RouteEntry] = &[
     },
     RouteEntry {
         file: "lending.rs",
+        handler: "get_loan",
+        method: "GET",
+        path: "/me/loans/{id}",
+        audience: Audience::Authenticated,
+    },
+    RouteEntry {
+        file: "lending.rs",
         handler: "list_my_loans",
         method: "GET",
         path: "/me/loans",

@@ -290,7 +290,11 @@ pub async fn find_loan(db: &Database, loan_id: &str) -> Result<Option<Loan>> {
     let sql = sql_owned(
         db,
         format!("SELECT {LOAN_COLUMNS_SQLITE} FROM work_loans WHERE id = ?"),
-        format!("SELECT {LOAN_COLUMNS_POSTGRES} FROM work_loans WHERE id = ?::uuid"),
+        // `id::text = $1`, never `id = $1::uuid`. The id arrives from a URL path, so it is whatever the caller typed: casting
+        // it to uuid makes `GET /me/loans/not-a-loan` raise `invalid input syntax for type uuid` and the route answers 500.
+        // Casting the COLUMN makes the same string simply not match, which is what an absent loan is. SQLite's ids are
+        // already text, so its arm needs nothing.
+        format!("SELECT {LOAN_COLUMNS_POSTGRES} FROM work_loans WHERE id::text = $1"),
     );
     let row: Option<LoanRow> = match db.backend() {
         Backend::Sqlite => {

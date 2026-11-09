@@ -25,6 +25,7 @@ pub fn router() -> Router<AppState> {
         .route("/media/{id}/lend", post(lend_work))
         .route("/media/{id}/lend", put(revoke_loan))
         .route("/me/loans", get(list_my_loans))
+        .route("/me/loans/{id}", get(get_loan))
 }
 
 /// The caller's own loans, newest window first.
@@ -56,6 +57,44 @@ pub async fn list_my_loans(
         })
         .collect();
     Ok(Json(json!({ "items": items, "next_cursor": null })))
+}
+
+/// One loan, for the borrower who holds it.
+///
+/// `lending::find_loan` had no caller while every surface around it was complete: the list, the borrow, the revoke. A client
+/// could read a loan's id out of `GET /me/loans` and then ask nothing about that loan — the only way to see one window was to
+/// re-fetch the list and pick the row out of it.
+///
+/// Owner-scoped, and `404` to anyone else. A loan id is not a capability: it names a window held by one account, and a `403`
+/// would confirm that a loan exists and belongs to somebody.
+///
+/// The state is computed from the timestamps rather than read from a column, so a window that ran out reads `expired` the
+/// moment the clock passes `expires_at` — not when the sweep next runs. A loan record outlives its window on purpose
+/// (§32.4): the reader is entitled to see how it ended.
+pub async fn get_loan(
+    State(state): State<AppState>,
+    RequireSession(session): RequireSession,
+    Path(id): Path<String>,
+) -> ApiResult<Json<Value>> {
+    let db = state.db();
+    let account_id = session.account_id.to_string();
+    let loan = darkhold_db::lending::find_loan(db, &id)
+        .await?
+        // Somebody else's loan and a loan that never existed answer the same: a stranger must not be able to tell whether the
+        // id names anything.
+        .filter(|loan| loan.borrower_account_id == account_id)
+        .ok_or(darkhold_domain::AppError::NotFound { resource: "loan" })?;
+    let now = now_rfc3339();
+    Ok(Json(json!({
+        "id": loan.id,
+        "work_id": loan.work_id,
+        "state": loan.state_at(&now),
+        "granted_at": loan.granted_at,
+        "expires_at": loan.expires_at,
+        "revoked_at": loan.revoked_at,
+        "expired_at": loan.expired_at,
+        "copy_number": loan.copy_number,
+    })))
 }
 
 fn now_rfc3339() -> String {
