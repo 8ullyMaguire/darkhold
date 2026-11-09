@@ -1585,3 +1585,34 @@ alongside the first reader's public one is what makes the exclusion testable.
 
 Ratchet 70 -> 68.
 
+### The shelf behind the banner, and the save that never worked on PostgreSQL (continue_reading.rs, 2026-11-08)
+
+`continue_reading` answers "where did I stop, in the one thing I am reading" and it is wired to the banner. Beside it live two
+queries no page asked for:
+
+* `unfinished_works` — everything the reader started and has not finished. Its own doc says "this is for the library and for
+  tests"; the library never grew it.
+* `dnf_works_for` — the works the reader dropped, with the reason, "so the caller can decide". With no caller, no decision
+  was ever made.
+
+A DNF row alone is not a shelf: a reader who dropped ten works wants ten titles and their progress, and a query returning
+`(work_id, reason)` pairs leaves the client to fetch every work. `GET /library/unfinished` is one list of **started** works
+annotated with the reason the reader stopped — the judgement the store deliberately left out, made once, in the caller.
+
+**`is_public` is about other readers, not about this one.** `dnf_works_for` filtered `is_public = 1`, reasoning that a private
+mark "expresses a preference about it that is not 'stop recommending it'". But `GET /me/dnf` — wired, and older — lists
+**every** DNF row the reader owns, private ones included. The two surfaces disagreed about what the reader had done. The
+column's own name settles it: `is_public` says who *else* may see the record. The filter is gone, the row carries `public`
+and the reader's own note, and a private mark appears in the reader's own shelf marked `dnf_public: false`.
+
+**A DNF with no progress row is not on the shelf.** It is at `/me/dnf`, which is the list of marks; the shelf is the list of
+started works. Step 5 asserts that boundary so neither door drifts into the other.
+
+**The save that never worked on the deployed backend.** The shelf test writes progress through the API, and on PostgreSQL the
+very first save returned 500: `current_revision_of_unit` read `WHERE id = $1` against a `units.id` that is UUID, which is
+`operator does not exist: uuid = text`. The reader's browser sends a position with no revision on arrival — that is the
+default path — so saving progress was broken on the live engine for every client that did not name a revision, and the
+SQLite-only suites could not see it. `$1::uuid` now.
+
+Ratchet 68 -> 66.
+
