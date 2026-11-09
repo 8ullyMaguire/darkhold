@@ -1971,3 +1971,31 @@ the cast change did not disturb the borrow/revoke path.
 
 Ratchet 54 -> 53.
 
+### The queue that carries every side effect had no number (health.rs, 2026-11-09)
+
+`outbox::undelivered_count` had no caller. `/health/ready` watched three dependencies — database, migrations, storage — and
+not the outbox, which is where every promised side effect waits: notifications, webhooks, index updates. So "my comment
+notification never arrived" had no number behind it anywhere in the process that could answer.
+
+`/health/ready` now reports a fourth check, `outbox`, whose `detail` is `"N undelivered event(s); a backlog is reported here,
+never a readiness failure"`.
+
+**It is a check, not a gate.** Readiness answers "should this process receive traffic"; a backlog is not a reason to be drained
+out of a load balancer or restarted, and failing here would turn a slow webhook into an outage. `ok` therefore reports only
+whether the count could be *read* — a missing `outbox_events` table is a real fault — while the number is an observation a
+monitor alerts on, published in `detail` so there is one health contract and one query rather than a second implementation
+beside it.
+
+Not answered, and named: **the age of the oldest undelivered event**. A count cannot tell "five just enqueued" from "five stuck
+since yesterday", and only the second is the failure an operator cares about.
+
+Test `m70_13_outbox_backlog.rs`: a quiet instance reports zero and stays ready; three enqueued events move the count to three;
+marking one delivered takes it to two (and the assertion explicitly rejects a cumulative "3"). Mutants red: the check removed,
+the count hard-coded to zero, and readiness gated on the backlog.
+
+Two fixture traps, both real: health routes are mounted at the **root** (`/health/ready`), not under `/api/v1`; and on
+PostgreSQL the harness's tables persist between runs, so a fixed `dedupe_key` made the second run's inserts collide and the
+count read `0` for a reason unrelated to the code — the keys now carry a uuid.
+
+Ratchet 53 -> 52.
+

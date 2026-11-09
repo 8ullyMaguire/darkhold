@@ -141,6 +141,31 @@ async fn ready(
         },
     );
 
+    // --- outbox -------------------------------------------------------------
+    // The delivery spine: every side effect the instance promises — notifications, webhooks, index updates — waits in
+    // `outbox_events` until a worker delivers it. Three dependencies were watched and this one was not, so "your comment
+    // notification never arrived" had no number behind it anywhere in the process that could answer.
+    //
+    // **A check, not a gate.** Readiness means "should this process receive traffic"; a backlog is not a reason to be drained
+    // out of a load balancer or restarted, and failing here would turn a slow webhook into an outage. So `ok` reports whether
+    // the count could be READ — a missing table is a real fault — while the number itself is an observation a monitor alerts
+    // on, published in `detail` so there is one health contract and one query.
+    //
+    // Not answered here, and named as a follow-up: the AGE of the oldest undelivered event. A count cannot tell "five just
+    // enqueued" from "five stuck since yesterday", and the second is the failure that matters. No query for it exists yet.
+    checks.insert(
+        "outbox",
+        match darkhold_db::outbox::undelivered_count(db).await {
+            Ok(count) => Check::ok(format!(
+                "{count} undelivered event(s); a backlog is reported here, never a readiness failure"
+            )),
+            Err(error) => Check::failed(
+                format!("cannot count undelivered events: {error}"),
+                "check that the outbox_events table exists (`darkhold migrate`)",
+            ),
+        },
+    );
+
     let ready = checks.values().all(|check| check.ok);
     let status = if ready {
         StatusCode::OK
