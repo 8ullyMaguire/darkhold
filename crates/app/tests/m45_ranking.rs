@@ -12,7 +12,7 @@
 //! candidate query into `rank_works`.
 
 use darkhold_db::ranking::{
-    rank_works, ranked_propensity, scout_value, InteractionKind, RankOptions, SlotKind,
+    rank_works, ranked_propensity, scout_value, RankOptions, SlotKind,
 };
 use darkhold_domain::WorkId;
 use test_support::{scratch_dir, TestDb, TEST_PASSWORD};
@@ -39,49 +39,27 @@ impl Harness {
         self.tdb.db()
     }
 
-    /// The stored interaction kind for one kudos row.
+    /// The stored `(kind, source)` for one `work_view_log` row.
     ///
     /// A method rather than a local closure because a closure returning two
     /// different `QueryScalar` future types across a dialect branch does not
     /// type-check: the branches are different concrete types and the compiler
     /// will not unify them behind an `async move` block.
-    async fn kudos_kind(&self, work: &WorkId, account: &str) -> sqlx::Result<String> {
+    async fn view_kind_source(&self, work: &WorkId, hash: &str) -> sqlx::Result<(String, String)> {
         if self.tdb.is_postgres() {
-            sqlx::query_scalar(
-                "SELECT kind FROM work_kudos WHERE work_id = $1::uuid AND account_id = $2::uuid",
+            sqlx::query_as(
+                "SELECT kind, source FROM work_view_log WHERE work_id = $1 AND viewer_hash = $2",
             )
             .bind(work.to_string())
-            .bind(account)
+            .bind(hash)
             .fetch_one(self.tdb.db().postgres_pool().expect("pg"))
             .await
         } else {
-            sqlx::query_scalar("SELECT kind FROM work_kudos WHERE work_id = ? AND account_id = ?")
+            sqlx::query_as("SELECT kind, source FROM work_view_log WHERE work_id = ? AND viewer_hash = ?")
                 .bind(work.to_string())
-                .bind(account)
+                .bind(hash)
                 .fetch_one(self.tdb.db().sqlite_pool().expect("sqlite"))
                 .await
-        }
-    }
-
-    /// The obscurity recorded at read time for one kudos row.
-    async fn kudos_obscurity(&self, work: &WorkId, account: &str) -> sqlx::Result<f64> {
-        if self.tdb.is_postgres() {
-            sqlx::query_scalar(
-                "SELECT obscurity_at_read FROM work_kudos \
-                 WHERE work_id = $1::uuid AND account_id = $2::uuid",
-            )
-            .bind(work.to_string())
-            .bind(account)
-            .fetch_one(self.tdb.db().postgres_pool().expect("pg"))
-            .await
-        } else {
-            sqlx::query_scalar(
-                "SELECT obscurity_at_read FROM work_kudos WHERE work_id = ? AND account_id = ?",
-            )
-            .bind(work.to_string())
-            .bind(account)
-            .fetch_one(self.tdb.db().sqlite_pool().expect("sqlite"))
-            .await
         }
     }
 
@@ -672,108 +650,80 @@ async fn the_database_refuses_a_zero_propensity_and_accepts_one() {
 // §47.4 earned vs incentivized, at the database
 // ---------------------------------------------------------------------------
 
-/// An incentivized interaction is stored as `incentivized` and the distinction
-/// survives the round trip on both engines.
+/// The arrival path reaches the database, and §47.4's classification with it.
 ///
-/// The unit test proves `for_source` classifies correctly. This one proves the
-/// classification *reaches the database* — which is the part that is per-engine,
-/// since the UPDATE is dialect-branched and a swapped bind order would compile,
-/// run, and update zero rows.
+/// The unit test proves `for_source` classifies correctly. This one proves the classification *reaches the row* — the part that
+/// is per-engine, since the INSERT is dialect-branched and a swapped bind order would compile, run, and write `unknown`.
+///
+/// It goes through `work_metrics::record_view`, which is the **only** production writer of `work_view_log`. That is the whole
+/// finding: migration 0098 added `kind`, `source` and a `WHERE kind = 'earned'` index for §47.4's discount, and the writer filled
+/// none of them, so an incentivised read was stored as an earned one on every instance. The function that was meant to fill them
+/// afterwards (`ranking::record_interaction`) had one caller — a test — and is gone, because a second UPDATE of a fact the INSERT
+/// already knows is how a crash between the two statements leaves a bounty read recorded as earned.
 #[tokio::test]
 async fn the_interaction_kind_survives_the_round_trip() {
     let h = Harness::new("rank_interaction_kind").await;
     let work = h.work(2).await;
-    let now = "2026-01-01T00:00:00Z".to_owned();
-    let account = "77777777-7777-7777-7777-777777777777";
 
-    // work_kudos needs a real account (FK) and work (FK), so seed both.
-    if h.tdb.is_postgres() {
-        sqlx::query(
-            "INSERT INTO accounts (id, status, email, created_at, updated_at) \
-             VALUES ($1::uuid, 'active', $2, now()::text, now()::text) \
-             ON CONFLICT (id) DO NOTHING",
-        )
-        .bind(account)
-        .bind(format!("{account}@t.test"))
-        .execute(h.tdb.db().postgres_pool().expect("pg"))
-        .await
-        .expect("seed account (pg)");
-        sqlx::query(
-            "INSERT INTO work_kudos (work_id, account_id, created_at) \
-             VALUES ($1::uuid, $2::uuid, $3) ON CONFLICT DO NOTHING",
-        )
-        .bind(work.to_string())
-        .bind(account)
-        .bind(&now)
-        .execute(h.tdb.db().postgres_pool().expect("pg"))
-        .await
-        .expect("seed kudos (pg)");
-    } else {
-        sqlx::query(
-            "INSERT INTO accounts (id, status, email, created_at, updated_at) \
-             VALUES (?, 'active', ?, ?, ?) ON CONFLICT (id) DO NOTHING",
-        )
-        .bind(account)
-        .bind(format!("{account}@t.test"))
-        .bind(&now)
-        .bind(&now)
-        .execute(h.tdb.db().sqlite_pool().expect("sqlite"))
-        .await
-        .expect("seed account (sqlite)");
-        sqlx::query(
-            "INSERT INTO work_kudos (work_id, account_id, created_at) \
-             VALUES (?, ?, ?) ON CONFLICT (work_id, account_id) DO NOTHING",
-        )
-        .bind(work.to_string())
-        .bind(account)
-        .bind(&now)
-        .execute(h.tdb.db().sqlite_pool().expect("sqlite"))
-        .await
-        .expect("seed kudos (sqlite)");
-    }
-
-    // The default a migration 0098 row was born with.
-    assert_eq!(
-        h.kudos_kind(&work, account).await.expect("read kind"),
-        "earned",
-        "a row written before 0098's distinction should read as earned"
-    );
-
-    // Reclassify it as a bounty interaction. `bounty` is incentivized BY
-    // DEFINITION (section 47.4): the reader was routed there by the incentive.
-    let returned = darkhold_db::ranking::record_interaction(
+    // 1. A bounty is `incentivized` BY DEFINITION (§47.4): the reader was routed there by the incentive rather than by the
+    //    ranking, which is the same condition the discount is for.
+    let new = darkhold_db::work_metrics::record_view(
         h.db(),
-        &darkhold_db::ranking::InteractionRow::Kudos {
-            work_id: work.to_string(),
-            account_id: account.to_owned(),
-        },
+        &work.to_string(),
+        "reader-hash-bounty",
+        "2026-01-01T00:00:00",
+        false,
         "bounty",
-        0.4,
     )
     .await
-    .expect("record incentivized kudos");
-    assert_eq!(returned, InteractionKind::Incentivized);
-
+    .expect("record incentivized view");
+    assert!(new, "the first view of a row is new");
     assert_eq!(
-        h.kudos_kind(&work, account).await.expect("read kind"),
-        "incentivized",
-        "the distinction did not survive the round trip on {}",
-        if h.tdb.is_postgres() {
-            "postgres"
-        } else {
-            "sqlite"
-        }
+        h.view_kind_source(&work, "reader-hash-bounty")
+            .await
+            .expect("read kind"),
+        ("incentivized".to_owned(), "bounty".to_owned()),
+        "the classification did not survive the round trip on {}",
+        if h.tdb.is_postgres() { "postgres" } else { "sqlite" }
     );
 
-    // And the obscurity recorded at read time is the one stored, not
-    // recomputed: 0.4, not a value derived from anything later.
-    let obscurity = h
-        .kudos_obscurity(&work, account)
-        .await
-        .expect("read obscurity");
-    assert!(
-        (obscurity - 0.4).abs() < 1e-9,
-        "stored obscurity was {obscurity}"
+    // 2. A direct arrival is earned, and the source is recorded rather than left as the migration's `unknown` — `unknown` cannot
+    //    be told apart from a row written before this column meant anything.
+    darkhold_db::work_metrics::record_view(
+        h.db(),
+        &work.to_string(),
+        "reader-hash-direct",
+        "2026-01-01T00:00:00",
+        false,
+        "direct",
+    )
+    .await
+    .expect("record direct view");
+    assert_eq!(
+        h.view_kind_source(&work, "reader-hash-direct")
+            .await
+            .expect("read kind"),
+        ("earned".to_owned(), "direct".to_owned())
+    );
+
+    // 3. The dedup window still holds: the same reader in the same hour is not a second view, and cannot re-classify the first.
+    let again = darkhold_db::work_metrics::record_view(
+        h.db(),
+        &work.to_string(),
+        "reader-hash-bounty",
+        "2026-01-01T00:00:00",
+        false,
+        "direct",
+    )
+    .await
+    .expect("record duplicate view");
+    assert!(!again, "a duplicate within the hour is not new");
+    assert_eq!(
+        h.view_kind_source(&work, "reader-hash-bounty")
+            .await
+            .expect("read kind"),
+        ("incentivized".to_owned(), "bounty".to_owned()),
+        "a duplicate must not overwrite the arrival path the first view recorded"
     );
 }
 

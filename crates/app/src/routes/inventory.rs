@@ -3136,6 +3136,20 @@ pub const ROUTE_TABLE: &[RouteEntry] = &[
     },
     RouteEntry {
         file: "taxonomy.rs",
+        handler: "set_entity_parent",
+        method: "PUT",
+        path: "/taxonomy/{id}/parent",
+        audience: Audience::Pseudonymous,
+    },
+    RouteEntry {
+        file: "taxonomy.rs",
+        handler: "set_tag_confirmation",
+        method: "PUT",
+        path: "/works/{id}/tags/{node}/confirmation",
+        audience: Audience::Pseudonymous,
+    },
+    RouteEntry {
+        file: "taxonomy.rs",
         handler: "cast_tag_vote",
         method: "PUT",
         path: "/works/{id}/tags/{node}/vote",

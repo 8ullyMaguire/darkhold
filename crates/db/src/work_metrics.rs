@@ -302,20 +302,38 @@ pub async fn count_reviews(db: &Database, work_id: &str) -> Result<i64> {
 /// Record a deduplicated view. `viewed_at` is already truncated to the hour
 /// by the caller. Returns true if the view was new (and the aggregate should
 /// be incremented), false if it was a duplicate within the dedup window.
+///
+/// **`source` is the arrival path, and it is written here because this is the only production writer of the row.** Migration
+/// 0098 gave `work_view_log` a `kind` column for §47.4 ("ranking counts only `Earned`"), a `source` column, and a partial index
+/// `WHERE kind = 'earned'`; the writer filled none of them, so every row on every instance read `kind = 'earned'` and
+/// `source = 'unknown'` no matter how the reader arrived — an incentivised read was indistinguishable from an earned one, and the
+/// distinction could only have been applied to rows that were never written.`ranking::record_interaction` was the function meant to
+/// fill them; its only caller was a test, so it is gone and this INSERT carries the two columns instead. One write, not two: a
+/// second UPDATE of the same fact is how a crash between the statements leaves a row saying "earned" about a bounty.
+///
+/// `obscurity_at_read` is deliberately **not** written. §47.7 wants the obscurity in force when the engagement happened, and
+/// nothing in this codebase measures a work's obscurity at read time (`ranking::scout_value` takes the number as an argument and
+/// has no query behind it). Writing the column's default of `1.0` from here would look like a measurement and mean "not obscure",
+/// which would pay nobody and hide the gap; leaving it absent keeps the gap visible in the schema.
 pub async fn record_view(
     db: &Database,
     work_id: &str,
     viewer_hash: &str,
     viewed_at: &str,
     is_automated: bool,
+    source: &str,
 ) -> Result<bool> {
+    let kind = crate::ranking::InteractionKind::for_source(source).as_str();
     let sql = db.sql(
-        "INSERT INTO work_view_log (work_id, viewer_hash, viewed_at, is_automated)
-         VALUES (?, ?, ?, ?)
+        "INSERT INTO work_view_log (work_id, viewer_hash, viewed_at, is_automated, kind, source)
+         VALUES (?, ?, ?, ?, ?, ?)
          ON CONFLICT(work_id, viewer_hash, viewed_at) DO NOTHING",
-        // `work_view_log.work_id` is UUID; $1 arrives as text.
-        "INSERT INTO work_view_log (work_id, viewer_hash, viewed_at, is_automated)
-         VALUES ($1::uuid, $2, $3, $4)
+        // `work_view_log.work_id` is **TEXT** on PostgreSQL (0068 spells it TEXT in both dialects) and `works.id` is uuid, so this
+        // column holds the uuid's text form and needs no cast — the fourth appearance of this split (see `rec_strategy.rs` and
+        // `payout_store.rs`). `$1::uuid` used to be here, which works in an INSERT by assignment cast and fails in a comparison
+        // ("operator does not exist: text = uuid"), so the cast teaches the wrong thing to whoever copies this statement.
+        "INSERT INTO work_view_log (work_id, viewer_hash, viewed_at, is_automated, kind, source)
+         VALUES ($1, $2, $3, $4, $5, $6)
          ON CONFLICT(work_id, viewer_hash, viewed_at) DO NOTHING",
     );
     let rows = match db.backend() {
@@ -324,6 +342,8 @@ pub async fn record_view(
             .bind(viewer_hash)
             .bind(viewed_at)
             .bind(i64::from(is_automated))
+            .bind(kind)
+            .bind(source)
             .execute(db.sqlite_pool().expect("sqlite handle"))
             .await?
             .rows_affected(),
@@ -336,6 +356,8 @@ pub async fn record_view(
             // exactly, and 19 flag columns here spell it BOOLEAN while this one
             // does not. A Rust `bool` bind is rejected outright.
             .bind(i64::from(is_automated))
+            .bind(kind)
+            .bind(source)
             .execute(db.postgres_pool().expect("postgres handle"))
             .await?
             .rows_affected(),
@@ -661,19 +683,19 @@ mod tests {
         let work_id = create_test_work(&db).await;
 
         // First view from a reader: new.
-        let first = record_view(&db, &work_id, "reader-1", "2026-09-23T10:00:00", false).await?;
+        let first = record_view(&db, &work_id, "reader-1", "2026-09-23T10:00:00", false, "direct").await?;
         assert!(first, "first view must be new");
         // Same reader, same hour: duplicate.
-        let second = record_view(&db, &work_id, "reader-1", "2026-09-23T10:00:00", false).await?;
+        let second = record_view(&db, &work_id, "reader-1", "2026-09-23T10:00:00", false, "direct").await?;
         assert!(!second, "same reader, same hour must dedupe");
         // Same reader, next hour: new again.
-        let third = record_view(&db, &work_id, "reader-1", "2026-09-23T11:00:00", false).await?;
+        let third = record_view(&db, &work_id, "reader-1", "2026-09-23T11:00:00", false, "direct").await?;
         assert!(third, "same reader, next hour must count");
         // A different reader, same hour: new.
-        let fourth = record_view(&db, &work_id, "reader-2", "2026-09-23T10:00:00", false).await?;
+        let fourth = record_view(&db, &work_id, "reader-2", "2026-09-23T10:00:00", false, "direct").await?;
         assert!(fourth, "different reader must count");
         // Automated traffic never counts.
-        let bot = record_view(&db, &work_id, "bot-1", "2026-09-23T10:00:00", true).await?;
+        let bot = record_view(&db, &work_id, "bot-1", "2026-09-23T10:00:00", true, "direct").await?;
         assert!(bot, "the bot row is recorded (for analytics)");
         assert_eq!(
             count_views(&db, &work_id).await?,

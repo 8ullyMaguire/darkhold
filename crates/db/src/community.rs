@@ -1307,6 +1307,12 @@ pub async fn list_messages(
     cursor: Option<&str>,
     limit: i64,
 ) -> Result<Vec<Message>> {
+    // **Membership is the caller's check, not this one.** This reads a conversation's messages and filters
+    // `deleted_at` and blocks; it does not ask whether `viewer_account` is a participant. The door in
+    // `routes/community.rs` asks that (`is_participant`) and answers `NotFound`, so a guessed id and a real thread
+    // look identical. A future caller must do the same — a store function cannot decide the refusal's shape, and a
+    // 403 from here would confirm the thread exists.
+    //
     // Bidirectional like the comment filter: a block in the messages scope
     // hides the other side's messages from the viewer and vice versa.
     let sql = if cursor.is_some() {

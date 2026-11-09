@@ -151,3 +151,136 @@ than counted — a compile failure proves nothing.
 
 Ratchet: 44 → 43. `record_payout`/`get_payout` keep their ledger note: a payout row is written by a payout run, and there is no
 run yet.
+
+## Pass 73 — a conversation had no lock (2026-11-09)
+
+`community::is_participant` was written to answer "is this account in this conversation" and had no caller. The two message
+doors — `GET` and `POST /conversations/{id}/messages` — took the id from the path and never asked:
+
+* `list_messages` filters `conversation_id`, `deleted_at` and blocks, so **any** signed-in account that knew or guessed an id
+  could read the thread;
+* `post_message` read the participant list, but only to check blocks, so anyone could write into a thread they had guessed.
+
+The red run printed the evidence verbatim — a third account received `{"body":"the plan is to meet at eight"}` — which is the
+shape this ratchet is for: not a dead surface, a live one with no lock.
+
+Both doors now ask `is_participant` and answer `NotFound { resource: "conversation" }`. The refusal is 404 and not 403 because
+"403" confirms the thread exists and belongs to somebody; the test asserts the full refusal body for a real thread and for an
+id that was never a conversation is **identical**, not merely the same status.
+
+The store's comment now says membership is the caller's check: `list_messages` cannot decide the refusal's shape, and a public
+store function that 403s would leak the same fact to the next caller that forgets.
+
+**Live exposure, measured rather than assumed:** the deployed database holds `conversations 0`, `messages 0`,
+`conversation_participants 0` — the hole is real and unexploited because nobody has used the feature yet. That is why the fix
+ships with the next build rather than forcing one past another session's checkout.
+
+**Proof.** Red (200 to a stranger, with the other account's words in it), green after on both engines (privacy 1/1, the existing
+community doors 1/1, `route_inventory` 5/5). Mutants from `/tmp`: removing the read guard reddens the stranger's GET (200 vs
+404); removing the write guard reddens the same test one line later, where the refused message must not land.
+
+Ratchet: 43 → 42.
+
+## Pass 74 — the tag confirmation state had no door, so no tag counted (2026-11-09)
+
+`tag_confirmation::confirm` writes `work_tags.confirmation`, and `gravity_contributing_tags` — read by discovery, tasting and the
+concierge when they build a gravity vector — keeps only `reader`/`wrangler` rows. `confirm` had no caller, and the deployed
+database says what that means: **30,982 of 30,982 `work_tags` rows are `unconfirmed`**. §49.2's rule had reduced to "no tag moves
+any ranking", and the gravity layer has been fed an empty tag set on every surface that reads it.
+
+That is the third pass to find this layer starved of input (the taste signal, then the tags themselves); this is the first where
+the product's own rule names the missing act.
+
+`PUT /works/{id}/tags/{node}/confirmation` (Pseudonymous) takes `{"state": "reader" | "inaccurate" | "wrangler"}`.
+
+* **A reader confirms or flags; only a curator may claim `wrangler`.** A state is a claim about authority; a session that could
+  set `wrangler` would launder a scoped opinion into a curation. The check is `is_active_curator`, the same one the tag door
+  above uses, so the two agree about who a curator is.
+* **`unconfirmed` is refused by name.** It is the absence of a judgement — what every imported row already says — and accepting
+  it would let a request erase somebody's confirmation, which is a different act with its own audit.
+* **The flag records the pseud, not the account.** It is the identity that made the judgement, it is what the work's page can act
+  on, and the review queue can resolve the account from it. An account id there would name a person for what a persona said.
+* **A tag the work does not carry is `404`.** The vote door beside it settled this: there is no claim to judge, and `422` would
+  blame a well-formed request.
+
+**Proof.** Red first (404 — no route), then green: the test walks an author-applied tag from "counts toward nothing" to
+"`reader`-confirmed, the gravity filter returns it" to "flagged `inaccurate`, it stops counting at once and the flag names its
+flagger". Both engines (1/1, `route_inventory` 5/5). Mutants from /tmp: letting anyone claim `wrangler` reddens the 403 assertion
+(200 vs 403); ignoring `confirm`'s "pair not found" answer reddens the unknown-tag assertion (200 vs 404). Both were first written
+as compile failures (unused `user`, unused `applied`) and retargeted rather than counted.
+
+Ratchet: 42 → 41. Not deployed: queued behind the privacy fix and the leakage writer, in that order.
+
+## Pass 75 — §47.4's discount existed in schema, never in a row (2026-11-09)
+
+Migration 0098 added `kind`, `source` and a partial index `WHERE kind = 'earned'` to `work_view_log` for §47.4 ("ranking counts
+only `Earned`"), and `obscurity_at_read` for §47.7's scout value. `ranking::record_interaction` was the function meant to fill
+them. Its **only caller was a test**: `work_metrics::record_view` — the single production writer of the table — inserted
+`(work_id, viewer_hash, viewed_at, is_automated)` and left the other three columns at their defaults. Every row on every instance
+therefore read `kind = 'earned', source = 'unknown', obscurity_at_read = 1.0`, whatever the arrival path was, so a bounty read was
+stored as an earned one and the discount could only ever have been applied to rows that were never written.
+
+Repair: `record_view` takes the arrival `source` and writes `kind` + `source` **in the same INSERT**, deriving the kind from
+`InteractionKind::for_source`. `record_interaction` and `InteractionRow` are deleted, and the round-trip test now drives the real
+writer instead of the test-only twin — the rule the ledger already carries: *a function whose only caller is a test, and which is
+a second and weaker way to write a fact the product path already writes, should be deleted.*
+
+`obscurity_at_read` is deliberately **not** written. §47.7 wants the value in force at engagement time, and nothing in this
+codebase measures a work's obscurity then (`scout_value` takes the number as an argument and has no query). Writing the default
+`1.0` from the writer would look like a measurement and mean "not obscure", which pays nobody and hides the gap; leaving it absent
+keeps the gap in the schema where the next reader will find it. The same paragraph in `ranking.rs` names the consumer half plainly:
+no query filters `kind = 'earned'`, no query reads `obscurity_at_read`, and `work_kudos` still has two writers that fill neither
+column — so §47.4 is *decided, recorded per row, and not yet applied*.
+
+**The PG defect this pass found before shipping:** `work_view_log.work_id` is **TEXT** on PostgreSQL (0068 spells it TEXT in both
+dialects) while `works.id` is uuid. `record_view`'s PG INSERT said `$1::uuid`, which survives by assignment cast in an INSERT and
+fails in a comparison — `operator does not exist: text = uuid` — which is exactly what the new test's read-back did. The cast is
+gone and the comment now says which side is which, because the previous comment taught the wrong thing ("work_id is UUID; $1
+arrives as text").
+
+**Proof.** Mutants from /tmp: (1) writer falls back to the migration defaults → `("earned","unknown")` vs `("incentivized","bounty")`;
+(2) `for_source` never returns `Incentivized` → `("earned","bounty")` vs `("incentivized","bounty")`. Both green on both engines
+first (m45_ranking 10/10, milestone_68_work_metrics 22/22, work_metrics lib 5/5).
+
+Ratchet: 41 → 40.
+
+## Pass 76 — the entity tree had no write, so the closure was always empty (2026-11-09)
+
+`entity_closure::rebuild` builds the closure from `canonical_entities.parent_id`, and `descendants_of` — "the `+children`
+expansion's answer" (§11.4) — reads it and had no caller. The chain is only as real as its first link, and the first link was
+missing: **nothing in the product ever wrote `parent_id`**. Measured on the deployed database: `parent_id IS NOT NULL` on **0 of
+58,042** entities, `entity_closure` **0** rows, `entity_edges` **0** rows. The tree did not exist, the maintenance pass faithfully
+materialised nothing every ~30s, and `+children` could never expand anything — not because expansion was unwritten, but because
+there was never a way to say "this tag is a child of that one".
+
+**The door.** `PUT /taxonomy/{id}/parent` (Pseudonymous, curators only — `is_active_curator`, the predicate the tag door already
+uses), body `{"parent_id": "<id>" | null}`. Three decisions:
+
+* **`parent_id`, not `entity_edges(rel = 'parent')`.** Both vocabularies are in the schema (0104's edge table still accepts the
+  relation; 0124 renamed it), but the closure walks the column. Writing the edge too would be a second place to say the same
+  thing that nothing reads.
+* **A cycle is refused at the door.** The walk's visited set means a cycle cannot hang it — that is why the walk is in Rust — but a
+  cycle in a *tree* is a curator mistake, and the place to answer it is where it is made (422 naming `parent_id`).
+* **Below the floor is not a node** (§6.4/R-23): an edge to or from an assertion describes a tree that does not exist, so it is
+  refused by name.
+
+**The consumer.** `GET /tags/{tag}?children=true` expands through the closure and lists in **one statement**: the membership test
+is now an `IN` subquery over `[this tag] ∪ [its descendants]` rather than a join, because a work carrying both a parent and a child
+tag is one work and a join would return it twice (and inflate `COUNT(*) OVER ()`, so the page total would lie). Paging and total
+are properties of one result, which is why the multi-tag listing is a new function that the single-tag one delegates to rather than
+N calls to the old one. Off by default: a browse surface that silently widened a query would be answering a question the reader
+did not ask. An unknown tag answers an empty page with `children=true`, not a 404 — the single-tag listing has always answered
+that way.
+
+**A harness defect this pass had to fix to get PG evidence at all.** `tag_page.rs`'s `exec` reached `sqlite_pool()` directly, which
+made the whole file SQLite-only — every fixture goes through it, so on PostgreSQL the first seeded row panicked before a single
+request was made. It now picks the pool by backend, and its four tests — the `/tags` browse surface this pass rewrites — pass on
+both engines for the first time.
+
+**Proof.** Red first (404, no route). Then, both engines: parentage 2/2 (the tree, plus the expansion end to end), tag_page 4/4,
+route_inventory 5/5. Mutants from /tmp: dropping the curator check reddens the reader's 403 (200 vs 403); accepting cycles reddens
+the cycle refusal (200 vs 422); ignoring `children` reddens the expansion (2 items vs 3, the child's work missing). The cycle
+mutant was first written uncompilable (`if id == child_id && false` is fine, but the earlier attempt left `steps` unused) — no, it
+compiled; the curator mutant needed `let _ = user;` to compile, and was retargeted rather than counted as a kill.
+
+Ratchet: 40 → 39.

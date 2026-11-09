@@ -1583,6 +1583,67 @@ pub struct FilteredWorks {
     pub total: i64,
 }
 
+/// The node id for one canonical name, if the vocabulary has it.
+///
+/// `norm` rather than `canonical`: the browse surfaces take the normalised name (`/tags/{tag}` matches `tn.norm`), and matching
+/// the display form instead would make `/tags/Angst` and `/tags/angst` two different questions with one answer.
+pub async fn node_id_by_norm(db: &Database, kind: &str, norm: &str) -> Result<Option<String>> {
+    let sql = db.sql(
+        "SELECT id FROM canonical_entities WHERE kind = ? AND norm = ?",
+        "SELECT id::text FROM canonical_entities WHERE kind = $1 AND norm = $2",
+    );
+    match db.backend() {
+        Backend::Sqlite => sqlx::query_scalar(&sql)
+            .bind(kind)
+            .bind(norm)
+            .fetch_optional(db.sqlite_pool().expect("sqlite"))
+            .await
+            .map_err(Into::into),
+        Backend::Postgres => sqlx::query_scalar(&sql)
+            .bind(kind)
+            .bind(norm)
+            .fetch_optional(db.postgres_pool().expect("postgres"))
+            .await
+            .map_err(Into::into),
+    }
+}
+
+/// The normalised names for a set of node ids.
+///
+/// The `+children` expansion answers with **ids** (the closure is keyed by them) and the work listing matches **names**; this is
+/// the one place the two vocabularies meet, and it is a query rather than string handling because a node's name is data.
+pub async fn norms_for_node_ids(db: &Database, ids: &[String]) -> Result<Vec<String>> {
+    if ids.is_empty() {
+        return Ok(Vec::new());
+    }
+    let sqlite_marks = vec!["?"; ids.len()].join(", ");
+    let postgres_marks = (1..=ids.len())
+        .map(|index| format!("${index}"))
+        .collect::<Vec<_>>()
+        .join(", ");
+    let sqlite_sql = format!("SELECT norm FROM canonical_entities WHERE id IN ({sqlite_marks})");
+    let postgres_sql = format!("SELECT norm FROM canonical_entities WHERE id IN ({postgres_marks})");
+    let sql = db.sql(&sqlite_sql, &postgres_sql);
+    let rows: Vec<(String,)> = match db.backend() {
+        Backend::Sqlite => {
+            let mut query = sqlx::query_as(&sql);
+            for id in ids {
+                query = query.bind(id);
+            }
+            query.fetch_all(db.sqlite_pool().expect("sqlite")).await?
+        }
+        Backend::Postgres => {
+            let mut query = sqlx::query_as(&sql);
+            for id in ids {
+                query = query.bind(id);
+            }
+            query.fetch_all(db.postgres_pool().expect("postgres")).await?
+        }
+    };
+    Ok(rows.into_iter().map(|row| row.0).collect())
+}
+
+
 /// List works tagged with a specific tag node, for the /tags/:tag surface (spec §43.1).
 ///
 /// **The reader's filters are applied INSIDE the query** (spec §12.7): *"Filters
@@ -1606,6 +1667,37 @@ pub async fn works_by_tag_filtered(
     offset: i64,
     filters: &[ContentFilter],
 ) -> Result<FilteredWorks> {
+    works_by_tags_filtered(db, &[tag_canonical.to_owned()], limit, offset, filters).await
+}
+
+/// The same listing for **several** tags at once, which is what §11.4's `+children` expansion needs.
+///
+/// One statement, not one call per tag: paging and `total` are properties of the *result*, and N calls would each page separately
+/// (`limit` per tag, `total` per tag) — a reader asking for 20 with a parent and three children would get up to 80 rows and a
+/// total that means nothing. The membership test is an `IN` subquery rather than a join, because a work carrying both the parent
+/// tag and one of its children is one work and must be one row; a join would duplicate it and inflate `COUNT(*) OVER ()`.
+pub async fn works_by_tags_filtered(
+    db: &Database,
+    tags: &[String],
+    limit: i64,
+    offset: i64,
+    filters: &[ContentFilter],
+) -> Result<FilteredWorks> {
+    // An empty list is not "every work": it is a request that names no tag, and the honest answer is an empty page. Returning the
+    // catalogue for `IN ()` (or for a malformed `IN` the builder cannot construct) would be a browse surface showing everything to
+    // a reader who asked for something specific.
+    if tags.is_empty() {
+        return Ok(FilteredWorks {
+            works: Vec::new(),
+            total: 0,
+        });
+    }
+    let sqlite_marks = vec!["?"; tags.len()].join(", ");
+    let postgres_marks = (1..=tags.len())
+        .map(|index| format!("${index}"))
+        .collect::<Vec<_>>()
+        .join(", ");
+
     // The two kinds of exclusion are different tables: a tag or a fandom is a
     // `work_tags` row, and a warning is a `work_warnings` row.
     //
@@ -1617,10 +1709,9 @@ pub async fn works_by_tag_filtered(
     let mut sqlite_clauses: Vec<String> = Vec::new();
     let mut postgres_clauses: Vec<String> = Vec::new();
     let mut binds: Vec<String> = Vec::new();
-    // The PostgreSQL numbering starts at 2: `$1` is the tag the listing is
-    // for. It is written out here rather than rewritten later, because the
-    // two dialects' clauses are different statements -- see the note below.
-    let mut pg_index = 2usize;
+    // The PostgreSQL numbering starts after the tag placeholders, which occupy `$1..$n`. It is written out here rather than
+    // rewritten later, because the two dialects' clauses are different statements -- see the note below.
+    let mut pg_index = tags.len() + 1;
     for filter in filters {
         match filter.kind.as_str() {
             "tag" | "fandom" => {
@@ -1678,24 +1769,28 @@ pub async fn works_by_tag_filtered(
     let sqlite = format!(
         "SELECT w.id, w.title, p.handle, w.updated_at, COUNT(*) OVER () AS total
          FROM works w
-         JOIN work_tags wt ON wt.work_id = w.id
-         JOIN canonical_entities tn ON tn.id = wt.node_id
          JOIN pseuds p ON p.id = w.owner_pseud_id
-         WHERE tn.norm = ? AND w.lifecycle = 'published' AND w.visibility = 'public'{sqlite_clause_text}
+         WHERE w.id IN (
+                 SELECT wt.work_id FROM work_tags wt
+                   JOIN canonical_entities tn ON tn.id = wt.node_id
+                  WHERE tn.norm IN ({sqlite_marks}))
+           AND w.lifecycle = 'published' AND w.visibility = 'public'{sqlite_clause_text}
          ORDER BY w.updated_at DESC
          LIMIT ? OFFSET ?"
     );
     let postgres = format!(
         "SELECT w.id::text, w.title, p.handle, w.updated_at, COUNT(*) OVER () AS total
          FROM works w
-         JOIN work_tags wt ON wt.work_id = w.id
-         JOIN canonical_entities tn ON tn.id = wt.node_id
          JOIN pseuds p ON p.id = w.owner_pseud_id
-         WHERE tn.norm = $1 AND w.lifecycle = 'published' AND w.visibility = 'public'{postgres_clause_text}
+         WHERE w.id IN (
+                 SELECT wt.work_id FROM work_tags wt
+                   JOIN canonical_entities tn ON tn.id = wt.node_id
+                  WHERE tn.norm IN ({postgres_marks}))
+           AND w.lifecycle = 'published' AND w.visibility = 'public'{postgres_clause_text}
          ORDER BY w.updated_at DESC
          LIMIT ${} OFFSET ${}",
-        binds.len() + 2,
-        binds.len() + 3
+        binds.len() + tags.len() + 1,
+        binds.len() + tags.len() + 2
     );
 
     // The `?` in the SQLite arm and the `$n` in the PostgreSQL arm are
@@ -1715,8 +1810,10 @@ pub async fn works_by_tag_filtered(
     // `sqlx`'s query type is tied to the executor it will run on.
     let rows: Vec<(String, String, String, String, i64)> = match db.backend() {
         Backend::Sqlite => {
-            let mut query = sqlx::query_as::<_, (String, String, String, String, i64)>(&sql)
-                .bind(tag_canonical);
+            let mut query = sqlx::query_as::<_, (String, String, String, String, i64)>(&sql);
+            for tag in tags {
+                query = query.bind(tag);
+            }
             for bind in &binds {
                 query = query.bind(bind);
             }
@@ -1727,8 +1824,10 @@ pub async fn works_by_tag_filtered(
                 .await?
         }
         Backend::Postgres => {
-            let mut query = sqlx::query_as::<_, (String, String, String, String, i64)>(&sql)
-                .bind(tag_canonical);
+            let mut query = sqlx::query_as::<_, (String, String, String, String, i64)>(&sql);
+            for tag in tags {
+                query = query.bind(tag);
+            }
             for bind in &binds {
                 query = query.bind(bind);
             }

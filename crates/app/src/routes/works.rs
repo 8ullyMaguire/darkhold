@@ -2307,12 +2307,18 @@ async fn record_view_for_work(
         None => "anon".to_string(),
     };
     let viewed_at = chrono::Utc::now().format("%Y-%m-%dT%H:00:00").to_string();
+    // The arrival path, recorded at the row's own INSERT (§47.4). "direct" is the truth for every view this door serves: none of
+    // the incentive surfaces (reading club, topic subscription, bounty, taste notification) attaches its identity to the link a
+    // reader follows, so there is nothing else it could honestly say. When one of them starts routing readers it must pass its own
+    // name here — `InteractionKind::for_source` is the list that decides which names are discounted, and an unlisted name is
+    // earned by design so that adding an incentive is a visible act rather than a silent omission.
     let is_new = work_metrics::record_view(
         state.db(),
         &work_id.to_string(),
         &viewer_hash,
         &viewed_at,
         false,
+        "direct",
     )
     .await
     .map_err(|e| ApiError(AppError::Internal(e)))?;

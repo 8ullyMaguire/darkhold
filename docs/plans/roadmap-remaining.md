@@ -2652,3 +2652,146 @@ Proof: red first (405), then writer 1/1 and `taste_leakage_view` 8/8 on both eng
 operator check and forcing `Disposition::Keep` both redden their own assertion. Ratchet 44 → 43. `record_payout`/`get_payout`
 stay named against the payouts row: a payout is written by a run, and there is no run yet.
 
+#### The leakage-writer deploy was attempted and NOT completed — the deploy tree is another session's workspace (2026-11-09)
+
+`POST /admin/discovery/leakage` is merged, tested on both engines and pushed, but it is **not live**, and the reason is worth
+recording in full because it cost the instance twenty minutes of downtime.
+
+The build (16m42s) finished cleanly and the dump verified (392 `TABLE DATA`). The restart then failed: the binary refused the
+host's `darkhold.toml` with
+
+```
+unknown field `half_life_days`, expected one of `mode`, `gravity_strength`, `signal_weight_mode`, `admin_weight`, …
+```
+
+`git status` in the deploy tree explains it — and this time it is not a merge artifact:
+
+```
+M  Cargo.lock, crates/app/Cargo.toml, crates/app/src/config.rs, crates/app/src/lib.rs,
+M  crates/app/src/routes/mod.rs, crates/app/src/server.rs, crates/db/src/lib.rs
+?? crates/app/src/routes/taste.rs, crates/app/src/taste_source.rs, crates/db/src/taste_source.rs
+```
+
+Another session is mid-way through a `[taste]` rework (`ADR 0016` taste sources) in the shared checkout: new modules, modified
+config struct, and a `darkhold.toml` edited at 21:16 — inside my build window and after the code the build compiled. That config
+declares `half_life_days` and `min_evidence`, which only their (unbuilt) struct accepts. My binary was compiled from the tree as
+it stood at build start, so it cannot read it; and the previously running binary (19:48) cannot either, because the config moved
+under it while it was running.
+
+**Recovery, in order, so the next reader does not improvise:** the previously running binary was restored from
+`~/backups/darkhold-replaced-194857.bin` (still refused the config — the config is the problem, not the binary), then the `[taste]`
+block was disabled in `darkhold.toml` (backup at `~/backups/darkhold.toml-*.bak`, with a dated comment saying why and what
+re-enables it). The unit is `active`, `/health/live` 200, `/api/v1/search` 200, build `0.1.0+7134d2be.dirty`.
+
+**State of the feature:** merged and green (`6d64ae65`), not deployed. `POST /api/v1/admin/discovery/leakage` answers 405 on the
+live instance — the path exists for GET only, which is exactly what an undeployed route looks like.
+
+**Lesson, written down because it has now happened three times:** a shared deploy tree means the build is a snapshot of somebody
+else's working directory. Before a deploy, `git status` must be empty *and* `darkhold.toml` (untracked, so invisible to that
+check) must be older than the last good binary; and after the build, `git status` must still be empty — a file that changed during
+the build is a file the binary did not compile. The `.dirty` stamp on the 19:48 build was the first warning of the same thing and
+was read as cosmetic.
+
+### A conversation had no lock: the DM doors served any thread to any account (2026-11-09)
+
+`community::is_participant` answers "is this account in this conversation" and had no caller. Both message doors —
+`GET` and `POST /conversations/{id}/messages` — took the id from the path and never asked. `list_messages` filters
+`conversation_id`, `deleted_at` and blocks but not membership, so any signed-in account that knew or guessed an id could read the
+thread; `post_message` read the participant list, but only to check blocks, so anyone could write into one.
+
+The red run printed the evidence in the other account's words. Both doors now ask `is_participant` and answer
+`NotFound { resource: "conversation" }` — 404, not 403, because a denial confirms the thread exists and belongs to somebody. The
+test asserts the refusal body for a real thread and for an id that was never a conversation is **identical**, not merely the same
+status, and that a refused write leaves the thread's message count unchanged.
+
+`list_messages` now documents that membership is the caller's check: a store function cannot decide the refusal's shape, and one
+that 403s would leak the same fact to the next caller that forgets.
+
+**Live exposure, measured:** the deployed database holds `conversations 0`, `messages 0`, `conversation_participants 0`. The hole
+is real and unexploited, which is why this ships with the next build rather than forcing one past another session's checkout —
+but it is the **first item in the queued deploy**, ahead of the leakage writer, precisely because a privacy hole outranks a
+missing producer.
+
+Proof: red (200 to a stranger, carrying the other account's message), green on both engines (privacy 1/1, `m70_13_community_doors`
+1/1, `route_inventory` 5/5); mutants removing either guard redden their own assertion. Ratchet 43 → 42.
+
+### The tag confirmation state had no door, so no tag counted (2026-11-09)
+
+`tag_confirmation::confirm` writes `work_tags.confirmation`; `gravity_contributing_tags` — read by discovery, tasting and the
+concierge when they build a gravity vector — keeps only `reader`/`wrangler` rows. `confirm` had no caller, and the deployed
+database measures the consequence: **30,982 of 30,982 `work_tags` rows are `unconfirmed`**. §49.2's "only reader- or
+wrangler-confirmed tags move a ranking" had reduced to "no tag moves any ranking", silently, on every surface that reads gravity.
+
+This is the third pass to find the gravity layer starved of input (the taste signal, then the tags themselves). It is the first
+where the product's own rule names the missing act, which is why the repair is a door and not a default.
+
+`PUT /works/{id}/tags/{node}/confirmation`, Pseudonymous, `{"state": "reader" | "inaccurate" | "wrangler"}`:
+
+* a reader confirms or flags; **only a curator may claim `wrangler`** — a state is a claim about authority, and `is_active_curator`
+  is the same predicate the tag door beside it uses, so the two agree about who a curator is;
+* **`unconfirmed` is refused by name** — it is the absence of a judgement, and accepting it would erase somebody's confirmation;
+* **the flag records the pseud**, the identity that judged, not the account behind it;
+* **a tag the work does not carry is `404`**, the decision the vote door beside it made.
+
+Proof: red first (404, no route), then green on both engines — author-applied counts toward nothing, `reader`-confirmed is
+returned by the filter, `inaccurate` stops counting at once and names its flagger. `route_inventory` 5/5. Mutants: wrangler
+without the curator check (403 → 200) and ignoring `confirm`'s "pair not found" (404 → 200), both retargeted after their first
+versions failed to compile. Ratchet 42 → 41.
+
+Not deployed: queued behind the conversation privacy fix and the leakage writer, in that order.
+
+### §47.4's discount existed in the schema and in no row (2026-11-09)
+
+Migration 0098 added `kind`, `source` and a partial index `WHERE kind = 'earned'` to `work_view_log` for §47.4 ("ranking counts
+only `Earned`"), plus `obscurity_at_read` for §47.7. `ranking::record_interaction` was written to fill them, and its **only caller
+was a test**. `work_metrics::record_view` — the single production writer — inserted four columns and left the other three at their
+defaults, so every row on every instance read `kind = 'earned'`, `source = 'unknown'`, `obscurity = 1.0` no matter how the reader
+arrived. A bounty read was stored as an earned one, and the discount could only have been applied to rows that were never written.
+
+Repair: `record_view` takes the arrival `source` and writes `kind` + `source` in the **same INSERT** (kind from
+`InteractionKind::for_source`); `record_interaction` and `InteractionRow` deleted, and the round-trip test now drives the real
+writer. One write, not two: a second UPDATE of a fact the INSERT already knows is a window in which a crash leaves a bounty read
+recorded as earned forever.
+
+`obscurity_at_read` is deliberately **not** written — nothing measures a work's obscurity at read time, and writing `1.0` from the
+writer would look like a measurement and mean "not obscure". The note in `ranking.rs` names the consumer half: no query filters
+`kind = 'earned'` (the partial index has no user), no query reads `obscurity_at_read`, and `work_kudos` still has two writers that
+fill neither column. §47.4 is **decided, recorded per row, and not yet applied** — the first line of any future consumer is the
+filter, and until then the columns are evidence rather than policy.
+
+A PG defect fell out of the change: `work_view_log.work_id` is **TEXT** on PostgreSQL (0068 spells it TEXT in both dialects) while
+`works.id` is uuid. The PG INSERT carried `$1::uuid` — inert in an INSERT by assignment cast, fatal in a comparison
+(`operator does not exist: text = uuid`), which is what the new read-back did. Cast removed; comment corrected, because the old one
+taught the wrong thing.
+
+Proof: two mutants from /tmp (writer falls back to defaults; `for_source` never discounts) redden exactly their assertion; both
+engines green (m45_ranking 10/10, milestone_68 22/22, work_metrics lib 5/5). Ratchet 41 → 40.
+
+### The entity tree had no write, so the closure was always empty (2026-11-09)
+
+`entity_closure::rebuild` walks `canonical_entities.parent_id`; `descendants_of` — "the `+children` expansion's answer" (§11.4) —
+reads the closure and had no caller. The root cause was one link upstream: **nothing in the product ever wrote `parent_id`**.
+Measured live: `parent_id IS NOT NULL` on **0 of 58,042** entities, `entity_closure` **0** rows, `entity_edges` **0** rows. The tree
+did not exist, the maintenance pass faithfully materialised nothing every ~30s, and `+children` could not expand on any deployment —
+not because expansion was unwritten, but because there was no way to say "this tag is a child of that one".
+
+**Door:** `PUT /taxonomy/{id}/parent` (Pseudonymous, curators only, `is_active_curator`), body `{"parent_id": id | null}`.
+
+* writes `parent_id`, **not** `entity_edges(rel='parent')` — both vocabularies exist, but the closure walks the column, and the edge
+  would be a second place to say the same thing that nothing reads;
+* **cycles refused at the door** — the walk's visited set cannot hang, but a tree cycle is a curator mistake and `422` names the
+  field;
+* **below the floor is not a node** (§6.4/R-23) — an edge to or from an assertion describes a tree that does not exist;
+* `null` detaches; `""` is a malformed id and is refused rather than read as an absence.
+
+**Consumer:** `GET /tags/{tag}?children=true`, off by default. Membership is an `IN` subquery over `[tag] ∪ [descendants]`, not a
+join: a work carrying both a parent and a child tag is one work, and a join would duplicate it and inflate `COUNT(*) OVER ()` so the
+page total would lie. Paging and total are one result's properties, which is why the multi-tag listing is its own function that the
+single-tag one delegates to. An unknown tag with `children=true` answers an empty page, not a 404.
+
+**Harness defect found on the way:** `tag_page.rs`'s `exec` reached `sqlite_pool()`, making the whole file SQLite-only and giving
+the `/tags` surface zero PG coverage. Now per-backend; its four tests pass on both engines for the first time.
+
+Proof: red first (404), then both engines — parentage 2/2, tag_page 4/4, route_inventory 5/5. Mutants: no curator check (403 →
+200), cycles accepted (422 → 200), `children` ignored (3 items → 2). Ratchet 40 → 39.
+
