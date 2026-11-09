@@ -2160,3 +2160,9 @@ the first `replace` hit `create_invitation` — the wrong edit, which proves not
 
 Ratchet 49 -> 47 (one wired, one deleted).
 
+### Deploy record, fifth batch (2026-11-09)
+
+`0ad9748d` — the invitation list, the deleted direct grant, the series shelf and the exclusion registry riding along — live;
+`/meta` `build 0.1.0+0ad9748d`, `GET /works/{id}/contributors/invitations` `401` anonymous, `GET /library/series/next` `401`
+anonymous, `/health/ready` `200`, no panic. Build cost 25m21s at load 30.
+
