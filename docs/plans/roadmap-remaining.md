@@ -2189,3 +2189,45 @@ formula, which is the second reason not to delete it.
 
 Ratchet 47 -> 46.
 
+### The reader layer behind a tag's confidence (taxonomy, 2026-11-09)
+
+`recompute_confidence` was not a function nobody had wired. It was the *only* half of a feature: nothing in the binary wrote a
+vote (`work_tag_votes` had no writer at all) and nothing read `work_tags.confidence` (no `wt.confidence` in a single query). Wiring
+the sweep would have made a number fresher that no surface showed and no product path fed — ceremony around a dead column. So this
+pass built the missing half and demoted the sweep to what it actually is.
+
+* `PUT /works/{id}/tags/{node}/vote` — `{vote: 1 | -1 | 0}`, pseudonymous. The vote's identity is the caller's active pseud; a
+  request may say *what* it thinks and never *who* it is.
+* `GET` on the same path — **your** vote beside the confidence everybody shares. Nothing here returns another reader's vote: a
+  pseud-scoped opinion published with its owner is a durable public judgement about somebody else's work.
+* `POST /admin/taxonomy/confidence/recompute` — the sweep, as the operator repair pass it always was.
+
+Four decisions:
+
+* **`0` withdraws the row.** "I take it back" is not evidence against the tag; storing it in the denominator would let four readers
+  who all withdrew pull a tag's confidence down — a disagreement count with no disagreement in it.
+* **A tag the work does not carry answers `404`**, on both doors. There is no claim to judge; `422` would blame the caller for a
+  request that was well formed, and `1.0` would claim nobody had disputed a tag that is not on the work.
+* **The vote path computes its own row.** A reader who answers should see the number their answer produced, not one that arrives
+  after the next sweep. The sweep covers the window the vote path leaves — a crash between the vote row and the aggregate — and a
+  restore that replayed votes without their confidence.
+* **One expression, two callers.** `confidence_expression` is the sweep's formula scoped to one row, so the repair cannot disagree
+  with what a reader just saw; the mutant that drops the smoothing from the sweep reddens the test that reads the number back.
+
+Two PostgreSQL defects found by running the file on the second engine, both invisible on SQLite:
+
+1. **`CASE` types.** `THEN 1.0` is a NUMERIC literal on PostgreSQL, so the whole `CASE` decodes as NUMERIC and sqlx cannot turn it
+   into `f64` — every vote answered `500`. The cast goes on the `CASE`, not on one branch (a cast inside `THEN` leaves the `ELSE`
+   to decide, which is the same mistake spelled differently).
+2. **INT4 binds.** `work_tag_votes.vote` is `INTEGER` on PostgreSQL, and sqlx binds `INT4` only from `i32`; SQLite's native `i64`
+   hid it. Bind `i32` on the POSTGRES arm and `CAST(vote AS BIGINT)` on read, so one decode target serves both engines.
+
+And one in the test itself: the row-count assertion reached `sqlite_pool()` directly, which is how a file becomes SQLite-only —
+counted per engine instead.
+
+Mutants red: a withdrawal stored as an abstention; the read asking by tag alone instead of tag-and-voter (A sees B's `-1`); an
+untagged tag answered `200` as if undisputed; the repair pass dropping the smoothing the vote path keeps. One mutant was discarded
+for not compiling (unused binding under `build.warnings` deny) — a mutant that does not compile is not evidence.
+
+Ratchet 46 -> 45.
+

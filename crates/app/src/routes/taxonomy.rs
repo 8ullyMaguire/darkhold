@@ -23,6 +23,18 @@ pub fn router() -> Router<AppState> {
         // vocabulary nobody can learn.
         .route("/tropes", get(list_tropes))
         .route("/works/{id}/tags", post(tag_work))
+        // §6.4's reader layer: the only thing that moves a tag's confidence. Without this door the column was maintained by a sweep
+        // nothing called, fed by a table nothing wrote, read by no query.
+        .route(
+            "/works/{id}/tags/{node}/vote",
+            get(my_tag_vote).put(cast_tag_vote),
+        )
+        // The repair half of §6.4. A vote recomputes its own row, so this door exists for the window the vote path leaves open —
+        // a crash between the vote row and the aggregate — and for a restore that replayed votes without their confidence.
+        .route(
+            "/admin/taxonomy/confidence/recompute",
+            post(recompute_confidence),
+        )
 }
 
 #[derive(Debug, Deserialize)]
@@ -56,6 +68,12 @@ pub struct CreateNodeBody {
 pub struct CreateAliasBody {
     alias: String,
     node_id: String,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct TagVoteBody {
+    /// `1` — the tag is right; `-1` — it is wrong; `0` — withdraw the vote.
+    vote: i64,
 }
 
 #[derive(Debug, Deserialize)]
@@ -219,4 +237,86 @@ async fn list_tropes(
         })
         .collect();
     Json(serde_json::json!({ "items": items }))
+}
+
+/// §6.4's vote: a reader saying a tag is right, wrong, or taking the claim back.
+///
+/// Three things this door refuses to do:
+///
+/// * **It does not accept anybody else's vote as context.** The caller's pseud is the vote's identity; a request may say *what* it
+///   thinks and never *who* it is.
+/// * **It does not publish how other readers voted.** The answer carries *your* vote and the tag's confidence, and nothing about
+///   the people who made that number. A pseud-scoped opinion shown with its owner is a durable public judgement about somebody
+///   else's work.
+/// * **It does not treat a tag the work does not carry as a malformed request.** There is no claim to judge, so the answer is
+///   `404`; `422` would blame the caller for a request that was well formed.
+async fn cast_tag_vote(
+    State(state): State<AppState>,
+    RequirePseud { pseud_id, .. }: RequirePseud,
+    Path((work, node)): Path<(String, String)>,
+    Json(body): Json<TagVoteBody>,
+) -> ApiResult<Json<serde_json::Value>> {
+    if !(-1..=1).contains(&body.vote) {
+        let message = "a vote is 1 (the tag is right), -1 (it is wrong) or 0 (withdraw)".to_owned();
+        return Err(ApiError(darkhold_domain::AppError::Validation {
+            field_errors: std::iter::once(("vote".to_owned(), message.clone())).collect(),
+            message,
+        }));
+    }
+    let confidence = taxonomy::cast_tag_vote(
+        state.db(),
+        &work,
+        &node,
+        &pseud_id.to_string(),
+        body.vote as i8,
+    )
+    .await
+    .map_err(|e| ApiError::from(anyhow::Error::new(e)))?;
+    match confidence {
+        Some(confidence) => Ok(Json(serde_json::json!({
+            "vote": if body.vote == 0 { serde_json::Value::Null } else { serde_json::json!(body.vote) },
+            "confidence": confidence,
+        }))),
+        None => Err(ApiError(darkhold_domain::AppError::NotFound {
+            resource: "tag",
+        })),
+    }
+}
+
+/// What the caller has said about one tag, beside the confidence everybody shares.
+async fn my_tag_vote(
+    State(state): State<AppState>,
+    RequirePseud { pseud_id, .. }: RequirePseud,
+    Path((work, node)): Path<(String, String)>,
+) -> ApiResult<Json<serde_json::Value>> {
+    let confidence = taxonomy::tag_confidence(state.db(), &work, &node)
+        .await
+        .map_err(|e| ApiError::from(anyhow::Error::new(e)))?;
+    let Some(confidence) = confidence else {
+        return Err(ApiError(darkhold_domain::AppError::NotFound {
+            resource: "tag",
+        }));
+    };
+    let vote = taxonomy::tag_vote_for(state.db(), &work, &node, &pseud_id.to_string())
+        .await
+        .map_err(|e| ApiError::from(anyhow::Error::new(e)))?;
+    Ok(Json(serde_json::json!({
+        "vote": vote,
+        "confidence": confidence,
+    })))
+}
+/// Recompute every tag's confidence from the votes, as an operator repair pass.
+///
+/// Not a scheduled job and not a pre-render step: the vote path already keeps its own row current, so running this on a timer would
+/// be work whose only result is a number that is already right. It answers with how many tag rows it touched, because "0" and
+/// "nothing happened" have to be distinguishable to the operator who just ran it.
+async fn recompute_confidence(
+    State(state): State<AppState>,
+    RequireSession(user): RequireSession,
+) -> ApiResult<Json<serde_json::Value>> {
+    crate::routes::admin_scope::require_admin_of(&state, &user, None).await?;
+    let updated = taxonomy::recompute_confidence(state.db())
+        .await
+        .map_err(|e| ApiError::from(anyhow::Error::new(e)))?;
+    Ok(Json(serde_json::json!({ "updated": updated })))
 }

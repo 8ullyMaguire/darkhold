@@ -3136,6 +3136,27 @@ pub const ROUTE_TABLE: &[RouteEntry] = &[
     },
     RouteEntry {
         file: "taxonomy.rs",
+        handler: "cast_tag_vote",
+        method: "PUT",
+        path: "/works/{id}/tags/{node}/vote",
+        audience: Audience::Pseudonymous,
+    },
+    RouteEntry {
+        file: "taxonomy.rs",
+        handler: "my_tag_vote",
+        method: "GET",
+        path: "/works/{id}/tags/{node}/vote",
+        audience: Audience::Pseudonymous,
+    },
+    RouteEntry {
+        file: "taxonomy.rs",
+        handler: "recompute_confidence",
+        method: "POST",
+        path: "/admin/taxonomy/confidence/recompute",
+        audience: Audience::Operator,
+    },
+    RouteEntry {
+        file: "taxonomy.rs",
         handler: "tag_work",
         method: "POST",
         path: "/works/{id}/tags",
