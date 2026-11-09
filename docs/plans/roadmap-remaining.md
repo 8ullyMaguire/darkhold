@@ -2025,3 +2025,21 @@ schema shape. Mutants red: the operator check removed (an ordinary account repai
 
 Ratchet 52 -> 51.
 
+### What the new check said the first time it ran (2026-11-09, live)
+
+`/health/ready` on thinkcentre reported **40,648 undelivered events** within a minute of the deploy. The number is real and it is
+not a fault: 40,641 of them are `work.published` rows created in one import burst on 2026-09-20, and they are **held on
+purpose** — the ATProto bridge is off, so its handler is not registered, and the worker claims only topics it has handlers for
+(`server.rs` records the reasoning: registering it with the bridge off would either mark the events delivered and lose the
+backfill, or churn forty thousand rows through the backoff with a warning each).
+
+That is exactly the case a bare count cannot describe, and it is why the check reports **age beside count**:
+`"40648 undelivered event(s), oldest 50d 15h; a backlog is reported here, never a readiness failure"`. A monitor rules on the
+age — a queue that stopped moving yesterday is a fault, a held backfill from September is a decision — and the count alone would
+have alerted forever on a healthy instance.
+
+`outbox::oldest_undelivered_at` is the companion store query (`MIN(created_at) WHERE delivered_at IS NULL`), wired in the same
+pass so it is not a new orphan. The age renders from RFC 3339 (what producers write) with a fallback parse for the schema's
+`YYYY-MM-DD HH:MM:SS` shape, and an unparseable stamp reports `unreadable (…)` rather than guessing zero — a guess would hide the
+drift that makes a queue look healthy. Mutant: `backlogs_age` always answering `none` reddens the age assertion.
+

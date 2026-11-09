@@ -156,9 +156,20 @@ async fn ready(
     checks.insert(
         "outbox",
         match darkhold_db::outbox::undelivered_count(db).await {
-            Ok(count) => Check::ok(format!(
-                "{count} undelivered event(s); a backlog is reported here, never a readiness failure"
-            )),
+            Ok(count) => {
+                // Age as well as count, because a count alone cannot tell a deliberately deferred backlog from a queue that
+                // stopped moving — and this instance's own outbox holds tens of thousands of `work.published` rows ON PURPOSE
+                // (held until the ATProto bridge is configured, which is why the handler is registered conditionally). A bare
+                // number here would be permanently large and meaningless; the age is the part a monitor can rule on.
+                let oldest = darkhold_db::outbox::oldest_undelivered_at(db)
+                    .await
+                    .ok()
+                    .flatten();
+                Check::ok(format!(
+                    "{count} undelivered event(s), oldest {}; a backlog is reported here, never a readiness failure",
+                    backlogs_age(oldest.as_deref())
+                ))
+            }
             Err(error) => Check::failed(
                 format!("cannot count undelivered events: {error}"),
                 "check that the outbox_events table exists (`darkhold migrate`)",
@@ -181,6 +192,30 @@ async fn ready(
             checks,
         }),
     )
+}
+
+/// How long the oldest undelivered event has been waiting: `"3d 4h"`, `"0d 0h"`, or `"none"` for an empty outbox.
+///
+/// A row whose stamp will not parse is reported as such rather than as an age: guessing "0d 0h" for an unreadable timestamp
+/// would hide exactly the kind of drift that makes a queue look healthy.
+fn backlogs_age(oldest: Option<&str>) -> String {
+    let Some(stamp) = oldest else {
+        return "none".to_owned();
+    };
+    let parsed = time::OffsetDateTime::parse(stamp, &time::format_description::well_known::Rfc3339)
+        .or_else(|_| {
+            time::PrimitiveDateTime::parse(stamp, &time::macros::format_description!(
+                "[year]-[month]-[day] [hour]:[minute]:[second]"
+            ))
+            .map(|local| local.assume_utc())
+        });
+    match parsed {
+        Ok(at) => {
+            let seconds = (time::OffsetDateTime::now_utc() - at).whole_seconds().max(0);
+            format!("{}d {}h", seconds / 86_400, (seconds % 86_400) / 3_600)
+        }
+        Err(_) => format!("unreadable ({stamp})"),
+    }
 }
 
 /// Confirm the storage root exists and accepts writes.

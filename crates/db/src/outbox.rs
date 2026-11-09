@@ -257,6 +257,24 @@ pub async fn undelivered_count(db: &Database) -> Result<i64> {
     }
 }
 
+/// When the oldest undelivered event was created, if any are waiting.
+///
+/// The companion to `undelivered_count`, and the reason both exist: a count cannot tell "five just enqueued" from "five stuck
+/// since yesterday". The deployed instance makes the point sharply — it holds ~40k `work.published` rows **on purpose**, held
+/// back until the ATProto bridge is configured, so a bare count is permanently large and means nothing. Age separates a
+/// deliberately deferred backlog from a queue that stopped moving.
+pub async fn oldest_undelivered_at(db: &Database) -> Result<Option<String>> {
+    let sql = "SELECT MIN(created_at) FROM outbox_events WHERE delivered_at IS NULL";
+    match db.backend() {
+        Backend::Sqlite => Ok(sqlx::query_scalar(sql)
+            .fetch_one(db.sqlite_pool().expect("sqlite handle"))
+            .await?),
+        Backend::Postgres => Ok(sqlx::query_scalar(sql)
+            .fetch_one(db.postgres_pool().expect("postgres handle"))
+            .await?),
+    }
+}
+
 /// Topics recorded for a work, for introspection in tests and `doctor`.
 pub async fn topics_for_work(db: &Database, work: darkhold_domain::WorkId) -> Result<Vec<String>> {
     let sql = db.sql(

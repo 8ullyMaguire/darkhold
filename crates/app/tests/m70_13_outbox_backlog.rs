@@ -27,6 +27,25 @@ fn build(config: &Config, db: &Database) -> axum::Router {
     server::build_router(AppState::new(config.clone(), db.clone()))
 }
 
+/// Run one statement with the right placeholder dialect.
+async fn exec(db: &Database, sqlite: &str, postgres: &str) {
+    let sql = db.sql(sqlite, postgres);
+    match db.backend() {
+        darkhold_db::Backend::Sqlite => {
+            sqlx::query(&sql)
+                .execute(db.sqlite_pool().expect("sqlite"))
+                .await
+                .expect("exec");
+        }
+        darkhold_db::Backend::Postgres => {
+            sqlx::query(&sql)
+                .execute(db.postgres_pool().expect("postgres"))
+                .await
+                .expect("exec");
+        }
+    }
+}
+
 /// The `outbox` check's detail string from `/health/ready`.
 async fn outbox_detail(client: &mut TestClient) -> (StatusCode, Value, String) {
     let (status, body) = client.get("/health/ready").await;
@@ -98,5 +117,26 @@ async fn readiness_reports_the_undelivered_backlog_and_never_gates_on_it() {
     assert!(
         !detail.contains('3'),
         "the count is not cumulative: {detail}"
+    );
+
+    // 4. The age of the oldest undelivered event, which the count cannot supply. One of the two remaining events is backdated
+    //    three days: a frozen queue and a busy one both read "2 undelivered", and only the age tells them apart. This is the
+    //    assertion the deployed instance needs — its outbox holds tens of thousands of `work.published` rows held back for a
+    //    disabled bridge, so a bare count is permanently large and says nothing about health.
+    exec(
+        &db,
+        "UPDATE outbox_events SET created_at = datetime('now', '-3 days') WHERE delivered_at IS NULL",
+        "UPDATE outbox_events SET created_at = to_char(now() AT TIME ZONE 'UTC' - interval '3 days', 'YYYY-MM-DD HH24:MI:SS') WHERE delivered_at IS NULL",
+    )
+    .await;
+    let (status, check, detail) = outbox_detail(&mut client).await;
+    assert_eq!(status, StatusCode::OK, "{check}");
+    assert!(
+        detail.contains("3d"),
+        "the oldest undelivered event's age is reported: {detail}"
+    );
+    assert!(
+        detail.contains("2 undelivered"),
+        "the age is reported beside the count: {detail}"
     );
 }
