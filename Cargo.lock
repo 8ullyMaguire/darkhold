@@ -807,6 +807,7 @@ dependencies = [
  "image",
  "mime_guess",
  "polaris-core",
+ "polaris-gravity",
  "polaris-healthz",
  "polaris-oidc-client",
  "polaris-search-client",
@@ -2298,6 +2299,10 @@ dependencies = [
 
 [[package]]
 name = "polaris-eval"
+version = "0.1.0"
+
+[[package]]
+name = "polaris-gravity"
 version = "0.1.0"
 
 [[package]]

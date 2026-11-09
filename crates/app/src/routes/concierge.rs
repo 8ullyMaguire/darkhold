@@ -212,7 +212,7 @@ pub async fn render_queue(
                 .flatten(),
             None => None,
         };
-        let strength = darkhold_domain::gravity_dial::effective(instance_strength, reader_strength);
+        let strength = polaris_gravity::effective(instance_strength, reader_strength);
         darkhold_domain::discovery::apply_taste_gravity(
             blended,
             strength,

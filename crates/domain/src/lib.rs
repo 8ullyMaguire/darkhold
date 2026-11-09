@@ -34,7 +34,6 @@ pub mod directory;
 pub mod discovery;
 pub mod dnf;
 pub mod document;
-pub mod gravity_dial;
 // §16.10a: the draw slot's deal.
 pub mod draw;
 pub mod earned_bookmark;
