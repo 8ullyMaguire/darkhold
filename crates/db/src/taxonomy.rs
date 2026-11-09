@@ -860,7 +860,218 @@ pub async fn recompute_confidence(db: &Database) -> Result<i64, sqlx::Error> {
     Ok(affected as i64)
 }
 
-/// List all tags (taxonomy nodes of kind 'tag') with work counts, for the Tags surface (spec §43.1).
+/// §6.4's confidence for one (work, tag), computed from the votes and nothing else.
+///
+/// The expression is the sweep's, scoped: with no votes a tag reads as `1.0` (a claim nobody has disputed is not a claim nobody
+/// believes), and otherwise the smoothed share of agreeing votes, `(agree + 1) / (votes + 1)`. It lives here once so the vote path
+/// and the repair pass cannot compute two different numbers.
+async fn confidence_expression(db: &Database, work_id: &str, node_id: &str) -> Result<f64, sqlx::Error> {
+    let sql = db.sql(
+        "SELECT CASE
+             WHEN COUNT(*) = 0 THEN 1.0
+             ELSE (CAST(SUM(CASE WHEN vote > 0 THEN 1 ELSE 0 END) AS REAL) + 1.0) / (COUNT(*) + 1.0)
+         END
+           FROM work_tag_votes
+          WHERE work_id = ? AND node_id = ?",
+        // `CASE` unifies its branches to one type, and `1.0` is a NUMERIC literal on PostgreSQL, so the whole expression decodes as
+        // NUMERIC unless it is cast — and sqlx cannot turn a NUMERIC into `f64`. The cast goes on the CASE, not on one branch: a cast
+        // inside `THEN` would leave the ELSE to decide the type, which is the same mistake spelled differently.
+        "SELECT CAST(CASE
+             WHEN COUNT(*) = 0 THEN 1.0
+             ELSE (CAST(SUM(CASE WHEN vote > 0 THEN 1 ELSE 0 END) AS REAL) + 1.0) / (COUNT(*) + 1.0)
+         END AS DOUBLE PRECISION)
+           FROM work_tag_votes
+          WHERE work_id::text = $1 AND node_id = $2",
+    );
+    let value: f64 = match db.backend() {
+        Backend::Sqlite => sqlx::query_scalar(&sql)
+            .bind(work_id)
+            .bind(node_id)
+            .fetch_one(db.sqlite_pool().expect("sqlite"))
+            .await?,
+        Backend::Postgres => sqlx::query_scalar(&sql)
+            .bind(work_id)
+            .bind(node_id)
+            .fetch_one(db.postgres_pool().expect("postgres"))
+            .await?,
+    };
+    Ok(value)
+}
+
+/// The confidence the work's tag row currently carries, or `None` when the work does not carry the tag.
+///
+/// `None` and `1.0` are different answers — "this work is not tagged that way" versus "nobody has disputed it" — which is why this
+/// returns an `Option` and the route maps the `None` to `404`.
+pub async fn tag_confidence(
+    db: &Database,
+    work_id: &str,
+    node_id: &str,
+) -> Result<Option<f64>, sqlx::Error> {
+    let sql = db.sql(
+        "SELECT confidence FROM work_tags WHERE work_id = ? AND node_id = ?",
+        "SELECT confidence FROM work_tags WHERE work_id::text = $1 AND node_id = $2",
+    );
+    match db.backend() {
+        Backend::Sqlite => sqlx::query_scalar(&sql)
+            .bind(work_id)
+            .bind(node_id)
+            .fetch_optional(db.sqlite_pool().expect("sqlite"))
+            .await,
+        Backend::Postgres => sqlx::query_scalar(&sql)
+            .bind(work_id)
+            .bind(node_id)
+            .fetch_optional(db.postgres_pool().expect("postgres"))
+            .await,
+    }
+}
+
+/// The caller's own vote on one tag: `Some(-1 | 0 | 1)`, or `None` when they have not voted or withdrew.
+///
+/// Only ever the caller's: there is no function here that returns anybody else's vote, because a scoped opinion published with a
+/// handle is a durable public judgement about another person's work.
+pub async fn tag_vote_for(
+    db: &Database,
+    work_id: &str,
+    node_id: &str,
+    voter_pseud_id: &str,
+) -> Result<Option<i8>, sqlx::Error> {
+    let sql = db.sql(
+        "SELECT vote FROM work_tag_votes WHERE work_id = ? AND node_id = ? AND voter_pseud_id = ?",
+        // `vote` is INTEGER (INT4) on PostgreSQL and sqlx decodes INT4 only into `i32`; the column is cast so one decode target
+        // serves both engines.
+        "SELECT CAST(vote AS BIGINT) FROM work_tag_votes WHERE work_id::text = $1 AND node_id = $2 AND voter_pseud_id = $3",
+    );
+    let vote: Option<i64> = match db.backend() {
+        Backend::Sqlite => sqlx::query_scalar(&sql)
+            .bind(work_id)
+            .bind(node_id)
+            .bind(voter_pseud_id)
+            .fetch_optional(db.sqlite_pool().expect("sqlite"))
+            .await?,
+        Backend::Postgres => sqlx::query_scalar(&sql)
+            .bind(work_id)
+            .bind(node_id)
+            .bind(voter_pseud_id)
+            .fetch_optional(db.postgres_pool().expect("postgres"))
+            .await?,
+    };
+    Ok(vote.map(|v| v as i8))
+}
+
+/// Cast, change or withdraw a reader's vote on a tag the work carries, and return the confidence that results.
+///
+/// `vote == 0` **withdraws the row** rather than storing an abstention: "I take it back" is not evidence against the tag, and
+/// counting it in the denominator would let four readers who all withdrew pull a tag's confidence down — a disagreement count with
+/// no disagreement in it. Every other value is one row per (work, tag, pseud), because the primary key says a reader who votes
+/// twice is one opinion.
+///
+/// The confidence is recomputed in the same request, not by a nightly sweep: a reader who takes the trouble to answer should see
+/// the number their answer produced. The sweep (`recompute_confidence`) remains the repair tool for the window between the vote
+/// write and the aggregate — a crash in between is exactly the drift it exists to fix.
+///
+/// Returns `Ok(None)` when the work does not carry the tag: there is no claim to judge, and the route answers `404`.
+pub async fn cast_tag_vote(
+    db: &Database,
+    work_id: &str,
+    node_id: &str,
+    voter_pseud_id: &str,
+    vote: i8,
+) -> Result<Option<f64>, sqlx::Error> {
+    if tag_confidence(db, work_id, node_id).await?.is_none() {
+        return Ok(None);
+    }
+    let now = crate::identity::now_rfc3339();
+    if vote == 0 {
+        let sql = db.sql(
+            "DELETE FROM work_tag_votes WHERE work_id = ? AND node_id = ? AND voter_pseud_id = ?",
+            "DELETE FROM work_tag_votes WHERE work_id::text = $1 AND node_id = $2 AND voter_pseud_id = $3",
+        );
+        match db.backend() {
+            Backend::Sqlite => {
+                sqlx::query(&sql)
+                    .bind(work_id)
+                    .bind(node_id)
+                    .bind(voter_pseud_id)
+                    .execute(db.sqlite_pool().expect("sqlite"))
+                    .await?;
+            }
+            Backend::Postgres => {
+                sqlx::query(&sql)
+                    .bind(work_id)
+                    .bind(node_id)
+                    .bind(voter_pseud_id)
+                    .execute(db.postgres_pool().expect("postgres"))
+                    .await?;
+            }
+        }
+    } else {
+        // `work_id` is UUID on PostgreSQL and TEXT on SQLite; the column is cast rather than the parameter, so a malformed id is a
+        // `404` from `tag_confidence` above and never a driver error here.
+        let sql = db.sql(
+            "INSERT INTO work_tag_votes (work_id, node_id, voter_pseud_id, vote, created_at, updated_at)
+             VALUES (?, ?, ?, ?, ?, ?)
+             ON CONFLICT (work_id, node_id, voter_pseud_id)
+             DO UPDATE SET vote = excluded.vote, updated_at = excluded.updated_at",
+            "INSERT INTO work_tag_votes (work_id, node_id, voter_pseud_id, vote, created_at, updated_at)
+             VALUES ($1::uuid, $2, $3, $4, $5, $6)
+             ON CONFLICT (work_id, node_id, voter_pseud_id)
+             DO UPDATE SET vote = excluded.vote, updated_at = excluded.updated_at",
+        );
+        match db.backend() {
+            Backend::Sqlite => {
+                sqlx::query(&sql)
+                    .bind(work_id)
+                    .bind(node_id)
+                    .bind(voter_pseud_id)
+                    .bind(vote as i64)
+                    .bind(&now)
+                    .bind(&now)
+                    .execute(db.sqlite_pool().expect("sqlite"))
+                    .await?;
+            }
+            Backend::Postgres => {
+                // INT4 on PostgreSQL: binding `i64` here fails with a type mismatch the driver reports as a 500, and SQLite's
+                // native `i64` hides it — the same trap `single_use` set in the export grants.
+                sqlx::query(&sql)
+                    .bind(work_id)
+                    .bind(node_id)
+                    .bind(voter_pseud_id)
+                    .bind(vote as i32)
+                    .bind(&now)
+                    .bind(&now)
+                    .execute(db.postgres_pool().expect("postgres"))
+                    .await?;
+            }
+        }
+    }
+
+    let confidence = confidence_expression(db, work_id, node_id).await?;
+    let sql = db.sql(
+        "UPDATE work_tags SET confidence = ? WHERE work_id = ? AND node_id = ?",
+        "UPDATE work_tags SET confidence = $1 WHERE work_id::text = $2 AND node_id = $3",
+    );
+    match db.backend() {
+        Backend::Sqlite => {
+            sqlx::query(&sql)
+                .bind(confidence)
+                .bind(work_id)
+                .bind(node_id)
+                .execute(db.sqlite_pool().expect("sqlite"))
+                .await?;
+        }
+        Backend::Postgres => {
+            sqlx::query(&sql)
+                .bind(confidence)
+                .bind(work_id)
+                .bind(node_id)
+                .execute(db.postgres_pool().expect("postgres"))
+                .await?;
+        }
+    }
+    Ok(Some(confidence))
+}
+
+/// List all tags
 pub async fn list_tags(
     db: &Database,
     limit: i64,
