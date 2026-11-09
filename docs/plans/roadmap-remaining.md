@@ -2592,3 +2592,20 @@ darkhold, so it can run in parallel with ratchet passes if a second session is f
 profiles, `polaris-assoc`'s co-occurrence statistics or `polaris-gravity`'s reader dial. Kindred is not an adopter: it has no
 profile→score surface, and linking a crate it does not call would spend its dependency budget for symmetry.
 
+#### Deployed 2026-11-09 — and one flag worth reading
+
+`POST /vanguards/select` is live on thinkcentre. Build 16m43s, `pg_dump -Fc` 12m06s to
+`/personal/backups/darkhold-20261109-1948?-pre-vanguard-select.dump` (3,738,288,128 bytes, 392 `TABLE DATA` entries
+enumerated by `pg_restore -l` before the restart — a dump that restores a manifest is a dump, not a file that exists), unit
+restarted, `/health/live` 200, `/api/v1/meta` answering, and `POST /api/v1/vanguards/select` answering **401** to an anonymous
+caller — the door is reachable and gated. `vanguard` is in the live `[modules] enabled` list, so this route is not shipping dark.
+
+**The flag: the binary stamps `0.1.0+e0678c3b.dirty`.** `git status` in the deploy tree is clean *now*, and the tree's HEAD has
+moved to `beb93534` ("healthz: report the estate version, keep the build id") — a commit this session did not make, 20 ahead of
+the propagation checkout. So another session was working in the deploy tree while the release build ran, and the build recorded
+the tree it saw: clean at `e0678c3b` plus whatever was uncommitted at that instant, which has since been committed as `beb93534`.
+`strings` on the deployed binary contains both `vanguards/select` and this pass's refusal text, so **this pass is in the
+running binary**; what cannot be claimed is that the binary is exactly one commit. Nothing was reset, reverted or force-merged:
+the foreign commit stays, and the next deploy from a quiet tree will produce a clean stamp. Recorded rather than smoothed over
+because "0.1.0+<sha>.dirty" on a production binary is a fact the next operator needs, not a cosmetic suffix.
+
