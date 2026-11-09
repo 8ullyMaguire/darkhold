@@ -6212,6 +6212,13 @@ pub const ROUTE_TABLE: &[RouteEntry] = &[
     },
     RouteEntry {
         file: "supply.rs",
+        handler: "list_unmet_searches",
+        method: "GET",
+        path: "/supply/unmet-searches",
+        audience: Audience::Authenticated,
+    },
+    RouteEntry {
+        file: "supply.rs",
         handler: "list_keystones",
         method: "GET",
         path: "/supply/keystones",

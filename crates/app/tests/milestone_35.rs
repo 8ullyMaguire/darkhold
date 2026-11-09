@@ -317,3 +317,133 @@ async fn search_miss_roundtrip() {
     assert_eq!(query, "some query");
     assert_eq!(count, 1);
 }
+
+/// A zero-result search becomes demand, and a reply becomes daily activity (§35.5, M70-13).
+///
+/// `record_search_miss` and `record_topic_activity` had no caller: the tables that turn "nobody can find it" and "how busy is
+/// this conversation" into data were written by nothing. The claims:
+///
+/// 1. A free-text forum search that finds nothing is recorded, and a second identical search increments the same row rather
+///    than adding another — the miss is a demand signal, so ten readers who wanted the same thing are one entry with ten.
+/// 2. A search that only narrows (`category:` with no `q`) records nothing: that is a taxonomy question, not something
+///    anybody asked to read.
+/// 3. The operator can read the list at `/supply/unmet-searches`; a stranger cannot (404, not 403).
+/// 4. A reply adds one row of activity for the topic and today's date, and a second reply increments it.
+#[tokio::test]
+async fn a_zero_result_search_becomes_demand_and_a_reply_becomes_activity() {
+    let harness = Harness::new("demand-and-activity").await;
+    let category = seed_forum_category(&harness, "General").await;
+
+    let mut reader = harness.client();
+    register(&mut reader, "m35-demand@t.test", "m35demand").await;
+
+    // 1. Two identical free-text searches with no hits: one row, count two.
+    for _ in 0..2 {
+        let (status, body) = reader
+            .get("/api/v1/forum-search?q=unfindable%20thing")
+            .await;
+        assert_eq!(status, StatusCode::OK, "{body}");
+        assert_eq!(body["items"], json!([]), "{body}");
+    }
+    // 2. A narrowing-only search records nothing.
+    let (status, body) = reader.get(&format!("/api/v1/forum-search?category={category}")).await;
+    assert_eq!(status, StatusCode::OK, "{body}");
+
+    // 3. The operator reads the list; a stranger gets 404.
+    let mut operator = harness.client();
+    let (operator_account, _) = register(&mut operator, "m35-op@t.test", "m35op").await;
+    let mut operator_config = config_for(&harness.dir);
+    operator_config.administration.operator_account_id = Some(operator_account.parse().expect("id"));
+    let mut operator = operator.rejoin(server::build_router(AppState::new(
+        operator_config,
+        harness.tdb.db().clone(),
+    )));
+
+    let (status, body) = operator.get("/api/v1/supply/unmet-searches").await;
+    assert_eq!(status, StatusCode::OK, "{body}");
+    let items = body["items"].as_array().expect("items");
+    assert_eq!(items.len(), 1, "one distinct miss, however many times: {body}");
+    assert_eq!(items[0]["query"], json!("unfindable thing"), "{body}");
+    assert_eq!(items[0]["count"], json!(2), "{body}");
+
+    let (status, body) = reader.get("/api/v1/supply/unmet-searches").await;
+    assert_eq!(
+        status,
+        StatusCode::NOT_FOUND,
+        "the commission queue is the operator's: {body}"
+    );
+
+    // 4. A reply records today's activity, and a second reply increments the same day.
+    let topic = create_topic(&mut reader, &category, "Busy today").await;
+    for _ in 0..2 {
+        let (status, body) = reader
+            .post(
+                &format!("/api/v1/topics/{topic}/replies"),
+                json!({ "body": "A reply." }),
+            )
+            .await;
+        assert_eq!(status, StatusCode::OK, "{body}");
+    }
+    let today = chrono::Utc::now().date_naive().to_string();
+    let sql = harness.tdb.db().sql(
+        "SELECT reply_count FROM forum_topic_activity WHERE topic_id = ? AND activity_date = ?",
+        "SELECT reply_count::bigint FROM forum_topic_activity WHERE topic_id = $1 AND activity_date = $2",
+    );
+    let replies: i64 = match harness.tdb.db().backend() {
+        darkhold_db::Backend::Sqlite => sqlx::query_scalar(&sql)
+            .bind(&topic)
+            .bind(&today)
+            .fetch_one(harness.tdb.db().sqlite_pool().expect("sqlite"))
+            .await
+            .expect("activity row"),
+        darkhold_db::Backend::Postgres => sqlx::query_scalar(&sql)
+            .bind(&topic)
+            .bind(&today)
+            .fetch_one(harness.tdb.db().postgres_pool().expect("postgres"))
+            .await
+            .expect("activity row"),
+    };
+    assert_eq!(replies, 2, "two replies on {today} for {topic}");
+}
+
+/// A category row, as an operator's seed would create one. This harness predates the helper in `milestone_32`, so it carries
+/// its own rather than importing a fixture across test binaries (which would need a support crate for four lines).
+async fn seed_forum_category(harness: &Harness, name: &str) -> String {
+    let id = uuid::Uuid::new_v4().to_string();
+    let sql = harness
+        .tdb
+        .db()
+        .sql(
+            "INSERT INTO forum_categories (id, name, position, min_trust) VALUES (?, ?, 0, 0)",
+            "INSERT INTO forum_categories (id, name, position, min_trust) VALUES ($1, $2, 0, 0)",
+        );
+    match harness.tdb.db().backend() {
+        darkhold_db::Backend::Sqlite => {
+            sqlx::query(&sql)
+                .bind(&id)
+                .bind(name)
+                .execute(harness.tdb.db().sqlite_pool().expect("sqlite"))
+                .await
+                .expect("seed category");
+        }
+        darkhold_db::Backend::Postgres => {
+            sqlx::query(&sql)
+                .bind(&id)
+                .bind(name)
+                .execute(harness.tdb.db().postgres_pool().expect("postgres"))
+                .await
+                .expect("seed category");
+        }
+    }
+    id
+}
+
+impl Client {
+    /// The same cookies and a new app: "sign in, then change the config" is one reader and two routers.
+    fn rejoin(&self, app: axum::Router) -> Self {
+        Self {
+            app,
+            cookies: self.cookies.clone(),
+        }
+    }
+}

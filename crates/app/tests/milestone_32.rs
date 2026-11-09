@@ -1047,3 +1047,129 @@ fn karma_is_read_by_nothing_but_its_display_surface() {
         offenders.join("\n")
     );
 }
+
+/// The first vote on a post notifies its author exactly once (§35.5, M70-13).
+///
+/// `mark_first_vote_notified` had no caller, so the table that exists to make the notice once-only was never written and the
+/// notice never sent. The claims: the first vote delivers one inbox row to the *author's account*; a second vote from
+/// another reader delivers nothing more; and retracting then re-casting does not bring it back, because the stored row —
+/// not the vote count — is the guard.
+#[tokio::test]
+async fn the_first_vote_notifies_the_author_once() {
+    let harness = Harness::new("first-vote").await;
+    let category = seed_category(&harness, "General").await;
+    // Ids are global for vote types, so the fixture uses its own rather than a seeded one.
+    seed_vote_type(&harness, "fv-insightful", "Insightful", &category, 0, 1, 0).await;
+    seed_vote_type(&harness, "fv-funny", "Funny", &category, 1, 1, 0).await;
+    let mut author = harness.client();
+    let (author_account, _) = register(&mut author, "m32-first@t.test", "m32first").await;
+    let topic = create_topic(&mut author, &category, "A topic").await;
+    let post = create_post(&mut author, &topic, "The first vote is the one.").await;
+
+    // Nothing yet: nobody has voted.
+    let (status, inbox) = author.get("/api/v1/notifications").await;
+    assert_eq!(status, StatusCode::OK, "{inbox}");
+    assert!(
+        inbox["items"]
+            .as_array()
+            .expect("items")
+            .iter()
+            .all(|item| item["kind"] != json!("first_vote")),
+        "no vote, no notice: {inbox}"
+    );
+
+    let mut first = harness.client();
+    register(&mut first, "m32-v1@t.test", "m32v1").await;
+    cast(&mut first, &post, "fv-insightful").await;
+
+    let (status, inbox) = author.get("/api/v1/notifications").await;
+    assert_eq!(status, StatusCode::OK, "{inbox}");
+    let notices: Vec<Value> = inbox["items"]
+        .as_array()
+        .expect("items")
+        .iter()
+        .filter(|item| item["kind"] == json!("first_vote"))
+        .cloned()
+        .collect();
+    assert_eq!(notices.len(), 1, "one notice for the first vote: {inbox}");
+    assert_eq!(
+        notices[0]["work_id"].as_str().or(notices[0]["object_id"].as_str()),
+        Some(post.as_str()),
+        "the notice names the post: {inbox}"
+    );
+
+    // Changing that vote is not a new first vote: the post still has one, and the author has already been told. This is the
+    // case the `existing.is_none()` gate exists for — the count alone cannot tell a change from a first vote.
+    cast(&mut first, &post, "fv-funny").await;
+    let (_, inbox) = author.get("/api/v1/notifications").await;
+    assert_eq!(
+        inbox["items"]
+            .as_array()
+            .expect("items")
+            .iter()
+            .filter(|item| item["kind"] == json!("first_vote"))
+            .count(),
+        1,
+        "changing the only vote is not a new first vote: {inbox}"
+    );
+
+    // The count returns to one through a DIFFERENT reader: `first` retracts (zero votes), `second` — who has never voted —
+    // casts (one vote, `existing.is_none()` true, the count guard passes). The stored row is the only thing that stops a
+    // second notice here, which is why the mark is what gates delivery rather than the count.
+    let (status, _) = first
+        .request("DELETE", &format!("/api/v1/forum/posts/{post}/vote"), None)
+        .await;
+    assert!(status.is_success(), "retract: {status}");
+
+    let mut second = harness.client();
+    register(&mut second, "m32-v2@t.test", "m32v2").await;
+    cast(&mut second, &post, "fv-insightful").await;
+    let (_, inbox) = author.get("/api/v1/notifications").await;
+    assert_eq!(
+        inbox["items"]
+            .as_array()
+            .expect("items")
+            .iter()
+            .filter(|item| item["kind"] == json!("first_vote"))
+            .count(),
+        1,
+        "a different reader's first vote does not re-notify: {inbox}"
+    );
+
+    // Changing that vote is still not a first vote.
+    cast(&mut second, &post, "fv-funny").await;
+    // ...and a third reader's vote is the second vote on the post, not the first.
+    let mut third = harness.client();
+    register(&mut third, "m32-v3@t.test", "m32v3").await;
+    cast(&mut third, &post, "fv-insightful").await;
+    let (_, inbox) = author.get("/api/v1/notifications").await;
+    assert_eq!(
+        inbox["items"]
+            .as_array()
+            .expect("items")
+            .iter()
+            .filter(|item| item["kind"] == json!("first_vote"))
+            .count(),
+        1,
+        "one notice for the post, ever: {inbox}"
+    );
+
+    // The stored row names the author's ACCOUNT, not their pseud: the notice is about the person.
+    let sql = harness.tdb.db().sql(
+        "SELECT account FROM forum_post_first_vote_notified WHERE post_id = ?",
+        "SELECT account::text FROM forum_post_first_vote_notified WHERE post_id = $1",
+    );
+    let stored: String = match harness.tdb.db().backend() {
+        darkhold_db::Backend::Sqlite => sqlx::query_scalar(&sql)
+            .bind(&post)
+            .fetch_one(harness.tdb.db().sqlite_pool().expect("sqlite"))
+            .await
+            .expect("stored row"),
+        darkhold_db::Backend::Postgres => sqlx::query_scalar(&sql)
+            .bind(&post)
+            .fetch_one(harness.tdb.db().postgres_pool().expect("postgres"))
+            .await
+            .expect("stored row"),
+    };
+    assert_eq!(stored, author_account, "the row names the author's account");
+}

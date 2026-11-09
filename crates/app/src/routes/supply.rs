@@ -43,6 +43,38 @@ fn bounded(limit: Option<i64>) -> i64 {
     limit.unwrap_or(DEFAULT_LIMIT).clamp(1, 100)
 }
 
+/// The queries readers ran that found nothing (§35.5), most-wanted first.
+///
+/// A drought is a topic nobody writes about; an unmet search is a reader who went looking for it and came back empty — the
+/// same demand stated in the reader's own words, and the reason `record_search_miss` exists. Operator only: the list is a
+/// commission queue, and a public list of what people failed to find is a list of what this instance does not have.
+async fn list_unmet_searches(
+    State(state): State<AppState>,
+    RequireSession(user): RequireSession,
+    Query(query): Query<LimitQuery>,
+) -> ApiResult<Json<serde_json::Value>> {
+    crate::routes::admin_scope::require_estate_hidden(&state, &user)?;
+    let limit = query.limit.unwrap_or(20).clamp(1, 100);
+    let rows = darkhold_db::moderation::top_search_misses(state.db(), limit)
+        .await
+        .map_err(|error| ApiError(darkhold_domain::AppError::Internal(error.into())))?;
+    let items: Vec<serde_json::Value> = rows
+        .iter()
+        .map(|(text, count, last_seen_at, first_seen_at)| {
+            serde_json::json!({
+                "query": text,
+                "count": count,
+                "first_seen_at": first_seen_at,
+                "last_seen_at": last_seen_at,
+            })
+        })
+        .collect();
+    Ok(Json(serde_json::json!({
+        "count": items.len(),
+        "items": items,
+    })))
+}
+
 #[derive(Debug, Deserialize)]
 struct LimitQuery {
     #[serde(default)]
@@ -79,6 +111,7 @@ pub fn router() -> Router<AppState> {
         .route("/supply/keystones", get(list_keystones))
         .route("/supply/recompute", post(recompute))
         .route("/supply/droughts", get(list_droughts))
+        .route("/supply/unmet-searches", get(list_unmet_searches))
         .route("/supply/route", post(route_one))
         .route("/supply/routing", get(my_routing))
         .route("/supply/routing/{id}/complete", post(complete_one))
