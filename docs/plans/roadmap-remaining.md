@@ -2501,4 +2501,12 @@ it unexpired and passed. The claim is now an hour old, so "recently claimed" has
 that lands on the boundary of the comparison it tests proves nothing about that boundary.
 
 Ratchet: **49 → 48**.
+**Deployed (ninth deploy, 2026-11-09 19:0x).** Backup `darkhold-20261109-183719-pre-claims.dump` (3.57 GB, 392 `TABLE DATA`,
+`pg_restore -l` verified) in `/personal/backups/`. Build 20m08s on the host from `b7a91c52`, no migrations (`197 applied, 0
+pending`), replaced binary kept for rollback. Verified: `strings` on the binary contains the sweep's log line, `/api/v1/meta` build
+`0.1.0+b7a91c52` matching the tree, `/health/live` 200, journal clean over three minutes, no panic.
+
+`claims` is **empty on the live instance**, so the sweep's log line cannot appear — the `Ok(0)` arm is silent on purpose. That is
+worth stating rather than dressing up: the live deploy proves the code is running, and the behaviour is proven by the both-engine
+test. The first claim anybody makes will be expired by a pass thirty days later, and the journal will say so.
 
