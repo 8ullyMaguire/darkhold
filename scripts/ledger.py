@@ -71,6 +71,22 @@ LINE_TERMINATOR = "\r\n"
 #: Where the ledger lives, relative to the repo root.
 DEFAULT_LEDGER = os.path.join("docs", "requirements.csv")
 
+# `csv`'s default field limit is 131072 bytes, and `read_rows` is the only reader of a file this module writes — so when one
+# row's `notes` grew past it (M70-13, 2026-11-09: 131,739 characters of pass journal), the module could no longer read the
+# ledger it had just written, and `gate.sh ledger` failed with `field larger than field limit`. The limit exists to stop a
+# malformed file exhausting memory; it is not a bound on what a legitimate row may say, so it is raised to a size a real ledger
+# cell cannot reach. `NOTES_LIMIT` below is the bound that *should* hold, and it is enforced on write.
+CSV_FIELD_LIMIT = 16 * 1024 * 1024
+csv.field_size_limit(CSV_FIELD_LIMIT)
+
+# A `notes` cell is a pointer, not a journal.
+#
+# M70-13's notes reached 131,739 characters — every pass of a long ratchet appended in place — which is a document wearing a CSV
+# cell as a container: unreadable in a spreadsheet, unreadable in `psql \copy`, and it broke the reader above. The journal
+# belongs in `docs/plans/roadmap-remaining.md` (which already holds every pass) and in the handoffs; the cell carries a summary
+# and a pointer. 32 KiB is generous for that and small enough that a spreadsheet opens it.
+NOTES_LIMIT = 32 * 1024
+
 
 def _read_raw(path: str) -> str:
     """Read the ledger as text with the line endings untouched.
@@ -133,12 +149,30 @@ def read_rows(path: str = DEFAULT_LEDGER) -> List[Dict[str, str]]:
     return rows
 
 
+def _check_notes_size(rows: Sequence[Dict[str, str]]) -> None:
+    """Refuse a `notes` cell that has become a document.
+
+    The failure has to be loud and on write: a row that grows unchecked breaks the reader above, and the reader's failure is
+    reported against the *file*, long after the pass that wrote it. Naming the id and the size here puts the failure where the
+    author still remembers what they were doing.
+    """
+    for row in rows:
+        notes = row.get("notes") or ""
+        if len(notes) > NOTES_LIMIT:
+            raise ValueError(
+                "%s: notes is %d characters (limit %d) — the pass journal belongs in "
+                "docs/plans/roadmap-remaining.md; keep a summary and a pointer here"
+                % (row.get("id") or "<no id>", len(notes), NOTES_LIMIT)
+            )
+
+
 def write_rows(path: str, rows: Sequence[Dict[str, str]], header: Sequence[str] = None) -> None:
     """Write the rows, with the header, with CRLF.
 
     The file is written through a `StringIO` and then committed in one `write`, so a failure
     part-way through does not leave a half-written ledger.
     """
+    _check_notes_size(rows)
     if header is None:
         header = _header_for(path)
     buffer = io.StringIO(newline="")
