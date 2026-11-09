@@ -128,13 +128,19 @@ async fn seed(db: &Database) {
 }
 
 async fn slot(db: &Database, id: &str, pseud: &str, chosen: bool) {
-    let chosen_at = if chosen { "datetime('now')" } else { "NULL" };
+    // `chosen_at` is TIMESTAMPTZ on PostgreSQL and TEXT on SQLite: `datetime('now')` is a SQLite function and PostgreSQL
+    // answers `function datetime(unknown) does not exist`. The arm this fixture never ran was the one that mattered.
+    let chosen_at = match (chosen, db.backend()) {
+        (false, _) => "NULL",
+        (true, darkhold_db::Backend::Postgres) => "now()",
+        (true, darkhold_db::Backend::Sqlite) => "datetime('now')",
+    };
     exec(
         db,
         &format!(
             "INSERT INTO recommendation_slots \
              (id, pseud_id, work_id, request_id, position, reasons, mechanism, created_at, chosen_at) \
-             VALUES ('{id}', '{pseud}', '{WORK}', 'req-{id}', 1, '[]', 'discover.feed', \
+             VALUES ('{id}', '{pseud}', '{WORK}', '{id}', 1, '[]', 'discover.feed', \
                      '2026-11-06T10:00:00Z', {chosen_at})"
         ),
     )

@@ -58,7 +58,7 @@ pub async fn snapshot_day(db: &Database, day: &str) -> Result<i64> {
              SELECT lower(hex(randomblob(16))), s.mechanism, a.bucket, ?1, \
                     count(*), \
                     count(DISTINCT s.pseud_id), \
-                    count(DISTINCT CASE WHEN ac.is_guest THEN s.pseud_id END), \
+                    count(DISTINCT CASE WHEN ac.is_guest <> 0 THEN s.pseud_id END), \
                     count(CASE WHEN s.chosen_at IS NOT NULL THEN 1 END), \
                     datetime('now') \
              FROM recommendation_slots s \
@@ -78,7 +78,7 @@ pub async fn snapshot_day(db: &Database, day: &str) -> Result<i64> {
              SELECT gen_random_uuid(), s.mechanism, a.bucket, $1, \
                     count(*), \
                     count(DISTINCT s.pseud_id), \
-                    count(DISTINCT CASE WHEN ac.is_guest THEN s.pseud_id END), \
+                    count(DISTINCT CASE WHEN ac.is_guest <> 0 THEN s.pseud_id END), \
                     count(CASE WHEN s.chosen_at IS NOT NULL THEN 1 END), \
                     now() \
              FROM recommendation_slots s \
@@ -122,7 +122,12 @@ pub async fn day_snapshots(db: &Database, day: &str) -> Result<Vec<ArmSnapshot>>
              FROM experiment_snapshots WHERE day = ?1 ORDER BY surface_id, arm"
         }
         crate::Backend::Postgres => {
-            "SELECT surface_id, arm, day, impressions, readers, guest_readers, events \
+            // `impressions` and friends are INTEGER here while `count(*)` is BIGINT, so the column type is what the reader
+            // decodes against: without the casts this arm fails on the FIRST read with `INT8 is not compatible with INT4`.
+            // The insert worked and the read did not, which is why a write-only test would have called this whole module
+            // healthy.
+            "SELECT surface_id, arm, day, impressions::bigint, readers::bigint, guest_readers::bigint, \
+                    events::bigint \
              FROM experiment_snapshots WHERE day = $1 ORDER BY surface_id, arm"
         }
     };
