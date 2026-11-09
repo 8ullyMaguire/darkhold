@@ -11,6 +11,7 @@ use darkhold_db::catalogue::CatalogueQuery;
 use darkhold_db::metrics;
 use darkhold_db::{Backend, Database, DatabaseConfig};
 use darkhold_domain::quality::Metric;
+use darkhold_domain::quality::QualityWeights;
 
 const T0: &str = "2026-01-01T00:00:00Z";
 const ACCOUNT: &str = "01955c00-0000-4000-8000-00000000e637";
@@ -176,7 +177,7 @@ async fn a_rate_ranks_from_the_archives_own_views_and_prefers_evidence() {
     let db = connect("rate").await;
     seed(&db).await;
 
-    let page = metrics::ranked(&db, &query(), Metric::LikesPerView, 10, 0)
+    let page = metrics::ranked_with_weights(&db, &query(), Metric::LikesPerView, 10, 0, &QualityWeights::default())
         .await
         .expect("ranked");
     assert_eq!(page.views_rows, 3, "hits twice and the legacy column once");
@@ -196,7 +197,7 @@ async fn a_rate_ranks_from_the_archives_own_views_and_prefers_evidence() {
     assert_eq!(plain[3], "silent", "no views, so it is unmeasured and last");
 
     // The bound puts `big` ahead of every thin arm: 4.0%, 3.8%, 1.8%.
-    let bounded = metrics::ranked(&db, &query(), Metric::Wilson, 10, 0)
+    let bounded = metrics::ranked_with_weights(&db, &query(), Metric::Wilson, 10, 0, &QualityWeights::default())
         .await
         .expect("ranked");
     let bounded_order: Vec<&str> = bounded
@@ -242,7 +243,7 @@ async fn a_population_with_no_views_says_so_instead_of_scoring_zeroes() {
         .await;
     }
 
-    let page = metrics::ranked(&db, &query(), Metric::LikesPerView, 10, 0)
+    let page = metrics::ranked_with_weights(&db, &query(), Metric::LikesPerView, 10, 0, &QualityWeights::default())
         .await
         .expect("ranked");
     assert_eq!(page.views_rows, 0, "not one row carries a view count");

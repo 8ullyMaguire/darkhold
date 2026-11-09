@@ -382,34 +382,16 @@ async fn rows_by_ids(db: &Database, ids: &[String]) -> Result<Vec<(CatalogueRow,
     }
 }
 
-/// Rank the filtered catalogue by `metric` and return one page of it.
-///
-/// The page is two blocks: rows the metric could measure, then rows it could not
-/// (ordered by metadata triage). Callers should render the boundary — comparing
-/// the two is the error this module exists to prevent.
-///
-/// # Errors
-///
-/// Returns the store's error when a query fails.
-pub async fn ranked(
-    db: &Database,
-    query: &CatalogueQuery,
-    metric: Metric,
-    limit: usize,
-    offset: usize,
-) -> Result<RankedPage> {
-    ranked_with_weights(
-        db,
-        query,
-        metric,
-        limit,
-        offset,
-        &darkhold_domain::quality::QualityWeights::default(),
-    )
-    .await
-}
+// `ranked(db, query, metric, limit, offset)` was here: the same ranking with `QualityWeights::default()` filled in. Both catalogue
+// routes call `ranked_with_weights`, so `ranked` was the spelling nothing shipped used — and the one a new caller would reach for,
+// because it takes four fewer arguments. Ranking without the operator's configured weights returns a different order than the page
+// the reader is looking at, silently, which is the worst kind of twin: it compiles, it answers, and it disagrees with the product.
+// The two store test files that used it now call `ranked_with_weights` with the same defaults, so they test the path that ships.
 
-/// [`ranked`] with an operator's quality weights (M63-38).
+/// Rank the filtered catalogue with an operator's quality weights (M63-38).
+///
+/// The only ranking entry point: a second spelling that filled in the default weights existed and was deleted, because a caller
+/// reaching for the shorter signature would rank differently from the page the reader sees.
 ///
 /// The weights only reach the `quality` composite and `freshness_weighted_quality`; every other metric ignores them. Passing them here
 /// rather than threading a profile name through the store keeps the store ignorant of configuration: it ranks with what it is given.

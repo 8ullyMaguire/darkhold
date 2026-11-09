@@ -2425,3 +2425,32 @@ restart — correct, and the one thing this deploy cannot show by itself: the ta
 classifies, which is user content and not something a probe should manufacture on real works. The write path is proven on the
 deployed engine by the PostgreSQL store test against the same migration set.
 
+### The ruler was wrong a third time: a bare call in the function's own module (2026-11-09)
+
+Working the list turned up five entries that are demonstrably reachable — `metrics::candidates` and `metrics::counts` are called by
+`ranked_with_weights`, on the catalogue route, on every page a reader loads. They were listed because `specialist::candidates` and
+`trend::counts` exist: the name was not unique, the caller did not `use` its own module, and so no edge was drawn. The third rule
+was missing, and it is the strongest of the three — **a bare call inside the module that defines the function is that function**,
+no import and no uniqueness needed.
+
+That correction alone took the list **55 → 50** (`exchanges::is_participant`, `live_badges::recompute`, `metrics::candidates`,
+`metrics::counts`, `work_mirrors::find`).
+
+Then one real deletion, from the rule that has held all through this row: **a function whose only callers are tests, and which is a
+narrower twin of the product path, is deleted and the tests follow it.**
+
+`metrics::ranked(db, query, metric, limit, offset)` was `ranked_with_weights(…, &QualityWeights::default())`. Both catalogue routes
+call the weighted form, so the short one shipped nowhere — and it had the worse property for a twin: the shorter signature is the
+one a new caller reaches for, and it ranks without the operator's configured weights. It compiles, it answers, and it disagrees
+with the page the reader is looking at. The two store test files (`quality_metrics.rs`, `quality_rate.rs`, nine call sites) now call
+`ranked_with_weights` with the same defaults, which is the path that ships.
+
+**Proof.** The weights are not untested, which is the thing a deletion like this has to check: mutating `ranked_with_weights` to
+ignore its `weights` argument reddens
+`m63_03_metrics::the_catalogue_names_and_obeys_the_quality_profile_it_ranks_with` (line 564). First attempt did not compile — the
+unused parameter trips the workspace's deny-warnings — and a mutant that does not compile is discarded, not counted; the second used
+`let _ = weights;` to keep it compiling, then reddened the intended assertion. Reverted from a `/tmp` backup.
+
+Ratchet: **50 → 49**. Ruler history for the next number: 43 (bare name) → 57 (module-qualified) → 55 (uniqueness over every
+function) → 50 (same-module calls) → 49 (this deletion).
+
