@@ -9,7 +9,7 @@
 # outside this list, which is why the operator audit route always answered an empty trail. Correcting the
 # measurement moved the baseline from 43 to 57. An intermediate version that ignored `use` imports said 80; the
 # debt was never new, the ruler was wrong in both directions.
-# measured 2026-11-09: 48 orphan(s)
+# measured 2026-11-09: 46 orphan(s)
 
 increment_abuse_counter  # crates/db/src/admin.rs
 published_uris  # crates/db/src/atproto.rs
@@ -43,8 +43,6 @@ count_copies  # crates/db/src/reader_body_copies.rs
 list_response_slots  # crates/db/src/recommendation_slots.rs
 list_changes  # crates/db/src/retention_proposals.rs
 upsert_card  # crates/db/src/roadmap.rs
-select_by_contribution_volume  # crates/db/src/roles.rs
-select_vanguards  # crates/db/src/roles.rs
 retire_encryption_key  # crates/db/src/secrets.rs
 mark_email_verified  # crates/db/src/sessions.rs
 submissions_by  # crates/db/src/source_adapters.rs

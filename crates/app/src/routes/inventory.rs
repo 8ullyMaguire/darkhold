@@ -5633,6 +5633,13 @@ pub const ROUTE_TABLE: &[RouteEntry] = &[
     },
     RouteEntry {
         file: "vanguard.rs",
+        handler: "select_vanguards",
+        method: "POST",
+        path: "/vanguards/select",
+        audience: Audience::Operator,
+    },
+    RouteEntry {
+        file: "vanguard.rs",
         handler: "grant_vanguard",
         method: "POST",
         path: "/vanguards",

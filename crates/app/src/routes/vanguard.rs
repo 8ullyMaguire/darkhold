@@ -3,7 +3,7 @@ use crate::http::{ApiError, ApiResult};
 use crate::state::AppState;
 use axum::extract::{Path, State};
 use axum::http::StatusCode;
-use axum::routing::{delete, get};
+use axum::routing::{delete, get, post};
 use axum::{Json, Router};
 use darkhold_db::roles;
 use darkhold_domain::AppError;
@@ -144,6 +144,86 @@ pub async fn list_vanguards(
     Ok(Json(json!({ "vanguards": vanguards })))
 }
 
+/// Admin: run a selection method and (only when asked) grant the result.
+///
+/// **The dry run is the default.** A Vanguard can pin works to the front page, so a selection that appointed people as a side
+/// effect of asking "who would qualify?" would turn a question into an appointment. `contribution_volume` measures activity;
+/// whether activity deserves the pin is the operator's decision, and this door is shaped so the decision is theirs to make with
+/// the list in front of them.
+///
+/// The method is validated by name rather than silently yielding nothing: `resonance_threshold` needs an admin taste profile
+/// that nothing on this instance computes, and `admin_appointment` is one account at a time through `POST /vanguards`. An empty
+/// list would answer "nobody qualifies" to a question this door never asked.
+///
+/// Operator check: this file's own `require_operator` (trust ≥ 5), the same predicate as its four sibling doors. There are five
+/// spellings of "is this the operator" across the codebase and converging them is its own row — using one here would make this
+/// the only door in the module that answers differently from the one beside it.
+#[derive(Debug, Deserialize)]
+pub struct SelectVanguardsBody {
+    pub method: String,
+    #[serde(default)]
+    pub limit: Option<i64>,
+    /// Absent means a dry run. Not `#[serde(default)]`-with-true anywhere: the safe direction for a role grant is the one that
+    /// grants nothing.
+    #[serde(default)]
+    pub apply: Option<bool>,
+}
+
+/// The largest list one call may act on.
+///
+/// A bound rather than a default, and the two are different things: the default is what an operator gets for asking nothing,
+/// the bound is what they cannot get past. Both exist.
+const MAX_SELECTION: i64 = 100;
+
+pub async fn select_vanguards(
+    State(state): State<AppState>,
+    RequireSession(user): RequireSession,
+    Json(body): Json<SelectVanguardsBody>,
+) -> ApiResult<Json<Value>> {
+    require_operator(&state, &user).await?;
+
+    if body.method != "contribution_volume" {
+        return Err(ApiError(AppError::field(
+            "method",
+            "this door computes `contribution_volume` only; `admin_appointment` is one account at a time through POST \
+             /vanguards, and `resonance_threshold` needs a taste profile this instance does not build",
+        )));
+    }
+    let limit = body.limit.unwrap_or(10).clamp(1, MAX_SELECTION);
+    let apply = body.apply.unwrap_or(false);
+
+    let candidates = roles::select_vanguards(state.db(), &body.method, limit)
+        .await
+        .map_err(|e| ApiError(AppError::Internal(e.into())))?;
+
+    // Granted only on request, and each grant records the method that picked the account: a Vanguard row that cannot say how it
+    // was chosen cannot be re-examined when the method changes.
+    let mut granted: Vec<String> = Vec::new();
+    if apply {
+        let by = user.account_id.to_string();
+        for account in &candidates {
+            roles::grant_vanguard(
+                state.db(),
+                account,
+                &body.method,
+                Some(&by),
+                None,
+            )
+            .await
+            .map_err(|e| ApiError(AppError::Internal(e.into())))?;
+            granted.push(account.clone());
+        }
+    }
+
+    Ok(Json(json!({
+        "method": body.method,
+        "limit": limit,
+        "applied": apply,
+        "candidates": candidates,
+        "granted": granted,
+    })))
+}
+
 pub fn router() -> Router<AppState> {
     Router::new()
         .route("/vanguard/status", get(get_my_vanguard_status))
@@ -152,5 +232,7 @@ pub fn router() -> Router<AppState> {
             get(get_pins_for_work).post(pin_work).delete(unpin_work),
         )
         .route("/vanguards", get(list_vanguards).post(grant_vanguard))
+        // A static segment beside `{account_id}`: axum prefers the literal, so this does not shadow `DELETE /vanguards/{id}`.
+        .route("/vanguards/select", post(select_vanguards))
         .route("/vanguards/{account_id}", delete(revoke_vanguard))
 }

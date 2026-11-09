@@ -2510,3 +2510,35 @@ pending`), replaced binary kept for rollback. Verified: `strings` on the binary 
 worth stating rather than dressing up: the live deploy proves the code is running, and the behaviour is proven by the both-engine
 test. The first claim anybody makes will be expired by a pass thirty days later, and the journal will say so.
 
+### §16.18's third selection method gets a door, and it is a dry run by default (2026-11-09)
+
+The spec lists three ways an instance picks Taste Vanguards. `admin_appointment` has had its door since M18 (one account at a
+time). `resonance_threshold` needs an admin taste profile nothing on this instance computes. `contribution_volume` — "top N
+curators by bookmark and review count in the last 90 days" — is a query, and both it and the dispatcher written to apply it had no
+caller, so an operator who wanted the top curators had to find them by hand.
+
+`POST /vanguards/select` (Operator) runs the selection. Three decisions inside it:
+
+* **The dry run is the default.** A Vanguard can pin works to the front page, so a selection that appointed people as a side
+  effect of asking "who would qualify?" would turn a question into an appointment. `apply: true` is the operator saying yes with
+  the list in front of them; `apply` absent grants nothing.
+* **The method is validated by name.** Anything but `contribution_volume` answers `422` naming `method`, because an empty list
+  would answer "nobody qualifies" to a question this door never asked.
+* **`limit` is clamped to 1..=100**, default 10 — a bound and a default, which are different things.
+
+Two smaller decisions recorded beside the code: the operator check is this file's own `require_operator` (trust ≥ 5) rather than
+the estate predicate, because five spellings of "is this the operator" exist and converging them is its own row — a single door
+answering differently from its four siblings would be worse than the duplicate. And `/vanguards/select` sits beside
+`DELETE /vanguards/{account_id}`; axum prefers the literal segment, so the new route does not shadow the param route (asserted by
+`route_inventory` 5/5, and by the 405 the test produced before the route existed).
+
+The test found two things while being written, both kept as notes in the file: `bookmarks.updated_at` is `NOT NULL` (the insert
+needs it on both engines), and the module gate answers `404 MODULE_UNAVAILABLE` unless `vanguard` is enabled — `vanguard` is
+opt-in by design, so the harness enables it rather than bypassing the gate.
+
+**Proof.** Red first (405 Method Not Allowed — the route did not exist), green after: 1/1 SQLite, 1/1 PostgreSQL, `route_inventory`
+5/5 on both. Two mutants reverted from `/tmp`: `apply` defaulting to true reddens the dry-run assertion ("a dry run must not grant
+the role"); removing the method validation reddens the 422 assertion with a 200 carrying an empty list.
+
+Ratchet: **48 → 46** (both `select_vanguards` and `select_by_contribution_volume` now have a caller).
+
