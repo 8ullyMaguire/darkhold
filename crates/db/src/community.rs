@@ -795,25 +795,28 @@ pub struct ForumTopic {
 /// topics: the schema deliberately carries no foreign key (SQLite cannot
 /// add one by ALTER), so the check lives here where every writer passes.
 pub async fn category_exists(db: &Database, category_id: &str) -> Result<bool> {
+    // `EXISTS(...)` rather than `SELECT 1` decoded into an i64: a bare `1` is **INT4** in PostgreSQL and sqlx refuses to
+    // decode it as a 64-bit integer, so `SELECT 1` made **every topic creation a 500 on PostgreSQL** while SQLite's untyped
+    // integers happily decoded. A boolean is the type of the question anyway, and it is the same on both engines.
     let sql = db.sql(
-        "SELECT 1 FROM forum_categories WHERE id = ?",
-        "SELECT 1 FROM forum_categories WHERE id = $1",
+        "SELECT EXISTS(SELECT 1 FROM forum_categories WHERE id = ?)",
+        "SELECT EXISTS(SELECT 1 FROM forum_categories WHERE id = $1)",
     );
-    let found: Option<i64> = match db.backend() {
+    let exists: bool = match db.backend() {
         Backend::Sqlite => {
             sqlx::query_scalar(&sql)
                 .bind(category_id)
-                .fetch_optional(db.sqlite_pool().expect("sqlite"))
+                .fetch_one(db.sqlite_pool().expect("sqlite"))
                 .await?
         }
         Backend::Postgres => {
             sqlx::query_scalar(&sql)
                 .bind(category_id)
-                .fetch_optional(db.postgres_pool().expect("postgres"))
+                .fetch_one(db.postgres_pool().expect("postgres"))
                 .await?
         }
     };
-    Ok(found.is_some())
+    Ok(exists)
 }
 
 /// Fetch the minimum trust level required to post in a category.

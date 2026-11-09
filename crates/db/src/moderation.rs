@@ -256,16 +256,22 @@ pub async fn record_topic_activity(
 }
 
 /// Mark that a post's first-vote notification was sent (spec §35.5).
+///
+/// Returns **whether this call did the recording**. That boolean is the whole point: the notice is a one-time event, and the
+/// only durable answer to "have we told them?" is this row. A caller that notified on the vote count alone would send a
+/// second notice whenever the count returned to one — a retraction and a different reader's vote — and on PostgreSQL a
+/// `RETURNING`-free `INSERT … ON CONFLICT DO NOTHING` reports `rows_affected = 0` precisely when the row was already there,
+/// so the two engines agree without a second read.
 pub async fn mark_first_vote_notified(
     db: &Database,
     post_id: &str,
     account: &str,
     vote_count: i64,
-) -> Result<()> {
+) -> Result<bool> {
     let now = crate::identity::now_rfc3339();
-    match db.backend() {
+    let inserted: u64 = match db.backend() {
         Backend::Sqlite => {
-            sqlx::query(
+            let result = sqlx::query(
                 "INSERT OR IGNORE INTO forum_post_first_vote_notified (post_id, account, notified_at, vote_count)
                  VALUES (?, ?, ?, ?)"
             )
@@ -275,9 +281,10 @@ pub async fn mark_first_vote_notified(
             .bind(vote_count)
             .execute(db.sqlite_pool().expect("sqlite"))
             .await?;
+            result.rows_affected()
         }
         Backend::Postgres => {
-            sqlx::query(
+            let result = sqlx::query(
                 "INSERT INTO forum_post_first_vote_notified (post_id, account, notified_at, vote_count)
                  VALUES ($1, $2::uuid, $3, $4)
                  ON CONFLICT(post_id, account) DO NOTHING"
@@ -288,7 +295,37 @@ pub async fn mark_first_vote_notified(
             .bind(vote_count)
             .execute(db.postgres_pool().expect("postgres"))
             .await?;
+            result.rows_affected()
         }
-    }
-    Ok(())
+    };
+    Ok(inserted == 1)
+}
+
+/// What people searched the forum for and did not find, most-wanted first (§35.5).
+///
+/// The write side ([`record_search_miss`]) is fed by the forum search route; this is the read the operator needs to act on
+/// it, and without it the table was a note nobody could read. Two queries, not one: the count of distinct missed queries and
+/// the list. A total that disagreed with the list would be the same defect as a queue that counts but does not list.
+pub async fn top_search_misses(
+    db: &Database,
+    limit: i64,
+) -> Result<Vec<(String, i64, String, String)>, sqlx::Error> {
+    let sql = db.sql(
+        "SELECT query_text, count, last_seen_at, first_seen_at FROM forum_search_misses
+          ORDER BY count DESC, last_seen_at DESC LIMIT ?",
+        // `count` is INTEGER on PostgreSQL and the tuple wants i64: the cast is per column, and this one is not optional.
+        "SELECT query_text, count::bigint, last_seen_at, first_seen_at FROM forum_search_misses
+          ORDER BY count DESC, last_seen_at DESC LIMIT $1",
+    );
+    let rows: Vec<(String, i64, String, String)> = match db.backend() {
+        Backend::Sqlite => sqlx::query_as(&sql)
+            .bind(limit)
+            .fetch_all(db.sqlite_pool().expect("sqlite"))
+            .await?,
+        Backend::Postgres => sqlx::query_as(&sql)
+            .bind(limit)
+            .fetch_all(db.postgres_pool().expect("postgres"))
+            .await?,
+    };
+    Ok(rows)
 }

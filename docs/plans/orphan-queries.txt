@@ -3,7 +3,7 @@
 # Each line is a `pub async fn` in crates/db/src that no app source can reach, directly or through another db
 # function. They are debt, not permission: crates/app/tests/orphan_queries.rs fails when a NEW one appears, so
 # this list can only shrink. Delete a line by wiring the function to a route or deleting the function.
-# measured 2026-11-09: 95 orphan(s)
+# measured 2026-11-09: 92 orphan(s)
 
 increment_abuse_counter  # crates/db/src/admin.rs
 complete_privacy_request  # crates/db/src/admin.rs
@@ -58,9 +58,6 @@ sum_curator_rewards_today  # crates/db/src/media_resilience.rs
 find_references_below_threshold  # crates/db/src/media_resilience.rs
 find_match_proposal  # crates/db/src/media_resilience.rs
 apply_to  # crates/db/src/migrate.rs
-record_search_miss  # crates/db/src/moderation.rs
-record_topic_activity  # crates/db/src/moderation.rs
-mark_first_vote_notified  # crates/db/src/moderation.rs
 record_assertion  # crates/db/src/monetization.rs
 get_assertion  # crates/db/src/monetization.rs
 record_payment_event  # crates/db/src/monetization.rs

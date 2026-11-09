@@ -1259,3 +1259,30 @@ cited as migration 0055 rather than the store's own `§9.9`, which points at Leg
 
 Ratchet 99 -> 95.
 
+### Demand nobody recorded, and a guard that broke PostgreSQL (moderation.rs, 2026-11-08)
+
+Three §35.5 signals had no producer and no reader.
+
+* **A zero-result search is demand, not an error.** The forum search route now records a free-text query that finds nothing,
+  keyed by the sha256 of the lowercased text so "Ten Ways" and "ten ways" are one miss with a count. A narrowing-only search
+  (`category:` with no `q`) records nothing: that is a taxonomy question. `GET /supply/unmet-searches` (operator) is the read
+  — a drought is a topic nobody writes about, an unmet search is a reader who went looking and came back empty.
+* **`record_topic_activity`** runs on every reply, one row per `(topic, date)`: "last post at" cannot express forty replies
+  today versus forty across forty days.
+* **The first vote is the one an author remembers**, and it is notified once. Three gates, and only the last one is the
+  enforcement: `existing.is_none()` (a *change* is not a new vote — the count alone cannot tell them apart), the count being
+  exactly one, and the stored row. The store now **returns whether it inserted** (`rows_affected == 1` on both engines) and
+  the caller notifies only on a genuine insert: a count that returns to one through a different reader after a retraction
+  would otherwise send a second notice, and two casters racing on the same first vote would both send one.
+
+**The defect this pass found was mine.** `category_exists`, the guard added in the community pass, used `SELECT 1 …` decoded
+into an `i64` — `1` is **INT4** on PostgreSQL and sqlx will not decode it as INT8, so **every topic creation was a 500 on
+PostgreSQL** while SQLite's untyped integers decoded happily. Reproduced with the change stashed (clean master fails the same
+way) so it is not mistaken for this pass's edit, then fixed as `SELECT EXISTS(...)` decoded as `bool`.
+
+The lesson is in the shape of the miss: that pass ran its own targeted test on both engines and the file it touched — but the
+guard it added runs when a *topic* is created, and no test in that pass created one. A guard is only tested by the suites that
+exercise the rows it guards, on both engines.
+
+Ratchet 95 -> 92.
+

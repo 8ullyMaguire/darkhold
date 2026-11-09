@@ -523,6 +523,19 @@ async fn post_reply(
         .await
         .map_err(|e| ApiError(darkhold_domain::AppError::Internal(e)))?;
 
+    // Daily activity per topic (§35.5): the shape of a conversation over time, which "last post at" cannot express — a topic
+    // with forty replies today and forty last month looks identical to one with two on each of forty days. One row per
+    // (topic, date), incremented. Best-effort, like the mention recording below it.
+    if let Err(error) = darkhold_db::moderation::record_topic_activity(
+        state.db(),
+        &id,
+        &chrono::Utc::now().date_naive().to_string(),
+    )
+    .await
+    {
+        tracing::warn!(topic = %id, %error, "could not record topic activity");
+    }
+
     // Record @handle mentions in the post body (spec §17.5). Best-effort.
     let _ = darkhold_db::community::record_mentions(
         state.db(),
@@ -1372,6 +1385,28 @@ async fn forum_search(
             })
         })
         .collect();
+
+    // A zero-result search is a demand signal, not an error (§35.5): it is the one place where a reader says, in their own
+    // words, what they wanted and did not get. Recorded only for a **free-text** query — `category:meta` returning nothing is
+    // a taxonomy question, not something anybody asked to read — and keyed by the normalized text so the same miss counts
+    // once however it is capitalized.
+    if items.is_empty() && !params.q.trim().is_empty() {
+        let normalized = params.q.trim().to_lowercase();
+        use sha2::Digest as _;
+        let mut hasher = sha2::Sha256::new();
+        hasher.update(normalized.as_bytes());
+        let hash = format!("{:x}", hasher.finalize());
+        if let Err(error) = darkhold_db::moderation::record_search_miss(
+            state.db(),
+            &hash,
+            params.q.trim(),
+        )
+        .await
+        {
+            // Best-effort: a search that found nothing is still a search that ran.
+            tracing::warn!(%error, "could not record a zero-result forum search");
+        }
+    }
 
     Ok(Json(serde_json::json!({ "items": items })))
 }

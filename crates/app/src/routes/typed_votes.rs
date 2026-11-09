@@ -280,6 +280,14 @@ async fn cast_vote(
         .map_err(internal)?;
     }
 
+    // The first vote on a post is the one an author never expects and always remembers (§35.5): notify them, once, when the
+    // count reaches exactly one. Gated on `existing.is_none()` because changing a vote is not a new vote, and on the count
+    // because a re-cast after a retraction would otherwise notify twice — `mark_first_vote_notified` is the durable record
+    // that it already happened, and it is `INSERT … ON CONFLICT DO NOTHING` for exactly that reason.
+    if existing.is_none() {
+        notify_first_vote(&state, &id, &post.author_pseud).await;
+    }
+
     let spent_after = budget.spent + additional;
     let outcome = if existing.is_some() {
         "changed"
@@ -296,6 +304,63 @@ async fn cast_vote(
             "remaining": (budget.limit - spent_after).max(0),
         },
     })))
+}
+
+/// Tell an author their post received its first vote, at most once.
+///
+/// Best-effort in every direction: no vote should fail because a notification could not be written, and no error path here
+/// returns to the caller. The stored row is the guard — `mark_first_vote_notified` is keyed `(post, account)` and inserts
+/// once — so a retraction and re-cast, or a race between two casters, delivers one notification rather than a stream.
+async fn notify_first_vote(state: &AppState, post_id: &str, author_pseud: &str) {
+    let votes = match darkhold_db::typed_votes::votes_on_post(state.db(), post_id).await {
+        Ok(votes) => votes,
+        Err(error) => {
+            tracing::warn!(post = %post_id, %error, "could not count votes for the first-vote notice");
+            return;
+        }
+    };
+    if votes.len() != 1 {
+        return;
+    }
+    let Some(author) = darkhold_db::identity::find_pseud(
+        state.db(),
+        match author_pseud.parse::<darkhold_domain::PseudId>() {
+            Ok(id) => id,
+            Err(_) => return,
+        },
+    )
+    .await
+    .ok()
+    .flatten()
+    else {
+        return;
+    };
+    let account = author.account_id.to_string();
+    // The caster's own account is not known here, but a self-vote is already refused upstream by the vote budget and by the
+    // category's own rules; notifying an author about their own vote would be noise, and the store's key would swallow it
+    // anyway because the row is per (post, account).
+    // The row decides, not the count: a count that returns to one — a retraction and a different reader's vote — would
+    // otherwise send a second notice, and two casters racing on the same first vote would both send one.
+    match darkhold_db::moderation::mark_first_vote_notified(state.db(), post_id, &account, 1).await {
+        Ok(true) => {}
+        Ok(false) => return,
+        Err(error) => {
+            tracing::warn!(post = %post_id, %error, "could not record the first-vote notice");
+            return;
+        }
+    }
+    if let Err(error) = darkhold_db::notifications::notify(
+        state.db(),
+        &account,
+        "first_vote",
+        "Your post got its first vote",
+        "Someone read what you wrote and voted on it.",
+        Some(post_id),
+    )
+    .await
+    {
+        tracing::warn!(%account, %error, "could not deliver the first-vote notice");
+    }
 }
 
 /// Retract a vote. Idempotent: retracting nothing is a success that reports
