@@ -7232,6 +7232,13 @@ pub const ROUTE_TABLE: &[RouteEntry] = &[
         audience: Audience::Anonymous,
     },
     RouteEntry {
+        file: "work_metrics.rs",
+        handler: "recompute",
+        method: "POST",
+        path: "/admin/works/{id}/metrics/recompute",
+        audience: Audience::Operator,
+    },
+    RouteEntry {
         file: "coordinates.rs",
         handler: "recompute",
         method: "POST",

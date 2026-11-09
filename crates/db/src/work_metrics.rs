@@ -546,7 +546,12 @@ pub async fn recompute_and_store(db: &Database, work_id: &str) -> Result<WorkMet
            bookmarks = excluded.bookmarks,
            collection_adds = excluded.collection_adds,
            reviews = excluded.reviews,
-           updated_at = now()",
+           -- `NOW_TEXT`, not `now()`. `updated_at` is TEXT on PostgreSQL too, and an assignment cast of a timestamptz to text
+           -- renders fractional seconds and an offset (`2026-11-09 10:39:05.963891+00`) — a shape no other row in the schema
+           -- has, and one that sorts after every correctly shaped timestamp at the same second because '+' beats end-of-string.
+           -- Nothing errors: the column simply lies about its order. The value is legal to read, which is exactly why this
+           -- needs an assertion and not a human eye.
+           updated_at = to_char(now() AT TIME ZONE 'UTC', 'YYYY-MM-DD HH24:MI:SS')",
     );
     match db.backend() {
         Backend::Sqlite => {

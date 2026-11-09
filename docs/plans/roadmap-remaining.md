@@ -1999,3 +1999,29 @@ count read `0` for a reason unrelated to the code — the keys now carry a uuid.
 
 Ratchet 53 -> 52.
 
+### A counter that drifts and a repair only `psql` could run (work_metrics.rs, 2026-11-09)
+
+`work_metrics::recompute_and_store` documented itself as "used by the seed script and as a repair tool" and had no caller in the
+binary. Work-card counters are maintained **incrementally** — one bump per event, in the code path that writes the event, and
+never by a trigger (the module header's reason: dialect parity). Incremental maintenance has one failure mode a materialized
+aggregate cannot escape: **drift**. A request that dies between the event write and the counter bump, an import that writes
+events directly, a producer that was wrong until it was fixed — each leaves the stored number permanently wrong on a page
+readers are looking at, and the repair was `psql`.
+
+`POST /admin/works/{id}/metrics/recompute` (operator) is that repair. It answers with the row it stored, so an operator sees
+what readers see rather than a description of what happened.
+
+**The test found a second defect, in the same function, that no reader would ever report.** `updated_at` is TEXT on both
+engines, and the PostgreSQL `ON CONFLICT` arm stamped it with a bare `now()` — a timestamptz assignment cast into text, which
+renders `2026-11-09 10:39:05.963891+00`: fractional seconds and an offset that no other row in the schema has, and that sorts
+*after* every correctly shaped timestamp at the same second because `+` beats end-of-string. Nothing errors; the column simply
+lies about its order. Fixed to the same `to_char(now() AT TIME ZONE 'UTC', 'YYYY-MM-DD HH24:MI:SS')` the INSERT arm uses, and
+the test asserts the shape (`len == 19`, separators at 4/7/10/13/16) rather than trusting the eye.
+
+Test `m70_13_work_metrics_recompute.rs`: a drifted row (999 views against two view events, which `get_metrics` serves as
+readers' truth), operator recompute answers 2, `get_metrics` afterwards reads 2 — stored, not previewed — and the stamp is in
+schema shape. Mutants red: the operator check removed (an ordinary account repairs), the store call replaced with
+`compute_live` (the repair is a preview), and the route answering at a path no client has.
+
+Ratchet 52 -> 51.
+
