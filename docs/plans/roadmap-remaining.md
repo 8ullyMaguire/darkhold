@@ -2290,3 +2290,10 @@ it into the wrong place would arm a brute-force block with an unowned threshold.
 
 Ratchet 45 -> 44.
 
+### Deploy record, seventh batch (2026-11-09)
+
+`0.1.0+3f116482` — the privacy queue and the completion door live. `GET /admin/privacy-requests` `401` anonymous, `POST
+/admin/privacy-requests/{id}/complete` `401` anonymous, `/health/ready` `200`, no panic. Backup
+`darkhold-20261109-161950-pre-privacy.dump` (3.5 GB, 392 `TABLE DATA`, `pg_restore -l` verified) in `/personal/backups/`. Build
+took ~22 minutes at load 44.
+
