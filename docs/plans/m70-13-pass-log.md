@@ -80,3 +80,37 @@ SIXTY-THIRD PASS (done) 2026-11-09: taxonomy::recompute_confidence 1 → 0 WITH 
 SIXTY-FOURTH PASS (done) 2026-11-09: admin::complete_privacy_request 1 → 0 and a queue door; ratchet 45 → 44. A privacy request a person could FILE and nobody could FINISH: POST /me/privacy-requests has existed since migration 0021 with GET beside it so a person watches their own list, but complete_privacy_request had NO CALLER and no door listed requests for an operator — so a delete request sat in pending forever, the person could see it never move, and finishing one took a psql statement nobody wrote down. A queue with no action, where the queue is a legal obligation. TWO OPERATOR DOORS through require_admin_of: GET /admin/privacy-requests?state=&limit= (every account, newest first; ?state=pending is the working queue, no filter is the audit — 'what did we ever promise' is a question a filter hides; limit clamped to 200 because a queue route is a paging device not a dump) and POST /admin/privacy-requests/{id}/complete {result_ref?}. DECISIONS: (a) ONLY PENDING COMPLETES — completed_at and result_ref are what make the row evidence and a second completion rewrites them to say whichever operator came last: 422 naming the state it is in; (b) an unknown id is 404 — a request id is not a capability and the queue is not an existence oracle; (c) the completion is dated in the answer as well as stored; (d) result_ref stays optional (a delete has nothing to point at, an export does) but an empty string is stored as NULL — a reference of '' would read as a reference. The per-account list stays per account: the operator queue is a SECOND FUNCTION not a flag, because a person's list must not answer 'what have others asked' and a bool parameter is how that check gets lost in a refactor. Mutants red: pending guard dropped (second call rewrites evidence); route reporting success whenever called (unknown id 200); queue ignoring the state filter (finished request stays queued); door refusing nobody (the asker closes their own case). Two re-aimed off non-compiling forms (if true leaves the rest unreachable under warnings=deny). NAMED NOT WIRED: admin::increment_abuse_counter is the other orphan in this file and a different shape — the counter has a reader (GET /admin/abuse-status/{key} reports blocked+count) and no writer, so blocked can never become true, but the missing half is a POLICY (which failures, what window, what threshold), not a door; wiring it wrong arms a brute-force block with an unowned threshold. m70_13_privacy_requests 1, milestone_19 7, route_inventory 5, both engines.
 
 SIXTY-FIFTH PASS (done) 2026-11-09: recommendation_slots::list_pending_wrangling 1 → 0 (deleted); ratchet 44 → 43. It was list_wrangling(db, None, limit) under a second name with NO caller, and the naming was worse than redundant: None already MEANS pending (WHERE status = COALESCE(?, 'pending')), so the alias claimed a filter list_wrangling applies anyway, and a reader of the two signatures would reasonably expect None to mean 'all states' — the one thing it does not do. The queue's one door is GET /admin/tag-wrangling/proposals, which passes the status through so a wrangler can ask approved or reverted too; no second doorway to keep. m29_transparency.rs 48 green after the deletion. LEFT WITH THE MISSING HALF NAMED: list_response_slots(pseud_id, request_id) would let a reader replay the hand a request served — nothing calls it, nothing has asked for it, the hand is shown once at the draw, and per-slot transparency ALREADY exists (GET /discovery/slots/{slot_id}/explanation), which is the question readers ask ('why did this one appear', not 'show me the four again'). A replay door is a product decision about how long a served hand stays addressable, not a wiring omission.
+
+## Pass 71 — one taste signal, and the engine it never ran on (2026-11-09)
+
+Two orphans in `taste_vectors.rs` and a defect found by running the survivor's PG arm.
+
+**Deleted: `taste_signal_for_works`.** It took `_db`, `_mode` ("egalitarian" | "taste_weighted" | "admin_only") and
+`_admin_weight`, built a SQL string it never executed, and returned `0.0` for every work id. A function that answers "no taste
+signal" to every question, with a signature promising three modes it ignored. Had it ever been wired, the gravity layer would
+have been inert by construction.
+
+**Deleted: `update_taste_vector_incremental`** and its private helper `fetch_user_rating_count`, plus
+`crates/db/tests/taste_vector_incremental.rs`. The product path is `recompute_all_taste_vectors` →
+`compute_and_store_taste_vector`; the incremental one was a second writer of `accounts.taste_vector` whose weight sum was "count
+of ratings" (its own comment says "simplified"), which drifts from the recompute. Its test file existed because the function
+once counted rows in `work_ratings`, a table no migration creates — the fix was real, and it proved the function *ran*, not that
+it *belonged*: its only caller was that test.
+
+**The invariant.** `crates/app/tests/m70_13_taste_signal_single_source.rs` fails if any `taste_signal*` symbol is defined
+outside `taste_signal.rs`, and fails if the discovery route stops assigning the shelf signal to its candidates.
+
+Two mutants, one of which found a weak test. The first version of the wiring assertion ("some app file calls
+`taste_signal::for_account`") **survived** a mutant that deleted the discovery call, because concierge calls the same function —
+"a caller exists" stayed true while the page that pulls on the signal stopped pulling. Rewritten to assert the assignment
+(`candidate.taste_signal = signals`), the same mutant now reddens with the right message. Recorded because a surviving mutant is
+a finding about the test, not a formality.
+
+**The defect the PG run found.** `taste_signal::for_account` bound `&str` against `shelves.account_id`, which is UUID on
+PostgreSQL: `operator does not exist: uuid = text`. Both call sites swallow the error (`_ => ranked`), so on the **deployed**
+engine every reader with a shelf got a failed query and a page that ran silently unpulled — the exact M64-09 defect ("a
+mechanically complete layer that is inert"), still live. Fixed with `$1::uuid`; the PG arm of `crates/db/tests/taste_signal.rs`
+was RED before the cast (2 failed, `uuid = text`) and green after. Both call sites now separate `Ok(None)` ("no shelf") from
+`Err` ("the query failed") and log the second, because swallowing it is what hid this for as long as it was hidden.
+
+Ratchet: 46 → 44. No route changed; the deploy is for the PG fix, not for the deletions.

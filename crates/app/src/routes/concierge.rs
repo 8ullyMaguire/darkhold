@@ -200,7 +200,11 @@ pub async fn render_queue(
                         candidate
                     })
                     .collect(),
-                _ => blended,
+                Ok(None) => blended,
+                Err(error) => {
+                    tracing::warn!(%error, "taste signal unavailable; serving the queue unpulled");
+                    blended
+                }
             }
         };
         let taste = &state.config().taste;

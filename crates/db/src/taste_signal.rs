@@ -62,9 +62,13 @@ pub async fn for_account(
              WHERE wt.work_id IN (SELECT li.work_id FROM shelf_items si \
                                     JOIN shelves s ON s.id = si.shelf_id \
                                     JOIN library_items li ON li.id = si.library_item_id \
-                                   WHERE s.account_id = $1)"
+                                   WHERE s.account_id = $1::uuid)"
         }
     };
+    // `$1::uuid`: `shelves.account_id` is UUID on PostgreSQL and the parameter arrives as `&str`, so an uncast bind is
+    // `operator does not exist: uuid = text`. The callers swallow the error (`_ => ranked`), which is how this survived:
+    // on the deployed engine every reader with a shelf got a failed query and a page that ran silently unpulled — the exact
+    // M64-09 defect, still live. Found by running this module's PG arm, which nothing had done since the fix landed.
     let shelf: Vec<String> = match db.backend() {
         Backend::Sqlite => {
             sqlx::query_scalar(shelf_sql)

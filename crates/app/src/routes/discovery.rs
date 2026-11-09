@@ -956,8 +956,14 @@ async fn get_discovery(
                         candidate
                     })
                     .collect(),
-                // No shelf, no signal, and the page runs unpulled rather than pulled by an invented zero.
-                _ => ranked,
+                // No shelf, no signal, and the page runs unpulled rather than pulled by an invented zero. The error arm is
+                // logged: `Ok(None)` is "no shelf", `Err` is "the query failed", and swallowing the second is how a `uuid = text`
+                // defect sat here invisibly — every reader with a shelf got an unpulled page and nothing said so.
+                Ok(None) => ranked,
+                Err(error) => {
+                    tracing::warn!(%error, "taste signal unavailable; serving the page unpulled");
+                    ranked
+                }
             }
         }
         None => ranked,
