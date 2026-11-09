@@ -20,7 +20,7 @@
 //! dialect and binds only `String`/`i64`, so rows decode identically on SQLite
 //! and PostgreSQL (ADR 0004).
 
-use anyhow::{Context, Result};
+use anyhow::Result;
 use serde_json::Value;
 use sqlx::FromRow;
 
@@ -2059,10 +2059,14 @@ pub async fn publication_events(
     limit: i64,
 ) -> Result<Vec<(String, String, String)>> {
     let sql = db.sql(
+        // `occurred_at` is second-resolution (a literal TEXT/RFC 3339 stamp), so two events in one second tie, and a tie
+        // with no second key makes the list shuffle between two identical requests. `id` is not chronological either, but it
+        // is *stable*: the same request answers the same order, and "which of these two came first" stays a question the
+        // data cannot answer rather than one the query answers wrongly.
         "SELECT id, action, occurred_at FROM publication_events
-          WHERE work_id = ? ORDER BY occurred_at DESC LIMIT ?",
+          WHERE work_id = ? ORDER BY occurred_at DESC, id DESC LIMIT ?",
         "SELECT id::text AS id, action, occurred_at FROM publication_events
-          WHERE work_id::text = ? ORDER BY occurred_at DESC LIMIT ?",
+          WHERE work_id::text = ? ORDER BY occurred_at DESC, id DESC LIMIT ?",
     );
     let rows: Vec<(String, String, String)> = match db.backend() {
         Backend::Sqlite => {
@@ -2087,38 +2091,6 @@ pub async fn publication_events(
 pub async fn revision_document(db: &Database, revision: RevisionId) -> Result<Option<Value>> {
     let revision = find_revision(db, revision).await?;
     Ok(revision.and_then(|revision| serde_json::from_str::<Value>(&revision.document_json).ok()))
-}
-
-/// Delete every row this module owns. Development seed reset only.
-pub async fn wipe_content(db: &Database) -> Result<()> {
-    let statements = [
-        "DELETE FROM outbox_events",
-        "DELETE FROM publication_events",
-        "DELETE FROM collaboration_invites",
-        "UPDATE units SET current_revision_id = NULL",
-        "DELETE FROM revisions",
-        "DELETE FROM units",
-        "DELETE FROM work_contributors",
-        "DELETE FROM works",
-    ];
-
-    for statement in statements {
-        match db.backend() {
-            Backend::Sqlite => {
-                sqlx::query(statement)
-                    .execute(db.sqlite_pool().expect("sqlite handle"))
-                    .await
-                    .with_context(|| format!("wiping with `{statement}`"))?;
-            }
-            Backend::Postgres => {
-                sqlx::query(statement)
-                    .execute(db.postgres_pool().expect("postgres handle"))
-                    .await
-                    .with_context(|| format!("wiping with `{statement}`"))?;
-            }
-        }
-    }
-    Ok(())
 }
 
 /// Contributors of a work, as the policy layer wants them.

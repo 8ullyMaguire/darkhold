@@ -1409,3 +1409,33 @@ Two decisions inside the demotion door:
 
 Ratchet 82 -> 79.
 
+### A history the table recorded and no page showed (content.rs, 2026-11-08)
+
+`publication_events` is written on every publish, update and revision restore. It was read by one listing's sort key and
+nowhere else — so the two facts a reader wants about a work, *when was this published* and *when did it last change*, were
+recorded and never shown: a work finished in 2019 and one finished yesterday rendered identically on their own records.
+
+`GET /works/{id}/history` answers both maxima (`work_freshness`) and the evidence behind them (`publication_events`), so
+"updated 3 days ago" can be clicked into and a restored revision is distinguishable from a fresh edit. Visibility is
+`read_work`'s decision, re-used: the same `reading_decision_publishing_metadata` call, so a stranger asking about a draft
+gets what reading it gives them, and the door is not an oracle for the existence of drafts.
+
+Two defects found on the way:
+
+* **`ORDER BY occurred_at DESC` with no second key.** `occurred_at` is second-resolution, so a publish and an edit in the same
+  second tie — and a tie with no second key makes the list shuffle between two identical requests. The store now orders by
+  `occurred_at DESC, id DESC`: `id` is not chronological, but it is stable, and "which of these two came first" stays a
+  question the data cannot answer rather than one the query answers wrongly. (The first version of the test failed exactly
+  there, on PostgreSQL, with publish-first in the same second.)
+* **`wipe_content` is deleted.** It `DELETE`s every work, unit, revision and publication event in the database, its doc comment
+  said "development seed reset only", nothing called it — not a route, not a test, not a script, not the spec — and tests get
+  fresh databases, so it bought nothing while remaining one import away from being called on a live instance. Deleting a
+  destructive primitive that no specification asks for is cheaper than guarding it.
+
+**A stale test in another crate**: `crates/db/tests/note_links.rs` still called `count_dead_for_work`, deleted three passes
+ago in the media/note-links pass. The `darkhold-app` suite never compiles `darkhold-db`'s tests, so nothing said so. The
+assertion is now derived from `list_for_live_revisions` — the same rows the monitor reads — and the whole `darkhold-db` test
+crate compiles again (`cargo test -p darkhold-db --no-run`).
+
+Ratchet 79 -> 76.
+

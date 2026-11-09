@@ -94,6 +94,7 @@ pub fn router() -> Router<AppState> {
         .route("/works/{id}/note-links", get(note_links_for_work))
         .route("/works/{id}/note-links/check", post(recheck_note_links))
         .route("/works/{id}/publish", post(publish_work))
+        .route("/works/{id}/history", get(work_history))
         // The "more like this" ladder (spec §11.5).
         .route("/works/{id}/more-like-this", get(more_like_this))
         // The author's explicit relations (spec §6.2).
@@ -3245,4 +3246,71 @@ mod tests {
         assert_eq!(parse_visibility("private"), None);
         assert_eq!(parse_visibility(""), None);
     }
+}
+
+/// How much publication history one response carries.
+///
+/// Fifty is a decade of chapter additions for a serial and a rounding error for a work edited daily; the point of the door is
+/// "when did this stop changing and when did it change last", and the list is the evidence for those two dates rather than a
+/// feed of everything that ever happened.
+const HISTORY_PAGE: i64 = 50;
+
+#[derive(Debug, Deserialize)]
+struct HistoryQuery {
+    #[serde(default)]
+    limit: Option<i64>,
+}
+
+/// The work's publication history (M70-13).
+///
+/// `publication_events` is written on every publish, update and revision restore and was read by nobody outside a listing's
+/// sort. The two facts a reader actually wants — *when was this published* and *when did it last change* — were in the table
+/// and on no page, so a work finished in 2019 and a work finished yesterday looked identical on its own record.
+///
+/// `work_freshness` answers those two maxima and `publication_events` is the evidence behind them: a client can show "updated
+/// 3 days ago" *and* what the update was, and an operator can tell a restored revision from a fresh edit.
+///
+/// **Visibility is `read_work`'s decision, not a second one.** The same `reading_decision_publishing_metadata` call decides
+/// whether the caller may see this work at all; a work the caller cannot read answers exactly what reading it answers, which
+/// is the whole point of one rule in one place (ADR 0003). A public reader gets the history of a published work because the
+/// history of a public work is public: it names actions and times, never a draft's existence.
+async fn work_history(
+    State(state): State<AppState>,
+    MaybeSession(session): MaybeSession,
+    Path(id): Path<String>,
+    Query(query): Query<HistoryQuery>,
+) -> ApiResult<Json<serde_json::Value>> {
+    let work_id = parse_work_id(&id)?;
+    let work = content::find_work(state.db(), work_id)
+        .await?
+        .ok_or_else(|| ApiError(AppError::NotFound { resource: "work" }))?;
+
+    let contributors = collaboration::contributors_for_work(state.db(), work_id).await?;
+    let actor = actor_for(session.as_ref());
+    if let Reading::Denied(error) =
+        reading_decision_publishing_metadata(&state, actor.as_ref(), &work, &contributors).await
+    {
+        return Err(ApiError(error));
+    }
+
+    let limit = query.limit.unwrap_or(HISTORY_PAGE).clamp(1, 100);
+    let freshness = content::work_freshness(state.db(), work_id).await?;
+    let events = content::publication_events(state.db(), work_id, limit).await?;
+
+    Ok(Json(serde_json::json!({
+        "work_id": work_id.to_string(),
+        // A work with no publish event has never been seen by a reader, and `published_at: null` alone would leave a client
+        // guessing whether that is a draft or a missing field.
+        "state": if freshness.published_at.is_some() { "published" } else { "never_published" },
+        "published_at": freshness.published_at,
+        "updated_at": freshness.updated_at,
+        "events": events
+            .into_iter()
+            .map(|(event_id, action, occurred_at)| serde_json::json!({
+                "id": event_id,
+                "action": action,
+                "occurred_at": occurred_at,
+            }))
+            .collect::<Vec<_>>(),
+    })))
 }
