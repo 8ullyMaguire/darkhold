@@ -2087,3 +2087,34 @@ the file, green both engines.
 
 Ratchet 51 -> 50.
 
+### A gate nobody could arm (exclusions, 2026-11-09)
+
+`permission::is_excluded` was read in exactly one place — Guard 2 of `fork_work`, *"this work is excluded from forking"* — and
+`permission::insert_exclusion_entry` had **no caller, no route, and no test fixture anywhere**. The registry was therefore empty
+on every instance, Guard 2 could never fire, and §33's exclusion was a comment with a SQL query behind it: protection in the code
+and in the spec, incapable of refusing anything. **A gate nobody can arm is worse than no gate** — it is read as coverage.
+
+`POST /admin/exclusions` arms it and `GET /admin/exclusions?target_type=&target_id=` reports what is armed; both operator-only
+through `require_admin_of(None)`, both `404` to a caller with no standing.
+
+Three decisions:
+
+* **A reason is required** — the table has a `reason` column that would otherwise hold empty strings forever, and an exclusion
+  nobody can explain is a decision nobody can review.
+* **A second registration of the same target is refused with a field**, `422` — the only `409` this error vocabulary carries is
+  `REVISION_CONFLICT`, and telling a client a version raced when the request never mentioned one is a worse error than a generic
+  status. A registry exists to answer *when* and *why*; two rows for one target make that answer ambiguous.
+* **`creator` is stored and named as unenforced.** `enforced_by` lists the gates that actually consult the target — `["fork_work"]`
+  for a work, `[]` for a creator — so an operator is never told an exclusion is in force when nothing reads it.
+
+The test proves the point the row exists for: a fork succeeds, the operator registers the exclusion, `is_excluded` answers true,
+and **the same fork now answers `422` naming the exclusion** — Guard 2 firing for the first time in the codebase. A refused
+registration leaves the registry alone; a stranger gets `404` on both doors.
+
+One assertion had to be rebuilt: step 6 reused the already-excluded parent, so the duplicate check answered `422` whether or not
+the reason was validated, and the mutant that deleted the reason check **survived**. Re-targeted at a fresh work — an assertion
+that cannot tell two refusals apart tests neither. Mutants red: the entry not written, the duplicate check removed, the reason
+check removed, `creator` claiming a gate, and the operator check removed.
+
+Ratchet 50 -> 49.
+

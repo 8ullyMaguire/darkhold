@@ -7239,6 +7239,20 @@ pub const ROUTE_TABLE: &[RouteEntry] = &[
         audience: Audience::Anonymous,
     },
     RouteEntry {
+        file: "exclusions.rs",
+        handler: "register",
+        method: "POST",
+        path: "/admin/exclusions",
+        audience: Audience::Operator,
+    },
+    RouteEntry {
+        file: "exclusions.rs",
+        handler: "read",
+        method: "GET",
+        path: "/admin/exclusions",
+        audience: Audience::Operator,
+    },
+    RouteEntry {
         file: "work_metrics.rs",
         handler: "recompute",
         method: "POST",

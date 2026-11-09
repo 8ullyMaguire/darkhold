@@ -237,6 +237,54 @@ pub async fn lineage_edges_for_work(db: &Database, work_id: &str) -> Result<Vec<
 }
 
 /// Insert an exclusion registry entry.
+/// The registry entry for one target, if there is one.
+///
+/// `is_excluded` answers the boolean a guard needs; this answers the *record* — when, why, and by whom — which is what an
+/// operator asks after the fact. Both read the same table and the same columns, so a row can never be visible to one and not the
+/// other.
+pub async fn exclusion_for(
+    db: &Database,
+    target: ExclusionTarget,
+    target_id: &str,
+) -> Result<Option<ExclusionEntry>> {
+    let sql = db.sql(
+        "SELECT id, target_type, target_id, reason, created_by, created_at
+           FROM exclusion_registry WHERE target_type = ? AND target_id = ?
+          ORDER BY created_at LIMIT 1",
+        "SELECT id::text, target_type, target_id::text, reason, created_by::text, created_at
+           FROM exclusion_registry WHERE target_type = $1 AND target_id::text = $2
+          ORDER BY created_at LIMIT 1",
+    );
+    let row: Option<(String, String, String, String, String, String)> = match db.backend() {
+        Backend::Sqlite => {
+            sqlx::query_as(&sql)
+                .bind(target.as_str())
+                .bind(target_id)
+                .fetch_optional(db.sqlite_pool().expect("sqlite handle"))
+                .await?
+        }
+        Backend::Postgres => {
+            sqlx::query_as(&sql)
+                .bind(target.as_str())
+                .bind(target_id)
+                .fetch_optional(db.postgres_pool().expect("postgres handle"))
+                .await?
+        }
+    };
+    Ok(row.map(|(id, kind, target_id, reason, created_by, created_at)| ExclusionEntry {
+        id,
+        target_type: if kind == "creator" {
+            ExclusionTarget::Creator
+        } else {
+            ExclusionTarget::Work
+        },
+        target_id,
+        reason,
+        created_by,
+        created_at,
+    }))
+}
+
 pub async fn insert_exclusion_entry(db: &Database, entry: &ExclusionEntry) -> Result<()> {
     let sql = db.sql(
         "INSERT INTO exclusion_registry (id, target_type, target_id, reason, created_by, created_at) \

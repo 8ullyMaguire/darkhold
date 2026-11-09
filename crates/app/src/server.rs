@@ -1210,6 +1210,8 @@ pub fn build_router(state: AppState) -> Router {
         .merge(routes::coordinates::router())
         // M70-13: repairing a work card's counters. Incremental bumps drift; this is the operator's recompute.
         .merge(routes::work_metrics::router())
+        // M70-13: the exclusion registry a fork guard reads and nothing could write.
+        .merge(routes::exclusions::router())
         .merge(routes::canon::router())
         .merge(routes::preservation::router())
         // M16-06: the sandbox's only caller. Inside the `/api/v1` nest, not beside `facets`: running untrusted code needs the session
