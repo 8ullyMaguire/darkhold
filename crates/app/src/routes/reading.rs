@@ -39,7 +39,7 @@ use darkhold_db::positivity;
 use darkhold_db::reading::{self, HistoryRow, Note, Rating, Review};
 use darkhold_domain::positivity::{effective, sender_receipt};
 use darkhold_domain::reading::{resolve_progress, ProgressResolution, ReadingPosition};
-use darkhold_domain::{AppError, WorkId};
+use darkhold_domain::{AppError, PseudId, WorkId};
 use serde::{Deserialize, Serialize};
 
 use crate::auth::{MaybeSession, RequirePseud, RequireSession};
@@ -63,6 +63,12 @@ pub fn router() -> Router<AppState> {
         .route(
             "/works/{id}/reviews",
             get(list_reviews).put(upsert_review).delete(delete_review),
+        )
+        // §49.4 clause 2 — the reader's own consent to be quoted. Pseud-scoped, like the review it is about: the consent is
+        // the reviewer's to give, and a work's author cannot give it for them.
+        .route(
+            "/works/{id}/reviews/quote-consent",
+            get(get_quote_consent).put(put_quote_consent),
         )
         .route("/notes", get(list_notes).put(upsert_note))
         .route("/notes/{id}", delete(delete_note))
@@ -725,6 +731,96 @@ async fn list_reviews(
         // the shape's sake, as spec §3.3 requires of every collection.
         next_cursor: None,
     }))
+}
+
+/// Whether the caller's own note on this work may be quoted beside the summary (§49.4 clause 2).
+#[derive(Debug, Serialize)]
+struct QuoteConsentView {
+    /// The review the consent is about.
+    review_id: String,
+    /// The work it is about.
+    work_id: String,
+    /// Whether the note may be quoted. Defaults to `false`: consent is given, never assumed.
+    allow_quote: bool,
+}
+
+/// The caller's consent, for the caller's own note.
+///
+/// Separate door from the review itself on purpose. Consent is a thing a reader changes their mind about without touching a
+/// word they wrote, and making it a field of the review body would turn "stop quoting me" into an edit that also re-publishes
+/// the note and notifies the author.
+async fn get_quote_consent(
+    State(state): State<AppState>,
+    RequirePseud { pseud_id, .. }: RequirePseud,
+    Path(id): Path<String>,
+) -> ApiResult<Json<QuoteConsentView>> {
+    let (work_id, review_id, allow_quote) =
+        own_review_consent(&state, pseud_id, &id).await?;
+    Ok(Json(QuoteConsentView {
+        review_id,
+        work_id: work_id.to_string(),
+        allow_quote,
+    }))
+}
+
+/// Grant or withdraw that consent.
+///
+/// The row is found through `(pseud, work)`, so a caller can only ever change the consent on **their own** note: there is no
+/// review id in the URL to guess, and `set_quote_consent` is never reached with an id the caller did not prove. A stranger
+/// asking about a note they did not write gets `404` — the same answer as a work they cannot see, because a `403` would
+/// confirm that somebody else's note exists and is quotable.
+async fn put_quote_consent(
+    State(state): State<AppState>,
+    RequirePseud { pseud_id, .. }: RequirePseud,
+    Path(id): Path<String>,
+    Json(request): Json<QuoteConsentRequest>,
+) -> ApiResult<Json<QuoteConsentView>> {
+    let (work_id, review_id, _) = own_review_consent(&state, pseud_id, &id).await?;
+    // `false` here means the row vanished between the read and the write — the erasure of a note in flight. Reporting success
+    // would promise a setting that does not exist.
+    if !darkhold_db::rec_blurbs::set_quote_consent(state.db(), &review_id, request.allow_quote).await? {
+        return Err(ApiError(AppError::NotFound {
+            resource: "review",
+        }));
+    }
+    Ok(Json(QuoteConsentView {
+        review_id,
+        work_id: work_id.to_string(),
+        allow_quote: request.allow_quote,
+    }))
+}
+
+/// `{ "allow_quote": bool }` — the only field, and named after the column so a client reading the schema and a client reading
+/// the migration agree.
+#[derive(Debug, Deserialize)]
+struct QuoteConsentRequest {
+    /// Whether the note may be quoted.
+    allow_quote: bool,
+}
+
+/// The caller's review of one work, with its current consent. `404` when the caller has written no note there — a consent
+/// setting for a note that does not exist is not a thing to report, let alone create.
+async fn own_review_consent(
+    state: &AppState,
+    pseud_id: PseudId,
+    id: &str,
+) -> ApiResult<(WorkId, String, bool)> {
+    let work_id: WorkId = id
+        .parse()
+        .map_err(|_| ApiError(AppError::NotFound { resource: "work" }))?;
+    let review = reading::review_for(state.db(), pseud_id, work_id)
+        .await?
+        .ok_or_else(|| ApiError(AppError::NotFound {
+            resource: "review",
+        }))?;
+    // `quote_consent` reports `None` for a row that no longer exists; treated as the same `404` as "you have not written one",
+    // because a client cannot act on the difference and the second answer would confirm a deleted note's history.
+    let allow_quote = darkhold_db::rec_blurbs::quote_consent(state.db(), &review.id)
+        .await?
+        .ok_or_else(|| ApiError(AppError::NotFound {
+            resource: "review",
+        }))?;
+    Ok((work_id, review.id, allow_quote))
 }
 
 async fn upsert_review(

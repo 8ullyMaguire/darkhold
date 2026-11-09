@@ -1896,3 +1896,35 @@ the door not mounted, the `require_admin_of` gate removed (a reader then reads t
 
 Ratchet 57 -> 56.
 
+### A privacy default standing in for a missing button (rec_blurbs.rs, 2026-11-09)
+
+§49.4 clause 2 says only notes the work's author has allowed may be quoted. The module's own header corrects the spec: the note
+is the *reader's* words about the author's work, so the consent is the reader's, and `review.allow_quote` defaults to `false` —
+"otherwise this migration would retroactively publish every rec note ever written, which is the exact failure the clause exists
+to prevent".
+
+`top_rec_blurb` filters on it and is wired into the public work page. `rec_blurbs::quote_consent` and
+`rec_blurbs::set_quote_consent` — the reader's read and write — had **no caller**. So the only reachable state of clause 2 was
+"quoted nobody": every second summary on the instance was suppressed, permanently, by a privacy default standing in for a
+missing button.
+
+Two doors, both pseud-scoped and both keyed on the **work** rather than on a review id the client would have to guess:
+
+* `GET /works/{id}/reviews/quote-consent` → `{review_id, work_id, allow_quote}`
+* `PUT` the same with `{allow_quote}`
+
+A caller can therefore only ever change the consent on their own note, and a stranger gets `404` — not `403`, which would
+confirm that somebody else's note exists and is quotable.
+
+`m70_13_quote_consent.rs` walks the whole clause: consent is off by default and nothing is shown; granting it makes the note
+the work's second summary, attributed, excerpted from the reader's own sentence, naming the note it quotes; withdrawing it
+removes the summary while leaving the review itself in the list; **consent is not publication** — a private note whose writer
+has consented is still not quotable, because those are two decisions; and a stranger cannot consent on another person's note.
+Mutants red: the consent filter dropped, the publication filter dropped, and the write inverted (withdrawal granting).
+
+One test bug worth recording: the first version of the test read `rec_blurb` off the **author's** view of the work, where the
+field does not exist. Every assertion about "nothing is shown" passed vacuously and the granting step failed for the wrong
+reason. The second summary is published on the public view; a test for a public surface has to read the public surface.
+
+Ratchet 56 -> 54.
+

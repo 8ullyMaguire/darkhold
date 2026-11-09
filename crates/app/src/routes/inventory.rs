@@ -420,6 +420,20 @@ pub const ROUTE_TABLE: &[RouteEntry] = &[
         audience: Audience::Public,
     },
     RouteEntry {
+        file: "reading.rs",
+        handler: "get_quote_consent",
+        method: "GET",
+        path: "/works/{id}/reviews/quote-consent",
+        audience: Audience::Pseudonymous,
+    },
+    RouteEntry {
+        file: "reading.rs",
+        handler: "put_quote_consent",
+        method: "PUT",
+        path: "/works/{id}/reviews/quote-consent",
+        audience: Audience::Pseudonymous,
+    },
+    RouteEntry {
         file: "succession.rs",
         handler: "list_redirects",
         method: "GET",
