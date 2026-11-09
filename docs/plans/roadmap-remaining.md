@@ -2231,3 +2231,21 @@ for not compiling (unused binding under `build.warnings` deny) — a mutant that
 
 Ratchet 46 -> 45.
 
+### Deploy record, sixth batch (2026-11-09)
+
+The tag-vote doors live. `/meta` `build 0.1.0+aaebc98a`, `GET`/`PUT /works/{id}/tags/{node}/vote` `401` anonymous, `POST
+/admin/taxonomy/confidence/recompute` `401` anonymous, `/health/ready` `200`, no panic. Backup `darkhold-20261109-152456-pre-tagvotes.dump`
+(3.5 GB, 392 `TABLE DATA`, `pg_restore -l` verified).
+
+Two operational facts worth keeping:
+
+* **the database is `darkhold` on the host's PostgreSQL, not `lorehaven`** — `pg_dump lorehaven` fails with "database does not
+  exist", which is how this was found again; the product is darkhold and the DB name matches it;
+* **`/tmp` on the host is a 4 GB tmpfs and it was full** (100%, 4.0G/4.0G), so a dump written there died with "No space left on
+  device". Dumps go to `/personal/backups/`, which has 1.5 TB free.
+
+**The deploy tree is one commit ahead of this repo**: `aaebc98a` ("logging: the modlog's rules are `polaris-ledger`'s now, and
+`into_entry` only resolves"), which exists on no remote and is not this session's work. It is an ancestor relationship — my
+`7f42f0f6` is below it, so the deployed binary contains this pass — but the tree and `master` are no longer the same commit, and
+that divergence is recorded rather than reset away.
+
