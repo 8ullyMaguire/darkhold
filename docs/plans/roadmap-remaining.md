@@ -1616,3 +1616,25 @@ SQLite-only suites could not see it. `$1::uuid` now.
 
 Ratchet 68 -> 66.
 
+### A question the module refused, citing a mechanism nobody built (marked_for_later.rs, 2026-11-08)
+
+`marked_for_later` had three wired doors and one orphan: `is_marked(db, account, work) -> bool`. The module comment explained
+the orphan by naming the mechanism that answered the question instead:
+
+> Asking "is this work in *my* queue" is answered by `WORK_STATE` on the work page, and a per-work read would invite a caller
+> to ask about somebody else's queue with the same URL shape.
+
+`WORK_STATE` does not exist — not in the Rust tree, not in the frontend, not anywhere but that sentence. So the question had
+no answer on any surface, and the function written to answer it had no caller. A client could only fetch the whole queue and
+search it: a reader with two hundred saved works pays that on every work page.
+
+`GET /me/marked-for-later/{work}` now answers in one call. It lives under `/me/` rather than at `/works/{id}/...` because the
+answer is a fact about the caller, not the work — the same work is in one reader's queue and not another's. The old objection
+("a per-work path invites a caller to ask about somebody else's queue") was about the path's meaning, not its safety: the
+account comes from the session either way.
+
+**A refusal is only a decision when the thing it points at exists.** This one pointed at a constant that was never written;
+the next pass over a comment like this should grep for the name before trusting it, which is what found this.
+
+Ratchet 66 -> 65.
+

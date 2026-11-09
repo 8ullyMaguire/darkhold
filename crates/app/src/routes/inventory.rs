@@ -1632,6 +1632,15 @@ pub const ROUTE_TABLE: &[RouteEntry] = &[
     },
     RouteEntry {
         file: "marked_for_later.rs",
+        handler: "state_of_one",
+        method: "GET",
+        path: "/me/marked-for-later/{id}",
+        // `RequireSession` and the account from the session, never from the path: the same work is in one reader's queue
+        // and not another's, so the answer is about the caller.
+        audience: Audience::Authenticated,
+    },
+    RouteEntry {
+        file: "marked_for_later.rs",
         handler: "queue",
         method: "GET",
         path: "/me/marked-for-later",
