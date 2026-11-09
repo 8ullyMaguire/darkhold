@@ -294,24 +294,49 @@ pub async fn add_mirror_link(
     .await
     .map_err(|e| ApiError(AppError::Internal(e)))?;
 
-    // Award curator credits for mirror add
-    media_resilience::insert_curator_reward(
-        state.db(),
-        &account_id,
-        darkhold_domain::media_resilience::CuratorAction::MirrorAdd,
-        Some(&reference_id),
-        Some(&link_id),
-        15,
-    )
-    .await
-    .map_err(|e| ApiError(AppError::Internal(e)))?;
+    // **The daily cap is the half of the bounty rule that was never applied.** The config declared
+    // `media_resilience.daily_credits_cap` (500), `caps::within_daily_cap` was a tested predicate, and
+    // `sum_curator_rewards_today` was a query — and nothing in the award path read any of the three, so the same mirror added
+    // a hundred times paid a hundred times. A cap of `0` or less means "no cap" rather than "nobody earns": a limit that
+    // silently zeroes the feature is a worse default than no limit, and 500 is what the config ships.
+    let cap = state.config().media_resilience.daily_credits_cap;
+    let bounty = state.config().media_resilience.mirror_add_credits;
+    let awarded = if cap <= 0 {
+        bounty
+    } else {
+        let earned = media_resilience::sum_curator_rewards_today(state.db(), &account_id)
+            .await
+            .map_err(|e| ApiError(AppError::Internal(e)))?;
+        if !darkhold_domain::caps::within_daily_cap(earned, cap) {
+            0
+        } else {
+            bounty.min(cap - earned)
+        }
+    };
+
+    // The link is kept whether or not it pays: the correction is worth having after the cap, and refusing the contribution
+    // to enforce an accounting rule would be the wrong trade. The response says which happened, so a curator who is not
+    // being paid can see that instead of guessing.
+    if awarded > 0 {
+        media_resilience::insert_curator_reward(
+            state.db(),
+            &account_id,
+            darkhold_domain::media_resilience::CuratorAction::MirrorAdd,
+            Some(&reference_id),
+            Some(&link_id),
+            awarded,
+        )
+        .await
+        .map_err(|e| ApiError(AppError::Internal(e)))?;
+    }
 
     Ok((
         StatusCode::CREATED,
         Json(json!({
             "id": link_id,
             "status": "pending_verification",
-            "credits_awarded": 15,
+            "credits_awarded": awarded,
+            "credits_capped": awarded < bounty,
         })),
     ))
 }
@@ -336,11 +361,81 @@ pub fn router() -> Router<AppState> {
             post(add_mirror_link),
         )
         .route("/admin/notes/links/sweep", post(sweep_note_links))
+        .route("/admin/media/references/at-risk", get(at_risk_references))
         .route("/media/match-proposals", get(list_match_proposals))
         .route(
             "/media/match-proposals/{proposal_id}",
-            post(resolve_match_proposal),
+            get(get_match_proposal).post(resolve_match_proposal),
         )
+}
+
+/// The references that need another mirror, which is what the bounties are for.
+///
+/// `find_references_below_threshold` had no caller, so the queue the curator bounties are paid against did not exist: a
+/// curator could only find an under-mirrored reference by stumbling into it. The threshold is the spec's own number (a
+/// reference with fewer than three healthy links is under-mirrored) and is a parameter because the honest answer to "how
+/// many is enough" changes with the archive, not with the code.
+#[derive(Debug, Deserialize)]
+struct AtRiskQuery {
+    #[serde(default)]
+    threshold: Option<i64>,
+    #[serde(default)]
+    limit: Option<i64>,
+}
+
+async fn at_risk_references(
+    State(state): State<AppState>,
+    RequireSession(user): RequireSession,
+    Query(query): Query<AtRiskQuery>,
+) -> ApiResult<Json<Value>> {
+    require_operator(&state, &user).await?;
+    let threshold = query.threshold.unwrap_or(3).clamp(0, 50);
+    let limit = query.limit.unwrap_or(20).clamp(1, 100);
+    let rows = media_resilience::find_references_below_threshold(state.db(), threshold, limit)
+        .await
+        .map_err(|e| ApiError(AppError::Internal(e)))?;
+    Ok(Json(json!({
+        "threshold": threshold,
+        "items": rows,
+    })))
+}
+
+/// One match proposal, with the reason it was resolved the way it was.
+///
+/// The list route answers "what is waiting"; this answers "what happened to the one I asked about", which is the only
+/// record of a rejected merge — a merge that was proposed and refused leaves no other trace.
+async fn get_match_proposal(
+    State(state): State<AppState>,
+    RequireSession(user): RequireSession,
+    Path(proposal_id): Path<String>,
+) -> ApiResult<Json<Value>> {
+    // Both refusals are the same answer: a proposal id is a capability, not a public identifier, and a malformed one reads
+    // exactly like somebody else's.
+    require_operator(&state, &user).await?;
+    let Some(proposal) = media_resilience::find_match_proposal(state.db(), &proposal_id)
+        .await
+        .map_err(|e| ApiError(AppError::Internal(e.into())))?
+    else {
+        return Err(ApiError(AppError::NotFound {
+            resource: "match_proposal",
+        }));
+    };
+    let body = json!({
+        "id": proposal.id,
+        "candidate_reference_id": proposal.candidate_reference_id,
+        "existing_reference_id": proposal.existing_reference_id,
+        "content_hash": proposal.content_hash,
+        "perceptual_hash": proposal.perceptual_hash,
+        "hamming_distance": proposal.hamming_distance,
+        "match_confidence": proposal.match_confidence,
+        "status": proposal.status,
+        "resolved_by": proposal.resolved_by,
+        "resolution_note": proposal.resolution_note,
+        "created_at": proposal.created_at,
+        "updated_at": proposal.updated_at,
+        "resolved_at": proposal.resolved_at,
+    });
+    Ok(Json(body))
 }
 
 #[derive(Debug, Deserialize)]

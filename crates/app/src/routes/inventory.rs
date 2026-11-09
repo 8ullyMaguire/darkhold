@@ -5521,6 +5521,20 @@ pub const ROUTE_TABLE: &[RouteEntry] = &[
     },
     RouteEntry {
         file: "media_resilience.rs",
+        handler: "at_risk_references",
+        method: "GET",
+        path: "/admin/media/references/at-risk",
+        audience: Audience::Authenticated,
+    },
+    RouteEntry {
+        file: "media_resilience.rs",
+        handler: "get_match_proposal",
+        method: "GET",
+        path: "/media/match-proposals/{proposal_id}",
+        audience: Audience::Authenticated,
+    },
+    RouteEntry {
+        file: "media_resilience.rs",
         handler: "get_media_reference",
         method: "GET",
         path: "/media/references/{reference_id}",

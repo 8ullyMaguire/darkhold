@@ -48,19 +48,6 @@ pub struct AvailabilityLinkRow {
     pub updated_at: String,
 }
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, FromRow)]
-pub struct WorkMediaReference {
-    pub id: String,
-    pub work_id: String,
-    pub unit_id: Option<String>,
-    pub media_reference_id: String,
-    pub context: String,
-    pub display_url: String,
-    pub author_note: Option<String>,
-    pub inserted_at: String,
-    pub deleted_at: Option<String>,
-}
-
 /// A media reference as the reader sees it: link counts + best URL.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct WorkMediaReferenceView {
@@ -484,41 +471,9 @@ pub async fn insert_work_media_reference(
     Ok(())
 }
 
-pub async fn find_work_media_references(
-    db: &Database,
-    work_id: &str,
-) -> Result<Vec<WorkMediaReference>> {
-    let sql = sql_owned(
-        db,
-        "SELECT id, work_id, unit_id, media_reference_id, context, display_url,
-                author_note, inserted_at, deleted_at
-         FROM work_media_references
-         WHERE work_id = ? AND deleted_at IS NULL"
-            .to_string(),
-        // `WorkMediaReference` is all String, so the three UUIDs and the two
-        // TIMESTAMPTZs are cast here as well as in the SQLite arm above.
-        "SELECT id::text, work_id::text, unit_id::text, media_reference_id::text,
-                context, display_url, author_note,
-                inserted_at::text, deleted_at::text
-         FROM work_media_references
-         WHERE work_id = $1::uuid AND deleted_at IS NULL"
-            .to_string(),
-    );
-    Ok(match db.backend() {
-        Backend::Sqlite => {
-            sqlx::query_as::<_, WorkMediaReference>(&sql)
-                .bind(work_id)
-                .fetch_all(db.sqlite_pool().expect("sqlite"))
-                .await?
-        }
-        Backend::Postgres => {
-            sqlx::query_as::<_, WorkMediaReference>(&sql)
-                .bind(work_id)
-                .fetch_all(db.postgres_pool().expect("postgres"))
-                .await?
-        }
-    })
-}
+// `find_work_media_references` used to sit here: a narrower twin of `list_work_media_references`, which is what the
+// `GET /works/{id}/media` route calls and which answers the same rows plus each link's health and best available mirror.
+// Two functions answering one question is how the two answers drift, so this one is deleted rather than wired (M70-13).
 
 // ---------------------------------------------------------------------------
 // §32.7.9 Import integration — media rescue during imports
@@ -801,10 +756,16 @@ pub async fn find_references_below_threshold(
          ORDER BY m.created_at ASC
          LIMIT ?"
             .to_string(),
-        "SELECT m.id, m.perceptual_hash, m.content_hash, m.media_kind, m.first_seen_at,
+        // Every column that is not already TEXT is cast, because `MediaReference` is all `String` and this query had no
+        // caller until the at-risk queue existed — so its PostgreSQL arm had never run. `id` is UUID, the three timestamps
+        // are TIMESTAMPTZ and `content_notes` is JSONB; decoding any of them into `String` is a 500 on the first request
+        // (M70-13).
+        "SELECT m.id::text, m.perceptual_hash, m.content_hash, m.media_kind,
+                to_char(m.first_seen_at AT TIME ZONE 'UTC', 'YYYY-MM-DD\"T\"HH24:MI:SS\"Z\"') AS first_seen_at,
                 CAST(m.width AS BIGINT), CAST(m.height AS BIGINT), CAST(m.duration_seconds AS BIGINT), m.format, CAST(m.file_size_bytes AS BIGINT),
-                m.content_notes, m.curator_verified,
-                m.created_at, m.updated_at
+                m.content_notes::text, m.curator_verified,
+                to_char(m.created_at AT TIME ZONE 'UTC', 'YYYY-MM-DD\"T\"HH24:MI:SS\"Z\"') AS created_at,
+                to_char(m.updated_at AT TIME ZONE 'UTC', 'YYYY-MM-DD\"T\"HH24:MI:SS\"Z\"') AS updated_at
          FROM media_references m
          LEFT JOIN (
              SELECT media_reference_id, COUNT(*) AS healthy_count
@@ -2775,11 +2736,17 @@ pub async fn find_match_proposal(
         }
         Backend::Postgres => {
             let row = sqlx::query(
+                // `resolved_by` is UUID and `MatchProposal` holds a `String`, so it is cast. The three timestamps are NOT:
+                // this table declares them TEXT (the RFC 3339 convention, 0060), unlike `media_references` in the same file,
+                // whose timestamps are TIMESTAMPTZ — `to_char(... AT TIME ZONE ...)` here raises
+                // `function pg_catalog.timezone(unknown, text) does not exist`. Read the column, not the neighbour.
+                //
+                // The detail read is new (M70-13) and this arm had never run: the list route selects its own columns, so a
+                // defect here was invisible until a caller asked for one proposal by id.
                 "SELECT id::text, candidate_reference_id::text,
                         existing_reference_id::text, content_hash, perceptual_hash,
                         hamming_distance::int, match_confidence::float8, status,
-                        resolved_by, resolution_note, created_at::text,
-                        updated_at::text, resolved_at::text
+                        resolved_by::text, resolution_note, created_at, updated_at, resolved_at
                    FROM media_match_proposals WHERE id = $1::uuid",
             )
             .bind(proposal_id)
