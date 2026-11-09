@@ -1684,3 +1684,61 @@ across all of an author's works, and "did anyone read *this* one" has no other s
 
 Ratchet 62 -> 61.
 
+### The batched Batch-1 deploy, executed (2026-11-08)
+
+The batching decision said one deploy, one `pg_dump`, one verification pass for every live-surface change since M45-14. It
+ran tonight, and it earned its keep by finding three live defects nothing else could see.
+
+| step | what happened |
+|---|---|
+| backup | `darkhold-20261109-040927-pre-batch1.dump` — `pg_dump -Fc -Z6`, 3.5 GB, 392 `TABLE DATA` entries, verified with `pg_restore -l`. Written to `/var/tmp` because `postgres` cannot traverse `~`; moved to `~/backups` (`/mnt/disk-important`) afterwards. The first attempt wrote to `/tmp`, which is a 4 GB tmpfs and was 100 % full. |
+| migrations | `0200_payment_event_key` applied — 197 applied, 0 pending. Before the new binary existed the old one reported "0 pending": `migrate --status` reads the migration list **compiled into the binary**, so a stale binary cannot see a pending migration. |
+| build | `cargo build --release` on the host, `CARGO_TARGET_DIR=~/.cargo-target/darkhold`; `strings` proof that the new route literals are in the artefact. |
+| result | darkhold `:8081` on `d15293f2`, then the audience pass. |
+
+Verified live after the restart:
+
+* `/api/v1/meta` carries `payments {window_days: 90, processor_fee_min_minor: null, processor_fee_max_minor: null,
+  processor_wired: false}` — nulls and not zeros, which is the contract: "no processor has charged us anything" is not
+  "processing is free".
+* `/works/{id}/canon` answers `state: "unmeasured"` for a real id; `/discover/canon-blind` answers `{items: [], state:
+  "unmeasured"}` rather than an empty page pretending to be a result.
+* `/works/{id}/assertion` answers `asserted: false` for a work nobody has asserted about — not a 404.
+* `/works/{id}/history` refuses exactly where `GET /works/{id}` refuses: the same id gives 200/200 or 404/404, never a
+  disagreement, which is the property that makes the history door safe to publish.
+* `/library/unfinished` and `/me/marked-for-later/{id}` answer `401` to an anonymous caller — present, and session-gated.
+* the worker's "the experiment snapshot could not be written" WARN, which fired every thirty seconds on the old binary, is
+  replaced by `INFO ... the experiment snapshot for a completed day was written written=0` — see the snapshot commit.
+
+**Three live defects the deploy surfaced, each fixed in its own commit:**
+
+1. Every experiment snapshot failed on PostgreSQL (`CASE WHEN ac.is_guest` over a BIGINT) and the suite that covers the
+   module had never run its PostgreSQL arm, because its fixture used `datetime('now')`. Exposure measurement was reading a
+   table that had never been written on the deployed engine.
+2. Saving reading progress returned 500 on PostgreSQL for any client that did not name a revision — the default path —
+   because `current_revision_of_unit` compared a UUID column to a text parameter.
+3. Half the imported catalogue (27,464 of 55,913 published works) carries `body_audience = 'trust_at_least:2'`, the mirror's
+   reading of AO3's "registered users only". Twelve of this instance's twenty accounts are trust 1, so they — and every
+   anonymous reader — get `404` for those works, by §7.7.3's design (a gated body answers as an absent one). **Not fixed
+   here, and deliberately:** the in-tree spelling for "registered users" is `accounts_only` ("any signed-in account, at trust
+   level 0"), so `trust_at_least:2` is narrower than the flag it mirrors, but rewriting 27 k rows of live policy on the
+   strength of an out-of-tree importer's likely intent is the operator's decision, not a loop's. Recorded as the next open
+   question instead.
+
+### A documented duplicate of a write (reading_goal.rs, 2026-11-08)
+
+`reading_goal::record_unit_read` inserted into `reading_unit_read` — the record that makes the `chapters` and `words` goals
+countable — and its own doc said where the row really comes from: "`reading::save_progress` writes it inside the same
+transaction as the progress upsert". So the module exported a second writer of the same fact, taking a `&Database` and
+opening its own statement, and nothing called it.
+
+Deletion rather than wiring, because the function **cannot be used correctly**: the one caller that needs it needs the insert
+inside `save_progress`'s transaction, and a standalone writer invites a second, non-atomic one — a progress row that lands
+while its chapter record does not is a goal that silently under-counts, which is the exact failure the inline comment
+already guards against. The knowledge moved into the module doc, and `save_progress` now says it is the only writer.
+
+The general shape, worth naming because it recurs: **a function that duplicates a write is not debt that wiring can clear.**
+Its existence is the defect.
+
+Ratchet 61 -> 60.
+

@@ -3,6 +3,15 @@
 //! One row per pseud, and the absence of a row is the absence of a goal. Progress is derived from
 //! `reading_progress`, `chapter_revisions` and `reading_status` on every read rather than accumulated
 //! in a counter, so a reader who clears their history (§9.6) sees their progress go with it.
+//!
+//! `reading_unit_read` — the per-chapter record that makes the `chapters` and `words` goals countable — is written by
+//! `reading::save_progress`, inline, inside the same transaction as the progress upsert: a progress row that landed while
+//! its chapter record did not is a goal that silently under-counts.
+//!
+//! This module used to export `record_unit_read` as well, taking a `&Database` and opening its own statement. Nothing called
+//! it — `save_progress` already had the insert — and it could not have been used correctly: the one caller that needs it
+//! needs it inside that transaction, and a standalone function invites a second, non-atomic writer of the same fact. A
+//! documented duplicate of a write is a drift waiting to happen, so it is gone rather than wired.
 
 use anyhow::Result;
 use time::OffsetDateTime;
@@ -10,58 +19,6 @@ use time::OffsetDateTime;
 use darkhold_domain::reading_goal::{Goal, Metric, Period, Progress};
 
 use crate::{Backend, Database};
-
-/// Record that a reader has reached a chapter.
-///
-/// `reading_progress` cannot answer "which chapters has this reader read" — it is unique per
-/// (account, pseud, subject), so it keeps the chapter the reader is *on*. This is the record that
-/// makes the `chapters` and `words` goals countable, and `reading::save_progress` writes it inside
-/// the same transaction as the progress upsert.
-///
-/// Upsert moves `last_read_at` forward, so re-reading a chapter in a later window counts it in that
-/// window without ever counting it twice in one.
-pub async fn record_unit_read(
-    db: &Database,
-    pseud_id: &str,
-    work_id: &str,
-    unit_id: &str,
-    now: &str,
-) -> Result<()> {
-    let sql = db.sql(
-        "INSERT INTO reading_unit_read (id, pseud_id, work_id, unit_id, first_read_at, last_read_at)
-         VALUES (?, ?, ?, ?, ?, ?)
-         ON CONFLICT (pseud_id, unit_id) DO UPDATE SET last_read_at = excluded.last_read_at",
-        "INSERT INTO reading_unit_read (id, pseud_id, work_id, unit_id, first_read_at, last_read_at)
-         VALUES (?, ?, ?, ?, ?, ?)
-         ON CONFLICT (pseud_id, unit_id) DO UPDATE SET last_read_at = excluded.last_read_at",
-    );
-    let id = uuid::Uuid::new_v4().to_string();
-    match db.backend() {
-        Backend::Sqlite => {
-            sqlx::query(&sql)
-                .bind(&id)
-                .bind(pseud_id)
-                .bind(work_id)
-                .bind(unit_id)
-                .bind(now)
-                .bind(now)
-                .execute(db.sqlite_pool().expect("sqlite handle"))
-                .await?;
-        }
-        Backend::Postgres => {
-            sqlx::query(&sql)
-                .bind(&id)
-                .bind(pseud_id)
-                .bind(work_id)
-                .bind(unit_id)
-                .bind(now)
-                .bind(now)
-                .execute(db.postgres_pool().expect("postgres handle"))
-                .await?;
-        }
-    }
-    Ok(())
-}
 
 /// The reader's goal, if they have set one.
 pub async fn get(db: &Database, pseud_id: &str) -> Result<Option<Goal>> {
