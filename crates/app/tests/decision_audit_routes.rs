@@ -111,6 +111,16 @@ impl Client {
         if !self.cookies.is_empty() {
             builder = builder.header(header::COOKIE, self.cookie_header());
         }
+        // Session-authenticated writes are CSRF-checked, so a suite that only ever
+        // read could ignore this. The positivity test below writes with a session
+        // cookie, and without the token the request is refused before the decision
+        // this file is about is ever made.
+        if !matches!(method, "GET" | "HEAD" | "OPTIONS") {
+            if let Some((_, token)) = self.cookies.iter().find(|(name, _)| name == "darkhold_csrf") {
+                let token = token.clone();
+                builder = builder.header("x-csrf-token", token);
+            }
+        }
         if body.is_some() {
             builder = builder.header(header::CONTENT_TYPE, "application/json");
         }
@@ -232,6 +242,59 @@ impl Harness {
 
     async fn operator(&self) -> Client {
         self.reader("operator").await
+    }
+
+    /// Publish a one-chapter work as `handle`, returning its id.
+    ///
+    /// The same shape as `milestone_12::published_work`: create, add a unit, save its document, publish. It is duplicated rather
+    /// than shared because the two harnesses disagree about how a client is built, and a shared helper would have to be written
+    /// twice anyway.
+    async fn published_work(&self, handle: &str) -> String {
+        let mut author = self.reader(handle).await;
+        let (status, body) = author
+            .send("POST", "/api/v1/works", Some(json!({ "title": "A Work To Be Reviewed" })))
+            .await;
+        assert_eq!(status, StatusCode::CREATED, "create work: {body}");
+        let work_id = body["id"].as_str().expect("id").to_owned();
+        let work_version = body["version"].as_i64().expect("version");
+
+        let (status, body) = author
+            .send(
+                "POST",
+                &format!("/api/v1/works/{work_id}/chapters"),
+                Some(json!({ "title": "One" })),
+            )
+            .await;
+        assert_eq!(status, StatusCode::CREATED, "unit: {body}");
+        let unit = body["id"].as_str().expect("unit").to_owned();
+        let unit_version = body["version"].as_i64().expect("version");
+        let document = json!({
+            "type": "doc",
+            "content": [{
+                "type": "paragraph",
+                "content": [{ "type": "text", "text": "A unit with enough words to have a middle." }]
+            }]
+        });
+        let (status, body) = author
+            .send(
+                "PATCH",
+                &format!("/api/v1/chapters/{unit}"),
+                Some(json!({ "expected_version": unit_version, "document": document })),
+            )
+            .await;
+        assert_eq!(status, StatusCode::OK, "save: {body}");
+        let (status, body) = author
+            .send(
+                "POST",
+                &format!("/api/v1/works/{work_id}/publish"),
+                Some(json!({
+                    "expected_version": work_version,
+                    "idempotency_key": format!("audit-{work_id}"),
+                })),
+            )
+            .await;
+        assert_eq!(status, StatusCode::OK, "publish: {body}");
+        work_id
     }
 
     /// Record a decision directly, so the test controls the row rather than
@@ -567,5 +630,107 @@ async fn asking_for_nothing_returns_a_bounded_page() {
         len < 60,
         "a default that silently means everything is a default nobody sets on \
          purpose: {len} items came back"
+    );
+}
+
+/// The id of the one review on a work, read from the database.
+async fn review_id_for(db: &Database, work_id: &str) -> String {
+    let sql = match db.backend() {
+        // The table is `review`, singular (migration `0005_reading.sql`), and the column is a uuid on PostgreSQL while it is
+        // TEXT here — the same asymmetry as every other id in this schema.
+        darkhold_db::Backend::Sqlite => "SELECT id FROM review WHERE work_id = ? AND deleted_at IS NULL",
+        darkhold_db::Backend::Postgres => {
+            "SELECT id::text AS id FROM review WHERE work_id::text = $1 AND deleted_at IS NULL"
+        }
+    };
+    match db.backend() {
+        darkhold_db::Backend::Sqlite => sqlx::query_scalar(sql)
+            .bind(work_id)
+            .fetch_one(db.sqlite_pool().expect("sqlite handle"))
+            .await
+            .expect("the review exists"),
+        darkhold_db::Backend::Postgres => sqlx::query_scalar(sql)
+            .bind(work_id)
+            .fetch_one(db.postgres_pool().expect("postgres handle"))
+            .await
+            .expect("the review exists"),
+    }
+}
+
+/// **A held review leaves a decision in the trail, written by the gate that held it.**
+///
+/// This is the half that was missing. `decision_audit::record` had no product caller at all: every row in this file's other
+/// tests is seeded by the test itself, so the trail was empty on every real instance and `GET /decisions/audit` answered
+/// `{ "items": [] }` to the operator who asked why a review had been held. The store, the route, the filter and the summary
+/// number all worked; nothing wrote.
+///
+/// The positivity gate is the first real decision surface to record. It answers a reader's complaint ("my review vanished")
+/// and an operator's question ("is this instance holding too much?") with the same rows, and it is a *deterministic* decision,
+/// which is why `posterior` must be null rather than `0.0`: no model was consulted, and a zero would read as a model
+/// confidently saying "hold it".
+#[tokio::test]
+async fn a_held_review_records_the_decision_that_held_it() {
+    let h = Harness::with_operator("positivity-recorded").await;
+    let work_id = h.published_work("author").await;
+
+    // The bluntest policy in the module: the author has turned comments off, so every public review is held no matter what it
+    // says. That keeps the outcome a property of the policy rather than of the classifier's opinion of a sentence.
+    let mut author = h.reader("author").await;
+    let (status, body) = author
+        .send(
+            "PUT",
+            "/api/v1/feedback/preferences",
+            Some(json!({ "comments_enabled": false })),
+        )
+        .await;
+    assert_eq!(status, StatusCode::OK, "turn comments off: {body}");
+
+    let mut reviewer = h.reader("reviewer").await;
+    let (status, body) = reviewer
+        .send(
+            "PUT",
+            &format!("/api/v1/works/{work_id}/reviews"),
+            Some(json!({
+                "body": "Warm and well made, and the ending earns it.",
+                "is_public": true,
+            })),
+        )
+        .await;
+    assert_eq!(status, StatusCode::OK, "post the review: {body}");
+    assert_eq!(
+        body["receipt"], "Comment held for moderator review.",
+        "the gate must hold this text for the test to mean anything: {body}"
+    );
+
+    let review_id = review_id_for(&h.db, &work_id).await;
+
+    let mut operator = h.operator().await;
+    let (status, body) = operator
+        .get(&format!("/api/v1/decisions/audit?subject={review_id}"))
+        .await;
+    assert_eq!(status, StatusCode::OK, "read the trail: {body}");
+    let items = body["items"].as_array().expect("items is a list");
+    assert_eq!(
+        items.len(),
+        1,
+        "one review, one decision, written by the gate: {body}"
+    );
+    let row = &items[0];
+    assert_eq!(row["task"], "positivity", "{body}");
+    assert_eq!(row["subject"], review_id, "{body}");
+    assert_eq!(row["outcome"], "held", "the applied outcome: {body}");
+    assert_eq!(row["provider"], "deterministic", "{body}");
+    assert!(
+        row["posterior"].is_null(),
+        "no model was consulted, and 0.0 would claim one said no: {body}"
+    );
+    assert!(
+        row["deterministic"].as_str().is_some_and(|class| !class.is_empty()),
+        "the classifier's own answer is recorded beside the outcome: {body}"
+    );
+    // The graded text is not in the row — §12.1, and the module's load-bearing privacy decision.
+    assert!(
+        !body.to_string().contains("Warm and well made"),
+        "the audit must not hold the words it judged: {body}"
     );
 }

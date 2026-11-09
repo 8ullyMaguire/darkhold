@@ -210,7 +210,7 @@ pub async fn record(db: &Database, entry: &NewAuditEntry) -> Result<String> {
 pub struct AuditQuery {
     /// Only this decision surface.
     pub task: Option<String>,
-    /// Only this subject.
+    /// Only this subject — the "why was this held?" read, served as `?subject=` on the route.
     pub subject: Option<String>,
     /// Only this provider.
     pub provider: Option<AuditProvider>,
@@ -320,23 +320,11 @@ impl AuditEntry {
     }
 }
 
-/// Every recorded decision for one subject, newest first.
-///
-/// The read an operator or an author actually makes: "why was this held?". It
-/// is a named function rather than a `list` with a subject filter because it is
-/// the query the `idx_decision_audit_subject` index exists for, and a caller who
-/// has to know that is a caller who will eventually write the wrong one.
-pub async fn for_subject(db: &Database, subject: &str, limit: i64) -> Result<Vec<AuditEntry>> {
-    list(
-        db,
-        &AuditQuery {
-            subject: Some(subject.to_owned()),
-            limit,
-            ..AuditQuery::default()
-        },
-    )
-    .await
-}
+// `for_subject(db, subject, limit)` was here: a wrapper around `list` with the subject filter filled in, documented as "the read
+// an operator or an author actually makes: why was this held?". It was never called. The read it described is `GET
+// /decisions/audit?subject=<id>`, which the route already serves from `AuditQuery.subject`, and the index it named is used by
+// that same query. A second spelling of one read is a second place to fix when the read changes, and the day the two disagree
+// the operator gets a different answer from the one the API gives.
 
 /// Has a model ever narrowed an acceptance to a hold?
 ///

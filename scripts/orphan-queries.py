@@ -110,7 +110,15 @@ def main() -> int:
                 app_sources.append(file.read_text(encoding="utf-8", errors="replace"))
 
     graph = bodies(db_src)
-    unique_names = {name for name, mods in modules.items() if len(mods) == 1}
+
+    # Unique among EVERY function in the graph, not among the public async ones. A private helper (`async fn record_decision` in
+    # `positivity.rs`) is not a `pub async fn`, so it never reached `modules` — and a bare call to it then failed the uniqueness
+    # test, got no edge, and every function it called stayed on the orphan list. Measured 2026-11-09: that is what kept
+    # `decision_audit::record` listed after it had a caller.
+    keys_by_name: dict[str, list[str]] = {}
+    for key in graph:
+        keys_by_name.setdefault(key.split("::", 1)[1], []).append(key)
+    unique_names = {name for name, keys in keys_by_name.items() if len(keys) == 1}
 
     # Indexes, because the closure below is otherwise O(functions x files) with a regex per pair and takes minutes.
     def index(texts: list[str]) -> tuple[dict[str, list[set[str]]], set[str]]:
@@ -144,10 +152,6 @@ def main() -> int:
 
     # Edges per function, computed once: a function reaches the targets its OWN bodies name. A global `module::name(` set would
     # say every reachable function reaches every qualified target, which is the name-based mistake again in a new costume.
-    keys_by_name: dict[str, list[str]] = {}
-    for key in graph:
-        keys_by_name.setdefault(key.split("::", 1)[1], []).append(key)
-
     edges: dict[str, set[str]] = {}
     for key, entries in graph.items():
         targets: set[str] = set()
