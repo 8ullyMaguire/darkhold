@@ -593,7 +593,26 @@ async fn read_work(
 
     let user = session.ok_or(ApiError(AppError::AuthRequired))?;
     let view = author_view(&state, &user, &work).await?;
-    Ok(Json(serde_json::to_value(view).map_err(internal)?))
+    let mut json = serde_json::to_value(view).map_err(internal)?;
+
+    // The author's own numbers. `Scope::OwnWorkBasic` gates it exactly as `/me/analytics/own.work.basic` does, and the
+    // count is banded at ten distinct pseudonyms, so this cannot be used to read a small work's audience off the page.
+    // A failure here must not fail the work: the author came for the work, and an analytics fault that blanked the page
+    // would be a worse bug than a missing number — so it is reported as unavailable rather than propagated.
+    let audience = match crate::routes::analytics::work_audience(
+        &state,
+        &user.account_id.to_string(),
+        &work.id.to_canonical_string(),
+    )
+    .await
+    {
+        Ok(value) => value,
+        Err(_) => serde_json::json!({ "status": "unavailable", "reason": "the reader count could not be computed" }),
+    };
+    if let Some(object) = json.as_object_mut() {
+        object.insert("analytics".to_owned(), audience);
+    }
+    Ok(Json(json))
 }
 
 async fn update_work(

@@ -1662,3 +1662,25 @@ need "search works" or "the reviews of a work" will find them first.
 
 Ratchet 65 -> 62.
 
+### `not_implemented` for a capability whose query existed (analytics.rs, 2026-11-08)
+
+`GET /me/analytics/{capability}` derives `implemented` from whether a query ran, and answers `{"status":"not_implemented"}`
+for every scope without one. `own.work.basic` — reader count, word count, unit count for a work you wrote — was in that list
+while `analytics::work_reader_count`, the query written for exactly that scope, had **no caller**. The dashboard told an
+author the instance could not answer a question it had already implemented.
+
+The number now appears on the authoring view of a work. That is where the question is asked — the dashboard's totals are
+across all of an author's works, and "did anyone read *this* one" has no other surface.
+
+* Gated by `Scope::OwnWorkBasic` through the same `allowed_under` call `/me/analytics/{capability}` makes, so a preset that
+  narrows the capability narrows this too: one decision, not two. `own.work.basic` is trust level 0, so every author passes.
+* **Banded at ten distinct pseudonyms**, by `Reported::of` inside the store. Below ten the answer is `fewer_than: 10` with no
+  `count` — a band, because a zero would be a claim and a suppressed number is not "nobody read it".
+* The method travels with the number (`definition`, `approximation`, `freshness`), so a number nobody can check is not served.
+* A reader's or a stranger's view carries no `analytics` key at all — not a zero, not an empty object: the author's numbers
+  are not a fact about the work.
+* If the count fails, the work still renders and `analytics` says `unavailable` with a reason. An author came for the work;
+  blanking the page over a statistic would be the worse bug.
+
+Ratchet 62 -> 61.
+
