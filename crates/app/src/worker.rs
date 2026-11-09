@@ -421,6 +421,28 @@ impl Worker {
             }
         }
 
+        // Claim expiry. `events::expire_claims` carries the sentence "Called by the job queue" and no queue ever called it, so a
+        // reader who claimed a request and then stopped writing left the claim `outstanding` forever. That row is what tells the
+        // next reader somebody is already on the request, so an abandoned claim makes a request nobody can pick up — and it is
+        // invisible, because the row says exactly what it means.
+        //
+        // The grace period is a decision rather than a default, written here because there was no config field and inventing a
+        // knob nobody tunes is worse than a constant with a reason: thirty days is long enough for a short fic and short enough
+        // that a claim abandoned in week one does not hold the request for a season. The store keys on `status = 'outstanding'`,
+        // so a second pass matches nothing and the count it returns means "what this run did".
+        const CLAIM_GRACE_SECONDS: i64 = 30 * 24 * 60 * 60;
+        let clock = now
+            .format(&time::format_description::well_known::Rfc3339)
+            .context("formatting the clock for claim expiry")?;
+        match darkhold_db::events::expire_claims(state.db(), &clock, CLAIM_GRACE_SECONDS).await
+        {
+            Ok(0) => {}
+            Ok(expired) => tracing::info!(expired, "claims past their grace period were expired"),
+            Err(error) => {
+                tracing::warn!(%error, "expired claims could not be swept this pass");
+            }
+        }
+
         // A `pending` link challenge whose `expires_at` has passed still reads `pending`, and a state column that can say
         // something untrue is the defect migration 0080 was opened for — the row stays in the state its own expiry matches on.
         // The transition belongs to the sweep for the same reason the closures do: nobody presses a button to expire a code.

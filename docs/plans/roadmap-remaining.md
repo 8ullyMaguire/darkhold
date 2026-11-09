@@ -2468,3 +2468,37 @@ exchange for no safety at all. The route that serves readers passes rules; that 
 So: reverted before committing, and the reasoning now sits in the function's doc comment where the next reader will hit it. A
 deletion that survives its own measurement is the only kind worth making — this one did not.
 
+### A claim that never expired, and the sentence "Called by the job queue" (2026-11-09)
+
+`events::expire_claims` documents itself as *"Called by the job queue."* No queue called it, no route called it, no test called it.
+So a reader who claimed a request and then stopped writing left the claim `outstanding` for good — and a claim is the row that tells
+the next reader *somebody is already writing this*. The request became one nobody could pick up, and nothing looked broken: the row
+said exactly what it meant.
+
+This is the third instance of one shape in this row (`finder::sweep_expired`, the entity closure, the experiment snapshots): **an
+idempotent store function with no scheduler is a schedule, not a door.** The fix is one call in `Worker::maintenance_pass`, beside
+the other sweeps nobody presses a button for.
+
+**The grace period is a decision, written where it is used.** There is no config field for it, and inventing a knob nobody tunes is
+worse than a constant with a reason: thirty days is long enough for a short fic and short enough that a claim abandoned in week one
+does not hold the request for a season. The store keys on `status = 'outstanding'` (migration 0080), so a second pass matches
+nothing and its count means "what this run did".
+
+Test `m70_13_claim_expiry.rs` seeds two claims — one stamped 2026-01-01, one stamped with the worker's own clock — runs the pass,
+and asserts the old one is `expired` and the fresh one is still `outstanding`, then runs the pass again to prove idempotence. Run
+ids carry a run-unique suffix because the PostgreSQL harness keeps tables between runs and `claims`' primary key is
+`(request_id, claimant)`.
+**Proof.** Red first: the pass was wired, ran, and the claim stayed `outstanding` (`left: "outstanding"`, `right: "expired"`).
+Green on both engines (1/1 SQLite, 1/1 PostgreSQL). Two mutants, each reverted from a `/tmp` backup:
+
+* **ten-year grace** → red at the stale-claim assertion. (The obvious first mutant — deleting the sweep call — does not compile,
+  because the grace constant then goes unused and this workspace denies warnings; discarded rather than counted.)
+* **zero grace** → red at the fresh-claim assertion.
+
+That second mutant found a defect in my own fixture, which is the part worth keeping: the fresh claim was stamped with the worker's
+own clock, so it sat exactly on the cutoff, and the store compares strictly (`claimed_at < cutoff`) — a zero grace would have left
+it unexpired and passed. The claim is now an hour old, so "recently claimed" has slack and the zero-grace mutant reddens. A fixture
+that lands on the boundary of the comparison it tests proves nothing about that boundary.
+
+Ratchet: **49 → 48**.
+
