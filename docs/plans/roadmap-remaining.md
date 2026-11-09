@@ -2609,3 +2609,31 @@ running binary**; what cannot be claimed is that the binary is exactly one commi
 the foreign commit stays, and the next deploy from a quiet tree will produce a clean stamp. Recorded rather than smoothed over
 because "0.1.0+<sha>.dirty" on a production binary is a fact the next operator needs, not a cosmetic suffix.
 
+#### Deployed 2026-11-09 — the pull that had never once run on PostgreSQL
+
+Build 15m03s from a clean tree (`git status` empty, another session's work absent this time), so the stamp is
+**`0.1.0+99aeaa32`** with no `.dirty` suffix. `pg_dump -Fc` verified by `pg_restore -l` (392 `TABLE DATA` entries) before the
+restart; unit active; `/health/live` 200; `/api/v1/meta` naming the build.
+
+**The finding is bigger than the pass.** `taste_signal::for_account` binds `&str` against `shelves.account_id`, which is UUID on
+PostgreSQL. On the live database the extended-protocol form — what the driver actually sends — refuses to prepare:
+
+```
+PREPARE old_signal(text) AS SELECT count(*) FROM shelves s WHERE s.account_id = $1;
+ERROR:  operator does not exist: uuid = text
+PREPARE new_signal(text) AS SELECT count(*) FROM shelves s WHERE s.account_id = $1::uuid;
+PREPARE
+```
+
+Both call sites caught the error with `_ => ranked`, so **every** discovery and concierge page on the deployed engine ran
+unpulled, silently, since M64-09 landed. The layer was not merely inert on PostgreSQL — it had never executed there once, and
+the SQLite suite could not see it. Note for the next reader: comparing in `psql` with a bare quoted literal proves nothing
+(`account_id = 'deec0d42-…'` is parsed as a uuid literal and succeeds); only the typed-parameter form reproduces it, which is
+why the PG test and `PREPARE` are the evidence and a literal comparison is not.
+
+**Not verified live, and why.** The pull's effect needs a signed-in reader *with shelf items* on a gravity-tilted surface, and
+the live instance holds `shelves` 1 / `shelf_items` 0 (the shelf feature has writers but no user has used it). So the honest
+statement is: the query now prepares and runs on the deployed schema, and `for_account` returns `Ok(None)` for a reader with no
+shelf — which is the documented "no shelf, no signal" arm — rather than an `Err`. `journalctl | grep "taste signal unavailable"`
+returns 0 for the eight minutes after the restart, which is consistent with the fix and is not by itself proof.
+
