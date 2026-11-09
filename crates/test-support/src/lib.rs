@@ -1780,6 +1780,34 @@ pub async fn count_excluding_system_accounts(db: &Database, table: &str, exclude
 ///
 /// The routes read trust through `governance::trust_for`, so this writes the same ledger row they read rather than a
 /// shortcut only the test knows about.
+/// One statement, one string bind, either engine.
+///
+/// Both spellings are passed because the two dialects differ in ways a rewriter cannot paper over — `?` versus `$1`, and a
+/// cast where a column's type differs between them. A test helper that reaches for `sqlite_pool()` directly is a suite that
+/// only ever runs one of the two engines, and this project has already paid for that more than once: a module whose tests
+/// could not run on PostgreSQL hid three defects until the deployed engine met its first caller.
+///
+/// The panic carries the statement, because a test that fails on "error communicating with the server" and not on the SQL it
+/// asked for is a test that has to be debugged twice.
+pub async fn exec(db: &darkhold_db::Database, sqlite: &str, postgres: &str, bind: &str) {
+    match db.backend() {
+        darkhold_db::Backend::Sqlite => {
+            sqlx::query(sqlite)
+                .bind(bind)
+                .execute(db.sqlite_pool().expect("sqlite"))
+                .await
+                .unwrap_or_else(|error| panic!("{sqlite}\n{error}"));
+        }
+        darkhold_db::Backend::Postgres => {
+            sqlx::query(postgres)
+                .bind(bind)
+                .execute(db.postgres_pool().expect("postgres"))
+                .await
+                .unwrap_or_else(|error| panic!("{postgres}\n{error}"));
+        }
+    }
+}
+
 pub async fn set_account_trust(db: &darkhold_db::Database, account_id: &str, level: u8) {
     // Bind as i64: PostgreSQL has no unsigned scalar types, so binding a u8 would pin the query to one dialect.
     let level = i64::from(level);

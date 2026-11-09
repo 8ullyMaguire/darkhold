@@ -1787,3 +1787,30 @@ proved the second is possible.
 
 Ratchet 58 -> 57.
 
+### A suite that cannot run on the deployed engine (m16_07_review.rs, 2026-11-08)
+
+Running `m16_07_review` against PostgreSQL — which the SQLite-only default run never does — failed all four of its tests with
+`panicked at m16_07_review.rs:67: sqlite`. The harness's `operator()` helper granted the operator role with
+
+```rust
+sqlx::query("UPDATE sessions SET roles = '[\"role:operator\"]' WHERE account_id = ?")
+    .bind(&account)
+    .execute(self.tdb.db().sqlite_pool().expect("sqlite"))
+```
+
+so the file was SQLite-only by construction: every test in it goes through `operator()`, and on PostgreSQL the helper panics
+before a single request is made. The review package workflow — versions, grants, revocation, the operator queue — had **never
+run on the engine the instance is deployed on**. Once the helper was per-dialect (one `?`/`$1` difference, one `$1::uuid` cast:
+`sessions.account_id` is UUID on PostgreSQL and TEXT on SQLite) all four tests passed unchanged, so this one found no product
+defect — it found four guards that were not guarding what the deploy runs.
+
+`test_support::exec(db, sqlite, postgres, bind)` now exists for exactly this: both spellings, the failing statement in the
+panic. A rewriter cannot infer a column's type, which is why the helper takes both strings rather than rewriting one.
+
+**The measurement, recorded rather than chased:** 187 files under `crates/app/tests` reach `sqlite_pool()` directly, at 517
+call sites. Many are legitimate per-dialect fixtures — a fixture that seeds a raw row genuinely differs on the two engines.
+The dangerous ones are harnesses: a helper every test in the file goes through that cannot run on PostgreSQL turns the whole
+file into SQLite-only, silently, because the default run is SQLite. Each of those files is a guard that does not cover the
+deployed engine. They should be converted as the ratchet reaches them, not in one sweep — a 187-file sweep would be a change
+nobody could review.
+

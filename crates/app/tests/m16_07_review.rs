@@ -62,11 +62,17 @@ impl Harness {
     async fn operator(&self, handle: &str) -> Client {
         let mut client = self.client();
         let account = client.register(handle).await;
-        sqlx::query("UPDATE sessions SET roles = '[\"role:operator\"]' WHERE account_id = ?")
-            .bind(&account)
-            .execute(self.tdb.db().sqlite_pool().expect("sqlite"))
-            .await
-            .expect("grant the operator role to the session");
+        // `sessions.roles` is TEXT on both engines; `sessions.account_id` is UUID on PostgreSQL, so the statement differs in its
+        // placeholder and in one cast — the helper takes both spellings precisely because a rewriter cannot infer a type. It used to go straight to
+        // `sqlite_pool()`, which made this whole file a SQLite-only suite: the four tests below panicked with "sqlite" the
+        // moment anyone ran them against PostgreSQL, and nothing had ever run the review package on the deployed engine.
+        test_support::exec(
+            self.tdb.db(),
+            "UPDATE sessions SET roles = '[\"role:operator\"]' WHERE account_id = ?",
+            "UPDATE sessions SET roles = '[\"role:operator\"]' WHERE account_id = $1::uuid",
+            &account,
+        )
+        .await;
         // The role is read when the session is loaded, and it is loaded per request, so no rebuild is needed — but the client must have
         // the cookie the row belongs to, which registration already set.
         client
