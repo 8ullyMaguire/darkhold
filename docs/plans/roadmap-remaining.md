@@ -2855,3 +2855,16 @@ need the same reversal discipline as the kudos toggle. Until they land the panel
 Proof: red first (all zeros after a kudos), then both engines — kudos → `react:1`, un-kudos → `total:0`, three comments (1200 bp) →
 `comment:1`, author's own comment ignored. Mutants: comments recording nothing; self-warming allowed (`total:2`). Ratchet 39 → 38.
 
+### Deployed 2026-11-10 00:03 — `0.1.0+981a8e64` (warmth producer)
+
+Merged `lc/master` (no new migrations, 197 applied / 0 pending), backup
+`/personal/backups/darkhold-20261109-233903-pre-warmth.dump` verified at **392 TABLE DATA**, release build 17m13s.
+
+**Live proof, not a probe of the route's existence:** a throwaway reader kudos'd a public work and the database then held its first
+ever warmth row — `warmth_bp = 200, tier = react`, author resolved through the pseud. Before this build, `interaction_warmth` had
+**0 rows** on an instance with 58,042 works. The throwaway account, its kudos and its warmth row were then deleted: a synthetic
+relationship must not become product signal.
+
+`strings` on the artifact was checked before the restart, and `migrate` ran from the tree (the binary finds `darkhold.toml` by
+working directory).
+
