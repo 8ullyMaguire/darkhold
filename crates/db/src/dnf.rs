@@ -201,42 +201,27 @@ pub async fn read_dnf(db: &Database, pseud_id: PseudId, work_id: WorkId) -> Resu
     ))
 }
 
-/// List all DNF records for a work (public-only by default).
+/// The published did-not-finish feedback for a work.
 ///
-/// If `include_private` is true and the requester owns the work, all
-/// records are returned (regardless of is_public flag).
-pub async fn list_dnf_for_work(
-    db: &Database,
-    work_id: WorkId,
-    include_private: bool,
-) -> Result<Vec<DnfRow>> {
-    let sql = if include_private {
-        db.sql(
-            "SELECT id, account_id, pseud_id, work_id,
-                    reason, note, is_public, created_at, updated_at
-             FROM did_not_finish
-             WHERE work_id = ? AND deleted_at IS NULL
-             ORDER BY created_at DESC",
-            "SELECT id::text, account_id::text, pseud_id::text, work_id::text,
-                    reason, note, is_public, created_at, updated_at
-             FROM did_not_finish
-             WHERE work_id = $1::uuid AND deleted_at IS NULL
-             ORDER BY created_at DESC",
-        )
-    } else {
-        db.sql(
-            "SELECT id, account_id, pseud_id, work_id,
-                    reason, note, is_public, created_at, updated_at
-             FROM did_not_finish
-             WHERE work_id = ? AND is_public = TRUE AND deleted_at IS NULL
-             ORDER BY created_at DESC",
-            "SELECT id::text, account_id::text, pseud_id::text, work_id::text,
-                    reason, note, is_public, created_at, updated_at
-             FROM did_not_finish
-             WHERE work_id = $1::uuid AND is_public = TRUE AND deleted_at IS NULL
-             ORDER BY created_at DESC",
-        )
-    };
+/// **Published rows only, and there is no parameter to ask for more.** The function this replaces took `include_private` and
+/// documented "if the requester owns the work, all records are returned"; nothing called it, and that branch was the reason
+/// to delete rather than default it. `is_public` defaults to false (M45-21: private by default) and is the reader's own
+/// choice — a private DNF note is their reading history, not the work's property, and an author is not an exception to a
+/// promise the reader made to everyone. The counts door (`aggregate_dnf_counts`) is where the author learns the shape of what
+/// is not published, and it publishes counts rather than text.
+pub async fn list_dnf_for_work(db: &Database, work_id: WorkId) -> Result<Vec<DnfRow>> {
+    let sql = db.sql(
+        "SELECT id, account_id, pseud_id, work_id,
+                reason, note, is_public, created_at, updated_at
+         FROM did_not_finish
+         WHERE work_id = ? AND is_public = TRUE AND deleted_at IS NULL
+         ORDER BY created_at DESC",
+        "SELECT id::text, account_id::text, pseud_id::text, work_id::text,
+                reason, note, is_public, created_at, updated_at
+         FROM did_not_finish
+         WHERE work_id = $1::uuid AND is_public = TRUE AND deleted_at IS NULL
+         ORDER BY created_at DESC",
+    );
 
     let rows = match db.backend() {
         Backend::Sqlite => {

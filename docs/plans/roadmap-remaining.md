@@ -1538,3 +1538,50 @@ now.
 
 Ratchet 72 -> 70.
 
+### A setting with no door and a feedback list with no viewer (dnf.rs, 2026-11-08)
+
+`works.allow_dnf_feedback` has been `BOOLEAN NOT NULL DEFAULT FALSE` since migration 0073 and it was read by exactly one
+function — `work_allows_dnf_feedback` — which nothing called. Two consequences, both invisible from the product:
+
+* **No author could turn it on.** Nothing in the tree wrote the column: not the work patch, not a settings route, not the
+  operator console. The setting existed in the schema and could only be changed with `psql`.
+* **The rule it names was never applied.** A reader could publish "I stopped reading this" about any work, including one
+  whose author had somehow said no. A setting no writer sets and no reader reads is a comment.
+
+`list_dnf_for_work` was the other half: the store could list a work's feedback and no surface showed it, so an author whose
+work was being dropped had the numbers (`GET /works/{id}/dnf/reasons`, wired) and none of the sentences.
+
+What exists now:
+
+* `allow_dnf_feedback` on the work patch (`PATCH /works/{id}`), and therefore on the authoring surface that already edits
+  visibility, rating and body audience.
+* The gate lives **in the producer**: a public DNF on a work that has not opted in is `422` naming `is_public`. A private
+  DNF is always allowed, because it is the reader's own reading history — refusing it would make their library lie about
+  what they read on every work whose author never touched a setting.
+* `GET /works/{id}/dnf/feedback` — the author's view: the published sentences, plus `accepts_feedback` so "can more arrive"
+  and "what arrived" cannot disagree. Non-contributors get `404`, exactly as they would for a work they cannot read.
+
+**Decisions recorded because they were not defaults:**
+
+* **A private DNF stays private, including from the author.** `is_public` defaults to false ("private by default", M45-21)
+  and the reader who leaves it false has said "this is for me". `list_dnf_for_work` therefore lost its `include_private`
+  parameter instead of gaining a caller with `false`: a parameter that must always be false is one somebody eventually
+  passes true. The author learns the *shape* of what is not published from `aggregate_dnf_counts`, which publishes counts
+  and never text.
+* **The opt-in gates publication, not recording** — see above.
+* **Turning the setting off does not retract what was published.** A statement made while the door was open is evidence,
+  not a permission that can be revoked retroactively; step 7 of the test proves the row survives the setting that allowed
+  it.
+
+**One defect found by the second engine, again:** the patch bound `i64` to `allow_dnf_feedback` on both arms, copying
+`show_public_ratings`' shape — but 0073 spells the column `BOOLEAN` on PostgreSQL and `INTEGER` on SQLite (it says so in
+the migration's own comment). SQLite accepted the integer; PostgreSQL answered `COALESCE types boolean and bigint cannot be
+matched`, a 500 on the first PATCH. Each arm now binds what its column is.
+
+**A mutant that proved nothing, caught:** the first version of the test let step 2's private row and step 3's public row be
+the *same pseud and work*, so the upsert replaced one with the other — and the mutant that deletes `is_public = TRUE` from
+the list survived, because a list with no filter still returned exactly one row. A second reader holding a private record
+alongside the first reader's public one is what makes the exclusion testable.
+
+Ratchet 70 -> 68.
+

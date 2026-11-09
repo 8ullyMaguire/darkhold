@@ -413,6 +413,11 @@ pub struct WorkPatch {
     /// **The author's own statement about their own work.** Only a
     /// contributor may set it, and it is a statement and never a protection.
     pub ai_training: Option<String>,
+    /// Whether the author accepts *public* did-not-finish feedback on this work (migration 0073, `DEFAULT FALSE`).
+    ///
+    /// A plain `Option<bool>` rather than the tri-state `body_audience` uses: the column is `NOT NULL`, so "not mentioned"
+    /// and "set to nothing" cannot be confused and `COALESCE` expresses the patch correctly.
+    pub allow_dnf_feedback: Option<bool>,
     /// New body audience (spec §7.7).
     ///
     /// Nested `Option` because the field is nullable and "inherit the instance
@@ -772,6 +777,7 @@ pub async fn update_work(
                 format = COALESCE(?, format),
                 discussion_mode = COALESCE(?, discussion_mode),
                 ai_training = COALESCE(?, ai_training),
+                allow_dnf_feedback = COALESCE(?, allow_dnf_feedback),
                 -- NOT `COALESCE`: see `WorkPatch::body_audience`. `None` must
                 -- leave the column alone and `Some(None)` must clear it, and
                 -- `COALESCE` collapses the two.
@@ -789,6 +795,7 @@ pub async fn update_work(
                 format = COALESCE(?, format),
                 discussion_mode = COALESCE(?, discussion_mode),
                 ai_training = COALESCE(?, ai_training),
+                allow_dnf_feedback = COALESCE(?, allow_dnf_feedback),
                 body_audience = CASE WHEN ? THEN ? ELSE body_audience END,
                 updated_at = ?, version = version + 1
           WHERE id::text = ? AND version = ? AND deleted_at IS NULL",
@@ -806,6 +813,11 @@ pub async fn update_work(
             .bind(patch.format.as_deref())
             .bind(patch.discussion_mode.as_deref())
             .bind(patch.ai_training.as_deref())
+            // INTEGER here, BOOLEAN on PostgreSQL (0073 spells them differently on purpose): binding `i64` to the SQLite
+            // column and `bool` to the PostgreSQL one is what each engine's column actually is. Binding `bool` on both
+            // works on SQLite by affinity and then fails on PostgreSQL with `COALESCE types boolean and bigint cannot be
+            // matched` — the 500 this pass found on its first PostgreSQL run.
+            .bind(patch.allow_dnf_feedback.map(i64::from))
             // The `CASE WHEN ?` flag, then the value. A single bound `NULL`
             // could not distinguish "clear it" from "leave it alone", which is
             // why this is a flag-plus-value rather than one parameter.
@@ -828,6 +840,7 @@ pub async fn update_work(
             .bind(patch.format.as_deref())
             .bind(patch.discussion_mode.as_deref())
             .bind(patch.ai_training.as_deref())
+            .bind(patch.allow_dnf_feedback)
             // The `CASE WHEN ?` flag, then the value. A single bound `NULL`
             // could not distinguish "clear it" from "leave it alone", which is
             // why this is a flag-plus-value rather than one parameter.
