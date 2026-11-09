@@ -16,6 +16,8 @@ name = "darkhold"
 path = "src/main.rs"
 
 [dependencies]
+# ADR 0013: the estate version a deploy sets, so /healthz and nginx's x-estate-version are one answer.
+polaris-healthz = { path = "../../../../polaris-healthz" }
 commons-trend = { path = "../../../../../../projects/commons/crates/commons-trend" }
 commons-identify = { path = "../../../../../../projects/commons/crates/commons-identify" }
 commons-bounty = { path = "../../../../../../projects/commons/crates/commons-bounty" }
