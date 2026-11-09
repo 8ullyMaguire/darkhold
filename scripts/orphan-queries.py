@@ -154,6 +154,7 @@ def main() -> int:
     # say every reachable function reaches every qualified target, which is the name-based mistake again in a new costume.
     edges: dict[str, set[str]] = {}
     for key, entries in graph.items():
+        caller_module = key.split("::", 1)[0]
         targets: set[str] = set()
         for imports, body in entries:
             for module, name in re.findall(
@@ -165,7 +166,11 @@ def main() -> int:
             for name in set(re.findall(r"(?<![A-Za-z0-9_])([A-Za-z0-9_]+)\s*\(", body)):
                 for candidate in keys_by_name.get(name, []):
                     module = candidate.split("::", 1)[0]
-                    if name in unique_names or module in imports:
+                    # A bare call inside the module that defines the function is the strongest evidence there is — no import
+                    # and no uniqueness needed. Without this, `metrics::ranked_with_weights` calling `candidates(…)` and
+                    # `counts(…)` in its own file made no edge, because `specialist::candidates` and `trend::counts` exist: the
+                    # ratchet listed two functions the live catalogue route calls on every page.
+                    if name in unique_names or module in imports or module == caller_module:
                         targets.add(candidate)
         edges[key] = targets
 

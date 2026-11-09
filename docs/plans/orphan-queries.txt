@@ -9,7 +9,7 @@
 # outside this list, which is why the operator audit route always answered an empty trail. Correcting the
 # measurement moved the baseline from 43 to 57. An intermediate version that ignored `use` imports said 80; the
 # debt was never new, the ruler was wrong in both directions.
-# measured 2026-11-09: 55 orphan(s)
+# measured 2026-11-09: 49 orphan(s)
 
 increment_abuse_counter  # crates/db/src/admin.rs
 published_uris  # crates/db/src/atproto.rs
@@ -20,7 +20,6 @@ bump_counter  # crates/db/src/economy.rs
 descendants_of  # crates/db/src/entity_closure.rs
 set_state  # crates/db/src/entity_floor.rs
 expire_claims  # crates/db/src/events.rs
-is_participant  # crates/db/src/exchanges.rs
 issue_token_expiring  # crates/db/src/external.rs
 create_follow  # crates/db/src/federation.rs
 accept_follow  # crates/db/src/federation.rs
@@ -33,12 +32,8 @@ mark_queue_failed  # crates/db/src/federation.rs
 set_generated_content_policy  # crates/db/src/generated_content.rs
 compute_theme_from_bookmarks  # crates/db/src/instance_theme.rs
 close  # crates/db/src/lib.rs
-recompute  # crates/db/src/live_badges.rs
 record_warmth  # crates/db/src/longevity.rs
 work_quality_signals  # crates/db/src/media.rs
-candidates  # crates/db/src/metrics.rs
-counts  # crates/db/src/metrics.rs
-ranked  # crates/db/src/metrics.rs
 apply_to  # crates/db/src/migrate.rs
 count  # crates/db/src/module_state.rs
 list  # crates/db/src/notifications.rs
@@ -65,4 +60,3 @@ list_all  # crates/db/src/trust_events.rs
 meta_actions_on_vote  # crates/db/src/typed_votes.rs
 measured_coordinates_for  # crates/db/src/work_coordinates.rs
 clear_coordinates  # crates/db/src/work_coordinates.rs
-find  # crates/db/src/work_mirrors.rs
