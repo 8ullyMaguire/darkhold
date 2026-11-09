@@ -2368,3 +2368,9 @@ is `POST /decisions/evaluate`, which returns fixed labels per task (`positivity_
 populate the trail with decisions no policy made, which is worse than an empty table: it would make the audit a claim about
 nothing. The row stays until a real decision exists, and `GET /decisions/audit` stays empty rather than pretending.
 
+A note on that commit (`161c187b`): its **body** is damaged. The message was passed inline in a double-quoted shell string, so the
+backticked identifiers — `record`, `` `record(` ``, `use darkhold_db::m::f;` — were command-substituted away and the sentences read
+"`record` has no product caller… was not on the orphan list". The history is not rewritten for a message: the commit is on both
+forges and merged into the deploy tree. The full text is the section above, and every later commit in this loop uses
+`git commit -F <file>` for exactly this reason.
+
