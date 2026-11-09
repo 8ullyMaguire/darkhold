@@ -39,7 +39,7 @@ use axum::Router;
 use darkhold_db::identity;
 use darkhold_db::oidc;
 use polaris_oidc_client::{
-    decode_jwt_payload, safe_next, urlencode, verify_claims, AuthorizeRequest, OidcConfig, Provider,
+    decode_jwt_payload, safe_next, urlencode, AuthorizeRequest, OidcConfig, Provider,
 };
 
 use crate::auth::{self, CookiePolicy, MaybeSession, CSRF_COOKIE, SESSION_COOKIE};
@@ -168,10 +168,11 @@ async fn callback(
     // The nonce, the audience and the issuer are checked against the id_token — the three things that bind
     // a token to this attempt. Before the crate, this file sent a nonce and never verified it.
     let verified = match tokens.id_token.as_deref() {
-        Some(id_token) => match decode_jwt_payload(id_token) {
-            Ok(claims) => verify_claims(&claims, &config, &pending.nonce),
-            Err(_) => return Redirect::to("/login?oidc=invalid_response").into_response(),
-        },
+        // `verify_id_token`, not `decode_jwt_payload` + a claims comparison: the crate's 0.2.0 verifies the **signature** against
+        // the provider's published JWKS as well as `iss`/`aud`/`exp`/nonce. Reading the payload and checking three fields accepted a
+        // token anything on the wire could have written, which is the gap the crate was updated to close — and the reason a claims
+        // helper no longer exists to call. The `Provider` is the same value that exchanged the code, so the key set is fetched once.
+        Some(id_token) => provider.verify_id_token(id_token, &pending.nonce).await,
         None => {
             tracing::error!(
                 "token response carried no id_token, so the attempt cannot be verified"
