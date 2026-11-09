@@ -1694,7 +1694,7 @@ ran tonight, and it earned its keep by finding three live defects nothing else c
 | backup | `darkhold-20261109-040927-pre-batch1.dump` — `pg_dump -Fc -Z6`, 3.5 GB, 392 `TABLE DATA` entries, verified with `pg_restore -l`. Written to `/var/tmp` because `postgres` cannot traverse `~`; moved to `~/backups` (`/mnt/disk-important`) afterwards. The first attempt wrote to `/tmp`, which is a 4 GB tmpfs and was 100 % full. |
 | migrations | `0200_payment_event_key` applied — 197 applied, 0 pending. Before the new binary existed the old one reported "0 pending": `migrate --status` reads the migration list **compiled into the binary**, so a stale binary cannot see a pending migration. |
 | build | `cargo build --release` on the host, `CARGO_TARGET_DIR=~/.cargo-target/darkhold`; `strings` proof that the new route literals are in the artefact. |
-| result | darkhold `:8081` on `d15293f2`, then the audience pass. |
+| result | three restarts, each binary matching the tree it was built from: `d15293f2` (the first live surface), then `c82e8bab`, then **`c90177bf`** — the final one, `strings` showing `marked-for-later` in the artefact and `/meta` reporting `build 0.1.0+c90177bf`, the `payments` block as above, `/discover/canon-blind` 200 and a nonexistent work's `/history` 404. Two of those rebuilds happened because a pass landed while a build was running; the rule that held was *restart only onto a binary whose commit equals the tree's*, not "build once and hope". |
 
 Verified live after the restart:
 
