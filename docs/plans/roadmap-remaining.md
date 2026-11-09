@@ -2249,3 +2249,44 @@ Two operational facts worth keeping:
 `7f42f0f6` is below it, so the deployed binary contains this pass — but the tree and `master` are no longer the same commit, and
 that divergence is recorded rather than reset away.
 
+### A privacy request a person could file and nobody could finish (admin.rs, 2026-11-09)
+
+`POST /me/privacy-requests` has existed since migration 0021, with `GET` beside it so a person can watch their own list. But
+`admin::complete_privacy_request` had **no caller**, and no door anywhere listed requests for an operator — so a `delete` request
+sat in `pending` forever, the person asking could see it never move, and finishing one required a `psql` statement nobody had
+written down. A queue with no action, where the queue is a legal obligation: an erasure request that never leaves `pending` is a
+promise the instance made and cannot keep.
+
+Two operator doors, both through `require_admin_of`:
+
+* `GET /admin/privacy-requests?state=&limit=` — every account's requests, newest first. `?state=pending` is the working queue; no
+  filter is the audit, because "what did we ever promise" is a question a filter would hide the answer to. `limit` is clamped to
+  200: a queue route is a paging device, not a dump.
+* `POST /admin/privacy-requests/{id}/complete` — `{result_ref?}`, answers with the record it wrote.
+
+Four decisions:
+
+* **Only `pending` completes.** `completed_at` and `result_ref` are what make the row evidence; a second completion would rewrite
+  them to say whichever operator came last. It answers `422` naming the state it is in.
+* **An unknown id is `404`.** A request id is not a capability, and the queue is not an existence oracle for anyone.
+* **The completion is dated in the answer as well as stored**, so an operator who closes a case sees the timestamp the person will
+  see.
+* **`result_ref` stays optional**, because a `delete` has nothing to point at while an `export` does — but an empty string is
+  stored as `NULL`, the same rule as "never checked is not clean": a reference of `""` would read as a reference.
+
+The per-account list stays per account: the operator's queue is a second function, not a flag on the first. A person's own list
+must not be able to answer "what have other people asked for", and a `bool` parameter is how that check gets lost in a later
+refactor.
+
+Mutants red: the completion dropping its `pending` guard (a second call rewrites the evidence); the route reporting success
+whenever it was called (an unknown id answers `200`); the queue ignoring the state filter (a finished request stays in the queue);
+the completion door refusing nobody (the person who asked closes their own case). Two of them had to be re-aimed off a
+non-compiling first form — `if true` leaves the rest unreachable under `warnings = deny`.
+
+**Named, not wired:** `admin::increment_abuse_counter` is the other orphan in this file, and it is a different shape. The counter
+has a reader (`GET /admin/abuse-status/{key}`, which reports `blocked` and `count`) and no writer, so `blocked` can never become
+true — but the missing half is a *policy* decision (which failures count, over what window, at what threshold), not a door. Wiring
+it into the wrong place would arm a brute-force block with an unowned threshold. It stays on the list until that policy is named.
+
+Ratchet 45 -> 44.
+
