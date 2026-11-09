@@ -2338,3 +2338,33 @@ would not produce, so it writes the CSV directly. Ledger: 952 rows, 0 lone LF, b
 
 Ratchet unchanged at 43 (this pass repaired the ledger, not the ledger's subject).
 
+### The ratchet was counting by name, so its number was wrong (scripts/orphan-queries.py, 2026-11-09)
+
+Tracing `decision_audit::for_subject` turned up something bigger than the orphan: **`decision_audit::record` has no product
+caller at all**, so nothing in the binary ever writes a decision, and the operator's `GET /decisions/audit` therefore always
+answers an empty trail. The audit page is honest-looking and empty — the shape this loop keeps finding.
+
+But `record` was not on the orphan list, and the reason is the ratchet's own measurement. Reachability was decided by **bare
+name**: `calls(blob, name)` — any `record(` in any app module counted as a call to `decision_audit::record`. Half a dozen db
+modules have a `record`, so each covered for the others, and `decision_audit::record` inherited reachability from its namesakes.
+The same bug ran in the other direction too: a function reached through `use darkhold_db::lexicon::normalise;` and then called
+bare looked dead.
+
+Three changes:
+
+* **The graph is keyed `module::name`** and edges come from each function's *own* body, so `a::record(` no longer marks
+  `b::record` reachable.
+* **Imports are evidence**: `use darkhold_db::module;` (or `crate::module::`) makes a bare call in that file count for that
+  module. Without this the correction overshot — a first module-qualified version said **80**, because it ignored imports
+  entirely.
+* **The Rust test no longer measures.** `crates/app/tests/orphan_queries.rs` recomputed the same closure with its own name-based
+  algorithm; two implementations of one measurement is how a count drifts, and these two had already drifted. The test now runs
+  `python3 scripts/orphan-queries.py --check`, so there is one answer.
+
+Measured correction: **43 → 57 orphans**. The debt is not new; the ruler was. Read every future number against that.
+
+**Left, with the missing half named:** `decision_audit::record` needs a decision path worth auditing. The only one in the binary
+is `POST /decisions/evaluate`, which returns fixed labels per task (`positivity_class → "positive"`, …) — recording those would
+populate the trail with decisions no policy made, which is worse than an empty table: it would make the audit a claim about
+nothing. The row stays until a real decision exists, and `GET /decisions/audit` stays empty rather than pretending.
+
