@@ -2118,3 +2118,13 @@ check removed, `creator` claiming a gate, and the operator check removed.
 
 Ratchet 50 -> 49.
 
+### Deploy record, fourth batch (2026-11-09)
+
+`71d0cae9` — the series shelf and the exclusion registry — live on thinkcentre; verified `/meta` `build 0.1.0+71d0cae9`,
+`GET /library/series/next` `401` anonymous, `GET`/`POST /admin/exclusions` `401` anonymous, no panic in the journal.
+
+The build cost **32m42s** because the host load peaked at 41.7 (three other projects building at once), and a first attempt died
+with SIGTERM mid-compile — nothing in this repo's tooling or the tree, but worth recording: at this load a darkhold release build
+takes half an hour and a killed build is expected, not exceptional, so the binary commit is verified against the tree before every
+restart (`/meta` `build` string) rather than assumed from a successful `cargo build` earlier in the session.
+
