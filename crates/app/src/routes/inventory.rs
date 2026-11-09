@@ -1820,6 +1820,13 @@ pub const ROUTE_TABLE: &[RouteEntry] = &[
     },
     RouteEntry {
         file: "jobs.rs",
+        handler: "job_attempts",
+        method: "GET",
+        path: "/jobs/{id}/attempts",
+        audience: Audience::Authenticated,
+    },
+    RouteEntry {
+        file: "jobs.rs",
         handler: "start_job",
         method: "POST",
         path: "/jobs",
@@ -1837,6 +1844,13 @@ pub const ROUTE_TABLE: &[RouteEntry] = &[
         handler: "list_all_jobs",
         method: "GET",
         path: "/admin/jobs",
+        audience: Audience::Authenticated,
+    },
+    RouteEntry {
+        file: "jobs.rs",
+        handler: "job_summary",
+        method: "GET",
+        path: "/admin/jobs/summary",
         audience: Audience::Authenticated,
     },
     RouteEntry {

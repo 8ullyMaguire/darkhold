@@ -82,6 +82,21 @@ impl JobState {
     }
 }
 
+/// Every state, in lifecycle order.
+///
+/// The operator's summary reads this rather than the distinct values in the table: a dashboard built from `GROUP BY state`
+/// can only show states something happens to be in, so "no failures" and "a state this build cannot name" both vanish. A
+/// new variant added above without an entry here is invisible to that summary, and `job_doors` asserts the two lists agree
+/// in both directions.
+pub const ALL_STATES: &[JobState] = &[
+    JobState::Queued,
+    JobState::Leased,
+    JobState::Running,
+    JobState::Succeeded,
+    JobState::Failed,
+    JobState::Cancelled,
+];
+
 /// What a job is for. The set is closed: a new kind is a code change, because
 /// the worker needs a handler for it and a silently unhandled kind would sit in
 /// the queue forever.
