@@ -37,6 +37,7 @@ pub mod library_updates;
 pub mod limiter;
 pub mod logging;
 pub mod longevity;
+pub mod warmth;
 pub mod loops;
 pub mod media_fetch;
 pub mod media_job;

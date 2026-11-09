@@ -2364,6 +2364,27 @@ async fn toggle_kudos(
     .await
     .map_err(|e| ApiError(AppError::Internal(e)))?;
 
+    // §41.2's warmth, from the one act whose direction is unambiguous: a kudos is `React` (200 bp), and the toggle's OFF arm
+    // subtracts the same amount so pressing the button twice cannot leave a reader warmer than pressing it once. Best-effort —
+    // `warmth::record` warns and returns, because a reader's kudos must not fail on a derived panel.
+    if kudoed {
+        crate::warmth::record(
+            &state,
+            &actor.account_id.to_string(),
+            &work_id.to_string(),
+            darkhold_domain::longevity::WarmthAction::React,
+        )
+        .await;
+    } else {
+        crate::warmth::record_removal(
+            &state,
+            &actor.account_id.to_string(),
+            &work_id.to_string(),
+            darkhold_domain::longevity::WarmthAction::React,
+        )
+        .await;
+    }
+
     // §50.1: the reason rides along with the kudos rather than on its own
     // endpoint. Only stored when the kudos actually landed — toggling OFF removes
     // the row, and a reason written against a kudos that no longer exists would be

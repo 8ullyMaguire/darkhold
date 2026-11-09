@@ -297,6 +297,33 @@ pub async fn record_warmth(
         }
     };
 
+    // **A relationship at zero warmth is not a relationship.** `lurk` is a tier, not a row: counting a reader who un-did the act
+    // that made them warm would keep them in the author's panel forever, and `total` would stop meaning "readers who are currently
+    // warm toward this author". Removing the kudos is the act, and this is the row going with it.
+    if bp <= 0 {
+        let drop_sql = db.sql(
+            "DELETE FROM interaction_warmth WHERE account_id = ? AND author_account = ?",
+            "DELETE FROM interaction_warmth WHERE account_id = $1::uuid AND author_account = $2::uuid",
+        );
+        match db.backend() {
+            Backend::Sqlite => {
+                sqlx::query(&drop_sql)
+                    .bind(reader_account)
+                    .bind(author_account)
+                    .execute(db.sqlite_pool().expect("sqlite"))
+                    .await?;
+            }
+            Backend::Postgres => {
+                sqlx::query(&drop_sql)
+                    .bind(reader_account)
+                    .bind(author_account)
+                    .execute(db.postgres_pool().expect("postgres"))
+                    .await?;
+            }
+        }
+        return Ok(());
+    }
+
     let tier = darkhold_domain::longevity::tier_for(bp, thresholds);
 
     let update_tier_sql = db.sql(
