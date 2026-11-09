@@ -92,6 +92,104 @@ pub async fn get_leakage(
     })))
 }
 
+
+/// `POST /admin/discovery/leakage` — record one reviewed artifact.
+///
+/// The view existed and nothing could write a row for it: `record_review` had no caller in `crates/app`, so the queue was
+/// permanently empty and read as "nothing leaks here" when it meant "nobody has looked". This is the producer.
+///
+/// The reviewer is the operator's **pseud**, not the account, because 0110 declares the column that way and §52.1's audit
+/// question is "which identity judged this" — the same identity whose taste the row is about. `RequirePseud` refuses a session
+/// with no pseud selected, which is the honest answer: a review written by an account acting as nobody has no reviewer.
+///
+/// The disposition is validated by name through `Disposition::parse` (the same function the GET's filter uses, so the two
+/// spellings cannot drift) and `ease` through the same `parse_ease` the view renders with. A refused value names the field,
+/// because a typo silently landing as `keep` would be an operator certifying an artifact they meant to coarsen.
+#[derive(Debug, Deserialize)]
+pub struct ReviewBody {
+    pub artifact: String,
+    pub inferable: String,
+    pub ease: String,
+    pub disposition: String,
+}
+
+pub async fn post_leakage(
+    State(state): State<AppState>,
+    RequireSession(user): RequireSession,
+    Json(body): Json<ReviewBody>,
+) -> ApiResult<Json<Value>> {
+    require_operator(&state, &user)?;
+
+    // The pseud comes from the session rather than an extractor, so the audience stays `Operator` (this file's door) and a
+    // session that has not selected one is told which field is missing instead of getting the 404 an extractor refusal gives.
+    // `route_inventory` is the reason this is not `RequirePseud`: the audience table models who may call, and this door is
+    // Operator — the pseud is a requirement *of* the request, not a different audience.
+    let Some(pseud_id) = user.pseud_id else {
+        let mut field_errors = std::collections::BTreeMap::new();
+        field_errors.insert(
+            "pseud".to_owned(),
+            "select a pseud before recording a review; 0110 names the pseud as the reviewer".to_owned(),
+        );
+        return Err(ApiError(AppError::Validation {
+            message: "a review needs a reviewer identity".to_owned(),
+            field_errors,
+        }));
+    };
+
+    let Some(disposition) = Disposition::parse(&body.disposition) else {
+        let mut field_errors = std::collections::BTreeMap::new();
+        field_errors.insert(
+            "disposition".to_owned(),
+            "must be keep, coarsen, or remove".to_owned(),
+        );
+        return Err(ApiError(AppError::Validation {
+            message: "the leakage review takes a disposition from the schema's vocabulary".to_owned(),
+            field_errors,
+        }));
+    };
+    if !matches!(body.ease.as_str(), "plain" | "derived" | "measured") {
+        let mut field_errors = std::collections::BTreeMap::new();
+        field_errors.insert(
+            "ease".to_owned(),
+            "must be plain, derived, or measured".to_owned(),
+        );
+        return Err(ApiError(AppError::Validation {
+            message: "the leakage review takes an ease from the schema's vocabulary".to_owned(),
+            field_errors,
+        }));
+    }
+    if body.artifact.trim().is_empty() || body.inferable.trim().is_empty() {
+        let mut field_errors = std::collections::BTreeMap::new();
+        if body.artifact.trim().is_empty() {
+            field_errors.insert("artifact".to_owned(), "must not be empty".to_owned());
+        }
+        if body.inferable.trim().is_empty() {
+            field_errors.insert("inferable".to_owned(), "must not be empty".to_owned());
+        }
+        return Err(ApiError(AppError::Validation {
+            message: "a review row is a finding in words, so both halves are required".to_owned(),
+            field_errors,
+        }));
+    }
+
+    let reviewed_at = time::OffsetDateTime::now_utc().unix_timestamp();
+    let id = tl::record_review(
+        state.db(),
+        &body.artifact,
+        &body.inferable,
+        &body.ease,
+        disposition,
+        pseud_id,
+        reviewed_at,
+    )
+    .await
+    .map_err(|e| ApiError(AppError::Internal(e)))?;
+
+    // No count, no total: §52.1's rule applies to the write's answer as much as to the view's, and a response that said
+    // "review 15" would publish the queue's size one row at a time.
+    Ok(Json(json!({ "id": id.to_string(), "reviewed_at": reviewed_at })))
+}
+
 fn ease_str(ease: Ease) -> &'static str {
     match ease {
         Ease::Plain => "plain",
@@ -160,5 +258,8 @@ fn parse_ease(raw: &str) -> Ease {
 }
 
 pub fn router() -> axum::Router<AppState> {
-    axum::Router::new().route("/admin/discovery/leakage", get(get_leakage))
+    axum::Router::new().route(
+        "/admin/discovery/leakage",
+        get(get_leakage).post(post_leakage),
+    )
 }
