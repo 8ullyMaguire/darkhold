@@ -774,9 +774,11 @@ pub async fn list_wrangling(
 }
 
 /// The pending queue, which is what the moderation surface opens on.
-pub async fn list_pending_wrangling(db: &Database, limit: i64) -> Result<Vec<WranglingProposal>> {
-    list_wrangling(db, None, limit).await
-}
+// `list_pending_wrangling` lived here: `list_wrangling(db, None, limit)` under a second name, with no caller. The naming was
+// worse than redundant — `None` already means *pending* (`WHERE status = COALESCE(?, 'pending')`), so the alias claimed a filter
+// that `list_wrangling` applies anyway, and a reader of the two signatures would reasonably expect `None` to mean "all states".
+// The queue's one door is `GET /admin/tag-wrangling/proposals`, which passes the status through so a wrangler can ask for
+// `approved` or `reverted` as well; there is no second doorway to keep.
 
 /// Approve a proposal, applying it and recording what it changed.
 ///
