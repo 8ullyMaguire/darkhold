@@ -857,6 +857,7 @@ dependencies = [
  "darkhold-domain",
  "darkhold-taste",
  "hex",
+ "polaris-ledger",
  "rand 0.8.8",
  "serde",
  "serde_json",
@@ -2299,6 +2300,14 @@ name = "polaris-eval"
 version = "0.1.0"
 
 [[package]]
+name = "polaris-ledger"
+version = "0.4.0"
+dependencies = [
+ "chrono",
+ "serde",
+]
+
+[[package]]
 name = "polaris-oidc-client"
 version = "0.1.1"
 dependencies = [
@@ -2313,7 +2322,7 @@ dependencies = [
 
 [[package]]
 name = "polaris-search-client"
-version = "0.2.0"
+version = "0.2.1"
 dependencies = [
  "reqwest",
  "serde",

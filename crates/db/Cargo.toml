@@ -15,6 +15,9 @@ path = "src/lib.rs"
 commons-trend = { path = "../../../../../../projects/commons/crates/commons-trend" }
 commons-identify = { path = "../../../../../../projects/commons/crates/commons-identify" }
 commons-bounty = { path = "../../../../../../projects/commons/crates/commons-bounty" }
+# The modlog's rules — never publish the account, never page on a timestamp alone — as code rather than as a comment
+# three functions have to remember. Storage stays here: the crate owns no table and no query.
+polaris-ledger = { path = "../../../../polaris-ledger" }
 anyhow.workspace = true
 hex.workspace = true
 # For the link challenge's nonce only (spec §23.2). Already in the tree
