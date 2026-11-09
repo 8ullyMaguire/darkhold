@@ -273,14 +273,12 @@ pub fn exclusion_for(rules: &[FilterRule], work_id_expr: &str) -> Exclusion {
     build_for(rules, work_id_expr)
 }
 
-/// [`for_pseud`] as a ready-to-splice exclusion, correlated on `works.id`.
-pub async fn exclusion_for_viewer(
-    db: &Database,
-    pseud_id: Option<uuid::Uuid>,
-) -> crate::Result<Exclusion> {
-    let rules = for_pseud(db, pseud_id).await?;
-    Ok(build(&rules))
-}
+// `exclusion_for_viewer` used to sit here: `for_pseud` plus `build`, correlated on `works.id`. No surface called it, and
+// none could have: `build` hard-codes the correlation to the alias `works`, while the paged statements that carry the
+// exclusion alias their work table (`w`, `wr`, `works_ranked`) so the predicate can be spliced into a query that already has
+// joins. A caller needing one round trip wants `for_pseud` then `exclusion_for(&rules, "w.id")`; a caller that did not would
+// get a correlation pointing at a table outside its FROM clause. Two conveniences for one job is how a surface ends up using
+// the one whose alias does not match.
 
 /// Groups rules by type, for a surface reporting what is filtered -- a settings
 /// page, or a "2 filters active" affordance on search.
