@@ -820,6 +820,19 @@ async fn get_conv_messages(
     Path(id): Path<String>,
     Query(params): Query<CursorQuery>,
 ) -> ApiResult<Json<serde_json::Value>> {
+    // A conversation is readable by its participants and nobody else. `is_participant` was written for this question and had no
+    // caller, so a door that took the id from the path served any thread to any signed-in account while `list_messages` filtered
+    // only by `conversation_id`, `deleted_at` and blocks. The refusal is `NotFound` rather than a denial because "403" would
+    // confirm the thread exists and belongs to somebody — the same answer for an id that was never a conversation.
+    if !darkhold_db::community::is_participant(state.db(), &id, &user.account_id.to_string())
+        .await
+        .map_err(|e| ApiError(darkhold_domain::AppError::Internal(e)))?
+    {
+        return Err(ApiError(darkhold_domain::AppError::NotFound {
+            resource: "conversation",
+        }));
+    }
+
     let items = darkhold_db::community::list_messages(
         state.db(),
         &id,
@@ -843,6 +856,17 @@ async fn post_message(
             "body",
             "A message needs some words.",
         )));
+    }
+    // The same guard as the read door, before the block checks: the participants list below is read to decide *whom* the sender
+    // may reach, and it cannot answer *whether* the sender may write at all. That question is `is_participant`, and without it
+    // any signed-in account could post into a thread it had merely guessed the id of.
+    if !darkhold_db::community::is_participant(state.db(), &id, &user.account_id.to_string())
+        .await
+        .map_err(|e| ApiError(darkhold_domain::AppError::Internal(e)))?
+    {
+        return Err(ApiError(darkhold_domain::AppError::NotFound {
+            resource: "conversation",
+        }));
     }
     // Block-aware: check if the sender is blocked by any participant
     let participants = darkhold_db::community::conversation_participants(state.db(), &id)

@@ -151,3 +151,32 @@ than counted — a compile failure proves nothing.
 
 Ratchet: 44 → 43. `record_payout`/`get_payout` keep their ledger note: a payout row is written by a payout run, and there is no
 run yet.
+
+## Pass 73 — a conversation had no lock (2026-11-09)
+
+`community::is_participant` was written to answer "is this account in this conversation" and had no caller. The two message
+doors — `GET` and `POST /conversations/{id}/messages` — took the id from the path and never asked:
+
+* `list_messages` filters `conversation_id`, `deleted_at` and blocks, so **any** signed-in account that knew or guessed an id
+  could read the thread;
+* `post_message` read the participant list, but only to check blocks, so anyone could write into a thread they had guessed.
+
+The red run printed the evidence verbatim — a third account received `{"body":"the plan is to meet at eight"}` — which is the
+shape this ratchet is for: not a dead surface, a live one with no lock.
+
+Both doors now ask `is_participant` and answer `NotFound { resource: "conversation" }`. The refusal is 404 and not 403 because
+"403" confirms the thread exists and belongs to somebody; the test asserts the full refusal body for a real thread and for an
+id that was never a conversation is **identical**, not merely the same status.
+
+The store's comment now says membership is the caller's check: `list_messages` cannot decide the refusal's shape, and a public
+store function that 403s would leak the same fact to the next caller that forgets.
+
+**Live exposure, measured rather than assumed:** the deployed database holds `conversations 0`, `messages 0`,
+`conversation_participants 0` — the hole is real and unexploited because nobody has used the feature yet. That is why the fix
+ships with the next build rather than forcing one past another session's checkout.
+
+**Proof.** Red (200 to a stranger, with the other account's words in it), green after on both engines (privacy 1/1, the existing
+community doors 1/1, `route_inventory` 5/5). Mutants from `/tmp`: removing the read guard reddens the stranger's GET (200 vs
+404); removing the write guard reddens the same test one line later, where the refused message must not land.
+
+Ratchet: 43 → 42.

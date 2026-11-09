@@ -2692,3 +2692,26 @@ check) must be older than the last good binary; and after the build, `git status
 the build is a file the binary did not compile. The `.dirty` stamp on the 19:48 build was the first warning of the same thing and
 was read as cosmetic.
 
+### A conversation had no lock: the DM doors served any thread to any account (2026-11-09)
+
+`community::is_participant` answers "is this account in this conversation" and had no caller. Both message doors —
+`GET` and `POST /conversations/{id}/messages` — took the id from the path and never asked. `list_messages` filters
+`conversation_id`, `deleted_at` and blocks but not membership, so any signed-in account that knew or guessed an id could read the
+thread; `post_message` read the participant list, but only to check blocks, so anyone could write into one.
+
+The red run printed the evidence in the other account's words. Both doors now ask `is_participant` and answer
+`NotFound { resource: "conversation" }` — 404, not 403, because a denial confirms the thread exists and belongs to somebody. The
+test asserts the refusal body for a real thread and for an id that was never a conversation is **identical**, not merely the same
+status, and that a refused write leaves the thread's message count unchanged.
+
+`list_messages` now documents that membership is the caller's check: a store function cannot decide the refusal's shape, and one
+that 403s would leak the same fact to the next caller that forgets.
+
+**Live exposure, measured:** the deployed database holds `conversations 0`, `messages 0`, `conversation_participants 0`. The hole
+is real and unexploited, which is why this ships with the next build rather than forcing one past another session's checkout —
+but it is the **first item in the queued deploy**, ahead of the leakage writer, precisely because a privacy hole outranks a
+missing producer.
+
+Proof: red (200 to a stranger, carrying the other account's message), green on both engines (privacy 1/1, `m70_13_community_doors`
+1/1, `route_inventory` 5/5); mutants removing either guard redden their own assertion. Ratchet 43 → 42.
+
