@@ -3,7 +3,7 @@
 # Each line is a `pub async fn` in crates/db/src that no app source can reach, directly or through another db
 # function. They are debt, not permission: crates/app/tests/orphan_queries.rs fails when a NEW one appears, so
 # this list can only shrink. Delete a line by wiring the function to a route or deleting the function.
-# measured 2026-11-09: 65 orphan(s)
+# measured 2026-11-09: 62 orphan(s)
 
 increment_abuse_counter  # crates/db/src/admin.rs
 complete_privacy_request  # crates/db/src/admin.rs
@@ -40,7 +40,6 @@ insert_exclusion_entry  # crates/db/src/permission.rs
 save_report  # crates/db/src/preread_store.rs
 record_interaction  # crates/db/src/ranking.rs
 count_copies  # crates/db/src/reader_body_copies.rs
-public_reviews  # crates/db/src/reading.rs
 record_unit_read  # crates/db/src/reading_goal.rs
 quote_consent  # crates/db/src/rec_blurbs.rs
 set_quote_consent  # crates/db/src/rec_blurbs.rs
@@ -50,8 +49,6 @@ list_changes  # crates/db/src/retention_proposals.rs
 upsert_card  # crates/db/src/roadmap.rs
 select_by_contribution_volume  # crates/db/src/roles.rs
 select_vanguards  # crates/db/src/roles.rs
-search_works_ast  # crates/db/src/search/ast_search.rs
-search_works_ast_filtered  # crates/db/src/search/ast_search.rs
 exclusion_for_viewer  # crates/db/src/search/content_filter_sql.rs
 retire_encryption_key  # crates/db/src/secrets.rs
 next_entries  # crates/db/src/series_recs.rs

@@ -1638,3 +1638,27 @@ the next pass over a comment like this should grep for the name before trusting 
 
 Ratchet 66 -> 65.
 
+### Three functions whose only caller was a test, or nobody (search, reading, 2026-11-08)
+
+The ratchet's rule is "wire it or delete it", and deletion is the right answer when the function is a **narrower or less safe
+twin** of the path the product actually takes. This pass deleted three:
+
+* **`search_works_ast`** — `search_works_ast_impl` with no content filters and the default scope. `/search` calls
+  `search_works_ast_scoped`, because a blocked tag has to be excluded *in SQL, before the LIMIT* (§46.4). The wrapper's
+  signature has **no `filters` parameter at all**, so any future caller reaching for the shorter name would silently serve
+  works a reader has asked never to see. Its only caller was `search_comparisons.rs`, a suite that then tested a path no
+  reader takes; the suite now calls the real entry point through a three-line local helper.
+* **`search_works_ast_filtered`** — the same wrapper with filters and the default scope, superseded by `…_scoped`, which takes
+  both. Nothing called it, not even a test.
+* **`reading::public_reviews`** — the twin of `positivity::visible_reviews`, which is what `GET /works/{id}/reviews` serves.
+  The difference is the point: `public_reviews` filtered `is_public`, `published_at` and `deleted_at`, and `visible_reviews`
+  additionally excludes **held** reviews — the ones a classifier has not delivered yet. A function that answers "the public
+  reviews" more generously than the route does is a §20 obligation waiting to be broken by whoever picks the shorter name.
+  This is `entry_score`'s shape again: a narrower twin of a rule the product deliberately does not follow.
+
+**The lesson this pass keeps re-teaching:** a function with no caller is not automatically harmless. Two of these three were
+*plausible names with the wrong safety properties*, and the ratchet counts them as debt precisely because the next person to
+need "search works" or "the reviews of a work" will find them first.
+
+Ratchet 65 -> 62.
+

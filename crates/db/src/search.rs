@@ -22,9 +22,8 @@ pub mod forum_ast_search;
 pub mod query_error;
 pub mod user_ast_search;
 
-pub use ast_search::search_works_ast;
 pub use ast_search::{
-    explain_search, search_works_ast_filtered, search_works_ast_scoped, SearchFilters, SearchPlan,
+    explain_search, search_works_ast_scoped, SearchFilters, SearchPlan,
 };
 pub use forum_ast_search::{search_forum_ast, ForumSearchResult};
 pub use query_error::{QueryProblem, SearchError};
