@@ -2740,3 +2740,30 @@ versions failed to compile. Ratchet 42 → 41.
 
 Not deployed: queued behind the conversation privacy fix and the leakage writer, in that order.
 
+### §47.4's discount existed in the schema and in no row (2026-11-09)
+
+Migration 0098 added `kind`, `source` and a partial index `WHERE kind = 'earned'` to `work_view_log` for §47.4 ("ranking counts
+only `Earned`"), plus `obscurity_at_read` for §47.7. `ranking::record_interaction` was written to fill them, and its **only caller
+was a test**. `work_metrics::record_view` — the single production writer — inserted four columns and left the other three at their
+defaults, so every row on every instance read `kind = 'earned'`, `source = 'unknown'`, `obscurity = 1.0` no matter how the reader
+arrived. A bounty read was stored as an earned one, and the discount could only have been applied to rows that were never written.
+
+Repair: `record_view` takes the arrival `source` and writes `kind` + `source` in the **same INSERT** (kind from
+`InteractionKind::for_source`); `record_interaction` and `InteractionRow` deleted, and the round-trip test now drives the real
+writer. One write, not two: a second UPDATE of a fact the INSERT already knows is a window in which a crash leaves a bounty read
+recorded as earned forever.
+
+`obscurity_at_read` is deliberately **not** written — nothing measures a work's obscurity at read time, and writing `1.0` from the
+writer would look like a measurement and mean "not obscure". The note in `ranking.rs` names the consumer half: no query filters
+`kind = 'earned'` (the partial index has no user), no query reads `obscurity_at_read`, and `work_kudos` still has two writers that
+fill neither column. §47.4 is **decided, recorded per row, and not yet applied** — the first line of any future consumer is the
+filter, and until then the columns are evidence rather than policy.
+
+A PG defect fell out of the change: `work_view_log.work_id` is **TEXT** on PostgreSQL (0068 spells it TEXT in both dialects) while
+`works.id` is uuid. The PG INSERT carried `$1::uuid` — inert in an INSERT by assignment cast, fatal in a comparison
+(`operator does not exist: text = uuid`), which is what the new read-back did. Cast removed; comment corrected, because the old one
+taught the wrong thing.
+
+Proof: two mutants from /tmp (writer falls back to defaults; `for_source` never discounts) redden exactly their assertion; both
+engines green (m45_ranking 10/10, milestone_68 22/22, work_metrics lib 5/5). Ratchet 41 → 40.
+

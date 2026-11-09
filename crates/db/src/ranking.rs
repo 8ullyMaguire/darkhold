@@ -153,129 +153,20 @@ impl InteractionKind {
     }
 }
 
-/// The primary key of one already-logged interaction row.
+/// §47.4's distinction, and where it is written.
 ///
-/// A struct rather than a single `&str`, because the two tables do not share a
-/// key shape and a single string invites binding the same value into three
-/// unrelated columns — which compiles, runs, and updates zero rows.
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub enum InteractionRow {
-    /// `work_view_log`, keyed by (work_id, viewer_hash, viewed_at).
-    View {
-        work_id: String,
-        viewer_hash: String,
-        viewed_at: String,
-    },
-    /// `work_kudos`, keyed by (work_id, account_id).
-    Kudos { work_id: String, account_id: String },
-}
-
-/// Record an interaction's kind and obscurity on an already-logged read or
-/// kudos (`work_view_log` / `work_kudos`, migration 0068).
+/// `record_interaction` and `InteractionRow` used to live here: an UPDATE that reclassified an already-logged `work_view_log` or
+/// `work_kudos` row with its kind, its source and its obscurity. Its only caller was a test, and it was the wrong half of the pair
+/// to have — the row's own INSERT knows the arrival path, so a second UPDATE is a window in which a bounty read is stored as
+/// earned, and a crash in that window leaves it that way forever. `work_metrics::record_view` now writes `kind` and `source` in
+/// the INSERT, and the test drives that instead.
 ///
-/// `obscurity_at_read` is a parameter rather than something computed here.
-/// Measuring it inside this function from a later query would be the §47.7
-/// defect: the weight has to be the one in force when the engagement happened,
-/// because a work that was obscure then and popular now must still score as an
-/// obscure read. Recomputing would pay whoever arrived early, which is
-/// measurable and would be gamed within a day.
-///
-/// The update targets the existing tables rather than a new `interactions` table
-/// because §47.4's distinction has to land on the rows that already exist. A
-/// single new table would leave every historical read invisible to ranking, which
-/// is the same class of bug as the missing propensity column: a record that
-/// exists in one place and not the other.
-pub async fn record_interaction(
-    db: &Database,
-    row: &InteractionRow,
-    source: &str,
-    obscurity_at_read: f64,
-) -> Result<InteractionKind> {
-    let kind = InteractionKind::for_source(source);
-    // The table name is chosen by matching the enum, so no caller-supplied
-    // string ever reaches an identifier position.
-    match row {
-        InteractionRow::View {
-            work_id,
-            viewer_hash,
-            viewed_at,
-        } => {
-            let sqlite = "UPDATE work_view_log
-                SET kind = ?, source = ?, obscurity_at_read = ?
-                WHERE work_id = ? AND viewer_hash = ? AND viewed_at = ?";
-            // `$4::uuid` and friends are required and `sql_owned` does not add
-            // them — it renumbers placeholders, nothing else. `work_view_log.work_id`
-            // is TEXT on PostgreSQL but `work_kudos.work_id` is UUID, so the cast
-            // has to be written per arm rather than once. Without it the failure
-            // is "operator does not exist: uuid = text", which names the operator
-            // rather than the missing cast.
-            let postgres = "UPDATE work_view_log
-                SET kind = $1, source = $2, obscurity_at_read = $3
-                WHERE work_id = $4 AND viewer_hash = $5 AND viewed_at = $6";
-            match db.backend() {
-                Backend::Sqlite => {
-                    sqlx::query(sqlite)
-                        .bind(kind.as_str())
-                        .bind(source)
-                        .bind(obscurity_at_read)
-                        .bind(work_id)
-                        .bind(viewer_hash)
-                        .bind(viewed_at)
-                        .execute(db.sqlite_pool().expect("sqlite"))
-                        .await?;
-                }
-                Backend::Postgres => {
-                    let sql = sql_owned(db, sqlite.to_owned(), postgres.to_owned());
-                    sqlx::query(&sql)
-                        .bind(kind.as_str())
-                        .bind(source)
-                        .bind(obscurity_at_read)
-                        .bind(work_id)
-                        .bind(viewer_hash)
-                        .bind(viewed_at)
-                        .execute(db.postgres_pool().expect("postgres"))
-                        .await?;
-                }
-            }
-        }
-        InteractionRow::Kudos {
-            work_id,
-            account_id,
-        } => {
-            let sqlite = "UPDATE work_kudos
-                SET kind = ?, source = ?, obscurity_at_read = ?
-                WHERE work_id = ? AND account_id = ?";
-            let postgres = "UPDATE work_kudos
-                SET kind = $1, source = $2, obscurity_at_read = $3
-                WHERE work_id = $4::uuid AND account_id = $5::uuid";
-            match db.backend() {
-                Backend::Sqlite => {
-                    sqlx::query(sqlite)
-                        .bind(kind.as_str())
-                        .bind(source)
-                        .bind(obscurity_at_read)
-                        .bind(work_id)
-                        .bind(account_id)
-                        .execute(db.sqlite_pool().expect("sqlite"))
-                        .await?;
-                }
-                Backend::Postgres => {
-                    let sql = sql_owned(db, sqlite.to_owned(), postgres.to_owned());
-                    sqlx::query(&sql)
-                        .bind(kind.as_str())
-                        .bind(source)
-                        .bind(obscurity_at_read)
-                        .bind(work_id)
-                        .bind(account_id)
-                        .execute(db.postgres_pool().expect("postgres"))
-                        .await?;
-                }
-            }
-        }
-    }
-    Ok(kind)
-}
-
+/// **What is still missing, named rather than implied:** nothing reads the columns it writes. No query filters
+/// `kind = 'earned'` (the partial index migration 0098 built has no user), no query reads `obscurity_at_read` (`scout_value` takes
+/// the number as an argument), and `work_kudos` still receives its rows from two writers that fill neither column. §47.4's
+/// discount is therefore *decided, recorded per row, and not yet applied* — the first line of any future consumer is the filter,
+/// and until that consumer exists the columns are evidence rather than policy. `obscurity_at_read` stays at its default because
+/// nothing measures a work's obscurity at read time; writing `1.0` here would look like a measurement.
 /// Rank a candidate set for one reader, and report what to log.
 ///
 /// §47.2 fixes the stage order and a stage may not reorder it. The order is:

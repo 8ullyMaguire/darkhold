@@ -210,3 +210,36 @@ flagger". Both engines (1/1, `route_inventory` 5/5). Mutants from /tmp: letting 
 as compile failures (unused `user`, unused `applied`) and retargeted rather than counted.
 
 Ratchet: 42 → 41. Not deployed: queued behind the privacy fix and the leakage writer, in that order.
+
+## Pass 75 — §47.4's discount existed in schema, never in a row (2026-11-09)
+
+Migration 0098 added `kind`, `source` and a partial index `WHERE kind = 'earned'` to `work_view_log` for §47.4 ("ranking counts
+only `Earned`"), and `obscurity_at_read` for §47.7's scout value. `ranking::record_interaction` was the function meant to fill
+them. Its **only caller was a test**: `work_metrics::record_view` — the single production writer of the table — inserted
+`(work_id, viewer_hash, viewed_at, is_automated)` and left the other three columns at their defaults. Every row on every instance
+therefore read `kind = 'earned', source = 'unknown', obscurity_at_read = 1.0`, whatever the arrival path was, so a bounty read was
+stored as an earned one and the discount could only ever have been applied to rows that were never written.
+
+Repair: `record_view` takes the arrival `source` and writes `kind` + `source` **in the same INSERT**, deriving the kind from
+`InteractionKind::for_source`. `record_interaction` and `InteractionRow` are deleted, and the round-trip test now drives the real
+writer instead of the test-only twin — the rule the ledger already carries: *a function whose only caller is a test, and which is
+a second and weaker way to write a fact the product path already writes, should be deleted.*
+
+`obscurity_at_read` is deliberately **not** written. §47.7 wants the value in force at engagement time, and nothing in this
+codebase measures a work's obscurity then (`scout_value` takes the number as an argument and has no query). Writing the default
+`1.0` from the writer would look like a measurement and mean "not obscure", which pays nobody and hides the gap; leaving it absent
+keeps the gap in the schema where the next reader will find it. The same paragraph in `ranking.rs` names the consumer half plainly:
+no query filters `kind = 'earned'`, no query reads `obscurity_at_read`, and `work_kudos` still has two writers that fill neither
+column — so §47.4 is *decided, recorded per row, and not yet applied*.
+
+**The PG defect this pass found before shipping:** `work_view_log.work_id` is **TEXT** on PostgreSQL (0068 spells it TEXT in both
+dialects) while `works.id` is uuid. `record_view`'s PG INSERT said `$1::uuid`, which survives by assignment cast in an INSERT and
+fails in a comparison — `operator does not exist: text = uuid` — which is exactly what the new test's read-back did. The cast is
+gone and the comment now says which side is which, because the previous comment taught the wrong thing ("work_id is UUID; $1
+arrives as text").
+
+**Proof.** Mutants from /tmp: (1) writer falls back to the migration defaults → `("earned","unknown")` vs `("incentivized","bounty")`;
+(2) `for_source` never returns `Incentivized` → `("earned","bounty")` vs `("incentivized","bounty")`. Both green on both engines
+first (m45_ranking 10/10, milestone_68_work_metrics 22/22, work_metrics lib 5/5).
+
+Ratchet: 41 → 40.
