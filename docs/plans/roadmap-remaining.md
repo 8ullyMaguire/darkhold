@@ -2166,3 +2166,26 @@ Ratchet 49 -> 47 (one wired, one deleted).
 `/meta` `build 0.1.0+0ad9748d`, `GET /works/{id}/contributors/invitations` `401` anonymous, `GET /library/series/next` `401`
 anonymous, `/health/ready` `200`, no panic. Build cost 25m21s at load 30.
 
+### A second doorway to one curated state (taxonomy.rs, 2026-11-09)
+
+`taxonomy::curate_node` set `canonical_entities.canonical` and `review_status = 'curated'` and touched nothing else. §15.17 keeps
+two tables describing one curated state, and `curate_name` writes both in one transaction — so a caller that reached `curate_node`
+curated a name in the vocabulary `search_nodes` reads while leaving the exchange's row unverified: the disagreement migration
+0082 says a join silently drops, and `curation_reaches_taxonomy.rs` names this function as *the hazard `curate_name` exists to
+remove*. It also recorded no curator, leaving `curated_by`/`curated_at` NULL on the row it did touch — the columns that exist so
+"who decided this" is answerable.
+
+Deleted, with no replacement: `curate_name` is the only doorway, and a second `pub` writer is how the vocabularies drifted in the
+first place. The tests that pin the end state (`curation_reaches_taxonomy.rs`, 3 green) never used it — they hold whichever writer
+is used, which is why deleting a `pub` function broke nothing.
+
+**Not deleted, and the reason matters:** `taxonomy::recompute_confidence` stays on the list because it is spec work with both
+halves missing, not a redundant twin. It maintains `work_tags.confidence` from `work_tag_votes`, and today **nothing in the binary
+writes a vote and nothing reads `work_tags.confidence`** — no `wt.confidence` appears in a single query. Wiring the sweep would
+make a number fresher that no surface shows and no product path feeds: ceremony around a dead column. The honest row is the
+reader-vote feature (a vote endpoint, a per-row recompute on cast, and a surface that shows confidence), and when that exists this
+sweep returns with its reader. Its two assertions in `work_tag_provenance.rs` are the only executable record of §6.4's smoothing
+formula, which is the second reason not to delete it.
+
+Ratchet 47 -> 46.
+

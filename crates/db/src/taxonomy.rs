@@ -438,41 +438,15 @@ pub async fn ensure_node_from_signal(
     })
 }
 
-/// Curate a node (§19.4 quorum work, gated to TL3 by the caller).
-///
-/// Sets the canonical form and the curated status. §15.17 requires the
-/// originating signals to be retained as provenance, so nothing here touches
-/// `exchange_signals` or `exchange_signal_entities`.
-pub async fn curate_node(
-    db: &Database,
-    kind: &str,
-    norm: &str,
-    canonical_form: &str,
-) -> Result<bool> {
-    let sql = db.sql(
-        "UPDATE canonical_entities SET canonical = ?, review_status = 'curated'
-         WHERE kind = ? AND norm = ?",
-        "UPDATE canonical_entities SET canonical = $1, review_status = 'curated'
-         WHERE kind = $2 AND norm = $3",
-    );
-    let affected = match db.backend() {
-        Backend::Sqlite => sqlx::query(&sql)
-            .bind(canonical_form)
-            .bind(kind)
-            .bind(norm)
-            .execute(db.sqlite_pool().expect("sqlite"))
-            .await?
-            .rows_affected(),
-        Backend::Postgres => sqlx::query(&sql)
-            .bind(canonical_form)
-            .bind(kind)
-            .bind(norm)
-            .execute(db.postgres_pool().expect("postgres"))
-            .await?
-            .rows_affected(),
-    };
-    Ok(affected > 0)
-}
+// `curate_node` lived here: it set `canonical_entities.canonical` and `review_status = 'curated'` and nothing else. §15.17
+// keeps two tables describing one curated state, and `curate_name` writes both in one transaction; `curate_node` wrote one, so a
+// caller that reached it curated a name in the vocabulary `search_nodes` reads while leaving the exchange's row unverified — the
+// exact disagreement migration 0082 says a join silently drops, and `curation_reaches_taxonomy.rs` names this function as the
+// hazard `curate_name` exists to remove. It also recorded no curator: the exchange's `curated_by`/`curated_at` columns exist
+// precisely so "who decided this" is answerable, and the narrower function left them NULL on the row it did touch.
+//
+// There is no replacement here on purpose: `curate_name` is the only doorway, and a second `pub` writer is how the two
+// vocabularies drifted in the first place.
 
 /// Curate a name in **both** vocabularies, atomically.
 ///
