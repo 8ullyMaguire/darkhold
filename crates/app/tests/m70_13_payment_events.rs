@@ -83,6 +83,16 @@ async fn a_work_for_sale(author: &mut TestClient, price: i64) -> String {
         .await;
     assert_eq!(status, StatusCode::OK, "{body}");
 
+    // §20.9.1: this instance's default mode is `original`, so the author must have asserted originality before the work may
+    // carry a price. Pricing without it is refused by field, which is the gate's own test's subject.
+    let (status, body) = author
+        .post(
+            &format!("/api/v1/works/{work}/assertion"),
+            json!({ "kind": "original" }),
+        )
+        .await;
+    assert_eq!(status, StatusCode::OK, "assertion: {body}");
+
     let (status, body) = author
         .post(
             &format!("/api/v1/works/{work}/pricing"),

@@ -599,6 +599,15 @@ async fn a_purchased_work_is_readable_by_the_buyer() {
     let _unit_id = add_unit(&mut author, &work_id, "Unit 1", "Once upon a time.").await;
     publish_work(&mut author, &work_id, 1).await;
 
+    // §20.9.1: the default eligibility is `original`, so the author asserts originality before pricing.
+    let (status, _) = author
+        .post(
+            &format!("/api/v1/works/{work_id}/assertion"),
+            json!({ "kind": "original" }),
+        )
+        .await;
+    assert_eq!(status, StatusCode::OK, "assert original");
+
     // Price the work as purchase-only.
     let (status, _) = author
         .post(
@@ -634,7 +643,14 @@ async fn a_paid_work_is_paywalled_for_non_buyers() {
     let _unit_id = add_unit(&mut author, &work_id, "Unit 1", "Secret content.").await;
     publish_work(&mut author, &work_id, 1).await;
 
-    // Price the work.
+    // Price the work (asserting originality first, §20.9.1).
+    let (status, _) = author
+        .post(
+            &format!("/api/v1/works/{work_id}/assertion"),
+            json!({ "kind": "original" }),
+        )
+        .await;
+    assert_eq!(status, StatusCode::OK, "assert original");
     let (status, _) = author
         .post(
             &format!("/api/v1/works/{work_id}/pricing"),
@@ -666,7 +682,14 @@ async fn tip_only_work_is_free_to_read() {
     let _unit_id = add_unit(&mut author, &work_id, "Unit 1", "Have a story.").await;
     publish_work(&mut author, &work_id, 1).await;
 
-    // Price as tips-only (free to read).
+    // Price as tips-only (free to read) — with the originality claim §20.9.1 requires first.
+    let (status, _) = author
+        .post(
+            &format!("/api/v1/works/{work_id}/assertion"),
+            json!({ "kind": "original" }),
+        )
+        .await;
+    assert_eq!(status, StatusCode::OK, "assert original");
     let (status, _) = author
         .post(
             &format!("/api/v1/works/{work_id}/pricing"),
@@ -699,6 +722,13 @@ async fn public_pricing_returns_price_for_purchased_work() {
 
     let (status, _) = author
         .post(
+            &format!("/api/v1/works/{work_id}/assertion"),
+            json!({ "kind": "original" }),
+        )
+        .await;
+    assert_eq!(status, StatusCode::OK, "assert original");
+    let (status, _) = author
+        .post(
             &format!("/api/v1/works/{work_id}/pricing"),
             json!({ "model": "purchase", "price_minor": 500, "currency": "USD", "public_at_offset": null }),
         )
@@ -728,6 +758,14 @@ async fn a_sale_notifies_the_author_through_the_inbox() {
     let work_id = create_work(&mut author, "For Sale").await;
     let _unit = add_unit(&mut author, &work_id, "Unit 1", "Once upon a time.").await;
     publish_work(&mut author, &work_id, 1).await;
+
+    let (status, _) = author
+        .post(
+            &format!("/api/v1/works/{work_id}/assertion"),
+            json!({ "kind": "original" }),
+        )
+        .await;
+    assert_eq!(status, StatusCode::OK, "assert original");
 
     let (status, body) = author
         .post(
@@ -802,7 +840,15 @@ async fn only_the_owner_may_price_a_work() {
         .await;
     assert_eq!(status, StatusCode::NOT_FOUND);
 
-    // The owner can.
+    // The owner can — after asserting originality, which the price requires (§20.9.1).
+    let (status, _) = author
+        .post(
+            &format!("/api/v1/works/{work_id}/assertion"),
+            json!({ "kind": "original" }),
+        )
+        .await;
+    assert_eq!(status, StatusCode::OK, "assert original");
+
     let (status, body) = author
         .post(
             &format!("/api/v1/works/{work_id}/pricing"),

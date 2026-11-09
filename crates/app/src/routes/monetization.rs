@@ -74,14 +74,40 @@ pub async fn set_pricing(
             resource: "work",
         }));
     }
+    // §20.9.1, in the order the questions are asked: may this instance sell anything at all, and has this work's author made
+    // the claim that mode requires? Both are refused before a price row can exist, so no work is ever priced in a state the
+    // instance does not permit — and the purchase door asks the same two questions again, because a price set under one
+    // eligibility setting must not sell under another.
+    let eligibility = state.config().monetization.eligibility();
+    if !darkhold_domain::monetization::Rules::pricing_enabled(eligibility) {
+        return Err(ApiError(darkhold_domain::AppError::field(
+            "model",
+            "this instance does not sell works; credit tips still work",
+        )));
+    }
+    if !assertion_satisfied(state.db(), eligibility, &work_id.to_canonical_string())
+        .await
+        .map_err(|e| ApiError(darkhold_domain::AppError::Internal(e.into())))?
+    {
+        return Err(ApiError(darkhold_domain::AppError::field(
+            "assertion",
+            if darkhold_domain::monetization::Rules::assertion_satisfies(
+                eligibility,
+                darkhold_domain::monetization::ASSERTION_KIND_ORIGINAL,
+            ) {
+                "this instance prices only works its author has declared original; record that at POST /works/{work_id}/assertion"
+            } else {
+                "this instance requires a stored rights assertion before a work may be priced; record one at POST /works/{work_id}/assertion"
+            },
+        )));
+    }
+
     let model_str = match model {
         darkhold_domain::monetization::Model::Tips => "tips",
         darkhold_domain::monetization::Model::EarlyAccess => "early_access",
         darkhold_domain::monetization::Model::Purchase => "purchase",
         darkhold_domain::monetization::Model::Patronage => "patronage",
     };
-    let _ = work_id; // work existence is asserted by foreign key
-    let _ = user; // author ownership checked via FK on work_pricing
     let id = monetization::set_pricing(
         state.db(),
         &work_id.to_canonical_string(),
@@ -155,6 +181,20 @@ pub async fn purchase(
         return Err(ApiError(darkhold_domain::AppError::field(
             "work_id",
             "this work is not currently for sale",
+        )));
+    }
+    // The same two questions the pricing door asks, asked again (see `set_pricing`): pricing is a decision the author made
+    // under one eligibility setting, and a sale is a decision this instance makes now. A price that predates a stricter
+    // setting must stop selling rather than inherit permission it was never granted.
+    let eligibility = state.config().monetization.eligibility();
+    if !darkhold_domain::monetization::Rules::pricing_enabled(eligibility)
+        || !assertion_satisfied(state.db(), eligibility, &work_id.to_canonical_string())
+            .await
+            .map_err(|e| ApiError(darkhold_domain::AppError::Internal(e.into())))?
+    {
+        return Err(ApiError(darkhold_domain::AppError::field(
+            "work_id",
+            "this work has no rights assertion this instance accepts, so it is not for sale",
         )));
     }
 
@@ -619,6 +659,10 @@ pub fn router() -> axum::Router<AppState> {
             "/works/{work_id}/pricing",
             axum::routing::post(set_pricing).delete(delete_pricing),
         )
+        .route(
+            "/works/{work_id}/assertion",
+            post(submit_assertion).get(read_assertion),
+        )
         .route("/works/{work_id}/purchase", post(purchase))
         .route("/works/{work_id}/tips", post(tip))
         .route("/me/payouts", post(request_payout))
@@ -969,4 +1013,135 @@ pub async fn settle_period(
         "capped_authors": capped_authors,
         "pool_b_distributed_to": distributions.len(),
     })))
+}
+
+#[derive(Debug, Deserialize)]
+pub struct AssertionBody {
+    /// `original` or `rights-held` (§20.9.1). The instance decides which of them it accepts; this decides what the author
+    /// is claiming.
+    pub kind: String,
+}
+
+/// The server's own version string for the assertion wording (§20.9.1: widening "re-asserts rights at price changes").
+///
+/// The author is agreeing to *this build's* statement, not to a string a client typed: a version the caller chooses is a
+/// version nobody can audit, and re-assertion on a change has to compare something the instance controls. Same shape as the
+/// age assessment's version, which is the precedent in this codebase.
+fn assertion_policy_version() -> String {
+    format!("{}+monetization", crate::version::VERSION)
+}
+
+/// Record the author's rights assertion for a work (§20.9.1).
+///
+/// Until this existed the assertion table had a writer nobody called and a READER nobody called, and `assertion_required`
+/// was a tested rule with no enforcement: an instance configured to price only original works would price any work at all.
+async fn submit_assertion(
+    State(state): State<AppState>,
+    RequireSession(user): RequireSession,
+    Path(work_id): Path<String>,
+    Json(body): Json<AssertionBody>,
+) -> ApiResult<Json<Value>> {
+    let work_id = work_id
+        .parse::<darkhold_domain::WorkId>()
+        .map_err(|_| ApiError(darkhold_domain::AppError::NotFound { resource: "work" }))?;
+    let kind = body.kind.trim();
+    if !darkhold_domain::monetization::ASSERTION_KINDS.contains(&kind) {
+        return Err(ApiError(darkhold_domain::AppError::field(
+            "kind",
+            "original or rights-held",
+        )));
+    }
+    let work = darkhold_db::content::find_work(state.db(), work_id)
+        .await
+        .map_err(|e| ApiError(darkhold_domain::AppError::Internal(e.into())))?
+        .ok_or_else(|| ApiError(darkhold_domain::AppError::NotFound { resource: "work" }))?;
+    // A rights assertion is a claim made by the person who will be paid for it. Somebody else's claim about your work is
+    // not an assertion, it is a statement about you.
+    let pseud = user.pseud_id.ok_or_else(|| {
+        ApiError(darkhold_domain::AppError::field(
+            "pseud_id",
+            "a pseud must be selected to assert rights",
+        ))
+    })?;
+    if work.owner_pseud_id != pseud {
+        return Err(ApiError(darkhold_domain::AppError::NotFound {
+            resource: "work",
+        }));
+    }
+
+    let canonical = work_id.to_canonical_string();
+    let policy_version = assertion_policy_version();
+    let id = monetization::record_assertion(state.db(), &canonical, kind, &policy_version)
+        .await
+        .map_err(|e| ApiError(darkhold_domain::AppError::Internal(e.into())))?;
+    Ok(Json(json!({
+        "id": id,
+        "work_id": canonical,
+        "kind": kind,
+        "policy_version": policy_version,
+    })))
+}
+
+/// The latest assertion for a work, or `null`.
+///
+/// Public, because the claim is about the work and a reader deciding whether to buy it is the person who most needs to see
+/// it. It names an assertion kind and a policy version and nothing about the author beyond the work they already published.
+async fn read_assertion(
+    State(state): State<AppState>,
+    Path(work_id): Path<String>,
+) -> ApiResult<Json<Value>> {
+    let work_id = work_id
+        .parse::<darkhold_domain::WorkId>()
+        .map_err(|_| ApiError(darkhold_domain::AppError::NotFound { resource: "work" }))?;
+    let canonical = work_id.to_canonical_string();
+    let mut latest: Option<monetization::AssertionRow> = None;
+    for kind in darkhold_domain::monetization::ASSERTION_KINDS {
+        let row = monetization::get_assertion(state.db(), &canonical, kind)
+            .await
+            .map_err(|e| ApiError(darkhold_domain::AppError::Internal(e.into())))?;
+        if let Some(row) = row {
+            // Newest wins, whichever kind it is: an author who first asserted `rights-held` and later `original` has made the
+            // stronger claim most recently, and a client should see that one.
+            latest = match latest {
+                Some(previous) if previous.accepted_at >= row.accepted_at => Some(previous),
+                _ => Some(row),
+            };
+        }
+    }
+    Ok(Json(match latest {
+        Some(row) => json!({
+            "work_id": canonical,
+            "asserted": true,
+            "kind": row.assertion_kind,
+            "policy_version": row.policy_version,
+            "accepted_at": row.accepted_at,
+        }),
+        None => json!({
+            "work_id": canonical,
+            "asserted": false,
+            "kind": Value::Null,
+            "policy_version": Value::Null,
+            "accepted_at": Value::Null,
+        }),
+    }))
+}
+
+/// Is there a stored assertion the eligibility setting accepts?
+///
+/// One helper for the two doors that ask it, so "what counts as an assertion here" cannot drift between the price and the
+/// sale. The rule itself lives in the domain; this only feeds it the kinds that exist.
+async fn assertion_satisfied(
+    db: &darkhold_db::Database,
+    eligibility: darkhold_domain::monetization::Eligibility,
+    work_id: &str,
+) -> anyhow::Result<bool> {
+    for kind in darkhold_domain::monetization::ASSERTION_KINDS {
+        if !darkhold_domain::monetization::Rules::assertion_satisfies(eligibility, kind) {
+            continue;
+        }
+        if monetization::get_assertion(db, work_id, kind).await?.is_some() {
+            return Ok(true);
+        }
+    }
+    Ok(false)
 }

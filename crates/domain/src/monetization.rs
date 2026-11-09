@@ -24,6 +24,13 @@ impl Eligibility {
     }
 }
 
+/// The assertion an `original` instance demands (§20.9.1).
+pub const ASSERTION_KIND_ORIGINAL: &str = "original";
+
+/// Every assertion kind `any-with-assertion` accepts: an originality claim, or a statement that the author holds the rights
+/// they are selling (permission from the rights holder for a fanwork).
+pub const ASSERTION_KINDS: [&str; 2] = [ASSERTION_KIND_ORIGINAL, "rights-held"];
+
 /// What may be sold (§20.9.2).
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Model {
@@ -63,6 +70,26 @@ impl Rules {
     /// `any-with-assertion` demands a stored assertion; `original` demands an
     /// `original` assertion recorded at pricing time (§20.9.1).
     pub fn assertion_required(eligibility: Eligibility) -> bool {
+        !matches!(eligibility, Eligibility::Disabled)
+    }
+
+    /// Whether a stored assertion of `kind` satisfies the instance's setting (§20.9.1).
+    ///
+    /// The two modes differ in *which* assertion suffices, not merely in whether one exists: `original` accepts only an
+    /// author's originality claim, while `any-with-assertion` widens this to fanworks that assert rights held. A single
+    /// "has an assertion" check would let a fanwork be priced on an `original` instance, which is the one thing the
+    /// stricter mode exists to prevent.
+    pub fn assertion_satisfies(eligibility: Eligibility, kind: &str) -> bool {
+        match eligibility {
+            Eligibility::Disabled => false,
+            Eligibility::Original => kind == ASSERTION_KIND_ORIGINAL,
+            Eligibility::AnyWithAssertion => ASSERTION_KINDS.contains(&kind),
+        }
+    }
+
+    /// Whether a price may exist at all on this instance (§20.9.2). `disabled` is not "no assertion": it is no money,
+    /// and credit tips keep working because a credit is not a payment.
+    pub fn pricing_enabled(eligibility: Eligibility) -> bool {
         !matches!(eligibility, Eligibility::Disabled)
     }
 

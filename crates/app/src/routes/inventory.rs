@@ -3897,6 +3897,22 @@ pub const ROUTE_TABLE: &[RouteEntry] = &[
         audience: Audience::Public,
     },
     RouteEntry {
+        file: "monetization.rs",
+        handler: "submit_assertion",
+        method: "POST",
+        path: "/works/{work_id}/assertion",
+        // The author's own claim about their own work: a stranger's claim about it is a statement about the author.
+        audience: Audience::Authenticated,
+    },
+    RouteEntry {
+        file: "monetization.rs",
+        handler: "read_assertion",
+        method: "GET",
+        path: "/works/{work_id}/assertion",
+        // Public: the person most in need of it is the would-be buyer.
+        audience: Audience::Anonymous,
+    },
+    RouteEntry {
         file: "quiz.rs",
         handler: "admin_set_quiz_works",
         method: "POST",
