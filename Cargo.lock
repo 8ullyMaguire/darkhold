@@ -808,6 +808,7 @@ dependencies = [
  "mime_guess",
  "polaris-core",
  "polaris-oidc-client",
+ "polaris-search-client",
  "rand 0.8.8",
  "reqwest",
  "rsa",
@@ -2308,6 +2309,16 @@ dependencies = [
  "serde_json",
  "sha2 0.10.9",
  "thiserror 1.0.69",
+]
+
+[[package]]
+name = "polaris-search-client"
+version = "0.2.0"
+dependencies = [
+ "reqwest",
+ "serde",
+ "serde_json",
+ "tokio",
 ]
 
 [[package]]

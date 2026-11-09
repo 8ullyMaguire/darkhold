@@ -36,6 +36,9 @@ polaris-core = { path = "../../../../polaris-core-rust" }
 # darkhold had three: this crate was unused, `darkhold_domain::feed` rendered the saved-view feed, and
 # `darkhold_domain::feeds` rendered nothing a user could see — only a test called it.
 commons-feed = { path = "../../../../../../projects/commons/crates/commons-feed" }
+# The estate index's client, extracted from this crate's own `estate_search.rs` — the encoding, the measured
+# 2500 ms timeout and the two error paths now live in one place instead of five.
+polaris-search-client = { path = "../../../../polaris-search-client" }
 mime_guess.workspace = true
 rand.workspace = true
 reqwest = { version = "0.12", default-features = false, features = [
