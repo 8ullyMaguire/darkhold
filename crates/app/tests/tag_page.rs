@@ -68,11 +68,24 @@ impl Harness {
         server::build_router(AppState::new(self.config.clone(), self.tdb.db().clone()))
     }
 
+    /// Run a statement on whichever engine the harness is on.
+    ///
+    /// This used to reach `sqlite_pool()` directly, which made the **whole file** SQLite-only: every fixture in it goes through
+    /// this helper, so on PostgreSQL the first seeded row panicked before a single request was made and the file's coverage of the
+    /// browse surface on the deployed engine was zero. A harness that names one engine is a harness that only tests that engine.
     async fn exec(&self, statement: &str) {
-        sqlx::query(statement)
-            .execute(self.tdb.db().sqlite_pool().expect("sqlite"))
-            .await
-            .unwrap_or_else(|error| panic!("{statement}\n{error}"));
+        let db = self.tdb.db();
+        let pool_executed = match db.backend() {
+            darkhold_db::Backend::Sqlite => sqlx::query(statement)
+                .execute(db.sqlite_pool().expect("sqlite"))
+                .await
+                .map(|_| ()),
+            darkhold_db::Backend::Postgres => sqlx::query(statement)
+                .execute(db.postgres_pool().expect("postgres"))
+                .await
+                .map(|_| ()),
+        };
+        pool_executed.unwrap_or_else(|error| panic!("{statement}\n{error}"));
     }
 
     async fn work(&self, id: &str, title: &str, visibility: &str, tagged: bool) {

@@ -2767,3 +2767,31 @@ taught the wrong thing.
 Proof: two mutants from /tmp (writer falls back to defaults; `for_source` never discounts) redden exactly their assertion; both
 engines green (m45_ranking 10/10, milestone_68 22/22, work_metrics lib 5/5). Ratchet 41 → 40.
 
+### The entity tree had no write, so the closure was always empty (2026-11-09)
+
+`entity_closure::rebuild` walks `canonical_entities.parent_id`; `descendants_of` — "the `+children` expansion's answer" (§11.4) —
+reads the closure and had no caller. The root cause was one link upstream: **nothing in the product ever wrote `parent_id`**.
+Measured live: `parent_id IS NOT NULL` on **0 of 58,042** entities, `entity_closure` **0** rows, `entity_edges` **0** rows. The tree
+did not exist, the maintenance pass faithfully materialised nothing every ~30s, and `+children` could not expand on any deployment —
+not because expansion was unwritten, but because there was no way to say "this tag is a child of that one".
+
+**Door:** `PUT /taxonomy/{id}/parent` (Pseudonymous, curators only, `is_active_curator`), body `{"parent_id": id | null}`.
+
+* writes `parent_id`, **not** `entity_edges(rel='parent')` — both vocabularies exist, but the closure walks the column, and the edge
+  would be a second place to say the same thing that nothing reads;
+* **cycles refused at the door** — the walk's visited set cannot hang, but a tree cycle is a curator mistake and `422` names the
+  field;
+* **below the floor is not a node** (§6.4/R-23) — an edge to or from an assertion describes a tree that does not exist;
+* `null` detaches; `""` is a malformed id and is refused rather than read as an absence.
+
+**Consumer:** `GET /tags/{tag}?children=true`, off by default. Membership is an `IN` subquery over `[tag] ∪ [descendants]`, not a
+join: a work carrying both a parent and a child tag is one work, and a join would duplicate it and inflate `COUNT(*) OVER ()` so the
+page total would lie. Paging and total are one result's properties, which is why the multi-tag listing is its own function that the
+single-tag one delegates to. An unknown tag with `children=true` answers an empty page, not a 404.
+
+**Harness defect found on the way:** `tag_page.rs`'s `exec` reached `sqlite_pool()`, making the whole file SQLite-only and giving
+the `/tags` surface zero PG coverage. Now per-backend; its four tests pass on both engines for the first time.
+
+Proof: red first (404), then both engines — parentage 2/2, tag_page 4/4, route_inventory 5/5. Mutants: no curator check (403 →
+200), cycles accepted (422 → 200), `children` ignored (3 items → 2). Ratchet 40 → 39.
+

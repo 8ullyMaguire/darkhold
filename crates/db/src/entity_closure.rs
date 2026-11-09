@@ -168,6 +168,144 @@ pub async fn rebuild(db: &Database) -> Result<ClosureReport, sqlx::Error> {
     })
 }
 
+/// Why a parent edge was refused.
+///
+/// An enum rather than a string, because each arm maps to a different answer at the door: `Unknown` is `404` (there is no node),
+/// the other three are `422` naming `parent_id` (the request is well-formed and the sentence is not allowed).
+#[derive(Debug)]
+pub enum ParentError {
+    /// One of the ids is not an entity.
+    Unknown(&'static str),
+    /// One of the entities is below the floor, so it is an assertion and not a node in the tree (spec §6.4, R-23).
+    NotBrowsable(&'static str),
+    /// A node cannot be its own parent.
+    SelfParent,
+    /// The edge would close a cycle.
+    Cycle,
+    Db(sqlx::Error),
+}
+
+impl std::fmt::Display for ParentError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::Unknown(which) => write!(f, "no such {which}"),
+            Self::NotBrowsable(which) => write!(f, "the {which} is below the floor, so it is not a node"),
+            Self::SelfParent => write!(f, "a node cannot be its own parent"),
+            Self::Cycle => write!(f, "that edge would close a cycle"),
+            Self::Db(error) => write!(f, "{error}"),
+        }
+    }
+}
+
+impl From<sqlx::Error> for ParentError {
+    fn from(error: sqlx::Error) -> Self {
+        Self::Db(error)
+    }
+}
+
+/// Set (or clear) an entity's parent, which is the tree `rebuild` materialises.
+///
+/// **This is the write the tree never had.** `rebuild` walks `canonical_entities.parent_id`, and nothing in the product ever set
+/// it: the deployed instance has 0 of 58,042 entities with a parent and 0 closure rows, so §11.4's `+children` expansion had
+/// nothing to expand on every deployment. The door that calls this is `PUT /taxonomy/{id}/parent`.
+///
+/// **`parent_id`, not `entity_edges(rel = 'parent')`.** Both vocabularies are in the schema — 0104's edge table still accepts the
+/// relation, and 0124 renamed it — but the closure walks the column. Writing the edge as well would be a second place to say the
+/// same thing that nothing reads, which is the defect this module exists to remove rather than to duplicate.
+///
+/// **A cycle is refused here.** The walk holds a visited set precisely so a cycle cannot hang it (see the module doc), but a cycle
+/// in a *tree* is a mistake, and a mistake that a sweep silently tolerates is a mistake nobody fixes.
+///
+/// The closure is **not** rebuilt by this function: `AppState`'s worker does that on its maintenance pass (~every 30s) and the
+/// document says so. Rebuilding here would make a curator act cost one INSERT per entity on an instance with 58,042 of them.
+pub async fn set_parent(
+    db: &Database,
+    child_id: &str,
+    parent_id: Option<&str>,
+    actor: &str,
+) -> Result<(), ParentError> {
+    // 1. Both ends must be entities, and both must be nodes in the tree.
+    let (child_state, child_parent) = node_state_of(db, child_id).await?.ok_or(ParentError::Unknown("node"))?;
+    if child_state != "browsable" {
+        return Err(ParentError::NotBrowsable("node"));
+    }
+    let _ = child_parent;
+    if let Some(parent_id) = parent_id {
+        if parent_id == child_id {
+            return Err(ParentError::SelfParent);
+        }
+        let (parent_state, _) = node_state_of(db, parent_id)
+            .await?
+            .ok_or(ParentError::Unknown("parent node"))?;
+        if parent_state != "browsable" {
+            return Err(ParentError::NotBrowsable("parent"));
+        }
+        // 2. Walk up from the proposed parent. Meeting the child means the edge closes a cycle. Bounded by the number of entities
+        //    so that a cycle already in the data terminates the walk instead of the request.
+        let mut cursor = Some(parent_id.to_owned());
+        let mut steps = 0usize;
+        while let Some(id) = cursor {
+            if id == child_id {
+                return Err(ParentError::Cycle);
+            }
+            steps += 1;
+            if steps > 100_000 {
+                // The data already contains a cycle, which is a state this function refuses to add to and refuses to hang on.
+                return Err(ParentError::Cycle);
+            }
+            cursor = node_state_of(db, &id).await?.and_then(|(_, parent)| parent);
+        }
+    }
+
+    // 3. Write the column the closure walks. `updated_at` moves with it: a node whose place in the tree changed is a node that
+    //    changed, and a caller sorting by recency should see it.
+    let now = crate::identity::now_rfc3339();
+    let sql = db.sql(
+        "UPDATE canonical_entities SET parent_id = ?, updated_at = ? WHERE id = ?",
+        "UPDATE canonical_entities SET parent_id = $1, updated_at = $2 WHERE id = $3",
+    );
+    match db.backend() {
+        Backend::Sqlite => {
+            sqlx::query(&sql)
+                .bind(parent_id)
+                .bind(&now)
+                .bind(child_id)
+                .execute(db.sqlite_pool().expect("sqlite handle"))
+                .await?;
+        }
+        Backend::Postgres => {
+            sqlx::query(&sql)
+                .bind(parent_id)
+                .bind(&now)
+                .bind(child_id)
+                .execute(db.postgres_pool().expect("postgres handle"))
+                .await?;
+        }
+    }
+    let _ = actor;
+    Ok(())
+}
+
+/// `(node_state, parent_id)` for one entity, or `None` when the id is not an entity.
+async fn node_state_of(db: &Database, id: &str) -> Result<Option<(String, Option<String>)>, sqlx::Error> {
+    let sql = db.sql(
+        "SELECT node_state, parent_id FROM canonical_entities WHERE id = ?",
+        "SELECT node_state, parent_id FROM canonical_entities WHERE id = $1",
+    );
+    match db.backend() {
+        Backend::Sqlite => sqlx::query_as(&sql)
+            .bind(id)
+            .fetch_optional(db.sqlite_pool().expect("sqlite handle"))
+            .await,
+        Backend::Postgres => {
+            sqlx::query_as::<_, (String, Option<String>)>(&sql)
+                .bind(id)
+                .fetch_optional(db.postgres_pool().expect("postgres handle"))
+                .await
+        }
+    }
+}
+
 /// The transitive descendants of an entity, nearest first.
 ///
 /// This is the `+children` expansion's answer, and it is the *closure* that

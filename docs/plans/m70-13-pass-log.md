@@ -243,3 +243,44 @@ arrives as text").
 first (m45_ranking 10/10, milestone_68_work_metrics 22/22, work_metrics lib 5/5).
 
 Ratchet: 41 → 40.
+
+## Pass 76 — the entity tree had no write, so the closure was always empty (2026-11-09)
+
+`entity_closure::rebuild` builds the closure from `canonical_entities.parent_id`, and `descendants_of` — "the `+children`
+expansion's answer" (§11.4) — reads it and had no caller. The chain is only as real as its first link, and the first link was
+missing: **nothing in the product ever wrote `parent_id`**. Measured on the deployed database: `parent_id IS NOT NULL` on **0 of
+58,042** entities, `entity_closure` **0** rows, `entity_edges` **0** rows. The tree did not exist, the maintenance pass faithfully
+materialised nothing every ~30s, and `+children` could never expand anything — not because expansion was unwritten, but because
+there was never a way to say "this tag is a child of that one".
+
+**The door.** `PUT /taxonomy/{id}/parent` (Pseudonymous, curators only — `is_active_curator`, the predicate the tag door already
+uses), body `{"parent_id": "<id>" | null}`. Three decisions:
+
+* **`parent_id`, not `entity_edges(rel = 'parent')`.** Both vocabularies are in the schema (0104's edge table still accepts the
+  relation; 0124 renamed it), but the closure walks the column. Writing the edge too would be a second place to say the same
+  thing that nothing reads.
+* **A cycle is refused at the door.** The walk's visited set means a cycle cannot hang it — that is why the walk is in Rust — but a
+  cycle in a *tree* is a curator mistake, and the place to answer it is where it is made (422 naming `parent_id`).
+* **Below the floor is not a node** (§6.4/R-23): an edge to or from an assertion describes a tree that does not exist, so it is
+  refused by name.
+
+**The consumer.** `GET /tags/{tag}?children=true` expands through the closure and lists in **one statement**: the membership test
+is now an `IN` subquery over `[this tag] ∪ [its descendants]` rather than a join, because a work carrying both a parent and a child
+tag is one work and a join would return it twice (and inflate `COUNT(*) OVER ()`, so the page total would lie). Paging and total
+are properties of one result, which is why the multi-tag listing is a new function that the single-tag one delegates to rather than
+N calls to the old one. Off by default: a browse surface that silently widened a query would be answering a question the reader
+did not ask. An unknown tag answers an empty page with `children=true`, not a 404 — the single-tag listing has always answered
+that way.
+
+**A harness defect this pass had to fix to get PG evidence at all.** `tag_page.rs`'s `exec` reached `sqlite_pool()` directly, which
+made the whole file SQLite-only — every fixture goes through it, so on PostgreSQL the first seeded row panicked before a single
+request was made. It now picks the pool by backend, and its four tests — the `/tags` browse surface this pass rewrites — pass on
+both engines for the first time.
+
+**Proof.** Red first (404, no route). Then, both engines: parentage 2/2 (the tree, plus the expansion end to end), tag_page 4/4,
+route_inventory 5/5. Mutants from /tmp: dropping the curator check reddens the reader's 403 (200 vs 403); accepting cycles reddens
+the cycle refusal (200 vs 422); ignoring `children` reddens the expansion (2 items vs 3, the child's work missing). The cycle
+mutant was first written uncompilable (`if id == child_id && false` is fine, but the earlier attempt left `steps` unused) — no, it
+compiled; the curator mutant needed `let _ = user;` to compile, and was retargeted rather than counted as a kill.
+
+Ratchet: 40 → 39.

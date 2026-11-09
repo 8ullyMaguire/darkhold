@@ -353,6 +353,12 @@ pub struct WorksByTagQuery {
     limit: i64,
     #[serde(default)]
     offset: i64,
+    /// §11.4's `+children` expansion: include works tagged with any descendant of this tag.
+    ///
+    /// Off by default. A browse surface that silently widened what a reader asked for would be answering a question they did not
+    /// ask, and the expansion is a property of the *query* (`+children`), not of the tag.
+    #[serde(default)]
+    children: bool,
 }
 
 #[derive(Debug, Serialize)]
@@ -380,14 +386,52 @@ async fn list_works_by_tag(
     // *filtered list*, and the filter is visible and reversible.
     let filters = reader_content_filters(state.db(), session.as_ref()).await?;
 
-    let listed = darkhold_db::taxonomy::works_by_tag_filtered(
-        state.db(),
-        &tag,
-        params.limit.clamp(1, 200),
-        params.offset.max(0),
-        &filters,
-    )
-    .await
+    // §11.4's expansion, when the query asked for it: the tag's descendants come from the materialised closure (one join, not a
+    // recursion), and the listing is then a single statement over [this tag] ∪ [its descendants] so that paging and the total are
+    // properties of one result.
+    //
+    // An unknown tag is **not** an error and does not become one here: the single-tag listing has always answered an empty page
+    // for a name the vocabulary does not hold, and `children=true` on such a name must answer the same empty page. The lookup is
+    // therefore allowed to fail into the plain listing rather than turning a 200 into a 404.
+    let listed = match (params.children, darkhold_db::taxonomy::node_id_by_norm(state.db(), "tag", &tag).await)
+    {
+        (true, Ok(Some(node_id))) => {
+            let mut names = vec![tag.clone()];
+            match darkhold_db::entity_closure::descendants_of(state.db(), &node_id).await {
+                Ok(descendants) if !descendants.is_empty() => {
+                    let ids: Vec<String> = descendants.into_iter().map(|(id, _)| id).collect();
+                    match darkhold_db::taxonomy::norms_for_node_ids(state.db(), &ids).await {
+                        Ok(found) => names.extend(found),
+                        Err(error) => {
+                            tracing::warn!(%error, "the +children expansion could not resolve its nodes");
+                        }
+                    }
+                }
+                Ok(_) => {}
+                Err(error) => {
+                    tracing::warn!(%error, "the +children expansion could not read the closure");
+                }
+            }
+            darkhold_db::taxonomy::works_by_tags_filtered(
+                state.db(),
+                &names,
+                params.limit.clamp(1, 200),
+                params.offset.max(0),
+                &filters,
+            )
+            .await
+        }
+        _ => {
+            darkhold_db::taxonomy::works_by_tag_filtered(
+                state.db(),
+                &tag,
+                params.limit.clamp(1, 200),
+                params.offset.max(0),
+                &filters,
+            )
+            .await
+        }
+    }
     .map_err(|e| ApiError(AppError::Internal(e)))?;
 
     let mut items: Vec<WorksByTagItem> = listed
