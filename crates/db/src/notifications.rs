@@ -122,6 +122,13 @@ pub async fn notify(
 
 /// The caller's inbox, newest first. Unfiltered; callers that can see a work
 /// should use [`list_filtered`], which applies the reader's content filters.
+///
+/// **Kept, after being considered for deletion** (M70-13, 2026-11-09). It looks like the classic unsafe twin — the same rows as
+/// [`list_filtered`] without the exclusions, one import away from leaking a filtered work's title. Measuring the pair settled it
+/// the other way: `list_filtered` with an empty rule set *is* this query, so the leak lives in the caller that passes no rules, not
+/// in the function that takes none. Deleting this would have pushed ten test call sites through a filter API with an empty list —
+/// the primitives (`notify`, `mark_read`, `unread_count`) are clearer against the unfiltered read, and the route that serves readers
+/// passes rules. The warning above is what keeps a caller honest, and it now has a measurement behind it.
 pub async fn list(
     db: &Database,
     account_id: &str,
