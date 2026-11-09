@@ -179,6 +179,10 @@ pub async fn save_progress(db: &Database, input: ProgressInput<'_>) -> Result<()
             // The chapter record the `chapters` and `words` reading goals count (§9.7.9, M47-13).
             // Written in the same transaction as the position, because a progress row that landed
             // while its chapter record did not is a goal that silently under-counts.
+            //
+            // This is the ONLY writer of `reading_unit_read`. `reading_goal::record_unit_read` used to duplicate it with a
+            // `&Database` and its own statement; that function could never be used correctly — the caller needs the insert
+            // inside this transaction — so it was deleted rather than wired. See the module comment there.
             if let (Some(pseud_id), Some(unit)) = (pseud, unit_id) {
                 // `db.sql` because the two engines place their parameters differently: PostgreSQL
                 // rejects SQLite's `?` placeholders, which surfaces as an INTERNAL rather than as a
