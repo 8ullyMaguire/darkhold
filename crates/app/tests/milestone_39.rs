@@ -192,7 +192,7 @@ async fn register(client: &mut Client, email: &str, handle: &str) -> (String, St
 
 /// Make an account the instance operator (TL6) straight in the DB.
 async fn make_operator(tdb: &test_support::TestDb, account_id: &str) {
-    darkhold_db::directory::set_account_trust_for_tests(tdb.db(), account_id, 6).await;
+    test_support::set_account_trust(tdb.db(), account_id, 6).await;
 }
 
 /// Submit a valid external entry and return its id.
@@ -738,7 +738,7 @@ async fn voting_up_down_refresh_flip_and_weighted_score() {
     // than the TL0's 0.5 default weight.
     let mut tl4 = harness.client();
     let (tl4_account, _p) = register(&mut tl4, "tl4@example.com", "tl4").await;
-    darkhold_db::directory::set_account_trust_for_tests(harness.tdb.db(), &tl4_account, 4).await;
+    test_support::set_account_trust(harness.tdb.db(), &tl4_account, 4).await;
     let (status, body) = tl4
         .post(
             &format!("/api/v1/directory/entries/{entry_id}/vote"),
@@ -807,7 +807,7 @@ async fn removal_is_hard_delete_and_votes_stay_for_audit() {
 
     // But the vote row is still there for audit.
     let db = harness.tdb.db();
-    let votes: Vec<(String, i64)> = darkhold_db::directory::votes_for_tests(db, &entry_id).await;
+    let votes: Vec<(String, i64)> = test_support::directory_votes(db, &entry_id).await;
     assert_eq!(votes.len(), 1, "votes survive entry removal for audit");
 }
 

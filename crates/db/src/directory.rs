@@ -686,8 +686,8 @@ pub async fn set_vote(
             let mut tx = pool.begin().await?;
             let live = vote_tx!(db, tx, entry_id, account_id, value, weight, now)?;
             tx.commit().await?;
-            // The decayed score, not `entry_score`. The denormalised column is
-            // the undecayed sum and is no longer what the list ranks by, so
+            // The decayed score, not the denormalised column. `score` is the
+            // undecayed sum and is no longer what the list ranks by, so
             // returning it would hand the client a number the directory
             // immediately contradicts.
             let score = decayed_score(db, entry_id, decay).await?;
@@ -801,31 +801,6 @@ async fn entry_score_sum(db: &Database, entry_id: &str, decay: Option<&Decay>) -
     Ok(row.0)
 }
 
-/// The denormalised score of an entry.
-pub async fn entry_score(db: &Database, entry_id: &str) -> Result<f64> {
-    let sql = db.sql(
-        "SELECT score FROM directory_entries WHERE id = ?",
-        // `score` is REAL (FLOAT4); sqlx will not decode that into the f64 the
-        // tuple asks for. The PG arm was a verbatim copy of the SQLite one.
-        "SELECT CAST(score AS DOUBLE PRECISION) FROM directory_entries WHERE id = $1",
-    );
-    let row: Option<(f64,)> = match db.backend() {
-        Backend::Sqlite => {
-            sqlx::query_as(&sql)
-                .bind(entry_id)
-                .fetch_optional(db.sqlite_pool().expect("sqlite"))
-                .await?
-        }
-        Backend::Postgres => {
-            sqlx::query_as(&sql)
-                .bind(entry_id)
-                .fetch_optional(db.postgres_pool().expect("postgres"))
-                .await?
-        }
-    };
-    Ok(row.map(|(s,)| s).unwrap_or(0.0))
-}
-
 /// Approved-entry counts per category (spec §39.2 tabs).
 pub async fn category_counts(db: &Database) -> Result<Vec<(String, i64)>> {
     let sql = db.sql(
@@ -876,69 +851,4 @@ pub async fn pending_entries(db: &Database) -> Result<Vec<DirectoryEntry>> {
 /// bound parameters remain the default everywhere else.
 fn escape(s: &str) -> String {
     s.replace('\'', "''")
-}
-
-// --- Test-only helpers -------------------------------------------------
-//
-// These exist so the app-layer milestone tests can arrange trust levels
-// and inspect audit rows without duplicating dialect SQL. They are
-// compiled unconditionally (they are tiny and pure), but they are not
-// part of the public surface: they are `#[doc(hidden)]`.
-
-/// Set an account's trust level directly (tests only). Writes the
-/// `trust_levels` ledger the way `governance::set_trust` does, because the
-/// routes read trust through `governance::trust_for`.
-#[doc(hidden)]
-pub async fn set_account_trust_for_tests(db: &Database, account_id: &str, level: u8) {
-    // Bind as i64: PostgreSQL has no unsigned scalar types, so binding a
-    // u8 would pin the query to the SQLite dialect.
-    let level = i64::from(level);
-    let sql = db.sql(
-        "INSERT INTO trust_levels (account, level, computed_at, basis) VALUES (?, ?, ?, 'tests') \
-         ON CONFLICT(account) DO UPDATE SET level=excluded.level, computed_at=excluded.computed_at, basis=excluded.basis",
-        "INSERT INTO trust_levels (account, level, computed_at, basis) VALUES (?, ?, ?, 'tests') \
-         ON CONFLICT(account) DO UPDATE SET level=excluded.level, computed_at=excluded.computed_at, basis=excluded.basis",
-    );
-    let now = crate::identity::now_rfc3339();
-    match db.backend() {
-        Backend::Sqlite => {
-            sqlx::query(&sql)
-                .bind(account_id)
-                .bind(level)
-                .bind(&now)
-                .execute(db.sqlite_pool().expect("sqlite"))
-                .await
-                .expect("set trust level");
-        }
-        Backend::Postgres => {
-            sqlx::query(&sql)
-                .bind(account_id)
-                .bind(level)
-                .bind(&now)
-                .execute(db.postgres_pool().expect("postgres"))
-                .await
-                .expect("set trust level");
-        }
-    }
-}
-
-/// All votes on an entry (tests only; audit inspection).
-#[doc(hidden)]
-pub async fn votes_for_tests(db: &Database, entry_id: &str) -> Vec<(String, i64)> {
-    let sql = db.sql(
-        "SELECT account_id, vote_value FROM directory_votes WHERE entry_id = ?",
-        "SELECT account_id, CAST(vote_value AS BIGINT) FROM directory_votes WHERE entry_id = $1",
-    );
-    match db.backend() {
-        Backend::Sqlite => sqlx::query_as(&sql)
-            .bind(entry_id)
-            .fetch_all(db.sqlite_pool().expect("sqlite"))
-            .await
-            .expect("votes"),
-        Backend::Postgres => sqlx::query_as(&sql)
-            .bind(entry_id)
-            .fetch_all(db.postgres_pool().expect("postgres"))
-            .await
-            .expect("votes"),
-    }
 }

@@ -1764,3 +1764,71 @@ pub async fn count_excluding_system_accounts(db: &Database, table: &str, exclude
     };
     row.0
 }
+
+// ---------------------------------------------------------------------------
+// Arranging standing and reading votes (moved out of `darkhold-db`)
+// ---------------------------------------------------------------------------
+//
+// These two lived in `crates/db/src/directory.rs` behind `#[doc(hidden)]`, compiled into the binary so that app tests could
+// call them. The problem was not the dialect handling — `Database::sql` rewrites `?` to `$n` on the PostgreSQL arm, so the
+// identical strings were fine — it was that a writer which sets a trust level with `basis = 'tests'` was carried by the
+// product and reachable by anything that could call the crate. A test helper is not part of the surface it tests.
+//
+// Only the vote query really differs per dialect: `vote_value` needs a cast on PostgreSQL.
+
+/// Set an account's trust level directly, the way `governance::set_trust` does.
+///
+/// The routes read trust through `governance::trust_for`, so this writes the same ledger row they read rather than a
+/// shortcut only the test knows about.
+pub async fn set_account_trust(db: &darkhold_db::Database, account_id: &str, level: u8) {
+    // Bind as i64: PostgreSQL has no unsigned scalar types, so binding a u8 would pin the query to one dialect.
+    let level = i64::from(level);
+    let now = darkhold_db::identity::now_rfc3339();
+    let sql = db.sql(
+        "INSERT INTO trust_levels (account, level, computed_at, basis) VALUES (?, ?, ?, 'tests')
+         ON CONFLICT(account) DO UPDATE SET level=excluded.level, computed_at=excluded.computed_at, basis=excluded.basis",
+        "INSERT INTO trust_levels (account, level, computed_at, basis) VALUES ($1, $2, $3, 'tests')
+         ON CONFLICT(account) DO UPDATE SET level=excluded.level, computed_at=excluded.computed_at, basis=excluded.basis",
+    );
+    match db.backend() {
+        darkhold_db::Backend::Sqlite => {
+            sqlx::query(&sql)
+                .bind(account_id)
+                .bind(level)
+                .bind(&now)
+                .execute(db.sqlite_pool().expect("sqlite"))
+                .await
+                .expect("set trust level");
+        }
+        darkhold_db::Backend::Postgres => {
+            sqlx::query(&sql)
+                .bind(account_id)
+                .bind(level)
+                .bind(&now)
+                .execute(db.postgres_pool().expect("postgres"))
+                .await
+                .expect("set trust level");
+        }
+    }
+}
+
+/// Every vote row on a directory entry, as `(account, value)` — what the vote rules are asserted against.
+pub async fn directory_votes(db: &darkhold_db::Database, entry_id: &str) -> Vec<(String, i64)> {
+    let sql = db.sql(
+        "SELECT account_id, vote_value FROM directory_votes WHERE entry_id = ?",
+        "SELECT account_id, CAST(vote_value AS BIGINT) FROM directory_votes WHERE entry_id = $1",
+    );
+    match db.backend() {
+        darkhold_db::Backend::Sqlite => sqlx::query_as(&sql)
+            .bind(entry_id)
+            .fetch_all(db.sqlite_pool().expect("sqlite"))
+            .await
+            .expect("votes"),
+        darkhold_db::Backend::Postgres => sqlx::query_as(&sql)
+            .bind(entry_id)
+            .fetch_all(db.postgres_pool().expect("postgres"))
+            .await
+            .expect("votes"),
+    }
+}
+

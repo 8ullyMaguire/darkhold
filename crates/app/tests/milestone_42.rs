@@ -191,7 +191,7 @@ async fn register(client: &mut Client, email: &str, handle: &str) -> (String, St
 }
 
 async fn make_curator(tdb: &test_support::TestDb, account_id: &str) {
-    darkhold_db::directory::set_account_trust_for_tests(tdb.db(), account_id, 3).await;
+    test_support::set_account_trust(tdb.db(), account_id, 3).await;
 }
 
 /// Create a minimal work and return its id.

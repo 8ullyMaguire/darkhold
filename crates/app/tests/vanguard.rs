@@ -194,7 +194,7 @@ async fn register(client: &mut Client, email: &str, handle: &str) -> (String, St
 
 /// Make an account the instance operator (TL6) straight in the DB.
 async fn make_operator(tdb: &test_support::TestDb, account_id: &str) {
-    darkhold_db::directory::set_account_trust_for_tests(tdb.db(), account_id, 6).await;
+    test_support::set_account_trust(tdb.db(), account_id, 6).await;
 }
 
 async fn create_work(client: &mut Client, title: &str) -> String {
