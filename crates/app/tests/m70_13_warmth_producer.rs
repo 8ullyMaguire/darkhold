@@ -165,3 +165,62 @@ async fn a_kudos_and_a_comment_move_the_authors_audience_panel() {
     );
     assert_eq!(panel["comment"], json!(1), "{panel}");
 }
+
+/// Finishing a work is its own act, counted once per transition, and undone when the reader un-finishes.
+#[tokio::test]
+async fn finishing_a_work_warms_its_author_once_and_reverses() {
+    let dir = scratch_dir("warmth-finish");
+    let tdb = TestDb::connect_with_dir("m7013-warmth-finish", &dir).await;
+    let db: Database = tdb.db().clone();
+    let config = Config::development_defaults();
+
+    let mut author = TestClient::new(build(&config, &db));
+    register(&mut author, "wf-author@example.test", "wfauthor").await;
+    let mut reader = TestClient::new(build(&config, &db));
+    register(&mut reader, "wf-reader@example.test", "wfreader").await;
+
+    let work = publish_work(&mut author, "Finished").await;
+
+    // `finished` is 500 bp, which is past the `react` threshold (200) and short of `comment` (1000): one finish shows as `react`,
+    // and a second finish — if it counted again — would reach exactly 1000 and promote the reader to `comment`. The tier is
+    // therefore the observable that separates "recorded the transition" from "recorded the state".
+    let (status, body) = reader
+        .request(
+            "PUT",
+            &format!("/api/v1/works/{work}/reading-status"),
+            Some(json!({ "status": "finished" })),
+        )
+        .await;
+    assert!(status.is_success(), "finish: {body}");
+    let panel = audience(&mut author).await;
+    assert_eq!(panel["react"], json!(1), "{panel}");
+    assert_eq!(panel["comment"], json!(0), "{panel}");
+
+    // Re-sending the same status is not a second act.
+    let (status, body) = reader
+        .request(
+            "PUT",
+            &format!("/api/v1/works/{work}/reading-status"),
+            Some(json!({ "status": "finished" })),
+        )
+        .await;
+    assert!(status.is_success(), "re-finish: {body}");
+    let panel = audience(&mut author).await;
+    assert_eq!(
+        panel["comment"],
+        json!(0),
+        "a repeated read of the same state must not accumulate warmth: {panel}"
+    );
+
+    // Un-finishing reverses it: dropping back to `reading` is 500 bp removed, the score reaches 0, and the relationship goes with it.
+    let (status, body) = reader
+        .request(
+            "PUT",
+            &format!("/api/v1/works/{work}/reading-status"),
+            Some(json!({ "status": "reading" })),
+        )
+        .await;
+    assert!(status.is_success(), "un-finish: {body}");
+    assert_eq!(audience(&mut author).await["total"], json!(0));
+}
+

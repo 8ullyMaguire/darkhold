@@ -322,3 +322,29 @@ self-warming allowed (`total:2`, the author counted as their own reader).
 `comment` tiers until they land.
 
 Ratchet: 39 → 38.
+
+## Pass 78 — `FinishWork` recorded on the transition, not the state (2026-11-10)
+
+The second of the two halves named in pass 77. `PUT /works/{id}/reading-status` now reads the prior status and records warmth only
+when the reader **enters** `finished`; leaving `finished` subtracts the same 500 bp.
+
+Two decisions:
+
+* **The transition, not the state.** `finished` is 500 bp: one finish crosses `react` (200), and two would reach exactly `comment`
+  (1000). That makes the tier an observable that separates the two readings from outside, without exposing basis points. A state
+  reader would let a reader who re-sends `finished` (the same read, twice) buy a tier.
+* **Un-finishing leaves its warmth behind only if the act can be undone — and it can**, so the elseif branch subtracts. Same rule as
+  the kudos toggle in pass 77: an additive score with an add-only writer is free warmth.
+
+Proof: red first (`finishing… total:0`), then both engines green. Mutants from /tmp: record-the-state (`comment:1` after a repeated
+finish) and no-reversal (`total:1` after un-finishing).
+
+**Named halves now:**
+
+* **`ReadUnit`** — needs a per-unit "already counted" fact that does not exist. `save_progress` stores a position, not a set of read
+  units, and the twin that tried to be that fact (`reading_goal::record_unit_read`) was deleted in an earlier pass precisely because
+  `save_progress` is the real writer. Recording 100 bp per save would pay the reader for scrolling. The row is a small migration
+  (a `reader_unit_reads` table with a unique (account, unit)) plus the writer, not a route edit.
+* **The library-item status door** (`PUT /me/library/items/{id}/status`) still records nothing: it addresses a *library item*, whose
+  work is a `source_work_key` string, not a `works.id` — the mapping is the missing piece, and guessing it would attach warmth to the
+  wrong author.

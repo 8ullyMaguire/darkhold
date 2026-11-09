@@ -2636,15 +2636,42 @@ async fn set_work_status(
             field_errors: Default::default(),
         }));
     };
-    let row = library::set_reading_status(
-        state.db(),
-        &user.account_id.to_string(),
-        SUBJECT_WORK,
-        &work_id.to_string(),
-        status,
-    )
-    .await
-    .map_err(|e| ApiError(AppError::Internal(e)))?;
+    // §41.2's warmth for `FinishWork`, recorded on the **transition** rather than the state. `finished` is 500 bp, which alone
+    // crosses the `react` threshold (200) and two finishes would reach `comment` (1000) — so "recorded the state" and "recorded the
+    // act" are distinguishable from outside, and the second is the one §41.2 describes. Un-finishing subtracts it, because the score
+    // is additive and a state that can be left must be able to leave its warmth behind.
+    let account = user.account_id.to_string();
+    let subject = work_id.to_string();
+    let prior = library::reading_status_for(state.db(), &account, SUBJECT_WORK, &subject)
+        .await
+        .map_err(|e| ApiError(AppError::Internal(e)))?;
+    let was_finished = prior
+        .map(|record| record.status == ReadingStatus::Finished)
+        .unwrap_or(false);
+
+    let row = library::set_reading_status(state.db(), &account, SUBJECT_WORK, &subject, status)
+        .await
+        .map_err(|e| ApiError(AppError::Internal(e)))?;
+
+    let now_finished = status == ReadingStatus::Finished;
+    if now_finished && !was_finished {
+        crate::warmth::record(
+            &state,
+            &account,
+            &subject,
+            darkhold_domain::longevity::WarmthAction::FinishWork,
+        )
+        .await;
+    } else if !now_finished && was_finished {
+        crate::warmth::record_removal(
+            &state,
+            &account,
+            &subject,
+            darkhold_domain::longevity::WarmthAction::FinishWork,
+        )
+        .await;
+    }
+
     Ok(Json(library::status_json(&row)))
 }
 

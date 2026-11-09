@@ -2868,3 +2868,13 @@ relationship must not become product signal.
 `strings` on the artifact was checked before the restart, and `migrate` ran from the tree (the binary finds `darkhold.toml` by
 working directory).
 
+### `FinishWork` records the act, not the state (2026-11-10)
+
+`PUT /works/{id}/reading-status` now reads the prior status and records 500 bp only on entry into `finished`; leaving it subtracts.
+The tier is the proof point: one finish is `react` (500 ≥ 200), two would be exactly `comment` (1000), so a state reader is visible
+from outside without exposing basis points.
+
+Still named: **`ReadUnit`** needs a per-unit "already counted" fact (`save_progress` stores a position, not a set of read units) — a
+migration plus a writer, not a route edit. And the **library-item status door** records nothing: it addresses an item whose work is a
+`source_work_key` string, not a `works.id`.
+
