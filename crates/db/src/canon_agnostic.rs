@@ -417,6 +417,90 @@ pub async fn is_canon_agnostic(db: &Database, work_id: &str) -> Result<bool> {
     ))
 }
 
+/// One work in the canon-blind listing: enough to label it, and nothing about the reader.
+///
+/// §50.2 asks for "a labelled, bounded set", so this is deliberately not a ranked feed: no score, no ordering by anything
+/// a reader's behaviour could influence, newest first. The reader half of the rule — whether *this* reader has ever weighed
+/// the work's fandom — lives one layer up, because it is a fact about a reader and not a property of the work, and pooling
+/// it here would be §49.9's cross-reader blending by another name.
+#[derive(Debug, Clone, PartialEq)]
+pub struct CanonAgnosticWork {
+    /// The work.
+    pub work_id: String,
+    /// Its title, for the listing.
+    pub title: String,
+    /// When the class was computed.
+    pub declared_at: String,
+    /// The corpus size the class was computed from.
+    pub word_count: i64,
+    /// Unexplained-name density, the measure the class is made of.
+    pub density: f64,
+}
+
+/// The canon-agnostic works, newest class first, bounded.
+///
+/// Measured-and-agnostic only: a row whose verdict was `unclassified` carries an `unmeasurable_reason` and is NOT evidence
+/// that a work is readable without its canon — §50.2 wants eligibility to be a property, not a guess, and the absence of a
+/// class is not the class "agnostic".
+pub async fn list_canon_agnostic(
+    db: &Database,
+    limit: i64,
+) -> Result<Vec<CanonAgnosticWork>> {
+    let limit = limit.clamp(1, 100);
+    let sql = db.sql(
+        "SELECT c.work_id, w.title, c.declared_at, c.word_count, CAST(c.density AS REAL)
+           FROM canon_agnostic_works c
+           JOIN works w ON w.id = c.work_id
+          WHERE c.canon_dependent = 0 AND c.unmeasurable_reason IS NULL
+          ORDER BY c.declared_at DESC, c.work_id ASC
+          LIMIT ?",
+        // `canon_dependent` is INTEGER on SQLite and BOOLEAN on PostgreSQL (0108), and `density` is NUMERIC there while the
+        // struct holds f64 — the same two per-dialect differences `stored_canon` documents, in the write direction.
+        // `word_count` is INTEGER on both engines (0108) and the row type is `i64`, so it is widened here — the same trap
+        // the module's own `stored_canon` documents, in the other direction. `density` is already DOUBLE PRECISION.
+        "SELECT c.work_id::text, w.title, c.declared_at, c.word_count::bigint, c.density
+           FROM canon_agnostic_works c
+           JOIN works w ON w.id = c.work_id
+          WHERE c.canon_dependent = FALSE AND c.unmeasurable_reason IS NULL
+          ORDER BY c.declared_at DESC, c.work_id ASC
+          LIMIT $1",
+    );
+    match db.backend() {
+        Backend::Sqlite => {
+            let rows: Vec<(String, String, String, i64, f64)> = sqlx::query_as(&sql)
+                .bind(limit)
+                .fetch_all(db.sqlite_pool().expect("sqlite"))
+                .await?;
+            Ok(rows
+                .into_iter()
+                .map(|(work_id, title, declared_at, word_count, density)| CanonAgnosticWork {
+                    work_id,
+                    title,
+                    declared_at,
+                    word_count,
+                    density,
+                })
+                .collect())
+        }
+        Backend::Postgres => {
+            let rows: Vec<(String, String, String, i64, f64)> = sqlx::query_as(&sql)
+                .bind(limit)
+                .fetch_all(db.postgres_pool().expect("postgres"))
+                .await?;
+            Ok(rows
+                .into_iter()
+                .map(|(work_id, title, declared_at, word_count, density)| CanonAgnosticWork {
+                    work_id,
+                    title,
+                    declared_at,
+                    word_count,
+                    density,
+                })
+                .collect())
+        }
+    }
+}
+
 /// The smallest word count §50.2 will classify, re-exported.
 ///
 /// A discovery query filtering on `word_count >= MIN_CANON_WORDS` is asking a

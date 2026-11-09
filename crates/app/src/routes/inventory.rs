@@ -7109,6 +7109,27 @@ pub const ROUTE_TABLE: &[RouteEntry] = &[
         audience: Audience::Authenticated,
     },
     RouteEntry {
+        file: "canon.rs",
+        handler: "work_canon",
+        method: "GET",
+        path: "/works/{id}/canon",
+        audience: Audience::Anonymous,
+    },
+    RouteEntry {
+        file: "canon.rs",
+        handler: "measure_work",
+        method: "POST",
+        path: "/works/{id}/canon/measure",
+        audience: Audience::Authenticated,
+    },
+    RouteEntry {
+        file: "canon.rs",
+        handler: "canon_blind",
+        method: "GET",
+        path: "/discover/canon-blind",
+        audience: Audience::Anonymous,
+    },
+    RouteEntry {
         file: "coordinates.rs",
         handler: "recompute",
         method: "POST",

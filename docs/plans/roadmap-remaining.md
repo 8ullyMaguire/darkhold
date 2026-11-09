@@ -1351,3 +1351,34 @@ The last one is the sharpest: two tables in one file, four hundred lines apart, 
 
 Ratchet 89 -> 85.
 
+### A class nobody could read, from a table nothing filled (canon_agnostic.rs, 2026-11-08)
+
+Three functions and a producer, and between them the whole of §50.2's class was invisible.
+
+`stored_canon` had no reader, so a work's canon class — already computed, already stored, already tested — never reached a
+page. `is_canon_agnostic` and `is_canon_dependent` are §50.2's eligibility question and its mirror; the module's own docs
+insist a caller must not pattern-match `CanonVerdict` for this, because eligibility is a rule with one implementation.
+
+And `measure_work_and_store` had no caller outside its tests, so on a fresh instance the table stayed empty, the listing
+stayed empty, and "no canon-agnostic works" read as a fact about the corpus rather than a missing scheduler. It now runs
+when a work is published — the moment its text stops changing — best-effort, like the taste queue beside it in `publish`.
+
+What a reader gets:
+
+* `GET /works/{id}/canon` — four states, not two: `canon_agnostic`, `canon_dependent`, `unclassified` (with the reason),
+  `unmeasured`. A boolean would collapse three of them, and "we did not look" must not read as "we looked and it was fine".
+  `eligible` and `assumes_canon` are separate because a badge and a filter are separate client decisions, and both are
+  `false` when nothing was measured — the conservative direction §50.2 asks for.
+* `GET /discover/canon-blind` — the labelled, bounded shelf: twelve rows, newest class first, every row carrying
+  "you may not know this fandom", and **nothing ranked**, because a shelf with a score is a feed and §50.2 forbids these
+  works outranking a recognised match. `state` distinguishes `unmeasured` from `ok`, so an empty shelf is not mistaken for
+  an empty corpus.
+
+**The missing half, named rather than approximated:** §50.2's rule is that a work is eligible when its fandom is unknown *to
+the reader*. This pass ships the half that is a property of the work (is it readable without its canon) and the shelf; the
+reader half needs each work's fandom tags intersected with that reader's taste weights, and it belongs in the taste module
+rather than here — pooling per-reader weights into a per-work listing is the cross-reader blending §49.9 refuses. Until it
+lands, the shelf is honest about what it is: canon-agnostic works, labelled, not "works you have never weighed".
+
+Ratchet 85 -> 82.
+
