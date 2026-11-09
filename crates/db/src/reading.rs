@@ -873,7 +873,7 @@ impl ReviewRow {
 ///
 /// A review is private until the caller explicitly publishes it: with
 /// `is_public = false` the row keeps `published_at` NULL and
-/// [`public_reviews`] can never return it. Re-publishing keeps the timestamp
+/// `positivity::visible_reviews` — the one list the route serves — can never return it. Re-publishing keeps the timestamp
 /// of the *first* publication, because that is when readers could first have
 /// seen it.
 ///
@@ -1007,50 +1007,6 @@ pub async fn review_for(db: &Database, pseud: PseudId, work: WorkId) -> Result<O
     Ok(row.map(ReviewRow::decode))
 }
 
-/// The public reviews of a work, newest publication first.
-///
-/// Three predicates stand between a private row and a reader — `is_public = 1`,
-/// a non-NULL `published_at` and `deleted_at IS NULL` — so a review that was
-/// never published, or was withdrawn by its author, cannot leak through this
-/// function even if some future caller forgets one of them.
-pub async fn public_reviews(db: &Database, work: WorkId) -> Result<Vec<Review>> {
-    let sql = db.sql(
-        "SELECT r.id, p.handle AS author_handle, r.body, r.contains_spoilers,
-                r.is_public, r.published_at, r.created_at, r.updated_at, r.version
-           FROM review r
-           JOIN pseuds p ON p.id = r.pseud_id
-          WHERE r.work_id = ?
-            AND r.is_public = 1
-            AND r.published_at IS NOT NULL
-            AND r.deleted_at IS NULL
-          ORDER BY r.published_at DESC, r.id ASC",
-        "SELECT r.id::text AS id, p.handle AS author_handle, r.body,
-                r.contains_spoilers::int::bigint, r.is_public::int::bigint, r.published_at,
-                r.created_at, r.updated_at, r.version
-           FROM review r
-           JOIN pseuds p ON p.id = r.pseud_id
-          WHERE r.work_id::text = ?
-            AND r.is_public = TRUE
-            AND r.published_at IS NOT NULL
-            AND r.deleted_at IS NULL
-          ORDER BY r.published_at DESC, r.id ASC",
-    );
-    let rows: Vec<ReviewRow> = match db.backend() {
-        Backend::Sqlite => {
-            sqlx::query_as(&sql)
-                .bind(work.to_string())
-                .fetch_all(db.sqlite_pool().expect("sqlite handle"))
-                .await?
-        }
-        Backend::Postgres => {
-            sqlx::query_as(&sql)
-                .bind(work.to_string())
-                .fetch_all(db.postgres_pool().expect("postgres handle"))
-                .await?
-        }
-    };
-    Ok(rows.into_iter().map(ReviewRow::decode).collect())
-}
 
 /// Soft-delete the acting pseud's review of a work.
 ///

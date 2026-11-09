@@ -14,7 +14,7 @@ use axum::http::{Request, StatusCode};
 use darkhold_app::config::Config;
 use darkhold_app::server;
 use darkhold_app::state::AppState;
-use darkhold_db::search::{search_works_ast, SearchError};
+use darkhold_db::search::{search_works_ast_scoped, SearchError, SearchFilters};
 use test_support::id;
 use tower::ServiceExt;
 
@@ -116,9 +116,22 @@ async fn seed_emptied_work(db: &darkhold_db::Database, slug: &str, title: &str) 
     work_id
 }
 
+/// The production entry point: `search_works_ast_scoped` with no filters and the default scope.
+///
+/// This file used to call a convenience wrapper, `search_works_ast`, that took no filters at all. `/search` never calls it —
+/// it calls the scoped form, because a blocked tag has to be excluded *in SQL, before the limit* (§46.4). A comparison suite
+/// exercising the unfiltered twin tests a path no reader takes, and the wrapper's existence invited exactly that mistake.
+async fn search(
+    db: &darkhold_db::Database,
+    query: &str,
+    limit: i64,
+) -> anyhow::Result<Vec<darkhold_db::search::SearchResult>> {
+    search_works_ast_scoped(db, query, None, limit, &[], &SearchFilters::default()).await
+}
+
 /// Titles of the results, so a failure names the work rather than a count.
 async fn titles(db: &darkhold_db::Database, query: &str) -> Vec<String> {
-    search_works_ast(db, query, None, 50)
+    search(db, query, 50)
         .await
         .unwrap_or_else(|e| panic!("search {query:?} failed: {e:?}"))
         .into_iter()
@@ -325,7 +338,7 @@ async fn a_foreign_field_is_an_error_not_an_empty_result() {
     // `replies:>50` is a forum query typed into the works search. It must fail
     // loudly. Silently returning zero rows would read as "no work has 50
     // replies", which is a lie about a filter the reader believes is active.
-    let err = search_works_ast(tdb.db(), "replies:>50", None, 10)
+    let err = search(tdb.db(), "replies:>50", 10)
         .await
         .expect_err("a forum field on the works search must be rejected");
     let message = format!("{err}");
@@ -362,7 +375,7 @@ async fn the_error_keeps_the_reason_the_reader_needs() {
     // A typed error, so the route can answer 422 with the reason rather than a
     // 500 and a masked message. The reason has to survive the anyhow wrapping,
     // because that is how it reaches the route.
-    let error = search_works_ast(tdb.db(), "replies:>50", None, 10)
+    let error = search(tdb.db(), "replies:>50", 10)
         .await
         .expect_err("a forum field on the works search must be rejected");
     let downcast = error
@@ -391,7 +404,7 @@ async fn a_parse_failure_keeps_its_offset() {
     // An unterminated phrase is a parse failure, so it carries an offset; a
     // wrong-surface field is a render failure, so it does not. The route uses
     // the difference to tell the reader *where* to look.
-    let error = search_works_ast(tdb.db(), "\"unterminated", None, 10)
+    let error = search(tdb.db(), "\"unterminated", 10)
         .await
         .expect_err("an unterminated phrase must be rejected");
     let downcast = error

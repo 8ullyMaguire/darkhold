@@ -31,42 +31,6 @@ pub struct SearchFilters {
     pub sort: Option<String>,
 }
 
-/// Search works using the AST parser and dialect-aware SQL.
-pub async fn search_works_ast(
-    db: &Database,
-    query: &str,
-    viewer_id: Option<&str>,
-    limit: i64,
-) -> Result<Vec<SearchResult>> {
-    search_works_ast_impl(db, query, viewer_id, limit, &[], &SearchFilters::default()).await
-}
-
-/// Search with content-filter exclusion (spec §46.4 — a blocked tag never
-/// reaches the client).
-///
-/// `filters` is a list of `(filter_type, value)` pairs, e.g. `("tag", "enemies
-/// to lovers")`. The exclusion is rendered into the statement as a `NOT EXISTS`
-/// against the work's taxonomy nodes, so it applies *before* `LIMIT` and costs
-/// no extra round trips — see `content_filter_sql` for why both of those used
-/// to be wrong.
-pub async fn search_works_ast_filtered(
-    db: &Database,
-    query: &str,
-    viewer_id: Option<&str>,
-    limit: i64,
-    filters: &[(String, String)],
-) -> Result<Vec<SearchResult>> {
-    search_works_ast_scoped(
-        db,
-        query,
-        viewer_id,
-        limit,
-        filters,
-        &SearchFilters::default(),
-    )
-    .await
-}
-
 /// The full door: content-filter exclusions *and* the reader's own bounds and ordering.
 ///
 /// The four values in `scope` are the ones the search endpoint reports back, so this is the only
