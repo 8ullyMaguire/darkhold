@@ -411,6 +411,9 @@ struct UpdateWorkRequest {
     completion: Option<String>,
     #[serde(default)]
     show_public_ratings: Option<bool>,
+    /// Whether this work accepts *public* did-not-finish feedback (M70-13 pass 46). Private records need no permission.
+    #[serde(default)]
+    allow_dnf_feedback: Option<bool>,
     /// The work's form (spec §6.2).
     #[serde(default)]
     format: Option<String>,
@@ -2907,6 +2910,7 @@ fn work_patch(request: &UpdateWorkRequest) -> ApiResult<WorkPatch> {
         visibility,
         completion,
         show_public_ratings: request.show_public_ratings,
+        allow_dnf_feedback: request.allow_dnf_feedback,
         format: request.format.as_deref().map(validate_format).transpose()?,
         discussion_mode: request
             .discussion_mode

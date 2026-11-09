@@ -777,6 +777,15 @@ pub const ROUTE_TABLE: &[RouteEntry] = &[
     },
     RouteEntry {
         file: "dnf.rs",
+        handler: "get_dnf_feedback",
+        method: "GET",
+        path: "/works/{id}/dnf/feedback",
+        // `RequirePseud` plus an owner check: a non-contributor is answered 404, so the route is not public even though it
+        // sits beside two that are. The audience word describes who may call it at all, not what they see.
+        audience: Audience::Pseudonymous,
+    },
+    RouteEntry {
+        file: "dnf.rs",
         handler: "list_my_dnf",
         method: "GET",
         path: "/me/dnf",
