@@ -9,7 +9,7 @@
 # outside this list, which is why the operator audit route always answered an empty trail. Correcting the
 # measurement moved the baseline from 43 to 57. An intermediate version that ignored `use` imports said 80; the
 # debt was never new, the ruler was wrong in both directions.
-# measured 2026-11-09: 46 orphan(s)
+# measured 2026-11-09: 44 orphan(s)
 
 increment_abuse_counter  # crates/db/src/admin.rs
 published_uris  # crates/db/src/atproto.rs
@@ -51,8 +51,6 @@ confirm  # crates/db/src/tag_confirmation.rs
 record_payout  # crates/db/src/taste_leakage.rs
 get_payout  # crates/db/src/taste_leakage.rs
 record_review  # crates/db/src/taste_leakage.rs
-update_taste_vector_incremental  # crates/db/src/taste_vectors.rs
-taste_signal_for_works  # crates/db/src/taste_vectors.rs
 list_all  # crates/db/src/trust_events.rs
 meta_actions_on_vote  # crates/db/src/typed_votes.rs
 measured_coordinates_for  # crates/db/src/work_coordinates.rs

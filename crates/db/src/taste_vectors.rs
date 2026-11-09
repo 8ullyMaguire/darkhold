@@ -195,72 +195,19 @@ pub async fn compute_and_store_taste_vector(
     Ok((user_vector, distance))
 }
 
-/// Lightweight incremental update: add a single work's contribution.
-pub async fn update_taste_vector_incremental(
-    db: &Database,
-    account_id: &str,
-    work_vector: &[f64],
-    work_weight: f64,
-) -> Result<(Vec<f64>, f64), sqlx::Error> {
-    let admin_centroid = get_admin_centroid(db)
-        .await
-        .unwrap_or_else(|| vec![0.5, 0.5, 0.5, 0.5, 0.5]);
-
-    let current = get_taste_vector(db, account_id).await?;
-    // `Some((vec![], ..))` is the case a `None` default does not cover: the
-    // account row exists, so `get_taste_vector` returns `Some`, and its read of a
-    // NULL `taste_vector` yields an EMPTY vector rather than `None`. Without this
-    // arm the "no vector yet" path produced a zero-width vector, the width check
-    // against the centroid failed, and the update silently reported
-    // `distance = 1.0` (maximally distant) for a reader who had simply never been
-    // scored. An empty vector is therefore treated as absent, which is what it
-    // means.
-    let (mut current_vec, _, _) = match current {
-        Some((vec, dist, at)) if !vec.is_empty() => (vec, dist, at),
-        _ => (vec![0.0; admin_centroid.len()], 0.0, String::new()),
-    };
-
-    // Compute old weight sum from stored data (simplified: use count of ratings)
-    let old_weight_sum = fetch_user_rating_count(db, account_id).await? as f64;
-    let _new_sum = taste_vector::update_vector_incremental(
-        &mut current_vec,
-        work_vector,
-        work_weight,
-        old_weight_sum,
-    );
-
-    let distance = if current_vec.len() == admin_centroid.len() {
-        taste_vector::normalized_distance(&current_vec, &admin_centroid, 2.0)
-    } else {
-        1.0
-    };
-
-    let now = crate::identity::now_rfc3339();
-    match db.backend() {
-        Backend::Sqlite => {
-            store_taste_vector_sqlite(
-                db.sqlite_pool().ok_or(pool_err())?,
-                account_id,
-                &current_vec,
-                distance,
-                &now,
-            )
-            .await?
-        }
-        Backend::Postgres => {
-            store_taste_vector_postgres(
-                db.postgres_pool().ok_or(pool_err())?,
-                account_id,
-                &current_vec,
-                distance,
-                &now,
-            )
-            .await?
-        }
-    }
-
-    Ok((current_vec, distance))
-}
+// `update_taste_vector_incremental` was deleted here (M70-13, 2026-11-09). It was a second writer of
+// `accounts.taste_vector` with no caller: the product path is `recompute_all_taste_vectors` ->
+// `compute_and_store_taste_vector`, which recomputes from evidence in one pass. An incremental updater that
+// reads `count of ratings` as its weight sum ("simplified", in its own comment) would drift from that
+// recompute, and a drift in this column is invisible — the vector is a diagnostic, not a screen, so nothing
+// would ever notice two readers with the same shelf getting different distances. One writer, and it is the
+// one an operator route calls.
+//
+// Its test file (`crates/db/tests/taste_vector_incremental.rs`) is deleted with it. That file existed because
+// the function counted rows in `work_ratings` — a table no migration creates — and the fix was real: the
+// function ran afterwards. It proved the function *worked*, not that it *belonged*: its only caller was that
+// test, and the product recomputes. Keeping a working second writer because a test can reach it is how two
+// writers end up disagreeing on a column nobody reads.
 
 /// Read cached taste vector for a user.
 pub async fn get_taste_vector(
@@ -304,43 +251,12 @@ pub async fn list_users_by_centroid_distance(
     Ok(rows)
 }
 
-/// Compute taste-weighted engagement signal for a set of works.
-/// Returns a map of work_id → taste_signal.
-pub async fn taste_signal_for_works(
-    _db: &Database,
-    work_ids: &[String],
-    _mode: &str, // "egalitarian" | "taste_weighted" | "admin_only"
-    _admin_weight: f64,
-) -> Result<std::collections::HashMap<String, f64>, sqlx::Error> {
-    let mut result = std::collections::HashMap::new();
-    if work_ids.is_empty() {
-        return Ok(result);
-    }
-
-    // Build placeholders for IN clause
-    let placeholders: Vec<String> = (1..=work_ids.len()).map(|i| format!("?{}", i)).collect();
-    let placeholder_str = placeholders.join(",");
-
-    let _query = format!(
-        "SELECT w.id,
-                COALESCE(AVG(CASE WHEN a.taste_vector = '[]' THEN 0.0 ELSE a.taste_centroid_distance END), 0.0) as avg_distance,
-                COUNT(DISTINCT a.id) as engager_count
-         FROM works w
-         LEFT JOIN work_engagements we ON we.work_id = w.id
-         LEFT JOIN accounts a ON a.id = we.account_id
-         WHERE w.id IN ({})
-         GROUP BY w.id",
-        placeholder_str
-    );
-
-    // This is a simplified version. In production, we'd need proper parameter binding.
-    // For now, return empty signals (the full implementation would join engagement data).
-    for work_id in work_ids {
-        result.insert(work_id.clone(), 0.0);
-    }
-
-    Ok(result)
-}
+// `taste_signal_for_works` was deleted here (M70-13, 2026-11-09). It was a stub: it took `_db`, `_mode` and
+// `_admin_weight`, built a SQL string it never executed, and returned `0.0` for every work id — a function
+// that answers "no taste signal" to every question, with a signature promising three modes it ignored. The
+// live signal is `taste_signal::for_account` (M64-09), which reads the reader's shelf and is what the
+// gravity layer multiplies by; a second producer would be a second answer to the same question, and
+// `m70_13_taste_signal_single_source.rs` now fails if one reappears.
 
 // ---------------------------------------------------------------------------
 // Taste Calibration Arena (spec §0.4.2a)
@@ -904,50 +820,4 @@ async fn fetch_work_tag_weights_postgres(
     .bind(work_id)
     .fetch_all(pool)
     .await
-}
-
-/// How many live ratings this account has, which is the `old_weight_sum` the
-/// incremental update needs.
-///
-/// The table is `rating`, not `work_ratings`. When this was written nothing named `work_ratings`
-/// existed in any migration on either dialect, so a query naming it could only ever have returned
-/// `relation "work_ratings" does not exist` -- every call site of this function raised that, and
-/// the `?` at the call site propagated it into whatever asked for a taste update. Counting `rating`
-/// is the same question asked of the table that holds the answers: one row per reader per work,
-/// with `stars`.
-///
-/// **As of migration 0129 a `work_ratings` table does exist** (`docs/spec-amendments/arena-work-ladder.md`,
-/// §12.4a) and it is a *different* thing: the arena's aggregate Glicko-2 ladder, with no reader
-/// attached. This function must keep reading `rating`; the near-miss in the names is exactly why
-/// the distinction is written down here rather than left to the reader of the SQL.
-///
-/// Only rows with `deleted_at IS NULL` are counted, because a soft-deleted
-/// rating no longer contributes weight: the incremental update divides by
-/// `old_weight_sum + work_weight`, so counting a withdrawn rating would
-/// silently shrink every subsequent step rather than fail.
-async fn fetch_user_rating_count(db: &Database, account_id: &str) -> Result<i64, sqlx::Error> {
-    let count: i64 = match db.backend() {
-        Backend::Sqlite => {
-            let row = sqlx::query(
-                "SELECT COUNT(*) as cnt FROM rating
-                 WHERE account_id = ? AND deleted_at IS NULL",
-            )
-            .bind(account_id)
-            .fetch_one(db.sqlite_pool().ok_or(pool_err())?)
-            .await?;
-            row.get("cnt")
-        }
-        Backend::Postgres => {
-            // `COUNT(*)` is INT8 on both engines, so `i64` decodes without a cast.
-            let row = sqlx::query(
-                "SELECT COUNT(*) as cnt FROM rating
-                 WHERE account_id = $1::uuid AND deleted_at IS NULL",
-            )
-            .bind(account_id)
-            .fetch_one(db.postgres_pool().ok_or(pool_err())?)
-            .await?;
-            row.get("cnt")
-        }
-    };
-    Ok(count)
 }
