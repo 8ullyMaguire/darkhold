@@ -1319,3 +1319,35 @@ job gets: a job id is not a capability.
 
 Ratchet 92 -> 89.
 
+### Three pieces of a cap, and none of them in the path (media_resilience.rs, 2026-11-08)
+
+Four functions in this module had no caller, and the first was the whole anti-gaming rule for curator credits.
+
+* **`sum_curator_rewards_today`.** The config declared `media_resilience.daily_credits_cap` (500), `caps::within_daily_cap`
+  was a tested predicate, and this was the query that answers it — and the award path read **none of the three**. It
+  hard-coded `15` and paid on every call, so the same mirror added a hundred times paid a hundred times. The link is still
+  kept once the cap is reached (the correction is what the feature is for); the credits are paid up to the cap, partially
+  when the remainder is smaller than the bounty, and the response says `credits_awarded` and `credits_capped` so a curator
+  who is not being paid can see that instead of guessing.
+* **`find_references_below_threshold`** is the under-mirrored queue the bounties are paid against. Without a caller, a
+  curator could only find such a reference by stumbling into it. Now `GET /admin/media/references/at-risk?threshold=`,
+  defaulting to the spec's own three.
+* **`find_match_proposal`** is what happened to one proposal, which is the only record of a **refused** merge: the list
+  route shows what is pending, and a rejected proposal leaves no other trace. Now `GET /media/match-proposals/{id}`.
+* **`find_work_media_references`** is deleted, not wired: a narrower twin of `list_work_media_references`, which the
+  `GET /works/{id}/media` route already calls and which answers the same rows plus each link's health and best mirror.
+
+Both new PostgreSQL arms had never executed, and both were wrong — two of the three defects this pass fixed were in code
+nobody had run:
+
+| symptom | cause | fix |
+|---|---|---|
+| 500 on the queue | `m.id` is UUID, three timestamps are TIMESTAMPTZ, `content_notes` is JSONB; the row type is all `String` | `m.id::text`, `to_char(... AT TIME ZONE 'UTC', ...)`, `content_notes::text` |
+| 500 on the queue, after the casts | a `to_char(...)` column is named `to_char`; `FromRow` maps by name | alias every expression (`AS first_seen_at`) |
+| 500 on the proposal detail | `resolved_by` is UUID | `resolved_by::text` |
+| `function pg_catalog.timezone(unknown, text) does not exist` | I copied the `to_char` treatment from `media_references` onto `media_match_proposals`, whose timestamps are **TEXT** | read the column, not the neighbour: plain `created_at` |
+
+The last one is the sharpest: two tables in one file, four hundred lines apart, disagree about the type of `created_at`.
+
+Ratchet 89 -> 85.
+
