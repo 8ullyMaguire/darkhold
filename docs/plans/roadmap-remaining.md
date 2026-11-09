@@ -2652,3 +2652,43 @@ Proof: red first (405), then writer 1/1 and `taste_leakage_view` 8/8 on both eng
 operator check and forcing `Disposition::Keep` both redden their own assertion. Ratchet 44 → 43. `record_payout`/`get_payout`
 stay named against the payouts row: a payout is written by a run, and there is no run yet.
 
+#### The leakage-writer deploy was attempted and NOT completed — the deploy tree is another session's workspace (2026-11-09)
+
+`POST /admin/discovery/leakage` is merged, tested on both engines and pushed, but it is **not live**, and the reason is worth
+recording in full because it cost the instance twenty minutes of downtime.
+
+The build (16m42s) finished cleanly and the dump verified (392 `TABLE DATA`). The restart then failed: the binary refused the
+host's `darkhold.toml` with
+
+```
+unknown field `half_life_days`, expected one of `mode`, `gravity_strength`, `signal_weight_mode`, `admin_weight`, …
+```
+
+`git status` in the deploy tree explains it — and this time it is not a merge artifact:
+
+```
+M  Cargo.lock, crates/app/Cargo.toml, crates/app/src/config.rs, crates/app/src/lib.rs,
+M  crates/app/src/routes/mod.rs, crates/app/src/server.rs, crates/db/src/lib.rs
+?? crates/app/src/routes/taste.rs, crates/app/src/taste_source.rs, crates/db/src/taste_source.rs
+```
+
+Another session is mid-way through a `[taste]` rework (`ADR 0016` taste sources) in the shared checkout: new modules, modified
+config struct, and a `darkhold.toml` edited at 21:16 — inside my build window and after the code the build compiled. That config
+declares `half_life_days` and `min_evidence`, which only their (unbuilt) struct accepts. My binary was compiled from the tree as
+it stood at build start, so it cannot read it; and the previously running binary (19:48) cannot either, because the config moved
+under it while it was running.
+
+**Recovery, in order, so the next reader does not improvise:** the previously running binary was restored from
+`~/backups/darkhold-replaced-194857.bin` (still refused the config — the config is the problem, not the binary), then the `[taste]`
+block was disabled in `darkhold.toml` (backup at `~/backups/darkhold.toml-*.bak`, with a dated comment saying why and what
+re-enables it). The unit is `active`, `/health/live` 200, `/api/v1/search` 200, build `0.1.0+7134d2be.dirty`.
+
+**State of the feature:** merged and green (`6d64ae65`), not deployed. `POST /api/v1/admin/discovery/leakage` answers 405 on the
+live instance — the path exists for GET only, which is exactly what an undeployed route looks like.
+
+**Lesson, written down because it has now happened three times:** a shared deploy tree means the build is a snapshot of somebody
+else's working directory. Before a deploy, `git status` must be empty *and* `darkhold.toml` (untracked, so invisible to that
+check) must be older than the last good binary; and after the build, `git status` must still be empty — a file that changed during
+the build is a file the binary did not compile. The `.dirty` stamp on the 19:48 build was the first warning of the same thing and
+was read as cosmetic.
+
