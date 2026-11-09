@@ -2541,6 +2541,15 @@ pub const ROUTE_TABLE: &[RouteEntry] = &[
     },
     RouteEntry {
         file: "continue_reading.rs",
+        handler: "unfinished_shelf",
+        method: "GET",
+        path: "/library/unfinished",
+        // `RequireSession`: the account, not the pseud, because progress rows are keyed by account (a reader who switches
+        // pseuds has one shelf, not one per pseud).
+        audience: Audience::Authenticated,
+    },
+    RouteEntry {
+        file: "continue_reading.rs",
         handler: "continue_reading",
         method: "GET",
         path: "/continue-reading",

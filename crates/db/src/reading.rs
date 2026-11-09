@@ -1560,9 +1560,13 @@ pub async fn current_revision_of_unit(
     db: &Database,
     unit_id: &str,
 ) -> Result<Option<darkhold_domain::ids::RevisionId>> {
+    // `$1::uuid` and not `$1`: `units.id` is UUID on PostgreSQL, and a text parameter compared to it is
+    // `operator does not exist: uuid = text` — the FIRST thing the reader's browser sends on arrival is a position with no
+    // revision, so this arm ran on every save on the deployed backend and returned 500 each time. The SQLite arm needs no
+    // cast because its `units.id` is TEXT.
     let sql = db.sql(
         "SELECT current_revision_id FROM units WHERE id = ?",
-        "SELECT current_revision_id::text FROM units WHERE id = $1",
+        "SELECT current_revision_id::text FROM units WHERE id = $1::uuid",
     );
     let row: Option<(Option<String>,)> = match db.backend() {
         Backend::Sqlite => {

@@ -29,7 +29,9 @@ use axum::{Json, Router};
 use serde::Serialize;
 
 pub fn router() -> Router<AppState> {
-    Router::new().route("/continue-reading", get(continue_reading))
+    Router::new()
+        .route("/continue-reading", get(continue_reading))
+        .route("/library/unfinished", get(unfinished_shelf))
 }
 
 /// The wire shape.
@@ -86,5 +88,106 @@ async fn continue_reading(
         unit_id: row.unit_id,
         unit_title: row.unit_title,
         updated_at: row.updated_at,
+    }))
+}
+
+// ---------------------------------------------------------------------------
+// The unfinished shelf
+// ---------------------------------------------------------------------------
+
+/// The default page size, and the ceiling the store clamps to.
+///
+/// Required and bounded rather than trusted: the store takes a `limit` and clamps it to 1..=50, and the ceiling is reported
+/// in the answer so a client can page honestly instead of inferring that a short page means "no more".
+const SHELF_DEFAULT_LIMIT: i64 = 20;
+const SHELF_MAX_LIMIT: i64 = 50;
+
+#[derive(Debug, serde::Deserialize)]
+pub struct ShelfQuery {
+    #[serde(default)]
+    pub limit: Option<i64>,
+}
+
+/// One started work: where the reader stopped, and what they said if they dropped it.
+#[derive(Debug, Serialize)]
+pub struct ShelfItem {
+    pub work_id: String,
+    pub title: String,
+    pub position_permille: i32,
+    pub percent: u8,
+    pub unit_id: Option<String>,
+    pub unit_title: Option<String>,
+    /// RFC 3339. When this reader last moved in this work.
+    pub updated_at: String,
+    /// `Some` when the reader marked this work did-not-finish, `None` while it is merely in progress. The caller decides
+    /// what to do with each reason — that judgement is why the store returns the reason rather than filtering by it.
+    pub dnf_reason: Option<String>,
+    /// Whether other readers can see that this reader dropped it. `None` when there is no DNF row at all.
+    pub dnf_public: Option<bool>,
+    /// The reader's own note. Theirs: `dnf_public = false` means nobody else sees this sentence.
+    pub dnf_note: Option<String>,
+}
+
+#[derive(Debug, Serialize)]
+pub struct ShelfResponse {
+    pub items: Vec<ShelfItem>,
+    /// The effective page size after clamping, so a client that asked for 10000 learns what it got.
+    pub limit: i64,
+}
+
+/// Everything this reader started and has not finished, newest first.
+///
+/// Two queries that had no caller — `unfinished_works` and `dnf_works_for` — answered the same question in halves: one knew
+/// what was started, the other knew what was dropped, and neither knew both. The banner route above deliberately answers
+/// only "the one thing you are reading"; this is the shelf behind it.
+///
+/// A dropped work stays on the shelf with its reason. Dropping a work is not the same as never having started it, and the
+/// reason is what lets the caller decide whether to offer it again (`not_my_taste`) or never (`triggering`) — the decision
+/// the store refused to make, correctly.
+async fn unfinished_shelf(
+    State(state): State<AppState>,
+    RequireSession(user): RequireSession,
+    axum::extract::Query(query): axum::extract::Query<ShelfQuery>,
+) -> ApiResult<Json<ShelfResponse>> {
+    let requested = query.limit.unwrap_or(SHELF_DEFAULT_LIMIT);
+    let effective = requested.clamp(1, SHELF_MAX_LIMIT);
+    let account = user.account_id.to_string();
+
+    let started = darkhold_db::continue_reading::unfinished_works(state.db(), &account, effective)
+        .await
+        .map_err(|e| crate::http::ApiError(darkhold_domain::AppError::Internal(e)))?;
+    let dropped = darkhold_db::continue_reading::dnf_works_for(state.db(), &account)
+        .await
+        .map_err(|e| crate::http::ApiError(darkhold_domain::AppError::Internal(e)))?;
+
+    // Keyed by work id, and the map is consumed rather than cloned: a work has at most one live DNF row (the store upserts),
+    // so a second entry would be a fault worth noticing rather than a value to merge.
+    let mut marks: std::collections::HashMap<String, (String, bool, Option<String>)> = dropped
+        .into_iter()
+        .map(|(work_id, reason, is_public, note)| (work_id, (reason, is_public, note)))
+        .collect();
+
+    let items = started
+        .into_iter()
+        .map(|row| {
+            let mark = marks.remove(&row.work_id);
+            ShelfItem {
+                percent: row.percent(),
+                work_id: row.work_id,
+                title: row.title,
+                position_permille: row.position_permille,
+                unit_id: row.unit_id,
+                unit_title: row.unit_title,
+                updated_at: row.updated_at,
+                dnf_reason: mark.as_ref().map(|(reason, _, _)| reason.clone()),
+                dnf_public: mark.as_ref().map(|(_, is_public, _)| *is_public),
+                dnf_note: mark.and_then(|(_, _, note)| note),
+            }
+        })
+        .collect();
+
+    Ok(Json(ShelfResponse {
+        items,
+        limit: effective,
     }))
 }

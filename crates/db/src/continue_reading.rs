@@ -315,46 +315,46 @@ pub async fn unfinished_works(
     Ok(out)
 }
 
-/// The works a reader should not be offered again, as `(work_id, reason)`.
+/// The works a reader dropped, with what the reader said about each one.
 ///
-/// This is what item 11's DNF feeds. It is a query rather than a filter inside
-/// `continue_reading` for one reason: a DNF mark has SIX reasons and the caller may want
-/// different treatment for each — `abandoned_by_author` should probably be hidden while
-/// `triggering` MUST be, and `not_my_taste` should be shown again. Returning the reason
-/// alongside keeps that judgement in the caller where the policy lives.
+/// `(work_id, reason, is_public, note)`. The judgement — which reasons make a work invisible rather than merely marked
+/// (`triggering` must hide it, `not_my_taste` should offer it again later) — stays with the caller, which is why the reason
+/// travels beside the id instead of being folded into a filter here.
 ///
-/// Private DNF is still excluded. Not because the aggregate would leak it — this is the
-/// reader's OWN list — but because a reader who marked a work private has expressed a
-/// preference about it that is not "stop recommending it".
-pub async fn dnf_works_for(db: &Database, account_id: &str) -> Result<Vec<(String, String)>> {
+/// # `is_public` is about other readers, not about this one
+///
+/// This query used to filter `is_public = 1`, reasoning that a private mark "expresses a preference about it that is not
+/// 'stop recommending it'". The tiebreaker is the column's name and the other door: `GET /me/dnf` lists **every** DNF row
+/// the reader owns, private ones included, and it has done so since before this pass. A reader who marked five works
+/// privately saw them at `/me/dnf` and in no other list, and the two surfaces disagreed about what the reader had done.
+/// `is_public` says who *else* may see the record; the reader always may. The row therefore carries it out, so a caller can
+/// show a reader which of their marks others can see.
+///
+/// The id stays a `String`. Wrapping it in a `WorkId` would be a convenience the caller pays for in a `match` on the parse,
+/// and `did_not_finish.work_id` is TEXT on SQLite and UUID on PostgreSQL — a value that parsed on one engine could fail to
+/// parse on the other for a row this query just returned successfully.
+pub async fn dnf_works_for(
+    db: &Database,
+    account_id: &str,
+) -> Result<Vec<(String, String, bool, Option<String>)>> {
     let sql = db.sql(
         r#"
-        SELECT work_id, reason
+        SELECT work_id, reason, is_public, note
           FROM did_not_finish
          WHERE account_id = ?1
            AND deleted_at IS NULL
-           -- `= 1` is correct HERE and must not be "harmonised" with the PostgreSQL arm's
-           -- `= TRUE`: this column is INTEGER on SQLite and BOOLEAN on PostgreSQL.
-           AND is_public = 1
          ORDER BY updated_at DESC
         "#,
         r#"
-        SELECT work_id::text, reason
+        SELECT work_id::text, reason, is_public, note
           FROM did_not_finish
          WHERE account_id = $1::uuid
            AND deleted_at IS NULL
-           -- TRUE, not 1. `did_not_finish.is_public` is BOOLEAN on PostgreSQL and INTEGER
-           -- on SQLite, and `boolean = integer` is not a comparison PostgreSQL has:
-           -- `operator does not exist: boolean = integer`. The SQLite arm's `= 1` is
-           -- CORRECT there, so this defect is invisible on the default engine and the
-           -- two-engine run is the only thing that catches it. Same class as the
-           -- `::uuid` cast this query's other arm needs.
-           AND is_public = TRUE
          ORDER BY updated_at DESC
         "#,
     );
 
-    let rows: Vec<(String, String)> = match db.backend() {
+    let rows: Vec<(String, String, bool, Option<String>)> = match db.backend() {
         crate::Backend::Sqlite => {
             sqlx::query_as(&sql)
                 .bind(account_id)
@@ -371,11 +371,6 @@ pub async fn dnf_works_for(db: &Database, account_id: &str) -> Result<Vec<(Strin
                 .await?
         }
     };
-
-    // The id stays a `String`. Wrapping it in a `WorkId` here would be a convenience the
-    // caller pays for in a `match` on the parse, and `did_not_finish.work_id` is TEXT on
-    // SQLite and UUID on PostgreSQL — so a value that parsed on one engine could fail to
-    // parse on the other for a row this query just returned successfully.
     Ok(rows)
 }
 
