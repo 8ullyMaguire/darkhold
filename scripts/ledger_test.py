@@ -13,6 +13,7 @@ a 698-line diff.
 from __future__ import annotations
 
 import io
+import csv
 import os
 import shutil
 import sys
@@ -290,6 +291,51 @@ def test_rename_keeps_the_crlf_and_the_row_count(tmp):
     lone = raw.count(b"\n") - raw.count(b"\r\n")
     check(lone == 0, "a rename writes CRLF only (got %d lone LF)" % lone)
     check(len(ledger.read_rows(path)) == before, "a rename adds and drops no row")
+
+
+def test_a_notes_cell_that_became_a_document_is_refused(tmp):
+    """The repair for M70-13's 131,739-character cell, tested where it fails.
+
+    The cell grew one pass at a time and nothing objected until `csv` refused to read the file — a failure reported against the
+    ledger, long after the pass that wrote it. The cap moves that failure onto the write, and names the row.
+    """
+    path = os.path.join(tmp, "ledger.csv")
+    ledger.write_rows(path, [{"id": "M1-01", "notes": "short"}])
+    with open(path, "r", newline="") as fh:
+        assert fh.read()  # the file was written
+
+    row = {"id": "M70-13", "area": "a", "requirement": "r", "milestone": "m",
+           "status": "done", "evidence": "e", "notes": "x" * (ledger.NOTES_LIMIT + 1)}
+    try:
+        ledger.write_rows(path, [row])
+    except ValueError as error:
+        check("M70-13" in str(error), "the refusal names the row (got %r)" % str(error)[:60])
+        check("roadmap-remaining.md" in str(error), "the refusal says where the journal belongs")
+    else:
+        check(False, "a notes cell over NOTES_LIMIT was written")
+
+    # The file itself is untouched: the refusal happens before anything is written.
+    with open(path, "r", newline="") as fh:
+        check("M1-01" in fh.read(), "a refused write left the ledger as it was")
+
+
+def test_the_reader_can_read_a_cell_larger_than_csvs_default_limit(tmp):
+    """`read_rows` is the only reader of a file this module writes, so it must accept what it accepts.
+
+    Measured 2026-11-09: M70-13's notes passed 131,072 characters, `csv`'s default field limit, and `gate.sh ledger` failed with
+    `field larger than field limit` while every assertion above it passed.
+    """
+    # Written with the `csv` module directly, not through `write_rows`: this test is about the *reader* accepting a wide cell,
+    # and `write_rows` now refuses one on purpose (the test above). A fixture that has to pass the writer cannot prove anything
+    # about a file the writer would not produce.
+    path = os.path.join(tmp, "wide.csv")
+    wide = "y" * (140 * 1024)  # larger than csv's 131072 default
+    with open(path, "w", newline="") as fh:
+        writer = csv.writer(fh, lineterminator="\r\n")
+        writer.writerow(["id", "notes"])
+        writer.writerow(["M1-01", wide])
+    rows = ledger.read_rows(path)
+    check(len(rows) == 1 and len(rows[0]["notes"]) == len(wide), "a 140 KiB cell round-trips")
 
 
 def test_the_real_ledger_is_crlf():

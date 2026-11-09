@@ -2313,3 +2313,28 @@ wiring omission; it stays on the list until that decision exists.
 
 Ratchet 44 -> 43.
 
+### The ledger's notes cell became a document, and broke its own reader (scripts/ledger.py, 2026-11-09)
+
+`gate.sh ledger` went red on the file, not on a row: `csv`'s default field limit is 131,072 bytes, M70-13's `notes` cell had
+reached **131,739 characters** — every pass of the ratchet appended in place — and `scripts/ledger.py` could no longer read the
+ledger it had written. The pass before this one was committed **through** that red gate: the gate prints its log tail and the
+commit went ahead, which is its own finding (a gate whose failure can be scrolled past is not a gate).
+
+Three repairs, in the order they matter:
+
+1. **The journal moved out of the cell.** The 131,739 characters are now `docs/plans/m70-13-pass-log.md`, verbatim, and the cell
+   carries a 448-character summary and a pointer. A CSV cell is a field, not a container: `psql \copy`, spreadsheets and
+   `pandas` all have opinions about a 131 KB field, and the ledger is meant to be read by all three.
+2. **The reader accepts what the writer accepts.** `csv.field_size_limit` is raised to 16 MiB with the reason written beside it —
+   the default is a guard against a malformed file, not a bound on what a real row may say.
+3. **A write that would create the problem is refused.** `NOTES_LIMIT` is 32 KiB and `write_rows` raises, naming the row, before
+   anything is written: "the pass journal belongs in `docs/plans/roadmap-remaining.md`; keep a summary and a pointer here". The
+   failure now lands on the pass that grows the cell, where the author still remembers what they were doing, instead of on the
+   file months later.
+
+Two tests pin it, and the second one caught a mistake in the first: the reader test initially wrote its 140 KiB fixture through
+`write_rows`, which the new cap refuses — a fixture that has to pass the writer cannot prove anything about a file the writer
+would not produce, so it writes the CSV directly. Ledger: 952 rows, 0 lone LF, biggest remaining `notes` cell 5,004 characters.
+
+Ratchet unchanged at 43 (this pass repaired the ledger, not the ledger's subject).
+
