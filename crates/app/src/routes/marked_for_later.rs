@@ -4,13 +4,20 @@
 //! POST   /works/:id/marked-for-later    queue it (idempotent)
 //! DELETE /works/:id/marked-for-later    drop it
 //! GET    /me/marked-for-later           the queue, newest first
+//! GET    /me/marked-for-later/:id       is THIS work in my queue
 //! ```
 //!
-//! # Why there is no `GET /works/:id/marked-for-later`
+//! # The per-work read, and the mechanism this comment used to cite instead
 //!
-//! Asking "is this work in *my* queue" is answered by `WORK_STATE` on the work page, and a per-work read would
-//! invite a caller to ask about somebody else's queue with the same URL shape. The only queue this door returns is
-//! the caller's own, which is why the read is `/me/...`.
+//! This module used to say that "is this work in *my* queue" was "answered by `WORK_STATE` on the work page". `WORK_STATE`
+//! was never built — not in this tree, not in the frontend — so the question had no answer anywhere, and the store function
+//! written for it (`is_marked`) had no caller. A client could only fetch the whole queue and search it, which is what a
+//! reader with two hundred saved works pays on every work page.
+//!
+//! The read lives under `/me/` rather than at `/works/:id/...` because it is a fact about the caller, not about the work:
+//! the same work is in one reader's queue and not another's. The old objection was that a per-work path "invites a caller to
+//! ask about somebody else's queue with the same URL shape" — it never could (the door takes the account from the session,
+//! not from the path), but the path was misleading all the same, and `/me/` fixes that without giving up the one-call answer.
 //!
 //! # Why it is not under `/bookmarks`
 //!
@@ -37,6 +44,7 @@ pub fn router() -> Router<AppState> {
     Router::new()
         .route("/works/{id}/marked-for-later", post(mark).delete(unmark))
         .route("/me/marked-for-later", get(queue))
+        .route("/me/marked-for-later/{id}", get(state_of_one))
 }
 
 #[derive(Debug, Deserialize)]
@@ -82,4 +90,26 @@ async fn queue(
         darkhold_db::marked_for_later::queue(state.db(), &user.account_id.to_string(), limit)
             .await?;
     Ok(Json(json!({ "items": items, "count": items.len() })))
+}
+
+/// Whether one work is in the caller's queue.
+///
+/// The work is checked for existence first, exactly as `mark` does: `marked: false` for a typo'd id would be
+/// indistinguishable from "not saved", and the reader would never learn the id was wrong.
+async fn state_of_one(
+    State(state): State<AppState>,
+    RequireSession(user): RequireSession,
+    Path(work): Path<String>,
+) -> ApiResult<Json<Value>> {
+    let work_id = parse_work_id(&work)?;
+    content::find_work(state.db(), work_id)
+        .await?
+        .ok_or_else(|| ApiError(AppError::NotFound { resource: "work" }))?;
+    let marked = darkhold_db::marked_for_later::is_marked(
+        state.db(),
+        &user.account_id.to_string(),
+        &work,
+    )
+    .await?;
+    Ok(Json(json!({ "work_id": work, "marked": marked })))
 }
