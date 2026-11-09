@@ -2542,3 +2542,53 @@ the role"); removing the method validation reddens the 422 assertion with a 200 
 
 Ratchet: **48 → 46** (both `select_vanguards` and `select_by_contribution_volume` now have a caller).
 
+## Batch 2 (added 2026-11-09) — M73, the affinity kernel
+
+Owner direction: *"search resonance, affinity, attuned, etc. figure out if there's some common functionality that could be
+extracted as a shared component as generally useful and flexible as possible."* Analysis and rejected alternatives are in
+`~/secondbrain/10-Projects/polaris-estate-affinity-kernel.md`; the queue row is 13 in `polaris-estate-programme.md`.
+
+**What the sweep found.** The estate has five separate answers to "how much does this match", and the ordinary-ranked queue does
+not own the one that matters:
+
+* darkhold `domain/affinity.rs` — weighted mean over the components that carry evidence (0.5 favourite / 0.3 tag / 0.2 arena),
+  absent signals removed from both halves of the division, `None` when nothing is measurable; plus `jaccard`, `cosine`,
+  `arena_agreement`.
+* ascend `themes.rs` — `confidence(n) = n/(n+5)`, `combine(prior, evidence, confidence)`, `multiplier` bounded to 1.0–3.0,
+  `percentile_ranks`.
+* orbital `ranking.rs` — `cosine` over tag sets, `tag_relevance` = `Σ(w·hit)/Σw`, `trust_mult`, and `0.0` for both "not
+  applicable" and "not relevant" while its own comment says they must not look the same.
+* kindred — `assoc_stats` (already `polaris-assoc`), `mmr` (already `polaris-rank`), `glicko` (already `polaris-rating`).
+* `polaris-taste` — ballots, ratings, weights, budgets: the *input* platform, not the arithmetic.
+* `polaris-gravity` — already extracted, and the precedent for the shape: the arithmetic is the component, the weights and bounds
+  are declared data at the call site, refusals are named types.
+
+The disagreement is the finding: `0.0` versus `None` for "no evidence" is reader-visible — it is the difference between "we do not
+know you yet" and "you are not relevant here". Duplication here is not wasted lines, it is a wrong answer.
+
+**Decision.** `polaris-affinity` 0.1: pure functions, no state, no DB, no HTTP, no `product` parameter.
+
+```
+similarity::{jaccard, cosine_counts, agreement_share}  -> Option<f64>
+evidence::{Component, weighted_mean}                   -> Option<f64>
+confidence::{confidence(n, k), blend(prior, evidence, n, k)}
+bounds::multiplier(affinity, Bounds)                   -> f64   // bias, never collapse
+cohort::percentile_within(cohort, value)               -> f64
+decay::{half_life, by_age}
+```
+
+Three rules the crate enforces: absence returns `None` and the call site decides what absence means; weights and bounds are the
+caller's data; `multiplier` is total and bounded so affinity 0.0 still ranks at the declared minimum.
+
+**Rows.** M73-01 crate; M73-02 darkhold adoption by deletion; M73-03 ascend; M73-04 orbital.
+
+**Order — why Batch 2 and not now.** M73-02 deletes darkhold's affinity arithmetic, which is on the M70-13 ratchet's list
+(`select_by_contribution_volume` was the pass that produced `affinity`, and the module's helpers are reachable). Landing M73-02
+first would regenerate `docs/plans/orphan-queries.txt` twice in three passes and make two baselines stale in the same day. The
+ratchet passes in flight cost nothing to finish, so M73 starts after the current ratchet slice — and M73-01 is independent of
+darkhold, so it can run in parallel with ratchet passes if a second session is free.
+
+**Non-goals.** No taste service, no vector store, no schema, no replacement for `polaris-taste`'s ballots, `polaris-rank`'s
+profiles, `polaris-assoc`'s co-occurrence statistics or `polaris-gravity`'s reader dial. Kindred is not an adopter: it has no
+profile→score surface, and linking a crate it does not call would spend its dependency budget for symmetry.
+
