@@ -2454,3 +2454,17 @@ unused parameter trips the workspace's deny-warnings — and a mutant that does 
 Ratchet: **50 → 49**. Ruler history for the next number: 43 (bare name) → 57 (module-qualified) → 55 (uniqueness over every
 function) → 50 (same-module calls) → 49 (this deletion).
 
+### `notifications::list` was considered and kept, with the measurement written beside it (2026-11-09)
+
+The next candidate was the textbook twin: the unfiltered inbox, whose own doc says a caller who can see a work should use
+`list_filtered`, because a notification carrying a `work_id` puts that work's title in `title` and the unfiltered read hands back
+exactly what the reader's filter exists to withhold.
+
+Measuring the pair settled it the other way. `list_filtered` with an empty rule set **is** `list` — same SQL, same rows — so the
+leak lives in the caller that passes no rules, not in the function that takes none. Deleting `list` would have pushed ten test call
+sites through a filter API with an empty list, making the primitives (`notify`, `mark_read`, `unread_count`) harder to read in
+exchange for no safety at all. The route that serves readers passes rules; that is the place to check.
+
+So: reverted before committing, and the reasoning now sits in the function's doc comment where the next reader will hit it. A
+deletion that survives its own measurement is the only kind worth making — this one did not.
+
