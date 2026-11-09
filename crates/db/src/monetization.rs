@@ -4,6 +4,7 @@
 //! monetization assertions, and work gifts.
 
 use sqlx::Row;
+use time::format_description::well_known::Rfc3339;
 use uuid::Uuid;
 
 use crate::{Backend, Database};
@@ -888,10 +889,16 @@ pub async fn get_ai_declaration(
 // DB functions take their parameters explicitly rather than a builder:
 // a builder here would only move the same fields one call deeper.
 
-/// Record a payment event with processor fee.
+/// Record one monetary transaction, once (§20.9.5).
+///
+/// `event_key` is what makes "once" true: the ledger's own idempotency key for the flow that produced the money (a tip's, a
+/// purchase's, a payout's id). A retried request finds the row it already wrote and gets that id back, so the fee range
+/// published on `/api/v1/meta` cannot be inflated by a client that pressed the button twice — and the returned `bool` says
+/// which happened, because "recorded" and "already recorded" are different answers to a caller.
 #[allow(clippy::too_many_arguments)]
 pub async fn record_payment_event(
     db: &Database,
+    event_key: &str,
     kind: &str,
     account_id: Option<&str>,
     work_id: Option<&str>,
@@ -899,31 +906,52 @@ pub async fn record_payment_event(
     amount_minor: i64,
     processor_fee_minor: i64,
     currency: &str,
-) -> Result<String, sqlx::Error> {
+) -> Result<(String, bool), sqlx::Error> {
     let id = Uuid::new_v4().to_string();
     let now = crate::identity::now_rfc3339();
     let net = amount_minor - processor_fee_minor;
-    match db.backend() {
+    let rows = match db.backend() {
         Backend::Sqlite => {
             sqlx::query(
-                "INSERT INTO payment_events (id, kind, account_id, work_id, author_account, amount_minor, processor_fee_minor, currency, net_minor, created_at)
-                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
+                "INSERT INTO payment_events (id, event_key, kind, account_id, work_id, author_account, amount_minor, processor_fee_minor, currency, net_minor, created_at)
+                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                 ON CONFLICT(event_key) DO NOTHING"
             )
-            .bind(&id).bind(kind).bind(account_id).bind(work_id).bind(author_account)
+            .bind(&id).bind(event_key).bind(kind).bind(account_id).bind(work_id).bind(author_account)
             .bind(amount_minor).bind(processor_fee_minor).bind(currency).bind(net).bind(&now)
-            .execute(db.sqlite_pool().expect("sqlite")).await?;
+            .execute(db.sqlite_pool().expect("sqlite")).await?.rows_affected()
         }
         Backend::Postgres => {
             sqlx::query(
-                "INSERT INTO payment_events (id, kind, account_id, work_id, author_account, amount_minor, processor_fee_minor, currency, net_minor, created_at)
-                 VALUES ($1::uuid, $2, $3::uuid, $4::uuid, $5::uuid, $6, $7, $8, $9, $10)"
+                "INSERT INTO payment_events (id, event_key, kind, account_id, work_id, author_account, amount_minor, processor_fee_minor, currency, net_minor, created_at)
+                 VALUES ($1::uuid, $2, $3, $4::uuid, $5::uuid, $6::uuid, $7, $8, $9, $10, $11)
+                 ON CONFLICT(event_key) DO NOTHING"
             )
-            .bind(&id).bind(kind).bind(account_id).bind(work_id).bind(author_account)
+            .bind(&id).bind(event_key).bind(kind).bind(account_id).bind(work_id).bind(author_account)
             .bind(amount_minor).bind(processor_fee_minor).bind(currency).bind(net).bind(&now)
-            .execute(db.postgres_pool().expect("postgres")).await?;
+            .execute(db.postgres_pool().expect("postgres")).await?.rows_affected()
         }
+    };
+    if rows == 0 {
+        // The row already existed: answer with *its* id, not the one we minted and did not use. A caller holding our unused
+        // UUID would be holding a reference to nothing.
+        let existing = match db.backend() {
+            Backend::Sqlite => {
+                sqlx::query_scalar::<_, String>("SELECT id FROM payment_events WHERE event_key = ?")
+                    .bind(event_key)
+                    .fetch_one(db.sqlite_pool().expect("sqlite"))
+                    .await?
+            }
+            Backend::Postgres => {
+                sqlx::query_scalar::<_, String>("SELECT id::text FROM payment_events WHERE event_key = $1")
+                    .bind(event_key)
+                    .fetch_one(db.postgres_pool().expect("postgres"))
+                    .await?
+            }
+        };
+        return Ok((existing, false));
     }
-    Ok(id)
+    Ok((id, true))
 }
 
 // ---------------------------------------------------------------------------
@@ -1166,4 +1194,42 @@ pub async fn upsert_period_summary(
         }
     }
     Ok(id)
+}
+
+/// The processor fees actually paid over the trailing window, as a range (§20.9.5).
+///
+/// `None` when no payment has been recorded in the window, which is not the same answer as `Some((0, 0))`: "we have never
+/// paid a processor" and "processing cost us nothing" are different claims, and §20.10.7 publishes this range so the
+/// solidarity arithmetic is transparent about what processing costs. A zero would claim the second.
+pub async fn processor_fee_range(
+    db: &Database,
+    window_days: i64,
+) -> Result<Option<(i64, i64)>, sqlx::Error> {
+    let cutoff = (time::OffsetDateTime::now_utc() - time::Duration::days(window_days))
+        .format(&Rfc3339)
+        .unwrap_or_default();
+    let sql = db.sql(
+        "SELECT MIN(processor_fee_minor), MAX(processor_fee_minor), COUNT(*)
+           FROM payment_events WHERE created_at >= ?",
+        "SELECT MIN(processor_fee_minor)::bigint, MAX(processor_fee_minor)::bigint, COUNT(*)::bigint
+           FROM payment_events WHERE created_at >= $1",
+    );
+    let (low, high, count): (Option<i64>, Option<i64>, i64) = match db.backend() {
+        Backend::Sqlite => {
+            sqlx::query_as(&sql)
+                .bind(&cutoff)
+                .fetch_one(db.sqlite_pool().expect("sqlite"))
+                .await?
+        }
+        Backend::Postgres => {
+            sqlx::query_as(&sql)
+                .bind(&cutoff)
+                .fetch_one(db.postgres_pool().expect("postgres"))
+                .await?
+        }
+    };
+    Ok(match (low, high) {
+        (Some(low), Some(high)) if count > 0 => Some((low, high)),
+        _ => None,
+    })
 }
