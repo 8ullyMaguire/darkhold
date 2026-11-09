@@ -1892,6 +1892,28 @@ pub const ROUTE_TABLE: &[RouteEntry] = &[
         audience: Audience::Operator,
     },
     RouteEntry {
+        file: "identity_admin.rs",
+        handler: "set_trust_route",
+        method: "POST",
+        path: "/admin/accounts/{id}/trust",
+        // A trust change is a decision recorded in the modlog, with a reason: operator only, per ADR 0003.
+        audience: Audience::Operator,
+    },
+    RouteEntry {
+        file: "identity_admin.rs",
+        handler: "apply_spam_demotion_route",
+        method: "POST",
+        path: "/admin/accounts/{id}/spam-demotion",
+        audience: Audience::Operator,
+    },
+    RouteEntry {
+        file: "identity_admin.rs",
+        handler: "grant_operator_role_route",
+        method: "POST",
+        path: "/admin/accounts/{id}/operator-role",
+        audience: Audience::Operator,
+    },
+    RouteEntry {
         file: "imports.rs",
         handler: "list_sources",
         method: "GET",

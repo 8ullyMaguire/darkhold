@@ -44,6 +44,15 @@ pub fn router() -> Router<AppState> {
             post(grant_guardian_authorization_route),
         )
         .route("/admin/accounts/{id}/fold", post(fold_account_route))
+        .route("/admin/accounts/{id}/trust", post(set_trust_route))
+        .route(
+            "/admin/accounts/{id}/spam-demotion",
+            post(apply_spam_demotion_route),
+        )
+        .route(
+            "/admin/accounts/{id}/operator-role",
+            post(grant_operator_role_route),
+        )
 }
 
 /// The operator predicate, in one place (ADR 0003).
@@ -353,3 +362,199 @@ async fn fold_account_route(
         "folded_into": target.to_string(),
     })))
 }
+
+// ---------------------------------------------------------------------------
+// Trust, spam demotion, and standing (M70-13)
+// ---------------------------------------------------------------------------
+//
+// Three store functions had no caller, and between them they are how standing is *given* on this instance:
+//
+// * `set_trust` — the ladder exists, `trust_for` reads it, the modlog records changes to it, and until now the only way to
+//   move an account up or down was `UPDATE trust_levels` through psql. A moderation power with no door is a power that only
+//   the person with database access has.
+// * `apply_spam_demotion` — §6.7's rule for confirmed spam reports. The domain predicate (`spam_demotes`) was tested and the
+//   applier was written, and nothing ran it: a spam wave left every account's level exactly where it was.
+// * `grant_operator_role` — the table exists and the estate reads `role:operator` claims; granting one was SQL.
+//
+// Every one of them is an operator action on somebody else's account, so every one carries a reason and writes a modlog row.
+
+#[derive(Debug, Deserialize)]
+pub struct SetTrustBody {
+    /// The level to set. Must be one the configured ladder names: a level the ladder does not have is a typo, not a
+    /// promotion, and storing it would make `name_of` answer `null` for an account whose level *is* set.
+    pub level: i64,
+    #[serde(default)]
+    pub reason: Option<String>,
+}
+
+async fn set_trust_route(
+    State(state): State<AppState>,
+    RequireSession(user): RequireSession,
+    Path(id): Path<String>,
+    Json(body): Json<SetTrustBody>,
+) -> ApiResult<Json<Value>> {
+    operator_only(&state, &user)?;
+    let account = require_account(&state, &id).await?;
+    let reason = reason_of(body.reason.as_deref())?;
+
+    let ladder = state.config().trust.ladder();
+    let Some(name) = ladder.name_of(body.level) else {
+        return Err(ApiError(darkhold_domain::AppError::field(
+            "level",
+            "a level the configured trust ladder names",
+        )));
+    };
+    let before = darkhold_db::governance::trust_for(state.db(), &account.to_string())
+        .await
+        .map_err(|error| internal(error.into()))?;
+
+    // The basis column is JSONB on PostgreSQL and TEXT on SQLite, so the reason travels as a document rather than as a bare
+    // string: `set_trust(…, "spam")` is valid on SQLite and `invalid input syntax for type json` on PostgreSQL, which is the
+    // kind of difference a door should absorb once rather than each caller rediscovering.
+    let basis = json!({ "reason": reason, "operator": user.account_id.to_string() }).to_string();
+    darkhold_db::governance::set_trust(state.db(), &account.to_string(), body.level, &basis)
+        .await
+        .map_err(|error| internal(error.into()))?;
+    note(
+        &state,
+        &user,
+        &reason,
+        "trust-set",
+        &account.to_string(),
+        &json!({ "from": before, "to": body.level, "name": name }).to_string(),
+    )
+    .await?;
+
+    Ok(Json(json!({
+        "account_id": account.to_string(),
+        "level": body.level,
+        "level_name": name,
+        "previous_level": before,
+    })))
+}
+
+#[derive(Debug, Deserialize)]
+pub struct SpamDemotionBody {
+    #[serde(default)]
+    pub reason: Option<String>,
+}
+
+/// Run §6.7's confirmed-spam demotion against one account.
+///
+/// The store answers `Ok(None)` for two different situations — not enough confirmed reports, and already at the floor — and a
+/// door that reported both as "no change" would make the one an operator can act on (collect more evidence) indistinguishable
+/// from the one that is finished. So the door asks the two questions itself and names which one it answered.
+async fn apply_spam_demotion_route(
+    State(state): State<AppState>,
+    RequireSession(user): RequireSession,
+    Path(id): Path<String>,
+    Json(body): Json<SpamDemotionBody>,
+) -> ApiResult<Json<Value>> {
+    operator_only(&state, &user)?;
+    let account = require_account(&state, &id).await?;
+    let reason = reason_of(body.reason.as_deref())?;
+    let account_text = account.to_string();
+
+    let settings = state.config().trust.trust_settings();
+    let confirmed = darkhold_db::governance::confirmed_spam_reports(
+        state.db(),
+        &account_text,
+        darkhold_domain::trust::SPAM_DEMOTION_WINDOW_DAYS,
+    )
+    .await
+    .map_err(|error| internal(error.into()))?;
+    let before = darkhold_db::governance::trust_for(state.db(), &account_text)
+        .await
+        .map_err(|error| internal(error.into()))?;
+
+    let applied = darkhold_db::governance::apply_spam_demotion(state.db(), &account_text, &settings)
+        .await
+        .map_err(|error| internal(error.into()))?;
+
+    let (outcome, after) = match applied {
+        Some(level) => ("demoted", level),
+        None if !darkhold_domain::trust::spam_demotes(confirmed) => {
+            ("not_enough_confirmed_reports", before)
+        }
+        None => ("at_floor", before),
+    };
+    if applied.is_some() {
+        note(
+            &state,
+            &user,
+            &reason,
+            "trust-spam-demotion",
+            &account_text,
+            &json!({ "from": before, "to": after, "confirmed_reports": confirmed }).to_string(),
+        )
+        .await?;
+    }
+
+    Ok(Json(json!({
+        "account_id": account_text,
+        "outcome": outcome,
+        "confirmed_reports": confirmed,
+        "level_before": before,
+        "level_after": after,
+    })))
+}
+
+#[derive(Debug, Deserialize)]
+pub struct OperatorRoleBody {
+    /// `role:operator`, or `role:moderator:<site>` / `role:curator:<site>`.
+    pub role: String,
+    #[serde(default)]
+    pub reason: Option<String>,
+}
+
+/// Grant this instance's claim for an estate role.
+///
+/// The vocabulary is checked here because the table has none, and a role string that no reader of `operator_role` recognises
+/// is worse than a refusal: it looks like standing and grants nothing. The site in `role:moderator:<site>` is part of the
+/// claim, not a request parameter — ADR 0003's rule for the doors applies to the grant that opens them.
+async fn grant_operator_role_route(
+    State(state): State<AppState>,
+    RequireSession(user): RequireSession,
+    Path(id): Path<String>,
+    Json(body): Json<OperatorRoleBody>,
+) -> ApiResult<Json<Value>> {
+    operator_only(&state, &user)?;
+    let account = require_account(&state, &id).await?;
+    let reason = reason_of(body.reason.as_deref())?;
+
+    let role = body.role.trim();
+    let valid = match role.strip_prefix("role:") {
+        Some("operator") => true,
+        Some(rest) => {
+            let mut parts = rest.splitn(2, ':');
+            matches!(parts.next(), Some("moderator" | "curator"))
+                && parts.next().is_some_and(|site| !site.trim().is_empty())
+        }
+        None => false,
+    };
+    if !valid {
+        return Err(ApiError(darkhold_domain::AppError::field(
+            "role",
+            "role:operator, or role:moderator:<site> / role:curator:<site>",
+        )));
+    }
+
+    darkhold_db::governance::grant_operator_role(state.db(), &account.to_string(), role)
+        .await
+        .map_err(|error| internal(error.into()))?;
+    note(
+        &state,
+        &user,
+        &reason,
+        "operator-role-granted",
+        &account.to_string(),
+        &json!({ "role": role }).to_string(),
+    )
+    .await?;
+
+    Ok(Json(json!({
+        "account_id": account.to_string(),
+        "role": role,
+    })))
+}
+

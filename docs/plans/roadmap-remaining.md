@@ -1382,3 +1382,30 @@ lands, the shelf is honest about what it is: canon-agnostic works, labelled, not
 
 Ratchet 85 -> 82.
 
+### Standing could only be given with psql (governance.rs, 2026-11-08)
+
+Three store functions and no door, and between them they are how standing is *given* on this instance:
+
+* `set_trust` — the ladder is configured, `trust_for` reads it, `account_facts` shows it, the modlog has an action for it, and
+  the only way to move an account up or down was `UPDATE trust_levels`. A moderation power with no door is a power only the
+  person with the database password has.
+* `apply_spam_demotion` — §14.4's rule (three upheld spam reports in ninety days drops one level, never below 2). The domain
+  predicate was tested, the applier was written, nothing ran it: a spam wave left every level exactly where it was.
+* `grant_operator_role` — the estate reads `role:operator` claims; granting one was SQL.
+
+The doors are `POST /admin/accounts/{id}/trust`, `…/spam-demotion`, `…/operator-role` — operator only (ADR 0003), each with a
+required reason and a modlog row, and each checked against the vocabulary that will read it: a level the configured ladder
+does not name is a typo (storing it makes `name_of` answer `null` for an account whose level *is* set), and a role no reader
+of the claim recognises is worse than a refusal because it looks like standing and grants nothing.
+
+Two decisions inside the demotion door:
+
+* **`Ok(None)` is two different answers.** Not enough confirmed reports is a state an operator can act on; already at the
+  floor is finished. The door asks both questions itself and names which one it answered (`not_enough_confirmed_reports` /
+  `at_floor` / `demoted`) instead of reporting "no change".
+* **The basis column is JSONB on PostgreSQL and TEXT on SQLite.** `set_trust(…, "spam")` is valid on SQLite and
+  `invalid input syntax for type json` on PostgreSQL, so the door absorbs that difference once — the reason travels as
+  `{"reason": …, "operator": …}` — rather than each caller rediscovering it.
+
+Ratchet 82 -> 79.
+
