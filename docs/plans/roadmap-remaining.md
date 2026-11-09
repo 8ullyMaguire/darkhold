@@ -2416,3 +2416,12 @@ removals, with the uniqueness fix worth zero on its own). Stated because the nex
 pass rather than waiting — if the insert fails on the deployed engine, posting a review fails, which is not a failure to discover
 later.
 
+**Deployed (eighth deploy, 2026-11-09 18:0x).** Backup `darkhold-20261109-174211-pre-audit-writer.dump` (3.7 GB, 392
+`TABLE DATA`, `pg_restore -l` verified) in `/personal/backups/`. Build 18m54s on the host, tree at merge `811d4294`, no migrations
+in the merge and `migrate --status` confirming `197 applied, 0 pending`. Restart kept the replaced binary
+(`~/backups/darkhold-replaced-*.bin`). Verified: `/api/v1/meta` build `0.1.0+811d4294` (matches the tree), `/health/live` 200,
+`/api/v1/decisions/audit` **401** anonymously (unchanged contract), journal clean, no panic. `decision_audit` holds 0 live rows at
+restart — correct, and the one thing this deploy cannot show by itself: the table fills on the next review or comment the gate
+classifies, which is user content and not something a probe should manufacture on real works. The write path is proven on the
+deployed engine by the PostgreSQL store test against the same migration set.
+
