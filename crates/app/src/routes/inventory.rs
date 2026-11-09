@@ -597,6 +597,15 @@ pub const ROUTE_TABLE: &[RouteEntry] = &[
     },
     RouteEntry {
         file: "works.rs",
+        handler: "work_history",
+        method: "GET",
+        path: "/works/{id}/history",
+        // The same visibility decision `read_work` makes, so the same audience: a contributor sees their draft's history,
+        // a reader sees a published work's, and a stranger sees the refusal `read_work` would give them.
+        audience: Audience::Public,
+    },
+    RouteEntry {
+        file: "works.rs",
         handler: "withdraw_work",
         method: "POST",
         path: "/works/{id}/withdraw",

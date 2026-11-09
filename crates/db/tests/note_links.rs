@@ -301,10 +301,12 @@ async fn a_failed_check_keeps_the_last_time_the_link_answered() {
         "the last time it answered survives the failure"
     );
     assert!(dead.is_dead());
-    assert_eq!(
-        store::count_dead_for_work(&db, &work).await.expect("count"),
-        1
-    );
+    // The count used to come from `count_dead_for_work`, which was a narrower twin of the live-set list; the count is now
+    // derived from the same rows the monitor reads, so it cannot disagree with what it is counting.
+    let live = store::list_for_live_revisions(&db, &work)
+        .await
+        .expect("live links");
+    assert_eq!(live.iter().filter(|link| link.is_dead()).count(), 1);
 }
 
 #[tokio::test]
