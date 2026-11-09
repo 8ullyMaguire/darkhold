@@ -1719,11 +1719,28 @@ Verified live after the restart:
    because `current_revision_of_unit` compared a UUID column to a text parameter.
 3. Half the imported catalogue (27,464 of 55,913 published works) carries `body_audience = 'trust_at_least:2'`, the mirror's
    reading of AO3's "registered users only". Twelve of this instance's twenty accounts are trust 1, so they — and every
-   anonymous reader — get `404` for those works, by §7.7.3's design (a gated body answers as an absent one). **Not fixed
-   here, and deliberately:** the in-tree spelling for "registered users" is `accounts_only` ("any signed-in account, at trust
-   level 0"), so `trust_at_least:2` is narrower than the flag it mirrors, but rewriting 27 k rows of live policy on the
-   strength of an out-of-tree importer's likely intent is the operator's decision, not a loop's. Recorded as the next open
-   question instead.
+   anonymous reader — get `404` for those works, by §7.7.3's design (a gated body answers as an absent one).
+
+   **Decided and executed the same night, once the operator delegated the decision.** The in-tree spelling for AO3's
+   "registered users only" is `accounts_only`, which `retention.rs` documents as "about having an account, not about trust
+   level" — a signed-in reader at trust 0 satisfies it. `trust_at_least:2` is therefore narrower than the flag it mirrors,
+   and the live distribution settled the question: only two values existed across 58,042 works, `NULL` (30,578) and
+   `trust_at_least:2` (27,464). A deliberate access policy does not have exactly two states with half the catalogue on the
+   strict one.
+
+   ```sql
+   -- 27,464 rows, one transaction, after pg_dump -Fc -t works (13 MB, pg_restore -l verified)
+   UPDATE works SET body_audience = 'accounts_only', updated_at = now() WHERE body_audience = 'trust_at_least:2';
+   ```
+
+   Verified after: the column holds `NULL` 30,578 / `accounts_only` 27,464; two of the converted works still answer `404` to
+   an anonymous caller — which is what "registered users only" means — while a public work still answers `200` on the same
+   loop. The positive half, a signed-in reader at trust 0 seeing an `accounts_only` body, is the assertion in
+   `body_audience::an_accounts_only_body_is_withheld_from_an_anonymous_reader`, green on both engines; I did not mint an
+   account on the live instance to prove one read, because a test account left behind is pollution the proof does not need.
+
+   **The durable half is the mapping for the next import**: an AO3 `restricted` work imports as `accounts_only`, never as a
+   trust floor.
 
 ### A documented duplicate of a write (reading_goal.rs, 2026-11-08)
 
