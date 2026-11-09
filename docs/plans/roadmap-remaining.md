@@ -1769,3 +1769,21 @@ available credits, but not "answers I gave" — a finder cannot see their own pr
 
 Ratchet 60 -> 58.
 
+### Two conveniences for one exclusion (content_filter_sql.rs, 2026-11-08)
+
+`content_filter_sql` writes the §46.4 exclusion — "a blocked tag never reaches the client" — once, deliberately: the module
+doc records that the implementation it replaced ran *after* `LIMIT` and did nothing at all on PostgreSQL. So the module's
+whole value is that there is one predicate and one place to splice it.
+
+It also exposed `exclusion_for_viewer`, which was `for_pseud` plus `build`, correlated on `works.id`. No surface called it, and
+none could have correctly: every paged statement that carries the exclusion aliases its work table (`w`, `wr`, …) so the
+predicate can join, and a caller using the convenience would get a correlation pointing at a table outside its FROM clause.
+The callers that need one round trip want `for_pseud` then `exclusion_for(&rules, "w.id")`; the ones that do not want plain
+`for_pseud`.
+
+**Two conveniences for one job is how a surface ends up using the one whose alias does not match** — and in this module the
+failure mode is silent: a broken correlation either errors loudly or filters nothing, and the previous version of this code
+proved the second is possible.
+
+Ratchet 58 -> 57.
+
