@@ -1928,3 +1928,19 @@ reason. The second summary is published on the public view; a test for a public 
 
 Ratchet 56 -> 54.
 
+### Deploy record, second batch (2026-11-09)
+
+Two more restarts, each onto a binary whose commit equalled the tree's:
+
+* `76b77f51` — the erasure fix (the bare `account` spelling, 22 columns). Built in 14m37s.
+* `a7215260` — the redirect listing and the quote-consent doors. Built in 16m50s.
+
+Verified live on the last one: `/meta` reports `build 0.1.0+a7215260`; `GET /admin/succession/redirects` answers `401` to an
+anonymous caller (present, session-gated); `GET /works/{id}/reviews/quote-consent` answers `401` likewise; the public
+`GET /succession` still answers `200`, so adding the admin door did not disturb the resolve door; no panic in the journal.
+
+**Two builds were killed mid-flight and restarted, both on purpose.** The host has three other projects' release builds running
+(suki, kindred-rs, plus a `timeout`-wrapped one) — killing by the generic pattern `cargo build` would have stopped work that
+belongs to another session, so every kill named `-p darkhold-app`. Each rebuild landed because a pass finished while a build was
+running: the rule is *restart only onto a binary whose commit equals the tree's*, and the cost of holding it is a build.
+
