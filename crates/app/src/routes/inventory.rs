@@ -1398,6 +1398,13 @@ pub const ROUTE_TABLE: &[RouteEntry] = &[
     },
     RouteEntry {
         file: "library.rs",
+        handler: "next_in_series_shelf",
+        method: "GET",
+        path: "/library/series/next",
+        audience: Audience::Authenticated,
+    },
+    RouteEntry {
+        file: "library.rs",
         handler: "query_library_items",
         method: "GET",
         path: "/library/items",

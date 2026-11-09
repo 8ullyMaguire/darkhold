@@ -20,7 +20,7 @@
 //!   * An *abandoned* entry (started, never finished) must still be suggested.
 
 use darkhold_db::series_recs::{next_entries, NextEntry, Origin};
-use test_support::{scratch_dir, TestDb};
+use test_support::{register, scratch_dir, TestClient, TestDb};
 
 const T0: i64 = 1_767_225_600; // 2026-01-01
 const DAY: i64 = 86_400;
@@ -726,4 +726,143 @@ async fn a_series_finished_only_outside_the_window_offers_nothing_next() {
         "with a recent finish the first unfinished entry is offered again"
     );
     assert_eq!(recent[0].work_id, works[0], "volume 1, still unread");
+}
+
+// ---------------------------------------------------------------------------
+// The shelf over HTTP (M70-13)
+// ---------------------------------------------------------------------------
+
+/// `next_entries` was reachable from no route at all: six store tests and six hundred lines of query, and a reader could not ask
+/// the question the query answers — "what is next in the series I am reading". Tested and unreachable is the shape this ratchet
+/// exists to catch, so the end is the door.
+///
+/// Two properties the route owns rather than the store:
+///
+/// * **The window defaults to a year.** A series a reader finished three years ago is not a continuation, and a feed that keeps
+///   offering it is a feed that never moves. `since`/`until` are unix seconds, the same convention `hit_rate` uses, so a caller
+///   passes one kind of window everywhere.
+/// * **The account is the session's, never a parameter.** There is no `?account=`; the shelf is scoped by who is asking.
+#[tokio::test]
+async fn the_series_shelf_is_reachable_scoped_and_bounded_to_a_year() {
+    let dir = scratch_dir("series-shelf");
+    let tdb = TestDb::connect_with_dir("m7013-series-shelf", &dir).await;
+    let db = tdb.db().clone();
+    let config = darkhold_app::config::Config::development_defaults();
+
+    let mut reader = TestClient::new(darkhold_app::server::build_router(
+        darkhold_app::state::AppState::new(config.clone(), db.clone()),
+    ));
+    let reader_id = register(&mut reader, "shelf-reader@example.com", "shelfreader").await;
+
+    let author = account(&tdb, "shelf-author@example.com").await;
+
+    // Two series of three entries: one the reader finished entry 1 of two days ago, one they finished entry 1 of three years ago.
+    let recent_at = (time::OffsetDateTime::now_utc() - time::Duration::days(2))
+        .format(&time::format_description::well_known::Rfc3339)
+        .expect("rfc3339");
+    let ancient_at = "2023-01-02T00:00:00Z".to_owned();
+    let mut built = Vec::new();
+    for (label, finished_at) in [("The Long Arc", recent_at), ("The Old Arc", ancient_at)] {
+        let series = uuid::Uuid::new_v4().to_string();
+        exec_with(
+            &tdb,
+            "INSERT INTO media_collections \
+                 (id, collection_kind, owning_account_id, title, visibility, created_at, updated_at) \
+             VALUES (?1#u, 'series', ?2#u, ?3, 'public', '2026-01-01T00:00:00Z', '2026-01-01T00:00:00Z')",
+            &[&series, &author, &label.to_string()],
+        )
+        .await;
+        let mut works = Vec::new();
+        for n in 1..=3 {
+            let work = uuid::Uuid::new_v4().to_string();
+            exec_with(
+                &tdb,
+                "INSERT INTO works (id, owner_pseud_id, title, created_at, updated_at, generated_content_posture) \
+                 VALUES (?1#u, (SELECT id FROM pseuds WHERE account_id = ?2#u), ?3, '2026-01-01T00:00:00Z', '2026-01-01T00:00:00Z', 'forbid')",
+                &[&work, &author, &format!("{label} {n}")],
+            )
+            .await;
+            exec_with(
+                &tdb,
+                "INSERT INTO media_collection_items (id, collection_id, work_id, position, added_at) \
+                 VALUES (?1#u, ?2#u, ?3#u, ?4#i, '2026-01-01T00:00:00Z')",
+                &[&uuid::Uuid::new_v4().to_string(), &series, &work, &n.to_string()],
+            )
+            .await;
+            works.push(work);
+        }
+        exec_with(
+            &tdb,
+            "INSERT INTO reading_status (id, account_id, subject_type, subject_id, status, started_at, finished_at, updated_at) \
+             VALUES (?1#u, ?2#u, 'work', ?3#u, 'finished', '2026-01-01T00:00:00Z', ?4, ?4)",
+            &[&uuid::Uuid::new_v4().to_string(), &reader_id, &works[0], &finished_at],
+        )
+        .await;
+        built.push((label.to_owned(), works));
+    }
+
+    // The default window: the recent series, entry 2, with the series' title and a reason.
+    let (status, body) = reader.get("/api/v1/library/series/next").await;
+    assert_eq!(status, axum::http::StatusCode::OK, "{body}");
+    let items = body["items"].as_array().expect("items");
+    assert_eq!(
+        items.len(),
+        1,
+        "a series finished three years ago is not a continuation: {body}"
+    );
+    assert_eq!(items[0]["series_title"], serde_json::json!("The Long Arc"), "{body}");
+    assert_eq!(items[0]["work_id"], serde_json::json!(built[0].1[1]), "{body}");
+    assert_eq!(items[0]["position"], serde_json::json!(2), "{body}");
+    assert_eq!(
+        items[0]["origin"],
+        serde_json::json!("NextAfterFinished"),
+        "the reason is the store's, not a word the route invents: {body}"
+    );
+    assert!(
+        body["window"]["since"].as_i64().is_some_and(|s| s > 0),
+        "the window is reported, so a caller can widen it deliberately: {body}"
+    );
+
+    // Widened explicitly, the old series comes back: the window is a default, not a rule the route hides.
+    let (status, body) = reader.get("/api/v1/library/series/next?since=0").await;
+    assert_eq!(status, axum::http::StatusCode::OK, "{body}");
+    assert_eq!(
+        body["items"].as_array().map(Vec::len),
+        Some(2),
+        "`since=0` means all time: {body}"
+    );
+
+    // An inverted window is a mistake the caller can fix, and answering it with an empty shelf would read as "nothing to read" —
+    // a wrong statement about their library. 422, naming the field.
+    let (status, body) = reader.get("/api/v1/library/series/next?since=100&until=50").await;
+    assert_eq!(
+        status,
+        axum::http::StatusCode::UNPROCESSABLE_ENTITY,
+        "an impossible window is refused rather than answered with nothing: {body}"
+    );
+    assert!(
+        body.to_string().contains("since"),
+        "the refusal names the field: {body}"
+    );
+
+    // Scoped by the session: another reader has finished nothing in either series.
+    let mut stranger = TestClient::new(darkhold_app::server::build_router(
+        darkhold_app::state::AppState::new(config.clone(), db.clone()),
+    ));
+    register(&mut stranger, "shelf-stranger@example.com", "shelfstranger").await;
+    let (status, body) = stranger.get("/api/v1/library/series/next?since=0").await;
+    assert_eq!(status, axum::http::StatusCode::OK, "{body}");
+    assert_eq!(
+        body["items"].as_array().map(Vec::len),
+        Some(0),
+        "somebody else's finishes are not this reader's shelf: {body}"
+    );
+
+    // Anonymous callers are told to sign in, not shown an empty shelf: an empty answer reads as "nothing to read", which is a
+    // different statement from "you are not signed in".
+    let mut anonymous = TestClient::new(darkhold_app::server::build_router(
+        darkhold_app::state::AppState::new(config, db.clone()),
+    ));
+    let (status, _) = anonymous.get("/api/v1/library/series/next").await;
+    assert_eq!(status, axum::http::StatusCode::UNAUTHORIZED);
 }

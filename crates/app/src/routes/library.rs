@@ -96,6 +96,10 @@ pub fn router() -> Router<AppState> {
                 .patch(patch_bookmark)
                 .delete(delete_bookmark_route),
         )
+        // M70-13: `series_recs::next_entries` had six store tests and no route, so a reader could not ask
+        // "what is next in the series I am reading". Beside `/library/unfinished`, because it is the same kind of
+        // answer: a shelf of the caller's own state.
+        .route("/library/series/next", get(next_in_series_shelf))
         .route("/library/items", get(query_library_items))
         .route("/library/items/{id}/tags", get(list_item_tags))
         .route(
@@ -1801,5 +1805,68 @@ async fn public_bookmarks(
         "subject_id": id,
         "count": count,
         "bookmarks": bookmarks,
+    })))
+}
+
+/// The window a series shelf asks about, in unix seconds.
+///
+/// `since`/`until` are unix seconds rather than dates because that is `hit_rate`'s convention, and one caller passing one kind of
+/// window everywhere is worth more than a prettier query string.
+#[derive(Debug, Deserialize)]
+pub struct ShelfWindow {
+    since: Option<i64>,
+    until: Option<i64>,
+}
+
+/// How far back a series shelf looks when the caller does not say: one year.
+///
+/// A series a reader finished three years ago is not a continuation, and a feed that keeps offering it never moves on. The window
+/// is a default and not a rule — `?since=0` asks for all time, which is the answer for somebody who really did pause for years.
+const SERIES_SHELF_LOOKBACK_SECONDS: i64 = 365 * 86_400;
+
+/// What to read next in every series the caller is in the middle of.
+async fn next_in_series_shelf(
+    State(state): State<AppState>,
+    RequireSession(user): RequireSession,
+    Query(window): Query<ShelfWindow>,
+) -> ApiResult<Json<Value>> {
+    let now = time::OffsetDateTime::now_utc().unix_timestamp();
+    let until = window.until.unwrap_or(now);
+    let since = window.since.unwrap_or(until - SERIES_SHELF_LOOKBACK_SECONDS);
+    // An inverted window is a mistake the caller can see and fix, and answering it with an empty shelf would read as "nothing to
+    // read" — a wrong statement about their library. 422 names the field, the same way every other malformed field is answered.
+    if since > until {
+        return Err(ApiError(AppError::Validation {
+            message: "`since` must not be later than `until`".to_owned(),
+            field_errors: std::iter::once((
+                "since".to_owned(),
+                "must not be later than `until`".to_owned(),
+            ))
+            .collect(),
+        }));
+    }
+    let entries = darkhold_db::series_recs::next_entries(state.db(), &user.account_id.to_string(), since, until)
+        .await
+        .map_err(ApiError::from)?;
+    let items: Vec<Value> = entries
+        .into_iter()
+        .map(|entry| {
+            json!({
+                // `collection_id` is the store's word for the row; the reader's word for it is a series, and the route speaks the
+                // reader's vocabulary (M72's noun list) rather than leaking a table name into a public body.
+                "series_id": entry.collection_id,
+                "series_title": entry.series_title,
+                "work_id": entry.work_id,
+                "entry_title": entry.entry_title,
+                "position": entry.position,
+                "after_work_id": entry.after_work_id,
+                "after_position": entry.after_position,
+                "origin": entry.origin,
+            })
+        })
+        .collect();
+    Ok(Json(json!({
+        "window": { "since": since, "until": until },
+        "items": items,
     })))
 }

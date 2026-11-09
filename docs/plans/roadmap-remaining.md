@@ -2057,3 +2057,33 @@ Verified live on the last: `build 0.1.0+c7045593`; `/health/ready` → `ready`, 
 Host load sat between 12 and 16 throughout — three other projects' release builds share the machine, so a darkhold build now
 costs 14–27 minutes. Every kill named `-p darkhold-app`; none touched another project.
 
+### A shelf no reader could open (library.rs, 2026-11-09)
+
+`series_recs::next_entries` answers the question §16.1 exists for — *what is next in every series I am in the middle of, plus the
+series I own and have read nothing in* — and it had **six store tests and no route**. Every rule the module encodes (the
+furthest finished entry is the anchor; a finished work is never suggested; a one-entry series yields nothing; cold start is its
+own `Origin`) was proven against a query no reader could run.
+
+`GET /library/series/next` (Authenticated) is the door: `{window: {since, until}, items: [...]}`, beside `/library/unfinished`
+because it is the same kind of answer — a shelf of the caller's own state.
+
+Two decisions the route owns rather than the store:
+
+* **The window defaults to one year, and is reported back.** A series a reader finished three years ago is not a continuation,
+  and a feed that keeps offering it never moves on. `?since=0` asks for all time, which is the honest answer for somebody who
+  really did pause for years. `since`/`until` are unix seconds because that is `hit_rate`'s convention, and one caller passing
+  one kind of window everywhere beats a prettier query string.
+* **An inverted window is refused `422` naming the field.** Answering `since > until` with an empty shelf would read as "nothing
+  to read" — a false statement about the caller's library.
+
+The response speaks the reader's noun, not the table's: `series_id`, not `collection_id` (M72's noun list), and `origin` is the
+store's enum rather than a word the route invents.
+
+Test (in `series_recs.rs`, where the fixture lives): a recent finish yields entry 2 of the recent series with its title and
+origin; a finish from three years ago is excluded by default and returned under `?since=0`; another reader's shelf is empty; an
+inverted window is `422`; anonymous is `401` — an empty shelf and "you are not signed in" are different statements. Mutants red:
+the lookback widened to a century, the inverted-window refusal removed, and the door mounted at a path no client has. 18 tests in
+the file, green both engines.
+
+Ratchet 51 -> 50.
+
