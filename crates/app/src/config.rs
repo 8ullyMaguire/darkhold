@@ -162,6 +162,8 @@ pub struct Config {
     pub forum: ForumConfig,
     /// Resource directory settings (spec §39).
     pub directory: DirectoryConfig,
+    /// Work monetization (spec §20.9.1, ADR 0017).
+    pub monetization: MonetizationConfig,
     /// Export retention settings (spec §38).
     pub exports: ExportsConfig,
     /// Work permission statements and fork guards (spec §40).
@@ -1821,6 +1823,43 @@ impl Default for LibraryConfig {
     }
 }
 
+/// Work monetization (spec §20.9.1, ADR 0017).
+///
+/// One setting, and it is the whole of §20.9.1: whether this instance sells anything, and what an author must have asserted
+/// about their rights before a work may carry a price.
+///
+/// `original` is the ADR's default, and it is not the permissive one: an author may price only a work they have declared
+/// original. `any-with-assertion` widens this to fanworks *provided* a rights assertion is stored. `disabled` turns money off
+/// entirely — credit tips still work, because a credit is not a payment (§20.9.2).
+///
+/// The value is validated at boot rather than at first use: a typo in this field would otherwise be read as "the instance
+/// asked for something this binary does not implement", and the failure would surface as an author unable to price a work
+/// instead of an operator unable to start.
+#[derive(Debug, Clone, Deserialize, Serialize)]
+#[serde(default)]
+pub struct MonetizationConfig {
+    /// `original` | `any-with-assertion` | `disabled`.
+    pub eligibility: String,
+}
+
+impl MonetizationConfig {
+    /// The parsed setting. Construction validates it, so this cannot be `None` on a running instance.
+    #[must_use]
+    pub fn eligibility(&self) -> darkhold_domain::monetization::Eligibility {
+        darkhold_domain::monetization::Eligibility::parse(&self.eligibility)
+            .expect("the eligibility setting is validated at construction")
+    }
+}
+
+impl Default for MonetizationConfig {
+    fn default() -> Self {
+        Self {
+            // The ADR's documented default: originality, not a free-for-all.
+            eligibility: "original".to_owned(),
+        }
+    }
+}
+
 /// Resource directory settings (spec §39, §45).
 #[derive(Debug, Clone)]
 pub struct DirectoryConfig {
@@ -3260,6 +3299,18 @@ impl Config {
             // A `[federation]` section this build cannot read is refused at parse time by `deny_unknown_fields`, so the
             // fallback here only ever fires for a file that omits the section entirely.
             federation: file.federation.clone().unwrap_or_default(),
+            // A typo here is refused rather than absorbed: an operator who writes `eligibility = "origional"` asked for
+            // something this binary does not implement, and the failure must be theirs at boot, not an author's at pricing.
+            monetization: {
+                let section = file.monetization.clone().unwrap_or_default();
+                if darkhold_domain::monetization::Eligibility::parse(&section.eligibility).is_none() {
+                    anyhow::bail!(
+                        "monetization.eligibility = {:?} is not a setting this instance has; use original, any-with-assertion or disabled",
+                        section.eligibility
+                    );
+                }
+                section
+            },
             syndication,
             atproto,
             // Present on the struct and reachable from the file, or neither. The
@@ -4023,6 +4074,7 @@ impl Config {
             forum: ForumConfig::default(),
             exports: ExportsConfig::default(),
             directory: DirectoryConfig::default(),
+            monetization: MonetizationConfig::default(),
             works: WorksConfig::default(),
             federation: FederationConfig::default(),
             adoption: AdoptionConfig::default(),
@@ -4620,6 +4672,9 @@ struct FileConfig {
     age: Option<AgeSection>,
     rate_limits: Option<RateLimitSection>,
     imports: Option<ImportsSection>,
+    /// `[monetization]` — §20.9.1's eligibility setting.
+    #[serde(default)]
+    monetization: Option<MonetizationConfig>,
     /// `[preservation]` — what a verified preservation is worth.
     #[serde(default)]
     preservation: Option<PreservationConfig>,

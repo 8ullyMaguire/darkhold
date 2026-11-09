@@ -1500,3 +1500,41 @@ the rest of Batch 1, and the backup must be taken with the migration applied, no
 
 Ratchet 73 -> 72.
 
+### A settings page with no setting, and a rule with no reader (monetization.rs, 2026-11-08)
+
+§20.9.1's eligibility setting — `original`, `any-with-assertion`, `disabled` — was three constants, a parser, and a tested
+predicate (`assertion_required`) with no caller. There was no configuration key for it either, so ADR 0017's "the eligibility
+setting is an instance setting" was not true of the binary: an instance could price and sell *any* work, and
+`any-with-assertion` promised a rights assertion nothing ever collected or checked. `record_assertion` and `get_assertion`
+were the missing halves — a table with a writer nobody called and a reader nobody called.
+
+What exists now:
+
+* `[monetization] eligibility` in the configuration, defaulting to the ADR's `original`, and **validated at boot**: an operator
+  who writes `origional` asked for something this binary does not implement, and that failure belongs to them at startup, not
+  to an author at pricing time.
+* `POST /works/{id}/assertion` — the author records what they claim (`original` or `rights-held`). Owner only: a rights claim
+  by somebody else is a statement about the author, not an assertion by them. The **policy version is the server's**
+  (`{VERSION}+monetization`, the same shape as the age assessment's), because a version the client chooses is a version nobody
+  can audit and "re-assert on a policy change" needs something the instance controls.
+* `GET /works/{id}/assertion` — public, `asserted: false` rather than 404 when there is none — the question is about a work
+  that exists, and the person who most needs the answer is the would-be buyer.
+* The gates in `set_pricing` **and** `purchase`, sharing one helper so "what counts as an assertion here" cannot drift between
+  the price and the sale.
+
+**The modes differ in which assertion suffices**, and that is the load-bearing part: on `original`, a `rights-held` claim is
+stored, readable, and *not enough*; on `any-with-assertion` it is. A single "has an assertion" check would have let a fanwork
+be priced on the strictest instance, which is the one thing that mode exists to prevent. `disabled` is refused on the field
+that selects what is sold (`model`), not on `assertion`: it is not "no assertion", it is no money, and credit tips keep working
+because a credit is not a payment.
+
+**A price set under one setting does not inherit permission from it.** The sale asks the same two questions again — that is why
+the purchase gate exists at all, and the test proves it by pricing a fanwork on an `any-with-assertion` instance and buying it
+under `original`.
+
+**Behaviour change, deliberately:** pricing a work now requires an assertion. `milestone_21`'s five pricing fixtures and the
+payment-events fixture were updated to assert first, which is the workflow the spec describes and which nothing enforced until
+now.
+
+Ratchet 72 -> 70.
+
