@@ -1831,3 +1831,44 @@ file into SQLite-only, silently, because the default run is SQLite. Each of thos
 deployed engine. They should be converted as the ratchet reaches them, not in one sweep — a 187-file sweep would be a change
 nobody could review.
 
+### The fourth spelling (erasure.rs, 2026-11-09)
+
+M45-64's erasure coverage check parses `migrations/sqlite` for account-keyed columns and fails when one is not classified. It
+looked for three spellings — `account_id`, `*_account`, `*_account_id` — and the schema uses a fourth, bare `account`, on
+more tables than any of the three. `trust_levels.account` is a plain `TEXT PRIMARY KEY` with no `REFERENCES` clause, so
+`DELETE FROM accounts` never touched it: **the live instance held 189 trust rows for accounts that no longer existed** (plus
+one `operator_role` for a deleted account, a stale privilege), while the check stayed green because it believed its own
+naming convention.
+
+Teachable because the check was `green` about the wrong set: a scanner that enumerates a convention is only as complete as
+the schema's agreement with it, and nothing made the schema agree.
+
+- **The fix is the matcher first.** `column == "account"` was added to `unlinked_account_columns()`, which immediately named
+  **22 unclassified columns** across 22 tables — `payments`, `privacy_requests`, `sanctions`, `credit_entries`,
+  `credit_holds`, `subscriptions`, `reader_work_progress`, `push_subscriptions`, `taste_profiles`, `trust_levels`,
+  `wishlists`, `usage_counters`, and ten more.
+- **`Treatment::Rekey` became `Rekey(&'static str)`.** It used to emit `'erased:' || id`, and `credit_entries` — the credit
+  ledger — has **no primary key at all**; its identity is `(transaction_id, bucket)`. A bare `id` there is a runtime error on
+  the first erasure, and a shared `'erased'` would re-link every severed row of one person to the others. The key expression
+  is now per entry: `Rekey("id")` on `payments`, `privacy_requests`, `sanctions`, `supply_routing`; `Rekey("transaction_id ||
+  ':' || bucket")` on `credit_entries`.
+- **Four survive and eighteen go.** A payment, a deletion request, a sanction and a ledger line are records whose existence
+  someone else relies on — they keep their row and lose the link. Standing, wishlists, layouts, presence, push endpoints,
+  reading positions, taste profiles, group and event membership, extension grants, throttle logs, usage counters and
+  subscriptions are about the person and end with them.
+- **`reader_work_progress.account` is UUID on PostgreSQL and TEXT on SQLite.** Declared `Text`, the first PostgreSQL erasure
+  died with `operator does not exist: uuid = text` before touching a row — the `ColumnKind` field exists for exactly this and
+  still has to be set by reading the *other* dialect's migration.
+
+`crates/db/tests/bare_account_erasure.rs` proves the treatments run, not merely that they are written down: it seeds
+`trust_levels`, `wishlists`, `privacy_requests`, `payments` and `credit_entries`, erases, then asserts the deletes happened,
+the rekeys carry the row's own key (`erased:<id>`, `erased:<transaction_id>:<bucket>`), and — over the **whole** list — that
+no table still answers for the erased account. Green on both engines. Mutants red: the checker forgetting the bare spelling
+(22 columns unclassified) and the rekey using one shared placeholder.
+
+Live cleanup, after `pg_dump -t trust_levels -t operator_role` (`~/backups/darkhold-stale-20261109-0745.dump`, 8.9 KB):
+`DELETE 189` from `trust_levels` and `DELETE 1` from `operator_role`, both keyed on "no account row". Verified zero remaining
+in both, and zero in the other twenty tables.
+
+Ratchet unchanged (this row is M45-64's, not M70-13's).
+

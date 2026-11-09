@@ -76,10 +76,15 @@ fn unlinked_account_columns() -> BTreeSet<(String, String)> {
             for line in block.lines() {
                 let mut words = line.trim().trim_end_matches(',').split_whitespace();
                 let Some(column) = words.next() else { continue };
-                // `account_id`, `*_account` (payment_events.author_account) and `*_account_id`
-                // (trust_events.actor_account_id) are the three spellings the tree uses. Missing the
-                // third is exactly how this test found its own list wrong on the first run.
+                // `account_id`, `*_account` (payment_events.author_account), `*_account_id`
+                // (trust_events.actor_account_id) and a bare `account` are the four spellings the tree uses.
+                // Missing the third is how this test found its own list wrong on the first run; missing the
+                // bare `account` is how the leak survived it — `trust_levels.account` is a plain TEXT column
+                // with no REFERENCES clause, so an account deleted out from under it left 189 live rows
+                // behind while this test stayed green, because the column is not spelled any of the first
+                // three ways. Every spelling a migration uses is a spelling the checker has to know.
                 let account_keyed = column == "account_id"
+                    || column == "account"
                     || column.ends_with("_account")
                     || column.ends_with("_account_id");
                 if !account_keyed || column.starts_with("--") {

@@ -173,7 +173,11 @@ pub enum Treatment {
     /// key rather than cleared. Distinct from `Sever` because a nullable column can say "nobody";
     /// this one has to say "nobody", and a shared placeholder would re-link every severed row of the
     /// same person to each other — a pseudonym is still personal data if it can be joined on.
-    Rekey,
+    /// The row must survive and the link to the person must not. The string is the SQL expression that names the row —
+    /// `"id"` on a table with a single-column primary key, a composite expression (`"transaction_id || ':' || bucket"`) on a
+    /// table whose uniqueness is spread over several columns. Per row, never one shared placeholder: a constant re-links
+    /// every severed row of one person to the others, and a pseudonym is personal data for as long as it can be joined on.
+    Rekey(&'static str),
     /// Must be severed and cannot be yet: the column is `NOT NULL` and rebuilding it is that
     /// requirement's work. **Named with its owner, so it is a tracked gap and not an omission.**
     DeferredTo(&'static str),
@@ -241,7 +245,7 @@ pub const FK_FREE_ACCOUNT_COLUMNS: &[UnlinkedColumn] = &[
     UnlinkedColumn { table: "trust_events", column: "actor_account_id", kind: ColumnKind::Uuid,
         treatment: Treatment::Delete, why: "the same row seen from the actor side" },
     UnlinkedColumn { table: "supply_routing", column: "account_id", kind: ColumnKind::Text,
-        treatment: Treatment::Rekey,
+        treatment: Treatment::Rekey("id"),
         why: "§58.3 keeps the routing row forever: an abandoned routing is the evidence the reader was asked, and deleting it would hide that. §51 still requires the person to leave, so the link becomes a per-row key — 'erased:<row id>' — unlinkable to the reader and to their other rows, and the column stays NOT NULL so nothing had to be rebuilt" },
     UnlinkedColumn { table: "badge_award", column: "account_id", kind: ColumnKind::Text,
         treatment: Treatment::Delete, why: "§9.7.1 makes recognition episodic and personal; a badge held by an erased account is not an audit record of anything, and M47-14's table was the leak this list found" },
@@ -251,6 +255,65 @@ pub const FK_FREE_ACCOUNT_COLUMNS: &[UnlinkedColumn] = &[
         treatment: Treatment::Delete, why: "M45-67: a list of the works a reader wants more of is one of the most personal things they can paste, and it is not an audit record of anything — erasing the account must take the list with it rather than leave it under an id that no longer resolves to anybody" },
     UnlinkedColumn { table: "module_user_state", column: "account_id", kind: ColumnKind::Text,
         treatment: Treatment::Delete, why: "M65-10: a module preference belongs to the person; the snapshot policy's `rekey_account` is a SNAPSHOT treatment (11.16.3b), not this one — live erasure deletes the account, so there is nothing to rekey to and a preference must not survive" },
+    // ── The bare `account` spelling (M45-64, second half) ────────────────────────────────────────
+    //
+    // Every entry below was invisible to this list until the coverage test learned the fourth spelling. The check looked
+    // for `account_id`, `*_account` and `*_account_id`; `trust_levels.account` is none of them, and neither are the
+    // twenty-one columns here. They are not rare — the tree uses bare `account` on more tables than any other spelling —
+    // so the leak this closed was the larger half of the same mistake the first list found: the check believed its own
+    // naming convention and the schema had a different one. Live evidence, before the fix: 189 rows in `trust_levels`
+    // for accounts that no longer existed.
+    UnlinkedColumn { table: "ai_requests", column: "account", kind: ColumnKind::Text,
+        treatment: Treatment::Delete, why: "a request made on a person's behalf is their act and their text; nothing in it is an audit record of the instance" },
+    UnlinkedColumn { table: "conversation_participants", column: "account", kind: ColumnKind::Text,
+        treatment: Treatment::Delete, why: "membership of a private thread is the person's; the thread's own rows are keyed elsewhere and a participant row that outlived its account would keep them in a conversation they left" },
+    UnlinkedColumn { table: "credit_entries", column: "account", kind: ColumnKind::Text,
+        treatment: Treatment::Rekey("transaction_id || ':' || bucket"),
+        why: "a credit ledger line is a money record: the amount and the transaction must survive for the books to balance, and only the identity goes. This table has no primary key at all — its identity is (transaction_id, bucket) — which is why Rekey carries the expression instead of assuming `id`" },
+    UnlinkedColumn { table: "credit_holds", column: "account", kind: ColumnKind::Text,
+        treatment: Treatment::Delete, why: "a hold reserves credits for something the account is doing; an erased account is doing nothing, so the reservation has no subject and keeping it would leave credits frozen for a person who no longer exists" },
+    UnlinkedColumn { table: "dashboard_layouts", column: "account", kind: ColumnKind::Text,
+        treatment: Treatment::Delete, why: "a layout is a preference in its purest form: restoring it would act against the wish that removed the person" },
+    UnlinkedColumn { table: "event_participation", column: "account", kind: ColumnKind::Text,
+        treatment: Treatment::Delete, why: "attendance at an event is a personal act, like a vote" },
+    UnlinkedColumn { table: "exchange_terms", column: "account", kind: ColumnKind::Text,
+        treatment: Treatment::Delete, why: "an offer, a want or an exclusion is a statement about what this reader likes — the most personal kind of row, and not an audit record of the exchange it was typed into" },
+    UnlinkedColumn { table: "extension_grants", column: "account", kind: ColumnKind::Text,
+        treatment: Treatment::Delete, why: "same reasoning as oidc_links: the row says which extension may act for this account. Keeping it after the account is gone leaves a grant nobody can revoke on behalf of nobody" },
+    UnlinkedColumn { table: "forum_throttle_log", column: "account", kind: ColumnKind::Text,
+        treatment: Treatment::Delete, why: "an anti-abuse counter about one account's recent posting; it exists to slow that account down and has no meaning once there is no account" },
+    UnlinkedColumn { table: "group_members", column: "account", kind: ColumnKind::Text,
+        treatment: Treatment::Delete, why: "membership is a relationship, and the person is one end of it" },
+    UnlinkedColumn { table: "operator_role", column: "account", kind: ColumnKind::Text,
+        treatment: Treatment::Delete, why: "a role is held by a person and is deleted with them, exactly as vanguard_roles and curator_roles are — the decision that granted the role is recorded in the governance log, not in this table" },
+    UnlinkedColumn { table: "payments", column: "account", kind: ColumnKind::Text,
+        treatment: Treatment::Rekey("id"),
+        why: "a payment is a financial record and must survive its payer, as payment_events does; the column is NOT NULL, so the link is severed to `erased:<row id>` rather than nulled" },
+    UnlinkedColumn { table: "presence", column: "account", kind: ColumnKind::Text,
+        treatment: Treatment::Delete, why: "presence is the most ephemeral row in the schema — it says where somebody is right now, and there is nobody to be anywhere" },
+    UnlinkedColumn { table: "privacy_requests", column: "account", kind: ColumnKind::Text,
+        treatment: Treatment::Rekey("id"),
+        why: "the record that an export or deletion was asked for is the instance's evidence that it honoured the request, and §51's obligations do not end when the account does; the request survives, the identity becomes `erased:<row id>`" },
+    UnlinkedColumn { table: "push_subscriptions", column: "account", kind: ColumnKind::Text,
+        treatment: Treatment::Delete, why: "an endpoint plus its keys is a credential for reaching a device; it is the first thing that must not outlive the account" },
+    // UUID on PostgreSQL and TEXT on SQLite — the one column in this group where the two dialects disagree, which is what
+    // `ColumnKind` is for. Declared `Text` it emits `account = $1` and the first erasure on PostgreSQL dies with
+    // `operator does not exist: uuid = text` before any row is touched.
+    UnlinkedColumn { table: "reader_work_progress", column: "account", kind: ColumnKind::Uuid,
+        treatment: Treatment::Delete, why: "a chapter position is reading history, and reading history is the clearest case for deletion — the same decision as reading_history_entry, reached here by a different column name" },
+    UnlinkedColumn { table: "sanctions", column: "account", kind: ColumnKind::Text,
+        treatment: Treatment::Rekey("id"),
+        why: "a sanction is a moderation decision that happened and may be appealed or reviewed, so the row survives; the person it names becomes `erased:<row id>`, which keeps the decision legible as a decision about an erased account" },
+    UnlinkedColumn { table: "subscriptions", column: "account", kind: ColumnKind::Text,
+        treatment: Treatment::Delete, why: "a subscription is a live billing relationship; it ends with the account, and the processor keeps its own financial record of what was charged. Keeping a cancelled row under a deleted id would invent a subscriber nobody can identify" },
+    UnlinkedColumn { table: "taste_profiles", column: "account", kind: ColumnKind::Text,
+        treatment: Treatment::Delete, why: "a taste profile is a measurement of one person's preferences — the same reasoning as reader_affinity, and no audit value of its own" },
+    UnlinkedColumn { table: "trust_levels", column: "account", kind: ColumnKind::Text,
+        treatment: Treatment::Delete, why: "standing is a claim about a person and does not outlive them; this is the column that proved the leak, alive with 189 rows for accounts that had been deleted" },
+    UnlinkedColumn { table: "usage_counters", column: "account", kind: ColumnKind::Text,
+        treatment: Treatment::Delete, why: "a quota counter is bookkeeping about one account's activity and becomes meaningless — and misleading — once the account is gone" },
+    UnlinkedColumn { table: "wishlists", column: "account", kind: ColumnKind::Text,
+        treatment: Treatment::Delete, why: "a wishlist is a stated want, which is a preference and a personal record at once; it goes with the person, exactly as external_seeds does" },
 ];
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -560,18 +623,14 @@ fn apply_unlinked_sql(db: &Database, column: &UnlinkedColumn) -> Option<String> 
             format!("UPDATE {table} SET {col} = NULL WHERE {}", predicate("?")),
             format!("UPDATE {table} SET {col} = NULL WHERE {}", predicate("$1")),
         )),
-        // `id` is the row's own primary key on every table in this list, and prefixing it makes the
-        // value unlinkable while keeping it unique — which `UNIQUE (account_id, work_id)` requires.
-        Treatment::Rekey => Some(sql_owned(
+        // The key expression makes the value unlinkable while keeping it unique, which is what the table's own UNIQUE
+        // constraints require and what stops two severed rows of one person being tied together. It is spelled per entry
+        // because not every table has an `id`: `credit_entries` has no primary key at all, so `transaction_id || ':' ||
+        // bucket` is the row's identity there. A bare `id` on that table would be a runtime error on the first erasure.
+        Treatment::Rekey(key) => Some(sql_owned(
             db,
-            format!(
-                "UPDATE {table} SET {col} = 'erased:' || id WHERE {}",
-                predicate("?")
-            ),
-            format!(
-                "UPDATE {table} SET {col} = 'erased:' || id WHERE {}",
-                predicate("$1")
-            ),
+            format!("UPDATE {table} SET {col} = 'erased:' || {key} WHERE {}", predicate("?")),
+            format!("UPDATE {table} SET {col} = 'erased:' || {key} WHERE {}", predicate("$1")),
         )),
         Treatment::DeferredTo(_) => None,
     }
