@@ -2043,3 +2043,17 @@ pass so it is not a new orphan. The age renders from RFC 3339 (what producers wr
 `YYYY-MM-DD HH:MM:SS` shape, and an unparseable stamp reports `unreadable (…)` rather than guessing zero — a guess would hide the
 drift that makes a queue look healthy. Mutant: `backlogs_age` always answering `none` reddens the age assertion.
 
+### Deploy record, third batch (2026-11-09)
+
+Two restarts, each onto a binary whose commit equalled the tree's:
+
+* `be2d2031` — the loan detail door, the outbox check, the metrics recompute door. Built in 14m21s.
+* `c7045593` — the age beside the count. Built in 14m41s.
+
+Verified live on the last: `build 0.1.0+c7045593`; `/health/ready` → `ready`, outbox `"40648 undelivered event(s), oldest 50d
+2h"`; `GET /me/loans/{id}` answers `401` anonymous (and `405` to a `POST`, so the method is not silently accepted); `POST
+/admin/works/{id}/metrics/recompute` answers `401` anonymous; no panic in the journal.
+
+Host load sat between 12 and 16 throughout — three other projects' release builds share the machine, so a darkhold build now
+costs 14–27 minutes. Every kill named `-p darkhold-app`; none touched another project.
+
