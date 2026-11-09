@@ -114,3 +114,40 @@ was RED before the cast (2 failed, `uuid = text`) and green after. Both call sit
 `Err` ("the query failed") and log the second, because swallowing it is what hid this for as long as it was hidden.
 
 Ratchet: 46 → 44. No route changed; the deploy is for the PG fix, not for the deletions.
+
+## Pass 72 — the leakage review queue gets its producer (2026-11-09)
+
+`GET /admin/discovery/leakage` reads `taste_leakage::review_rows`; `record_review`, the only writer of that table, had no caller
+in `crates/app`. The queue was therefore permanently empty, and §52.1's view read as "nothing leaks here" when it meant "nobody
+has ever looked". `leakage.rs`'s own module doc had listed `record_payout`/`get_payout` as the two functions without doors and
+said nothing about `record_review` — the omission was the defect.
+
+`POST /admin/discovery/leakage` (Operator) is the producer: artifact, inferable, ease, disposition; the reviewer is the
+session's pseud (0110 declares the column that way, and §52.1's question is which identity judged what).
+
+Decisions inside it:
+
+* **The audience stays `Operator`, the pseud comes from the session.** My first version used `RequirePseud`; `route_inventory`
+  refused it (`post_leakage expected RequireSession but found RequirePseud`) — the audience table models *who may call*, and the
+  pseud is a requirement of the request, not a different audience. A session with no pseud now gets a 422 naming `pseud` instead
+  of the 404 an extractor refusal gives.
+* **Both vocabularies are validated by name** — `Disposition::parse` (the same function the GET's filter uses, so the two
+  spellings cannot drift) and the strings `parse_ease` renders. A typo landing as `keep` would be an operator certifying an
+  artifact they meant to coarsen.
+* **The write's answer carries no count either.** §52.1's rule is about not publishing the queue's size; a response reading
+  "review 15" would publish it one row at a time. The test walks every key in the JSON and refuses `count`, `total`, `reviewed`,
+  `n`.
+
+Two corrections the test made to itself, both recorded in it: the operator is a configured *identity*
+(`administration.operator_account_id`), not trust ≥ 5 — my first harness granted trust 5, which is the vanguard doors' predicate,
+and got a 404 that read like a missing route; and the refusal is **404**, not 403, because `require_estate_hidden` does not
+confirm the door exists.
+
+**Proof.** Red first (405 — the route did not exist), green after on both engines: writer 1/1, `taste_leakage_view` 8/8 (the GET
+untouched), `route_inventory` 5/5. Two mutants from `/tmp`: removing the operator check reddens the stranger assertion (200 where
+404 is required); recording `Disposition::Keep` regardless of the request reddens the disposition assertion (`"keep"` vs
+`"coarsen"`). A first attempt at the second mutant failed to compile (unused variable, warnings denied) and was retargeted rather
+than counted — a compile failure proves nothing.
+
+Ratchet: 44 → 43. `record_payout`/`get_payout` keep their ledger note: a payout row is written by a payout run, and there is no
+run yet.

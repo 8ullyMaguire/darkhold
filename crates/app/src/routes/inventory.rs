@@ -4339,6 +4339,13 @@ pub const ROUTE_TABLE: &[RouteEntry] = &[
     // the things the review is about).
     RouteEntry {
         file: "admin_discovery.rs",
+        handler: "post_leakage",
+        method: "POST",
+        path: "/admin/discovery/leakage",
+        audience: Audience::Operator,
+    },
+    RouteEntry {
+        file: "admin_discovery.rs",
         handler: "get_leakage",
         method: "GET",
         path: "/admin/discovery/leakage",

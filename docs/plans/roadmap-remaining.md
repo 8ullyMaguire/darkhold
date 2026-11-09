@@ -2637,3 +2637,18 @@ statement is: the query now prepares and runs on the deployed schema, and `for_a
 shelf — which is the documented "no shelf, no signal" arm — rather than an `Err`. `journalctl | grep "taste signal unavailable"`
 returns 0 for the eight minutes after the restart, which is consistent with the fix and is not by itself proof.
 
+### The leakage review queue had no producer (2026-11-09)
+
+`GET /admin/discovery/leakage` reads `taste_leakage::review_rows`; `record_review`, the only writer of that table, had no caller
+in `crates/app`. The queue was permanently empty, so §52.1's view read as "nothing leaks here" when it meant "nobody has ever
+looked" — and `leakage.rs`'s module doc listed only `record_payout`/`get_payout` as doorless, which is how the omission survived.
+
+`POST /admin/discovery/leakage` (Operator) is the producer. Three decisions: the audience stays `Operator` and the pseud comes
+from the session (`route_inventory` refused `RequirePseud` — the audience table models who may call, and a session with no pseud
+gets a 422 naming `pseud`); both vocabularies are validated by name through the functions the view already uses, so a typo cannot
+land as `keep`; and the write's answer carries no count, because §52.1's rule is about not publishing the queue's size.
+
+Proof: red first (405), then writer 1/1 and `taste_leakage_view` 8/8 on both engines, `route_inventory` 5/5; mutants removing the
+operator check and forcing `Disposition::Keep` both redden their own assertion. Ratchet 44 → 43. `record_payout`/`get_payout`
+stay named against the payouts row: a payout is written by a run, and there is no run yet.
+
