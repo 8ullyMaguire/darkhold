@@ -2297,3 +2297,19 @@ Ratchet 45 -> 44.
 `darkhold-20261109-161950-pre-privacy.dump` (3.5 GB, 392 `TABLE DATA`, `pg_restore -l` verified) in `/personal/backups/`. Build
 took ~22 minutes at load 44.
 
+### An alias that renamed a filter it did not apply (recommendation_slots.rs, 2026-11-09)
+
+`list_pending_wrangling(db, limit)` was `list_wrangling(db, None, limit)` under a second name, with no caller. The naming was
+worse than redundant: `None` already *means* pending (`WHERE status = COALESCE(?, 'pending')`), so the alias claimed a filter
+that `list_wrangling` applies anyway, and anyone reading the two signatures would reasonably expect `None` to mean "all states" —
+the one thing it does not do. The queue's one door is `GET /admin/tag-wrangling/proposals`, which passes the status through so a
+wrangler can ask for `approved` or `reverted` too. Deleted; `m29_transparency.rs` 48 green.
+
+**Left, with the missing half named:** `list_response_slots(pseud_id, request_id)` would let a reader replay the hand a request
+served. Nothing calls it and nothing has asked for it: the hand is shown once at the draw, and per-slot transparency already
+exists (`GET /discovery/slots/{slot_id}/explanation`), which is the question a reader actually asks — "why did this one appear"
+rather than "show me the four again". A replay door is a product decision about how long a served hand stays addressable, not a
+wiring omission; it stays on the list until that decision exists.
+
+Ratchet 44 -> 43.
+
