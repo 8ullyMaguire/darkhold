@@ -659,3 +659,32 @@ tags = 0.15
 # the sum does not fit on the target hardware. That measurement is why this is a
 # setting rather than a decision.
 mode = "embedded"
+
+# ── who sets this instance's taste (ADR 0016) ────────────────────────────────────────────────────────────────────────
+# Declared, not compiled. Order matters: the first source that admits a contributor pays for them, so the operator is
+# listed first and a curator who is also an operator is weighted as an operator. `kinds` is what each source may say: a
+# reader's rating counts; a reader's private saved search is declared here only for the operator, because a query says
+# what they want, not what the instance should be.
+#
+# A binary older than this block refuses to boot on `half_life_days` — when darkhold will not start after a pull, check
+# the binary before the config.
+half_life_days = 120
+min_evidence = 3
+
+[[taste.source]]
+name = "operator"
+role = "operator"
+weight = 1.0
+kinds = ["rating", "collection_add", "saved_search", "seed"]
+
+[[taste.source]]
+name = "curators"
+role = "curator"
+weight = 0.6
+kinds = ["rating", "collection_add"]
+
+[[taste.source]]
+name = "attuned"
+badge = "attuned"
+weight = 0.3
+kinds = ["rating"]

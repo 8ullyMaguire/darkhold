@@ -811,6 +811,7 @@ dependencies = [
  "polaris-healthz",
  "polaris-oidc-client",
  "polaris-search-client",
+ "polaris-taste-source",
  "rand 0.8.8",
  "reqwest",
  "rsa",
@@ -2343,6 +2344,10 @@ dependencies = [
  "serde_json",
  "tokio",
 ]
+
+[[package]]
+name = "polaris-taste-source"
+version = "0.1.0"
 
 [[package]]
 name = "poly1305"

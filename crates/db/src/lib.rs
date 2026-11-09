@@ -159,6 +159,8 @@ pub mod tag_inference;
 pub mod tag_scripts;
 pub mod taste_brief;
 pub mod taste_explain;
+// ADR 0016: the rows the shared taste fold reads.
+pub mod taste_source;
 pub mod taste_health;
 pub mod taste_import;
 pub mod taste_leakage;
