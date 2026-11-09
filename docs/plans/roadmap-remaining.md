@@ -2374,3 +2374,45 @@ backticked identifiers — `record`, `` `record(` ``, `use darkhold_db::m::f;` �
 forges and merged into the deploy tree. The full text is the section above, and every later commit in this loop uses
 `git commit -F <file>` for exactly this reason.
 
+### The audit trail has a writer: the positivity gate records the decision it makes (2026-11-09)
+
+The measurement correction left one row open with its missing half named: `decision_audit::record` had no caller, so
+`GET /decisions/audit` answered `{ "items": [] }` to the operator question it exists for. This pass supplies the caller.
+
+**Where.** `positivity::classify_review` and `positivity::classify_comment` — the gate that decides whether a reader's words reach
+an author. Both now call one private `record_decision`, so the decision is recorded where it is made rather than in the route that
+calls it: a second caller (backfill, import, retry) records too. A decision surface that has to remember to audit itself is a
+surface that will stop auditing.
+
+**What a row says.** `task = "positivity"`, `subject` = the review or comment id, `deterministic` = the classifier's class,
+`outcome` = what the policy applied (`delivered` / `held`), `provider = deterministic`. Three fields are decisions, written beside
+the code:
+
+* `posterior` is **`None`, not `0.0`** — no model was consulted, and a zero reads as "a model said no with certainty", which is
+  the fiction the module's own docs warn an operator off tuning against.
+* `threshold` is **`None`** — a class is not compared against a threshold; the author's preferences decide. Inventing a number
+  would be a number an operator later tunes a real threshold against.
+* a failed write **propagates**. The route's compensating action (withdraw the review) is only correct if it learns now, rather
+  than months later from an empty table.
+
+The graded text is not in the row — §12.1, and the test asserts the response does not contain the sentence it graded.
+
+**Proof.** `decision_audit_routes::a_held_review_records_the_decision_that_held_it`: the author turns comments off, a reader posts
+a public review, the receipt says held, and the operator's `?subject=<review id>` read returns exactly one row. Seen red first
+(`items: []` while the receipt already said "held"), green after. Both engines (10/10 SQLite, 10/10 PostgreSQL). Two mutants, each
+reverted from a `/tmp` backup: the recording call removed (red at the row-count assertion), and `posterior: Some(0.0)` (red at
+`is_null`).
+
+Deleting `decision_audit::for_subject` in the same pass, because it was a second spelling of `?subject=` with **no caller outside
+a test** — the two store tests now call `list` with `AuditQuery { subject, .. }`, which is what the route serves.
+
+**The ratchet's ruler was wrong a second time, in the other direction.** The module-qualified graph tested uniqueness against the
+*public async* names only, so a private helper (`async fn record_decision`) was never "unique", got no edge from its caller, and
+everything it called stayed on the list — which kept `record` listed even after it had a caller. Uniqueness is now computed over
+every function in the graph. Baseline correction: **43 → 57 → 55** (57 with the public-only uniqueness, minus this pass's two
+removals, with the uniqueness fix worth zero on its own). Stated because the next number is read against it.
+
+**Deploy:** this changes a live write path (every held review or comment now inserts a row), so it ships to thinkcentre in this
+pass rather than waiting — if the insert fails on the deployed engine, posting a review fails, which is not a failure to discover
+later.
+

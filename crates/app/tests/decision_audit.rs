@@ -287,9 +287,18 @@ async fn the_history_of_one_subject_is_readable_on_its_own() {
     .await
     .expect("write 3");
 
-    let history = decision_audit::for_subject(tdb.db(), "work-1", 10)
-        .await
-        .expect("the history reads");
+    // The route's own shape, not a wrapper that existed only for this test: `?subject=` is how an operator asks "why was this
+    // held", and `for_subject` was a second spelling of it with no caller outside this file.
+    let history = decision_audit::list(
+        tdb.db(),
+        &decision_audit::AuditQuery {
+            subject: Some("work-1".to_owned()),
+            limit: 10,
+            ..decision_audit::AuditQuery::default()
+        },
+    )
+    .await
+    .expect("the history reads");
     assert_eq!(
         history.len(),
         2,
@@ -336,9 +345,18 @@ async fn a_second_decision_about_one_subject_adds_a_row_rather_than_replacing_on
     .await
     .expect("write 2");
 
-    let history = decision_audit::for_subject(tdb.db(), "work-1", 10)
-        .await
-        .expect("the history reads");
+    // The route's own shape, not a wrapper that existed only for this test: `?subject=` is how an operator asks "why was this
+    // held", and `for_subject` was a second spelling of it with no caller outside this file.
+    let history = decision_audit::list(
+        tdb.db(),
+        &decision_audit::AuditQuery {
+            subject: Some("work-1".to_owned()),
+            limit: 10,
+            ..decision_audit::AuditQuery::default()
+        },
+    )
+    .await
+    .expect("the history reads");
     assert_eq!(
         history.len(),
         2,

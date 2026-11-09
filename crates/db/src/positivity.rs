@@ -648,10 +648,54 @@ pub async fn classify_review(
     let verdict = classify(body);
     let outcome = resolve_delivery(verdict.class, prefs, allow, deny);
     record_classification(db, review_id, &verdict, outcome).await?;
+    record_decision(db, review_id, &verdict, outcome).await?;
     let stored = classification_for(db, review_id)
         .await?
         .expect("just recorded");
     Ok(stored)
+}
+
+/// Write the gate's decision to the audit trail.
+///
+/// **This is the caller `decision_audit::record` was missing.** It existed, with the route, the filters and the summary number,
+/// and nothing in the binary ever wrote a row — so `GET /decisions/audit` answered `{ "items": [] }` to the one question it
+/// exists to answer: *why was my review held?*
+///
+/// The decision is recorded where it is made, not in the route that calls this, so a second caller (a backfill, an import, a
+/// retry) records it too. A decision surface that has to remember to audit itself is a surface that will stop auditing.
+///
+/// Three fields deserve their reason written down:
+///
+/// - `provider` is [`AuditProvider::Deterministic`] because the instance's own classifier answered. `has_a_model_narrowed_anything`
+///   reads exactly this column, and a row claiming `calibrated` for a decision no model touched would make that safety property
+///   report a narrowing it cannot have observed.
+/// - `posterior` is `None`, not `0.0`. There was no model, so there was no posterior; a zero would mean "the model said no
+///   with certainty", which is the fiction the audit module's docs call out.
+/// - `threshold` is `None`. A class is not compared against a threshold — the *policy* decides, from the author's preferences —
+///   and inventing a number here would be a number an operator later tunes a real threshold against.
+///
+/// The failure is propagated, not logged: an instance that cannot write its audit trail has lost the ability to say why it held
+/// a reader's words, and the route's compensating action (withdraw the review) is only correct if it learns about it now.
+async fn record_decision(
+    db: &Database,
+    subject: &str,
+    verdict: &Classification,
+    outcome: DeliveryOutcome,
+) -> Result<()> {
+    crate::decision_audit::record(
+        db,
+        &crate::decision_audit::NewAuditEntry {
+            task: "positivity".to_owned(),
+            subject: subject.to_owned(),
+            deterministic: verdict.class.as_str().to_owned(),
+            posterior: None,
+            threshold: None,
+            outcome: outcome.as_str().to_owned(),
+            provider: crate::decision_audit::AuditProvider::Deterministic,
+        },
+    )
+    .await?;
+    Ok(())
 }
 
 /// Classify and store the delivery outcome for one comment write.
@@ -667,6 +711,9 @@ pub async fn classify_comment(
     let verdict = classify(body);
     let outcome = resolve_delivery(verdict.class, prefs, allow, deny);
     record_comment_classification(db, comment_id, &verdict, outcome).await?;
+    // The same decision, the same trail, the same reason: a comment held by the gate is a decision a reader will ask about, and
+    // two identical gates that audit differently is how one of them stops auditing. See `record_decision`.
+    record_decision(db, comment_id, &verdict, outcome).await?;
     let stored = comment_classification_for(db, comment_id)
         .await?
         .expect("just recorded");
