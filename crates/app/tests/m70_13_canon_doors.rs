@@ -52,14 +52,18 @@ fn prose(words: usize, names: usize) -> String {
 /// A draft: created and never published. A work with no text cannot be *published* at all ("an empty work has nothing to
 /// read"), so the "nothing measured" case is a draft and the measure door is what asks about it.
 async fn draft(client: &mut TestClient, title: &str) -> String {
-    let (status, body) = client.post("/api/v1/works", json!({ "title": title })).await;
+    let (status, body) = client
+        .post("/api/v1/works", json!({ "title": title }))
+        .await;
     assert_eq!(status, StatusCode::CREATED, "{body}");
     body["id"].as_str().expect("work").to_owned()
 }
 
 /// Create, chapter, write and publish — the road a work actually travels, so the producer is proved where it runs.
 async fn publish(client: &mut TestClient, title: &str, text: &str) -> String {
-    let (status, body) = client.post("/api/v1/works", json!({ "title": title })).await;
+    let (status, body) = client
+        .post("/api/v1/works", json!({ "title": title }))
+        .await;
     assert_eq!(status, StatusCode::CREATED, "{body}");
     let work = body["id"].as_str().expect("work").to_owned();
     let version = body["version"].as_i64().expect("version");
@@ -110,14 +114,22 @@ async fn publishing_measures_the_class_and_the_shelf_carries_it_labelled() {
     let mut config = base.clone();
     config.administration.operator_account_id = Some(operator_account.parse().expect("account id"));
     let mut operator = TestClient::new(build(&config, &db));
-    sign_in_as(&mut operator, &tdb, "cd-operator@example.test", "cdoperator").await;
+    sign_in_as(
+        &mut operator,
+        &tdb,
+        "cd-operator@example.test",
+        "cdoperator",
+    )
+    .await;
 
     let mut author = TestClient::new(build(&config, &db));
     register(&mut author, "cd-author@example.test", "cdauthor").await;
 
     // 1. A draft nobody has measured: the read door answers "unmeasured", not a 404 and not "not agnostic".
     let unmeasured = draft(&mut author, "No Text Yet").await;
-    let (status, view) = author.get(format!("/api/v1/works/{unmeasured}/canon")).await;
+    let (status, view) = author
+        .get(format!("/api/v1/works/{unmeasured}/canon"))
+        .await;
     assert_eq!(status, StatusCode::OK, "{view}");
     assert_eq!(view["state"], json!("unmeasured"), "{view}");
     assert_eq!(view["eligible"], json!(false), "{view}");
@@ -126,7 +138,10 @@ async fn publishing_measures_the_class_and_the_shelf_carries_it_labelled() {
     // 2. Measuring a work with no text stores nothing and says why, rather than storing "unclassified" — writing a row for
     //    a work nobody could measure would turn "we did not look" into "we looked and could not tell".
     let (status, body) = operator
-        .post(&format!("/api/v1/works/{unmeasured}/canon/measure"), json!({}))
+        .post(
+            &format!("/api/v1/works/{unmeasured}/canon/measure"),
+            json!({}),
+        )
         .await;
     assert_eq!(status, StatusCode::OK, "{body}");
     assert_eq!(body["state"], json!("unmeasured"), "{body}");
@@ -143,8 +158,15 @@ async fn publishing_measures_the_class_and_the_shelf_carries_it_labelled() {
     );
     assert_eq!(view["eligible"], json!(true), "{view}");
     assert_eq!(view["assumes_canon"], json!(false), "{view}");
-    assert_eq!(view["label"], json!("you may not know this fandom"), "{view}");
-    assert!(view["measures"]["word_count"].as_i64().unwrap_or(0) >= 500, "{view}");
+    assert_eq!(
+        view["label"],
+        json!("you may not know this fandom"),
+        "{view}"
+    );
+    assert!(
+        view["measures"]["word_count"].as_i64().unwrap_or(0) >= 500,
+        "{view}"
+    );
 
     // 4. The mirror: 120 proper nouns in the same number of words is canon-dependent, and the label is *absent* rather than
     //    the opposite sentence — a work that assumes canon is not offered on this shelf at all.
@@ -175,8 +197,16 @@ async fn publishing_measures_the_class_and_the_shelf_carries_it_labelled() {
     assert_eq!(status, StatusCode::OK, "{shelf}");
     assert_eq!(shelf["state"], json!("ok"), "{shelf}");
     let items = shelf["items"].as_array().expect("items");
-    assert!(items.len() <= 12, "the page is a shelf, not a feed: {}", items.len());
-    assert_eq!(items.len(), 2, "both agnostic works are on the shelf: {shelf}");
+    assert!(
+        items.len() <= 12,
+        "the page is a shelf, not a feed: {}",
+        items.len()
+    );
+    assert_eq!(
+        items.len(),
+        2,
+        "both agnostic works are on the shelf: {shelf}"
+    );
     let ids: Vec<&str> = items
         .iter()
         .map(|row| row["work_id"].as_str().expect("work id"))
@@ -195,11 +225,18 @@ async fn publishing_measures_the_class_and_the_shelf_carries_it_labelled() {
     // 7. The limit is a limit, not a suggestion.
     let (status, shelf) = author.get("/api/v1/discover/canon-blind?limit=1").await;
     assert_eq!(status, StatusCode::OK, "{shelf}");
-    assert_eq!(shelf["items"].as_array().expect("items").len(), 1, "{shelf}");
+    assert_eq!(
+        shelf["items"].as_array().expect("items").len(),
+        1,
+        "{shelf}"
+    );
 
     // 8. Measuring is an operator's act: an author asking for their own work is answered with the absent page.
     let (status, _) = author
-        .post(&format!("/api/v1/works/{agnostic}/canon/measure"), json!({}))
+        .post(
+            &format!("/api/v1/works/{agnostic}/canon/measure"),
+            json!({}),
+        )
         .await;
     assert_eq!(status, StatusCode::NOT_FOUND);
 }

@@ -495,4 +495,3 @@ pub async fn member_counts(db: &Database, identity_id: &str) -> Result<(i64, i64
     };
     Ok((total, external))
 }
-

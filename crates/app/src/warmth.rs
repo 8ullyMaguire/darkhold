@@ -57,7 +57,10 @@ async fn resolve_author(state: &AppState, work_id: &str) -> Option<String> {
     match darkhold_db::positivity::author_account_for_work(state.db(), work).await {
         Ok(Some(author)) => Some(author.to_string()),
         Ok(None) => {
-            tracing::debug!(work_id, "no author account for this work; warmth not recorded");
+            tracing::debug!(
+                work_id,
+                "no author account for this work; warmth not recorded"
+            );
             None
         }
         Err(error) => {
@@ -100,7 +103,12 @@ pub async fn record(state: &AppState, reader_account: &str, work_id: &str, actio
 ///
 /// Symmetry matters: a reader who presses the button twice must not end up warmer than one who presses it once, and an additive
 /// score with an add-only writer makes the second press free warmth.
-pub async fn record_removal(state: &AppState, reader_account: &str, work_id: &str, action: WarmthAction) {
+pub async fn record_removal(
+    state: &AppState,
+    reader_account: &str,
+    work_id: &str,
+    action: WarmthAction,
+) {
     let author = match resolve_author(state, work_id).await {
         Some(author) => author,
         None => return,

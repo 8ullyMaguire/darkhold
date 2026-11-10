@@ -35,7 +35,11 @@ fn build(config: &Config, db: &Database) -> axum::Router {
 async fn the_lease_is_renewed_the_summary_counts_every_state_and_the_attempts_are_the_owners() {
     // The two lists must agree in both directions, or the dashboard silently drops a state: every state the parser accepts
     // must appear in `ALL_STATES`, and every entry there must parse back from its own wire spelling.
-    assert_eq!(ALL_STATES.len(), 6, "a state was added without an entry in ALL_STATES");
+    assert_eq!(
+        ALL_STATES.len(),
+        6,
+        "a state was added without an entry in ALL_STATES"
+    );
     for state in ALL_STATES {
         assert_eq!(
             JobState::parse(state.as_str()),
@@ -56,7 +60,13 @@ async fn the_lease_is_renewed_the_summary_counts_every_state_and_the_attempts_ar
     let mut config = base.clone();
     config.administration.operator_account_id = Some(operator_account.parse().expect("account id"));
     let mut operator = TestClient::new(build(&config, &db));
-    sign_in_as(&mut operator, &tdb, "jd-operator@example.test", "jdoperator").await;
+    sign_in_as(
+        &mut operator,
+        &tdb,
+        "jd-operator@example.test",
+        "jdoperator",
+    )
+    .await;
 
     let mut reader = TestClient::new(build(&config, &db));
     let reader_account = register(&mut reader, "jd-reader@example.test", "jdreader").await;
@@ -107,7 +117,11 @@ async fn the_lease_is_renewed_the_summary_counts_every_state_and_the_attempts_ar
 
     // 2. A reader without an estate claim gets the absent-page answer, not a confirmation that the surface exists.
     let (status, _) = reader.get("/api/v1/admin/jobs/summary").await;
-    assert_eq!(status, StatusCode::NOT_FOUND, "the summary is not a reader's surface");
+    assert_eq!(
+        status,
+        StatusCode::NOT_FOUND,
+        "the summary is not a reader's surface"
+    );
 
     // 3. Run the probe on a worker with a lease far shorter than the work, and ask for the queue from a second worker while
     //    it runs. The lease is the only thing keeping the job out of the second worker's hands, and only a renewal keeps it
@@ -170,11 +184,18 @@ async fn the_lease_is_renewed_the_summary_counts_every_state_and_the_attempts_ar
     );
 
     let report = running.await.expect("the worker task").expect("the pass");
-    assert_eq!(report.job.as_ref().map(|(_, state)| *state), Some(JobState::Succeeded));
+    assert_eq!(
+        report.job.as_ref().map(|(_, state)| *state),
+        Some(JobState::Succeeded)
+    );
 
     // 4. One attempt, and it finished: no second worker ever started the job.
     let attempts = jobs::attempts_for(&db, job).await.expect("attempts");
-    assert_eq!(attempts.len(), 1, "one attempt, not one per worker: {attempts:?}");
+    assert_eq!(
+        attempts.len(),
+        1,
+        "one attempt, not one per worker: {attempts:?}"
+    );
     assert_eq!(attempts[0].outcome.as_deref(), Some("succeeded"));
     assert_eq!(attempts[0].worker, "jd-worker");
 
@@ -225,5 +246,9 @@ async fn the_lease_is_renewed_the_summary_counts_every_state_and_the_attempts_ar
         .iter()
         .map(|row| row["count"].as_i64().expect("a count"))
         .sum();
-    assert_eq!(summed, summary["total"].as_i64().expect("a total"), "{summary}");
+    assert_eq!(
+        summed,
+        summary["total"].as_i64().expect("a total"),
+        "{summary}"
+    );
 }

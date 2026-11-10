@@ -90,7 +90,12 @@ impl Client {
         }
     }
 
-    async fn send(&mut self, method: &str, path: &str, body: Option<serde_json::Value>) -> (StatusCode, serde_json::Value) {
+    async fn send(
+        &mut self,
+        method: &str,
+        path: &str,
+        body: Option<serde_json::Value>,
+    ) -> (StatusCode, serde_json::Value) {
         let mut builder = Request::builder().method(method).uri(path);
         if !self.cookies.is_empty() {
             let header_value = self
@@ -102,7 +107,11 @@ impl Client {
             builder = builder.header(header::COOKIE, header_value);
         }
         if !matches!(method, "GET" | "HEAD" | "OPTIONS") {
-            if let Some((_, token)) = self.cookies.iter().find(|(name, _)| name == "darkhold_csrf") {
+            if let Some((_, token)) = self
+                .cookies
+                .iter()
+                .find(|(name, _)| name == "darkhold_csrf")
+            {
                 let token = token.clone();
                 builder = builder.header("x-csrf-token", token);
             }
@@ -120,7 +129,10 @@ impl Client {
         let bytes = axum::body::to_bytes(response.into_body(), 1 << 20)
             .await
             .expect("body");
-        (status, serde_json::from_slice(&bytes).unwrap_or(serde_json::Value::Null))
+        (
+            status,
+            serde_json::from_slice(&bytes).unwrap_or(serde_json::Value::Null),
+        )
     }
 }
 
@@ -248,7 +260,10 @@ async fn the_contribution_volume_selection_is_a_dry_run_until_it_is_applied() {
     assert_eq!(body["applied"], false, "a dry run is the default: {body}");
     let candidates = body["candidates"].as_array().expect("candidates");
     assert_eq!(candidates.len(), 1, "limit is honoured: {body}");
-    assert_eq!(candidates[0], busy, "the busiest curator is the candidate: {body}");
+    assert_eq!(
+        candidates[0], busy,
+        "the busiest curator is the candidate: {body}"
+    );
     assert!(
         vanguards(&h.db).await.is_empty(),
         "a dry run must not grant the role"

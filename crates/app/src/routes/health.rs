@@ -204,14 +204,17 @@ fn backlogs_age(oldest: Option<&str>) -> String {
     };
     let parsed = time::OffsetDateTime::parse(stamp, &time::format_description::well_known::Rfc3339)
         .or_else(|_| {
-            time::PrimitiveDateTime::parse(stamp, &time::macros::format_description!(
-                "[year]-[month]-[day] [hour]:[minute]:[second]"
-            ))
+            time::PrimitiveDateTime::parse(
+                stamp,
+                &time::macros::format_description!("[year]-[month]-[day] [hour]:[minute]:[second]"),
+            )
             .map(|local| local.assume_utc())
         });
     match parsed {
         Ok(at) => {
-            let seconds = (time::OffsetDateTime::now_utc() - at).whole_seconds().max(0);
+            let seconds = (time::OffsetDateTime::now_utc() - at)
+                .whole_seconds()
+                .max(0);
             format!("{}d {}h", seconds / 86_400, (seconds % 86_400) / 3_600)
         }
         Err(_) => format!("unreadable ({stamp})"),

@@ -3303,7 +3303,8 @@ impl Config {
             // something this binary does not implement, and the failure must be theirs at boot, not an author's at pricing.
             monetization: {
                 let section = file.monetization.clone().unwrap_or_default();
-                if darkhold_domain::monetization::Eligibility::parse(&section.eligibility).is_none() {
+                if darkhold_domain::monetization::Eligibility::parse(&section.eligibility).is_none()
+                {
                     anyhow::bail!(
                         "monetization.eligibility = {:?} is not a setting this instance has; use original, any-with-assertion or disabled",
                         section.eligibility

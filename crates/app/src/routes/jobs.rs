@@ -338,7 +338,10 @@ async fn job_summary(
         }
     }
     let total = counts.iter().map(|c| c.count).sum();
-    Ok(Json(JobSummaryView { states: counts, total }))
+    Ok(Json(JobSummaryView {
+        states: counts,
+        total,
+    }))
 }
 
 /// The attempts made at one job, oldest first.

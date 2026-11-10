@@ -47,7 +47,13 @@ async fn the_cap_is_paid_against_the_queue_is_real_and_a_refused_merge_is_still_
     config.media_resilience.daily_credits_cap = 20;
     config.media_resilience.mirror_add_credits = 15;
     let mut operator = TestClient::new(build(&config, &db));
-    sign_in_as(&mut operator, &tdb, "md-operator@example.test", "mdoperator").await;
+    sign_in_as(
+        &mut operator,
+        &tdb,
+        "md-operator@example.test",
+        "mdoperator",
+    )
+    .await;
     // The mirror route's own gate is trust level 5 or an active curator role; the configured operator is neither until trust
     // is granted, so grant it here rather than duplicating the route's rule in the test.
     governance::set_trust(&db, &operator_account, 5, "{}")
@@ -94,9 +100,7 @@ async fn the_cap_is_paid_against_the_queue_is_real_and_a_refused_merge_is_still_
 
     // 1. The queue, at the spec's own threshold: fewer than three healthy links. The under-mirrored reference is in it and
     //    the properly mirrored one is not.
-    let (status, queue) = operator
-        .get("/api/v1/admin/media/references/at-risk")
-        .await;
+    let (status, queue) = operator.get("/api/v1/admin/media/references/at-risk").await;
     assert_eq!(status, StatusCode::OK, "{queue}");
     assert_eq!(queue["threshold"], serde_json::json!(3), "{queue}");
     let at_risk_rows: Vec<String> = queue["items"]
@@ -113,16 +117,22 @@ async fn the_cap_is_paid_against_the_queue_is_real_and_a_refused_merge_is_still_
         .await;
     assert_eq!(status, StatusCode::OK, "{queue}");
     assert_eq!(queue["threshold"], serde_json::json!(1), "{queue}");
-    assert_eq!(queue["items"].as_array().expect("items").len(), 0, "{queue}");
+    assert_eq!(
+        queue["items"].as_array().expect("items").len(),
+        0,
+        "{queue}"
+    );
 
     // 3. A reader is refused. This file's admin doors answer `403` rather than the estate-hidden `404` — the documented
     //    decision here is that a signed-in reader who is not yet a curator can act on "not yet", and the media suites assert
     //    the same answer on the neighbouring doors. Routing one door of the file through a different authority would make
     //    the surface answer two ways for the same caller.
-    let (status, _) = reader
-        .get("/api/v1/admin/media/references/at-risk")
-        .await;
-    assert_eq!(status, StatusCode::FORBIDDEN, "the queue is a curator's surface");
+    let (status, _) = reader.get("/api/v1/admin/media/references/at-risk").await;
+    assert_eq!(
+        status,
+        StatusCode::FORBIDDEN,
+        "the queue is a curator's surface"
+    );
 
     // 4. Three mirrors, and the cap decides what each one pays: 15, then 5, then nothing. Every contribution is kept.
     let mut awarded = Vec::new();
@@ -138,8 +148,16 @@ async fn the_cap_is_paid_against_the_queue_is_real_and_a_refused_merge_is_still_
         awarded.push(body["credits_awarded"].as_i64().expect("credits_awarded"));
         capped.push(body["credits_capped"].as_bool().expect("credits_capped"));
     }
-    assert_eq!(awarded, vec![15, 5, 0], "the cap is the third contribution's whole answer");
-    assert_eq!(capped, vec![false, true, true], "and it is reported, not silent");
+    assert_eq!(
+        awarded,
+        vec![15, 5, 0],
+        "the cap is the third contribution's whole answer"
+    );
+    assert_eq!(
+        capped,
+        vec![false, true, true],
+        "and it is reported, not silent"
+    );
 
     // 5. The ledger agrees with the responses: the sum never passed the cap.
     let earned = media_resilience::sum_curator_rewards_today(&db, &operator_account)

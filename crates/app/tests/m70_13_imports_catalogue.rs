@@ -51,7 +51,6 @@ async fn exec(tdb: &TestDb, sqlite: &str, postgres: &str, binds: &[&str]) {
     }
 }
 
-
 /// The account id behind a handle, as the type `config.administration` stores.
 ///
 /// The two engines answer different types (`TEXT` on SQLite, `uuid` on PostgreSQL), so each arm parses into the same
@@ -59,7 +58,9 @@ async fn exec(tdb: &TestDb, sqlite: &str, postgres: &str, binds: &[&str]) {
 async fn account_of(db: &Database, handle: &str) -> darkhold_domain::ids::AccountId {
     let sql = match db.backend() {
         Backend::Sqlite => "SELECT account_id FROM pseuds WHERE lower(handle) = lower(?)",
-        Backend::Postgres => "SELECT account_id::text AS account_id FROM pseuds WHERE lower(handle) = lower($1)",
+        Backend::Postgres => {
+            "SELECT account_id::text AS account_id FROM pseuds WHERE lower(handle) = lower($1)"
+        }
     };
     match db.backend() {
         Backend::Sqlite => {
@@ -130,7 +131,13 @@ async fn the_catalogue_is_this_build_pausing_needs_a_reason_and_the_audit_trail_
     let mut operator_client = TestClient::new(build(&config, &db));
     // A rebuilt router is a new client with an empty cookie jar; the session is in the database, so signing in again is
     // the honest way to be the operator rather than copying cookies by hand.
-    test_support::sign_in_as(&mut operator_client, &tdb, "imp-op@example.test", "impoperator").await;
+    test_support::sign_in_as(
+        &mut operator_client,
+        &tdb,
+        "imp-op@example.test",
+        "impoperator",
+    )
+    .await;
 
     let target = keys.first().expect("a source to pause").clone();
     let (status, body) = operator_client
@@ -194,7 +201,10 @@ async fn the_catalogue_is_this_build_pausing_needs_a_reason_and_the_audit_trail_
         .await
         .expect("read the source")
         .expect("the source exists");
-    assert_eq!(verified.verification_status.as_deref(), Some("blocked-here"));
+    assert_eq!(
+        verified.verification_status.as_deref(),
+        Some("blocked-here")
+    );
     assert_eq!(
         verified.verification_note.as_deref(),
         Some("Cloudflare challenge on every page"),
@@ -244,12 +254,22 @@ async fn the_catalogue_is_this_build_pausing_needs_a_reason_and_the_audit_trail_
     )
     .await
     .expect("store a credential");
-    imports::record_credential_event(&db, &credential.id, &pseud, imports::CredentialEvent::Created)
-        .await
-        .expect("record the created event");
-    imports::record_credential_event(&db, &credential.id, &pseud, imports::CredentialEvent::Revoked)
-        .await
-        .expect("record the revoked event");
+    imports::record_credential_event(
+        &db,
+        &credential.id,
+        &pseud,
+        imports::CredentialEvent::Created,
+    )
+    .await
+    .expect("record the created event");
+    imports::record_credential_event(
+        &db,
+        &credential.id,
+        &pseud,
+        imports::CredentialEvent::Revoked,
+    )
+    .await
+    .expect("record the revoked event");
 
     // Two events recorded inside the same second cannot be ordered: `occurred_at` is second-resolution and the tiebreak
     // is a random UUID, so asserting which came first there would be asserting a coin flip. The `created` row is moved
@@ -263,7 +283,10 @@ async fn the_catalogue_is_this_build_pausing_needs_a_reason_and_the_audit_trail_
     .await;
 
     let (status, body) = vault_client
-        .get(format!("/api/v1/source-credentials/{}/events", credential.id))
+        .get(format!(
+            "/api/v1/source-credentials/{}/events",
+            credential.id
+        ))
         .await;
     assert_eq!(status, StatusCode::OK, "{body}");
     let events = body["events"].as_array().expect("events");
@@ -276,14 +299,22 @@ async fn the_catalogue_is_this_build_pausing_needs_a_reason_and_the_audit_trail_
     assert_eq!(events[1]["event"], serde_json::json!("created"), "{body}");
 
     let mut stranger_client = TestClient::new(build(&config, &db));
-    let stranger_account = reader(&mut stranger_client, "imp-stranger@example.test", "impstranger").await;
+    let stranger_account = reader(
+        &mut stranger_client,
+        "imp-stranger@example.test",
+        "impstranger",
+    )
+    .await;
     // An active pseud, because `RequirePseud` refuses a session without one *before* the handler runs: without this the
     // stranger would get a 404 from the extractor and the ownership filter would never be exercised at all.
     let _ = active_pseud_id(&mut stranger_client, &stranger_account)
         .await
         .expect("the stranger's active pseud");
     let (status, body) = stranger_client
-        .get(format!("/api/v1/source-credentials/{}/events", credential.id))
+        .get(format!(
+            "/api/v1/source-credentials/{}/events",
+            credential.id
+        ))
         .await;
     assert_eq!(
         status,
@@ -369,7 +400,11 @@ async fn an_import_is_its_owners_and_the_scoped_read_still_refuses_a_stranger() 
     .expect("create the import");
 
     let (status, body) = owner.get(format!("/api/v1/imports/{job}")).await;
-    assert_eq!(status, StatusCode::OK, "the owner reads their own import: {body}");
+    assert_eq!(
+        status,
+        StatusCode::OK,
+        "the owner reads their own import: {body}"
+    );
     assert_eq!(body["id"], serde_json::json!(job), "{body}");
 
     let mut stranger = TestClient::new(build(&config, &db));

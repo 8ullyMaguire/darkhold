@@ -105,11 +105,8 @@ async fn state_of_one(
     content::find_work(state.db(), work_id)
         .await?
         .ok_or_else(|| ApiError(AppError::NotFound { resource: "work" }))?;
-    let marked = darkhold_db::marked_for_later::is_marked(
-        state.db(),
-        &user.account_id.to_string(),
-        &work,
-    )
-    .await?;
+    let marked =
+        darkhold_db::marked_for_later::is_marked(state.db(), &user.account_id.to_string(), &work)
+            .await?;
     Ok(Json(json!({ "work_id": work, "marked": marked })))
 }

@@ -242,7 +242,9 @@ const DISLIKE_MARKERS: &[&str] = &[
 ];
 
 /// Words that invert the marker after them. A negation is not a detail: "I don't hate it" contains the marker it argues against.
-const NEGATIONS: &[&str] = &["not ", "n't ", "no ", "never ", "dont ", "don't ", "didn't ", "isn't ", "wasn't ", "without "];
+const NEGATIONS: &[&str] = &[
+    "not ", "n't ", "no ", "never ", "dont ", "don't ", "didn't ", "isn't ", "wasn't ", "without ",
+];
 
 /// Distinct dislike markers that are not negated by the few words before them.
 fn dislikes(haystack: &str) -> Vec<String> {
@@ -252,7 +254,12 @@ fn dislikes(haystack: &str) -> Vec<String> {
             let mut from = 0;
             while let Some(position) = haystack[from..].find(**needle) {
                 let at = from + position;
-                let before = &haystack[haystack[..at].char_indices().rev().take(12).last().map_or(0, |(i, _)| i)..at];
+                let before = &haystack[haystack[..at]
+                    .char_indices()
+                    .rev()
+                    .take(12)
+                    .last()
+                    .map_or(0, |(i, _)| i)..at];
                 if !NEGATIONS.iter().any(|negation| before.contains(negation)) {
                     return true;
                 }
@@ -416,7 +423,8 @@ mod tests {
         let v = classify("This is awful and boring. I hate it.");
         assert_eq!(v.class, FeedbackClass::Negative, "{v:?}");
         assert!(
-            v.signals.contains(&"dislike-without-craft-specificity".to_owned()),
+            v.signals
+                .contains(&"dislike-without-craft-specificity".to_owned()),
             "{v:?}"
         );
     }
@@ -425,8 +433,14 @@ mod tests {
     // the author the antagonist worked; calling it Negative would hold praise behind the gate.
     #[test]
     fn one_harsh_adjective_is_still_engagement() {
-        assert_eq!(classify("The villain was awful.").class, FeedbackClass::Positive);
-        assert_eq!(classify("Awful ending, but I loved it.").class, FeedbackClass::Positive);
+        assert_eq!(
+            classify("The villain was awful.").class,
+            FeedbackClass::Positive
+        );
+        assert_eq!(
+            classify("Awful ending, but I loved it.").class,
+            FeedbackClass::Positive
+        );
     }
 
     // Negation is not a small detail here: "I don't hate it" is the opposite of the marker it contains.
@@ -439,7 +453,10 @@ mod tests {
             classify("I don't hate it and it's not boring at all.").class,
             FeedbackClass::Positive
         );
-        assert_eq!(classify("I don't hate it, honestly.").class, FeedbackClass::Positive);
+        assert_eq!(
+            classify("I don't hate it, honestly.").class,
+            FeedbackClass::Positive
+        );
     }
 
     // Craft-specificity outranks the verdict: disliking a work *and* saying what to fix is critique, which authors can opt into —

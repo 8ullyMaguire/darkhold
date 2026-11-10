@@ -629,8 +629,14 @@ fn apply_unlinked_sql(db: &Database, column: &UnlinkedColumn) -> Option<String> 
         // bucket` is the row's identity there. A bare `id` on that table would be a runtime error on the first erasure.
         Treatment::Rekey(key) => Some(sql_owned(
             db,
-            format!("UPDATE {table} SET {col} = 'erased:' || {key} WHERE {}", predicate("?")),
-            format!("UPDATE {table} SET {col} = 'erased:' || {key} WHERE {}", predicate("$1")),
+            format!(
+                "UPDATE {table} SET {col} = 'erased:' || {key} WHERE {}",
+                predicate("?")
+            ),
+            format!(
+                "UPDATE {table} SET {col} = 'erased:' || {key} WHERE {}",
+                predicate("$1")
+            ),
         )),
         Treatment::DeferredTo(_) => None,
     }

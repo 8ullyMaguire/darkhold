@@ -101,7 +101,11 @@ impl Client {
             builder = builder.header(header::COOKIE, header_value);
         }
         if !matches!(method, "GET" | "HEAD" | "OPTIONS") {
-            if let Some((_, token)) = self.cookies.iter().find(|(name, _)| name == "darkhold_csrf") {
+            if let Some((_, token)) = self
+                .cookies
+                .iter()
+                .find(|(name, _)| name == "darkhold_csrf")
+            {
                 let token = token.clone();
                 builder = builder.header("x-csrf-token", token);
             }
@@ -119,7 +123,10 @@ impl Client {
         let bytes = axum::body::to_bytes(response.into_body(), 1 << 20)
             .await
             .expect("body");
-        (status, serde_json::from_slice(&bytes).unwrap_or(serde_json::Value::Null))
+        (
+            status,
+            serde_json::from_slice(&bytes).unwrap_or(serde_json::Value::Null),
+        )
     }
 }
 
@@ -227,7 +234,9 @@ async fn an_operator_can_produce_the_row_the_view_serves() {
 
     // 1. The queue starts empty, and that is exactly why a producer was needed: an empty queue with no writer reads as
     // "nothing leaks" when it means "nobody has looked".
-    let (status, body) = operator.send("GET", "/api/v1/admin/discovery/leakage", None).await;
+    let (status, body) = operator
+        .send("GET", "/api/v1/admin/discovery/leakage", None)
+        .await;
     assert_eq!(status, StatusCode::OK, "{body}");
     assert_eq!(body["rows"].as_array().expect("rows").len(), 0, "{body}");
 
@@ -245,10 +254,15 @@ async fn an_operator_can_produce_the_row_the_view_serves() {
         )
         .await;
     assert_eq!(status, StatusCode::OK, "{written}");
-    assert!(written["id"].as_str().is_some_and(|id| !id.is_empty()), "{written}");
+    assert!(
+        written["id"].as_str().is_some_and(|id| !id.is_empty()),
+        "{written}"
+    );
 
     // 3. The view serves it — the writer and the reader are one table, so a row that is written is a row that is shown.
-    let (status, body) = operator.send("GET", "/api/v1/admin/discovery/leakage", None).await;
+    let (status, body) = operator
+        .send("GET", "/api/v1/admin/discovery/leakage", None)
+        .await;
     assert_eq!(status, StatusCode::OK, "{body}");
     let rows = body["rows"].as_array().expect("rows");
     assert_eq!(rows.len(), 1, "{body}");
@@ -289,7 +303,9 @@ async fn an_operator_can_produce_the_row_the_view_serves() {
         refused.to_string().contains("disposition"),
         "the refusal names the field: {refused}"
     );
-    let (_, body) = operator.send("GET", "/api/v1/admin/discovery/leakage", None).await;
+    let (_, body) = operator
+        .send("GET", "/api/v1/admin/discovery/leakage", None)
+        .await;
     assert_eq!(body["rows"].as_array().expect("rows").len(), 1, "{body}");
 
     // 6. Operator-only — and the refusal is **404**, not 403. `require_estate_hidden` (ADR 0003) refuses an operator door with

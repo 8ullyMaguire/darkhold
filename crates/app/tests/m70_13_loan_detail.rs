@@ -86,7 +86,8 @@ async fn a_loan_is_readable_by_its_borrower_and_by_nobody_else() {
     let db: Database = tdb.db().clone();
     let config = Config::development_defaults();
 
-    let (borrower, work) = account_with_work(&db, "loan-borrower@example.test", "loanborrower").await;
+    let (borrower, work) =
+        account_with_work(&db, "loan-borrower@example.test", "loanborrower").await;
     let (stranger, _) = account_with_work(&db, "loan-stranger@example.test", "loanstranger").await;
     let _ = stranger;
 
@@ -100,7 +101,13 @@ async fn a_loan_is_readable_by_its_borrower_and_by_nobody_else() {
 
     // 1. The borrower reads their own loan: the window, its end, and the copy.
     let mut owner = TestClient::new(build(&config, &db));
-    test_support::sign_in_as(&mut owner, &tdb, "loan-borrower@example.test", "loanborrower").await;
+    test_support::sign_in_as(
+        &mut owner,
+        &tdb,
+        "loan-borrower@example.test",
+        "loanborrower",
+    )
+    .await;
     let (status, body) = owner.get(format!("/api/v1/me/loans/{}", loan.id)).await;
     assert_eq!(status, StatusCode::OK, "{body}");
     assert_eq!(body["id"], json!(loan.id), "{body}");
@@ -112,7 +119,13 @@ async fn a_loan_is_readable_by_its_borrower_and_by_nobody_else() {
     // 2. A stranger gets `404`, not `403`: a loan id is not a capability, and a `403` would confirm that a loan exists and is
     //    somebody else's.
     let mut other = TestClient::new(build(&config, &db));
-    test_support::sign_in_as(&mut other, &tdb, "loan-stranger@example.test", "loanstranger").await;
+    test_support::sign_in_as(
+        &mut other,
+        &tdb,
+        "loan-stranger@example.test",
+        "loanstranger",
+    )
+    .await;
     let (status, body) = other.get(format!("/api/v1/me/loans/{}", loan.id)).await;
     assert_eq!(
         status,

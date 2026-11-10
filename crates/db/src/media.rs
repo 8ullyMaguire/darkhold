@@ -974,14 +974,18 @@ pub async fn quality_composite(db: &Database, work_id: &str) -> Result<Option<f6
         "SELECT SUM(CAST(value AS DOUBLE PRECISION) * weight) / NULLIF(CAST(SUM(weight) AS BIGINT), 0)            FROM quality_signals WHERE work_id::text = $1 AND weight > 0",
     );
     let mean: Option<f64> = match db.backend() {
-        Backend::Sqlite => sqlx::query_scalar(&sql)
-            .bind(work_id)
-            .fetch_one(db.sqlite_pool().expect("sqlite handle"))
-            .await?,
-        Backend::Postgres => sqlx::query_scalar(&sql)
-            .bind(work_id)
-            .fetch_one(db.postgres_pool().expect("postgres handle"))
-            .await?,
+        Backend::Sqlite => {
+            sqlx::query_scalar(&sql)
+                .bind(work_id)
+                .fetch_one(db.sqlite_pool().expect("sqlite handle"))
+                .await?
+        }
+        Backend::Postgres => {
+            sqlx::query_scalar(&sql)
+                .bind(work_id)
+                .fetch_one(db.postgres_pool().expect("postgres handle"))
+                .await?
+        }
     };
     Ok(mean.map(|value| value / 1000.0))
 }

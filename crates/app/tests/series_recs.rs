@@ -810,8 +810,16 @@ async fn the_series_shelf_is_reachable_scoped_and_bounded_to_a_year() {
         1,
         "a series finished three years ago is not a continuation: {body}"
     );
-    assert_eq!(items[0]["series_title"], serde_json::json!("The Long Arc"), "{body}");
-    assert_eq!(items[0]["work_id"], serde_json::json!(built[0].1[1]), "{body}");
+    assert_eq!(
+        items[0]["series_title"],
+        serde_json::json!("The Long Arc"),
+        "{body}"
+    );
+    assert_eq!(
+        items[0]["work_id"],
+        serde_json::json!(built[0].1[1]),
+        "{body}"
+    );
     assert_eq!(items[0]["position"], serde_json::json!(2), "{body}");
     assert_eq!(
         items[0]["origin"],
@@ -834,7 +842,9 @@ async fn the_series_shelf_is_reachable_scoped_and_bounded_to_a_year() {
 
     // An inverted window is a mistake the caller can fix, and answering it with an empty shelf would read as "nothing to read" —
     // a wrong statement about their library. 422, naming the field.
-    let (status, body) = reader.get("/api/v1/library/series/next?since=100&until=50").await;
+    let (status, body) = reader
+        .get("/api/v1/library/series/next?since=100&until=50")
+        .await;
     assert_eq!(
         status,
         axum::http::StatusCode::UNPROCESSABLE_ENTITY,

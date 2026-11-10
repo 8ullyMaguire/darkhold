@@ -123,10 +123,7 @@ pub fn router() -> axum::Router<AppState> {
         )
         // The half that was missing: before this, a request could be filed and watched, and nothing could close it — the only
         // way to finish one was a `psql` statement nobody had written down.
-        .route(
-            "/admin/privacy-requests",
-            get(list_all_privacy_requests),
-        )
+        .route("/admin/privacy-requests", get(list_all_privacy_requests))
         .route(
             "/admin/privacy-requests/{id}/complete",
             post(complete_privacy_request),
@@ -201,9 +198,10 @@ pub async fn list_all_privacy_requests(
 ) -> ApiResult<Json<Value>> {
     crate::routes::admin_scope::require_admin_of(&state, &user, None).await?;
     let limit = params.limit.unwrap_or(50).clamp(1, 200);
-    let requests = darkhold_db::admin::list_all_privacy_requests(state.db(), params.state.as_deref(), limit)
-        .await
-        .map_err(|e| ApiError(darkhold_domain::AppError::Internal(e.into())))?;
+    let requests =
+        darkhold_db::admin::list_all_privacy_requests(state.db(), params.state.as_deref(), limit)
+            .await
+            .map_err(|e| ApiError(darkhold_domain::AppError::Internal(e.into())))?;
     Ok(Json(json!({
         "requests": requests,
         "state": params.state,

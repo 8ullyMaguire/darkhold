@@ -94,9 +94,11 @@ async fn note(
 }
 
 async fn require_account(state: &AppState, raw: &str) -> ApiResult<darkhold_domain::AccountId> {
-    let id: darkhold_domain::AccountId = raw
-        .parse()
-        .map_err(|_| ApiError(darkhold_domain::AppError::NotFound { resource: "account" }))?;
+    let id: darkhold_domain::AccountId = raw.parse().map_err(|_| {
+        ApiError(darkhold_domain::AppError::NotFound {
+            resource: "account",
+        })
+    })?;
     match darkhold_db::identity::find_account(state.db(), id).await {
         Ok(Some(_)) => Ok(id),
         Ok(None) => Err(ApiError(darkhold_domain::AppError::NotFound {
@@ -306,16 +308,12 @@ async fn fold_account_route(
         )));
     }
 
-    let target: darkhold_domain::AccountId = body
-        .folded_into
-        .trim()
-        .parse()
-        .map_err(|_| {
-            ApiError(darkhold_domain::AppError::field(
-                "folded_into",
-                "the account whose contents were folded into",
-            ))
-        })?;
+    let target: darkhold_domain::AccountId = body.folded_into.trim().parse().map_err(|_| {
+        ApiError(darkhold_domain::AppError::field(
+            "folded_into",
+            "the account whose contents were folded into",
+        ))
+    })?;
     if target == account {
         return Err(ApiError(darkhold_domain::AppError::field(
             "folded_into",
@@ -467,9 +465,10 @@ async fn apply_spam_demotion_route(
         .await
         .map_err(|error| internal(error.into()))?;
 
-    let applied = darkhold_db::governance::apply_spam_demotion(state.db(), &account_text, &settings)
-        .await
-        .map_err(|error| internal(error.into()))?;
+    let applied =
+        darkhold_db::governance::apply_spam_demotion(state.db(), &account_text, &settings)
+            .await
+            .map_err(|error| internal(error.into()))?;
 
     let (outcome, after) = match applied {
         Some(level) => ("demoted", level),
@@ -557,4 +556,3 @@ async fn grant_operator_role_route(
         "role": role,
     })))
 }
-

@@ -304,16 +304,20 @@ pub async fn drain_taste_notification_queue(
         RETURNING work_id::text, account_id::text, taste_score",
     );
     let rows: Vec<(String, String, f64)> = match db.backend() {
-        Backend::Sqlite => sqlx::query_as(&sql)
-            .bind(&now)
-            .bind(limit)
-            .fetch_all(db.sqlite_pool().ok_or(pool_err())?)
-            .await?,
-        Backend::Postgres => sqlx::query_as(&sql)
-            .bind(&now)
-            .bind(limit)
-            .fetch_all(db.postgres_pool().ok_or(pool_err())?)
-            .await?,
+        Backend::Sqlite => {
+            sqlx::query_as(&sql)
+                .bind(&now)
+                .bind(limit)
+                .fetch_all(db.sqlite_pool().ok_or(pool_err())?)
+                .await?
+        }
+        Backend::Postgres => {
+            sqlx::query_as(&sql)
+                .bind(&now)
+                .bind(limit)
+                .fetch_all(db.postgres_pool().ok_or(pool_err())?)
+                .await?
+        }
     };
     Ok(rows)
 }

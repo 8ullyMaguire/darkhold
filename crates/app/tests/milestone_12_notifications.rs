@@ -361,7 +361,9 @@ async fn a_notification_without_a_work_has_a_null_work_id() {
 
     // Read it back through the repository's own row type, which is the
     // contract callers see.
-    let rows = list_filtered(h.db(), &account, 10, &[]).await.expect("list");
+    let rows = list_filtered(h.db(), &account, 10, &[])
+        .await
+        .expect("list");
     assert_eq!(rows.len(), 1);
     assert_eq!(
         rows[0].work_id, None,
@@ -403,7 +405,9 @@ async fn a_notification_with_a_work_keeps_its_work_id() {
         .await
         .expect("notify");
 
-    let rows = list_filtered(h.db(), &account, 10, &[]).await.expect("list");
+    let rows = list_filtered(h.db(), &account, 10, &[])
+        .await
+        .expect("list");
     assert_eq!(rows[0].work_id.as_deref(), Some(work.as_str()));
 }
 
@@ -427,7 +431,10 @@ async fn a_disabled_event_writes_nothing_but_still_returns_an_id() {
          every caller discards it today, so this is a hazard not a break"
     );
     assert_eq!(
-        list_filtered(h.db(), &account, 10, &[]).await.expect("list").len(),
+        list_filtered(h.db(), &account, 10, &[])
+            .await
+            .expect("list")
+            .len(),
         0,
         "the returned id addresses nothing"
     );
@@ -586,7 +593,9 @@ async fn a_notification_for_a_missing_work_is_stored_not_rejected() {
 
     assert_eq!(h.count(&account).await, 1);
     assert_eq!(
-        list_filtered(h.db(), &account, 10, &[]).await.expect("list")[0]
+        list_filtered(h.db(), &account, 10, &[])
+            .await
+            .expect("list")[0]
             .work_id
             .as_deref(),
         Some(ghost.as_str()),
@@ -623,7 +632,9 @@ async fn list_returns_only_this_accounts_entries_newest_first() {
         .await;
     }
 
-    let rows = list_filtered(h.db(), &account, 10, &[]).await.expect("list");
+    let rows = list_filtered(h.db(), &account, 10, &[])
+        .await
+        .expect("list");
     let titles: Vec<&str> = rows.iter().map(|r| r.title.as_str()).collect();
     assert_eq!(
         titles,
@@ -642,8 +653,16 @@ async fn list_honours_the_limit() {
             .await
             .expect("notify");
     }
-    let rows = list_filtered(h.db(), &account, 10, &[]).await.expect("list");
-    assert_eq!(list_filtered(h.db(), &account, 2, &[]).await.expect("list").len(), 2);
+    let rows = list_filtered(h.db(), &account, 10, &[])
+        .await
+        .expect("list");
+    assert_eq!(
+        list_filtered(h.db(), &account, 2, &[])
+            .await
+            .expect("list")
+            .len(),
+        2
+    );
     assert_eq!(rows.len(), 5);
 }
 
@@ -652,7 +671,10 @@ async fn list_honours_the_limit() {
 async fn an_empty_inbox_lists_nothing() {
     let h = Harness::new("list-empty").await;
     let account = h.account("empty").await;
-    assert!(list_filtered(h.db(), &account, 10, &[]).await.expect("list").is_empty());
+    assert!(list_filtered(h.db(), &account, 10, &[])
+        .await
+        .expect("list")
+        .is_empty());
 }
 
 /// A limit of zero is an empty page, not "no limit".
@@ -663,7 +685,10 @@ async fn a_limit_of_zero_returns_nothing() {
     notify(h.db(), &account, "system", "a", "b", None)
         .await
         .expect("notify");
-    assert!(list_filtered(h.db(), &account, 0, &[]).await.expect("list").is_empty());
+    assert!(list_filtered(h.db(), &account, 0, &[])
+        .await
+        .expect("list")
+        .is_empty());
 }
 
 /// `unread` mirrors `read_at IS NULL` for every row.
@@ -680,7 +705,9 @@ async fn the_unread_flag_mirrors_read_at() {
     h.exec("UPDATE notifications SET read_at = '2026-01-02T00:00:00Z' WHERE title = 'read one'")
         .await;
 
-    let rows = list_filtered(h.db(), &account, 10, &[]).await.expect("list");
+    let rows = list_filtered(h.db(), &account, 10, &[])
+        .await
+        .expect("list");
     let by_title = |t: &str| rows.iter().find(|r| r.title == t).expect("row");
     assert!(by_title("unread one").unread);
     assert!(!by_title("read one").unread);
@@ -703,8 +730,12 @@ async fn equal_timestamps_break_ties_on_id_descending() {
     ))
     .await;
 
-    let first = list_filtered(h.db(), &account, 10, &[]).await.expect("list");
-    let second = list_filtered(h.db(), &account, 10, &[]).await.expect("list");
+    let first = list_filtered(h.db(), &account, 10, &[])
+        .await
+        .expect("list");
+    let second = list_filtered(h.db(), &account, 10, &[])
+        .await
+        .expect("list");
     let ids: Vec<&str> = first.iter().map(|r| r.id.as_str()).collect();
     let mut sorted = ids.clone();
     sorted.sort();
@@ -922,7 +953,13 @@ async fn the_same_call_with_no_rules_is_the_unfiltered_reading() {
     .await
     .expect("notify");
 
-    assert_eq!(list_filtered(h.db(), &account, 10, &[]).await.expect("list").len(), 1);
+    assert_eq!(
+        list_filtered(h.db(), &account, 10, &[])
+            .await
+            .expect("list")
+            .len(),
+        1
+    );
     assert_eq!(
         list_filtered(h.db(), &account, 10, &hide("blocked"))
             .await
@@ -946,12 +983,19 @@ async fn unread_count_ignores_entries_already_read() {
             .await
             .expect("notify");
     }
-    let id = list_filtered(h.db(), &account, 10, &[]).await.expect("list")[0]
+    let id = list_filtered(h.db(), &account, 10, &[])
+        .await
+        .expect("list")[0]
         .id
         .clone();
     mark_read(h.db(), &account, &id).await.expect("mark_read");
 
-    assert_eq!(unread_count_filtered(h.db(), &account, &[]).await.expect("unread"), 2);
+    assert_eq!(
+        unread_count_filtered(h.db(), &account, &[])
+            .await
+            .expect("unread"),
+        2
+    );
 }
 
 /// The badge is per-account.
@@ -967,8 +1011,18 @@ async fn unread_count_is_scoped_to_the_account() {
         .await
         .expect("notify");
 
-    assert_eq!(unread_count_filtered(h.db(), &mine, &[]).await.expect("unread"), 1);
-    assert_eq!(unread_count_filtered(h.db(), &theirs, &[]).await.expect("unread"), 1);
+    assert_eq!(
+        unread_count_filtered(h.db(), &mine, &[])
+            .await
+            .expect("unread"),
+        1
+    );
+    assert_eq!(
+        unread_count_filtered(h.db(), &theirs, &[])
+            .await
+            .expect("unread"),
+        1
+    );
 }
 
 /// An account with no notifications counts zero.
@@ -976,7 +1030,12 @@ async fn unread_count_is_scoped_to_the_account() {
 async fn an_empty_inbox_counts_zero_unread() {
     let h = Harness::new("unread-empty").await;
     let account = h.account("unreadempty").await;
-    assert_eq!(unread_count_filtered(h.db(), &account, &[]).await.expect("unread"), 0);
+    assert_eq!(
+        unread_count_filtered(h.db(), &account, &[])
+            .await
+            .expect("unread"),
+        0
+    );
 }
 
 /// The filtered count agrees with the filtered list -- the "one-digit door" the
@@ -1020,7 +1079,9 @@ async fn the_filtered_badge_ignores_read_entries() {
     notify(h.db(), &account, "sale", "visible", "b", Some(&ok))
         .await
         .expect("notify");
-    let id = list_filtered(h.db(), &account, 10, &[]).await.expect("list")[0]
+    let id = list_filtered(h.db(), &account, 10, &[])
+        .await
+        .expect("list")[0]
         .id
         .clone();
     mark_read(h.db(), &account, &id).await.expect("mark_read");
@@ -1062,7 +1123,12 @@ async fn the_unfiltered_count_still_counts_a_hidden_work() {
         .await
         .expect("notify");
 
-    assert_eq!(unread_count_filtered(h.db(), &account, &[]).await.expect("unread"), 1);
+    assert_eq!(
+        unread_count_filtered(h.db(), &account, &[])
+            .await
+            .expect("unread"),
+        1
+    );
     assert_eq!(
         unread_count_filtered(h.db(), &account, &hide("blocked"))
             .await
@@ -1111,12 +1177,19 @@ async fn marking_an_entry_read_returns_true_and_clears_the_flag() {
     notify(h.db(), &account, "system", "a", "b", None)
         .await
         .expect("notify");
-    let id = list_filtered(h.db(), &account, 10, &[]).await.expect("list")[0]
+    let id = list_filtered(h.db(), &account, 10, &[])
+        .await
+        .expect("list")[0]
         .id
         .clone();
 
     assert!(mark_read(h.db(), &account, &id).await.expect("mark_read"));
-    assert!(!list_filtered(h.db(), &account, 10, &[]).await.expect("list")[0].unread);
+    assert!(
+        !list_filtered(h.db(), &account, 10, &[])
+            .await
+            .expect("list")[0]
+            .unread
+    );
 }
 
 /// `read_at` is stamped, not left NULL.
@@ -1127,7 +1200,9 @@ async fn marking_read_stamps_read_at() {
     notify(h.db(), &account, "system", "a", "b", None)
         .await
         .expect("notify");
-    let id = list_filtered(h.db(), &account, 10, &[]).await.expect("list")[0]
+    let id = list_filtered(h.db(), &account, 10, &[])
+        .await
+        .expect("list")[0]
         .id
         .clone();
     mark_read(h.db(), &account, &id).await.expect("mark_read");
@@ -1154,7 +1229,9 @@ async fn marking_an_entry_read_twice_returns_false_the_second_time() {
     notify(h.db(), &account, "system", "a", "b", None)
         .await
         .expect("notify");
-    let id = list_filtered(h.db(), &account, 10, &[]).await.expect("list")[0]
+    let id = list_filtered(h.db(), &account, 10, &[])
+        .await
+        .expect("list")[0]
         .id
         .clone();
 
@@ -1174,7 +1251,9 @@ async fn a_second_mark_does_not_restamp_the_first_read_time() {
     notify(h.db(), &account, "system", "a", "b", None)
         .await
         .expect("notify");
-    let id = list_filtered(h.db(), &account, 10, &[]).await.expect("list")[0]
+    let id = list_filtered(h.db(), &account, 10, &[])
+        .await
+        .expect("list")[0]
         .id
         .clone();
 
@@ -1215,7 +1294,9 @@ async fn one_account_cannot_mark_another_accounts_entry_read() {
     notify(h.db(), &theirs, "system", "theirs", "b", None)
         .await
         .expect("notify");
-    let id = list_filtered(h.db(), &theirs, 10, &[]).await.expect("list")[0].id.clone();
+    let id = list_filtered(h.db(), &theirs, 10, &[]).await.expect("list")[0]
+        .id
+        .clone();
 
     assert!(
         !mark_read(h.db(), &mine, &id).await.expect("mark_read"),
@@ -1247,7 +1328,12 @@ async fn mark_all_read_reports_how_many_it_closed() {
             .expect("mark_all_read"),
         3
     );
-    assert_eq!(unread_count_filtered(h.db(), &account, &[]).await.expect("unread"), 0);
+    assert_eq!(
+        unread_count_filtered(h.db(), &account, &[])
+            .await
+            .expect("unread"),
+        0
+    );
 }
 
 /// Already-read entries are not recounted.
@@ -1260,7 +1346,9 @@ async fn mark_all_read_counts_only_what_it_actually_closed() {
             .await
             .expect("notify");
     }
-    let id = list_filtered(h.db(), &account, 10, &[]).await.expect("list")[0]
+    let id = list_filtered(h.db(), &account, 10, &[])
+        .await
+        .expect("list")[0]
         .id
         .clone();
     mark_read(h.db(), &account, &id).await.expect("mark_read");
@@ -1305,7 +1393,9 @@ async fn mark_all_read_leaves_other_accounts_entries_unread() {
         1
     );
     assert_eq!(
-        unread_count_filtered(h.db(), &theirs, &[]).await.expect("unread"),
+        unread_count_filtered(h.db(), &theirs, &[])
+            .await
+            .expect("unread"),
         1,
         "scoped to the caller"
     );
@@ -1341,7 +1431,12 @@ async fn read_all_also_closes_entries_the_reader_has_filtered() {
             .expect("mark_all_read"),
         1
     );
-    assert_eq!(unread_count_filtered(h.db(), &account, &[]).await.expect("unread"), 0);
+    assert_eq!(
+        unread_count_filtered(h.db(), &account, &[])
+            .await
+            .expect("unread"),
+        0
+    );
 }
 
 // ---------------------------------------------------------------------------
@@ -1377,7 +1472,9 @@ async fn titles_and_bodies_round_trip_unchanged() {
         .await
         .expect("notify");
 
-    let rows = list_filtered(h.db(), &account, 10, &[]).await.expect("list");
+    let rows = list_filtered(h.db(), &account, 10, &[])
+        .await
+        .expect("list");
     assert_eq!(rows[0].title, nasty);
     assert_eq!(rows[0].body, nasty);
     assert_eq!(h.count(&account).await, 1, "the table is still there");
@@ -1394,7 +1491,9 @@ async fn the_insert_and_the_selects_agree_on_column_order() {
         .await
         .expect("notify");
 
-    let rows = list_filtered(h.db(), &account, 10, &[]).await.expect("list");
+    let rows = list_filtered(h.db(), &account, 10, &[])
+        .await
+        .expect("list");
     assert_eq!(rows[0].kind, "mention");
     assert_eq!(rows[0].title, "the title");
     assert_eq!(rows[0].body, "the body");

@@ -202,15 +202,9 @@ pub async fn select_vanguards(
     if apply {
         let by = user.account_id.to_string();
         for account in &candidates {
-            roles::grant_vanguard(
-                state.db(),
-                account,
-                &body.method,
-                Some(&by),
-                None,
-            )
-            .await
-            .map_err(|e| ApiError(AppError::Internal(e.into())))?;
+            roles::grant_vanguard(state.db(), account, &body.method, Some(&by), None)
+                .await
+                .map_err(|e| ApiError(AppError::Internal(e.into())))?;
             granted.push(account.clone());
         }
     }

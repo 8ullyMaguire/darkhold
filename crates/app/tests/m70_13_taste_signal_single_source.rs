@@ -25,7 +25,9 @@ fn taste_signal_symbols(dir: &Path) -> Vec<(String, String)> {
     let mut found = Vec::new();
     let mut stack = vec![dir.to_path_buf()];
     while let Some(path) = stack.pop() {
-        let Ok(entries) = fs::read_dir(&path) else { continue };
+        let Ok(entries) = fs::read_dir(&path) else {
+            continue;
+        };
         for entry in entries.flatten() {
             let path = entry.path();
             if path.is_dir() {
@@ -35,7 +37,9 @@ fn taste_signal_symbols(dir: &Path) -> Vec<(String, String)> {
             if path.extension().and_then(|e| e.to_str()) != Some("rs") {
                 continue;
             }
-            let Ok(text) = fs::read_to_string(&path) else { continue };
+            let Ok(text) = fs::read_to_string(&path) else {
+                continue;
+            };
             for line in text.lines() {
                 let line = line.trim_start();
                 let Some(rest) = line
@@ -85,8 +89,7 @@ fn the_gravity_pull_actually_applies_the_signal() {
     // What the M64-09 fix added is not a call, it is an assignment: each candidate's `taste_signal` is set from the reader's
     // shelf before the mixture runs. If that assignment is gone the function is still called, still returns signals, and the
     // page is inert again — so the assignment is what the guard has to look for.
-    let discovery = Path::new(env!("CARGO_MANIFEST_DIR"))
-        .join("src/routes/discovery.rs");
+    let discovery = Path::new(env!("CARGO_MANIFEST_DIR")).join("src/routes/discovery.rs");
     let text = fs::read_to_string(&discovery).expect("the discovery route");
     assert!(
         text.contains("candidate.taste_signal = signals"),

@@ -66,7 +66,9 @@ async fn list_work_anomalies(
         .await
         .map_err(|e| ApiError(darkhold_domain::AppError::Internal(e)))?;
     let items: Vec<Value> = events.iter().map(event_view).collect();
-    Ok(Json(json!({ "work_id": work_id.to_string(), "items": items })))
+    Ok(Json(
+        json!({ "work_id": work_id.to_string(), "items": items }),
+    ))
 }
 
 /// Run burst detection once.
@@ -116,7 +118,9 @@ async fn contest_work(
     rating_integrity::set_work_contested(state.db(), &work_id, reason)
         .await
         .map_err(|e| ApiError(darkhold_domain::AppError::Internal(e)))?;
-    Ok(Json(json!({ "work_id": work_id.to_string(), "contested": true, "reason": reason })))
+    Ok(Json(
+        json!({ "work_id": work_id.to_string(), "contested": true, "reason": reason }),
+    ))
 }
 
 /// Clear a work's contested mark.
@@ -130,7 +134,9 @@ async fn uncontest_work(
     rating_integrity::clear_work_contested(state.db(), &work_id)
         .await
         .map_err(|e| ApiError(darkhold_domain::AppError::Internal(e)))?;
-    Ok(Json(json!({ "work_id": work_id.to_string(), "contested": false })))
+    Ok(Json(
+        json!({ "work_id": work_id.to_string(), "contested": false }),
+    ))
 }
 
 /// The JSON shape one anomaly event has in both listings.

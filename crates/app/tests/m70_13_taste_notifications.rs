@@ -64,7 +64,8 @@ impl Client {
             };
             self.cookies.retain(|(k, _)| k != name.trim());
             if !value.trim().is_empty() {
-                self.cookies.push((name.trim().to_owned(), value.trim().to_owned()));
+                self.cookies
+                    .push((name.trim().to_owned(), value.trim().to_owned()));
             }
         }
     }
@@ -149,7 +150,10 @@ fn config(dir: &std::path::Path, on: bool, operator: Option<String>) -> Config {
     let mut config = Config::development_defaults();
     config.storage.root = dir.to_path_buf();
     if on {
-        config.modules.enabled.push("taste_notifications".to_owned());
+        config
+            .modules
+            .enabled
+            .push("taste_notifications".to_owned());
     }
     if let Some(id) = operator {
         config.administration.operator_account_id = Some(id.parse().expect("account id"));
@@ -213,7 +217,9 @@ async fn queue_rows_for(tdb: &TestDb, work: &str) -> i64 {
 }
 
 async fn publish(client: &mut Client, title: &str) -> String {
-    let (status, body) = client.post("/api/v1/works", json!({ "title": title })).await;
+    let (status, body) = client
+        .post("/api/v1/works", json!({ "title": title }))
+        .await;
     assert_eq!(status, StatusCode::CREATED, "{body}");
     let work = body["id"].as_str().expect("work").to_owned();
     let version = body["version"].as_i64().expect("version");
@@ -374,14 +380,20 @@ async fn a_publish_queues_the_aligned_readers_and_the_drain_puts_them_in_their_i
 
     // 4. Only the operator drains, and the delivery lands in the reader's inbox.
     let (status, body) = author
-        .post("/api/v1/admin/taste-notifications/drain", json!({ "limit": 10 }))
+        .post(
+            "/api/v1/admin/taste-notifications/drain",
+            json!({ "limit": 10 }),
+        )
         .await;
     // 404, not 403: `admin_scope::require_estate_hidden` hides the operator surface from anyone who does not hold the
     // estate claim (ADR 0030). A drain is a send, so "forbidden" would confirm the endpoint exists and the sender does.
     assert_eq!(status, StatusCode::NOT_FOUND, "{body}");
 
     let (status, body) = operator
-        .post("/api/v1/admin/taste-notifications/drain", json!({ "limit": 10 }))
+        .post(
+            "/api/v1/admin/taste-notifications/drain",
+            json!({ "limit": 10 }),
+        )
         .await;
     assert_eq!(status, StatusCode::OK, "{body}");
     assert_eq!(body["drained"], json!(3), "{body}");
@@ -395,11 +407,16 @@ async fn a_publish_queues_the_aligned_readers_and_the_drain_puts_them_in_their_i
         .iter()
         .filter(|item| item["kind"] == json!("taste_suggestion"))
         .collect();
-    assert_eq!(taste.len(), 3, "one inbox row per drained notification: {body}");
+    assert_eq!(
+        taste.len(),
+        3,
+        "one inbox row per drained notification: {body}"
+    );
     assert!(
-        taste
-            .iter()
-            .any(|item| item["title"].as_str().unwrap_or("").contains("Close To Your Taste")),
+        taste.iter().any(|item| item["title"]
+            .as_str()
+            .unwrap_or("")
+            .contains("Close To Your Taste")),
         "the notification names the work it is about: {body}"
     );
 
@@ -407,7 +424,10 @@ async fn a_publish_queues_the_aligned_readers_and_the_drain_puts_them_in_their_i
     let (_, body) = aligned_client.get("/api/v1/me/taste-notifications").await;
     assert_eq!(body["pending"], json!(0), "{body}");
     let (status, body) = operator
-        .post("/api/v1/admin/taste-notifications/drain", json!({ "limit": 10 }))
+        .post(
+            "/api/v1/admin/taste-notifications/drain",
+            json!({ "limit": 10 }),
+        )
         .await;
     assert_eq!(status, StatusCode::OK, "{body}");
     assert_eq!(body["drained"], json!(0), "{body}");

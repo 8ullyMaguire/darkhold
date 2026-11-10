@@ -45,7 +45,13 @@ async fn age_a_guardian_grant_and_a_fold_are_operator_actions_with_reasons() {
     let mut config = base.clone();
     config.administration.operator_account_id = Some(operator_account.parse().expect("account id"));
     let mut operator = TestClient::new(build(&config, &db));
-    sign_in_as(&mut operator, &tdb, "ia-operator@example.test", "iaoperator").await;
+    sign_in_as(
+        &mut operator,
+        &tdb,
+        "ia-operator@example.test",
+        "iaoperator",
+    )
+    .await;
 
     let mut reader = TestClient::new(build(&config, &db));
     register(&mut reader, "ia-reader@example.test", "iareader").await;
@@ -187,7 +193,11 @@ async fn age_a_guardian_grant_and_a_fold_are_operator_actions_with_reasons() {
         .await;
     assert_eq!(status, StatusCode::OK, "{folded}");
     assert_eq!(folded["status"], serde_json::json!("folded"), "{folded}");
-    assert_eq!(folded["folded_into"], serde_json::json!(other_id), "{folded}");
+    assert_eq!(
+        folded["folded_into"],
+        serde_json::json!(other_id),
+        "{folded}"
+    );
 
     // A second fold of the same account, and a fold *into* the tombstone, are both refused: no chains that end nowhere.
     let (status, body) = operator
@@ -217,10 +227,14 @@ async fn age_a_guardian_grant_and_a_fold_are_operator_actions_with_reasons() {
     );
 
     // 5. A trust history is the account's own, or an operator's.
-    let (status, own) = other.get(format!("/api/v1/accounts/{other_id}/trust")).await;
+    let (status, own) = other
+        .get(format!("/api/v1/accounts/{other_id}/trust"))
+        .await;
     assert_eq!(status, StatusCode::OK, "{own}");
     assert_eq!(own["account_id"], serde_json::json!(other_id), "{own}");
-    let (status, body) = other.get(format!("/api/v1/accounts/{reader_id}/trust")).await;
+    let (status, body) = other
+        .get(format!("/api/v1/accounts/{reader_id}/trust"))
+        .await;
     assert_eq!(
         status,
         StatusCode::NOT_FOUND,

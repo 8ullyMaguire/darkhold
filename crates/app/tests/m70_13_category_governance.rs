@@ -64,11 +64,9 @@ async fn the_categories_are_seeded_the_queue_expires_and_the_ceiling_is_a_door_t
 
     // 2. The boot path really calls it. `serve` binds a listener, so no test may boot the real server; the wiring is
     //    asserted against the source, the same way `route_inventory` checks the route table against the routers.
-    let server_source = std::fs::read_to_string(concat!(
-        env!("CARGO_MANIFEST_DIR"),
-        "/src/server.rs"
-    ))
-    .expect("server.rs");
+    let server_source =
+        std::fs::read_to_string(concat!(env!("CARGO_MANIFEST_DIR"), "/src/server.rs"))
+            .expect("server.rs");
     assert!(
         server_source.contains("crate::directory_seed::seed_directory_categories(&state)"),
         "the directory seed must be called from the boot path, or a fresh instance has no categories"
@@ -78,7 +76,8 @@ async fn the_categories_are_seeded_the_queue_expires_and_the_ceiling_is_a_door_t
     let mut operator = TestClient::new(build(&config, &db));
     let operator_account = register(&mut operator, "cg-operator@example.test", "cgoperator").await;
     let mut governed = config.clone();
-    governed.administration.operator_account_id = Some(operator_account.parse().expect("account id"));
+    governed.administration.operator_account_id =
+        Some(operator_account.parse().expect("account id"));
     let mut client = TestClient::new(build(&governed, &db));
     sign_in_as(&mut client, &tdb, "cg-operator@example.test", "cgoperator").await;
 
@@ -153,7 +152,11 @@ async fn the_categories_are_seeded_the_queue_expires_and_the_ceiling_is_a_door_t
         serde_json::json!(7),
         "eight seeded, one deprecated: {state_now}"
     );
-    assert_eq!(state_now["at_ceiling"], serde_json::json!(false), "{state_now}");
+    assert_eq!(
+        state_now["at_ceiling"],
+        serde_json::json!(false),
+        "{state_now}"
+    );
 
     // Push the instance to its ceiling by adding categories directly, then try to propose a create.
     let max = config.directory.governance.max_active_categories as i64;

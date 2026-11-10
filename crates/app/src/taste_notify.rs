@@ -84,7 +84,8 @@ pub async fn queue_aligned_readers(
             outcome.skipped_at_cap += 1;
             continue;
         }
-        engagement::queue_taste_notification(state.db(), work_id, &account_id, 1.0 - distance).await?;
+        engagement::queue_taste_notification(state.db(), work_id, &account_id, 1.0 - distance)
+            .await?;
         outcome.queued += 1;
     }
     Ok(outcome)

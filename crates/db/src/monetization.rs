@@ -943,10 +943,12 @@ pub async fn record_payment_event(
                     .await?
             }
             Backend::Postgres => {
-                sqlx::query_scalar::<_, String>("SELECT id::text FROM payment_events WHERE event_key = $1")
-                    .bind(event_key)
-                    .fetch_one(db.postgres_pool().expect("postgres"))
-                    .await?
+                sqlx::query_scalar::<_, String>(
+                    "SELECT id::text FROM payment_events WHERE event_key = $1",
+                )
+                .bind(event_key)
+                .fetch_one(db.postgres_pool().expect("postgres"))
+                .await?
             }
         };
         return Ok((existing, false));

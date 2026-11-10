@@ -206,7 +206,12 @@ async fn grants_are_listable_without_their_token_and_a_stranger_sees_neither_exp
     // 5. A stranger gets 404 from both doors — the ownership predicate is in the query now, and this is the assertion
     //    that it still refuses.
     let mut stranger = TestClient::new(build(&config, &db));
-    register(&mut stranger, "grants-stranger@example.test", "grantsstranger").await;
+    register(
+        &mut stranger,
+        "grants-stranger@example.test",
+        "grantsstranger",
+    )
+    .await;
     let (status, body) = stranger.get(format!("/api/v1/exports/{export_id}")).await;
     assert_eq!(status, StatusCode::NOT_FOUND, "{body}");
     let (status, body) = stranger

@@ -128,9 +128,7 @@ async fn a_job_is_its_owners_its_units_are_per_paragraph_and_a_publication_needs
         .await;
     assert_eq!(status, StatusCode::OK, "{body}");
 
-    let (status, listed) = owner
-        .get(format!("/api/v1/translations/{job}/units"))
-        .await;
+    let (status, listed) = owner.get(format!("/api/v1/translations/{job}/units")).await;
     assert_eq!(status, StatusCode::OK, "{listed}");
     let units = listed["units"].as_array().expect("units");
     assert_eq!(units.len(), 2, "{listed}");
@@ -149,9 +147,7 @@ async fn a_job_is_its_owners_its_units_are_per_paragraph_and_a_publication_needs
         )
         .await;
     assert_eq!(status, StatusCode::OK, "{body}");
-    let (status, listed) = owner
-        .get(format!("/api/v1/translations/{job}/units"))
-        .await;
+    let (status, listed) = owner.get(format!("/api/v1/translations/{job}/units")).await;
     assert_eq!(status, StatusCode::OK, "{listed}");
     assert_eq!(
         listed["units"].as_array().map(Vec::len),
@@ -189,7 +185,10 @@ async fn a_job_is_its_owners_its_units_are_per_paragraph_and_a_publication_needs
 
     // 5. Publication is refused while the job is in progress.
     let (status, body) = owner
-        .post(format!("/api/v1/translations/{job}/publish"), serde_json::json!({}))
+        .post(
+            format!("/api/v1/translations/{job}/publish"),
+            serde_json::json!({}),
+        )
         .await;
     assert_eq!(status, StatusCode::UNPROCESSABLE_ENTITY, "{body}");
     assert!(
@@ -206,11 +205,16 @@ async fn a_job_is_its_owners_its_units_are_per_paragraph_and_a_publication_needs
     )
     .await;
     let (status, body) = owner
-        .post(format!("/api/v1/translations/{job}/publish"), serde_json::json!({}))
+        .post(
+            format!("/api/v1/translations/{job}/publish"),
+            serde_json::json!({}),
+        )
         .await;
     assert_eq!(status, StatusCode::OK, "{body}");
     assert!(
-        body["publication_id"].as_str().is_some_and(|id| !id.is_empty()),
+        body["publication_id"]
+            .as_str()
+            .is_some_and(|id| !id.is_empty()),
         "a publication row is written: {body}"
     );
     assert_eq!(body["state"], serde_json::json!("published"), "{body}");
@@ -218,7 +222,10 @@ async fn a_job_is_its_owners_its_units_are_per_paragraph_and_a_publication_needs
     assert_eq!(status, StatusCode::OK, "{body}");
     assert_eq!(body["state"], serde_json::json!("published"), "{body}");
     let (status, body) = owner
-        .post(format!("/api/v1/translations/{job}/publish"), serde_json::json!({}))
+        .post(
+            format!("/api/v1/translations/{job}/publish"),
+            serde_json::json!({}),
+        )
         .await;
     assert_eq!(status, StatusCode::UNPROCESSABLE_ENTITY, "{body}");
 

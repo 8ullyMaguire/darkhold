@@ -346,14 +346,17 @@ async fn a_zero_result_search_becomes_demand_and_a_reply_becomes_activity() {
         assert_eq!(body["items"], json!([]), "{body}");
     }
     // 2. A narrowing-only search records nothing.
-    let (status, body) = reader.get(&format!("/api/v1/forum-search?category={category}")).await;
+    let (status, body) = reader
+        .get(&format!("/api/v1/forum-search?category={category}"))
+        .await;
     assert_eq!(status, StatusCode::OK, "{body}");
 
     // 3. The operator reads the list; a stranger gets 404.
     let mut operator = harness.client();
     let (operator_account, _) = register(&mut operator, "m35-op@t.test", "m35op").await;
     let mut operator_config = config_for(&harness.dir);
-    operator_config.administration.operator_account_id = Some(operator_account.parse().expect("id"));
+    operator_config.administration.operator_account_id =
+        Some(operator_account.parse().expect("id"));
     let mut operator = operator.rejoin(server::build_router(AppState::new(
         operator_config,
         harness.tdb.db().clone(),
@@ -362,7 +365,11 @@ async fn a_zero_result_search_becomes_demand_and_a_reply_becomes_activity() {
     let (status, body) = operator.get("/api/v1/supply/unmet-searches").await;
     assert_eq!(status, StatusCode::OK, "{body}");
     let items = body["items"].as_array().expect("items");
-    assert_eq!(items.len(), 1, "one distinct miss, however many times: {body}");
+    assert_eq!(
+        items.len(),
+        1,
+        "one distinct miss, however many times: {body}"
+    );
     assert_eq!(items[0]["query"], json!("unfindable thing"), "{body}");
     assert_eq!(items[0]["count"], json!(2), "{body}");
 
@@ -410,13 +417,10 @@ async fn a_zero_result_search_becomes_demand_and_a_reply_becomes_activity() {
 /// its own rather than importing a fixture across test binaries (which would need a support crate for four lines).
 async fn seed_forum_category(harness: &Harness, name: &str) -> String {
     let id = uuid::Uuid::new_v4().to_string();
-    let sql = harness
-        .tdb
-        .db()
-        .sql(
-            "INSERT INTO forum_categories (id, name, position, min_trust) VALUES (?, ?, 0, 0)",
-            "INSERT INTO forum_categories (id, name, position, min_trust) VALUES ($1, $2, 0, 0)",
-        );
+    let sql = harness.tdb.db().sql(
+        "INSERT INTO forum_categories (id, name, position, min_trust) VALUES (?, ?, 0, 0)",
+        "INSERT INTO forum_categories (id, name, position, min_trust) VALUES ($1, $2, 0, 0)",
+    );
     match harness.tdb.db().backend() {
         darkhold_db::Backend::Sqlite => {
             sqlx::query(&sql)

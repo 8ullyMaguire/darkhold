@@ -174,8 +174,9 @@ async fn views_are_counted_per_viewer_and_timestamp() {
         &work,
         "viewer-a",
         "2026-02-01T00:00:00+00:00",
-        false
-    , "direct")
+        false,
+        "direct"
+    )
     .await
     .unwrap());
     assert!(wm::record_view(
@@ -183,8 +184,9 @@ async fn views_are_counted_per_viewer_and_timestamp() {
         &work,
         "viewer-b",
         "2026-02-01T00:00:00+00:00",
-        false
-    , "direct")
+        false,
+        "direct"
+    )
     .await
     .unwrap());
     assert_eq!(wm::count_views(h.db(), &work).await.unwrap(), 2);
@@ -195,19 +197,31 @@ async fn an_automated_view_is_recorded_but_not_counted() {
     let h = Db::new("views-automated").await;
     let work = h.work().await;
     // The event is kept -- it is evidence -- but it does not inflate the card.
-    assert!(
-        wm::record_view(h.db(), &work, "crawler", "2026-02-01T00:00:00+00:00", true, "direct")
-            .await
-            .unwrap()
-    );
+    assert!(wm::record_view(
+        h.db(),
+        &work,
+        "crawler",
+        "2026-02-01T00:00:00+00:00",
+        true,
+        "direct"
+    )
+    .await
+    .unwrap());
     assert_eq!(
         wm::count_views(h.db(), &work).await.unwrap(),
         0,
         "an automated view is excluded from the count"
     );
-    wm::record_view(h.db(), &work, "reader", "2026-02-01T00:00:00+00:00", false, "direct")
-        .await
-        .unwrap();
+    wm::record_view(
+        h.db(),
+        &work,
+        "reader",
+        "2026-02-01T00:00:00+00:00",
+        false,
+        "direct",
+    )
+    .await
+    .unwrap();
     assert_eq!(wm::count_views(h.db(), &work).await.unwrap(), 1);
 }
 
@@ -216,9 +230,11 @@ async fn the_same_viewer_at_the_same_instant_is_deduplicated() {
     let h = Db::new("views-dup").await;
     let work = h.work().await;
     let at = "2026-02-01T00:00:00+00:00";
-    assert!(wm::record_view(h.db(), &work, "viewer-a", at, false, "direct")
-        .await
-        .unwrap());
+    assert!(
+        wm::record_view(h.db(), &work, "viewer-a", at, false, "direct")
+            .await
+            .unwrap()
+    );
     // The unique key is (work_id, viewer_hash, viewed_at), so a replayed event
     // is refused and `record_view` reports false.
     assert!(
@@ -235,8 +251,9 @@ async fn the_same_viewer_at_the_same_instant_is_deduplicated() {
         &work,
         "viewer-a",
         "2026-02-01T00:05:00+00:00",
-        false
-    , "direct")
+        false,
+        "direct"
+    )
     .await
     .unwrap());
     assert_eq!(wm::count_views(h.db(), &work).await.unwrap(), 2);
@@ -425,9 +442,16 @@ async fn toggling_kudos_keeps_the_materialized_aggregate_in_step() {
 async fn get_metrics_falls_back_to_live_counts_when_no_row_exists() {
     let h = Db::new("fallback").await;
     let work = h.work().await;
-    wm::record_view(h.db(), &work, "reader", "2026-02-01T00:00:00+00:00", false, "direct")
-        .await
-        .unwrap();
+    wm::record_view(
+        h.db(),
+        &work,
+        "reader",
+        "2026-02-01T00:00:00+00:00",
+        false,
+        "direct",
+    )
+    .await
+    .unwrap();
     // No aggregate row has been written, so the read path has to compute it.
     let m = wm::get_metrics(h.db(), &work.parse().expect("uuid"))
         .await
@@ -445,9 +469,16 @@ async fn a_materialized_row_is_preferred_over_a_live_recompute() {
     // A view in the log would make the live count disagree with the cache. The
     // cache is what the card reads, so the disagreement is deliberate and the
     // repair tool is what reconciles it.
-    wm::record_view(h.db(), &work, "reader", "2026-02-01T00:00:00+00:00", false, "direct")
-        .await
-        .unwrap();
+    wm::record_view(
+        h.db(),
+        &work,
+        "reader",
+        "2026-02-01T00:00:00+00:00",
+        false,
+        "direct",
+    )
+    .await
+    .unwrap();
     let m = wm::get_metrics(h.db(), &work.parse().expect("uuid"))
         .await
         .unwrap();
@@ -465,9 +496,16 @@ async fn recompute_and_store_reconciles_the_cache_with_the_sources() {
     let work = h.work().await;
     wm::increment_views(h.db(), &work).await.unwrap();
     wm::increment_views(h.db(), &work).await.unwrap();
-    wm::record_view(h.db(), &work, "reader", "2026-02-01T00:00:00+00:00", false, "direct")
-        .await
-        .unwrap();
+    wm::record_view(
+        h.db(),
+        &work,
+        "reader",
+        "2026-02-01T00:00:00+00:00",
+        false,
+        "direct",
+    )
+    .await
+    .unwrap();
     let repaired = wm::recompute_and_store(h.db(), &work).await.unwrap();
     assert_eq!(
         repaired.views, 1,
@@ -483,9 +521,16 @@ async fn recompute_and_store_reconciles_the_cache_with_the_sources() {
 async fn recomputing_twice_is_idempotent() {
     let h = Db::new("recompute-twice").await;
     let work = h.work().await;
-    wm::record_view(h.db(), &work, "reader", "2026-02-01T00:00:00+00:00", false, "direct")
-        .await
-        .unwrap();
+    wm::record_view(
+        h.db(),
+        &work,
+        "reader",
+        "2026-02-01T00:00:00+00:00",
+        false,
+        "direct",
+    )
+    .await
+    .unwrap();
     let first = wm::recompute_and_store(h.db(), &work).await.unwrap();
     let second = wm::recompute_and_store(h.db(), &work).await.unwrap();
     assert_eq!(first.views, second.views, "recompute does not accumulate");

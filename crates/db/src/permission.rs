@@ -271,18 +271,20 @@ pub async fn exclusion_for(
                 .await?
         }
     };
-    Ok(row.map(|(id, kind, target_id, reason, created_by, created_at)| ExclusionEntry {
-        id,
-        target_type: if kind == "creator" {
-            ExclusionTarget::Creator
-        } else {
-            ExclusionTarget::Work
+    Ok(row.map(
+        |(id, kind, target_id, reason, created_by, created_at)| ExclusionEntry {
+            id,
+            target_type: if kind == "creator" {
+                ExclusionTarget::Creator
+            } else {
+                ExclusionTarget::Work
+            },
+            target_id,
+            reason,
+            created_by,
+            created_at,
         },
-        target_id,
-        reason,
-        created_by,
-        created_at,
-    }))
+    ))
 }
 
 pub async fn insert_exclusion_entry(db: &Database, entry: &ExclusionEntry) -> Result<()> {

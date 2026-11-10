@@ -61,7 +61,11 @@ async fn a_device_is_the_readers_own_and_its_push_subscription_never_comes_back(
         .await;
     assert_eq!(status, StatusCode::OK, "{body}");
     assert_eq!(body["id"], serde_json::json!(device), "{body}");
-    assert_eq!(body["has_push_subscription"], serde_json::json!(true), "{body}");
+    assert_eq!(
+        body["has_push_subscription"],
+        serde_json::json!(true),
+        "{body}"
+    );
 
     // 3. The subscription is a delivery credential, so the list reports its presence and not its value.
     let (status, body) = reader.get("/api/v1/devices").await;
@@ -88,14 +92,20 @@ async fn a_device_is_the_readers_own_and_its_push_subscription_never_comes_back(
     let (_, body) = reader.get("/api/v1/devices").await;
     let devices = body["devices"].as_array().expect("array");
     assert_eq!(devices.len(), 1, "an update is not a second device: {body}");
-    assert_eq!(devices[0]["label"], serde_json::json!("Phone (new)"), "{body}");
+    assert_eq!(
+        devices[0]["label"],
+        serde_json::json!("Phone (new)"),
+        "{body}"
+    );
 
     // 5. Another account cannot see it, cannot delete it, and cannot learn it exists.
     let mut other = TestClient::new(build(&config, &db));
     register(&mut other, "devices-other@example.test", "devicesother").await;
     let (_, body) = other.get("/api/v1/devices").await;
     assert_eq!(body["devices"].as_array().map(Vec::len), Some(0), "{body}");
-    let (status, body) = other.request("DELETE", &format!("/api/v1/devices/{device}"), None).await;
+    let (status, body) = other
+        .request("DELETE", &format!("/api/v1/devices/{device}"), None)
+        .await;
     assert_eq!(status, StatusCode::NOT_FOUND, "{body}");
     let (_, body) = reader.get("/api/v1/devices").await;
     assert_eq!(
@@ -105,7 +115,9 @@ async fn a_device_is_the_readers_own_and_its_push_subscription_never_comes_back(
     );
 
     // 6. The owner deletes it, and it is gone.
-    let (status, body) = reader.request("DELETE", &format!("/api/v1/devices/{device}"), None).await;
+    let (status, body) = reader
+        .request("DELETE", &format!("/api/v1/devices/{device}"), None)
+        .await;
     assert_eq!(status, StatusCode::OK, "{body}");
     let (_, body) = reader.get("/api/v1/devices").await;
     assert_eq!(body["devices"].as_array().map(Vec::len), Some(0), "{body}");

@@ -120,7 +120,8 @@ async fn asking_twice_for_the_same_export_is_one_export() {
     let (status, second) = reader.post("/api/v1/exports", request.clone()).await;
     assert_eq!(status, StatusCode::ACCEPTED, "{second}");
     assert_eq!(
-        second["id"], serde_json::json!(first_id),
+        second["id"],
+        serde_json::json!(first_id),
         "a double click is one export, not two: {second}"
     );
     // Counted through the door rather than by SQL: the reader's own list is the view the claim is about, and it keeps

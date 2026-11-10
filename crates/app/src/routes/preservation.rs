@@ -231,10 +231,14 @@ async fn work_preservation(
             let members = darkhold_db::story_identity::members_of(state.db(), &identity.id)
                 .await
                 .map_err(|error| ApiError(AppError::Internal(error)))?;
-            let (total, external) = darkhold_db::story_identity::member_counts(state.db(), &identity.id)
-                .await
-                .map_err(|error| ApiError(AppError::Internal(error)))?;
-            (members, json!({"total": total, "external": external, "local": total - external}))
+            let (total, external) =
+                darkhold_db::story_identity::member_counts(state.db(), &identity.id)
+                    .await
+                    .map_err(|error| ApiError(AppError::Internal(error)))?;
+            (
+                members,
+                json!({"total": total, "external": external, "local": total - external}),
+            )
         }
         None => (Vec::new(), json!({"total": 0, "external": 0, "local": 0})),
     };

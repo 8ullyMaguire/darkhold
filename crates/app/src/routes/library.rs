@@ -1647,8 +1647,7 @@ async fn reading_status_counts(
     State(state): State<AppState>,
     RequireSession(user): RequireSession,
 ) -> ApiResult<Json<Value>> {
-    let rows =
-        library::reading_status_counts(state.db(), &user.account_id.to_string()).await?;
+    let rows = library::reading_status_counts(state.db(), &user.account_id.to_string()).await?;
     let mut counts = serde_json::Map::new();
     for status in [
         ReadingStatus::WantToRead,
@@ -1700,8 +1699,7 @@ async fn item_shelves(
     RequireSession(user): RequireSession,
     Path(id): Path<String>,
 ) -> ApiResult<Json<Value>> {
-    let shelves =
-        library::shelves_holding(state.db(), &user.account_id.to_string(), &id).await?;
+    let shelves = library::shelves_holding(state.db(), &user.account_id.to_string(), &id).await?;
     Ok(Json(json!({ "library_item_id": id, "shelves": shelves })))
 }
 
@@ -1832,7 +1830,9 @@ async fn next_in_series_shelf(
 ) -> ApiResult<Json<Value>> {
     let now = time::OffsetDateTime::now_utc().unix_timestamp();
     let until = window.until.unwrap_or(now);
-    let since = window.since.unwrap_or(until - SERIES_SHELF_LOOKBACK_SECONDS);
+    let since = window
+        .since
+        .unwrap_or(until - SERIES_SHELF_LOOKBACK_SECONDS);
     // An inverted window is a mistake the caller can see and fix, and answering it with an empty shelf would read as "nothing to
     // read" — a wrong statement about their library. 422 names the field, the same way every other malformed field is answered.
     if since > until {
@@ -1845,9 +1845,14 @@ async fn next_in_series_shelf(
             .collect(),
         }));
     }
-    let entries = darkhold_db::series_recs::next_entries(state.db(), &user.account_id.to_string(), since, until)
-        .await
-        .map_err(ApiError::from)?;
+    let entries = darkhold_db::series_recs::next_entries(
+        state.db(),
+        &user.account_id.to_string(),
+        since,
+        until,
+    )
+    .await
+    .map_err(ApiError::from)?;
     let items: Vec<Value> = entries
         .into_iter()
         .map(|entry| {

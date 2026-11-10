@@ -34,14 +34,19 @@ fn build(config: &Config, db: &Database) -> axum::Router {
 }
 
 async fn a_work(author: &mut TestClient, title: &str) -> String {
-    let (status, body) = author.post("/api/v1/works", json!({ "title": title })).await;
+    let (status, body) = author
+        .post("/api/v1/works", json!({ "title": title }))
+        .await;
     assert_eq!(status, StatusCode::CREATED, "{body}");
     body["id"].as_str().expect("work id").to_owned()
 }
 
 async fn a_node(author: &mut TestClient, canonical: &str) -> String {
     let (status, body) = author
-        .post("/api/v1/taxonomy", json!({ "kind": "tag", "canonical": canonical }))
+        .post(
+            "/api/v1/taxonomy",
+            json!({ "kind": "tag", "canonical": canonical }),
+        )
         .await;
     assert!(status.is_success(), "{body}");
     body["node"]["id"].as_str().expect("node id").to_owned()
@@ -113,14 +118,14 @@ async fn a_reader_can_confirm_a_tag_and_it_starts_moving_gravity() {
         "a flagged tag must stop counting at once"
     );
     let flagged: Option<String> = match db.backend() {
-        darkhold_db::Backend::Sqlite => sqlx::query_scalar(
-            "SELECT flagged_by FROM work_tags WHERE work_id = ? AND node_id = ?",
-        )
-        .bind(&work)
-        .bind(&node)
-        .fetch_one(db.sqlite_pool().expect("sqlite"))
-        .await
-        .expect("flagged_by"),
+        darkhold_db::Backend::Sqlite => {
+            sqlx::query_scalar("SELECT flagged_by FROM work_tags WHERE work_id = ? AND node_id = ?")
+                .bind(&work)
+                .bind(&node)
+                .fetch_one(db.sqlite_pool().expect("sqlite"))
+                .await
+                .expect("flagged_by")
+        }
         darkhold_db::Backend::Postgres => sqlx::query_scalar(
             "SELECT flagged_by FROM work_tags WHERE work_id::text = $1 AND node_id = $2",
         )

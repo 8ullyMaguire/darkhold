@@ -320,7 +320,6 @@ pub async fn mark_checked(
     Ok(())
 }
 
-
 /// The row shape, so `query_as` can build it on both engines.
 #[derive(sqlx::FromRow)]
 struct NoteLinkRow {

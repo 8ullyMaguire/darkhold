@@ -134,7 +134,6 @@ pub async fn notify(
 // shown works they had asked not to see. A twin that is only ever wrong in the direction of the blocklist is not a
 // fallback.
 
-
 /// [`list`], minus the works the reader has content-filtered.
 ///
 /// A notification *with* a `work_id` carries that work's title in `title`, so
@@ -250,7 +249,6 @@ pub async fn unread_count_filtered(
 /// How many entries are still unread.
 // `unread_count` lived here: the same count as `unread_count_filtered` with no rules. The route serves the
 // filtered form, so the twin had no product caller, and the count a reader is shown must be the count they can reach.
-
 
 /// Mark one entry read. Idempotent: an already-read entry returns `false`
 /// rather than erroring, so a double tap or a replayed request is harmless.

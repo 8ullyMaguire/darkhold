@@ -177,9 +177,16 @@ async fn a_rate_ranks_from_the_archives_own_views_and_prefers_evidence() {
     let db = connect("rate").await;
     seed(&db).await;
 
-    let page = metrics::ranked_with_weights(&db, &query(), Metric::LikesPerView, 10, 0, &QualityWeights::default())
-        .await
-        .expect("ranked");
+    let page = metrics::ranked_with_weights(
+        &db,
+        &query(),
+        Metric::LikesPerView,
+        10,
+        0,
+        &QualityWeights::default(),
+    )
+    .await
+    .expect("ranked");
     assert_eq!(page.views_rows, 3, "hits twice and the legacy column once");
     assert_eq!(page.population, 4);
 
@@ -197,9 +204,16 @@ async fn a_rate_ranks_from_the_archives_own_views_and_prefers_evidence() {
     assert_eq!(plain[3], "silent", "no views, so it is unmeasured and last");
 
     // The bound puts `big` ahead of every thin arm: 4.0%, 3.8%, 1.8%.
-    let bounded = metrics::ranked_with_weights(&db, &query(), Metric::Wilson, 10, 0, &QualityWeights::default())
-        .await
-        .expect("ranked");
+    let bounded = metrics::ranked_with_weights(
+        &db,
+        &query(),
+        Metric::Wilson,
+        10,
+        0,
+        &QualityWeights::default(),
+    )
+    .await
+    .expect("ranked");
     let bounded_order: Vec<&str> = bounded
         .items
         .iter()
@@ -243,9 +257,16 @@ async fn a_population_with_no_views_says_so_instead_of_scoring_zeroes() {
         .await;
     }
 
-    let page = metrics::ranked_with_weights(&db, &query(), Metric::LikesPerView, 10, 0, &QualityWeights::default())
-        .await
-        .expect("ranked");
+    let page = metrics::ranked_with_weights(
+        &db,
+        &query(),
+        Metric::LikesPerView,
+        10,
+        0,
+        &QualityWeights::default(),
+    )
+    .await
+    .expect("ranked");
     assert_eq!(page.views_rows, 0, "not one row carries a view count");
     assert_eq!(page.population, 3);
     // And the rows rank at zero rather than being dropped: the refusal belongs to

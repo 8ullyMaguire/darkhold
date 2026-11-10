@@ -889,15 +889,10 @@ pub async fn request(
     // client retrying a 202 it never saw, queued a second job rendering the same file — spec §10.1's "one job, one
     // artifact" broken by a double click. The identity is (subject, format): two formats are two different files, and
     // a finished export is not open, so asking again after completion still produces a fresh one.
-    if let Some(existing) = repo::find_open_export(
-        db,
-        account_id,
-        subject_type,
-        subject_id,
-        format.as_str(),
-    )
-    .await
-    .map_err(transient)?
+    if let Some(existing) =
+        repo::find_open_export(db, account_id, subject_type, subject_id, format.as_str())
+            .await
+            .map_err(transient)?
     {
         tracing::debug!(export = %existing.id, "returning the export already queued for this subject and format");
         return Ok(existing);

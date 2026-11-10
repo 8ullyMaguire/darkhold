@@ -38,13 +38,16 @@ fn config_with(eligibility: &str) -> Config {
     config.rate_limits.write.burst = config.rate_limits.write.burst.saturating_mul(10);
     config.rate_limits.write.per_minute = config.rate_limits.write.per_minute.saturating_mul(10);
     config.rate_limits.default.burst = config.rate_limits.default.burst.saturating_mul(10);
-    config.rate_limits.default.per_minute = config.rate_limits.default.per_minute.saturating_mul(10);
+    config.rate_limits.default.per_minute =
+        config.rate_limits.default.per_minute.saturating_mul(10);
     config
 }
 
 /// A published work, owned by `author`.
 async fn published_work(author: &mut TestClient, title: &str) -> String {
-    let (status, body) = author.post("/api/v1/works", json!({ "title": title })).await;
+    let (status, body) = author
+        .post("/api/v1/works", json!({ "title": title }))
+        .await;
     assert_eq!(status, StatusCode::CREATED, "{body}");
     let work = body["id"].as_str().expect("work").to_owned();
     let version = body["version"].as_i64().expect("version");
@@ -102,14 +105,24 @@ async fn an_original_instance_will_not_price_a_fanwork_assertion() {
     sign_in_as(&mut author, &tdb, "as-author@example.test", "asauthor").await;
     let mut stranger = TestClient::new(build(&config, &db));
     register(&mut stranger, "as-stranger@example.test", "asstranger").await;
-    sign_in_as(&mut stranger, &tdb, "as-stranger@example.test", "asstranger").await;
+    sign_in_as(
+        &mut stranger,
+        &tdb,
+        "as-stranger@example.test",
+        "asstranger",
+    )
+    .await;
 
     let work = published_work(&mut author, "A Work To Price").await;
 
     // 1. A work nobody has asserted anything about cannot be priced, and the refusal names the field a client must set.
     let (status, body) = price(&mut author, &work).await;
     assert_eq!(status, StatusCode::UNPROCESSABLE_ENTITY, "{body}");
-    assert_eq!(body["error"]["field_errors"]["assertion"].is_string(), true, "{body}");
+    assert_eq!(
+        body["error"]["field_errors"]["assertion"].is_string(),
+        true,
+        "{body}"
+    );
     assert!(
         body["error"]["field_errors"]["assertion"]
             .as_str()
@@ -119,7 +132,9 @@ async fn an_original_instance_will_not_price_a_fanwork_assertion() {
     );
 
     // 2. Nobody has asserted, and the public read says so rather than 404-ing.
-    let (status, body) = stranger.get(format!("/api/v1/works/{work}/assertion")).await;
+    let (status, body) = stranger
+        .get(format!("/api/v1/works/{work}/assertion"))
+        .await;
     assert_eq!(status, StatusCode::OK, "{body}");
     assert_eq!(body["asserted"], json!(false), "{body}");
     assert_eq!(body["kind"], Value::Null, "{body}");
@@ -141,7 +156,11 @@ async fn an_original_instance_will_not_price_a_fanwork_assertion() {
         )
         .await;
     assert_eq!(status, StatusCode::UNPROCESSABLE_ENTITY, "{body}");
-    assert_eq!(body["error"]["field_errors"]["kind"].is_string(), true, "{body}");
+    assert_eq!(
+        body["error"]["field_errors"]["kind"].is_string(),
+        true,
+        "{body}"
+    );
 
     // 5. **The mode distinction.** A `rights-held` assertion is stored, readable, and still not enough on an `original`
     //    instance — which is the whole of what §20.9.1's stricter mode is for.
@@ -154,7 +173,10 @@ async fn an_original_instance_will_not_price_a_fanwork_assertion() {
     assert_eq!(status, StatusCode::OK, "{body}");
     assert_eq!(body["kind"], json!("rights-held"), "{body}");
     assert!(
-        body["policy_version"].as_str().unwrap_or_default().contains("monetization"),
+        body["policy_version"]
+            .as_str()
+            .unwrap_or_default()
+            .contains("monetization"),
         "the server owns the policy version it stored: {body}"
     );
     let (status, body) = price(&mut author, &work).await;
@@ -172,7 +194,9 @@ async fn an_original_instance_will_not_price_a_fanwork_assertion() {
         )
         .await;
     assert_eq!(status, StatusCode::OK, "{body}");
-    let (status, body) = stranger.get(format!("/api/v1/works/{work}/assertion")).await;
+    let (status, body) = stranger
+        .get(format!("/api/v1/works/{work}/assertion"))
+        .await;
     assert_eq!(status, StatusCode::OK, "{body}");
     assert_eq!(body["asserted"], json!(true), "{body}");
     let (status, body) = price(&mut author, &work).await;
@@ -182,7 +206,9 @@ async fn an_original_instance_will_not_price_a_fanwork_assertion() {
     let mut buyer = TestClient::new(build(&config, &db));
     register(&mut buyer, "as-buyer@example.test", "asbuyer").await;
     sign_in_as(&mut buyer, &tdb, "as-buyer@example.test", "asbuyer").await;
-    let (status, body) = buyer.post(&format!("/api/v1/works/{work}/purchase"), json!({})).await;
+    let (status, body) = buyer
+        .post(&format!("/api/v1/works/{work}/purchase"), json!({}))
+        .await;
     assert!(status.is_success(), "{body}");
 
     // 8. Widening the setting to `any-with-assertion` accepts the `rights-held` claim that the strict mode refused.
@@ -198,14 +224,23 @@ async fn an_original_instance_will_not_price_a_fanwork_assertion() {
         .await;
     assert_eq!(status, StatusCode::OK, "{body}");
     let (status, body) = price(&mut wide_author, &fanwork).await;
-    assert!(status.is_success(), "rights-held satisfies any-with-assertion: {body}");
+    assert!(
+        status.is_success(),
+        "rights-held satisfies any-with-assertion: {body}"
+    );
 
     // 9. **A price set under a looser setting does not inherit permission from it.** The fanwork was priced while the
     //    instance accepted `rights-held`; a sale asked under `original` must refuse, or the stricter setting would only
     //    apply to works priced after it was switched on.
     let mut strict_buyer = TestClient::new(build(&config, &db));
     register(&mut strict_buyer, "as-strict@example.test", "asstrict").await;
-    sign_in_as(&mut strict_buyer, &tdb, "as-strict@example.test", "asstrict").await;
+    sign_in_as(
+        &mut strict_buyer,
+        &tdb,
+        "as-strict@example.test",
+        "asstrict",
+    )
+    .await;
     let (status, body) = strict_buyer
         .post(&format!("/api/v1/works/{fanwork}/purchase"), json!({}))
         .await;
@@ -214,7 +249,11 @@ async fn an_original_instance_will_not_price_a_fanwork_assertion() {
         StatusCode::UNPROCESSABLE_ENTITY,
         "the sale asks the same question the price was asked: {body}"
     );
-    assert_eq!(body["error"]["field_errors"]["work_id"].is_string(), true, "{body}");
+    assert_eq!(
+        body["error"]["field_errors"]["work_id"].is_string(),
+        true,
+        "{body}"
+    );
 
     // 10. `disabled` sells nothing, and says so on the field that selects what is sold — credit tips are still allowed and
     //    are not this door's question.
@@ -228,8 +267,16 @@ async fn an_original_instance_will_not_price_a_fanwork_assertion() {
             json!({ "kind": "original" }),
         )
         .await;
-    assert_eq!(status, StatusCode::OK, "an assertion is still recordable: {body}");
+    assert_eq!(
+        status,
+        StatusCode::OK,
+        "an assertion is still recordable: {body}"
+    );
     let (status, body) = price(&mut off_author, &unsold).await;
     assert_eq!(status, StatusCode::UNPROCESSABLE_ENTITY, "{body}");
-    assert_eq!(body["error"]["field_errors"]["model"].is_string(), true, "{body}");
+    assert_eq!(
+        body["error"]["field_errors"]["model"].is_string(),
+        true,
+        "{body}"
+    );
 }

@@ -36,14 +36,19 @@ fn build(config: &Config, db: &Database) -> axum::Router {
 }
 
 async fn a_work(author: &mut TestClient, title: &str) -> String {
-    let (status, body) = author.post("/api/v1/works", json!({ "title": title })).await;
+    let (status, body) = author
+        .post("/api/v1/works", json!({ "title": title }))
+        .await;
     assert_eq!(status, StatusCode::CREATED, "{body}");
     body["id"].as_str().expect("work id").to_owned()
 }
 
 async fn a_node(author: &mut TestClient, canonical: &str) -> String {
     let (status, body) = author
-        .post("/api/v1/taxonomy", json!({ "kind": "tag", "canonical": canonical }))
+        .post(
+            "/api/v1/taxonomy",
+            json!({ "kind": "tag", "canonical": canonical }),
+        )
         .await;
     assert!(status.is_success(), "{body}");
     body["node"]["id"].as_str().expect("node id").to_owned()
@@ -118,7 +123,11 @@ async fn a_reader_can_say_a_tag_is_right_and_the_confidence_moves() {
     //    agrees — (1 + 1) / (1 + 1).
     let (status, body) = a.request("PUT", &vote, Some(json!({ "vote": 0 }))).await;
     assert_eq!(status, StatusCode::OK, "{body}");
-    assert_eq!(body["vote"], json!(null), "a withdrawn vote is no vote: {body}");
+    assert_eq!(
+        body["vote"],
+        json!(null),
+        "a withdrawn vote is no vote: {body}"
+    );
     let (_, body) = a.get(&vote).await;
     assert_eq!(body["vote"], json!(null), "{body}");
     assert!(

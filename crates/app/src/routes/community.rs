@@ -721,11 +721,14 @@ async fn get_group(
     // Whether the viewer may manage this group is a fact about the viewer, and a client that has to guess it either shows
     // buttons that 403 or hides ones that would have worked. `null` means "not a member", which is not the same as "no
     // permission to look": the group is readable to any signed-in reader.
-    let viewer_role = darkhold_db::community::member_role(state.db(), &id, &user.account_id.to_string())
-        .await
-        .map_err(|e| ApiError(darkhold_domain::AppError::Internal(e)))?;
+    let viewer_role =
+        darkhold_db::community::member_role(state.db(), &id, &user.account_id.to_string())
+            .await
+            .map_err(|e| ApiError(darkhold_domain::AppError::Internal(e)))?;
     match group {
-        Some(g) => Ok(Json(serde_json::json!({ "group": g, "viewer_role": viewer_role }))),
+        Some(g) => Ok(Json(
+            serde_json::json!({ "group": g, "viewer_role": viewer_role }),
+        )),
         None => Err(ApiError(darkhold_domain::AppError::NotFound {
             resource: "group",
         })),
@@ -1435,12 +1438,8 @@ async fn forum_search(
         let mut hasher = sha2::Sha256::new();
         hasher.update(normalized.as_bytes());
         let hash = format!("{:x}", hasher.finalize());
-        if let Err(error) = darkhold_db::moderation::record_search_miss(
-            state.db(),
-            &hash,
-            params.q.trim(),
-        )
-        .await
+        if let Err(error) =
+            darkhold_db::moderation::record_search_miss(state.db(), &hash, params.q.trim()).await
         {
             // Best-effort: a search that found nothing is still a search that ran.
             tracing::warn!(%error, "could not record a zero-result forum search");

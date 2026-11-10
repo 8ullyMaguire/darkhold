@@ -9,8 +9,8 @@ use crate::state::AppState;
 use axum::extract::{Path, Query, State};
 use axum::routing::{get, post, put};
 use axum::{Json, Router};
-use darkhold_db::taxonomy::{self, TagAssertion, TagRole, TagSource};
 use darkhold_db::tag_confirmation::TagConfirmation;
+use darkhold_db::taxonomy::{self, TagAssertion, TagRole, TagSource};
 use darkhold_db::{collaboration, media_resilience};
 use darkhold_domain::WorkId;
 use serde::Deserialize;
@@ -103,14 +103,16 @@ async fn set_entity_parent(
             "closure": "pending_maintenance",
         }))),
         Err(darkhold_db::entity_closure::ParentError::Unknown(which)) => {
-            Err(ApiError(darkhold_domain::AppError::NotFound { resource: which }))
+            Err(ApiError(darkhold_domain::AppError::NotFound {
+                resource: which,
+            }))
         }
-        Err(darkhold_db::entity_closure::ParentError::NotBrowsable(which)) => Err(ApiError(
-            darkhold_domain::AppError::field(
+        Err(darkhold_db::entity_closure::ParentError::NotBrowsable(which)) => {
+            Err(ApiError(darkhold_domain::AppError::field(
                 "parent_id",
                 format!("the {which} is below the floor, so it is not a node in the tree"),
-            ),
-        )),
+            )))
+        }
         Err(darkhold_db::entity_closure::ParentError::SelfParent) => Err(ApiError(
             darkhold_domain::AppError::field("parent_id", "a node cannot be its own parent"),
         )),
@@ -196,7 +198,9 @@ async fn set_tag_confirmation(
     .await
     .map_err(|e| ApiError(darkhold_domain::AppError::Internal(e)))?;
     if !applied {
-        return Err(ApiError(darkhold_domain::AppError::NotFound { resource: "tag" }));
+        return Err(ApiError(darkhold_domain::AppError::NotFound {
+            resource: "tag",
+        }));
     }
 
     Ok(Json(serde_json::json!({

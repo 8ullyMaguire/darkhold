@@ -75,8 +75,10 @@ pub struct RecordedBurst {
 /// one malformed row must not cost the other works their turn, the same rule the discovery pass keeps.
 pub async fn detect_bursts(state: &AppState) -> anyhow::Result<BurstReport> {
     let now = Utc::now();
-    let window_start = (now - Duration::hours(WINDOW_HOURS)).to_rfc3339_opts(chrono::SecondsFormat::Secs, true);
-    let account_cutoff = (now - Duration::days(FRESH_ACCOUNT_DAYS)).to_rfc3339_opts(chrono::SecondsFormat::Secs, true);
+    let window_start =
+        (now - Duration::hours(WINDOW_HOURS)).to_rfc3339_opts(chrono::SecondsFormat::Secs, true);
+    let account_cutoff = (now - Duration::days(FRESH_ACCOUNT_DAYS))
+        .to_rfc3339_opts(chrono::SecondsFormat::Secs, true);
 
     let bursts = rating_integrity::works_with_fresh_account_rating_bursts(
         state.db(),

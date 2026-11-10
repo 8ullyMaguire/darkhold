@@ -24,10 +24,10 @@
 //! | the two engines agree | `both_engines_report_the_same_coordinates` |
 
 use darkhold_db::work_coordinates as wc;
+use darkhold_db::Database;
 use darkhold_domain::coordinates::{
     Coordinates, Corpus, UnitText, Unmeasurable, WorkCoordinates, MIN_MEASURABLE_WORDS,
 };
-use darkhold_db::Database;
 use test_support::{id, scratch_dir, TestDb};
 
 /// A measurable corpus: `units` units of `words` words each.
@@ -138,10 +138,7 @@ async fn an_unmeasurable_work_is_absent_not_zero() {
 
     // The read that hands out coordinates must return None, NOT a zeroed struct.
     assert!(
-        read_measured(db.db(), &work)
-            .await
-            .expect("read")
-            .is_none(),
+        read_measured(db.db(), &work).await.expect("read").is_none(),
         "an unmeasurable work must read as absent; a zeroed coordinate would mean \\
          'uniformly flat prose' and would rank against short-but-sharp works (§49.3)"
     );
@@ -456,10 +453,7 @@ async fn a_work_with_no_units_gets_no_coordinates_at_all() {
         "a work with no units must produce no coordinates, got {outcome:?}"
     );
     assert!(
-        read_measured(db.db(), &work)
-            .await
-            .expect("read")
-            .is_none(),
+        read_measured(db.db(), &work).await.expect("read").is_none(),
         "and nothing may be stored for it either"
     );
 
@@ -512,10 +506,7 @@ async fn a_cleared_work_is_absent_rather_than_stale() {
     .await
     .expect("store");
     assert!(
-        read_measured(db.db(), &work)
-            .await
-            .expect("read")
-            .is_some(),
+        read_measured(db.db(), &work).await.expect("read").is_some(),
         "the fixture must actually be measured before the clear"
     );
 
@@ -524,10 +515,7 @@ async fn a_cleared_work_is_absent_rather_than_stale() {
         "clearing an existing row must report that it removed one"
     );
     assert!(
-        read_measured(db.db(), &work)
-            .await
-            .expect("read")
-            .is_none(),
+        read_measured(db.db(), &work).await.expect("read").is_none(),
         "a cleared work must read as absent; a stale coordinate is worse than none"
     );
     assert!(

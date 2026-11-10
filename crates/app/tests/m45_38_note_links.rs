@@ -553,7 +553,9 @@ async fn the_monitor_sees_superseded_links_alongside_live_ones_and_sweeps_its_ow
         )
         .await;
     assert_eq!(status, StatusCode::OK, "{body}");
-    let first_version = body["version"].as_i64().expect("unit version after the first save");
+    let first_version = body["version"]
+        .as_i64()
+        .expect("unit version after the first save");
 
     let (status, body) = author
         .post(
@@ -624,7 +626,9 @@ async fn the_monitor_sees_superseded_links_alongside_live_ones_and_sweeps_its_ow
 
     // The monitor's list still holds both, and says which is which.
     let (status, body) = author
-        .get(&format!("/api/v1/works/{work}/note-links?include=superseded"))
+        .get(&format!(
+            "/api/v1/works/{work}/note-links?include=superseded"
+        ))
         .await;
     assert_eq!(status, StatusCode::OK, "{body}");
     assert_eq!(
@@ -686,7 +690,9 @@ async fn the_monitor_sees_superseded_links_alongside_live_ones_and_sweeps_its_ow
 
     // The rows now carry the check, which is what proves the queue was drained and not just counted.
     let (status, body) = author
-        .get(&format!("/api/v1/works/{work}/note-links?include=superseded"))
+        .get(&format!(
+            "/api/v1/works/{work}/note-links?include=superseded"
+        ))
         .await;
     assert_eq!(status, StatusCode::OK, "{body}");
     assert_eq!(body["dead"].as_u64(), Some(2), "{body}");

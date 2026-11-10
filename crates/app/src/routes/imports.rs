@@ -91,10 +91,7 @@ pub fn router() -> Router<AppState> {
             axum::routing::delete(delete_credential),
         )
         .route("/source-credentials/{id}/test", post(test_credential))
-        .route(
-            "/source-credentials/{id}/events",
-            get(credential_events),
-        )
+        .route("/source-credentials/{id}/events", get(credential_events))
 }
 
 /// The operator surface for the source catalogue.
@@ -2526,7 +2523,11 @@ async fn credential_events(
     let owned = imports::get_source_credential(state.db(), &id)
         .await?
         .filter(|row| row.pseud_id == pseud_id.to_string())
-        .ok_or_else(|| ApiError(AppError::NotFound { resource: "credential" }))?;
+        .ok_or_else(|| {
+            ApiError(AppError::NotFound {
+                resource: "credential",
+            })
+        })?;
     let events = imports::list_credential_events(state.db(), &owned.id).await?;
     Ok(Json(serde_json::json!({
         "credential_id": owned.id,

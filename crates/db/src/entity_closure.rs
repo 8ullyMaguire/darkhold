@@ -189,7 +189,9 @@ impl std::fmt::Display for ParentError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             Self::Unknown(which) => write!(f, "no such {which}"),
-            Self::NotBrowsable(which) => write!(f, "the {which} is below the floor, so it is not a node"),
+            Self::NotBrowsable(which) => {
+                write!(f, "the {which} is below the floor, so it is not a node")
+            }
             Self::SelfParent => write!(f, "a node cannot be its own parent"),
             Self::Cycle => write!(f, "that edge would close a cycle"),
             Self::Db(error) => write!(f, "{error}"),
@@ -225,7 +227,9 @@ pub async fn set_parent(
     actor: &str,
 ) -> Result<(), ParentError> {
     // 1. Both ends must be entities, and both must be nodes in the tree.
-    let (child_state, child_parent) = node_state_of(db, child_id).await?.ok_or(ParentError::Unknown("node"))?;
+    let (child_state, child_parent) = node_state_of(db, child_id)
+        .await?
+        .ok_or(ParentError::Unknown("node"))?;
     if child_state != "browsable" {
         return Err(ParentError::NotBrowsable("node"));
     }
@@ -287,16 +291,21 @@ pub async fn set_parent(
 }
 
 /// `(node_state, parent_id)` for one entity, or `None` when the id is not an entity.
-async fn node_state_of(db: &Database, id: &str) -> Result<Option<(String, Option<String>)>, sqlx::Error> {
+async fn node_state_of(
+    db: &Database,
+    id: &str,
+) -> Result<Option<(String, Option<String>)>, sqlx::Error> {
     let sql = db.sql(
         "SELECT node_state, parent_id FROM canonical_entities WHERE id = ?",
         "SELECT node_state, parent_id FROM canonical_entities WHERE id = $1",
     );
     match db.backend() {
-        Backend::Sqlite => sqlx::query_as(&sql)
-            .bind(id)
-            .fetch_optional(db.sqlite_pool().expect("sqlite handle"))
-            .await,
+        Backend::Sqlite => {
+            sqlx::query_as(&sql)
+                .bind(id)
+                .fetch_optional(db.sqlite_pool().expect("sqlite handle"))
+                .await
+        }
         Backend::Postgres => {
             sqlx::query_as::<_, (String, Option<String>)>(&sql)
                 .bind(id)

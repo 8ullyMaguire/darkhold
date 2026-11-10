@@ -767,8 +767,7 @@ async fn get_quote_consent(
     RequirePseud { pseud_id, .. }: RequirePseud,
     Path(id): Path<String>,
 ) -> ApiResult<Json<QuoteConsentView>> {
-    let (work_id, review_id, allow_quote) =
-        own_review_consent(&state, pseud_id, &id).await?;
+    let (work_id, review_id, allow_quote) = own_review_consent(&state, pseud_id, &id).await?;
     Ok(Json(QuoteConsentView {
         review_id,
         work_id: work_id.to_string(),
@@ -791,10 +790,10 @@ async fn put_quote_consent(
     let (work_id, review_id, _) = own_review_consent(&state, pseud_id, &id).await?;
     // `false` here means the row vanished between the read and the write — the erasure of a note in flight. Reporting success
     // would promise a setting that does not exist.
-    if !darkhold_db::rec_blurbs::set_quote_consent(state.db(), &review_id, request.allow_quote).await? {
-        return Err(ApiError(AppError::NotFound {
-            resource: "review",
-        }));
+    if !darkhold_db::rec_blurbs::set_quote_consent(state.db(), &review_id, request.allow_quote)
+        .await?
+    {
+        return Err(ApiError(AppError::NotFound { resource: "review" }));
     }
     Ok(Json(QuoteConsentView {
         review_id,
@@ -823,16 +822,12 @@ async fn own_review_consent(
         .map_err(|_| ApiError(AppError::NotFound { resource: "work" }))?;
     let review = reading::review_for(state.db(), pseud_id, work_id)
         .await?
-        .ok_or_else(|| ApiError(AppError::NotFound {
-            resource: "review",
-        }))?;
+        .ok_or_else(|| ApiError(AppError::NotFound { resource: "review" }))?;
     // `quote_consent` reports `None` for a row that no longer exists; treated as the same `404` as "you have not written one",
     // because a client cannot act on the difference and the second answer would confirm a deleted note's history.
     let allow_quote = darkhold_db::rec_blurbs::quote_consent(state.db(), &review.id)
         .await?
-        .ok_or_else(|| ApiError(AppError::NotFound {
-            resource: "review",
-        }))?;
+        .ok_or_else(|| ApiError(AppError::NotFound { resource: "review" }))?;
     Ok((work_id, review.id, allow_quote))
 }
 
@@ -969,7 +964,9 @@ async fn upsert_review(
     // row with no `review_classifications` entry — the join's `(c.outcome IS NULL OR c.outcome = 'delivered')` treats that as visible —
     // and a held review was counted in the very signal that exists to describe what readers can see. The measurement that caught it:
     // a hostile review held by the gate still moved the value to 500.
-    if let Err(error) = darkhold_db::media::recompute_reader_positivity(state.db(), &work_id.to_string()).await {
+    if let Err(error) =
+        darkhold_db::media::recompute_reader_positivity(state.db(), &work_id.to_string()).await
+    {
         tracing::warn!(%error, "reader_positivity could not be recomputed");
     }
 
@@ -992,7 +989,9 @@ async fn delete_review(
     reading::delete_review(state.db(), pseud_id, work_id).await?;
     // The deletion changes which reviews a reader can see, so the signal changes with it — including back to *absent* when this was
     // the last visible review.
-    if let Err(error) = darkhold_db::media::recompute_reader_positivity(state.db(), &work_id.to_string()).await {
+    if let Err(error) =
+        darkhold_db::media::recompute_reader_positivity(state.db(), &work_id.to_string()).await
+    {
         tracing::warn!(%error, "reader_positivity could not be recomputed after a deletion");
     }
     Ok(StatusCode::NO_CONTENT)

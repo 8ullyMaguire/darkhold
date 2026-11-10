@@ -28,7 +28,12 @@ async fn uphold_spam_reports(db: &Database, account: &str, count: i64) {
     let now = darkhold_db::identity::now_rfc3339();
     for i in 0..count {
         let report = format!("rpt-{account}-{i}");
-        let (a, b, c, d) = (report.clone(), account.to_string(), now.clone(), now.clone());
+        let (a, b, c, d) = (
+            report.clone(),
+            account.to_string(),
+            now.clone(),
+            now.clone(),
+        );
         let sql = db.sql(
             "INSERT INTO reports (id, subject_type, subject_id, reporter, reason, created_at, state, resolution)
              VALUES (?, 'account', ?, 'moderator', 'spam', ?, 'resolved', 'upheld')",
@@ -99,7 +104,9 @@ async fn uphold_spam_reports(db: &Database, account: &str, count: i64) {
 }
 
 async fn trust_of(client: &mut TestClient, account: &str) -> i64 {
-    let (status, facts) = client.get(format!("/api/v1/admin/accounts/{account}/facts")).await;
+    let (status, facts) = client
+        .get(format!("/api/v1/admin/accounts/{account}/facts"))
+        .await;
     assert_eq!(status, StatusCode::OK, "{facts}");
     facts["trust_level"].as_i64().expect("trust level")
 }
@@ -116,7 +123,13 @@ async fn standing_is_given_by_a_door_and_read_where_it_is_enforced() {
     let mut config = base.clone();
     config.administration.operator_account_id = Some(operator_account.parse().expect("account id"));
     let mut operator = TestClient::new(build(&config, &db));
-    sign_in_as(&mut operator, &tdb, "tr-operator@example.test", "troperator").await;
+    sign_in_as(
+        &mut operator,
+        &tdb,
+        "tr-operator@example.test",
+        "troperator",
+    )
+    .await;
 
     let mut author = TestClient::new(build(&config, &db));
     let subject = register(&mut author, "tr-subject@example.test", "trsubject").await;
@@ -131,7 +144,11 @@ async fn standing_is_given_by_a_door_and_read_where_it_is_enforced() {
         )
         .await;
     assert_eq!(status, StatusCode::UNPROCESSABLE_ENTITY, "{body}");
-    assert_eq!(body["error"]["field_errors"]["level"].is_string(), true, "{body}");
+    assert_eq!(
+        body["error"]["field_errors"]["level"].is_string(),
+        true,
+        "{body}"
+    );
 
     // 2. A trust change with no reason is refused by name: it is a decision in the one log that cannot be edited.
     let (status, body) = operator
@@ -141,7 +158,11 @@ async fn standing_is_given_by_a_door_and_read_where_it_is_enforced() {
         )
         .await;
     assert_eq!(status, StatusCode::UNPROCESSABLE_ENTITY, "{body}");
-    assert_eq!(body["error"]["field_errors"]["reason"].is_string(), true, "{body}");
+    assert_eq!(
+        body["error"]["field_errors"]["reason"].is_string(),
+        true,
+        "{body}"
+    );
 
     // 3. With both, the level moves — and the door reports the name from the ladder, so an operator sees "trusted" rather
     //    than an integer they have to look up.
@@ -157,7 +178,11 @@ async fn standing_is_given_by_a_door_and_read_where_it_is_enforced() {
     assert_eq!(body["previous_level"], json!(before), "{body}");
     let name = body["level_name"].as_str().expect("ladder name").to_owned();
     assert!(!name.is_empty(), "{body}");
-    assert_eq!(trust_of(&mut operator, &subject).await, 5, "the write landed");
+    assert_eq!(
+        trust_of(&mut operator, &subject).await,
+        5,
+        "the write landed"
+    );
 
     // 4. Spam demotion with no upheld reports changes nothing and says *which* nothing: not enough evidence is a state an
     //    operator can act on, unlike a bare "no change".
@@ -168,7 +193,11 @@ async fn standing_is_given_by_a_door_and_read_where_it_is_enforced() {
         )
         .await;
     assert_eq!(status, StatusCode::OK, "{body}");
-    assert_eq!(body["outcome"], json!("not_enough_confirmed_reports"), "{body}");
+    assert_eq!(
+        body["outcome"],
+        json!("not_enough_confirmed_reports"),
+        "{body}"
+    );
     assert_eq!(body["confirmed_reports"], json!(0), "{body}");
     assert_eq!(body["level_after"], json!(5), "{body}");
     assert_eq!(trust_of(&mut operator, &subject).await, 5, "nothing moved");
@@ -186,7 +215,11 @@ async fn standing_is_given_by_a_door_and_read_where_it_is_enforced() {
     assert_eq!(body["confirmed_reports"], json!(3), "{body}");
     assert_eq!(body["level_before"], json!(5), "{body}");
     assert_eq!(body["level_after"], json!(4), "{body}");
-    assert_eq!(trust_of(&mut operator, &subject).await, 4, "the demotion landed");
+    assert_eq!(
+        trust_of(&mut operator, &subject).await,
+        4,
+        "the demotion landed"
+    );
 
     // 6. The floor is the specification's: at level 2 the same evidence answers `at_floor` rather than demoting to a level
     //    where the account's contents become foldable away.
@@ -216,7 +249,11 @@ async fn standing_is_given_by_a_door_and_read_where_it_is_enforced() {
         )
         .await;
     assert_eq!(status, StatusCode::UNPROCESSABLE_ENTITY, "{body}");
-    assert_eq!(body["error"]["field_errors"]["role"].is_string(), true, "{body}");
+    assert_eq!(
+        body["error"]["field_errors"]["role"].is_string(),
+        true,
+        "{body}"
+    );
 
     // 8. A recognised one lands in the table the estate reads.
     let (status, body) = operator

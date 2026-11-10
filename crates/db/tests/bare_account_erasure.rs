@@ -130,8 +130,11 @@ async fn erasure_reaches_every_bare_account_column() {
     .await;
     exec(
         &db,
-        &format!("INSERT INTO privacy_requests (id, account, kind, state, requested_at)
-         VALUES ('{}', '{account}', 'delete', 'pending', '{NOW_STAMP}')", uuid::Uuid::new_v4()),
+        &format!(
+            "INSERT INTO privacy_requests (id, account, kind, state, requested_at)
+         VALUES ('{}', '{account}', 'delete', 'pending', '{NOW_STAMP}')",
+            uuid::Uuid::new_v4()
+        ),
     )
     .await;
 
@@ -186,9 +189,12 @@ async fn erasure_reaches_every_bare_account_column() {
         "standing does not outlive the person — this is the row the live instance left behind 189 times"
     );
     assert_eq!(
-        one(&db, &format!("SELECT account FROM wishlists WHERE account = '{account}'"),
-            &format!("SELECT account FROM wishlists WHERE account = '{account}'"))
-            .await,
+        one(
+            &db,
+            &format!("SELECT account FROM wishlists WHERE account = '{account}'"),
+            &format!("SELECT account FROM wishlists WHERE account = '{account}'")
+        )
+        .await,
         None,
         "a wishlist is a preference and goes with the person"
     );
@@ -196,16 +202,22 @@ async fn erasure_reaches_every_bare_account_column() {
     // 5. The severance happened, per row, and it is the row's own identity — not a shared placeholder that would
     //    re-link every severed row of one person to the others.
     assert_eq!(
-        one(&db, &format!("SELECT account FROM payments WHERE id = '{payment}'"),
-            &format!("SELECT account FROM payments WHERE id = '{payment}'"))
-            .await,
+        one(
+            &db,
+            &format!("SELECT account FROM payments WHERE id = '{payment}'"),
+            &format!("SELECT account FROM payments WHERE id = '{payment}'")
+        )
+        .await,
         Some(format!("erased:{payment}")),
         "a payment survives its payer with the identity severed to the row's own id"
     );
     assert_eq!(
-        one(&db, &format!("SELECT account FROM privacy_requests WHERE id = '{request}'"),
-            &format!("SELECT account FROM privacy_requests WHERE id = '{request}'"))
-            .await,
+        one(
+            &db,
+            &format!("SELECT account FROM privacy_requests WHERE id = '{request}'"),
+            &format!("SELECT account FROM privacy_requests WHERE id = '{request}'")
+        )
+        .await,
         Some(format!("erased:{request}")),
         "the request survives as the instance's evidence that it honoured it"
     );

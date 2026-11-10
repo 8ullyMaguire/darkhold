@@ -40,7 +40,9 @@ fn build(config: &Config, db: &Database) -> axum::Router {
 /// Publish a work with one chapter, returning its id. Both halves are required: an empty work has nothing to read and the
 /// publication is refused by name.
 async fn published_work(author: &mut TestClient) -> String {
-    let (status, body) = author.post("/api/v1/works", json!({ "title": "Dropped" })).await;
+    let (status, body) = author
+        .post("/api/v1/works", json!({ "title": "Dropped" }))
+        .await;
     assert_eq!(status, StatusCode::CREATED, "{body}");
     let work = body["id"].as_str().expect("work").to_owned();
 
@@ -123,7 +125,11 @@ async fn a_work_that_does_not_accept_feedback_does_not_get_public_feedback() {
             json!({ "reason": "slow_pacing", "note": "private: I will come back to it", "is_public": false }),
         )
         .await;
-    assert_eq!(status, StatusCode::OK, "a private record is not publication: {body}");
+    assert_eq!(
+        status,
+        StatusCode::OK,
+        "a private record is not publication: {body}"
+    );
     assert_eq!(body["is_public"], json!(false), "{body}");
 
     // 3. The author can now turn the setting on — through a door, which did not exist. `allow_dnf_feedback` was a column
@@ -137,7 +143,11 @@ async fn a_work_that_does_not_accept_feedback_does_not_get_public_feedback() {
             Some(json!({ "expected_version": version, "allow_dnf_feedback": true })),
         )
         .await;
-    assert_eq!(status, StatusCode::OK, "the author turns feedback on: {body}");
+    assert_eq!(
+        status,
+        StatusCode::OK,
+        "the author turns feedback on: {body}"
+    );
 
     let (status, body) = reader
         .post(
@@ -163,7 +173,9 @@ async fn a_work_that_does_not_accept_feedback_does_not_get_public_feedback() {
 
     // 4. The author reads the feedback: the published sentence is there, the private one is not. The aggregate door shows
     //    counts and the author needs the reasons, which is the whole point of structured DNF.
-    let (status, body) = author.get(format!("/api/v1/works/{work}/dnf/feedback")).await;
+    let (status, body) = author
+        .get(format!("/api/v1/works/{work}/dnf/feedback"))
+        .await;
     assert_eq!(status, StatusCode::OK, "{body}");
     let items = body["items"].as_array().expect("items");
     assert_eq!(items.len(), 1, "only the published record: {body}");
@@ -179,7 +191,9 @@ async fn a_work_that_does_not_accept_feedback_does_not_get_public_feedback() {
 
     // 5. Nobody else reads the feedback. A stranger is told the work has no such surface, not that they may not use it:
     //    the refusal carries no information about the author's setting.
-    let (status, body) = stranger.get(format!("/api/v1/works/{work}/dnf/feedback")).await;
+    let (status, body) = stranger
+        .get(format!("/api/v1/works/{work}/dnf/feedback"))
+        .await;
     assert_eq!(
         status,
         StatusCode::NOT_FOUND,
@@ -204,7 +218,9 @@ async fn a_work_that_does_not_accept_feedback_does_not_get_public_feedback() {
         )
         .await;
     assert_eq!(status, StatusCode::OK, "{body}");
-    let (status, body) = author.get(format!("/api/v1/works/{work}/dnf/feedback")).await;
+    let (status, body) = author
+        .get(format!("/api/v1/works/{work}/dnf/feedback"))
+        .await;
     assert_eq!(status, StatusCode::OK, "{body}");
     assert_eq!(
         body["items"].as_array().expect("items").len(),

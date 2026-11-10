@@ -25,7 +25,9 @@ fn build(config: &Config, db: &Database) -> axum::Router {
 
 /// A published work with one chapter: (work id, unit id).
 async fn published_work(author: &mut TestClient, title: &str) -> (String, String) {
-    let (status, body) = author.post("/api/v1/works", json!({ "title": title })).await;
+    let (status, body) = author
+        .post("/api/v1/works", json!({ "title": title }))
+        .await;
     assert_eq!(status, StatusCode::CREATED, "{body}");
     let work = body["id"].as_str().expect("work").to_owned();
     let (status, body) = author
@@ -103,18 +105,29 @@ async fn an_author_sees_a_banded_reader_count_and_nobody_else_does() {
     assert_eq!(analytics["status"], json!("ok"), "{body}");
     let readers = &analytics["readers"];
     assert_eq!(readers["fewer_than"], json!(10), "{body}");
-    assert_eq!(readers["count"], Value::Null, "a banded count carries no count: {body}");
+    assert_eq!(
+        readers["count"],
+        Value::Null,
+        "a banded count carries no count: {body}"
+    );
     assert_eq!(readers["scope"], json!("own.work.basic"), "{body}");
     // The method travels with the number, because a number with no definition is a number nobody can check.
     assert!(
-        readers["method"]["definition"].as_str().is_some_and(|m| m.contains("pseudonym")),
+        readers["method"]["definition"]
+            .as_str()
+            .is_some_and(|m| m.contains("pseudonym")),
         "the method says what a reader is: {body}"
     );
 
     // 2. At the floor the number becomes exact. Nine more readers, ten in all, then the count appears and the band goes.
     for i in 2..=10 {
         let mut more = TestClient::new(build(&config, &db));
-        register(&mut more, &format!("aud-{i}@example.test"), &format!("audreader{i}")).await;
+        register(
+            &mut more,
+            &format!("aud-{i}@example.test"),
+            &format!("audreader{i}"),
+        )
+        .await;
         read_once(&mut more, &work, &unit).await;
     }
     let (status, body) = author.get(format!("/api/v1/works/{work}")).await;

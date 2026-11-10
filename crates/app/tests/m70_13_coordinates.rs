@@ -154,7 +154,12 @@ async fn the_door_answers_three_states_and_refuses_a_stranger() {
 
     // The writer, through the real registration route so the session and CSRF token are the app's own.
     let mut writer = TestClient::new(build(&config, &db));
-    let account = register(&mut writer, "coordinates-writer@example.test", "coordswriter").await;
+    let account = register(
+        &mut writer,
+        "coordinates-writer@example.test",
+        "coordswriter",
+    )
+    .await;
     let pseud = active_pseud_id(&mut writer, &account)
         .await
         .expect("a registered account acts as a pseud");
@@ -170,21 +175,37 @@ async fn the_door_answers_three_states_and_refuses_a_stranger() {
         .await;
     assert_eq!(status, StatusCode::OK, "{body}");
     assert_eq!(body["measured"], serde_json::json!(false), "{body}");
-    assert_eq!(body["reason"], serde_json::json!("never measured"), "{body}");
+    assert_eq!(
+        body["reason"],
+        serde_json::json!("never measured"),
+        "{body}"
+    );
     assert!(body["coordinates"].is_null(), "{body}");
 
     // 2. A stranger. `404`, not `403`: the work's existence is public but whether it is yours is not something a
     //    refusal should confirm.
     let mut stranger = TestClient::new(build(&config, &db));
-    register(&mut stranger, "coordinates-stranger@example.test", "coordsstranger").await;
+    register(
+        &mut stranger,
+        "coordinates-stranger@example.test",
+        "coordsstranger",
+    )
+    .await;
     let (status, body) = stranger
         .get(format!("/api/v1/works/{work}/coordinates"))
         .await;
-    assert_eq!(status, StatusCode::NOT_FOUND, "a stranger must not learn this: {body}");
+    assert_eq!(
+        status,
+        StatusCode::NOT_FOUND,
+        "a stranger must not learn this: {body}"
+    );
 
     // 3. Not the operator either: the compute door is closed to the writer who owns the work.
     let (status, body) = writer
-        .post(format!("/api/v1/admin/works/{work}/coordinates"), serde_json::json!({}))
+        .post(
+            format!("/api/v1/admin/works/{work}/coordinates"),
+            serde_json::json!({}),
+        )
         .await;
     assert_eq!(
         status,
@@ -196,13 +217,27 @@ async fn the_door_answers_three_states_and_refuses_a_stranger() {
     //    through a build that knows it is the operator — an owner reading their own coordinates is not the same claim
     //    as an operator recomputing them.
     let mut op_probe = TestClient::new(build(&config, &db));
-    let op_account = register(&mut op_probe, "coordinates-operator@example.test", "coordsoperator").await;
+    let op_account = register(
+        &mut op_probe,
+        "coordinates-operator@example.test",
+        "coordsoperator",
+    )
+    .await;
     let mut op_config = config.clone();
     op_config.administration.operator_account_id = Some(op_account.parse().expect("account id"));
     let mut operator = TestClient::new(build(&op_config, &db));
-    sign_in_as(&mut operator, &tdb, "coordinates-operator@example.test", "coordsoperator").await;
+    sign_in_as(
+        &mut operator,
+        &tdb,
+        "coordinates-operator@example.test",
+        "coordsoperator",
+    )
+    .await;
     let (status, body) = operator
-        .post(format!("/api/v1/admin/works/{work}/coordinates"), serde_json::json!({}))
+        .post(
+            format!("/api/v1/admin/works/{work}/coordinates"),
+            serde_json::json!({}),
+        )
         .await;
     assert_eq!(status, StatusCode::OK, "{body}");
     assert_eq!(body["measured"], serde_json::json!(true), "{body}");
@@ -219,7 +254,9 @@ async fn the_door_answers_three_states_and_refuses_a_stranger() {
         "the seeded prose is 480 sentences: {body}"
     );
     assert!(
-        body["coordinates"]["vocabulary_richness"].as_f64().is_some_and(|v| v > 0.0),
+        body["coordinates"]["vocabulary_richness"]
+            .as_f64()
+            .is_some_and(|v| v > 0.0),
         "{body}"
     );
     assert!(body["text_version"].as_i64().is_some(), "{body}");
@@ -231,7 +268,11 @@ async fn the_door_answers_three_states_and_refuses_a_stranger() {
         .await;
     assert_eq!(status, StatusCode::OK, "{body}");
     assert_eq!(body["measured"], serde_json::json!(true), "{body}");
-    assert_eq!(body["coordinates"]["word_count"].as_u64(), Some(words as u64), "{body}");
+    assert_eq!(
+        body["coordinates"]["word_count"].as_u64(),
+        Some(words as u64),
+        "{body}"
+    );
 
     // 6. Short work: measured, and *unmeasurable with a reason*. The reason is the whole point — a null reads as
     //    "flat prose", which is a different and wrong claim.
@@ -239,13 +280,22 @@ async fn the_door_answers_three_states_and_refuses_a_stranger() {
     insert_work(&tdb, &short, &pseud).await;
     insert_text(&tdb, &short, &pseud, "Too short to measure at all.", 6).await;
     let (status, body) = operator
-        .post(format!("/api/v1/admin/works/{short}/coordinates"), serde_json::json!({}))
+        .post(
+            format!("/api/v1/admin/works/{short}/coordinates"),
+            serde_json::json!({}),
+        )
         .await;
     assert_eq!(status, StatusCode::OK, "{body}");
     assert_eq!(body["measured"], serde_json::json!(false), "{body}");
-    assert_eq!(body["unmeasurable"], serde_json::json!("too_short"), "{body}");
+    assert_eq!(
+        body["unmeasurable"],
+        serde_json::json!("too_short"),
+        "{body}"
+    );
     assert!(
-        body["reason"].as_str().is_some_and(|r| r.contains("minimum")),
+        body["reason"]
+            .as_str()
+            .is_some_and(|r| r.contains("minimum")),
         "the reason travels with the absence: {body}"
     );
 }
@@ -265,7 +315,12 @@ async fn the_backfill_recomputes_stale_rows_and_skips_current_ones() {
     config.storage.root = dir.clone();
 
     let mut writer = TestClient::new(build(&config, &db));
-    let account = register(&mut writer, "coordinates-backfill@example.test", "coordsbackfill").await;
+    let account = register(
+        &mut writer,
+        "coordinates-backfill@example.test",
+        "coordsbackfill",
+    )
+    .await;
     let pseud = active_pseud_id(&mut writer, &account)
         .await
         .expect("active pseud");
@@ -279,11 +334,22 @@ async fn the_backfill_recomputes_stale_rows_and_skips_current_ones() {
     }
 
     let mut op_probe = TestClient::new(build(&config, &db));
-    let op_account = register(&mut op_probe, "coordinates-backfill-op@example.test", "coordsbfop").await;
+    let op_account = register(
+        &mut op_probe,
+        "coordinates-backfill-op@example.test",
+        "coordsbfop",
+    )
+    .await;
     let mut op_config = config.clone();
     op_config.administration.operator_account_id = Some(op_account.parse().expect("account id"));
     let mut operator = TestClient::new(build(&op_config, &db));
-    sign_in_as(&mut operator, &tdb, "coordinates-backfill-op@example.test", "coordsbfop").await;
+    sign_in_as(
+        &mut operator,
+        &tdb,
+        "coordinates-backfill-op@example.test",
+        "coordsbfop",
+    )
+    .await;
 
     // Both works measured once, each at its current version.
     for work in [&first, &second] {
@@ -326,7 +392,12 @@ async fn the_backfill_recomputes_stale_rows_and_skips_current_ones() {
 
     // A stranger cannot run a backfill. The door is the operator's, and it does not exist for anyone else.
     let mut stranger = TestClient::new(build(&config, &db));
-    register(&mut stranger, "coordinates-bf-stranger@example.test", "coordsbfstranger").await;
+    register(
+        &mut stranger,
+        "coordinates-bf-stranger@example.test",
+        "coordsbfstranger",
+    )
+    .await;
     let (status, body) = stranger
         .post("/api/v1/admin/coordinates/recompute", serde_json::json!({}))
         .await;

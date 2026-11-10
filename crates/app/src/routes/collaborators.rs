@@ -301,7 +301,9 @@ async fn list_work_invitations(
         return Err(refusal(reason));
     }
     let invites = collaboration::invites_for_work(state.db(), work.id).await?;
-    Ok(Json(invites.into_iter().map(InvitationView::from).collect()))
+    Ok(Json(
+        invites.into_iter().map(InvitationView::from).collect(),
+    ))
 }
 
 async fn accept_invitation(

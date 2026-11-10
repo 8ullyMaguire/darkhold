@@ -37,7 +37,9 @@ async fn the_record_shows_when_it_was_published_and_when_it_last_changed() {
     register(&mut stranger, "wh-stranger@example.test", "whstranger").await;
 
     // 1. A draft has never been published: `state` says so rather than leaving a client to interpret a null.
-    let (status, body) = author.post("/api/v1/works", json!({ "title": "Draft" })).await;
+    let (status, body) = author
+        .post("/api/v1/works", json!({ "title": "Draft" }))
+        .await;
     assert_eq!(status, StatusCode::CREATED, "{body}");
     let draft = body["id"].as_str().expect("work").to_owned();
     let (status, history) = author.get(format!("/api/v1/works/{draft}/history")).await;
@@ -88,7 +90,10 @@ async fn the_record_shows_when_it_was_published_and_when_it_last_changed() {
     let (status, history) = author.get(format!("/api/v1/works/{draft}/history")).await;
     assert_eq!(status, StatusCode::OK, "{history}");
     assert_eq!(history["state"], json!("published"), "{history}");
-    let published_at = history["published_at"].as_str().expect("published_at").to_owned();
+    let published_at = history["published_at"]
+        .as_str()
+        .expect("published_at")
+        .to_owned();
     assert!(!published_at.is_empty(), "{history}");
     let events = history["events"].as_array().expect("events");
     assert_eq!(events.len(), 1, "{history}");
@@ -98,9 +103,14 @@ async fn the_record_shows_when_it_was_published_and_when_it_last_changed() {
 
     // 4. The history of a published work is public: an anonymous reader is told when it was published.
     let mut anonymous = TestClient::new(build(&config, &db));
-    let (status, history) = anonymous.get(format!("/api/v1/works/{draft}/history")).await;
+    let (status, history) = anonymous
+        .get(format!("/api/v1/works/{draft}/history"))
+        .await;
     assert_eq!(status, StatusCode::OK, "{history}");
-    assert_eq!(history["published_at"].as_str(), Some(published_at.as_str()));
+    assert_eq!(
+        history["published_at"].as_str(),
+        Some(published_at.as_str())
+    );
     let _ = &mut anonymous;
 
     // 5. An edit moves `updated_at` and leaves `published_at` alone — the distinction the two maxima exist for. The events
@@ -123,7 +133,10 @@ async fn the_record_shows_when_it_was_published_and_when_it_last_changed() {
         Some(published_at.as_str()),
         "an edit is not a republication: {history}"
     );
-    let updated_at = history["updated_at"].as_str().expect("updated_at").to_owned();
+    let updated_at = history["updated_at"]
+        .as_str()
+        .expect("updated_at")
+        .to_owned();
     assert!(
         updated_at > published_at,
         "the update is strictly after the publication, a second later: {history}"
@@ -138,5 +151,9 @@ async fn the_record_shows_when_it_was_published_and_when_it_last_changed() {
         .get(format!("/api/v1/works/{draft}/history?limit=1"))
         .await;
     assert_eq!(status, StatusCode::OK, "{history}");
-    assert_eq!(history["events"].as_array().expect("events").len(), 1, "{history}");
+    assert_eq!(
+        history["events"].as_array().expect("events").len(),
+        1,
+        "{history}"
+    );
 }

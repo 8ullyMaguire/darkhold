@@ -11,9 +11,7 @@
 //! and it is the property that would break first if a future change moved the
 //! candidate query into `rank_works`.
 
-use darkhold_db::ranking::{
-    rank_works, ranked_propensity, scout_value, RankOptions, SlotKind,
-};
+use darkhold_db::ranking::{rank_works, ranked_propensity, scout_value, RankOptions, SlotKind};
 use darkhold_domain::WorkId;
 use test_support::{scratch_dir, TestDb, TEST_PASSWORD};
 
@@ -55,11 +53,13 @@ impl Harness {
             .fetch_one(self.tdb.db().postgres_pool().expect("pg"))
             .await
         } else {
-            sqlx::query_as("SELECT kind, source FROM work_view_log WHERE work_id = ? AND viewer_hash = ?")
-                .bind(work.to_string())
-                .bind(hash)
-                .fetch_one(self.tdb.db().sqlite_pool().expect("sqlite"))
-                .await
+            sqlx::query_as(
+                "SELECT kind, source FROM work_view_log WHERE work_id = ? AND viewer_hash = ?",
+            )
+            .bind(work.to_string())
+            .bind(hash)
+            .fetch_one(self.tdb.db().sqlite_pool().expect("sqlite"))
+            .await
         }
     }
 
@@ -684,7 +684,11 @@ async fn the_interaction_kind_survives_the_round_trip() {
             .expect("read kind"),
         ("incentivized".to_owned(), "bounty".to_owned()),
         "the classification did not survive the round trip on {}",
-        if h.tdb.is_postgres() { "postgres" } else { "sqlite" }
+        if h.tdb.is_postgres() {
+            "postgres"
+        } else {
+            "sqlite"
+        }
     );
 
     // 2. A direct arrival is earned, and the source is recorded rather than left as the migration's `unknown` — `unknown` cannot

@@ -48,7 +48,9 @@ async fn event_count(db: &Database, key: &str) -> i64 {
 
 /// A published work with a price on it — the shortest road to a purchase.
 async fn a_work_for_sale(author: &mut TestClient, price: i64) -> String {
-    let (status, body) = author.post("/api/v1/works", json!({ "title": "For Sale" })).await;
+    let (status, body) = author
+        .post("/api/v1/works", json!({ "title": "For Sale" }))
+        .await;
     assert_eq!(status, StatusCode::CREATED, "{body}");
     let work = body["id"].as_str().expect("work").to_owned();
     let version = body["version"].as_i64().expect("version");
@@ -134,7 +136,9 @@ async fn a_fee_range_is_published_only_when_a_payment_was_actually_recorded() {
     let mut buyer = TestClient::new(build(&config, &db));
     register(&mut buyer, "pe-buyer@example.test", "pebuyer").await;
     sign_in_as(&mut buyer, &tdb, "pe-buyer@example.test", "pebuyer").await;
-    let (status, body) = buyer.post(&format!("/api/v1/works/{work}/purchase"), json!({})).await;
+    let (status, body) = buyer
+        .post(&format!("/api/v1/works/{work}/purchase"), json!({}))
+        .await;
     assert!(status.is_success(), "{body}");
 
     let after = payments(&mut anonymous).await;
@@ -143,28 +147,26 @@ async fn a_fee_range_is_published_only_when_a_payment_was_actually_recorded() {
     assert_eq!(after["processor_wired"], json!(false), "{after}");
 
     // 3. The purchase is idempotent *and* so is its payment event: buying again (already entitled) records nothing new.
-    let (status, _) = buyer.post(&format!("/api/v1/works/{work}/purchase"), json!({})).await;
+    let (status, _) = buyer
+        .post(&format!("/api/v1/works/{work}/purchase"), json!({}))
+        .await;
     assert!(status.is_success());
     let purchase_key_prefix = "purchase:";
     let key = match db.backend() {
-        darkhold_db::Backend::Sqlite => {
-            sqlx::query_scalar::<_, String>(
-                "SELECT event_key FROM payment_events WHERE event_key LIKE ? ORDER BY created_at DESC",
-            )
-            .bind(format!("{purchase_key_prefix}%"))
-            .fetch_one(db.sqlite_pool().expect("sqlite"))
-            .await
-            .expect("key")
-        }
-        darkhold_db::Backend::Postgres => {
-            sqlx::query_scalar::<_, String>(
-                "SELECT event_key FROM payment_events WHERE event_key LIKE $1 ORDER BY created_at DESC",
-            )
-            .bind(format!("{purchase_key_prefix}%"))
-            .fetch_one(db.postgres_pool().expect("postgres"))
-            .await
-            .expect("key")
-        }
+        darkhold_db::Backend::Sqlite => sqlx::query_scalar::<_, String>(
+            "SELECT event_key FROM payment_events WHERE event_key LIKE ? ORDER BY created_at DESC",
+        )
+        .bind(format!("{purchase_key_prefix}%"))
+        .fetch_one(db.sqlite_pool().expect("sqlite"))
+        .await
+        .expect("key"),
+        darkhold_db::Backend::Postgres => sqlx::query_scalar::<_, String>(
+            "SELECT event_key FROM payment_events WHERE event_key LIKE $1 ORDER BY created_at DESC",
+        )
+        .bind(format!("{purchase_key_prefix}%"))
+        .fetch_one(db.postgres_pool().expect("postgres"))
+        .await
+        .expect("key"),
     };
     assert_eq!(
         event_count(&db, &key).await,
@@ -190,12 +192,19 @@ async fn a_fee_range_is_published_only_when_a_payment_was_actually_recorded() {
         }
     };
     assert_eq!(kind, "purchase");
-    assert_eq!(gross, 500, "the event's gross is the price that was charged");
+    assert_eq!(
+        gross, 500,
+        "the event's gross is the price that was charged"
+    );
     assert_eq!(net, 500, "with no processor fee, net is gross");
 
     // 4. A money tip records its own event, keyed by the tip's idempotency key — and a retried tip does not double-record,
     //    even though the tip path itself is idempotent only in the earnings ledger.
-    let tip_key = format!("tip:{}-{}:EUR:250", buyer_account(&db, "pe-buyer@example.test").await, work);
+    let tip_key = format!(
+        "tip:{}-{}:EUR:250",
+        buyer_account(&db, "pe-buyer@example.test").await,
+        work
+    );
     let tip = json!({ "amount_minor": 250, "currency": "EUR", "channel": "money" });
     let (status, body) = buyer
         .post(&format!("/api/v1/works/{work}/tips"), tip.clone())
@@ -205,7 +214,11 @@ async fn a_fee_range_is_published_only_when_a_payment_was_actually_recorded() {
         .post(&format!("/api/v1/works/{work}/tips"), tip.clone())
         .await;
     assert!(status.is_success(), "{body}");
-    assert_eq!(event_count(&db, &tip_key).await, 1, "the retried tip is one payment");
+    assert_eq!(
+        event_count(&db, &tip_key).await,
+        1,
+        "the retried tip is one payment"
+    );
 
     // 5. A payout is a payment too, keyed by the payout's id.
     let (status, body) = author
@@ -224,18 +237,14 @@ async fn a_fee_range_is_published_only_when_a_payment_was_actually_recorded() {
 
     // 6. Credit tips are not payments: they move credits between buckets, and no fee is booked against them.
     let credits_before: i64 = match db.backend() {
-        darkhold_db::Backend::Sqlite => {
-            sqlx::query_scalar("SELECT COUNT(*) FROM payment_events")
-                .fetch_one(db.sqlite_pool().expect("sqlite"))
-                .await
-                .expect("count")
-        }
-        darkhold_db::Backend::Postgres => {
-            sqlx::query_scalar("SELECT COUNT(*) FROM payment_events")
-                .fetch_one(db.postgres_pool().expect("postgres"))
-                .await
-                .expect("count")
-        }
+        darkhold_db::Backend::Sqlite => sqlx::query_scalar("SELECT COUNT(*) FROM payment_events")
+            .fetch_one(db.sqlite_pool().expect("sqlite"))
+            .await
+            .expect("count"),
+        darkhold_db::Backend::Postgres => sqlx::query_scalar("SELECT COUNT(*) FROM payment_events")
+            .fetch_one(db.postgres_pool().expect("postgres"))
+            .await
+            .expect("count"),
     };
     let (status, body) = buyer
         .post(
@@ -245,18 +254,14 @@ async fn a_fee_range_is_published_only_when_a_payment_was_actually_recorded() {
         .await;
     assert!(status.is_success(), "{body}");
     let credits_after: i64 = match db.backend() {
-        darkhold_db::Backend::Sqlite => {
-            sqlx::query_scalar("SELECT COUNT(*) FROM payment_events")
-                .fetch_one(db.sqlite_pool().expect("sqlite"))
-                .await
-                .expect("count")
-        }
-        darkhold_db::Backend::Postgres => {
-            sqlx::query_scalar("SELECT COUNT(*) FROM payment_events")
-                .fetch_one(db.postgres_pool().expect("postgres"))
-                .await
-                .expect("count")
-        }
+        darkhold_db::Backend::Sqlite => sqlx::query_scalar("SELECT COUNT(*) FROM payment_events")
+            .fetch_one(db.sqlite_pool().expect("sqlite"))
+            .await
+            .expect("count"),
+        darkhold_db::Backend::Postgres => sqlx::query_scalar("SELECT COUNT(*) FROM payment_events")
+            .fetch_one(db.postgres_pool().expect("postgres"))
+            .await
+            .expect("count"),
     };
     assert_eq!(
         credits_after, credits_before,

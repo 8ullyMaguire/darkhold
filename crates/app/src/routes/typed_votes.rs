@@ -331,8 +331,7 @@ async fn notify_first_vote(state: &AppState, post_id: &str, author_pseud: &str) 
     )
     .await
     .ok()
-    .flatten()
-    else {
+    .flatten() else {
         return;
     };
     let account = author.account_id.to_string();
@@ -341,7 +340,8 @@ async fn notify_first_vote(state: &AppState, post_id: &str, author_pseud: &str) 
     // anyway because the row is per (post, account).
     // The row decides, not the count: a count that returns to one — a retraction and a different reader's vote — would
     // otherwise send a second notice, and two casters racing on the same first vote would both send one.
-    match darkhold_db::moderation::mark_first_vote_notified(state.db(), post_id, &account, 1).await {
+    match darkhold_db::moderation::mark_first_vote_notified(state.db(), post_id, &account, 1).await
+    {
         Ok(true) => {}
         Ok(false) => return,
         Err(error) => {

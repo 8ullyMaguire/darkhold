@@ -660,4 +660,3 @@ pub async fn sweep_expired(db: &Database) -> Result<usize> {
     }
     Ok(expired)
 }
-

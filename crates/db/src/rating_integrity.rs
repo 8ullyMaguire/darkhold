@@ -302,7 +302,10 @@ pub async fn has_uncleared_anomaly(db: &Database, work_id: &str, kind: &str) -> 
 /// This is the list `/admin/anomalies` used to fake: it counted rows and answered `items: []`, so an operator could see
 /// that seven anomalies existed and could never learn which works they belonged to. `get_work_anomaly_events` answers
 /// the per-work question; this answers the queue's.
-pub async fn list_uncleared_anomalies(db: &Database, limit: i64) -> Result<Vec<RatingAnomalyEvent>> {
+pub async fn list_uncleared_anomalies(
+    db: &Database,
+    limit: i64,
+) -> Result<Vec<RatingAnomalyEvent>> {
     let sql = db.sql(
         "SELECT id, work_id, cohort_id, kind, severity, detail, detected_at, cleared_at, cleared_by \
            FROM rating_anomaly_events WHERE cleared_at IS NULL \

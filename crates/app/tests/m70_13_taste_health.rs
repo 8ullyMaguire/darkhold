@@ -64,7 +64,13 @@ async fn a_work_vector_is_a_diagnosis_the_read_computes_it_once_and_a_probe_is_o
     let mut config = base.clone();
     config.administration.operator_account_id = Some(operator_account.parse().expect("account id"));
     let mut operator = TestClient::new(build(&config, &db));
-    sign_in_as(&mut operator, &tdb, "th-operator@example.test", "thoperator").await;
+    sign_in_as(
+        &mut operator,
+        &tdb,
+        "th-operator@example.test",
+        "thoperator",
+    )
+    .await;
 
     let mut reader = TestClient::new(build(&config, &db));
     register(&mut reader, "th-reader@example.test", "threader").await;
@@ -107,7 +113,11 @@ async fn a_work_vector_is_a_diagnosis_the_read_computes_it_once_and_a_probe_is_o
         .get(format!("/api/v1/admin/works/{work}/taste-vector"))
         .await;
     assert_eq!(status, StatusCode::OK, "{before}");
-    assert_eq!(before["state"], serde_json::json!("unavailable"), "{before}");
+    assert_eq!(
+        before["state"],
+        serde_json::json!("unavailable"),
+        "{before}"
+    );
     assert_eq!(before["vector"], serde_json::json!([]), "{before}");
     assert_eq!(before["dimensions"], serde_json::json!(0), "{before}");
 

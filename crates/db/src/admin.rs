@@ -131,30 +131,26 @@ pub async fn complete_privacy_request(
 ) -> Result<bool, sqlx::Error> {
     let now = crate::identity::now_rfc3339();
     let affected = match db.backend() {
-        Backend::Sqlite => {
-            sqlx::query(
-                "UPDATE privacy_requests SET state = 'done', completed_at = ?, result_ref = ?
+        Backend::Sqlite => sqlx::query(
+            "UPDATE privacy_requests SET state = 'done', completed_at = ?, result_ref = ?
                   WHERE id = ? AND state = 'pending'",
-            )
-            .bind(&now)
-            .bind(result_ref)
-            .bind(request_id)
-            .execute(db.sqlite_pool().expect("sqlite"))
-            .await?
-            .rows_affected()
-        }
-        Backend::Postgres => {
-            sqlx::query(
-                "UPDATE privacy_requests SET state = 'done', completed_at = $1, result_ref = $2
+        )
+        .bind(&now)
+        .bind(result_ref)
+        .bind(request_id)
+        .execute(db.sqlite_pool().expect("sqlite"))
+        .await?
+        .rows_affected(),
+        Backend::Postgres => sqlx::query(
+            "UPDATE privacy_requests SET state = 'done', completed_at = $1, result_ref = $2
                   WHERE id = $3 AND state = 'pending'",
-            )
-            .bind(&now)
-            .bind(result_ref)
-            .bind(request_id)
-            .execute(db.postgres_pool().expect("postgres"))
-            .await?
-            .rows_affected()
-        }
+        )
+        .bind(&now)
+        .bind(result_ref)
+        .bind(request_id)
+        .execute(db.postgres_pool().expect("postgres"))
+        .await?
+        .rows_affected(),
     };
     Ok(affected > 0)
 }
@@ -163,20 +159,27 @@ pub async fn complete_privacy_request(
 ///
 /// Separate from the completion so the route can tell "never existed" (`404`) from "already done" (`422`) — two answers a caller
 /// acts on differently, and neither of which a bare `false` carries.
-pub async fn privacy_request_state(db: &Database, request_id: &str) -> Result<Option<String>, sqlx::Error> {
+pub async fn privacy_request_state(
+    db: &Database,
+    request_id: &str,
+) -> Result<Option<String>, sqlx::Error> {
     let sql = db.sql(
         "SELECT state FROM privacy_requests WHERE id = ?",
         "SELECT state FROM privacy_requests WHERE id = $1",
     );
     match db.backend() {
-        Backend::Sqlite => sqlx::query_scalar(&sql)
-            .bind(request_id)
-            .fetch_optional(db.sqlite_pool().expect("sqlite"))
-            .await,
-        Backend::Postgres => sqlx::query_scalar(&sql)
-            .bind(request_id)
-            .fetch_optional(db.postgres_pool().expect("postgres"))
-            .await,
+        Backend::Sqlite => {
+            sqlx::query_scalar(&sql)
+                .bind(request_id)
+                .fetch_optional(db.sqlite_pool().expect("sqlite"))
+                .await
+        }
+        Backend::Postgres => {
+            sqlx::query_scalar(&sql)
+                .bind(request_id)
+                .fetch_optional(db.postgres_pool().expect("postgres"))
+                .await
+        }
     }
 }
 
@@ -206,15 +209,20 @@ pub async fn list_all_privacy_requests(
             .bind(limit)
             .fetch_all(db.sqlite_pool().expect("sqlite"))
             .await?;
-            Ok(rows.iter().map(|r| serde_json::json!({
-                "id": r.get::<String, _>("id"),
-                "account": r.get::<String, _>("account"),
-                "kind": r.get::<String, _>("kind"),
-                "state": r.get::<String, _>("state"),
-                "requested_at": r.get::<String, _>("requested_at"),
-                "completed_at": r.get::<Option<String>, _>("completed_at"),
-                "result_ref": r.get::<Option<String>, _>("result_ref"),
-            })).collect())
+            Ok(rows
+                .iter()
+                .map(|r| {
+                    serde_json::json!({
+                        "id": r.get::<String, _>("id"),
+                        "account": r.get::<String, _>("account"),
+                        "kind": r.get::<String, _>("kind"),
+                        "state": r.get::<String, _>("state"),
+                        "requested_at": r.get::<String, _>("requested_at"),
+                        "completed_at": r.get::<Option<String>, _>("completed_at"),
+                        "result_ref": r.get::<Option<String>, _>("result_ref"),
+                    })
+                })
+                .collect())
         }
         Backend::Postgres => {
             let rows = sqlx::query(
@@ -228,15 +236,20 @@ pub async fn list_all_privacy_requests(
             .bind(limit)
             .fetch_all(db.postgres_pool().expect("postgres"))
             .await?;
-            Ok(rows.iter().map(|r| serde_json::json!({
-                "id": r.get::<String, _>("id"),
-                "account": r.get::<String, _>("account"),
-                "kind": r.get::<String, _>("kind"),
-                "state": r.get::<String, _>("state"),
-                "requested_at": r.get::<String, _>("requested_at"),
-                "completed_at": r.get::<Option<String>, _>("completed_at"),
-                "result_ref": r.get::<Option<String>, _>("result_ref"),
-            })).collect())
+            Ok(rows
+                .iter()
+                .map(|r| {
+                    serde_json::json!({
+                        "id": r.get::<String, _>("id"),
+                        "account": r.get::<String, _>("account"),
+                        "kind": r.get::<String, _>("kind"),
+                        "state": r.get::<String, _>("state"),
+                        "requested_at": r.get::<String, _>("requested_at"),
+                        "completed_at": r.get::<Option<String>, _>("completed_at"),
+                        "result_ref": r.get::<Option<String>, _>("result_ref"),
+                    })
+                })
+                .collect())
         }
     }
 }
@@ -258,38 +271,44 @@ pub async fn list_privacy_requests(
                    WHERE account = ";
     match db.backend() {
         Backend::Sqlite => {
-            let rows = sqlx::query(&format!(
-                "{select}? ORDER BY requested_at DESC, id DESC"
-            ))
-            .bind(account)
-            .fetch_all(db.sqlite_pool().expect("sqlite"))
-            .await?;
-            Ok(rows.iter().map(|r| serde_json::json!({
-                "id": r.get::<String, _>("id"),
-                "account": r.get::<String, _>("account"),
-                "kind": r.get::<String, _>("kind"),
-                "state": r.get::<String, _>("state"),
-                "requested_at": r.get::<String, _>("requested_at"),
-                "completed_at": r.get::<Option<String>, _>("completed_at"),
-                "result_ref": r.get::<Option<String>, _>("result_ref"),
-            })).collect())
+            let rows = sqlx::query(&format!("{select}? ORDER BY requested_at DESC, id DESC"))
+                .bind(account)
+                .fetch_all(db.sqlite_pool().expect("sqlite"))
+                .await?;
+            Ok(rows
+                .iter()
+                .map(|r| {
+                    serde_json::json!({
+                        "id": r.get::<String, _>("id"),
+                        "account": r.get::<String, _>("account"),
+                        "kind": r.get::<String, _>("kind"),
+                        "state": r.get::<String, _>("state"),
+                        "requested_at": r.get::<String, _>("requested_at"),
+                        "completed_at": r.get::<Option<String>, _>("completed_at"),
+                        "result_ref": r.get::<Option<String>, _>("result_ref"),
+                    })
+                })
+                .collect())
         }
         Backend::Postgres => {
-            let rows = sqlx::query(&format!(
-                "{select}$1 ORDER BY requested_at DESC, id DESC"
-            ))
-            .bind(account)
-            .fetch_all(db.postgres_pool().expect("postgres"))
-            .await?;
-            Ok(rows.iter().map(|r| serde_json::json!({
-                "id": r.get::<String, _>("id"),
-                "account": r.get::<String, _>("account"),
-                "kind": r.get::<String, _>("kind"),
-                "state": r.get::<String, _>("state"),
-                "requested_at": r.get::<String, _>("requested_at"),
-                "completed_at": r.get::<Option<String>, _>("completed_at"),
-                "result_ref": r.get::<Option<String>, _>("result_ref"),
-            })).collect())
+            let rows = sqlx::query(&format!("{select}$1 ORDER BY requested_at DESC, id DESC"))
+                .bind(account)
+                .fetch_all(db.postgres_pool().expect("postgres"))
+                .await?;
+            Ok(rows
+                .iter()
+                .map(|r| {
+                    serde_json::json!({
+                        "id": r.get::<String, _>("id"),
+                        "account": r.get::<String, _>("account"),
+                        "kind": r.get::<String, _>("kind"),
+                        "state": r.get::<String, _>("state"),
+                        "requested_at": r.get::<String, _>("requested_at"),
+                        "completed_at": r.get::<Option<String>, _>("completed_at"),
+                        "result_ref": r.get::<Option<String>, _>("result_ref"),
+                    })
+                })
+                .collect())
         }
     }
 }

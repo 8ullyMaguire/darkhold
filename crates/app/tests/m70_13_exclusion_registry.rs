@@ -32,7 +32,9 @@ fn build(config: &Config, db: &Database) -> axum::Router {
 
 /// A published work by `author`, with one chapter.
 async fn published_work(author: &mut TestClient, title: &str) -> String {
-    let (status, body) = author.post("/api/v1/works", json!({ "title": title })).await;
+    let (status, body) = author
+        .post("/api/v1/works", json!({ "title": title }))
+        .await;
     assert_eq!(status, StatusCode::CREATED, "{body}");
     let work = body["id"].as_str().expect("work").to_owned();
     let (status, body) = author
@@ -99,7 +101,13 @@ async fn the_registry_can_be_armed_and_the_fork_guard_fires_for_the_first_time()
     let mut admin = Config::development_defaults();
     admin.administration.operator_account_id = Some(account.parse().expect("account id"));
     let mut operator = TestClient::new(build(&admin, &db));
-    test_support::sign_in_as(&mut operator, &tdb, "ex-operator@example.test", "exoperator").await;
+    test_support::sign_in_as(
+        &mut operator,
+        &tdb,
+        "ex-operator@example.test",
+        "exoperator",
+    )
+    .await;
 
     let (status, body) = operator
         .post(
@@ -184,13 +192,21 @@ async fn the_registry_can_be_armed_and_the_fork_guard_fires_for_the_first_time()
 
     // 7. The read door answers what was armed, and only for an operator.
     let (status, body) = operator
-        .get(&format!("/api/v1/admin/exclusions?target_type=work&target_id={parent}"))
+        .get(&format!(
+            "/api/v1/admin/exclusions?target_type=work&target_id={parent}"
+        ))
         .await;
     assert_eq!(status, StatusCode::OK, "{body}");
-    assert_eq!(body["reason"], json!("author withdrew permission to remix"), "{body}");
+    assert_eq!(
+        body["reason"],
+        json!("author withdrew permission to remix"),
+        "{body}"
+    );
 
     let (status, _) = author
-        .get(&format!("/api/v1/admin/exclusions?target_type=work&target_id={parent}"))
+        .get(&format!(
+            "/api/v1/admin/exclusions?target_type=work&target_id={parent}"
+        ))
         .await;
     assert_eq!(
         status,

@@ -865,7 +865,11 @@ pub async fn recompute_confidence(db: &Database) -> Result<i64, sqlx::Error> {
 /// The expression is the sweep's, scoped: with no votes a tag reads as `1.0` (a claim nobody has disputed is not a claim nobody
 /// believes), and otherwise the smoothed share of agreeing votes, `(agree + 1) / (votes + 1)`. It lives here once so the vote path
 /// and the repair pass cannot compute two different numbers.
-async fn confidence_expression(db: &Database, work_id: &str, node_id: &str) -> Result<f64, sqlx::Error> {
+async fn confidence_expression(
+    db: &Database,
+    work_id: &str,
+    node_id: &str,
+) -> Result<f64, sqlx::Error> {
     let sql = db.sql(
         "SELECT CASE
              WHEN COUNT(*) = 0 THEN 1.0
@@ -884,16 +888,20 @@ async fn confidence_expression(db: &Database, work_id: &str, node_id: &str) -> R
           WHERE work_id::text = $1 AND node_id = $2",
     );
     let value: f64 = match db.backend() {
-        Backend::Sqlite => sqlx::query_scalar(&sql)
-            .bind(work_id)
-            .bind(node_id)
-            .fetch_one(db.sqlite_pool().expect("sqlite"))
-            .await?,
-        Backend::Postgres => sqlx::query_scalar(&sql)
-            .bind(work_id)
-            .bind(node_id)
-            .fetch_one(db.postgres_pool().expect("postgres"))
-            .await?,
+        Backend::Sqlite => {
+            sqlx::query_scalar(&sql)
+                .bind(work_id)
+                .bind(node_id)
+                .fetch_one(db.sqlite_pool().expect("sqlite"))
+                .await?
+        }
+        Backend::Postgres => {
+            sqlx::query_scalar(&sql)
+                .bind(work_id)
+                .bind(node_id)
+                .fetch_one(db.postgres_pool().expect("postgres"))
+                .await?
+        }
     };
     Ok(value)
 }
@@ -912,16 +920,20 @@ pub async fn tag_confidence(
         "SELECT confidence FROM work_tags WHERE work_id::text = $1 AND node_id = $2",
     );
     match db.backend() {
-        Backend::Sqlite => sqlx::query_scalar(&sql)
-            .bind(work_id)
-            .bind(node_id)
-            .fetch_optional(db.sqlite_pool().expect("sqlite"))
-            .await,
-        Backend::Postgres => sqlx::query_scalar(&sql)
-            .bind(work_id)
-            .bind(node_id)
-            .fetch_optional(db.postgres_pool().expect("postgres"))
-            .await,
+        Backend::Sqlite => {
+            sqlx::query_scalar(&sql)
+                .bind(work_id)
+                .bind(node_id)
+                .fetch_optional(db.sqlite_pool().expect("sqlite"))
+                .await
+        }
+        Backend::Postgres => {
+            sqlx::query_scalar(&sql)
+                .bind(work_id)
+                .bind(node_id)
+                .fetch_optional(db.postgres_pool().expect("postgres"))
+                .await
+        }
     }
 }
 
@@ -942,18 +954,22 @@ pub async fn tag_vote_for(
         "SELECT CAST(vote AS BIGINT) FROM work_tag_votes WHERE work_id::text = $1 AND node_id = $2 AND voter_pseud_id = $3",
     );
     let vote: Option<i64> = match db.backend() {
-        Backend::Sqlite => sqlx::query_scalar(&sql)
-            .bind(work_id)
-            .bind(node_id)
-            .bind(voter_pseud_id)
-            .fetch_optional(db.sqlite_pool().expect("sqlite"))
-            .await?,
-        Backend::Postgres => sqlx::query_scalar(&sql)
-            .bind(work_id)
-            .bind(node_id)
-            .bind(voter_pseud_id)
-            .fetch_optional(db.postgres_pool().expect("postgres"))
-            .await?,
+        Backend::Sqlite => {
+            sqlx::query_scalar(&sql)
+                .bind(work_id)
+                .bind(node_id)
+                .bind(voter_pseud_id)
+                .fetch_optional(db.sqlite_pool().expect("sqlite"))
+                .await?
+        }
+        Backend::Postgres => {
+            sqlx::query_scalar(&sql)
+                .bind(work_id)
+                .bind(node_id)
+                .bind(voter_pseud_id)
+                .fetch_optional(db.postgres_pool().expect("postgres"))
+                .await?
+        }
     };
     Ok(vote.map(|v| v as i8))
 }
@@ -1622,7 +1638,8 @@ pub async fn norms_for_node_ids(db: &Database, ids: &[String]) -> Result<Vec<Str
         .collect::<Vec<_>>()
         .join(", ");
     let sqlite_sql = format!("SELECT norm FROM canonical_entities WHERE id IN ({sqlite_marks})");
-    let postgres_sql = format!("SELECT norm FROM canonical_entities WHERE id IN ({postgres_marks})");
+    let postgres_sql =
+        format!("SELECT norm FROM canonical_entities WHERE id IN ({postgres_marks})");
     let sql = db.sql(&sqlite_sql, &postgres_sql);
     let rows: Vec<(String,)> = match db.backend() {
         Backend::Sqlite => {
@@ -1637,12 +1654,13 @@ pub async fn norms_for_node_ids(db: &Database, ids: &[String]) -> Result<Vec<Str
             for id in ids {
                 query = query.bind(id);
             }
-            query.fetch_all(db.postgres_pool().expect("postgres")).await?
+            query
+                .fetch_all(db.postgres_pool().expect("postgres"))
+                .await?
         }
     };
     Ok(rows.into_iter().map(|row| row.0).collect())
 }
-
 
 /// List works tagged with a specific tag node, for the /tags/:tag surface (spec §43.1).
 ///

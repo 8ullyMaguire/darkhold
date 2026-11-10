@@ -1950,7 +1950,8 @@ pub fn parse_mention_handles(text: &str) -> Vec<String> {
             // A **hyphen is part of a handle**: registration accepts `com-a`, and a parser that did not would make a legal
             // handle permanently unmentionable — the failure would look like "mentions never work for that person".
             // Trailing punctuation still ends the handle, which is what makes `@com-a,` and `(@com-a)` parse.
-            let handle = rest.trim_end_matches(|c: char| !(c.is_alphanumeric() || c == '_' || c == '-'));
+            let handle =
+                rest.trim_end_matches(|c: char| !(c.is_alphanumeric() || c == '_' || c == '-'));
             if (3..=32).contains(&handle.len())
                 && handle
                     .chars()

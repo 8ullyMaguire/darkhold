@@ -96,7 +96,9 @@ pub async fn get_translation(
     // language pair of somebody's work, and `get_job` has no idea who asked: the check belongs here, and the refusal is
     // 404 rather than 403 because confirming that a job exists is itself a disclosure (ADR 0030).
     match job {
-        Some(j) if j.get("created_by").and_then(Value::as_str) == Some(account.as_str()) => Ok(Json(j)),
+        Some(j) if j.get("created_by").and_then(Value::as_str) == Some(account.as_str()) => {
+            Ok(Json(j))
+        }
         _ => Err(ApiError(darkhold_domain::AppError::NotFound {
             resource: "translation",
         })),
@@ -243,10 +245,7 @@ pub fn router() -> axum::Router<AppState> {
             get(list_units).post(record_unit),
         )
         .route("/translations/{job_id}/publish", post(publish_translation))
-        .route(
-            "/me/translation-memory",
-            post(add_memory_entry),
-        )
+        .route("/me/translation-memory", post(add_memory_entry))
         .route("/me/translation-memory/lookup", get(lookup_memory_entry))
         .route(
             "/translations/{job_id}/transition",
@@ -466,8 +465,8 @@ async fn record_unit(
     let account = account_of(user)?;
     owned_job(&state, &account, &job_id).await?;
 
-    let unit_state =
-        darkhold_domain::translation::TranslationUnitState::from_str(&body.state).map_err(|error| {
+    let unit_state = darkhold_domain::translation::TranslationUnitState::from_str(&body.state)
+        .map_err(|error| {
             let mut field_errors = std::collections::BTreeMap::new();
             field_errors.insert("state".to_string(), error);
             ApiError(darkhold_domain::AppError::Validation {
@@ -479,7 +478,10 @@ async fn record_unit(
     // A paragraph cannot be "translated" with nothing in it: the state is a claim about the text beside it, and accepting
     // the claim without the text would put a paragraph in the reviewed pile that nobody can review.
     if unit_state != darkhold_domain::translation::TranslationUnitState::Pending
-        && body.target_text.as_deref().is_none_or(|text| text.trim().is_empty())
+        && body
+            .target_text
+            .as_deref()
+            .is_none_or(|text| text.trim().is_empty())
     {
         return Err(ApiError(darkhold_domain::AppError::field(
             "target_text",
@@ -541,10 +543,9 @@ async fn publish_translation(
         .and_then(Value::as_str)
         .unwrap_or_default()
         .to_owned();
-    let publication =
-        darkhold_db::translation::record_publication(state.db(), &job_id, &work_id)
-            .await
-            .map_err(|e| ApiError(darkhold_domain::AppError::Internal(e.into())))?;
+    let publication = darkhold_db::translation::record_publication(state.db(), &job_id, &work_id)
+        .await
+        .map_err(|e| ApiError(darkhold_domain::AppError::Internal(e.into())))?;
 
     Ok(Json(json!({
         "job_id": job_id,
@@ -592,7 +593,10 @@ async fn add_memory_entry(
         ("target_text", &body.target_text),
     ] {
         if value.trim().is_empty() {
-            return Err(ApiError(darkhold_domain::AppError::field(field, "must not be empty")));
+            return Err(ApiError(darkhold_domain::AppError::field(
+                field,
+                "must not be empty",
+            )));
         }
     }
     if !(0..=10_000).contains(&body.quality_bp) {
@@ -634,7 +638,10 @@ async fn lookup_memory_entry(
         ("source_text", &query.source_text),
     ] {
         if value.trim().is_empty() {
-            return Err(ApiError(darkhold_domain::AppError::field(field, "must not be empty")));
+            return Err(ApiError(darkhold_domain::AppError::field(
+                field,
+                "must not be empty",
+            )));
         }
     }
     let source_hash = memory_key(&query.source_text);

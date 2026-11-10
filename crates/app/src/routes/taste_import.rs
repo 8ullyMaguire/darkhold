@@ -168,7 +168,10 @@ async fn import_signals_route(
         ("import_kind", body.import_kind.trim()),
     ] {
         if value.is_empty() {
-            return Err(ApiError(darkhold_domain::AppError::field(field, "must not be empty")));
+            return Err(ApiError(darkhold_domain::AppError::field(
+                field,
+                "must not be empty",
+            )));
         }
     }
     if body.signals.is_empty() {

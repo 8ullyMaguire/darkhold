@@ -116,7 +116,11 @@ impl Client {
         // cookie, and without the token the request is refused before the decision
         // this file is about is ever made.
         if !matches!(method, "GET" | "HEAD" | "OPTIONS") {
-            if let Some((_, token)) = self.cookies.iter().find(|(name, _)| name == "darkhold_csrf") {
+            if let Some((_, token)) = self
+                .cookies
+                .iter()
+                .find(|(name, _)| name == "darkhold_csrf")
+            {
                 let token = token.clone();
                 builder = builder.header("x-csrf-token", token);
             }
@@ -252,7 +256,11 @@ impl Harness {
     async fn published_work(&self, handle: &str) -> String {
         let mut author = self.reader(handle).await;
         let (status, body) = author
-            .send("POST", "/api/v1/works", Some(json!({ "title": "A Work To Be Reviewed" })))
+            .send(
+                "POST",
+                "/api/v1/works",
+                Some(json!({ "title": "A Work To Be Reviewed" })),
+            )
             .await;
         assert_eq!(status, StatusCode::CREATED, "create work: {body}");
         let work_id = body["id"].as_str().expect("id").to_owned();
@@ -638,7 +646,9 @@ async fn review_id_for(db: &Database, work_id: &str) -> String {
     let sql = match db.backend() {
         // The table is `review`, singular (migration `0005_reading.sql`), and the column is a uuid on PostgreSQL while it is
         // TEXT here — the same asymmetry as every other id in this schema.
-        darkhold_db::Backend::Sqlite => "SELECT id FROM review WHERE work_id = ? AND deleted_at IS NULL",
+        darkhold_db::Backend::Sqlite => {
+            "SELECT id FROM review WHERE work_id = ? AND deleted_at IS NULL"
+        }
         darkhold_db::Backend::Postgres => {
             "SELECT id::text AS id FROM review WHERE work_id::text = $1 AND deleted_at IS NULL"
         }
@@ -725,7 +735,9 @@ async fn a_held_review_records_the_decision_that_held_it() {
         "no model was consulted, and 0.0 would claim one said no: {body}"
     );
     assert!(
-        row["deterministic"].as_str().is_some_and(|class| !class.is_empty()),
+        row["deterministic"]
+            .as_str()
+            .is_some_and(|class| !class.is_empty()),
         "the classifier's own answer is recorded beside the outcome: {body}"
     );
     // The graded text is not in the row — §12.1, and the module's load-bearing privacy decision.

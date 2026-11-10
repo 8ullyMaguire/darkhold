@@ -31,7 +31,9 @@ fn build(config: &Config, db: &Database) -> axum::Router {
 
 /// A published work by `author`, with one chapter.
 async fn published_work(author: &mut TestClient, title: &str) -> String {
-    let (status, body) = author.post("/api/v1/works", json!({ "title": title })).await;
+    let (status, body) = author
+        .post("/api/v1/works", json!({ "title": title }))
+        .await;
     assert_eq!(status, StatusCode::CREATED, "{body}");
     let work = body["id"].as_str().expect("work").to_owned();
     let (status, body) = author

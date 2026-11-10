@@ -52,7 +52,9 @@ async fn account_id(db: &Database, handle: &str) -> uuid::Uuid {
 }
 
 async fn publish_work(author: &mut TestClient, title: &str) -> String {
-    let (status, work) = author.post("/api/v1/works", json!({ "title": title })).await;
+    let (status, work) = author
+        .post("/api/v1/works", json!({ "title": title }))
+        .await;
     assert_eq!(status, StatusCode::CREATED, "{work}");
     let work_id = work["id"].as_str().expect("work id").to_owned();
     let (status, unit) = author
@@ -108,7 +110,13 @@ async fn an_operator_records_a_quality_signal_and_the_search_filter_finds_it() {
     config.administration.operator_account_id = Some(account_id(&db, "qsoperator").await.into());
 
     let mut operator = TestClient::new(build(&config, &db));
-    sign_in_as(&mut operator, &tdb, "qs-operator@example.test", "qsoperator").await;
+    sign_in_as(
+        &mut operator,
+        &tdb,
+        "qs-operator@example.test",
+        "qsoperator",
+    )
+    .await;
 
     let mut author = TestClient::new(build(&config, &db));
     register(&mut author, "qs-author@example.test", "qsauthor").await;
@@ -120,7 +128,11 @@ async fn an_operator_records_a_quality_signal_and_the_search_filter_finds_it() {
     // 0. Nothing is scored yet, and the public read says so with an empty list rather than a fabricated average.
     let (status, body) = anon.get(&format!("/api/v1/works/{scored}/quality")).await;
     assert_eq!(status, StatusCode::OK, "{body}");
-    assert_eq!(body["signals"].as_array().map(|a| a.len()), Some(0), "{body}");
+    assert_eq!(
+        body["signals"].as_array().map(|a| a.len()),
+        Some(0),
+        "{body}"
+    );
     assert_eq!(body["composite"], json!(null), "{body}");
 
     // 1. The door: an operator records a judgement, and the answer is the row that was stored.
@@ -137,7 +149,11 @@ async fn an_operator_records_a_quality_signal_and_the_search_filter_finds_it() {
     // 2. The reader: the signal is visible, with the composite the search filter computes (800 * 1 / 1 = 800 → 0.8).
     let (status, body) = anon.get(&format!("/api/v1/works/{scored}/quality")).await;
     assert_eq!(status, StatusCode::OK, "{body}");
-    assert_eq!(body["signals"][0]["kind"], json!("editorial_review"), "{body}");
+    assert_eq!(
+        body["signals"][0]["kind"],
+        json!("editorial_review"),
+        "{body}"
+    );
     assert_eq!(body["composite"], json!(0.8), "{body}");
 
     // 3. The chain that matters: a real search filter now returns the scored work and not the unscored one. Before the door
@@ -150,8 +166,14 @@ async fn an_operator_records_a_quality_signal_and_the_search_filter_finds_it() {
         .iter()
         .filter_map(|item| item["id"].as_str().map(str::to_owned))
         .collect();
-    assert!(ids.contains(&scored), "the scored work must be found: {body}");
-    assert!(!ids.contains(&unscored), "an unscored work must not be: {body}");
+    assert!(
+        ids.contains(&scored),
+        "the scored work must be found: {body}"
+    );
+    assert!(
+        !ids.contains(&unscored),
+        "an unscored work must not be: {body}"
+    );
 
     // 3b. A correction replaces the operator's own judgement instead of adding a second one. The composite is a weighted mean, so
     //     a duplicate row would double that signal's weight and quietly outvote every other operator's — the value would move to
@@ -165,8 +187,16 @@ async fn an_operator_records_a_quality_signal_and_the_search_filter_finds_it() {
     assert_eq!(status, StatusCode::CREATED, "{body}");
     let (status, body) = anon.get(&format!("/api/v1/works/{scored}/quality")).await;
     assert_eq!(status, StatusCode::OK, "{body}");
-    assert_eq!(body["signals"].as_array().map(|a| a.len()), Some(1), "{body}");
-    assert_eq!(body["composite"], json!(0.4), "a correction is not a second opinion: {body}");
+    assert_eq!(
+        body["signals"].as_array().map(|a| a.len()),
+        Some(1),
+        "{body}"
+    );
+    assert_eq!(
+        body["composite"],
+        json!(0.4),
+        "a correction is not a second opinion: {body}"
+    );
 
     // 4. Refusals by name: the vocabulary and the bounds are the schema's, and a bad request is told which field is wrong.
     let (status, body) = operator
@@ -176,7 +206,11 @@ async fn an_operator_records_a_quality_signal_and_the_search_filter_finds_it() {
         )
         .await;
     assert_eq!(status, StatusCode::UNPROCESSABLE_ENTITY, "{body}");
-    assert_eq!(body["error"]["field_errors"]["kind"], json!("unknown kind"), "{body}");
+    assert_eq!(
+        body["error"]["field_errors"]["kind"],
+        json!("unknown kind"),
+        "{body}"
+    );
 
     let (status, body) = operator
         .post(

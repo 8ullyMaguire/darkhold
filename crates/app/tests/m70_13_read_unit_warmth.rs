@@ -78,8 +78,14 @@ async fn warmth_bp(db: &Database, reader: uuid::Uuid, author: uuid::Uuid) -> i64
     }
 }
 
-async fn publish_work(author: &mut TestClient, title: &str, chapters: usize) -> (String, Vec<String>) {
-    let (status, work) = author.post("/api/v1/works", json!({ "title": title })).await;
+async fn publish_work(
+    author: &mut TestClient,
+    title: &str,
+    chapters: usize,
+) -> (String, Vec<String>) {
+    let (status, work) = author
+        .post("/api/v1/works", json!({ "title": title }))
+        .await;
     assert_eq!(status, StatusCode::CREATED, "{work}");
     let work_id = work["id"].as_str().expect("work id").to_owned();
     let mut units = Vec::new();

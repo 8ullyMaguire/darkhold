@@ -92,7 +92,6 @@ pub async fn get_leakage(
     })))
 }
 
-
 /// `POST /admin/discovery/leakage` — record one reviewed artifact.
 ///
 /// The view existed and nothing could write a row for it: `record_review` had no caller in `crates/app`, so the queue was
@@ -128,7 +127,8 @@ pub async fn post_leakage(
         let mut field_errors = std::collections::BTreeMap::new();
         field_errors.insert(
             "pseud".to_owned(),
-            "select a pseud before recording a review; 0110 names the pseud as the reviewer".to_owned(),
+            "select a pseud before recording a review; 0110 names the pseud as the reviewer"
+                .to_owned(),
         );
         return Err(ApiError(AppError::Validation {
             message: "a review needs a reviewer identity".to_owned(),
@@ -143,7 +143,8 @@ pub async fn post_leakage(
             "must be keep, coarsen, or remove".to_owned(),
         );
         return Err(ApiError(AppError::Validation {
-            message: "the leakage review takes a disposition from the schema's vocabulary".to_owned(),
+            message: "the leakage review takes a disposition from the schema's vocabulary"
+                .to_owned(),
             field_errors,
         }));
     };
@@ -187,7 +188,9 @@ pub async fn post_leakage(
 
     // No count, no total: §52.1's rule applies to the write's answer as much as to the view's, and a response that said
     // "review 15" would publish the queue's size one row at a time.
-    Ok(Json(json!({ "id": id.to_string(), "reviewed_at": reviewed_at })))
+    Ok(Json(
+        json!({ "id": id.to_string(), "reviewed_at": reviewed_at }),
+    ))
 }
 
 fn ease_str(ease: Ease) -> &'static str {

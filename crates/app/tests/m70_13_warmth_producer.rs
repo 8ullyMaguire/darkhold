@@ -32,7 +32,9 @@ fn build(config: &Config, db: &Database) -> axum::Router {
 }
 
 async fn publish_work(author: &mut TestClient, title: &str) -> String {
-    let (status, work) = author.post("/api/v1/works", json!({ "title": title })).await;
+    let (status, work) = author
+        .post("/api/v1/works", json!({ "title": title }))
+        .await;
     assert_eq!(status, StatusCode::CREATED, "{work}");
     let work_id = work["id"].as_str().expect("work id").to_owned();
     let (status, unit) = author
@@ -147,7 +149,11 @@ async fn a_kudos_and_a_comment_move_the_authors_audience_panel() {
     }
     let panel = audience(&mut author).await;
     assert_eq!(panel["comment"], json!(1), "{panel}");
-    assert_eq!(panel["total"], json!(1), "one reader, one relationship: {panel}");
+    assert_eq!(
+        panel["total"],
+        json!(1),
+        "one reader, one relationship: {panel}"
+    );
 
     // 4. A reader cannot warm themselves: the author commenting on their own work must not appear in their own panel.
     let (status, body) = author
@@ -223,4 +229,3 @@ async fn finishing_a_work_warms_its_author_once_and_reverses() {
     assert!(status.is_success(), "un-finish: {body}");
     assert_eq!(audience(&mut author).await["total"], json!(0));
 }
-

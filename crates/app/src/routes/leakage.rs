@@ -36,7 +36,10 @@ use crate::state::AppState;
 
 pub fn router() -> Router<AppState> {
     Router::new()
-        .route("/admin/leakage/window", get(latest_window).post(open_window))
+        .route(
+            "/admin/leakage/window",
+            get(latest_window).post(open_window),
+        )
         .route("/admin/leakage/window/{id}/close", post(close_window))
         .route("/admin/works/{id}/resonance", put(set_resonance))
         .route("/works/{id}/resonance", get(read_resonance))
@@ -113,7 +116,11 @@ async fn open_window(
     let window = darkhold_db::taste_leakage::get_window(state.db(), id)
         .await
         .map_err(internal)?
-        .ok_or_else(|| ApiError(AppError::Internal(anyhow::anyhow!("a window that was just inserted is missing"))))?;
+        .ok_or_else(|| {
+            ApiError(AppError::Internal(anyhow::anyhow!(
+                "a window that was just inserted is missing"
+            )))
+        })?;
     Ok(Json(window_view(&id, &window)))
 }
 
@@ -127,13 +134,19 @@ async fn close_window(
     Path(id): Path<String>,
 ) -> ApiResult<Json<Value>> {
     crate::routes::discovery::require_operator(&state, &session.0)?;
-    let window_id: uuid::Uuid = id
-        .parse()
-        .map_err(|_| ApiError(AppError::NotFound { resource: "batch window" }))?;
+    let window_id: uuid::Uuid = id.parse().map_err(|_| {
+        ApiError(AppError::NotFound {
+            resource: "batch window",
+        })
+    })?;
     let window = darkhold_db::taste_leakage::get_window(state.db(), window_id)
         .await
         .map_err(internal)?
-        .ok_or_else(|| ApiError(AppError::NotFound { resource: "batch window" }))?;
+        .ok_or_else(|| {
+            ApiError(AppError::NotFound {
+                resource: "batch window",
+            })
+        })?;
     if window.closed_at.is_some() {
         let mut field_errors = std::collections::BTreeMap::new();
         field_errors.insert("window".to_string(), "already closed".to_string());
@@ -223,9 +236,11 @@ async fn set_resonance(
     // The window comes from the caller when given (a backfill of an old batch) and from the latest window otherwise —
     // but a window that is still open cannot carry a label: its labels would be stale the moment it closed.
     let window_id = match body["window_id"].as_str() {
-        Some(raw) => raw
-            .parse::<uuid::Uuid>()
-            .map_err(|_| ApiError(AppError::NotFound { resource: "batch window" }))?,
+        Some(raw) => raw.parse::<uuid::Uuid>().map_err(|_| {
+            ApiError(AppError::NotFound {
+                resource: "batch window",
+            })
+        })?,
         None => match darkhold_db::taste_leakage::latest_window(state.db())
             .await
             .map_err(internal)?
@@ -233,7 +248,10 @@ async fn set_resonance(
             Some((id, window)) if window.closed_at.is_some() => id,
             Some(_) => {
                 let mut field_errors = std::collections::BTreeMap::new();
-                field_errors.insert("window".to_string(), "the open window has not closed".to_string());
+                field_errors.insert(
+                    "window".to_string(),
+                    "the open window has not closed".to_string(),
+                );
                 return Err(ApiError(AppError::Validation {
                     message: "a label needs a closed batch window".to_string(),
                     field_errors,
@@ -251,9 +269,16 @@ async fn set_resonance(
     };
 
     let computed_at = now_seconds();
-    darkhold_db::taste_leakage::set_resonance_label(state.db(), owner, work, label, window_id, computed_at)
-        .await
-        .map_err(internal)?;
+    darkhold_db::taste_leakage::set_resonance_label(
+        state.db(),
+        owner,
+        work,
+        label,
+        window_id,
+        computed_at,
+    )
+    .await
+    .map_err(internal)?;
     Ok(Json(json!({
         "work_id": id,
         "label": label.as_str(),

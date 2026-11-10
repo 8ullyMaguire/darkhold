@@ -89,11 +89,22 @@ async fn the_window_opens_once_labels_need_it_closed_and_only_the_owner_reads_th
 
     // The operator: a separate account, signed in through a build that knows it is the operator.
     let mut op_probe = TestClient::new(build(&config, &db));
-    let op_account = register(&mut op_probe, "leakage-operator@example.test", "leakageoperator").await;
+    let op_account = register(
+        &mut op_probe,
+        "leakage-operator@example.test",
+        "leakageoperator",
+    )
+    .await;
     let mut op_config = config.clone();
     op_config.administration.operator_account_id = Some(op_account.parse().expect("account id"));
     let mut operator = TestClient::new(build(&op_config, &db));
-    sign_in_as(&mut operator, &tdb, "leakage-operator@example.test", "leakageoperator").await;
+    sign_in_as(
+        &mut operator,
+        &tdb,
+        "leakage-operator@example.test",
+        "leakageoperator",
+    )
+    .await;
 
     // 1. A fresh instance has never batched, and that is a state, not a fault.
     let (status, body) = operator.get("/api/v1/admin/leakage/window").await;
@@ -108,7 +119,11 @@ async fn the_window_opens_once_labels_need_it_closed_and_only_the_owner_reads_th
         )
         .await;
     assert_eq!(status, StatusCode::UNPROCESSABLE_ENTITY, "{body}");
-    assert_eq!(body["error"]["code"], serde_json::json!("VALIDATION_FAILED"), "{body}");
+    assert_eq!(
+        body["error"]["code"],
+        serde_json::json!("VALIDATION_FAILED"),
+        "{body}"
+    );
 
     // 3. Open a window. The answer is the window, with `open: true` and no close.
     let (status, window) = operator
@@ -120,7 +135,11 @@ async fn the_window_opens_once_labels_need_it_closed_and_only_the_owner_reads_th
     let window_id = window["id"].as_str().expect("window id").to_owned();
 
     let (_, latest) = operator.get("/api/v1/admin/leakage/window").await;
-    assert_eq!(latest["window"]["id"], serde_json::json!(window_id), "{latest}");
+    assert_eq!(
+        latest["window"]["id"],
+        serde_json::json!(window_id),
+        "{latest}"
+    );
 
     // 4. A second open is refused: two live windows would make a payout attributable to either, which is the
     //    correlation §52.2 exists to prevent.
@@ -129,7 +148,9 @@ async fn the_window_opens_once_labels_need_it_closed_and_only_the_owner_reads_th
         .await;
     assert_eq!(status, StatusCode::UNPROCESSABLE_ENTITY, "{body}");
     assert!(
-        body["error"]["message"].as_str().is_some_and(|m| m.contains("already open")),
+        body["error"]["message"]
+            .as_str()
+            .is_some_and(|m| m.contains("already open")),
         "{body}"
     );
 
@@ -177,10 +198,24 @@ async fn the_window_opens_once_labels_need_it_closed_and_only_the_owner_reads_th
     assert_eq!(mine["label"], serde_json::json!("noticed"), "{mine}");
 
     let mut stranger = TestClient::new(build(&config, &db));
-    register(&mut stranger, "leakage-stranger@example.test", "leakagestranger").await;
-    let (status, body) = stranger.get(format!("/api/v1/works/{work}/resonance")).await;
-    assert_eq!(status, StatusCode::NOT_FOUND, "a stranger must not learn this: {body}");
-    assert!(body["label"].is_null(), "and no label leaks in the refusal: {body}");
+    register(
+        &mut stranger,
+        "leakage-stranger@example.test",
+        "leakagestranger",
+    )
+    .await;
+    let (status, body) = stranger
+        .get(format!("/api/v1/works/{work}/resonance"))
+        .await;
+    assert_eq!(
+        status,
+        StatusCode::NOT_FOUND,
+        "a stranger must not learn this: {body}"
+    );
+    assert!(
+        body["label"].is_null(),
+        "and no label leaks in the refusal: {body}"
+    );
 
     // 9. A label that is not one of the four buckets is refused, and the refusal names them.
     let (status, body) = operator

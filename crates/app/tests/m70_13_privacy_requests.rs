@@ -56,7 +56,9 @@ async fn a_person_files_a_delete_and_an_operator_finishes_it() {
     let mut operator = TestClient::new(build(&admin, &db));
     test_support::sign_in_as(&mut operator, &tdb, "pr-op@example.test", "prop").await;
 
-    let (status, body) = operator.get("/api/v1/admin/privacy-requests?state=pending").await;
+    let (status, body) = operator
+        .get("/api/v1/admin/privacy-requests?state=pending")
+        .await;
     assert_eq!(status, StatusCode::OK, "{body}");
     let queue = body["requests"].as_array().expect("requests");
     let mine = queue
@@ -80,7 +82,11 @@ async fn a_person_files_a_delete_and_an_operator_finishes_it() {
         .await;
     assert_eq!(status, StatusCode::OK, "{body}");
     assert_eq!(body["state"], json!("done"), "{body}");
-    assert_eq!(body["result_ref"], json!("erasure:2026-11-09/case-41"), "{body}");
+    assert_eq!(
+        body["result_ref"],
+        json!("erasure:2026-11-09/case-41"),
+        "{body}"
+    );
     assert!(
         body["completed_at"].as_str().is_some_and(|s| !s.is_empty()),
         "a completion is dated: {body}"
@@ -142,7 +148,9 @@ async fn a_person_files_a_delete_and_an_operator_finishes_it() {
 
     // 7. `done` requests leave the pending queue and stay visible when asked for by state — a drained queue and a deleted
     //    record have to be distinguishable to the operator doing the draining.
-    let (status, body) = operator.get("/api/v1/admin/privacy-requests?state=pending").await;
+    let (status, body) = operator
+        .get("/api/v1/admin/privacy-requests?state=pending")
+        .await;
     assert_eq!(status, StatusCode::OK, "{body}");
     assert!(
         !body["requests"]
@@ -152,7 +160,9 @@ async fn a_person_files_a_delete_and_an_operator_finishes_it() {
             .any(|row| row["id"] == json!(request_id)),
         "a finished request is not still pending: {body}"
     );
-    let (status, body) = operator.get("/api/v1/admin/privacy-requests?state=done").await;
+    let (status, body) = operator
+        .get("/api/v1/admin/privacy-requests?state=done")
+        .await;
     assert_eq!(status, StatusCode::OK, "{body}");
     assert!(
         body["requests"]

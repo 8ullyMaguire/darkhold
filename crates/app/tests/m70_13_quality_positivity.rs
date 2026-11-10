@@ -31,7 +31,9 @@ fn build(config: &Config, db: &Database) -> axum::Router {
 }
 
 async fn publish_work(author: &mut TestClient, title: &str) -> String {
-    let (status, work) = author.post("/api/v1/works", json!({ "title": title })).await;
+    let (status, work) = author
+        .post("/api/v1/works", json!({ "title": title }))
+        .await;
     assert_eq!(status, StatusCode::CREATED, "{work}");
     let work_id = work["id"].as_str().expect("work id").to_owned();
     let (status, unit) = author
@@ -104,7 +106,10 @@ async fn a_review_makes_reader_positivity_real_and_recomputes_on_each_write() {
 
     // 0. No reviews: the signal must not exist. `0` would claim a verdict nobody reached.
     let (value, composite) = positivity(&mut anon, &work).await;
-    assert_eq!(value, None, "unreviewed work must carry no positivity signal");
+    assert_eq!(
+        value, None,
+        "unreviewed work must carry no positivity signal"
+    );
     assert_eq!(composite, json!(null));
 
     // 1. One positive review is one of one.
@@ -213,6 +218,9 @@ async fn a_review_makes_reader_positivity_real_and_recomputes_on_each_write() {
         .await;
     assert!(status.is_success(), "delete critique: {body}");
     let (value, composite) = positivity(&mut anon, &work).await;
-    assert_eq!(value, None, "nothing visible means no signal, and no stale one");
+    assert_eq!(
+        value, None,
+        "nothing visible means no signal, and no stale one"
+    );
     assert_eq!(composite, json!(null));
 }

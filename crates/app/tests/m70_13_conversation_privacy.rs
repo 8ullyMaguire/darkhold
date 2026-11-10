@@ -104,7 +104,11 @@ impl Client {
             builder = builder.header(header::COOKIE, header_value);
         }
         if !matches!(method, "GET" | "HEAD" | "OPTIONS") {
-            if let Some((_, token)) = self.cookies.iter().find(|(name, _)| name == "darkhold_csrf") {
+            if let Some((_, token)) = self
+                .cookies
+                .iter()
+                .find(|(name, _)| name == "darkhold_csrf")
+            {
                 let token = token.clone();
                 builder = builder.header("x-csrf-token", token);
             }
@@ -122,7 +126,10 @@ impl Client {
         let bytes = axum::body::to_bytes(response.into_body(), 1 << 20)
             .await
             .expect("body");
-        (status, serde_json::from_slice(&bytes).unwrap_or(serde_json::Value::Null))
+        (
+            status,
+            serde_json::from_slice(&bytes).unwrap_or(serde_json::Value::Null),
+        )
     }
 }
 
@@ -193,7 +200,10 @@ async fn a_conversation_is_readable_by_its_participants_and_nobody_else() {
             Some(serde_json::json!({ "participant": bob_account })),
         )
         .await;
-    assert!(status.is_success(), "create conversation: {status} {created}");
+    assert!(
+        status.is_success(),
+        "create conversation: {status} {created}"
+    );
     let conversation = created["id"].as_str().expect("conversation id").to_owned();
 
     let (status, sent) = alice
@@ -207,7 +217,11 @@ async fn a_conversation_is_readable_by_its_participants_and_nobody_else() {
 
     // 2. Bob is in it and reads it.
     let (status, body) = bob
-        .send("GET", &format!("/api/v1/conversations/{conversation}/messages"), None)
+        .send(
+            "GET",
+            &format!("/api/v1/conversations/{conversation}/messages"),
+            None,
+        )
         .await;
     assert_eq!(status, StatusCode::OK, "{body}");
     assert_eq!(
@@ -218,7 +232,11 @@ async fn a_conversation_is_readable_by_its_participants_and_nobody_else() {
 
     // 3. Mallory is not, and gets nothing — not the thread, and not a confirmation that it exists.
     let (status, refused) = mallory
-        .send("GET", &format!("/api/v1/conversations/{conversation}/messages"), None)
+        .send(
+            "GET",
+            &format!("/api/v1/conversations/{conversation}/messages"),
+            None,
+        )
         .await;
     assert_eq!(status, StatusCode::NOT_FOUND, "{refused}");
 
@@ -232,7 +250,11 @@ async fn a_conversation_is_readable_by_its_participants_and_nobody_else() {
         .await;
     assert_eq!(status, StatusCode::NOT_FOUND, "{refused_post}");
     let (_, body) = bob
-        .send("GET", &format!("/api/v1/conversations/{conversation}/messages"), None)
+        .send(
+            "GET",
+            &format!("/api/v1/conversations/{conversation}/messages"),
+            None,
+        )
         .await;
     assert_eq!(
         body["items"].as_array().expect("items").len(),

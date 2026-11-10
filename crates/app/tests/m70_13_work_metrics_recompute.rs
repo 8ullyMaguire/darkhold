@@ -93,13 +93,13 @@ async fn work_with_views(db: &Database, email: &str, handle: &str, views: i64) -
 /// The stored `updated_at` for a work, as text.
 async fn updated_at(db: &Database, work: &str) -> String {
     match db.backend() {
-        darkhold_db::Backend::Sqlite => sqlx::query_scalar(
-            "SELECT updated_at FROM work_metric_aggregates WHERE work_id = ?",
-        )
-        .bind(work)
-        .fetch_one(db.sqlite_pool().expect("sqlite"))
-        .await
-        .expect("stamp"),
+        darkhold_db::Backend::Sqlite => {
+            sqlx::query_scalar("SELECT updated_at FROM work_metric_aggregates WHERE work_id = ?")
+                .bind(work)
+                .fetch_one(db.sqlite_pool().expect("sqlite"))
+                .await
+                .expect("stamp")
+        }
         darkhold_db::Backend::Postgres => sqlx::query_scalar(
             "SELECT updated_at FROM work_metric_aggregates WHERE work_id::text = $1",
         )
@@ -159,7 +159,13 @@ async fn an_operator_repairs_a_drifted_counter_and_the_repair_is_what_readers_se
     let mut config = Config::development_defaults();
     config.administration.operator_account_id = Some(account.parse().expect("account id"));
     let mut operator = TestClient::new(build(&config, &db));
-    test_support::sign_in_as(&mut operator, &tdb, "rm-operator@example.test", "rmoperator").await;
+    test_support::sign_in_as(
+        &mut operator,
+        &tdb,
+        "rm-operator@example.test",
+        "rmoperator",
+    )
+    .await;
 
     let (status, body) = operator
         .post(
@@ -168,7 +174,11 @@ async fn an_operator_repairs_a_drifted_counter_and_the_repair_is_what_readers_se
         )
         .await;
     assert_eq!(status, StatusCode::OK, "{body}");
-    assert_eq!(body["views"], json!(2), "the answer is the recomputed row: {body}");
+    assert_eq!(
+        body["views"],
+        json!(2),
+        "the answer is the recomputed row: {body}"
+    );
 
     // Stored, not merely returned: this is the assertion that separates a repair from a preview, and the one an implementation
     // that computed the numbers for the response without writing them fails.
@@ -201,4 +211,3 @@ async fn an_operator_repairs_a_drifted_counter_and_the_repair_is_what_readers_se
         .await;
     assert_eq!(status, StatusCode::NOT_FOUND, "{body}");
 }
-

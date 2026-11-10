@@ -1062,7 +1062,6 @@ pub async fn review_for(db: &Database, pseud: PseudId, work: WorkId) -> Result<O
     Ok(row.map(ReviewRow::decode))
 }
 
-
 /// Soft-delete the acting pseud's review of a work.
 ///
 /// Soft rather than hard, because a moderation review may still need to see

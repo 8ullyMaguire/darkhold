@@ -255,13 +255,17 @@ impl Worker {
             ticker.tick().await; // the first tick is immediate
             loop {
                 ticker.tick().await;
-                match jobs::heartbeat(&state.db(), job, &worker, lease, OffsetDateTime::now_utc()).await {
+                match jobs::heartbeat(&state.db(), job, &worker, lease, OffsetDateTime::now_utc())
+                    .await
+                {
                     Ok(true) => {}
                     Ok(false) => {
                         tracing::warn!(job = %job, worker = %worker, "the lease was lost while the job was running");
                         return;
                     }
-                    Err(error) => tracing::warn!(job = %job, %error, "could not renew the job lease"),
+                    Err(error) => {
+                        tracing::warn!(job = %job, %error, "could not renew the job lease")
+                    }
                 }
             }
         })
@@ -434,8 +438,7 @@ impl Worker {
         let clock = now
             .format(&time::format_description::well_known::Rfc3339)
             .context("formatting the clock for claim expiry")?;
-        match darkhold_db::events::expire_claims(state.db(), &clock, CLAIM_GRACE_SECONDS).await
-        {
+        match darkhold_db::events::expire_claims(state.db(), &clock, CLAIM_GRACE_SECONDS).await {
             Ok(0) => {}
             Ok(expired) => tracing::info!(expired, "claims past their grace period were expired"),
             Err(error) => {

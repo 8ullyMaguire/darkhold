@@ -683,19 +683,59 @@ mod tests {
         let work_id = create_test_work(&db).await;
 
         // First view from a reader: new.
-        let first = record_view(&db, &work_id, "reader-1", "2026-09-23T10:00:00", false, "direct").await?;
+        let first = record_view(
+            &db,
+            &work_id,
+            "reader-1",
+            "2026-09-23T10:00:00",
+            false,
+            "direct",
+        )
+        .await?;
         assert!(first, "first view must be new");
         // Same reader, same hour: duplicate.
-        let second = record_view(&db, &work_id, "reader-1", "2026-09-23T10:00:00", false, "direct").await?;
+        let second = record_view(
+            &db,
+            &work_id,
+            "reader-1",
+            "2026-09-23T10:00:00",
+            false,
+            "direct",
+        )
+        .await?;
         assert!(!second, "same reader, same hour must dedupe");
         // Same reader, next hour: new again.
-        let third = record_view(&db, &work_id, "reader-1", "2026-09-23T11:00:00", false, "direct").await?;
+        let third = record_view(
+            &db,
+            &work_id,
+            "reader-1",
+            "2026-09-23T11:00:00",
+            false,
+            "direct",
+        )
+        .await?;
         assert!(third, "same reader, next hour must count");
         // A different reader, same hour: new.
-        let fourth = record_view(&db, &work_id, "reader-2", "2026-09-23T10:00:00", false, "direct").await?;
+        let fourth = record_view(
+            &db,
+            &work_id,
+            "reader-2",
+            "2026-09-23T10:00:00",
+            false,
+            "direct",
+        )
+        .await?;
         assert!(fourth, "different reader must count");
         // Automated traffic never counts.
-        let bot = record_view(&db, &work_id, "bot-1", "2026-09-23T10:00:00", true, "direct").await?;
+        let bot = record_view(
+            &db,
+            &work_id,
+            "bot-1",
+            "2026-09-23T10:00:00",
+            true,
+            "direct",
+        )
+        .await?;
         assert!(bot, "the bot row is recorded (for analytics)");
         assert_eq!(
             count_views(&db, &work_id).await?,

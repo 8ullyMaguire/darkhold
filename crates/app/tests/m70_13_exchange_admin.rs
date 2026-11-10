@@ -39,7 +39,13 @@ async fn the_exchange_switch_its_name_and_its_two_queues_are_reachable_only_by_a
     let mut config = base.clone();
     config.administration.operator_account_id = Some(operator_account.parse().expect("account id"));
     let mut operator = TestClient::new(build(&config, &db));
-    sign_in_as(&mut operator, &tdb, "ex-operator@example.test", "exoperator").await;
+    sign_in_as(
+        &mut operator,
+        &tdb,
+        "ex-operator@example.test",
+        "exoperator",
+    )
+    .await;
 
     let mut reader = TestClient::new(build(&config, &db));
     register(&mut reader, "ex-reader@example.test", "exreader").await;
@@ -95,7 +101,13 @@ async fn the_exchange_switch_its_name_and_its_two_queues_are_reachable_only_by_a
     assert!(body.to_string().contains("enabled"), "{body}");
 
     // 3. The instance's own name: validated, and written.
-    for bad in ["", "  ", "has a space", "quote\"ed", "a".repeat(65).as_str()] {
+    for bad in [
+        "",
+        "  ",
+        "has a space",
+        "quote\"ed",
+        "a".repeat(65).as_str(),
+    ] {
         let (status, body) = operator
             .post(
                 "/api/v1/admin/exchange/settings",
@@ -164,7 +176,8 @@ async fn the_exchange_switch_its_name_and_its_two_queues_are_reachable_only_by_a
         "§16.16.1: re-signalling adds no weight, so the count stays 1: {demand}"
     );
     assert!(
-        demand["items"][0].get("submitters").is_none() && demand["items"][0].get("holders").is_none(),
+        demand["items"][0].get("submitters").is_none()
+            && demand["items"][0].get("holders").is_none(),
         "no headcount field, structurally: {demand}"
     );
 

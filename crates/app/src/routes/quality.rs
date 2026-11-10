@@ -60,7 +60,9 @@ async fn read(
     Path(id): Path<String>,
 ) -> ApiResult<Json<serde_json::Value>> {
     if !work_exists(&state, &id).await? {
-        return Err(ApiError(darkhold_domain::AppError::NotFound { resource: "work" }));
+        return Err(ApiError(darkhold_domain::AppError::NotFound {
+            resource: "work",
+        }));
     }
     let signals = darkhold_db::media::work_quality_signals(state.db(), &id)
         .await
@@ -125,13 +127,16 @@ async fn record(
         )));
     }
     if !work_exists(&state, &id).await? {
-        return Err(ApiError(darkhold_domain::AppError::NotFound { resource: "work" }));
+        return Err(ApiError(darkhold_domain::AppError::NotFound {
+            resource: "work",
+        }));
     }
 
     let source = format!("operator:{}", user.account_id);
-    let signal = darkhold_db::media::store_signal(state.db(), &id, &body.kind, body.value, weight, &source)
-        .await
-        .map_err(|error| ApiError(darkhold_domain::AppError::Internal(error)))?;
+    let signal =
+        darkhold_db::media::store_signal(state.db(), &id, &body.kind, body.value, weight, &source)
+            .await
+            .map_err(|error| ApiError(darkhold_domain::AppError::Internal(error)))?;
     Ok((
         axum::http::StatusCode::CREATED,
         Json(json!({

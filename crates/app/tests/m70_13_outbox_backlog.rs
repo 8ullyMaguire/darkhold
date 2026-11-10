@@ -94,7 +94,11 @@ async fn readiness_reports_the_undelivered_backlog_and_never_gates_on_it() {
         .expect("enqueue");
     }
     let (status, check, detail) = outbox_detail(&mut client).await;
-    assert_eq!(status, StatusCode::OK, "a backlog does not make an instance unready");
+    assert_eq!(
+        status,
+        StatusCode::OK,
+        "a backlog does not make an instance unready"
+    );
     assert_eq!(check["ok"], serde_json::json!(true), "{check}");
     assert!(
         detail.contains('3'),
@@ -103,11 +107,18 @@ async fn readiness_reports_the_undelivered_backlog_and_never_gates_on_it() {
 
     // 3. Delivered means delivered: marking one removes it from the count. `undelivered_count` filters on `delivered_at IS
     //    NULL`, so a delivered row is not "delivered but still counted" — the boundary a queue's counter most often gets wrong.
-    let pending = darkhold_db::outbox::pending(&db, 10).await.expect("pending");
-    assert_eq!(pending.len(), 3, "three events are waiting: {pending:?}");
-    darkhold_db::outbox::mark_delivered(&db, darkhold_domain::OutboxEventId::from_uuid(uuid::Uuid::parse_str(&pending[0].id).expect("event id")))
+    let pending = darkhold_db::outbox::pending(&db, 10)
         .await
-        .expect("deliver");
+        .expect("pending");
+    assert_eq!(pending.len(), 3, "three events are waiting: {pending:?}");
+    darkhold_db::outbox::mark_delivered(
+        &db,
+        darkhold_domain::OutboxEventId::from_uuid(
+            uuid::Uuid::parse_str(&pending[0].id).expect("event id"),
+        ),
+    )
+    .await
+    .expect("deliver");
     let (status, check, detail) = outbox_detail(&mut client).await;
     assert_eq!(status, StatusCode::OK, "{check}");
     assert!(

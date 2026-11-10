@@ -318,14 +318,18 @@ pub async fn top_search_misses(
           ORDER BY count DESC, last_seen_at DESC LIMIT $1",
     );
     let rows: Vec<(String, i64, String, String)> = match db.backend() {
-        Backend::Sqlite => sqlx::query_as(&sql)
-            .bind(limit)
-            .fetch_all(db.sqlite_pool().expect("sqlite"))
-            .await?,
-        Backend::Postgres => sqlx::query_as(&sql)
-            .bind(limit)
-            .fetch_all(db.postgres_pool().expect("postgres"))
-            .await?,
+        Backend::Sqlite => {
+            sqlx::query_as(&sql)
+                .bind(limit)
+                .fetch_all(db.sqlite_pool().expect("sqlite"))
+                .await?
+        }
+        Backend::Postgres => {
+            sqlx::query_as(&sql)
+                .bind(limit)
+                .fetch_all(db.postgres_pool().expect("postgres"))
+                .await?
+        }
     };
     Ok(rows)
 }

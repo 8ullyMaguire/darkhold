@@ -14,10 +14,7 @@ use darkhold_db::finder::{self as store, Created, NewBounty};
 use darkhold_domain::economy::TxnType;
 use test_support::{scratch_dir, TestDb};
 
-async fn state_for(
-    tdb: &TestDb,
-    dir: &std::path::Path,
-) -> darkhold_app::state::AppState {
+async fn state_for(tdb: &TestDb, dir: &std::path::Path) -> darkhold_app::state::AppState {
     let mut config = darkhold_app::config::Config::development_defaults();
     config.storage.root = dir.to_path_buf();
     darkhold_app::state::AppState::new(config, tdb.db().clone())

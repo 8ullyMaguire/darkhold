@@ -98,7 +98,10 @@ async fn the_library_reads_answer_for_their_own_account_only() {
     }
 
     // Private tags: two uses of one tag, one of another.
-    for (n, tag) in ["comfort-read", "comfort-read", "wip"].into_iter().enumerate() {
+    for (n, tag) in ["comfort-read", "comfort-read", "wip"]
+        .into_iter()
+        .enumerate()
+    {
         let row = id(&format!("library-tag-{n}"));
         let subject = id(&format!("library-tagged-{n}"));
         exec(
@@ -142,7 +145,10 @@ async fn the_library_reads_answer_for_their_own_account_only() {
     }
 
     // Two update checks, one before and one after the `since` the test will ask for.
-    for (n, at, changes) in [("old", "2026-01-05T00:00:00Z", 0i64), ("new", "2026-01-09T00:00:00Z", 3i64)] {
+    for (n, at, changes) in [
+        ("old", "2026-01-05T00:00:00Z", 0i64),
+        ("new", "2026-01-09T00:00:00Z", 3i64),
+    ] {
         let check = id(&format!("library-check-{n}"));
         exec(
             &tdb,

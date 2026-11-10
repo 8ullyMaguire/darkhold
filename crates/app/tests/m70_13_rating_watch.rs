@@ -133,10 +133,15 @@ async fn a_fresh_account_burst_is_detected_once_listed_and_its_work_can_be_conte
     let mut operator_client = TestClient::new(build(&config, &db));
     register(&mut operator_client, "rw-op@example.test", "rwoperator").await;
     let mut operator_config = config.clone();
-    operator_config.administration.operator_account_id =
-        Some(account_of(&db, "rwoperator").await);
+    operator_config.administration.operator_account_id = Some(account_of(&db, "rwoperator").await);
     let mut operator_client = TestClient::new(build(&operator_config, &db));
-    test_support::sign_in_as(&mut operator_client, &tdb, "rw-op@example.test", "rwoperator").await;
+    test_support::sign_in_as(
+        &mut operator_client,
+        &tdb,
+        "rw-op@example.test",
+        "rwoperator",
+    )
+    .await;
 
     // 1. Detection finds the burst and records one event whose severity is the observation.
     let (status, report) = operator_client
@@ -144,7 +149,11 @@ async fn a_fresh_account_burst_is_detected_once_listed_and_its_work_can_be_conte
         .await;
     assert_eq!(status, StatusCode::OK, "{report}");
     assert_eq!(report["works_examined"], serde_json::json!(1), "{report}");
-    assert_eq!(report["recorded"].as_array().map(Vec::len), Some(1), "{report}");
+    assert_eq!(
+        report["recorded"].as_array().map(Vec::len),
+        Some(1),
+        "{report}"
+    );
     assert_eq!(report["already_flagged"], serde_json::json!(0), "{report}");
     assert_eq!(
         report["recorded"][0]["fresh_ratings"],
@@ -158,7 +167,11 @@ async fn a_fresh_account_burst_is_detected_once_listed_and_its_work_can_be_conte
         .post("/api/v1/admin/anomalies/detect", serde_json::json!({}))
         .await;
     assert_eq!(status, StatusCode::OK, "{again}");
-    assert_eq!(again["recorded"].as_array().map(Vec::len), Some(0), "{again}");
+    assert_eq!(
+        again["recorded"].as_array().map(Vec::len),
+        Some(0),
+        "{again}"
+    );
     assert_eq!(again["already_flagged"], serde_json::json!(1), "{again}");
 
     // 3. The queue names the work it counts. This is the assertion the old `items: []` could not pass.
@@ -168,11 +181,7 @@ async fn a_fresh_account_burst_is_detected_once_listed_and_its_work_can_be_conte
     let items = listing["items"].as_array().expect("items");
     assert_eq!(items.len(), 1, "{listing}");
     assert_eq!(items[0]["work_id"], serde_json::json!(work), "{listing}");
-    assert_eq!(
-        items[0]["kind"],
-        serde_json::json!("burst"),
-        "{listing}"
-    );
+    assert_eq!(items[0]["kind"], serde_json::json!("burst"), "{listing}");
 
     // 4. The per-work read answers the same event, with its detail parsed rather than passed through as text.
     let (status, per_work) = operator_client
@@ -217,7 +226,11 @@ async fn a_fresh_account_burst_is_detected_once_listed_and_its_work_can_be_conte
         .get(format!("/api/v1/works/{work}/rating-summary"))
         .await;
     assert_eq!(status, StatusCode::OK, "{summary}");
-    assert_eq!(summary["suppressed"], serde_json::json!("contested"), "{summary}");
+    assert_eq!(
+        summary["suppressed"],
+        serde_json::json!("contested"),
+        "{summary}"
+    );
     assert!(summary["mean_stars"].is_null(), "{summary}");
 
     // 8. Clearing the mark publishes again.

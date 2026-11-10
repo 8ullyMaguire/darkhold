@@ -442,10 +442,7 @@ pub struct CanonAgnosticWork {
 /// Measured-and-agnostic only: a row whose verdict was `unclassified` carries an `unmeasurable_reason` and is NOT evidence
 /// that a work is readable without its canon — §50.2 wants eligibility to be a property, not a guess, and the absence of a
 /// class is not the class "agnostic".
-pub async fn list_canon_agnostic(
-    db: &Database,
-    limit: i64,
-) -> Result<Vec<CanonAgnosticWork>> {
+pub async fn list_canon_agnostic(db: &Database, limit: i64) -> Result<Vec<CanonAgnosticWork>> {
     let limit = limit.clamp(1, 100);
     let sql = db.sql(
         "SELECT c.work_id, w.title, c.declared_at, c.word_count, CAST(c.density AS REAL)
@@ -473,13 +470,15 @@ pub async fn list_canon_agnostic(
                 .await?;
             Ok(rows
                 .into_iter()
-                .map(|(work_id, title, declared_at, word_count, density)| CanonAgnosticWork {
-                    work_id,
-                    title,
-                    declared_at,
-                    word_count,
-                    density,
-                })
+                .map(
+                    |(work_id, title, declared_at, word_count, density)| CanonAgnosticWork {
+                        work_id,
+                        title,
+                        declared_at,
+                        word_count,
+                        density,
+                    },
+                )
                 .collect())
         }
         Backend::Postgres => {
@@ -489,13 +488,15 @@ pub async fn list_canon_agnostic(
                 .await?;
             Ok(rows
                 .into_iter()
-                .map(|(work_id, title, declared_at, word_count, density)| CanonAgnosticWork {
-                    work_id,
-                    title,
-                    declared_at,
-                    word_count,
-                    density,
-                })
+                .map(
+                    |(work_id, title, declared_at, word_count, density)| CanonAgnosticWork {
+                        work_id,
+                        title,
+                        declared_at,
+                        word_count,
+                        density,
+                    },
+                )
                 .collect())
         }
     }

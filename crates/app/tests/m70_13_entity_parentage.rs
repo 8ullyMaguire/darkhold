@@ -36,7 +36,10 @@ fn build(config: &Config, db: &Database) -> axum::Router {
 
 async fn a_node(author: &mut TestClient, canonical: &str) -> String {
     let (status, body) = author
-        .post("/api/v1/taxonomy", json!({ "kind": "tag", "canonical": canonical }))
+        .post(
+            "/api/v1/taxonomy",
+            json!({ "kind": "tag", "canonical": canonical }),
+        )
         .await;
     assert!(status.is_success(), "{body}");
     body["node"]["id"].as_str().expect("node id").to_owned()
@@ -80,20 +83,20 @@ async fn parent_of(db: &Database, node: &str) -> Option<String> {
     // The column is nullable, so the scalar has to be `Option<String>`: `fetch_one` into `String` would reject the NULL that
     // means "no parent" — a decode error standing in for the answer.
     let value: Option<String> = match db.backend() {
-        darkhold_db::Backend::Sqlite => {
-            sqlx::query_scalar::<_, Option<String>>("SELECT parent_id FROM canonical_entities WHERE id = ?")
-                .bind(node)
-                .fetch_one(db.sqlite_pool().expect("sqlite"))
-                .await
-                .expect("parent (sqlite)")
-        }
-        darkhold_db::Backend::Postgres => {
-            sqlx::query_scalar::<_, Option<String>>("SELECT parent_id FROM canonical_entities WHERE id = $1")
-                .bind(node)
-                .fetch_one(db.postgres_pool().expect("postgres"))
-                .await
-                .expect("parent (postgres)")
-        }
+        darkhold_db::Backend::Sqlite => sqlx::query_scalar::<_, Option<String>>(
+            "SELECT parent_id FROM canonical_entities WHERE id = ?",
+        )
+        .bind(node)
+        .fetch_one(db.sqlite_pool().expect("sqlite"))
+        .await
+        .expect("parent (sqlite)"),
+        darkhold_db::Backend::Postgres => sqlx::query_scalar::<_, Option<String>>(
+            "SELECT parent_id FROM canonical_entities WHERE id = $1",
+        )
+        .bind(node)
+        .fetch_one(db.postgres_pool().expect("postgres"))
+        .await
+        .expect("parent (postgres)"),
     };
     value
 }
@@ -130,7 +133,10 @@ async fn a_curator_can_set_a_parent_and_the_closure_follows() {
         .request("PUT", &door, Some(json!({ "parent_id": parent })))
         .await;
     assert_eq!(status, StatusCode::OK, "{body}");
-    assert_eq!(parent_of(&db, &child).await.as_deref(), Some(parent.as_str()));
+    assert_eq!(
+        parent_of(&db, &child).await.as_deref(),
+        Some(parent.as_str())
+    );
 
     // 3. The closure is the maintenance pass's, not the door's, and the test says so rather than pretending otherwise: before the
     //    rebuild the descendant is not there yet.
@@ -228,16 +234,16 @@ async fn a_parent_tag_can_include_its_childrens_works() {
         .await;
     assert_eq!(status, StatusCode::OK, "{body}");
     // The closure is the maintenance pass's work; run the pass rather than waiting ~30s.
-    darkhold_db::entity_closure::rebuild(&db).await.expect("rebuild");
+    darkhold_db::entity_closure::rebuild(&db)
+        .await
+        .expect("rebuild");
 
     // Two published works: one tagged with the parent, one only with the child. An `async fn` rather than a closure so the
     // helper's future has one concrete type.
-    async fn publish_tagged(
-        author: &mut TestClient,
-        tag: &str,
-        title: &str,
-    ) -> String {
-        let (status, work) = author.post("/api/v1/works", json!({ "title": title })).await;
+    async fn publish_tagged(author: &mut TestClient, tag: &str, title: &str) -> String {
+        let (status, work) = author
+            .post("/api/v1/works", json!({ "title": title }))
+            .await;
         assert_eq!(status, StatusCode::CREATED, "{work}");
         let work_id = work["id"].as_str().expect("work id").to_owned();
         let (status, body) = author
@@ -343,6 +349,9 @@ async fn a_parent_tag_can_include_its_childrens_works() {
     // 3. A name the vocabulary does not hold answers an empty page either way — the expansion must not turn a 200 into a 404.
     let (status, unknown) = author.get("/api/v1/tags/not-a-tag?children=true").await;
     assert_eq!(status, StatusCode::OK, "{unknown}");
-    assert_eq!(unknown["items"].as_array().expect("items").len(), 0, "{unknown}");
+    assert_eq!(
+        unknown["items"].as_array().expect("items").len(),
+        0,
+        "{unknown}"
+    );
 }
-

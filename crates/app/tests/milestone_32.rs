@@ -1093,7 +1093,9 @@ async fn the_first_vote_notifies_the_author_once() {
         .collect();
     assert_eq!(notices.len(), 1, "one notice for the first vote: {inbox}");
     assert_eq!(
-        notices[0]["work_id"].as_str().or(notices[0]["object_id"].as_str()),
+        notices[0]["work_id"]
+            .as_str()
+            .or(notices[0]["object_id"].as_str()),
         Some(post.as_str()),
         "the notice names the post: {inbox}"
     );

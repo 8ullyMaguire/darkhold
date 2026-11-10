@@ -607,7 +607,9 @@ async fn read_work(
     .await
     {
         Ok(value) => value,
-        Err(_) => serde_json::json!({ "status": "unavailable", "reason": "the reader count could not be computed" }),
+        Err(_) => {
+            serde_json::json!({ "status": "unavailable", "reason": "the reader count could not be computed" })
+        }
     };
     if let Some(object) = json.as_object_mut() {
         object.insert("analytics".to_owned(), audience);
@@ -747,7 +749,12 @@ async fn publish_work(
         // publication the author was already told succeeded. A replay is skipped rather than re-run: the queue is keyed by
         // (work, account) so it would be a no-op, and running it would make a retried publish cost a scan.
         let work_id = work.id.to_string();
-        match crate::taste_notify::queue_aligned_readers(&state, &work_id, &user.account_id.to_string()).await
+        match crate::taste_notify::queue_aligned_readers(
+            &state,
+            &work_id,
+            &user.account_id.to_string(),
+        )
+        .await
         {
             Ok(queued) if queued.queued > 0 || queued.skipped_at_cap > 0 => tracing::info!(
                 work = %work_id,
@@ -756,7 +763,9 @@ async fn publish_work(
                 "queued taste notifications for the readers aligned with this instance"
             ),
             Ok(_) => {}
-            Err(error) => tracing::warn!(work = %work_id, %error, "could not queue taste notifications"),
+            Err(error) => {
+                tracing::warn!(work = %work_id, %error, "could not queue taste notifications")
+            }
         }
 
         // §50.2's class, measured once when the text stops changing. `measure_work_and_store` had no caller at all, so the
@@ -765,15 +774,24 @@ async fn publish_work(
         // derived flag could not be written, and a work with no text yet is answered `Ok(None)` rather than stored as
         // unclassified — "nobody measured" and "measured and unreadable" are different claims (§49.3's rule).
         let measured_at = crate::format_rfc3339(time::OffsetDateTime::now_utc());
-        match darkhold_db::canon_agnostic::measure_work_and_store(state.db(), &work_id, &measured_at).await
+        match darkhold_db::canon_agnostic::measure_work_and_store(
+            state.db(),
+            &work_id,
+            &measured_at,
+        )
+        .await
         {
             Ok(Some(stored)) => tracing::debug!(
                 work = %work_id,
                 class = ?stored.verdict.class(),
                 "measured the work's canon class"
             ),
-            Ok(None) => tracing::debug!(work = %work_id, "no text to classify yet; nothing was stored"),
-            Err(error) => tracing::warn!(work = %work_id, %error, "could not measure the work's canon class"),
+            Ok(None) => {
+                tracing::debug!(work = %work_id, "no text to classify yet; nothing was stored")
+            }
+            Err(error) => {
+                tracing::warn!(work = %work_id, %error, "could not measure the work's canon class")
+            }
         }
     }
 
@@ -839,7 +857,8 @@ async fn note_links_for_work(
     } else {
         live.clone()
     };
-    let live_ids: std::collections::HashSet<&str> = live.iter().map(|link| link.id.as_str()).collect();
+    let live_ids: std::collections::HashSet<&str> =
+        live.iter().map(|link| link.id.as_str()).collect();
     let dead = links.iter().filter(|link| link.is_dead()).count();
     Ok(Json(json!({
         "links": links.iter().map(|link| json!({

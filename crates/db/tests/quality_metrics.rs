@@ -234,9 +234,16 @@ async fn the_same_story_scores_close_in_two_archives_of_different_size() {
     let db = connect("bias").await;
     seed(&db).await;
 
-    let page = metrics::ranked_with_weights(&db, &query(), Metric::SourcePct, 50, 0, &QualityWeights::default())
-        .await
-        .expect("ranked");
+    let page = metrics::ranked_with_weights(
+        &db,
+        &query(),
+        Metric::SourcePct,
+        50,
+        0,
+        &QualityWeights::default(),
+    )
+    .await
+    .expect("ranked");
     let score = |key: &str| {
         page.items
             .iter()
@@ -252,9 +259,16 @@ async fn the_same_story_scores_close_in_two_archives_of_different_size() {
     );
     assert!(sb > 0.6 && qq > 0.6, "both are top-of-archive: {sb} / {qq}");
     // And the raw ranking does the opposite, which is what this metric is for.
-    let raw = metrics::ranked_with_weights(&db, &query(), Metric::Likes, 50, 0, &QualityWeights::default())
-        .await
-        .expect("ranked");
+    let raw = metrics::ranked_with_weights(
+        &db,
+        &query(),
+        Metric::Likes,
+        50,
+        0,
+        &QualityWeights::default(),
+    )
+    .await
+    .expect("ranked");
     let order = keys(&raw);
     assert_eq!(
         order[0], "sb-first",
@@ -281,9 +295,16 @@ async fn the_gate_counts_the_filter_not_the_page() {
     let db = connect("gate").await;
     seed(&db).await;
 
-    let full = metrics::ranked_with_weights(&db, &query(), Metric::Quality, 50, 0, &QualityWeights::default())
-        .await
-        .expect("ranked");
+    let full = metrics::ranked_with_weights(
+        &db,
+        &query(),
+        Metric::Quality,
+        50,
+        0,
+        &QualityWeights::default(),
+    )
+    .await
+    .expect("ranked");
     assert_eq!(full.total, SEED.len() as i64, "every seeded row matched");
     assert_eq!(
         full.ranked,
@@ -291,9 +312,16 @@ async fn the_gate_counts_the_filter_not_the_page() {
         "ranked is the engaged rows"
     );
 
-    let one = metrics::ranked_with_weights(&db, &query(), Metric::Quality, 1, 0, &QualityWeights::default())
-        .await
-        .expect("ranked");
+    let one = metrics::ranked_with_weights(
+        &db,
+        &query(),
+        Metric::Quality,
+        1,
+        0,
+        &QualityWeights::default(),
+    )
+    .await
+    .expect("ranked");
     assert_eq!(one.items.len(), 1);
     assert_eq!(
         (one.ranked, one.total),
@@ -309,9 +337,16 @@ async fn an_unmeasured_row_sits_last_and_is_marked() {
     let db = connect("unmeasured").await;
     seed(&db).await;
 
-    let page = metrics::ranked_with_weights(&db, &query(), Metric::SourcePct, 50, 0, &QualityWeights::default())
-        .await
-        .expect("ranked");
+    let page = metrics::ranked_with_weights(
+        &db,
+        &query(),
+        Metric::SourcePct,
+        50,
+        0,
+        &QualityWeights::default(),
+    )
+    .await
+    .expect("ranked");
     let last = page.items.last().expect("a page");
     assert_eq!(last.row.source_work_key, "sb-silent");
     assert!(!last.measured, "a zero-like row is unmeasured, not bad");
@@ -333,9 +368,16 @@ async fn the_source_filter_keeps_its_own_distribution() {
 
     let mut scoped = query();
     scoped.source = Some("qq".to_owned());
-    let page = metrics::ranked_with_weights(&db, &scoped, Metric::SourcePct, 50, 0, &QualityWeights::default())
-        .await
-        .expect("ranked");
+    let page = metrics::ranked_with_weights(
+        &db,
+        &scoped,
+        Metric::SourcePct,
+        50,
+        0,
+        &QualityWeights::default(),
+    )
+    .await
+    .expect("ranked");
     assert!(page.items.iter().all(|item| item.row.source_key == "qq"));
     assert_eq!(page.ranked, 10);
     assert_eq!(page.items[0].row.source_work_key, "qq-marvel");

@@ -68,13 +68,13 @@ async fn mention_count(tdb: &TestDb, mentioned_pseud: &str) -> i64 {
                 .await
                 .expect("count mentions")
         }
-        Backend::Postgres => {
-            sqlx::query_scalar("SELECT COUNT(*) FROM mention_events WHERE mentioned_pseud = $1::uuid")
-                .bind(mentioned_pseud)
-                .fetch_one(tdb.db().postgres_pool().expect("postgres"))
-                .await
-                .expect("count mentions")
-        }
+        Backend::Postgres => sqlx::query_scalar(
+            "SELECT COUNT(*) FROM mention_events WHERE mentioned_pseud = $1::uuid",
+        )
+        .bind(mentioned_pseud)
+        .fetch_one(tdb.db().postgres_pool().expect("postgres"))
+        .await
+        .expect("count mentions"),
     }
 }
 
@@ -147,7 +147,11 @@ async fn a_permalink_a_presence_read_a_group_role_a_category_and_a_mute_that_bit
         serde_json::json!("hey @com-a and @com-c, look at this"),
         "{comment}"
     );
-    assert_eq!(comment["author_pseud"], serde_json::json!(b_pseud), "{comment}");
+    assert_eq!(
+        comment["author_pseud"],
+        serde_json::json!(b_pseud),
+        "{comment}"
+    );
     assert_eq!(comment["deleted"], serde_json::json!(false), "{comment}");
     assert_eq!(comment["subject_id"], serde_json::json!(work), "{comment}");
 
@@ -224,12 +228,18 @@ async fn a_permalink_a_presence_read_a_group_role_a_category_and_a_mute_that_bit
 
     // 5. A group tells the viewer their own role.
     let (status, created) = a
-        .post("/api/v1/groups", serde_json::json!({"name": "A Group", "privacy": "public"}))
+        .post(
+            "/api/v1/groups",
+            serde_json::json!({"name": "A Group", "privacy": "public"}),
+        )
         .await;
     assert_eq!(status, StatusCode::OK, "{created}");
     let group = created["id"].as_str().expect("group id").to_owned();
     let (status, _) = c
-        .post(format!("/api/v1/groups/{group}/join"), serde_json::json!({}))
+        .post(
+            format!("/api/v1/groups/{group}/join"),
+            serde_json::json!({}),
+        )
         .await;
     assert!(status.is_success(), "join answered {status}");
 

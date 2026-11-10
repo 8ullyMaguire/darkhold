@@ -37,7 +37,9 @@ fn build(config: &Config, db: &Database) -> axum::Router {
 
 /// A published work with one chapter. Returns (work id, unit id).
 async fn published_work(author: &mut TestClient, title: &str) -> (String, String) {
-    let (status, body) = author.post("/api/v1/works", json!({ "title": title })).await;
+    let (status, body) = author
+        .post("/api/v1/works", json!({ "title": title }))
+        .await;
     assert_eq!(status, StatusCode::CREATED, "{body}");
     let work = body["id"].as_str().expect("work").to_owned();
 
@@ -81,14 +83,12 @@ async fn progress(reader: &mut TestClient, work: &str, unit: &str, permille: u16
         .request(
             "PUT",
             "/api/v1/reading/progress",
-            Some(
-            json!({
+            Some(json!({
                 "subject_type": "work",
                 "subject_id": work,
                 "unit_id": unit,
                 "position_permille": permille,
-            }),
-            ),
+            })),
         )
         .await;
     assert_eq!(status, StatusCode::NO_CONTENT, "{body}");
@@ -124,10 +124,7 @@ async fn the_shelf_lists_what_i_started_and_why_i_stopped() {
     assert_eq!(status, StatusCode::OK, "{body}");
     let items = body["items"].as_array().expect("items");
     assert_eq!(items.len(), 2, "{body}");
-    let titles: Vec<&str> = items
-        .iter()
-        .filter_map(|i| i["title"].as_str())
-        .collect();
+    let titles: Vec<&str> = items.iter().filter_map(|i| i["title"].as_str()).collect();
     assert!(titles.contains(&"Still reading"), "{body}");
     assert!(titles.contains(&"Dropped"), "{body}");
     // The percentage is the store's rounding, surfaced — a client that only wants a progress bar should not have to
@@ -154,7 +151,11 @@ async fn the_shelf_lists_what_i_started_and_why_i_stopped() {
     let (status, body) = reader.get("/api/v1/library/unfinished").await;
     assert_eq!(status, StatusCode::OK, "{body}");
     let items = body["items"].as_array().expect("items");
-    assert_eq!(items.len(), 2, "dropping one does not remove it from the shelf: {body}");
+    assert_eq!(
+        items.len(),
+        2,
+        "dropping one does not remove it from the shelf: {body}"
+    );
     let dropped_row = items
         .iter()
         .find(|i| i["title"] == json!("Dropped"))
@@ -182,7 +183,8 @@ async fn the_shelf_lists_what_i_started_and_why_i_stopped() {
     let (status, body) = reader.get("/api/v1/library/unfinished?limit=10000").await;
     assert_eq!(status, StatusCode::OK, "{body}");
     assert_eq!(
-        body["limit"], json!(50),
+        body["limit"],
+        json!(50),
         "the ceiling is reported so a client can page honestly: {body}"
     );
 

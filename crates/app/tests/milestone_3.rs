@@ -1120,13 +1120,18 @@ async fn an_owner_can_see_the_invitations_a_work_has_sent() {
     // Once the invited pseud answers, the record is still listed and says how it ended. This is the owner's question a week later
     // — "did Ink ever answer?" — and a pending-only list could not answer it.
     let (status, _) = other
-        .post(&format!("/api/v1/invitations/{invite_id}/accept"), json!({}))
+        .post(
+            &format!("/api/v1/invitations/{invite_id}/accept"),
+            json!({}),
+        )
         .await;
     assert_eq!(status, StatusCode::OK);
     let (status, body) = owner.get(&list).await;
     assert_eq!(status, StatusCode::OK, "{body}");
     assert_eq!(
-        body.as_array().and_then(|items| items.first()).map(|item| item["status"].clone()),
+        body.as_array()
+            .and_then(|items| items.first())
+            .map(|item| item["status"].clone()),
         Some(json!("accepted")),
         "an answered invitation stays on the owner's list: {body}"
     );

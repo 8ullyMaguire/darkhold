@@ -330,7 +330,17 @@ pub async fn stored_coordinates(db: &Database, work_id: &str) -> Result<Option<S
         }
     };
 
-    let Some((variance, dialogue, vocabulary, spread, reason, word_count, sentence_count, text_version, computed_at)) = row
+    let Some((
+        variance,
+        dialogue,
+        vocabulary,
+        spread,
+        reason,
+        word_count,
+        sentence_count,
+        text_version,
+        computed_at,
+    )) = row
     else {
         return Ok(None);
     };

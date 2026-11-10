@@ -1139,7 +1139,10 @@ async fn assertion_satisfied(
         if !darkhold_domain::monetization::Rules::assertion_satisfies(eligibility, kind) {
             continue;
         }
-        if monetization::get_assertion(db, work_id, kind).await?.is_some() {
+        if monetization::get_assertion(db, work_id, kind)
+            .await?
+            .is_some()
+        {
             return Ok(true);
         }
     }

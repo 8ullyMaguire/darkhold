@@ -158,7 +158,10 @@ async fn a_bounty_reserves_its_budget_and_pays_one_answer() {
     // `proposals().len()` rather than a `proposal_count` helper: the helper was a second way to answer the same question, its
     // doc described something the signature could not do, and the answer the detail route serves is this list.
     assert_eq!(
-        store::proposals(&db, &bounty.id).await.expect("proposals").len(),
+        store::proposals(&db, &bounty.id)
+            .await
+            .expect("proposals")
+            .len(),
         1
     );
 

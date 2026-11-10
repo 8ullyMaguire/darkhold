@@ -32,7 +32,9 @@ fn build(config: &Config, db: &Database) -> axum::Router {
 }
 
 async fn a_work(author: &mut TestClient, title: &str) -> String {
-    let (status, body) = author.post("/api/v1/works", json!({ "title": title })).await;
+    let (status, body) = author
+        .post("/api/v1/works", json!({ "title": title }))
+        .await;
     assert_eq!(status, StatusCode::CREATED, "{body}");
     body["id"].as_str().expect("work").to_owned()
 }
@@ -78,7 +80,11 @@ async fn a_reader_can_ask_whether_this_work_is_in_their_queue() {
         .post(&format!("/api/v1/works/{work}/marked-for-later"), json!({}))
         .await;
     assert_eq!(status, StatusCode::OK, "{body}");
-    assert_eq!(body["added"], json!(false), "second queue is a no-op: {body}");
+    assert_eq!(
+        body["added"],
+        json!(false),
+        "second queue is a no-op: {body}"
+    );
 
     // 4. Somebody else's queue is not this reader's. A queue is per account, so the same work reads differently to two
     //    readers — which is exactly what a per-work read has to get right.

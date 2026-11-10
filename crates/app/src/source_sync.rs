@@ -416,6 +416,9 @@ pub async fn sync_source_catalogue(state: &AppState) -> usize {
             }
         }
     }
-    tracing::info!(sources = written, "source catalogue recorded from the adapter registry");
+    tracing::info!(
+        sources = written,
+        "source catalogue recorded from the adapter registry"
+    );
     written
 }

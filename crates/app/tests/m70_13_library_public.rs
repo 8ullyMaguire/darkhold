@@ -114,8 +114,24 @@ async fn a_public_bookmark_list_names_no_reader_and_the_latest_item_check_is_the
     .await;
 
     // One public bookmark, one private, both by the same reader.
-    seed_bookmark(&tdb, &id("pub-bm-open"), &account, &work, "a note nobody else may read", true).await;
-    seed_bookmark(&tdb, &id("pub-bm-closed"), &account, &work, "another private note", false).await;
+    seed_bookmark(
+        &tdb,
+        &id("pub-bm-open"),
+        &account,
+        &work,
+        "a note nobody else may read",
+        true,
+    )
+    .await;
+    seed_bookmark(
+        &tdb,
+        &id("pub-bm-closed"),
+        &account,
+        &work,
+        "another private note",
+        false,
+    )
+    .await;
 
     // 1. An ANONYMOUS reader gets the public one, and no session is required.
     let mut stranger = TestClient::new(build(&config, &db));
@@ -140,7 +156,10 @@ async fn a_public_bookmark_list_names_no_reader_and_the_latest_item_check_is_the
     // 2. Neither the reader's account id, nor either note, appears anywhere in the answer. This is the assertion the
     //    store's doc comment is about: the row carries both, and the door must not pass them on.
     let text = body.to_string();
-    assert!(!text.contains(&account), "the owner's account id leaked: {text}");
+    assert!(
+        !text.contains(&account),
+        "the owner's account id leaked: {text}"
+    );
     assert!(
         !text.contains("a note nobody else may read"),
         "a private note leaked: {text}"
@@ -157,7 +176,10 @@ async fn a_public_bookmark_list_names_no_reader_and_the_latest_item_check_is_the
         .get(format!("/api/v1/library/items/{item}/updates"))
         .await;
     assert_eq!(status, StatusCode::OK, "{body}");
-    assert!(body["last_check"].is_null(), "never checked is null: {body}");
+    assert!(
+        body["last_check"].is_null(),
+        "never checked is null: {body}"
+    );
 
     // 4. Two checks, seeded out of order: the later one answers, and its report is parsed rather than passed through.
     let older = id("pub-check-old");
@@ -188,7 +210,11 @@ async fn a_public_bookmark_list_names_no_reader_and_the_latest_item_check_is_the
         .await;
     assert_eq!(status, StatusCode::OK, "{body}");
     assert_eq!(body["last_check"]["id"], serde_json::json!(newer), "{body}");
-    assert_eq!(body["last_check"]["found_changes"], serde_json::json!(5), "{body}");
+    assert_eq!(
+        body["last_check"]["found_changes"],
+        serde_json::json!(5),
+        "{body}"
+    );
     assert_eq!(
         body["last_check"]["checked_at"],
         serde_json::json!("2026-01-09T00:00:00Z"),
