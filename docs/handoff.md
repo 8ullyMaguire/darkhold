@@ -1,5 +1,57 @@
 # Handoff
 
+## Four rows shipped, two browser bugs, and a rule that had to be written twice — 2026-11-10
+
+**Shipped and deployed (`0.1.0+f7136141`, schema `0201 → 0205`):** `M45-39` succession mirrors (`PUT|DELETE
+/admin/succession/mirrors`, `not_built` computed from rows, `verified: false` always emitted because this instance cannot
+reach a peer's disk); `M45-40` curator lenses (`GET /lens`, `GET|PUT|DELETE /lens/{handle}`, four refusals — role, owner,
+operator on write/read/list — and `ranked_for` taking its candidates from `search_works_ast_scoped` so visibility keeps
+one owner); `M45-41` share attribution (`share_code` derived from `(account, work)` so racing POSTs cannot mint two codes,
+`share_visit` + the transaction idempotency key paying both sides once, the second guard deleted after its own mutant
+passed); `M45-42` claim-your-works (`POST /claims` with a token derived from the pair, `GET /claims/{id}` owner-scoped,
+`POST /claims/{id}/verify`, per-work named outcomes, exclusion registry outranking the claim, a tokenless page staying
+`pending` at 422).
+
+**Shipped after the deploy, not yet live:** `6eb5c38f` `M63-18` config profiles (`--profile`/`DARKHOLD_PROFILE`,
+`config.toml` 0600, `dh config path|get|set`, one resolution order, unknown profile named with exit 2, tokens readable
+only as `set (hidden, N chars)`); `cafe466c` `M45-46` half — `taste_knobs::effective` gives the operator's stored knobs a
+reader (`GET /discovery` serves the values in force; the panel had been writing a row nothing read); `a1666bf6` `M45-46`
+complete — `get_discovery` extracted into `feed_for(state, session, params, knobs)` and `POST /admin/discovery/preview`
+(operator only) running the same builder for an **anonymous** viewer under proposed knobs, refusing what the write door
+refuses, writing nothing.
+
+**Two browser bugs, found from a one-line report ("some dropdowns show cropped within the navbar"):** `.desktop` sets
+`overflow-x: auto`, which per CSS computes `overflow-y` to `auto`, so the nav row was a scroll container and clipped every
+`position: absolute` panel — measured: 0 of 7 links hittable, `elementFromPoint` below the row returned the hero. The
+panel is now `position: fixed` on the trigger's measured rect (re-measured on scroll/resize, clamped to the viewport).
+And the alias layer redefined palette tokens back to the colours defined from them (`--surface-2`,
+`--text-2`, `--accent-subtle`): a cyclic custom property computes to the empty string, so every raised surface — the
+panels, dialogs, drawers — rendered `rgba(0, 0, 0, 0)`, muted text fell back to the inherited colour, and soft chips had
+no background. Three cycles removed; `src/token-cycles.test.ts` now walks `--a: var(--b)` edges and fails on any cycle
+(it is what found the extra two). Panel measured `rgb(36, 49, 42)` after. Commit `6cc7a0ac`.
+
+**The rule the loop kept breaking:** a blocked row is *demoted*, never waited on. Written into
+`~/secondbrain/10-Projects/darkhold/GOAL-2026-11-08.md` §2.1 and again as §0, because the standing `/goal` message ends
+with a stop-on-block instruction that outranks a document it only points at. The paste-ready replacement is
+`~/secondbrain/10-Projects/darkhold/GOAL-PROMPT.txt` — no counts, no phases, and one explicit control clause: pause only
+when the five checks pass or when every remaining row is on the Blocked table.
+
+**Blocked, with what clears each (roadmap's Blocked table):** `M45-43` Discord bot (needs a bot token; its offline half
+is *not* blocked and can ship behind a transport trait like `ProfileFetcher`), `M63-05b` `dh rec --link epub` (needs a
+download route that does not exist), `M63-33` reconcile the live database (needs the operator's per-table call on 11
+absent / 12 legacy tables).
+
+**Deploy state at the end of this session:** the tree is at `6cc7a0ac`; thinkcentre is building `a1666bf6` (the M45-46
+backend) and that binary embeds the **frontend as of that commit**, so the nav/token fix needs one more pass:
+`cd frontend && node node_modules/vite/bin/vite.js build` (look for `✓ built in`), then
+`CARGO_TARGET_DIR=~/.cargo-target/darkhold cargo build --release -p darkhold-app --bin darkhold`, then
+`systemctl --user restart darkhold`. Named backup for the batch:
+`/personal/backups/darkhold-20261110-205002-pre-m45-39.dump` (3.74 GB, 393 `TABLE DATA`).
+
+**Ledger:** 54 `planned`. Two M29 experiment tests answer `500 INTERNAL` on PostgreSQL and did so with this session's
+change stashed — recorded in `docs/known-gaps.md`, owned by M64-15.
+
+
 ## The family batch, first four rows — 2026-11-08 (later still)
 
 **Shipped:** `M72-01` (registry: `@polaris/ui` and `@polaris/inbox-client` published to the estate's Forgejo npm registry;
