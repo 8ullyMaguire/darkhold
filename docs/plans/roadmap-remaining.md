@@ -3001,3 +3001,9 @@ answers `bool`; both doors credit through that one answer.
 `source_engagement`: uncast placeholders that pass on SQLite and fail on PostgreSQL. Each needs a failing PG test before the cast, not
 just the cast.
 
+### Deployed 2026-11-10 10:54 — `0.1.0+e1fdb38f` (ReadUnit)
+
+Backup `/personal/backups/darkhold-20261110-1037xx-pre-readunit.dump` → verified **392 TABLE DATA**. Build 13m55s. Migration `0201_reader_unit_completions` applied (`migrate` printed it), 198 applied / 0 pending.
+
+**Live proof, through the API on the deployed instance:** a throwaway reader saved a position at 500 permille → `reader_unit_completions` 0 rows, warmth 0; saved at 1000 → 1 completion row and `interaction_warmth` 100 bp; saved the same unit at 1000 again → still 100 bp. Cleanup deleted the completion, warmth, progress, unit-read, session, pseud and account rows (0/0/0 verified).
+
