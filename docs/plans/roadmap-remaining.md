@@ -2973,3 +2973,20 @@ missing from `OPT_IN` — prose and checker disagreed, and the list was the miss
 Not fixed, and stated as a limit: **stored classifications keep their old verdicts.** Re-classifying history is a data migration with
 its own reversible rule; the fix changes what happens next, not what happened before.
 
+### Deployed 2026-11-10 04:12 — `0.1.0+a1bb450a` (the dislike class)
+
+Backup `/personal/backups/darkhold-20261110-0357xx-pre-classifier-dislike.dump` → verified **392 TABLE DATA** (3.74 GB). Release
+build 16m25s; `migrate` 197/0.
+
+**Live proof, through the API on the deployed instance:** a throwaway reader posted `"This is awful and boring. I hate it."` and the
+receipt was `Comment held for moderator review.` — with `GET /works/{id}/quality` still answering `{"composite": null, "signals": []}`.
+Before this build that same text was `Positive`: delivered to the author, and counted as praise by `reader_positivity`. The same pseud
+then edited it to a positive review, got `Comment posted.`, and the signal appeared as `reader_positivity | 1000 | computed` with
+composite `1.0`.
+
+Cleanup: review, its classification, the computed signal, the author's notification, the throwaway account and pseud were deleted (0/0/0
+verified).
+
+**Limit, stated rather than papered over:** reviews classified before this build keep their stored verdicts. Re-classifying history is a
+data migration with its own reversible rule.
+
