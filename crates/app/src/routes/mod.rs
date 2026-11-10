@@ -36,6 +36,7 @@ pub mod operator_hit_rate;
 pub mod coordinates;
 pub mod exclusions;
 pub mod work_metrics;
+pub mod quality;
 pub mod leakage;
 pub mod preservation;
 pub mod rec_run;

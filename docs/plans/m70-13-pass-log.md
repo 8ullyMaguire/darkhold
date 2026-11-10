@@ -365,3 +365,37 @@ predicate and binds — arity preserved so the SQL still runs — and `the_same_
 `an_entry_without_a_work_survives_a_filter` both redden.
 
 Ratchet: 38 → 37.
+
+## Pass 80 — quality signals: the filter dimension nothing could write (2026-11-10)
+
+§32.1 calls `quality_signals` "typed, sourced, recomputable, 0..=1000"; §32.3 makes quality a *filter dimension*
+(`min_quality:750`, `quality:editorial_review:750`) and the "Hidden gems" surface declares the table a data need. All of it compiled
+and none of it could be fed: the only INSERT of a signal in the tree was in `milestone_22`'s own fixture (`source = 'test'`), and the
+deployed table held **0 rows**. Every quality filter therefore answered "nothing" for the whole catalogue — which reads as "no such
+work", not "nothing is scored".
+
+Two doors, and the split is the decision:
+
+* `POST /admin/works/{id}/quality-signals` — an operator records a judgement. `source` is `operator:<account>`, so a judgement is
+  attributable and two operators cannot silently overwrite each other. A re-record by the same operator **replaces** their row:
+  the composite is a weighted mean, so a duplicate doubles that signal's weight and outvotes everybody else's — measured, the
+  value moves from 0.8 to 0.6 for two rows saying 800 and 400.
+* `GET /works/{id}/quality` — public: the components plus the composite **using the filter's own formula**, so `0.8` here and
+  `min_quality:0.8` in search describe one instance. Hiding the components while filtering on them is the worse half of that choice.
+
+**Why the other kinds are not computed here.** `editorial_review`, `quorum_distinction` and `maturity` are judgements; a computed
+`editorial_review` would be a review nobody performed. `completeness` and `reader_positivity` could be derived, but their mappings
+are policy, not arithmetic — inventing them inside a route is how a scoring philosophy gets decided by accident. Named as the next
+half.
+
+**Two latent defects found by wiring the SQL.** `QualitySignal` declared `value: String` and `weight: f64` against BIGINT/INTEGER
+columns — undecodable on *both* engines, so the reader was unreachable *and* unreadable; and the PostgreSQL arm compared the `UUID`
+column to a text bind. Fixed (`value: i64`, `weight: i64`, `work_id::text = $1`), with the cast-the-column rule that also makes a
+malformed id an empty list instead of a `500`.
+
+Proof: red first (`GET /works/{id}/quality` was 404). Then, on both engines, the whole chain: door → 800 → composite `0.8` →
+`min_quality:750` returns the scored work and not the unscored one; a correction replaces (0.4, one row); `vibes` → 422 naming
+`kind`; `1001` → 422 naming `value`; a writer with no standing → 404. Mutants from /tmp: insert-without-replace (two rows, `0.6`) and
+no-bounds-check (201 for `1001`).
+
+Ratchet: 37 → 36 (`work_quality_signals` now has its caller).

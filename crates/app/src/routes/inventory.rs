@@ -7323,6 +7323,20 @@ pub const ROUTE_TABLE: &[RouteEntry] = &[
         audience: Audience::Operator,
     },
     RouteEntry {
+        file: "quality.rs",
+        handler: "read",
+        method: "GET",
+        path: "/works/{id}/quality",
+        audience: Audience::Public,
+    },
+    RouteEntry {
+        file: "quality.rs",
+        handler: "record",
+        method: "POST",
+        path: "/admin/works/{id}/quality-signals",
+        audience: Audience::Operator,
+    },
+    RouteEntry {
         file: "work_metrics.rs",
         handler: "recompute",
         method: "POST",

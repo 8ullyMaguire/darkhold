@@ -2909,3 +2909,15 @@ in this build, so the deployed artifact verifies the `id_token` signature instea
 
 `gate.sh repo`, `gate.sh ledger` and `gate.sh design` are all `ok` on the dev tree at `78d00579`.
 
+### Quality signals: the filter dimension nothing could write (2026-11-10)
+
+`min_quality` and `quality:<kind>:<min>` compiled, the "Hidden gems" surface declared `quality_signals` a data need, and the table
+held **0 rows** on a 58,042-work instance: the only writer in the tree was a test fixture. Every quality filter answered "nothing".
+
+Now: `POST /admin/works/{id}/quality-signals` (operator judgement, `source = operator:<account>`, replacing that operator's previous
+row for the same kind) and `GET /works/{id}/quality` (public components + the composite computed with the **filter's own formula**).
+
+Named next half: `completeness` and `reader_positivity` are derivable from stored facts, but their mappings are policy — a migration
+row each with a documented mapping, not a route that invents a curve. `editorial_review`, `quorum_distinction` and `maturity` stay
+operator/quorum acts by definition.
+
