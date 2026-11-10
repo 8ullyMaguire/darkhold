@@ -1834,7 +1834,7 @@ pub async fn publish_work(
                 .bind(event_id.to_string())
                 .bind(work.id.to_string())
                 .bind(actor.pseud_id.to_string())
-                .bind(idempotency_key.as_deref())
+                .bind(idempotency_key)
                 .bind(&now)
                 .execute(&mut *tx)
                 .await?;
@@ -1873,7 +1873,7 @@ pub async fn publish_work(
                 .bind(event_id.to_string())
                 .bind(work.id.to_string())
                 .bind(actor.pseud_id.to_string())
-                .bind(idempotency_key.as_deref())
+                .bind(idempotency_key)
                 .bind(&now)
                 .execute(&mut *tx)
                 .await?;
@@ -1974,7 +1974,7 @@ pub async fn withdraw_work(
                 .bind(event_id.to_string())
                 .bind(work.id.to_string())
                 .bind(actor.pseud_id.to_string())
-                .bind(idempotency_key.as_deref())
+                .bind(idempotency_key)
                 .bind(&now)
                 .execute(&mut *tx)
                 .await?;
@@ -2010,7 +2010,7 @@ pub async fn withdraw_work(
                 .bind(event_id.to_string())
                 .bind(work.id.to_string())
                 .bind(actor.pseud_id.to_string())
-                .bind(idempotency_key.as_deref())
+                .bind(idempotency_key)
                 .bind(&now)
                 .execute(&mut *tx)
                 .await?;
