@@ -3165,3 +3165,32 @@ because AO3 rate-limited us.
 test answers with a canned body instead of reaching the network. The trait is the seam: `ProfileFetcher` with one
 method, a real implementation for the app and a canned one for the suite — the claim logic is what the row is about,
 not the HTTP client.
+### M45-42 as built (2026-11-10) — what the plan got right, and the two places it was wrong
+
+Implemented in `f7136141`: migration `0205_work_claims.sql` (`work_claim` unique on `(account_id, profile_url)`,
+`work_claim_work` with a NULL-able `outcome`), `crates/db/src/claims.rs`, `crates/app/src/routes/claims.rs`
+mounted as the swappable module **`import_claims`** (default on: an imported catalogue whose authors cannot claim
+their own works is a catalogue of orphans).
+
+**Where the plan was wrong, and the code is right:**
+
+* The plan promised a `409` when a *second account* verifies works somebody already claimed. There is no such door and
+  there should not be: `verify` is owner-scoped, so the second account can only ever verify **its own** claim, and the
+  works in it come back `already_claimed` in the per-work list. A `409` would have been a second way to say what the
+  outcome list already says, and it would have had to name another account's claim — which is exactly the disclosure
+  §0.3 forbids.
+* The plan said a failed fetch would answer `fetch_failed`. It answers `422` naming `profile_url` with a *different
+  message* from "the token was not found", and the claim stays `pending`. A `state: "refused"` would have made an
+  AO3 timeout permanent in the author's eyes.
+
+**One definition of "a metadata row":** `is_metadata_work` reads `works.owner_pseud_id → pseuds.account_id =
+SYSTEM_ACCOUNT`, the same fact `crates/db/src/orphan.rs` reads. Two definitions of "nobody here wrote this" would
+drift, and the drift would decide who may claim a work.
+
+**The token is derived, not random** — `sha256(account \u{1f} profile_url)`, so a second visit to `POST /claims` returns
+the same string. A random token per request would make every earlier paste look stale and give the author two strings
+to keep with no way to know which one the instance is watching for.
+
+**Proof:** `m45_42_claim_works` 2/2 SQLite, 2/2 PostgreSQL; mutants (exclusion lookup removed → the excluded work is
+attached; the owner check removed → an owned work is taken) each reddened the intended assertion, reverted from /tmp;
+`route_inventory` 5/5; `gate.sh repo` and `gate.sh ledger` ok.
