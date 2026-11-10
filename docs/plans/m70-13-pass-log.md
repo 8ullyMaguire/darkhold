@@ -348,3 +348,20 @@ finish) and no-reversal (`total:1` after un-finishing).
 * **The library-item status door** (`PUT /me/library/items/{id}/status`) still records nothing: it addresses a *library item*, whose
   work is a `source_work_key` string, not a `works.id` — the mapping is the missing piece, and guessing it would attach warmth to the
   wrong author.
+
+## Pass 79 — the notification twins that only the tests could reach (2026-11-10)
+
+`notifications::list` and `notifications::unread_count` were the unfiltered halves of the notification panel: the same queries
+without the caller's content-filter rules. The routes serve `list_filtered` and `unread_count_filtered` and always have, so nothing
+in the product called either twin — and if anything had, a reader would have been shown works they had asked not to see.
+
+Deleted both. The test suite that used them (`milestone_12_notifications`, 48 tests) now compares the **production** entry points
+against themselves: with the caller's rules, and with none. That is a stronger control than two functions agreeing — it proves the
+rules change the answer *of the function the route calls*.
+
+Proof: 48/48 on SQLite and 48/48 on PostgreSQL after the redirect, which is the measurement that the substitution is
+behaviour-preserving (the unfiltered reading is exactly the no-rules reading). Mutant: build the exclusion and then clear its
+predicate and binds — arity preserved so the SQL still runs — and `the_same_call_with_no_rules_is_the_unfiltered_reading` and
+`an_entry_without_a_work_survives_a_filter` both redden.
+
+Ratchet: 38 → 37.

@@ -129,39 +129,11 @@ pub async fn notify(
 /// in the function that takes none. Deleting this would have pushed ten test call sites through a filter API with an empty list —
 /// the primitives (`notify`, `mark_read`, `unread_count`) are clearer against the unfiltered read, and the route that serves readers
 /// passes rules. The warning above is what keeps a caller honest, and it now has a measurement behind it.
-pub async fn list(
-    db: &Database,
-    account_id: &str,
-    limit: i64,
-) -> Result<Vec<NotificationRow>, sqlx::Error> {
-    let sql = db.sql(
-        "SELECT id, kind, title, body, work_id,
-                CASE WHEN read_at IS NULL THEN 1 ELSE 0 END AS unread, created_at
-           FROM notifications WHERE account_id = ?1
-          ORDER BY created_at DESC, id DESC LIMIT ?2",
-        "SELECT id::text, kind, title, body, work_id::text,
-                CASE WHEN read_at IS NULL THEN 1 ELSE 0 END AS unread, created_at
-           FROM notifications WHERE account_id = $1::uuid
-          ORDER BY created_at DESC, id DESC LIMIT $2",
-    );
-    let rows = match db.backend() {
-        Backend::Sqlite => {
-            sqlx::query_as::<_, RawRow>(&sql)
-                .bind(account_id)
-                .bind(limit)
-                .fetch_all(db.sqlite_pool().expect("sqlite"))
-                .await?
-        }
-        Backend::Postgres => {
-            sqlx::query_as::<_, RawRow>(&sql)
-                .bind(account_id)
-                .bind(limit)
-                .fetch_all(db.postgres_pool().expect("postgres"))
-                .await?
-        }
-    };
-    Ok(rows.into_iter().map(NotificationRow::from).collect())
-}
+// `list` lived here: the same query as `list_filtered` without the caller's content-filter rules. The route serves
+// `list_filtered` and always has, so `list` had no caller — and if anything had called it, a reader would have been
+// shown works they had asked not to see. A twin that is only ever wrong in the direction of the blocklist is not a
+// fallback.
+
 
 /// [`list`], minus the works the reader has content-filtered.
 ///
@@ -276,26 +248,9 @@ pub async fn unread_count_filtered(
 }
 
 /// How many entries are still unread.
-pub async fn unread_count(db: &Database, account_id: &str) -> Result<i64, sqlx::Error> {
-    let sql = db.sql(
-        "SELECT COUNT(*) FROM notifications WHERE account_id = ?1 AND read_at IS NULL",
-        "SELECT COUNT(*) FROM notifications WHERE account_id = $1::uuid AND read_at IS NULL",
-    );
-    match db.backend() {
-        Backend::Sqlite => {
-            sqlx::query_scalar(&sql)
-                .bind(account_id)
-                .fetch_one(db.sqlite_pool().expect("sqlite"))
-                .await
-        }
-        Backend::Postgres => {
-            sqlx::query_scalar(&sql)
-                .bind(account_id)
-                .fetch_one(db.postgres_pool().expect("postgres"))
-                .await
-        }
-    }
-}
+// `unread_count` lived here: the same count as `unread_count_filtered` with no rules. The route serves the
+// filtered form, so the twin had no product caller, and the count a reader is shown must be the count they can reach.
+
 
 /// Mark one entry read. Idempotent: an already-read entry returns `false`
 /// rather than erroring, so a double tap or a replayed request is harmless.
