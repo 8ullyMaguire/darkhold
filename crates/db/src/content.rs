@@ -1044,47 +1044,54 @@ pub async fn list_public_works_by_freshness(
 ) -> Result<Vec<WorkId>> {
     let (sqlite, postgres) = match sort {
         FreshnessSort::New => (
+            // One aggregate pass, joined once — not two correlated subplans per candidate row.
+            //
+            // Measured on the live catalogue (58,042 works, 141,317 library items) in one session, so the host's load cancels:
+            // the correlated form took **682-750 ms** and this one **162-203 ms**, returning the same six ids in the same order.
+            // The plan explains it: the old ORDER BY runs two `Index Scan Backward using publication_events_work` subplans for
+            // every one of the 58,042 rows (116,084 index lookups) before a top-N sort; the aggregate scans the events once.
+            //
+            // This is the landing page's only expensive query — the first page a stranger opens (ledger 373, gate 66 measured it
+            // at 1.1 s while every other page in the estate answered in under 300 ms).
             "SELECT w.id FROM works w
+               LEFT JOIN (SELECT work_id, MAX(occurred_at) AS published_at
+                            FROM publication_events
+                           WHERE action = 'publish'
+                           GROUP BY work_id) p ON p.work_id = w.id
                WHERE w.lifecycle = 'published' AND w.visibility = 'public'
                  AND w.deleted_at IS NULL
-               ORDER BY (SELECT MAX(e.occurred_at) FROM publication_events e
-                          WHERE e.work_id = w.id AND e.action = 'publish') IS NULL ASC,
-                        (SELECT MAX(e.occurred_at) FROM publication_events e
-                          WHERE e.work_id = w.id AND e.action = 'publish') DESC,
-                        w.id DESC
+               ORDER BY p.published_at IS NULL ASC, p.published_at DESC, w.id DESC
                LIMIT ?",
             "SELECT w.id::text FROM works w
+               LEFT JOIN (SELECT work_id, MAX(occurred_at) AS published_at
+                            FROM publication_events
+                           WHERE action = 'publish'
+                           GROUP BY work_id) p ON p.work_id = w.id
                WHERE w.lifecycle = 'published' AND w.visibility = 'public'
                  AND w.deleted_at IS NULL
-               ORDER BY (SELECT MAX(e.occurred_at) FROM publication_events e
-                          WHERE e.work_id = w.id AND e.action = 'publish') IS NULL ASC,
-                        (SELECT MAX(e.occurred_at) FROM publication_events e
-                          WHERE e.work_id = w.id AND e.action = 'publish') DESC,
-                        w.id::text DESC
+               ORDER BY p.published_at IS NULL ASC, p.published_at DESC, w.id::text DESC
                LIMIT $1",
         ),
         FreshnessSort::Updated => (
+            // Same shape as `New`, same cost, and it is the ordering behind the discovery feed's "recently updated": one aggregate
+            // pass over the events, joined once, instead of two correlated subplans evaluated for every published work.
             "SELECT w.id FROM works w
+               LEFT JOIN (SELECT work_id, MAX(occurred_at) AS updated_at
+                            FROM publication_events
+                           WHERE action IN ('update', 'restore_revision')
+                           GROUP BY work_id) p ON p.work_id = w.id
                WHERE w.lifecycle = 'published' AND w.visibility = 'public'
                  AND w.deleted_at IS NULL
-               ORDER BY (SELECT MAX(e.occurred_at) FROM publication_events e
-                          WHERE e.work_id = w.id
-                            AND e.action IN ('update', 'restore_revision')) IS NULL ASC,
-                        (SELECT MAX(e.occurred_at) FROM publication_events e
-                          WHERE e.work_id = w.id
-                            AND e.action IN ('update', 'restore_revision')) DESC,
-                        w.id DESC
+               ORDER BY p.updated_at IS NULL ASC, p.updated_at DESC, w.id DESC
                LIMIT ?",
             "SELECT w.id::text FROM works w
+               LEFT JOIN (SELECT work_id, MAX(occurred_at) AS updated_at
+                            FROM publication_events
+                           WHERE action IN ('update', 'restore_revision')
+                           GROUP BY work_id) p ON p.work_id = w.id
                WHERE w.lifecycle = 'published' AND w.visibility = 'public'
                  AND w.deleted_at IS NULL
-               ORDER BY (SELECT MAX(e.occurred_at) FROM publication_events e
-                          WHERE e.work_id = w.id
-                            AND e.action IN ('update', 'restore_revision')) IS NULL ASC,
-                        (SELECT MAX(e.occurred_at) FROM publication_events e
-                          WHERE e.work_id = w.id
-                            AND e.action IN ('update', 'restore_revision')) DESC,
-                        w.id::text DESC
+               ORDER BY p.updated_at IS NULL ASC, p.updated_at DESC, w.id::text DESC
                LIMIT $1",
         ),
     };
