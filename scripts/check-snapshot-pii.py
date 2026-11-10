@@ -84,10 +84,11 @@ COVERED_TABLES = {
 # a question costs a line in a JSON file, a missed column costs a disclosure.
 IDENTITY_NAME_RE = re.compile(
     r"("
-    # M45-65: `\baccount\b|created_by|pseud_id` belong here and are NOT yet added, because widening the pattern
-    # turns this gate red for 87 columns that have no treatment read off their writer. The measured list is
-    # docs/plans/m45-65-inventory.md; the widening is the row's acceptance test, not its first step.
+    # M45-65: `\baccount\b`, `created_by` and `pseud_id` are the three spellings the schema actually uses that this
+    # pattern could not see — 87 columns, 25 of them bare `account` and 45 `pseud_id`. `\baccount\b` does not match
+    # `account_id` (`_` is a word character), so the narrower alternatives still do their own work.
     r"account_id|user_id|owner_id|author_id|actor_id|"
+    r"\baccount\b|created_by|pseud_id|"
     r"e_?mail|password|passwd|"
     r"token|secret|api_key|private_key|"
     r"\bip\b|_ip$|^ip_|ip_address|remote_addr|"

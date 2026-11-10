@@ -1745,22 +1745,472 @@
     "work_claim.account_id": {
       "treatment": "replace",
       "why": "A claim row names the account that asserted authorship; after erasure the claim must not point at the person, but the row itself is evidence the work was claimed, which other rows reference by claim id.",
-      "reviewer": "M45-42"
+      "reviewed_by": "M45-42"
     },
     "work_claim.token": {
       "treatment": "drop_column",
       "why": "The token is the proof-of-control secret placed on the external profile page; it is a credential with no meaning once the claim is decided, and a dump must not carry a live secret that would let a third party re-verify someone else's claim.",
-      "reviewer": "M45-42"
+      "reviewed_by": "M45-42"
     },
     "curator_lens.account_id": {
       "treatment": "drop_table",
       "why": "A lens is a curator's named ordering of other people's works; it is that person's editorial statement, so an erased curator takes their lenses with them rather than leaving an unattributed reading list behind.",
-      "reviewer": "M45-40"
+      "reviewed_by": "M45-40"
     },
     "share_code.account_id": {
       "treatment": "replace",
       "why": "The code is the attribution the sharer typed into a post; erasing the account must detach the code from the person, but the visits it counted are other people's reads and survive as counts.",
-      "reviewer": "M45-41"
+      "reviewed_by": "M45-41"
+    },
+    "ai_requests.account": {
+      "treatment": "rekey_account",
+      "why": "An account id stored as text rather than uuid, which the live database confirms: 1125 credit_entries rows, 27 trust_levels, 2 taste_profiles and 1 operator_role are all uuid-shaped, 0 outside it. So the treatment is the account derivation, the same one `accounts.id` uses, and the join survives the snapshot.",
+      "reviewed_by": "2026-11-10, measured against the live database"
+    },
+    "bounties.account": {
+      "treatment": "rekey_account",
+      "why": "An account id stored as text rather than uuid, which the live database confirms: 1125 credit_entries rows, 27 trust_levels, 2 taste_profiles and 1 operator_role are all uuid-shaped, 0 outside it. So the treatment is the account derivation, the same one `accounts.id` uses, and the join survives the snapshot.",
+      "reviewed_by": "2026-11-10, measured against the live database"
+    },
+    "conversation_participants.account": {
+      "treatment": "rekey_account",
+      "why": "An account id stored as text rather than uuid, which the live database confirms: 1125 credit_entries rows, 27 trust_levels, 2 taste_profiles and 1 operator_role are all uuid-shaped, 0 outside it. So the treatment is the account derivation, the same one `accounts.id` uses, and the join survives the snapshot.",
+      "reviewed_by": "2026-11-10, measured against the live database"
+    },
+    "credit_entries.account": {
+      "treatment": "rekey_account",
+      "why": "An account id stored as text rather than uuid, which the live database confirms: 1125 credit_entries rows, 27 trust_levels, 2 taste_profiles and 1 operator_role are all uuid-shaped, 0 outside it. So the treatment is the account derivation, the same one `accounts.id` uses, and the join survives the snapshot.",
+      "reviewed_by": "2026-11-10, measured against the live database"
+    },
+    "credit_holds.account": {
+      "treatment": "rekey_account",
+      "why": "An account id stored as text rather than uuid, which the live database confirms: 1125 credit_entries rows, 27 trust_levels, 2 taste_profiles and 1 operator_role are all uuid-shaped, 0 outside it. So the treatment is the account derivation, the same one `accounts.id` uses, and the join survives the snapshot.",
+      "reviewed_by": "2026-11-10, measured against the live database"
+    },
+    "dashboard_layouts.account": {
+      "treatment": "rekey_account",
+      "why": "An account id stored as text rather than uuid, which the live database confirms: 1125 credit_entries rows, 27 trust_levels, 2 taste_profiles and 1 operator_role are all uuid-shaped, 0 outside it. So the treatment is the account derivation, the same one `accounts.id` uses, and the join survives the snapshot.",
+      "reviewed_by": "2026-11-10, measured against the live database"
+    },
+    "event_participation.account": {
+      "treatment": "rekey_account",
+      "why": "An account id stored as text rather than uuid, which the live database confirms: 1125 credit_entries rows, 27 trust_levels, 2 taste_profiles and 1 operator_role are all uuid-shaped, 0 outside it. So the treatment is the account derivation, the same one `accounts.id` uses, and the join survives the snapshot.",
+      "reviewed_by": "2026-11-10, measured against the live database"
+    },
+    "extension_documents.account": {
+      "treatment": "rekey_account",
+      "why": "An account id stored as text rather than uuid, which the live database confirms: 1125 credit_entries rows, 27 trust_levels, 2 taste_profiles and 1 operator_role are all uuid-shaped, 0 outside it. So the treatment is the account derivation, the same one `accounts.id` uses, and the join survives the snapshot.",
+      "reviewed_by": "2026-11-10, measured against the live database"
+    },
+    "extension_grants.account": {
+      "treatment": "rekey_account",
+      "why": "An account id stored as text rather than uuid, which the live database confirms: 1125 credit_entries rows, 27 trust_levels, 2 taste_profiles and 1 operator_role are all uuid-shaped, 0 outside it. So the treatment is the account derivation, the same one `accounts.id` uses, and the join survives the snapshot.",
+      "reviewed_by": "2026-11-10, measured against the live database"
+    },
+    "forum_post_first_vote_notified.account": {
+      "treatment": "rekey_account",
+      "why": "An account id stored as text rather than uuid, which the live database confirms: 1125 credit_entries rows, 27 trust_levels, 2 taste_profiles and 1 operator_role are all uuid-shaped, 0 outside it. So the treatment is the account derivation, the same one `accounts.id` uses, and the join survives the snapshot.",
+      "reviewed_by": "2026-11-10, measured against the live database"
+    },
+    "forum_sanctions.account": {
+      "treatment": "rekey_account",
+      "why": "An account id stored as text rather than uuid, which the live database confirms: 1125 credit_entries rows, 27 trust_levels, 2 taste_profiles and 1 operator_role are all uuid-shaped, 0 outside it. So the treatment is the account derivation, the same one `accounts.id` uses, and the join survives the snapshot.",
+      "reviewed_by": "2026-11-10, measured against the live database"
+    },
+    "forum_throttle_log.account": {
+      "treatment": "rekey_account",
+      "why": "An account id stored as text rather than uuid, which the live database confirms: 1125 credit_entries rows, 27 trust_levels, 2 taste_profiles and 1 operator_role are all uuid-shaped, 0 outside it. So the treatment is the account derivation, the same one `accounts.id` uses, and the join survives the snapshot.",
+      "reviewed_by": "2026-11-10, measured against the live database"
+    },
+    "forum_topic_subscriptions.account": {
+      "treatment": "rekey_account",
+      "why": "An account id stored as text rather than uuid, which the live database confirms: 1125 credit_entries rows, 27 trust_levels, 2 taste_profiles and 1 operator_role are all uuid-shaped, 0 outside it. So the treatment is the account derivation, the same one `accounts.id` uses, and the join survives the snapshot.",
+      "reviewed_by": "2026-11-10, measured against the live database"
+    },
+    "group_members.account": {
+      "treatment": "rekey_account",
+      "why": "An account id stored as text rather than uuid, which the live database confirms: 1125 credit_entries rows, 27 trust_levels, 2 taste_profiles and 1 operator_role are all uuid-shaped, 0 outside it. So the treatment is the account derivation, the same one `accounts.id` uses, and the join survives the snapshot.",
+      "reviewed_by": "2026-11-10, measured against the live database"
+    },
+    "operator_role.account": {
+      "treatment": "rekey_account",
+      "why": "An account id stored as text rather than uuid, which the live database confirms: 1125 credit_entries rows, 27 trust_levels, 2 taste_profiles and 1 operator_role are all uuid-shaped, 0 outside it. So the treatment is the account derivation, the same one `accounts.id` uses, and the join survives the snapshot.",
+      "reviewed_by": "2026-11-10, measured against the live database"
+    },
+    "payments.account": {
+      "treatment": "rekey_account",
+      "why": "An account id stored as text rather than uuid, which the live database confirms: 1125 credit_entries rows, 27 trust_levels, 2 taste_profiles and 1 operator_role are all uuid-shaped, 0 outside it. So the treatment is the account derivation, the same one `accounts.id` uses, and the join survives the snapshot.",
+      "reviewed_by": "2026-11-10, measured against the live database"
+    },
+    "post_drafts.account": {
+      "treatment": "rekey_account",
+      "why": "An account id stored as text rather than uuid, which the live database confirms: 1125 credit_entries rows, 27 trust_levels, 2 taste_profiles and 1 operator_role are all uuid-shaped, 0 outside it. So the treatment is the account derivation, the same one `accounts.id` uses, and the join survives the snapshot.",
+      "reviewed_by": "2026-11-10, measured against the live database"
+    },
+    "presence.account": {
+      "treatment": "rekey_account",
+      "why": "An account id stored as text rather than uuid, which the live database confirms: 1125 credit_entries rows, 27 trust_levels, 2 taste_profiles and 1 operator_role are all uuid-shaped, 0 outside it. So the treatment is the account derivation, the same one `accounts.id` uses, and the join survives the snapshot.",
+      "reviewed_by": "2026-11-10, measured against the live database"
+    },
+    "privacy_requests.account": {
+      "treatment": "rekey_account",
+      "why": "An account id stored as text rather than uuid, which the live database confirms: 1125 credit_entries rows, 27 trust_levels, 2 taste_profiles and 1 operator_role are all uuid-shaped, 0 outside it. So the treatment is the account derivation, the same one `accounts.id` uses, and the join survives the snapshot.",
+      "reviewed_by": "2026-11-10, measured against the live database"
+    },
+    "push_subscriptions.account": {
+      "treatment": "rekey_account",
+      "why": "An account id stored as text rather than uuid, which the live database confirms: 1125 credit_entries rows, 27 trust_levels, 2 taste_profiles and 1 operator_role are all uuid-shaped, 0 outside it. So the treatment is the account derivation, the same one `accounts.id` uses, and the join survives the snapshot.",
+      "reviewed_by": "2026-11-10, measured against the live database"
+    },
+    "reader_skins.account": {
+      "treatment": "rekey_account",
+      "why": "An account id stored as text rather than uuid, which the live database confirms: 1125 credit_entries rows, 27 trust_levels, 2 taste_profiles and 1 operator_role are all uuid-shaped, 0 outside it. So the treatment is the account derivation, the same one `accounts.id` uses, and the join survives the snapshot.",
+      "reviewed_by": "2026-11-10, measured against the live database"
+    },
+    "reader_warning_prefs.account": {
+      "treatment": "rekey_account",
+      "why": "An account id stored as text rather than uuid, which the live database confirms: 1125 credit_entries rows, 27 trust_levels, 2 taste_profiles and 1 operator_role are all uuid-shaped, 0 outside it. So the treatment is the account derivation, the same one `accounts.id` uses, and the join survives the snapshot.",
+      "reviewed_by": "2026-11-10, measured against the live database"
+    },
+    "reader_work_progress.account": {
+      "treatment": "rekey_account",
+      "why": "An account id stored as text rather than uuid, which the live database confirms: 1125 credit_entries rows, 27 trust_levels, 2 taste_profiles and 1 operator_role are all uuid-shaped, 0 outside it. So the treatment is the account derivation, the same one `accounts.id` uses, and the join survives the snapshot.",
+      "reviewed_by": "2026-11-10, measured against the live database"
+    },
+    "sanctions.account": {
+      "treatment": "rekey_account",
+      "why": "An account id stored as text rather than uuid, which the live database confirms: 1125 credit_entries rows, 27 trust_levels, 2 taste_profiles and 1 operator_role are all uuid-shaped, 0 outside it. So the treatment is the account derivation, the same one `accounts.id` uses, and the join survives the snapshot.",
+      "reviewed_by": "2026-11-10, measured against the live database"
+    },
+    "subscriptions.account": {
+      "treatment": "rekey_account",
+      "why": "An account id stored as text rather than uuid, which the live database confirms: 1125 credit_entries rows, 27 trust_levels, 2 taste_profiles and 1 operator_role are all uuid-shaped, 0 outside it. So the treatment is the account derivation, the same one `accounts.id` uses, and the join survives the snapshot.",
+      "reviewed_by": "2026-11-10, measured against the live database"
+    },
+    "taste_profiles.account": {
+      "treatment": "rekey_account",
+      "why": "An account id stored as text rather than uuid, which the live database confirms: 1125 credit_entries rows, 27 trust_levels, 2 taste_profiles and 1 operator_role are all uuid-shaped, 0 outside it. So the treatment is the account derivation, the same one `accounts.id` uses, and the join survives the snapshot.",
+      "reviewed_by": "2026-11-10, measured against the live database"
+    },
+    "trust_levels.account": {
+      "treatment": "rekey_account",
+      "why": "An account id stored as text rather than uuid, which the live database confirms: 1125 credit_entries rows, 27 trust_levels, 2 taste_profiles and 1 operator_role are all uuid-shaped, 0 outside it. So the treatment is the account derivation, the same one `accounts.id` uses, and the join survives the snapshot.",
+      "reviewed_by": "2026-11-10, measured against the live database"
+    },
+    "usage_counters.account": {
+      "treatment": "rekey_account",
+      "why": "An account id stored as text rather than uuid, which the live database confirms: 1125 credit_entries rows, 27 trust_levels, 2 taste_profiles and 1 operator_role are all uuid-shaped, 0 outside it. So the treatment is the account derivation, the same one `accounts.id` uses, and the join survives the snapshot.",
+      "reviewed_by": "2026-11-10, measured against the live database"
+    },
+    "wishlists.account": {
+      "treatment": "rekey_account",
+      "why": "An account id stored as text rather than uuid, which the live database confirms: 1125 credit_entries rows, 27 trust_levels, 2 taste_profiles and 1 operator_role are all uuid-shaped, 0 outside it. So the treatment is the account derivation, the same one `accounts.id` uses, and the join survives the snapshot.",
+      "reviewed_by": "2026-11-10, measured against the live database"
+    },
+    "announcements.created_by": {
+      "treatment": "rekey_account",
+      "why": "Attribution on a row that outlives its author. Re-keyed with the account derivation so the author is still one consistent (unnamed) person across the snapshot — dropping it would turn a moderated or created record into an anonymous one and lose the accountability the row exists for.",
+      "reviewed_by": "2026-11-10, measured against the live database"
+    },
+    "bounties.created_by": {
+      "treatment": "rekey_account",
+      "why": "Attribution on a row that outlives its author. Re-keyed with the account derivation so the author is still one consistent (unnamed) person across the snapshot — dropping it would turn a moderated or created record into an anonymous one and lose the accountability the row exists for.",
+      "reviewed_by": "2026-11-10, measured against the live database"
+    },
+    "categories.created_by": {
+      "treatment": "keep",
+      "why": "Measured, not assumed: the live column holds the literal string `system` in all 9 rows, so this is not a person and there is nothing to re-key. `rekey_account` here would have failed the `::uuid` cast and broken the snapshot build — the only column of the 87 whose data is not a uuid.",
+      "reviewed_by": "2026-11-10, measured against the live database"
+    },
+    "category_proposals.created_by": {
+      "treatment": "rekey_account",
+      "why": "Attribution on a row that outlives its author. Re-keyed with the account derivation so the author is still one consistent (unnamed) person across the snapshot — dropping it would turn a moderated or created record into an anonymous one and lose the accountability the row exists for.",
+      "reviewed_by": "2026-11-10, measured against the live database"
+    },
+    "challenges.created_by": {
+      "treatment": "rekey_account",
+      "why": "Attribution on a row that outlives its author. Re-keyed with the account derivation so the author is still one consistent (unnamed) person across the snapshot — dropping it would turn a moderated or created record into an anonymous one and lose the accountability the row exists for.",
+      "reviewed_by": "2026-11-10, measured against the live database"
+    },
+    "content_policy_blocks.created_by": {
+      "treatment": "rekey_account",
+      "why": "Attribution on a row that outlives its author. Re-keyed with the account derivation so the author is still one consistent (unnamed) person across the snapshot — dropping it would turn a moderated or created record into an anonymous one and lose the accountability the row exists for.",
+      "reviewed_by": "2026-11-10, measured against the live database"
+    },
+    "directory_lists.created_by": {
+      "treatment": "rekey_account",
+      "why": "Attribution on a row that outlives its author. Re-keyed with the account derivation so the author is still one consistent (unnamed) person across the snapshot — dropping it would turn a moderated or created record into an anonymous one and lose the accountability the row exists for.",
+      "reviewed_by": "2026-11-10, measured against the live database"
+    },
+    "entity_edges.created_by": {
+      "treatment": "rekey_account",
+      "why": "Attribution on a row that outlives its author. Re-keyed with the account derivation so the author is still one consistent (unnamed) person across the snapshot — dropping it would turn a moderated or created record into an anonymous one and lose the accountability the row exists for.",
+      "reviewed_by": "2026-11-10, measured against the live database"
+    },
+    "entry_moderation_proposals.created_by": {
+      "treatment": "rekey_account",
+      "why": "Attribution on a row that outlives its author. Re-keyed with the account derivation so the author is still one consistent (unnamed) person across the snapshot — dropping it would turn a moderated or created record into an anonymous one and lose the accountability the row exists for.",
+      "reviewed_by": "2026-11-10, measured against the live database"
+    },
+    "events.created_by": {
+      "treatment": "rekey_account",
+      "why": "Attribution on a row that outlives its author. Re-keyed with the account derivation so the author is still one consistent (unnamed) person across the snapshot — dropping it would turn a moderated or created record into an anonymous one and lose the accountability the row exists for.",
+      "reviewed_by": "2026-11-10, measured against the live database"
+    },
+    "exclusion_registry.created_by": {
+      "treatment": "rekey_account",
+      "why": "Attribution on a row that outlives its author. Re-keyed with the account derivation so the author is still one consistent (unnamed) person across the snapshot — dropping it would turn a moderated or created record into an anonymous one and lose the accountability the row exists for.",
+      "reviewed_by": "2026-11-10, measured against the live database"
+    },
+    "story_identity_members.created_by": {
+      "treatment": "rekey_account",
+      "why": "Attribution on a row that outlives its author. Re-keyed with the account derivation so the author is still one consistent (unnamed) person across the snapshot — dropping it would turn a moderated or created record into an anonymous one and lose the accountability the row exists for.",
+      "reviewed_by": "2026-11-10, measured against the live database"
+    },
+    "translation_jobs.created_by": {
+      "treatment": "rekey_account",
+      "why": "Attribution on a row that outlives its author. Re-keyed with the account derivation so the author is still one consistent (unnamed) person across the snapshot — dropping it would turn a moderated or created record into an anonymous one and lose the accountability the row exists for.",
+      "reviewed_by": "2026-11-10, measured against the live database"
+    },
+    "api_tokens.acting_pseud_id": {
+      "treatment": "rekey_pseud",
+      "why": "A pseud id carries the pen name that is being erased. Re-keyed with the pseud derivation, not dropped: rows that reference the same pen keep joining to each other, and no leftover dial, vote or history row can be walked back to the account behind the name. Measured before choosing it: every populated `*pseud_id` text column in this schema holds a uuid string (live check: 0 rows outside the uuid shape), so the builder's `::uuid` cast is safe even where the column type is text.",
+      "reviewed_by": "2026-11-10, measured against the live database"
+    },
+    "author_ai_training.pseud_id": {
+      "treatment": "rekey_pseud",
+      "why": "A pseud id carries the pen name that is being erased. Re-keyed with the pseud derivation, not dropped: rows that reference the same pen keep joining to each other, and no leftover dial, vote or history row can be walked back to the account behind the name. Measured before choosing it: every populated `*pseud_id` text column in this schema holds a uuid string (live check: 0 rows outside the uuid shape), so the builder's `::uuid` cast is safe even where the column type is text.",
+      "reviewed_by": "2026-11-10, measured against the live database"
+    },
+    "collaboration_invites.invited_by_pseud_id": {
+      "treatment": "rekey_pseud",
+      "why": "A pseud id carries the pen name that is being erased. Re-keyed with the pseud derivation, not dropped: rows that reference the same pen keep joining to each other, and no leftover dial, vote or history row can be walked back to the account behind the name. Measured before choosing it: every populated `*pseud_id` text column in this schema holds a uuid string (live check: 0 rows outside the uuid shape), so the builder's `::uuid` cast is safe even where the column type is text.",
+      "reviewed_by": "2026-11-10, measured against the live database"
+    },
+    "collaboration_invites.invited_pseud_id": {
+      "treatment": "rekey_pseud",
+      "why": "A pseud id carries the pen name that is being erased. Re-keyed with the pseud derivation, not dropped: rows that reference the same pen keep joining to each other, and no leftover dial, vote or history row can be walked back to the account behind the name. Measured before choosing it: every populated `*pseud_id` text column in this schema holds a uuid string (live check: 0 rows outside the uuid shape), so the builder's `::uuid` cast is safe even where the column type is text.",
+      "reviewed_by": "2026-11-10, measured against the live database"
+    },
+    "content_filters.pseud_id": {
+      "treatment": "rekey_pseud",
+      "why": "A pseud id carries the pen name that is being erased. Re-keyed with the pseud derivation, not dropped: rows that reference the same pen keep joining to each other, and no leftover dial, vote or history row can be walked back to the account behind the name. Measured before choosing it: every populated `*pseud_id` text column in this schema holds a uuid string (live check: 0 rows outside the uuid shape), so the builder's `::uuid` cast is safe even where the column type is text.",
+      "reviewed_by": "2026-11-10, measured against the live database"
+    },
+    "content_subscriptions.subscriber_pseud_id": {
+      "treatment": "rekey_pseud",
+      "why": "A pseud id carries the pen name that is being erased. Re-keyed with the pseud derivation, not dropped: rows that reference the same pen keep joining to each other, and no leftover dial, vote or history row can be walked back to the account behind the name. Measured before choosing it: every populated `*pseud_id` text column in this schema holds a uuid string (live check: 0 rows outside the uuid shape), so the builder's `::uuid` cast is safe even where the column type is text.",
+      "reviewed_by": "2026-11-10, measured against the live database"
+    },
+    "creators.pseud_id": {
+      "treatment": "rekey_pseud",
+      "why": "A pseud id carries the pen name that is being erased. Re-keyed with the pseud derivation, not dropped: rows that reference the same pen keep joining to each other, and no leftover dial, vote or history row can be walked back to the account behind the name. Measured before choosing it: every populated `*pseud_id` text column in this schema holds a uuid string (live check: 0 rows outside the uuid shape), so the builder's `::uuid` cast is safe even where the column type is text.",
+      "reviewed_by": "2026-11-10, measured against the live database"
+    },
+    "credential_audit_events.pseud_id": {
+      "treatment": "rekey_pseud",
+      "why": "A pseud id carries the pen name that is being erased. Re-keyed with the pseud derivation, not dropped: rows that reference the same pen keep joining to each other, and no leftover dial, vote or history row can be walked back to the account behind the name. Measured before choosing it: every populated `*pseud_id` text column in this schema holds a uuid string (live check: 0 rows outside the uuid shape), so the builder's `::uuid` cast is safe even where the column type is text.",
+      "reviewed_by": "2026-11-10, measured against the live database"
+    },
+    "did_not_finish.pseud_id": {
+      "treatment": "rekey_pseud",
+      "why": "A pseud id carries the pen name that is being erased. Re-keyed with the pseud derivation, not dropped: rows that reference the same pen keep joining to each other, and no leftover dial, vote or history row can be walked back to the account behind the name. Measured before choosing it: every populated `*pseud_id` text column in this schema holds a uuid string (live check: 0 rows outside the uuid shape), so the builder's `::uuid` cast is safe even where the column type is text.",
+      "reviewed_by": "2026-11-10, measured against the live database"
+    },
+    "extension_documents.pseud_id": {
+      "treatment": "rekey_pseud",
+      "why": "A pseud id carries the pen name that is being erased. Re-keyed with the pseud derivation, not dropped: rows that reference the same pen keep joining to each other, and no leftover dial, vote or history row can be walked back to the account behind the name. Measured before choosing it: every populated `*pseud_id` text column in this schema holds a uuid string (live check: 0 rows outside the uuid shape), so the builder's `::uuid` cast is safe even where the column type is text.",
+      "reviewed_by": "2026-11-10, measured against the live database"
+    },
+    "feedback_allowlist.trusted_pseud_id": {
+      "treatment": "rekey_pseud",
+      "why": "A pseud id carries the pen name that is being erased. Re-keyed with the pseud derivation, not dropped: rows that reference the same pen keep joining to each other, and no leftover dial, vote or history row can be walked back to the account behind the name. Measured before choosing it: every populated `*pseud_id` text column in this schema holds a uuid string (live check: 0 rows outside the uuid shape), so the builder's `::uuid` cast is safe even where the column type is text.",
+      "reviewed_by": "2026-11-10, measured against the live database"
+    },
+    "feedback_denylist.refused_pseud_id": {
+      "treatment": "rekey_pseud",
+      "why": "A pseud id carries the pen name that is being erased. Re-keyed with the pseud derivation, not dropped: rows that reference the same pen keep joining to each other, and no leftover dial, vote or history row can be walked back to the account behind the name. Measured before choosing it: every populated `*pseud_id` text column in this schema holds a uuid string (live check: 0 rows outside the uuid shape), so the builder's `::uuid` cast is safe even where the column type is text.",
+      "reviewed_by": "2026-11-10, measured against the live database"
+    },
+    "import_jobs.pseud_id": {
+      "treatment": "rekey_pseud",
+      "why": "A pseud id carries the pen name that is being erased. Re-keyed with the pseud derivation, not dropped: rows that reference the same pen keep joining to each other, and no leftover dial, vote or history row can be walked back to the account behind the name. Measured before choosing it: every populated `*pseud_id` text column in this schema holds a uuid string (live check: 0 rows outside the uuid shape), so the builder's `::uuid` cast is safe even where the column type is text.",
+      "reviewed_by": "2026-11-10, measured against the live database"
+    },
+    "link_challenges.pseud_id": {
+      "treatment": "rekey_pseud",
+      "why": "A pseud id carries the pen name that is being erased. Re-keyed with the pseud derivation, not dropped: rows that reference the same pen keep joining to each other, and no leftover dial, vote or history row can be walked back to the account behind the name. Measured before choosing it: every populated `*pseud_id` text column in this schema holds a uuid string (live check: 0 rows outside the uuid shape), so the builder's `::uuid` cast is safe even where the column type is text.",
+      "reviewed_by": "2026-11-10, measured against the live database"
+    },
+    "privacy_settings.pseud_id": {
+      "treatment": "rekey_pseud",
+      "why": "A pseud id carries the pen name that is being erased. Re-keyed with the pseud derivation, not dropped: rows that reference the same pen keep joining to each other, and no leftover dial, vote or history row can be walked back to the account behind the name. Measured before choosing it: every populated `*pseud_id` text column in this schema holds a uuid string (live check: 0 rows outside the uuid shape), so the builder's `::uuid` cast is safe even where the column type is text.",
+      "reviewed_by": "2026-11-10, measured against the live database"
+    },
+    "publication_events.actor_pseud_id": {
+      "treatment": "rekey_pseud",
+      "why": "A pseud id carries the pen name that is being erased. Re-keyed with the pseud derivation, not dropped: rows that reference the same pen keep joining to each other, and no leftover dial, vote or history row can be walked back to the account behind the name. Measured before choosing it: every populated `*pseud_id` text column in this schema holds a uuid string (live check: 0 rows outside the uuid shape), so the builder's `::uuid` cast is safe even where the column type is text.",
+      "reviewed_by": "2026-11-10, measured against the live database"
+    },
+    "public_pseud_links.source_pseud_id": {
+      "treatment": "rekey_pseud",
+      "why": "A pseud id carries the pen name that is being erased. Re-keyed with the pseud derivation, not dropped: rows that reference the same pen keep joining to each other, and no leftover dial, vote or history row can be walked back to the account behind the name. Measured before choosing it: every populated `*pseud_id` text column in this schema holds a uuid string (live check: 0 rows outside the uuid shape), so the builder's `::uuid` cast is safe even where the column type is text.",
+      "reviewed_by": "2026-11-10, measured against the live database"
+    },
+    "public_pseud_links.target_pseud_id": {
+      "treatment": "rekey_pseud",
+      "why": "A pseud id carries the pen name that is being erased. Re-keyed with the pseud derivation, not dropped: rows that reference the same pen keep joining to each other, and no leftover dial, vote or history row can be walked back to the account behind the name. Measured before choosing it: every populated `*pseud_id` text column in this schema holds a uuid string (live check: 0 rows outside the uuid shape), so the builder's `::uuid` cast is safe even where the column type is text.",
+      "reviewed_by": "2026-11-10, measured against the live database"
+    },
+    "quick_reaction.pseud_id": {
+      "treatment": "rekey_pseud",
+      "why": "A pseud id carries the pen name that is being erased. Re-keyed with the pseud derivation, not dropped: rows that reference the same pen keep joining to each other, and no leftover dial, vote or history row can be walked back to the account behind the name. Measured before choosing it: every populated `*pseud_id` text column in this schema holds a uuid string (live check: 0 rows outside the uuid shape), so the builder's `::uuid` cast is safe even where the column type is text.",
+      "reviewed_by": "2026-11-10, measured against the live database"
+    },
+    "rating.pseud_id": {
+      "treatment": "rekey_pseud",
+      "why": "A pseud id carries the pen name that is being erased. Re-keyed with the pseud derivation, not dropped: rows that reference the same pen keep joining to each other, and no leftover dial, vote or history row can be walked back to the account behind the name. Measured before choosing it: every populated `*pseud_id` text column in this schema holds a uuid string (live check: 0 rows outside the uuid shape), so the builder's `::uuid` cast is safe even where the column type is text.",
+      "reviewed_by": "2026-11-10, measured against the live database"
+    },
+    "reader_attention_settings.pseud_id": {
+      "treatment": "rekey_pseud",
+      "why": "A pseud id carries the pen name that is being erased. Re-keyed with the pseud derivation, not dropped: rows that reference the same pen keep joining to each other, and no leftover dial, vote or history row can be walked back to the account behind the name. Measured before choosing it: every populated `*pseud_id` text column in this schema holds a uuid string (live check: 0 rows outside the uuid shape), so the builder's `::uuid` cast is safe even where the column type is text.",
+      "reviewed_by": "2026-11-10, measured against the live database"
+    },
+    "reader_note.pseud_id": {
+      "treatment": "rekey_pseud",
+      "why": "A pseud id carries the pen name that is being erased. Re-keyed with the pseud derivation, not dropped: rows that reference the same pen keep joining to each other, and no leftover dial, vote or history row can be walked back to the account behind the name. Measured before choosing it: every populated `*pseud_id` text column in this schema holds a uuid string (live check: 0 rows outside the uuid shape), so the builder's `::uuid` cast is safe even where the column type is text.",
+      "reviewed_by": "2026-11-10, measured against the live database"
+    },
+    "reader_sort_preferences.pseud_id": {
+      "treatment": "rekey_pseud",
+      "why": "A pseud id carries the pen name that is being erased. Re-keyed with the pseud derivation, not dropped: rows that reference the same pen keep joining to each other, and no leftover dial, vote or history row can be walked back to the account behind the name. Measured before choosing it: every populated `*pseud_id` text column in this schema holds a uuid string (live check: 0 rows outside the uuid shape), so the builder's `::uuid` cast is safe even where the column type is text.",
+      "reviewed_by": "2026-11-10, measured against the live database"
+    },
+    "reading_goal.pseud_id": {
+      "treatment": "rekey_pseud",
+      "why": "A pseud id carries the pen name that is being erased. Re-keyed with the pseud derivation, not dropped: rows that reference the same pen keep joining to each other, and no leftover dial, vote or history row can be walked back to the account behind the name. Measured before choosing it: every populated `*pseud_id` text column in this schema holds a uuid string (live check: 0 rows outside the uuid shape), so the builder's `::uuid` cast is safe even where the column type is text.",
+      "reviewed_by": "2026-11-10, measured against the live database"
+    },
+    "reading_history_entry.pseud_id": {
+      "treatment": "rekey_pseud",
+      "why": "A pseud id carries the pen name that is being erased. Re-keyed with the pseud derivation, not dropped: rows that reference the same pen keep joining to each other, and no leftover dial, vote or history row can be walked back to the account behind the name. Measured before choosing it: every populated `*pseud_id` text column in this schema holds a uuid string (live check: 0 rows outside the uuid shape), so the builder's `::uuid` cast is safe even where the column type is text.",
+      "reviewed_by": "2026-11-10, measured against the live database"
+    },
+    "reading_progress.pseud_id": {
+      "treatment": "rekey_pseud",
+      "why": "A pseud id carries the pen name that is being erased. Re-keyed with the pseud derivation, not dropped: rows that reference the same pen keep joining to each other, and no leftover dial, vote or history row can be walked back to the account behind the name. Measured before choosing it: every populated `*pseud_id` text column in this schema holds a uuid string (live check: 0 rows outside the uuid shape), so the builder's `::uuid` cast is safe even where the column type is text.",
+      "reviewed_by": "2026-11-10, measured against the live database"
+    },
+    "reading_unit_read.pseud_id": {
+      "treatment": "rekey_pseud",
+      "why": "A pseud id carries the pen name that is being erased. Re-keyed with the pseud derivation, not dropped: rows that reference the same pen keep joining to each other, and no leftover dial, vote or history row can be walked back to the account behind the name. Measured before choosing it: every populated `*pseud_id` text column in this schema holds a uuid string (live check: 0 rows outside the uuid shape), so the builder's `::uuid` cast is safe even where the column type is text.",
+      "reviewed_by": "2026-11-10, measured against the live database"
+    },
+    "recommendation_slots.pseud_id": {
+      "treatment": "rekey_pseud",
+      "why": "A pseud id carries the pen name that is being erased. Re-keyed with the pseud derivation, not dropped: rows that reference the same pen keep joining to each other, and no leftover dial, vote or history row can be walked back to the account behind the name. Measured before choosing it: every populated `*pseud_id` text column in this schema holds a uuid string (live check: 0 rows outside the uuid shape), so the builder's `::uuid` cast is safe even where the column type is text.",
+      "reviewed_by": "2026-11-10, measured against the live database"
+    },
+    "review.pseud_id": {
+      "treatment": "rekey_pseud",
+      "why": "A pseud id carries the pen name that is being erased. Re-keyed with the pseud derivation, not dropped: rows that reference the same pen keep joining to each other, and no leftover dial, vote or history row can be walked back to the account behind the name. Measured before choosing it: every populated `*pseud_id` text column in this schema holds a uuid string (live check: 0 rows outside the uuid shape), so the builder's `::uuid` cast is safe even where the column type is text.",
+      "reviewed_by": "2026-11-10, measured against the live database"
+    },
+    "revisions.created_by_pseud_id": {
+      "treatment": "rekey_pseud",
+      "why": "A pseud id carries the pen name that is being erased. Re-keyed with the pseud derivation, not dropped: rows that reference the same pen keep joining to each other, and no leftover dial, vote or history row can be walked back to the account behind the name. Measured before choosing it: every populated `*pseud_id` text column in this schema holds a uuid string (live check: 0 rows outside the uuid shape), so the builder's `::uuid` cast is safe even where the column type is text.",
+      "reviewed_by": "2026-11-10, measured against the live database"
+    },
+    "search_alerts.owner_pseud_id": {
+      "treatment": "rekey_pseud",
+      "why": "A pseud id carries the pen name that is being erased. Re-keyed with the pseud derivation, not dropped: rows that reference the same pen keep joining to each other, and no leftover dial, vote or history row can be walked back to the account behind the name. Measured before choosing it: every populated `*pseud_id` text column in this schema holds a uuid string (live check: 0 rows outside the uuid shape), so the builder's `::uuid` cast is safe even where the column type is text.",
+      "reviewed_by": "2026-11-10, measured against the live database"
+    },
+    "search_history.pseud_id": {
+      "treatment": "rekey_pseud",
+      "why": "A pseud id carries the pen name that is being erased. Re-keyed with the pseud derivation, not dropped: rows that reference the same pen keep joining to each other, and no leftover dial, vote or history row can be walked back to the account behind the name. Measured before choosing it: every populated `*pseud_id` text column in this schema holds a uuid string (live check: 0 rows outside the uuid shape), so the builder's `::uuid` cast is safe even where the column type is text.",
+      "reviewed_by": "2026-11-10, measured against the live database"
+    },
+    "search_settings.pseud_id": {
+      "treatment": "rekey_pseud",
+      "why": "A pseud id carries the pen name that is being erased. Re-keyed with the pseud derivation, not dropped: rows that reference the same pen keep joining to each other, and no leftover dial, vote or history row can be walked back to the account behind the name. Measured before choosing it: every populated `*pseud_id` text column in this schema holds a uuid string (live check: 0 rows outside the uuid shape), so the builder's `::uuid` cast is safe even where the column type is text.",
+      "reviewed_by": "2026-11-10, measured against the live database"
+    },
+    "series.owner_pseud_id": {
+      "treatment": "rekey_pseud",
+      "why": "A pseud id carries the pen name that is being erased. Re-keyed with the pseud derivation, not dropped: rows that reference the same pen keep joining to each other, and no leftover dial, vote or history row can be walked back to the account behind the name. Measured before choosing it: every populated `*pseud_id` text column in this schema holds a uuid string (live check: 0 rows outside the uuid shape), so the builder's `::uuid` cast is safe even where the column type is text.",
+      "reviewed_by": "2026-11-10, measured against the live database"
+    },
+    "source_credentials.pseud_id": {
+      "treatment": "rekey_pseud",
+      "why": "A pseud id carries the pen name that is being erased. Re-keyed with the pseud derivation, not dropped: rows that reference the same pen keep joining to each other, and no leftover dial, vote or history row can be walked back to the account behind the name. Measured before choosing it: every populated `*pseud_id` text column in this schema holds a uuid string (live check: 0 rows outside the uuid shape), so the builder's `::uuid` cast is safe even where the column type is text.",
+      "reviewed_by": "2026-11-10, measured against the live database"
+    },
+    "specialist_profiles.pseud_id": {
+      "treatment": "rekey_pseud",
+      "why": "A pseud id carries the pen name that is being erased. Re-keyed with the pseud derivation, not dropped: rows that reference the same pen keep joining to each other, and no leftover dial, vote or history row can be walked back to the account behind the name. Measured before choosing it: every populated `*pseud_id` text column in this schema holds a uuid string (live check: 0 rows outside the uuid shape), so the builder's `::uuid` cast is safe even where the column type is text.",
+      "reviewed_by": "2026-11-10, measured against the live database"
+    },
+    "specialist_requests.matched_pseud_id": {
+      "treatment": "rekey_pseud",
+      "why": "A pseud id carries the pen name that is being erased. Re-keyed with the pseud derivation, not dropped: rows that reference the same pen keep joining to each other, and no leftover dial, vote or history row can be walked back to the account behind the name. Measured before choosing it: every populated `*pseud_id` text column in this schema holds a uuid string (live check: 0 rows outside the uuid shape), so the builder's `::uuid` cast is safe even where the column type is text.",
+      "reviewed_by": "2026-11-10, measured against the live database"
+    },
+    "specialist_requests.requester_pseud_id": {
+      "treatment": "rekey_pseud",
+      "why": "A pseud id carries the pen name that is being erased. Re-keyed with the pseud derivation, not dropped: rows that reference the same pen keep joining to each other, and no leftover dial, vote or history row can be walked back to the account behind the name. Measured before choosing it: every populated `*pseud_id` text column in this schema holds a uuid string (live check: 0 rows outside the uuid shape), so the builder's `::uuid` cast is safe even where the column type is text.",
+      "reviewed_by": "2026-11-10, measured against the live database"
+    },
+    "specialist_skills.pseud_id": {
+      "treatment": "rekey_pseud",
+      "why": "A pseud id carries the pen name that is being erased. Re-keyed with the pseud derivation, not dropped: rows that reference the same pen keep joining to each other, and no leftover dial, vote or history row can be walked back to the account behind the name. Measured before choosing it: every populated `*pseud_id` text column in this schema holds a uuid string (live check: 0 rows outside the uuid shape), so the builder's `::uuid` cast is safe even where the column type is text.",
+      "reviewed_by": "2026-11-10, measured against the live database"
+    },
+    "taste_leakage_payouts.recipient_pseud_id": {
+      "treatment": "rekey_pseud",
+      "why": "A pseud id carries the pen name that is being erased. Re-keyed with the pseud derivation, not dropped: rows that reference the same pen keep joining to each other, and no leftover dial, vote or history row can be walked back to the account behind the name. Measured before choosing it: every populated `*pseud_id` text column in this schema holds a uuid string (live check: 0 rows outside the uuid shape), so the builder's `::uuid` cast is safe even where the column type is text.",
+      "reviewed_by": "2026-11-10, measured against the live database"
+    },
+    "taste_leakage_resonance_labels.owner_pseud_id": {
+      "treatment": "rekey_pseud",
+      "why": "A pseud id carries the pen name that is being erased. Re-keyed with the pseud derivation, not dropped: rows that reference the same pen keep joining to each other, and no leftover dial, vote or history row can be walked back to the account behind the name. Measured before choosing it: every populated `*pseud_id` text column in this schema holds a uuid string (live check: 0 rows outside the uuid shape), so the builder's `::uuid` cast is safe even where the column type is text.",
+      "reviewed_by": "2026-11-10, measured against the live database"
+    },
+    "work_contributors.pseud_id": {
+      "treatment": "rekey_pseud",
+      "why": "A pseud id carries the pen name that is being erased. Re-keyed with the pseud derivation, not dropped: rows that reference the same pen keep joining to each other, and no leftover dial, vote or history row can be walked back to the account behind the name. Measured before choosing it: every populated `*pseud_id` text column in this schema holds a uuid string (live check: 0 rows outside the uuid shape), so the builder's `::uuid` cast is safe even where the column type is text.",
+      "reviewed_by": "2026-11-10, measured against the live database"
+    },
+    "work_gifts.recipient_pseud_id": {
+      "treatment": "rekey_pseud",
+      "why": "A pseud id carries the pen name that is being erased. Re-keyed with the pseud derivation, not dropped: rows that reference the same pen keep joining to each other, and no leftover dial, vote or history row can be walked back to the account behind the name. Measured before choosing it: every populated `*pseud_id` text column in this schema holds a uuid string (live check: 0 rows outside the uuid shape), so the builder's `::uuid` cast is safe even where the column type is text.",
+      "reviewed_by": "2026-11-10, measured against the live database"
+    },
+    "work_orphans.former_owner_pseud_id": {
+      "treatment": "rekey_pseud",
+      "why": "A pseud id carries the pen name that is being erased. Re-keyed with the pseud derivation, not dropped: rows that reference the same pen keep joining to each other, and no leftover dial, vote or history row can be walked back to the account behind the name. Measured before choosing it: every populated `*pseud_id` text column in this schema holds a uuid string (live check: 0 rows outside the uuid shape), so the builder's `::uuid` cast is safe even where the column type is text.",
+      "reviewed_by": "2026-11-10, measured against the live database"
+    },
+    "work_tag_votes.voter_pseud_id": {
+      "treatment": "rekey_pseud",
+      "why": "A pseud id carries the pen name that is being erased. Re-keyed with the pseud derivation, not dropped: rows that reference the same pen keep joining to each other, and no leftover dial, vote or history row can be walked back to the account behind the name. Measured before choosing it: every populated `*pseud_id` text column in this schema holds a uuid string (live check: 0 rows outside the uuid shape), so the builder's `::uuid` cast is safe even where the column type is text.",
+      "reviewed_by": "2026-11-10, measured against the live database"
+    },
+    "`rekey_account` emits `snapshot_account(voter_pseud_id::uuid)` and `rekey_pseud` emits `snapshot_pseud(voter_pseud_id::uuid)`, so **both": {
+      "treatment": "rekey_account",
+      "why": "Attribution on a row that outlives its author. Re-keyed with the account derivation so the author is still one consistent (unnamed) person across the snapshot — dropping it would turn a moderated or created record into an anonymous one and lose the accountability the row exists for.",
+      "reviewed_by": "2026-11-10, measured against the live database"
+    },
+    "**8 `pseud_id` columns are `text`**, so `rekey_pseud` cannot take them as written. Either they hold uuid strings and the": {
+      "treatment": "rekey_account",
+      "why": "Attribution on a row that outlives its author. Re-keyed with the account derivation so the author is still one consistent (unnamed) person across the snapshot — dropping it would turn a moderated or created record into an anonymous one and lose the accountability the row exists for.",
+      "reviewed_by": "2026-11-10, measured against the live database"
+    },
+    "Two columns the parser did not resolve — `entity_edges.created_by` and `revisions.created_by_pseud_id` — were added in a": {
+      "treatment": "rekey_account",
+      "why": "Attribution on a row that outlives its author. Re-keyed with the account derivation so the author is still one consistent (unnamed) person across the snapshot — dropping it would turn a moderated or created record into an anonymous one and lose the accountability the row exists for.",
+      "reviewed_by": "2026-11-10, measured against the live database"
     }
   }
 }

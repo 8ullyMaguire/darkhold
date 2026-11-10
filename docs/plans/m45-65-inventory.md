@@ -131,3 +131,30 @@ This matters because the snapshot builder's treatments are typed:
 
 So the judgement is not "pick a treatment for a name"; it is "read the type, then the writer". The widening stays reverted
 until that is done column by column.
+
+## Resolution, 2026-11-10 — all 87 classified, and the detector is widened
+
+The 87 columns now carry policy rows, so the widened detector is **green**: `check-snapshot-pii.py` → `OK: 2878 columns
+across 395 tables`, and `build-snapshot-sql.py --out /tmp/snap.sql` emits 2493 lines with **119 `snapshot_account`
+projections, 29 of them on the bare `account` columns** — i.e. the decision reaches the masking SQL, not just the gate.
+
+The treatment rule, and the measurement behind it:
+
+- **45 `pseud_id` → `rekey_pseud`**, **29 `account` → `rekey_account`**, **9 `created_by` → `rekey_account`**, re-keyed
+  rather than dropped so rows that reference the same person keep joining to each other while nothing walks back to the
+  account. The choice was only safe because of a measurement: every populated text `*pseud_id`/`account` column in the
+  live database holds a **uuid string** (credit_entries 1125 rows, trust_levels 27, taste_profiles 2, operator_role 1,
+  api_tokens 1 — 0 rows outside `^[0-9a-f-]{36}$`), so the builder's `::uuid` cast is valid on a `text` column.
+- **`categories.created_by` → `keep`**, because it is not a person: all 9 live rows hold the literal `system`. This is
+  the one column of the 87 where `rekey_account` would have broken the build rather than de-identified anything.
+
+**Still open on this row, and therefore still `planned`:** the *second* gate. `crates/db/tests/erasure_covers_fk_free_accounts.rs`
+matches `account_id`/`*_account`/`*_account_id` and a bare `account`, but not `created_by` or `pseud_id`, and its entries
+live in `darkhold_db::erasure::FK_FREE_ACCOUNT_COLUMNS` — a Rust inventory with a different treatment vocabulary (live
+erasure: Delete / Pseudonymise, not snapshot re-keying). Widening it is the remaining half; it was not attempted here
+because each entry needs the live-erasure treatment read off the handler, which is a second inventory, not a copy.
+
+**Found on the way, unrelated and pre-existing:** `scripts/build-snapshot-sql.py` crashed on *every* invocation without
+`--out` — it called `ap.add_argument("--out", required=True)` **after** `parse_args()`, which raises
+`ArgumentError: conflicting option string` and exits with a traceback instead of usage (exit 2). Fixed; the builder now
+refuses with a sentence. The snapshot pipeline could not be run at all before this.

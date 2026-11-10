@@ -687,7 +687,13 @@ def main() -> int:
     )
     args = ap.parse_args()
     if not args.out:
-        ap.add_argument("--out", required=True, help="required")
+        # NOT `ap.add_argument("--out", ...
+        # required=True)` here: adding an option AFTER `parse_args()` raises
+        # `ArgumentError: conflicting option string: --out`, so every invocation without
+        # `--out` died on a traceback instead of printing usage. Found 2026-11-10 while
+        # checking that the widened snapshot policy still builds; the failure had nothing to
+        # do with the policy and would have looked like it did.
+        ap.error("--out is required: the masking SQL has to be written somewhere")
 
     if args.timestamp_offset is not None and args.random_timestamp_offset is not None:
         ap.error("give --timestamp-offset or --random-timestamp-offset, not both")
