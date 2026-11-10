@@ -2921,3 +2921,14 @@ Named next half: `completeness` and `reader_positivity` are derivable from store
 row each with a documented mapping, not a route that invents a curve. `editorial_review`, `quorum_distinction` and `maturity` stay
 operator/quorum acts by definition.
 
+### Deployed 2026-11-10 02:38 — `0.1.0+fb451f68` (quality-signal door)
+
+Backup `/personal/backups/darkhold-20261110-023836-pre-quality-signals.dump` verified at **392 TABLE DATA**; release build 15m12s;
+`migrate` 197/0.
+
+Live, and stated exactly: `GET /api/v1/works/{id}/quality` answers `{"composite": null, "signals": []}` — the honest empty shape, not
+a fabricated average — the door answers `401` to an anonymous caller, and `min_quality:750` still returns `total: 0` **because no
+operator has scored anything yet**. The door is what shipped; the catalogue stays unscored until an operator uses it or the derived
+kinds (`completeness`, `reader_positivity`) land with their documented mappings. Claiming the filter is "fixed" would be claiming a
+door is a population.
+
