@@ -255,7 +255,21 @@ cmd="${1:-}"
 
 case "$cmd" in
     fmt)
-        run_gate fmt cargo fmt --all --check
+        # `cargo fmt --all` also formats path dependencies, and `polaris-oidc-client` is edition 2024 while this
+        # workspace is 2021: the check then compares the dependency against THIS workspace's style and fails on a file
+        # this repository does not own and must not reformat. One package at a time, each with its own edition.
+        fmt_workspace() {
+            python3 - <<'PY' | while read -r member; do
+import re, pathlib
+text = pathlib.Path("Cargo.toml").read_text()
+block = re.search(r"^members\s*=\s*\[(.*?)\]", text, re.S | re.M).group(1)
+for name in re.findall(r'"([^"]+)"', block):
+    print(name)
+PY
+                ( cd "$REPO_ROOT/$member" && cargo fmt --check ) || return 1
+            done
+        }
+        run_gate fmt fmt_workspace
         ;;
     lint)
         # `-- -D warnings` is what makes the exit code mean something: `cargo clippy`

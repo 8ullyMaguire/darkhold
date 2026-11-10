@@ -1885,12 +1885,7 @@ pub async fn count_rows(db: &darkhold_db::Database, statement: &str) -> i64 {
 }
 
 /// One statement, N string binds, either engine.
-pub async fn exec_binds(
-    db: &darkhold_db::Database,
-    sqlite: &str,
-    postgres: &str,
-    binds: &[&str],
-) {
+pub async fn exec_binds(db: &darkhold_db::Database, sqlite: &str, postgres: &str, binds: &[&str]) {
     match db.backend() {
         darkhold_db::Backend::Sqlite => {
             let mut query = sqlx::query(sqlite);
@@ -1912,6 +1907,27 @@ pub async fn exec_binds(
                 .await
                 .unwrap_or_else(|error| panic!("{postgres}\n{error}"));
         }
+    }
+}
+
+/// One integer from an aggregate (`SUM`, `MAX`, `COUNT`), one string bind, either engine.
+pub async fn scalar_i64(
+    db: &darkhold_db::Database,
+    sqlite: &str,
+    postgres: &str,
+    bind: &str,
+) -> i64 {
+    match db.backend() {
+        darkhold_db::Backend::Sqlite => sqlx::query_scalar(sqlite)
+            .bind(bind)
+            .fetch_one(db.sqlite_pool().expect("sqlite"))
+            .await
+            .unwrap_or_else(|error| panic!("{sqlite}\n{error}")),
+        darkhold_db::Backend::Postgres => sqlx::query_scalar(postgres)
+            .bind(bind)
+            .fetch_one(db.postgres_pool().expect("postgres"))
+            .await
+            .unwrap_or_else(|error| panic!("{postgres}\n{error}")),
     }
 }
 

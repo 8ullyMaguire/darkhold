@@ -64,7 +64,7 @@ impl Harness {
         let account = client.register(handle).await;
         // `sessions.roles` is TEXT on both engines; `sessions.account_id` is UUID on PostgreSQL, so the statement differs in its
         // placeholder and in one cast — the helper takes both spellings precisely because a rewriter cannot infer a type. It used to go straight to
-        // `sqlite_pool()`, which made this whole file a SQLite-only suite: the four tests below panicked with "sqlite" the
+        // the SQLite pool directly, which made this whole file a SQLite-only suite: the four tests below panicked with "sqlite" the
         // moment anyone ran them against PostgreSQL, and nothing had ever run the review package on the deployed engine.
         test_support::exec(
             self.tdb.db(),

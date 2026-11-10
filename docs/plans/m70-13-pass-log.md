@@ -622,3 +622,32 @@ to `LIMIT ?`, `p.id::text` back to `p.id` — each reddens, and each only on Pos
 **Deployed** `0.1.0+85786ea7`, backup verified 393 TABLE DATA. Live: `GET /me/passport` answers `404 taste passport not found` (the module
 is closed by default, and a closed module says 404 rather than 500), and the four fixed statements were run against the live schema
 through `psql` — rows, not errors. The old `LIMIT ?` form still fails there with `syntax error at or near ";"`, which is the contrast.
+
+## Pass 87 — the last seventeen sites, and a 500 the gate could not see (2026-11-10)
+
+`gate.sh dialects` had been red for four passes. This pass closed it: 17 sites across nine files, all of them the same shape — a
+fixture helper reaching the SQLite pool directly, which makes the **whole file** a SQLite-only suite because every test goes
+through that helper.
+
+**Converted** (ten files, each proved green on both engines): `landing_page`, `m16_07_review` (operator), `m16_08_gallery`
+(publish), `m16_11_payments` (publish, seller_earnings, operator), `m16_12_acceptance` (3 sites), `m16_13_themes` (2),
+`m16_14_webhooks` (3), `m64_01_surfaces` (2), `m64_07_crosspost_union` (exec), `m64_10_facets` (exec). New helper:
+`test_support::scalar_i64` for an aggregate with one bind (`SUM`, `COUNT`).
+
+**Three defects the gate cannot see, found only by running the suites on the deployed engine:**
+
+* `m16_11_payments` — `SUM(amount_minor)` is **NUMERIC** on PostgreSQL, and sqlx will not decode a NUMERIC into `i64`. Cast
+  `CAST(COALESCE(SUM(...),0) AS BIGINT)`.
+* `m64_10_facets` — the fixture wrote `units.order_key = 'a'`; on PostgreSQL that column is **BIGINT**. A fixture that encodes a
+  value the schema cannot hold passes on SQLite because SQLite accepts anything in a numeric column.
+* `m64_07_crosspost_union` — a **live product 500**: `union_ranking`'s PostgreSQL arm read `MIN(li.work_id)::text`, and
+  `min(uuid)` **does not exist** in PostgreSQL ("function min(uuid) does not exist"). The cast cannot help, because the aggregate
+  is resolved before it; the cast has to go *inside* the MIN. So `/discovery`'s crosspost-union slot answered 500 on the deployed
+  engine every time it ran — a slot that could never contribute.
+
+**Proof.** All ten files green on SQLite and on PostgreSQL. Mutant for the product fix: `MIN(li.work_id::text)` back to
+`MIN(li.work_id)::text` reddens `m64_07` on PostgreSQL and passes on SQLite — which is exactly the asymmetry the gate exists for.
+
+**`gate.sh dialects` is now green**, and the checker itself learned nothing new this pass: the last red site was a *comment* that
+named `sqlite_pool()` inside an already-converted helper. The checker reads function bodies as text, comments included, so a
+comment describing the bug it fixed reads as the bug.

@@ -75,11 +75,10 @@ impl Harness {
         server::build_router(AppState::new(self.config.clone(), self.tdb.db().clone()))
     }
 
+    /// Run a fixture statement on whichever engine the suite is running against; `exec_one` rewrites the `?`
+    /// placeholders and `randomblob` for PostgreSQL, so a seed written once works on both.
     async fn exec(&self, statement: &str) {
-        sqlx::query(statement)
-            .execute(self.tdb.db().sqlite_pool().expect("sqlite"))
-            .await
-            .unwrap_or_else(|error| panic!("{statement}\n{error}"));
+        test_support::exec_one(self.tdb.db(), statement).await;
     }
 
     async fn seed(&self) {
@@ -165,7 +164,7 @@ impl Harness {
             // one of them can be first.
             self.exec(&format!(
                 "INSERT INTO units (id, work_id, order_key, title, created_at, updated_at, version)
-                 VALUES ('{unit}','{work}','a','One','2026-01-01T00:00:00Z','2026-01-01T00:00:00Z',1)"
+                 VALUES ('{unit}','{work}',10,'One','2026-01-01T00:00:00Z','2026-01-01T00:00:00Z',1)"
             ))
             .await;
             self.exec(&format!(
@@ -183,7 +182,7 @@ impl Harness {
         // A unit with no revision is the imported shape: the unit exists, the text was never measured.
         self.exec(&format!(
             "INSERT INTO units (id, work_id, order_key, title, created_at, updated_at, version)
-             VALUES ('01955000-0000-4000-8000-0000000e0003','{UNMEASURED}','a','One',
+             VALUES ('01955000-0000-4000-8000-0000000e0003','{UNMEASURED}',10,'One',
                      '2026-01-01T00:00:00Z','2026-01-01T00:00:00Z',1)"
         ))
         .await;

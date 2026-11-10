@@ -72,11 +72,10 @@ impl Harness {
         )))
     }
 
+    /// Run a fixture statement on whichever engine the suite is running against; `exec_one` rewrites the `?`
+    /// placeholders and `randomblob` for PostgreSQL, so a seed written once works on both.
     async fn exec(&self, statement: &str) {
-        sqlx::query(statement)
-            .execute(self.tdb.db().sqlite_pool().expect("sqlite"))
-            .await
-            .unwrap_or_else(|error| panic!("{statement}\n{error}"));
+        test_support::exec_one(self.tdb.db(), statement).await;
     }
 
     /// One published, public work with one readable unit — the minimum a landing page can offer.

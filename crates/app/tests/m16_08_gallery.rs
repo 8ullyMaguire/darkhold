@@ -80,18 +80,20 @@ impl Harness {
             "pricing": "free",
         })
         .to_string();
-        sqlx::query(
+        // Ordered timestamps make "newest published version" deterministic in a test that publishes two releases.
+        let created = format!(
+            "2026-11-0{}T00:00:00Z",
+            if version == "1.0.0" { 1 } else { 2 }
+        );
+        test_support::exec_binds(
+            self.tdb.db(),
             "INSERT INTO extension_manifests (id, version, document, submitted_by, state, created_at)
              VALUES (?, ?, ?, 'host', 'approved', ?)",
+            "INSERT INTO extension_manifests (id, version, document, submitted_by, state, created_at)
+             VALUES ($1, $2, $3, 'host', 'approved', $4)",
+            &[id, version, &document, &created],
         )
-        .bind(id)
-        .bind(version)
-        .bind(&document)
-        // Ordered timestamps make "newest published version" deterministic in a test that publishes two releases.
-        .bind(format!("2026-11-0{}T00:00:00Z", if version == "1.0.0" { 1 } else { 2 }))
-        .execute(self.tdb.db().sqlite_pool().expect("sqlite"))
-        .await
-        .expect("insert manifest");
+        .await;
         document
     }
 }

@@ -3052,3 +3052,19 @@ of defect is invisible to `psql` inspection and to every SQLite suite, and appea
 
 **Remaining in `gate.sh dialects`:** 17 sites (the 18 from the last pass minus `m69_03_passport`, whose fixture is now dual-engine).
 
+### The dialects gate is green (2026-11-10)
+
+Seventeen sites, nine files, one shape: a fixture helper that reached the SQLite pool directly, which made the whole file a
+SQLite-only suite because every test went through that helper. All converted and proved on both engines.
+
+Three defects the static gate cannot see, found by running those suites on PostgreSQL: `SUM(...)` is NUMERIC (cast to BIGINT);
+a fixture wrote `'a'` into `units.order_key`, which is BIGINT on the deployed engine; and **`/discovery`'s crosspost-union slot
+answered 500 every time it ran**, because `min(uuid)` does not exist in PostgreSQL — the cast has to go inside the aggregate, not
+after it.
+
+Gate defect found in passing: `cargo fmt --all` also formats **path dependencies**, so an edition-2024 dependency made the fmt
+check permanently red on a file this repository does not own. The step now walks workspace members one at a time.
+
+**Next:** the road-map order falls through to M45, M66 GS-1..GS-5, M69, M63, M64 and M71 rows, with the M70-13 ratchet at 36
+orphans as the fallback.
+

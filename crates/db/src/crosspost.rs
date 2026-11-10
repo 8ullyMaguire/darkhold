@@ -47,7 +47,9 @@ pub async fn union_ranking(db: &Database, limit: i64) -> Result<Vec<CrosspostGro
           GROUP BY lower(trim(li.title)), lower(trim(li.author_text))
           ORDER BY total_likes DESC, work_id
           LIMIT ?1",
-        "SELECT MIN(li.work_id)::text AS work_id,
+        // `min(uuid)` does not exist in PostgreSQL ("function min(uuid) does not exist"), and the cast cannot help: the
+        // aggregate is resolved before the cast. The column is cast INSIDE the MIN, so the aggregate runs over text.
+        "SELECT MIN(li.work_id::text) AS work_id,
                 MIN(li.title) AS title,
                 MIN(li.author_text) AS author_text,
                 SUM(li.likes)::bigint AS total_likes,

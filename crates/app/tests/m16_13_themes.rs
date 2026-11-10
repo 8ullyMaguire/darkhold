@@ -417,11 +417,13 @@ async fn a_preview_is_this_session_only_and_it_expires() {
     );
 
     // Expiry is enforced server-side: push the row into the past and the preview is gone.
-    sqlx::query("UPDATE theme_previews SET expires_at = '2000-01-01T00:00:00Z' WHERE theme_id = ?")
-        .bind(&id)
-        .execute(h.tdb.db().sqlite_pool().expect("sqlite"))
-        .await
-        .expect("expire preview");
+    test_support::exec(
+        h.tdb.db(),
+        "UPDATE theme_previews SET expires_at = '2000-01-01T00:00:00Z' WHERE theme_id = ?",
+        "UPDATE theme_previews SET expires_at = '2000-01-01T00:00:00Z' WHERE theme_id = $1",
+        &id,
+    )
+    .await;
     let (_, after) = author.send("GET", "/api/v1/themes/effective", None).await;
     assert_ne!(
         after["source"],
@@ -507,10 +509,7 @@ async fn reset_deletes_the_published_theme_and_safe_mode_overrides_everything() 
     let (_, effective) = operator.send("GET", "/api/v1/themes/effective", None).await;
     assert_eq!(effective["source"], json!("core"), "{effective}");
 
-    let rows: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM theme_profiles")
-        .fetch_one(h.tdb.db().sqlite_pool().expect("sqlite"))
-        .await
-        .expect("count");
+    let rows = test_support::count_rows(h.tdb.db(), "SELECT COUNT(*) FROM theme_profiles").await;
     assert_eq!(
         rows, 0,
         "reset deletes the row rather than writing the default into it"

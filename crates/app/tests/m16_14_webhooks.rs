@@ -591,11 +591,13 @@ async fn the_delivery_loop_throttles_a_subscription_at_its_own_limit_and_records
     .await
     .expect("create webhook");
     // One delivery a minute, so the second call in this test cannot fit in the window.
-    sqlx::query("UPDATE webhook_endpoints SET rate_per_minute = 1 WHERE id = ?")
-        .bind(&id)
-        .execute(db.sqlite_pool().expect("sqlite"))
-        .await
-        .expect("set rate limit");
+    test_support::exec(
+        db,
+        "UPDATE webhook_endpoints SET rate_per_minute = 1 WHERE id = ?",
+        "UPDATE webhook_endpoints SET rate_per_minute = 1 WHERE id = $1",
+        &id,
+    )
+    .await;
 
     let state = AppState::new(h.config.clone(), db.clone());
     darkhold_app::webhook_delivery::deliver_notification(&state, &event("evt-a"))
@@ -613,13 +615,13 @@ async fn the_delivery_loop_throttles_a_subscription_at_its_own_limit_and_records
         "the second delivery is over the subscription's own limit"
     );
 
-    let throttled: i64 = sqlx::query_scalar(
+    let throttled = test_support::scalar_i64(
+        db,
         "SELECT COUNT(*) FROM webhook_deliveries WHERE endpoint_id = ? AND status = 'throttled'",
+        "SELECT COUNT(*) FROM webhook_deliveries WHERE endpoint_id = $1 AND status = 'throttled'",
+        &id,
     )
-    .bind(&id)
-    .fetch_one(db.sqlite_pool().expect("sqlite"))
-    .await
-    .expect("count throttled");
+    .await;
     assert_eq!(
         throttled, 1,
         "a delivery that was never attempted is recorded, because its absence looks like an outage"
@@ -643,11 +645,13 @@ async fn the_delivery_loop_switches_off_an_endpoint_whose_receiver_keeps_failing
     )
     .await
     .expect("create webhook");
-    sqlx::query("UPDATE webhook_endpoints SET rate_per_minute = 100000 WHERE id = ?")
-        .bind(&id)
-        .execute(db.sqlite_pool().expect("sqlite"))
-        .await
-        .expect("raise rate limit");
+    test_support::exec(
+        db,
+        "UPDATE webhook_endpoints SET rate_per_minute = 100000 WHERE id = ?",
+        "UPDATE webhook_endpoints SET rate_per_minute = 100000 WHERE id = $1",
+        &id,
+    )
+    .await;
 
     let state = AppState::new(h.config.clone(), db.clone());
     let threshold = darkhold_domain::webhook::DEFAULT_FAILURE_THRESHOLD;

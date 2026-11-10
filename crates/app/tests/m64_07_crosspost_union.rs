@@ -59,10 +59,7 @@ async fn a_crossposted_story_ranks_once_with_all_of_its_archives() {
     let db = tdb.db();
 
     async fn exec(db: &darkhold_db::Database, statement: &str) {
-        sqlx::query(statement)
-            .execute(db.sqlite_pool().expect("sqlite"))
-            .await
-            .unwrap_or_else(|error| panic!("{statement}\n{error}"));
+        test_support::exec_one(db, statement).await;
     }
 
     exec(

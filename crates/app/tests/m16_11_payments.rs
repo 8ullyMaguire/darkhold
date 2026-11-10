@@ -75,29 +75,30 @@ impl Harness {
             "pricing": "paid",
         })
         .to_string();
-        sqlx::query(
+        test_support::exec_binds(
+            self.tdb.db(),
             "INSERT INTO extension_manifests (id, version, document, submitted_by, state, created_at)
              VALUES (?, ?, ?, ?, 'approved', '2026-11-01T00:00:00Z')",
+            "INSERT INTO extension_manifests (id, version, document, submitted_by, state, created_at)
+             VALUES ($1, $2, $3, $4, 'approved', '2026-11-01T00:00:00Z')",
+            &[id, version, &document, seller],
         )
-        .bind(id)
-        .bind(version)
-        .bind(&document)
-        .bind(seller)
-        .execute(self.tdb.db().sqlite_pool().expect("sqlite"))
-        .await
-        .expect("insert manifest");
+        .await;
         document
     }
 
     async fn seller_earnings(&self, account: &str) -> i64 {
-        let row: (i64,) = sqlx::query_as(
+        // `author_account_id` is UUID on PostgreSQL (0022) and TEXT on SQLite: the column is cast to text so one bind type
+        // serves both, and `SUM` over an empty ledger still answers 0 through the COALESCE.
+        test_support::scalar_i64(
+            self.tdb.db(),
             "SELECT COALESCE(SUM(amount_minor), 0) FROM author_earnings_ledger WHERE author_account_id = ?",
+            // `SUM` over BIGINT is NUMERIC on PostgreSQL, so the aggregate is cast back to bigint: sqlx will not decode a
+            // NUMERIC into an `i64`, and the number is the same either way.
+            "SELECT CAST(COALESCE(SUM(amount_minor), 0) AS BIGINT) FROM author_earnings_ledger WHERE author_account_id::text = $1",
+            account,
         )
-        .bind(account)
-        .fetch_one(self.tdb.db().sqlite_pool().expect("sqlite"))
         .await
-        .expect("earnings sum");
-        row.0
     }
 }
 
@@ -213,11 +214,14 @@ fn message(body: &Value) -> String {
 async fn operator(h: &Harness, handle: &str) -> Client {
     let mut client = h.client();
     let account = client.register(handle).await;
-    sqlx::query("UPDATE sessions SET roles = '[\"role:operator\"]' WHERE account_id = ?")
-        .bind(&account)
-        .execute(h.tdb.db().sqlite_pool().expect("sqlite"))
-        .await
-        .expect("grant operator role");
+    // `sessions.account_id` is UUID on PostgreSQL, TEXT on SQLite: two spellings, one statement.
+    test_support::exec(
+        h.tdb.db(),
+        "UPDATE sessions SET roles = '[\"role:operator\"]' WHERE account_id = ?",
+        "UPDATE sessions SET roles = '[\"role:operator\"]' WHERE account_id = $1::uuid",
+        &account,
+    )
+    .await;
     client
 }
 

@@ -156,13 +156,12 @@ async fn every_surface_is_listed_and_empty_data_refuses_by_name() {
 async fn a_surface_stops_refusing_once_its_table_has_rows() {
     let harness = Harness::new("filled").await;
     // One tag edge is enough: the surface's question stops being "is this table empty" and becomes "which works".
-    sqlx::query(
+    test_support::exec_one(
+        harness.tdb.db(),
         "INSERT INTO canonical_entities (id, kind, canonical, norm, created_at)
          VALUES ('01954000-0000-4000-8000-0000000009f1','tag','slow burn','slow burn','2026-01-01T00:00:00Z')",
     )
-    .execute(harness.tdb.db().sqlite_pool().expect("sqlite"))
-    .await
-    .expect("seed tag");
+    .await;
 
     let (status, body) = get(harness.client(), "/api/v1/recommendation/surfaces").await;
     assert_eq!(status, StatusCode::OK, "{body}");
@@ -213,10 +212,7 @@ async fn a_surface_stops_refusing_once_its_table_has_rows() {
              VALUES ('{work}', 3, 0, 0, 1, 0, 0, 0, '2026-01-01T00:00:00Z')"
         ),
     ] {
-        sqlx::query(&statement)
-            .execute(harness.tdb.db().sqlite_pool().expect("sqlite"))
-            .await
-            .unwrap_or_else(|error| panic!("{statement}\n{error}"));
+        test_support::exec_one(harness.tdb.db(), &statement).await;
     }
 
     let (status, body) = get(harness.client(), "/api/v1/recommendation/surfaces").await;
@@ -274,10 +270,7 @@ async fn a_tag_surface_refuses_when_tags_and_engagement_never_meet() {
     let db = harness.tdb.db();
 
     async fn exec(db: &darkhold_db::Database, statement: &str) {
-        sqlx::query(statement)
-            .execute(db.sqlite_pool().expect("sqlite"))
-            .await
-            .unwrap_or_else(|error| panic!("{statement}\n{error}"));
+        test_support::exec_one(db, statement).await;
     }
 
     // Seed a work, an author and two tags: plenty of rows, none of them engaged.

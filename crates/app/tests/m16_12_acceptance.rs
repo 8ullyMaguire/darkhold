@@ -444,15 +444,15 @@ async fn a_fork_keeps_attribution_and_starts_without_grants() {
     // the review workflow would be testing the workflow instead of the fork.
     let document =
         json!({ "id": "shelf-sorter", "name": "Shelf sorter", "author": "orig" }).to_string();
-    sqlx::query(
+    test_support::exec_binds(
+        h.tdb.db(),
         "INSERT INTO extension_manifests (id, version, document, submitted_by, state, created_at)
          VALUES ('shelf-sorter', '1.0.0', ?, ?, 'approved', '2026-11-01T00:00:00Z')",
+        "INSERT INTO extension_manifests (id, version, document, submitted_by, state, created_at)
+         VALUES ('shelf-sorter', '1.0.0', $1, $2, 'approved', '2026-11-01T00:00:00Z')",
+        &[&document, &original_author],
     )
-    .bind(&document)
-    .bind(&original_author)
-    .execute(h.tdb.db().sqlite_pool().expect("sqlite"))
-    .await
-    .expect("seed a published manifest");
+    .await;
 
     // The original's author holds a grant on the original. The fork must not inherit it.
     darkhold_db::marketplace::grant_extension(
@@ -553,12 +553,14 @@ async fn an_opted_out_account_is_not_handed_to_an_external_engine() {
     let mut client = h.client();
     let user = client.register("optedout").await;
 
-    let pseud: String = sqlx::query("SELECT id FROM pseuds WHERE account_id = ?")
-        .bind(&user)
-        .fetch_one(h.tdb.db().sqlite_pool().expect("sqlite"))
-        .await
-        .map(crate::row_id)
-        .expect("the account has a pseud");
+    let pseud = test_support::scalar_pair_with(
+        h.tdb.db(),
+        "SELECT id FROM pseuds WHERE account_id = ?",
+        "SELECT id::text FROM pseuds WHERE account_id = $1::uuid",
+        &user,
+    )
+    .await
+    .expect("the account has a pseud");
     let pseud: darkhold_domain::ids::PseudId = pseud.parse().expect("pseud id parses");
     let work = darkhold_db::content::create_work(h.tdb.db(), pseud, "Opted out work", None)
         .await
@@ -633,15 +635,15 @@ async fn publish_approved(h: &Harness, id: &str, category: &str, permissions: &[
         "pricing": "free",
     })
     .to_string();
-    sqlx::query(
+    test_support::exec_binds(
+        h.tdb.db(),
         "INSERT INTO extension_manifests (id, version, document, submitted_by, state, created_at)
          VALUES (?, '1.0.0', ?, 'host', 'approved', '2026-11-01T00:00:00Z')",
+        "INSERT INTO extension_manifests (id, version, document, submitted_by, state, created_at)
+         VALUES ($1, '1.0.0', $2, 'host', 'approved', '2026-11-01T00:00:00Z')",
+        &[id, &document],
     )
-    .bind(id)
-    .bind(&document)
-    .execute(h.tdb.db().sqlite_pool().expect("sqlite"))
-    .await
-    .expect("seed an approved package");
+    .await;
 }
 
 #[tokio::test]
