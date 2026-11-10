@@ -512,6 +512,8 @@ pub async fn for_account(db: &Database, account: &str) -> Result<Option<Value>> 
             }))
         }
         Backend::Postgres => {
+            // `reader_affinity.account_id` is TEXT (0188), so the bind stays text here: a `::uuid` cast makes PostgreSQL
+            // answer `operator does not exist: text = uuid`, which is how this route's first port to PG failed.
             let row = sqlx::query(
                 "SELECT CAST(score_bp AS BIGINT) AS score_bp, CAST(evidence_bp AS BIGINT) AS evidence_bp, CAST(signals AS BIGINT) AS signals,
                         CAST(favourite_overlap_bp AS BIGINT) AS favourite_overlap_bp,
