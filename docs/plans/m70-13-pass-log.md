@@ -592,3 +592,33 @@ handler and the document (`taste_bp`, `contribution_counts`, `reader_affinity::f
 **Still red, 18 sites, all in files this pass did not touch:** `landing_page`, `m16_07_review`, `m16_08_gallery`, `m16_11_payments`
 (3), `m16_12_acceptance` (3), `m16_13_themes` (2), `m16_14_webhooks` (2), `m64_01_surfaces` (2), `m64_07_crosspost_union`,
 `m64_10_facets`, and `m69_03_passport` (deliberate).
+
+## Pass 86 — the passport route was three PostgreSQL 500s (2026-11-10)
+
+The last pass left one finding open: porting `m69_03_passport` reached `GET /me/passport` and the route answered 500 on PostgreSQL. This
+pass found out why.
+
+**How it was found, in order, because the order matters.** Instrumenting `internal()` printed
+`operator does not exist: uuid = text` — no statement, no column. Stage markers narrowed it to `taste_bp`, then the fix there moved the
+error on, and each fix revealed the next. Four defects in the end, three of them real:
+
+* `taste_bp` bound the account as text into `bookmarks.account_id`, which is UUID (0009) → `uuid = text`.
+* `favourite_sources` carried **`LIMIT ?` — a SQLite placeholder inside the PostgreSQL arm**. A statement pair is only a pair if both
+  halves are spelled in their own dialect.
+* the contributions count joined `pseuds.id` (UUID) to `comments.author_pseud` (**TEXT**, 0013) → `uuid = text`.
+* (mine, self-inflicted) casting `reader_affinity.account_id` to uuid, when 0188 declares it TEXT — and then putting the explanatory
+  comment *inside* the SQL string, which PostgreSQL read as `syntax error at or near "TEXT"`.
+
+**The engine-specific shape of the fix.** `p.id::text` is not SQLite syntax; putting it in both arms turned the route into a 500 on the
+engine the suite runs by default. The SQLite arm keeps `p.id = c.author_pseud`, the PostgreSQL arm casts the column.
+
+**A nuance worth keeping.** Against the live database, `WHERE b.account_id = '<uuid>'` succeeds: a *literal* is an unknown-typed constant
+and PostgreSQL coerces it to the column. A **bound** parameter is sent as text and is not coerced. That is why this class of defect can be
+invisible to every manual `psql` check and to every SQLite suite, and only appears when a real client binds.
+
+**Proof.** `m69_03_passport` green on both engines (2/2 each). Three mutants reverted from a `/tmp` copy — the uncast bind, `LIMIT $2` back
+to `LIMIT ?`, `p.id::text` back to `p.id` — each reddens, and each only on PostgreSQL.
+
+**Deployed** `0.1.0+85786ea7`, backup verified 393 TABLE DATA. Live: `GET /me/passport` answers `404 taste passport not found` (the module
+is closed by default, and a closed module says 404 rather than 500), and the four fixed statements were run against the live schema
+through `psql` — rows, not errors. The old `LIMIT ?` form still fails there with `syntax error at or near ";"`, which is the contrast.

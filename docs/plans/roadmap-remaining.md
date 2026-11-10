@@ -3040,3 +3040,15 @@ defect the SQLite-only harness had hidden. The suspects are the three reads betw
 **Standing rule:** a fixture id must be a valid UUID, and `randomblob` has no PostgreSQL twin in a seed — both only fail on the second
 row, which is why replacing them with literals "works" until the fixture has two rows.
 
+### The passport route's three PostgreSQL 500s (2026-11-10)
+
+Found by porting its suite, not by reading the code — and it took four attempts because each fix disclosed the next defect. The three
+real ones: an uncast account bind into `bookmarks.account_id` (UUID); **`LIMIT ?` left in the PostgreSQL arm**; and a join of
+`pseuds.id` (UUID) to `comments.author_pseud` (TEXT).
+
+Rule worth carrying: against the live database a *literal* `'<uuid>'` is coerced, but a **bound** text parameter is not — so this class
+of defect is invisible to `psql` inspection and to every SQLite suite, and appears only when a client binds. Deployed
+`0.1.0+85786ea7`; the module is closed by default and answers 404, not 500.
+
+**Remaining in `gate.sh dialects`:** 17 sites (the 18 from the last pass minus `m69_03_passport`, whose fixture is now dual-engine).
+
