@@ -1012,6 +1012,7 @@ dependencies = [
  "async-trait",
  "encoding_rs",
  "flate2",
+ "polaris-slug",
  "primp",
  "regex-lite",
  "reqwest",
@@ -2767,6 +2768,10 @@ dependencies = [
  "serde_json",
  "tokio",
 ]
+
+[[package]]
+name = "polaris-slug"
+version = "0.1.0"
 
 [[package]]
 name = "polaris-taste-source"

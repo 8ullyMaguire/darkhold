@@ -213,7 +213,12 @@ pub fn plan_shelf_import(shelf: &ImportShelf) -> ImportPlan {
 
         let source_work_key = match row.isbn.as_deref().map(str::trim) {
             Some(isbn) if !isbn.is_empty() => format!("isbn:{}", isbn.to_ascii_lowercase()),
-            _ => format!("title:{}", slug(&format!("{title} {}", row.author))),
+            _ => format!(
+                "title:{}",
+                // The estate's one slug rule. `Policy::NONE` because this is a dedupe KEY, not a URL: an empty result is
+                // a fact about a title made only of punctuation, and inventing a word for it would merge unrelated works.
+                polaris_slug::slug(&format!("{title} {}", row.author), polaris_slug::Policy::NONE)
+            ),
         };
 
         // Two rows can carry the same key (a story in two editions, the same
@@ -277,24 +282,6 @@ fn normalise_date(raw: &str) -> Option<String> {
     None
 }
 
-/// A stable, comparison-friendly slug.
-fn slug(raw: &str) -> String {
-    let mut out = String::new();
-    let mut last_dash = true;
-    for c in raw.chars() {
-        if c.is_ascii_alphanumeric() {
-            out.push(c.to_ascii_lowercase());
-            last_dash = false;
-        } else if !last_dash {
-            out.push('-');
-            last_dash = true;
-        }
-    }
-    while out.ends_with('-') {
-        out.pop();
-    }
-    out
-}
 
 /// The row's own metadata as a JSON document.
 fn provenance(row: &ShelfRow) -> String {

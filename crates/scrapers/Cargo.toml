@@ -12,6 +12,7 @@ name = "darkhold_scrapers"
 path = "src/lib.rs"
 
 [dependencies]
+polaris-slug = { path = "/personal/documents/code/polaris-slug" }
 async-trait.workspace = true
 encoding_rs.workspace = true
 flate2.workspace = true
