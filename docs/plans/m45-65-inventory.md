@@ -158,3 +158,27 @@ because each entry needs the live-erasure treatment read off the handler, which 
 `--out` — it called `ap.add_argument("--out", required=True)` **after** `parse_args()`, which raises
 `ArgumentError: conflicting option string` and exits with a traceback instead of usage (exit 2). Fixed; the builder now
 refuses with a sentence. The snapshot pipeline could not be run at all before this.
+
+## The second gate — measured 2026-11-10, and the defect that stopped it
+
+Widening `account_keyed` in `crates/db/tests/erasure_covers_fk_free_accounts.rs` to `created_by` and the `*pseud_id`
+family makes the gate name **52 columns** with no live-erasure treatment. Classified against the migrations (nullability
+and type) they split cleanly:
+
+- **42 `pseud_id` columns and 10 `created_by` columns.** Every one of the 10 attribution columns is `NOT NULL`, so they
+  need `Treatment::Rekey("id")` (per-row, not one shared placeholder — a shared one re-links every row of the same
+  person). Everything that is the person's own act, preference, subscription, invitation or block is `Delete`: a
+  relationship with an erased account does not exist.
+
+**And there the attempt stops, because of a defect in the scanner that both gates share.** Five of the 52 —
+`blocks.source_pseud_id`, `blocks.target_pseud_id`, `mutes.pseud_id`, `chapter_revisions.created_by_pseud_id`,
+`taxonomy_edges.created_by` — **do not exist in the migrated schema**: `0013_community.sql` begins
+`DROP TABLE IF EXISTS blocks; DROP TABLE IF EXISTS mutes;` and recreates both with different columns, and the scanner
+unions every `CREATE TABLE` block it can find with no ordering, so it keeps the dropped table's shape. The gate cannot go
+green while it measures columns the database does not have, and adding treatments for them would teach `erase_account` to
+`DELETE` from a table that isn't there (measured: `erase: no such column: source_pseud_id`).
+
+**So the fix this row needs is in the scanner, and it is the next slice:** walk the migrations in order, applying
+`CREATE TABLE` (later definition replaces earlier), `DROP TABLE`, `ALTER TABLE … ADD COLUMN` and `DROP COLUMN`, and take
+the unlinked set from that final shape. Then the 52-column classification above can be written against a schema that
+exists. The two Rust files are untouched in this commit and the row stays `planned`.

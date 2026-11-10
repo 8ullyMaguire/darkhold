@@ -883,3 +883,5 @@ the working tree stashed, so this predates the change and is not a regression fr
 experiment-surface path, not the taste one. Not fixed here: the row that owns that path (M64-15, the operator
 console's live-experiment view) is the place to fix it, and a `500` with no column named is exactly what the
 dialect gate exists to catch next time it runs on PostgreSQL.
+
+- **Both erasure scanners union every `CREATE TABLE` they find, in no order.** `crates/db/tests/erasure_covers_fk_free_accounts.rs` and `scripts/check-snapshot-pii.py` keep the shape of tables that a later migration drops: `0013_community.sql` does `DROP TABLE IF EXISTS blocks; DROP TABLE IF EXISTS mutes;` and recreates both, so five phantom columns (blocks.source_pseud_id, blocks.target_pseud_id, mutes.pseud_id, chapter_revisions.created_by_pseud_id, taxonomy_edges.created_by) are measured and cannot be classified — adding a treatment makes `erase_account` run `DELETE` against a table that is not there (`no such column`). Owner: **M45-65**, next slice: ordered migration walk. Measured 2026-11-10.
