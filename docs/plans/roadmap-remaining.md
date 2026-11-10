@@ -3110,3 +3110,20 @@ only through a door that refuses first is a guard nothing reaches.
 Proof: `m45_40_curator_lens` 2/2 on both engines. Mutants, each reverted from `/tmp`: write-door rule removed
 (204 instead of 403), read-door rule removed (200 instead of 404), ordering removed (catalogue order instead of
 3/2/1). `route_inventory` 5/5.
+
+### M45-41 — a share pays both sides once, and the second guard was not a guard (2026-11-10)
+
+`POST /works/{id}/share` mints a code from `(account, work)` — derived, so two racing POSTs cannot mint two codes for
+one work and pay the same reader twice. `GET /works/{id}?ref=CODE` pays one credit to each side into the `share`
+bucket, gated by the transaction's idempotency key `share:<code>:<visitor>`.
+
+The finding of this row: the first version had **two** guards — an early return on `share_visit`'s insert and the
+transaction key — and the mutant that deleted the early return **passed**. The key was doing all the work. The
+redundant guard is gone, its comment says why, and the surviving mutant is the one that proves the real gate
+(random key → a refresh pays twice).
+
+Refusals: a code for another work attributes nothing; a sharer following their own link earns nothing; an anonymous
+visitor earns nothing for anybody. Attribution never fails the page.
+
+Proof: `m45_41_share_attribution` 1/1 both engines; mutants (unique credit key, self-attribution allowed) reddened;
+`route_inventory` 5/5.

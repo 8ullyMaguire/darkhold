@@ -77,6 +77,8 @@ pub fn router() -> Router<AppState> {
         .route("/works", get(list_works).post(create_work))
         .route("/works/{id}", patch(update_work))
         .route("/works/{id}/kudos", post(toggle_kudos))
+        // M45-41: the link a reader reposts, carrying the code that pays both sides once.
+        .route("/works/{id}/share", post(mint_share_link))
         // §50.1: the reason is a body field on the kudos itself, not a second
         // endpoint, because re-kudosing *updates* the reason (see
         // `reasons_store::give_kudos`). A separate /reason endpoint would let the
@@ -550,10 +552,96 @@ async fn create_work(
     Ok((StatusCode::CREATED, Json(view)))
 }
 
+/// `POST /works/{id}/share` — mint the caller's link for this work, or return the one already minted.
+async fn mint_share_link(
+    State(state): State<AppState>,
+    RequireSession(user): RequireSession,
+    Path(id): Path<String>,
+) -> ApiResult<(StatusCode, Json<serde_json::Value>)> {
+    let work_id = parse_work_id(&id)?;
+    let account = user.account_id.to_string();
+    let minted = darkhold_db::share::mint(state.db(), &account, &work_id.to_string())
+        .await
+        .map_err(|e| ApiError(AppError::Internal(e)))?;
+    Ok((
+        StatusCode::CREATED,
+        Json(serde_json::json!({
+            "code": minted.code,
+            // Relative on purpose: an instance answers on several hosts (the estate's redirect registry exists for exactly
+            // that), so an absolute URL minted here would be right for one host and wrong for the rest.
+            "url": format!("/works/{}?ref={}", work_id, minted.code),
+        })),
+    ))
+}
+
+/// Pay both sides for one visit, if there is anything to pay.
+///
+/// Order matters: the visit row is written FIRST and only a row that actually landed pays. Writing credits first and the row
+/// second would let a crash in between pay again on the next visit; checking the row and then inserting would let two
+/// concurrent visits both read "new".
+async fn attribute_share(
+    state: &AppState,
+    code: &str,
+    work_id: darkhold_domain::ids::WorkId,
+    session: Option<&SessionUser>,
+) {
+    let Some(session) = session else {
+        // An anonymous visitor has no balance to earn into, and "credit the sharer only" would pay for traffic nobody can be
+        // attributed to: the same browser with no cookie, again and again.
+        return;
+    };
+    let Ok(Some((owner, coded_work))) = darkhold_db::share::owner_of(state.db(), code).await else {
+        return;
+    };
+    if coded_work != work_id.to_string() {
+        // The code names a work. On another work it is not an attribution, it is a mis-paste.
+        return;
+    }
+    let visitor = session.account_id.to_string();
+    if owner == visitor {
+        // One person agreeing with themselves is not an attribution.
+        return;
+    }
+    // The arrival is recorded for audit, and the CREDIT is gated by the transaction's idempotency key below — one gate, not
+    // two. A `if !first { return }` here looked like the gate and was not: with the key doing the work, the early return
+    // could be deleted and every assertion still passed, which is a guard that proves nothing about the code it sits in.
+    // Recording can fail without costing the reader the credit, so its error is logged and forgotten.
+    if let Err(error) = darkhold_db::share::record_visit(state.db(), code, &visitor).await {
+        tracing::warn!(%error, "share attribution: could not record the visit");
+    }
+    let entries = vec![
+        (owner.clone(), "share".to_owned(), 1),
+        (visitor.clone(), "share".to_owned(), 1),
+    ];
+    // The idempotency key is the visit itself, so a retry of this exact pair cannot pay twice even if the visit row were
+    // lost: the transaction table is the last word on whether credits moved.
+    let key = format!("share:{code}:{visitor}");
+    if let Err(error) = darkhold_db::economy::post_transaction(
+        state.db(),
+        darkhold_domain::economy::TxnType::Earn,
+        &key,
+        &format!("share:{code}"),
+        &entries,
+    )
+    .await
+    {
+        tracing::warn!(%error, "share attribution: could not post credits");
+    }
+}
+
+/// The one query parameter a work page reads for attribution.
+#[derive(Debug, Default, serde::Deserialize)]
+struct ShareRefQuery {
+    /// The sharer's code, as it appeared in the link.
+    #[serde(default, rename = "ref")]
+    share_ref: Option<String>,
+}
+
 async fn read_work(
     State(state): State<AppState>,
     MaybeSession(session): MaybeSession,
     Path(id): Path<String>,
+    Query(query): Query<ShareRefQuery>,
 ) -> ApiResult<Json<serde_json::Value>> {
     let work_id = parse_work_id(&id)?;
     let work = content::find_work(state.db(), work_id)
@@ -562,6 +650,13 @@ async fn read_work(
 
     let contributors = collaboration::contributors_for_work(state.db(), work_id).await?;
     let actor = actor_for(session.as_ref());
+
+    // M45-41: the link is read, not honoured — a code for another work, a sharer following their own link, and an
+    // anonymous visitor all reach this call and all credit nobody. It never fails the page: a reader opening a reposted
+    // link must not be told "not found" because a bookkeeping write hit a lock.
+    if let Some(code) = query.share_ref.as_deref() {
+        attribute_share(&state, code, work_id, session.as_ref()).await;
+    }
 
     let reading =
         reading_decision_publishing_metadata(&state, actor.as_ref(), &work, &contributors).await;

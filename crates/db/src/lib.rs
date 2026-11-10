@@ -132,6 +132,7 @@ pub mod secrets;
 pub mod series_recs;
 pub mod sessions;
 pub mod settings;
+pub mod share;
 pub mod source_adapters;
 pub mod source_engagement;
 pub mod succession;

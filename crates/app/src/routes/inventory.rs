@@ -441,6 +441,14 @@ pub const ROUTE_TABLE: &[RouteEntry] = &[
         audience: Audience::AdminOf { site: None },
     },
     RouteEntry {
+        file: "works.rs",
+        handler: "mint_share_link",
+        method: "POST",
+        path: "/works/{id}/share",
+        // A session, because both sides of an attribution need an account to earn into.
+        audience: Audience::Authenticated,
+    },
+    RouteEntry {
         file: "lens.rs",
         handler: "list_lenses",
         method: "GET",
