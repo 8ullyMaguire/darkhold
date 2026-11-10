@@ -54,6 +54,8 @@ pub mod rec_preference;
 pub mod rec_shadow;
 pub mod revisions;
 pub mod routes;
+// ADR 0016: the bridge between darkhold's rows and the shared taste fold.
+pub mod taste_source;
 pub mod safety;
 pub mod secrets;
 pub mod seed;

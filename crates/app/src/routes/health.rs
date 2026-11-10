@@ -34,7 +34,9 @@ pub fn router() -> Router<AppState> {
 #[derive(Debug, Serialize)]
 struct LiveResponse {
     status: &'static str,
-    version: &'static str,
+    /// The estate release this deploy belongs to (`ESTATE_VERSION`), not the crate version: nginx's
+    /// `x-estate-version` carries the same string, and two answers to "what is running" is the defect ADR 0013 records.
+    version: String,
     build: String,
     environment: &'static str,
     uptime_ms: u64,
@@ -47,7 +49,7 @@ async fn live(
 ) -> Json<LiveResponse> {
     Json(LiveResponse {
         status: "ok",
-        version: version::VERSION,
+        version: polaris_healthz::version(),
         build: version::build_id(),
         environment: state.config().environment.as_str(),
         uptime_ms: state.uptime_ms(),

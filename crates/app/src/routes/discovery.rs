@@ -980,7 +980,7 @@ async fn get_discovery(
             .flatten(),
         None => None,
     };
-    let strength = darkhold_domain::gravity_dial::effective(instance_strength, reader_strength);
+    let strength = polaris_gravity::effective(instance_strength, reader_strength);
     // The order the algorithms produced, kept so the published pull can be measured against the page the reader finally
     // receives — later operators (the reader's own taste ordering) move rows too, and a histogram taken mid-pipeline reported
     // "nothing moved" on pages whose order had changed.

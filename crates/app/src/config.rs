@@ -1484,6 +1484,13 @@ pub struct TasteConfig {
     pub gravity_locked: bool,
     /// Taste dimensions (names only; vectors are computed at runtime).
     pub dimensions: Vec<String>,
+    /// Who sets this instance's taste, in declaration order (ADR 0016). Empty means the instance folds nothing, and the
+    /// profile route says exactly that rather than inventing a default speaker.
+    pub taste_source: Vec<TasteSourceRule>,
+    /// How fast one contribution stops mattering.
+    pub taste_half_life_days: f64,
+    /// Below this many contributions the profile is empty **with a reason**, never zeros.
+    pub taste_min_evidence: u32,
     /// Whether the taste engine runs **inside** the archive or as its own process
     /// (spec §8.2).
     ///
@@ -1531,8 +1538,46 @@ impl Default for TasteConfig {
                 "trope_diversity".to_string(),
             ],
             mode: "embedded".to_string(),
+            taste_source: Vec::new(),
+            taste_half_life_days: 120.0,
+            taste_min_evidence: 3,
         }
     }
+}
+
+/// One declared source of instance taste (ADR 0016).
+///
+/// Exactly one selector field names who this source is; the rest stay unset. `weight` is the multiplier the source's
+/// contributions carry, and `kinds` is what the source is allowed to say — a curator may add a collection item but not
+/// cast a ballot if the instance says so.
+#[derive(Debug, Clone, Deserialize, PartialEq)]
+#[serde(deny_unknown_fields)]
+pub struct TasteSourceRule {
+    /// The operator's word for this source; it is what the profile reports back, so it must be stable.
+    pub name: String,
+    /// A claim the identity provider issued (`curator` matches `role:curator:<site>`).
+    #[serde(default)]
+    pub role: Option<String>,
+    /// A badge this instance maintains, including a live one such as `attuned`.
+    #[serde(default)]
+    pub badge: Option<String>,
+    /// This instance's own trust ladder.
+    #[serde(default)]
+    pub trust_at_least: Option<u8>,
+    /// Closeness to the instance, with the evidence floor that stops one row from admitting somebody.
+    #[serde(default)]
+    pub affinity_at_least: Option<f64>,
+    /// Named accounts, for a cohort that has no role yet.
+    #[serde(default)]
+    pub ids: Vec<String>,
+    /// Everyone who left evidence. Honest, and farmable — declare it last.
+    #[serde(default)]
+    pub everyone: bool,
+    /// 0.0-1.0. Refused outside that range rather than clamped: a weight of 30 is a typo.
+    pub weight: f64,
+    /// Which of the estate's evidence kinds this source may contribute (`seed`, `like`, ...).
+    #[serde(default)]
+    pub kinds: Vec<String>,
 }
 
 /// Signal weighting settings (spec §9.7.3).
@@ -3678,6 +3723,10 @@ impl Config {
                             "trope_diversity".to_string(),
                         ]
                     }),
+                    taste_source: t.source.unwrap_or_default(),
+                    taste_half_life_days: t.half_life_days.unwrap_or(120.0),
+                    // A negative minimum is not "no minimum", it is a typo: clamp to 0 here so the fold's u32 is honest.
+                    taste_min_evidence: u32::try_from(t.min_evidence.unwrap_or(3).max(0)).unwrap_or(3),
                 }
             },
             signals: {
@@ -5196,6 +5245,10 @@ struct TasteSection {
     gravity_ceiling: Option<f64>,
     gravity_locked: Option<bool>,
     dimensions: Option<Vec<String>>,
+    /// Who sets this instance's taste (ADR 0016).
+    source: Option<Vec<TasteSourceRule>>,
+    half_life_days: Option<f64>,
+    min_evidence: Option<i64>,
 }
 
 /// The `[bounties]` table (spec §20.3.2): flexible bounty settings.

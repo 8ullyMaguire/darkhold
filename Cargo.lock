@@ -884,7 +884,11 @@ dependencies = [
  "image",
  "mime_guess",
  "polaris-core",
+ "polaris-gravity",
+ "polaris-healthz",
  "polaris-oidc-client",
+ "polaris-search-client",
+ "polaris-taste-source",
  "rand 0.8.8",
  "reqwest",
  "rsa",
@@ -933,6 +937,7 @@ dependencies = [
  "darkhold-domain",
  "darkhold-taste",
  "hex",
+ "polaris-ledger",
  "rand 0.8.8",
  "serde",
  "serde_json",
@@ -1007,6 +1012,7 @@ dependencies = [
  "async-trait",
  "encoding_rs",
  "flate2",
+ "polaris-slug",
  "primp",
  "regex-lite",
  "reqwest",
@@ -2719,6 +2725,26 @@ name = "polaris-eval"
 version = "0.1.0"
 
 [[package]]
+name = "polaris-gravity"
+version = "0.1.0"
+
+[[package]]
+name = "polaris-healthz"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+]
+
+[[package]]
+name = "polaris-ledger"
+version = "0.4.0"
+dependencies = [
+ "chrono",
+ "serde",
+]
+
+[[package]]
 name = "polaris-oidc-client"
 version = "0.2.0"
 dependencies = [
@@ -2732,6 +2758,24 @@ dependencies = [
  "thiserror 1.0.69",
  "tokio",
 ]
+
+[[package]]
+name = "polaris-search-client"
+version = "0.2.1"
+dependencies = [
+ "reqwest",
+ "serde",
+ "serde_json",
+ "tokio",
+]
+
+[[package]]
+name = "polaris-slug"
+version = "0.1.0"
+
+[[package]]
+name = "polaris-taste-source"
+version = "0.1.0"
 
 [[package]]
 name = "poly1305"

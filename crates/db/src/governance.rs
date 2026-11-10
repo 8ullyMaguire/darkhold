@@ -1798,38 +1798,74 @@ type ModlogRow = (
 
 /// Turn one modlog row into an entry, resolving the pseudonyms.
 async fn into_entry(row: ModlogRow, db: &Database) -> Result<ModlogEntry, sqlx::Error> {
-    {
-        let (id, actor_pseud, reason, action, subject_type, subject_id, created_at) = row;
-        let actor_handle = match &actor_pseud {
-            Some(pseud) => pseud_handle(db, pseud).await?,
-            None => None,
-        };
-        // A subject that is an account is published as that account's public
-        // face — a pseudonym — and never as the account id.
-        let (subject_id, subject_is_pseudonym) = if subject_type == "account" {
-            match account_pseud(db, &subject_id).await? {
-                Some(pseud) => (pseud, true),
-                // An account that no longer exists has no public face, and its
-                // id is not published either: the entry says "an account" and
-                // stops there.
-                None => (String::new(), true),
+    let (id, actor_pseud, reason, action, subject_type, subject_id, created_at) = row;
+
+    let actor_handle = match &actor_pseud {
+        Some(pseud) => pseud_handle(db, pseud).await?,
+        None => None,
+    };
+    // A subject that is an account is published as that account's public face — a pseudonym — and never as the account
+    // id. An account that no longer exists has no public face, and its id is not published either: the entry says "an
+    // account" and stops there.
+    let (subject_public, subject_is_account) = if subject_type == "account" {
+        match account_pseud(db, &subject_id).await? {
+            Some(pseud) => (pseud, true),
+            None => (String::new(), true),
+        }
+    } else {
+        (subject_id.clone(), false)
+    };
+    // A stored timestamp that does not parse is a data defect, and failing the page is better than publishing a date
+    // the row never carried. The conversion goes through (secs, nanos) because this crate's date library is `time`
+    // and the rules crate deliberately does not insist on its own.
+    let at = time::OffsetDateTime::parse(
+        &created_at,
+        &time::format_description::well_known::Rfc3339,
+    )
+    .map(|t| polaris_ledger::from_unix(t.unix_timestamp(), t.nanosecond()))
+    .map_err(|e| sqlx::Error::Decode(Box::new(e)))?;
+
+    // What this function does is *resolve*: which pseudonym the actor had, which public face the subject had. What may
+    // be published is the crate's decision, not this function's — the account id is never in the `Act` at all, because
+    // the query above never selected it.
+    let act = polaris_ledger::Act {
+        action: action.clone(),
+        subject: if subject_is_account {
+            polaris_ledger::Subject::Account {
+                account: subject_id,
+                public: subject_public,
             }
         } else {
-            (subject_id, false)
-        };
-        Ok(ModlogEntry {
-            id,
-            actor_pseud: actor_pseud.clone(),
-            actor_handle,
-            actor_is_panel: actor_pseud.is_none(),
-            action,
-            subject_type,
-            subject_id,
-            subject_is_pseudonym,
-            reason,
-            created_at,
-        })
-    }
+            polaris_ledger::Subject::Object {
+                kind: subject_type.clone(),
+                id: subject_public,
+            }
+        },
+        actor: match &actor_pseud {
+            Some(pseud) => polaris_ledger::Actor::Person {
+                account: None,
+                public: pseud.clone(),
+            },
+            None => polaris_ledger::Actor::Panel,
+        },
+        reason: reason.clone(),
+        expires_at: None,
+        at,
+    };
+    let published = polaris_ledger::project(&act, polaris_ledger::Redaction::PublishHandle);
+
+    Ok(ModlogEntry {
+        id,
+        actor_pseud: published.actor,
+        actor_handle,
+        actor_is_panel: published.panel,
+        action: published.action,
+        subject_type: published.subject_kind.unwrap_or(subject_type),
+        subject_id: published.subject,
+        subject_is_pseudonym: published.subject_resolved,
+        reason: published.reason,
+        created_at,
+    })
 }
 
 /// A pseudonym's handle, if it still exists.

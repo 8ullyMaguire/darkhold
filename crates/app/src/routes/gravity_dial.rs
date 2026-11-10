@@ -7,7 +7,7 @@ use axum::extract::State;
 use axum::routing::get;
 use axum::{Json, Router};
 use darkhold_domain::error::AppError;
-use darkhold_domain::gravity_dial::{effective, narrow, DialRefusal};
+use polaris_gravity::{effective, narrow, DialRefusal};
 use serde::Deserialize;
 use serde_json::{json, Value};
 

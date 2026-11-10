@@ -8,6 +8,14 @@ This is a dependency-ordered specification for building the entire platform—no
 
 This document specifies intended behavior. It does not claim that any feature, adapter, integration, or performance target has already been implemented or verified.
 
+> **Gravity, defined across the estate (2026-11-10).** Two fields blended on every surface: each work
+> carries an **instance field** (the folded taste of the declared influence sources, §0.4.6) and each
+> reader a **reader field** (their own profile, decaying). Rank `(1 − g(u)) · local + g(u) · instance`,
+> with `g(u)` rising as a function of the reader's own signals up to a ceiling below 1.0. The §16.5
+> dial is the reader's brake on that, not the pull itself; `theme_dial_floor` is a floor under it.
+> Never disclosed; aggregate only; no anonymous route may rank the catalogue by it. Definition:
+> `10-Projects/gravity-model.md`.
+
 **Amendments:** The taste-gravitational system (multi-dimensional taste profile, taste-weighted signals, resonance score, vanguard role, instance presets, and related extensions) is specified in `docs/spec-amendments/taste-gravitational-system.md`, which amends §0.4, §0.4.6, §9.7, §9.8, §9.9, §14.5, §16.2, §16.17–16.19, §17.6, §19, and §20.3. Where this document and the amendment conflict, the amendment governs. Implementation plan: `docs/plans/taste-gravitational-system-v2.md` (supersedes v1).
 
 **Amendment — crawling posture, retention governance, and preservation (2026-09-27):** `docs/spec-amendments/crawling-retention-and-preservation.md` amends §7.6, §11.5, §11.11, §11.12, §11.15, §9.7.1, §9.7.2, §9.7.5, §9.7.6, §19.1, §25.2, §28.2 and §38, and adds §7.7, §11.10b, §11.12a, §11.15a, §11.15b and §19.15. In summary: `imports.honour_robots` becomes the three-valued `imports.robots_posture` (`strict | metadata_only | permissive`) with every fetch declaring a class; §11.15's `cache | aggregate` retention is built as specified with a per-reader body-request door; preservation targets earn credits and a badge for **verified live** preservation with a clawback when a destination dies; an operator may narrow who reads a cached body via `body_audience` (with a reader outside it learning nothing at all, byte-identical to a non-existent work); and a retention setting may be decided by a trust-gated community vote in `advisory` (default) or opt-in `binding` mode. Where it and this document conflict, the amendment governs. Implementation plan: `docs/plans/crawling-retention-preservation.md` (milestone M59).
@@ -165,6 +173,15 @@ The mode is configured under `[theme]`. The default is `thematic` — an instanc
 | `long_term_users` | A composite of accounts whose tenure ≥ `long_term_tenure_days` (default 90) and contribution count ≥ `long_term_min_contributions` (default 5). Uses §16.16.1 contribution events — not logins. The §16.15 cohort floor (≥ 5 distinct accounts) applies, so a small in-group cannot masquerade as the readership. |
 
 Adaptive mode requires `long_term_users` in `influence_sources`; startup validation refuses a configuration that drifts without a drift source. Each source is independent — an operator may run thematic mode with only `operator_topics`, or add `admin_taste` for a sharper profile.
+
+**What the pull is, estate-wide (2026-11-10).** The instance field is the fold of `influence_sources`;
+the reader field is that reader's own profile (§16.2/§16.16). The §16.5 dial is the reader's **brake** —
+it narrows what the operator set and can never widen it — and `theme_dial_floor` is a floor under the
+pull, not a ceiling on it. The estate's model adds the missing half: every surface also ranks by the
+reader's **own field** as a positive term, and `g` **grows with the reader's accumulated signals** from
+a low floor on a first visit to a ceiling below 1.0, so relevance-to-themselves comes first and the
+instance's theme leads more the longer they stay. Reading only the dial as "gravity" is what makes the
+pull static. Definition, invariants and the estate's mapping: `10-Projects/gravity-model.md`.
 
 **Transparency.** `/api/v1/meta` surfaces the mode and influence sources (by kind only, not member identities). Adaptive mode additionally publishes a coarse histogram of topic-pull distribution: decile buckets of works by their topic-gravity score. This is enough to audit drift without enabling per-work gaming.
 

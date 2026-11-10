@@ -463,7 +463,12 @@ async fn list_works_by_tag(
     }
 
     // M64-10: the facets over exactly this tag's works, so the reader narrows rather than starts over.
-    let facets = darkhold_db::facets::all_facets(
+    //
+    // Through the cache, not `all_facets` directly (ADR 0026). The scan is O(catalogue) — 297 ms p50 measured on this
+    // catalogue against a 100 ms budget — which is why `facets_cache` exists; this route and the fandom route below were the
+    // two that bypassed it, on the pages where a reader is most likely to click through a panel. A failure still renders an
+    // empty panel rather than an error page: the counts are a navigation aid, not the content.
+    let facets = crate::facets_cache::cached(
         state.db(),
         &darkhold_db::facets::FacetFilter {
             tag: Some(tag.clone()),
@@ -475,6 +480,7 @@ async fn list_works_by_tag(
         },
     )
     .await
+    .map(|(answers, _computed_at)| answers)
     .unwrap_or_default();
 
     // M71-13: how much of the archive this tag describes. "12 works" reads as "this is the tag"; "12 of 3,400 works in this archive
@@ -638,8 +644,9 @@ async fn list_works_by_fandom(
 
     apply_works_sort(&mut items, &sort);
 
-    // M64-10: the same facets under the fandom, which is the same join with a different `kind`.
-    let facets = darkhold_db::facets::all_facets(
+    // M64-10: the same facets under the fandom, which is the same join with a different `kind` — and therefore the same
+    // cached entry per filter set, because the key is the filter rather than the route (see `facets_cache`'s module note).
+    let facets = crate::facets_cache::cached(
         state.db(),
         &darkhold_db::facets::FacetFilter {
             tag: Some(fandom.clone()),
@@ -651,6 +658,7 @@ async fn list_works_by_fandom(
         },
     )
     .await
+    .map(|(answers, _computed_at)| answers)
     .unwrap_or_default();
 
     // M71-13: the same coverage fact as the tag page, because a fandom page with "9 works" says the same misleading thing.
