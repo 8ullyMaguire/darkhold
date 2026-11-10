@@ -2898,3 +2898,14 @@ JWKS is fetched once.
 `finished` left it at 500 rather than 1000, which is the transition rule visible from the database. Account, status row and warmth
 row deleted afterwards.
 
+### Deployed 2026-11-10 01:48 — `0.1.0+ed82e4f0` (clean stamp)
+
+Merged `lc/master` (passes 78–79 plus the oidc adoption and the lockfile), release build 14m19s. The stamp carries no `.dirty`
+suffix now that `Cargo.lock` is committed — the version string matches the tree, which is the only reason to read it.
+
+Live: `/health/live` 200, `/api/v1/notifications` and `/api/v1/me/audience` 401 (present, session-gated), `migrate` 197/0. Earlier in
+this deploy the same tree failed to compile at all because `polaris-oidc-client` 0.2.0 had removed `verify_claims`; that adoption is
+in this build, so the deployed artifact verifies the `id_token` signature instead of reading its claims.
+
+`gate.sh repo`, `gate.sh ledger` and `gate.sh design` are all `ok` on the dev tree at `78d00579`.
+
