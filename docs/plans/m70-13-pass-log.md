@@ -467,3 +467,18 @@ above constructive (actionable critique).
 
 **Consequence for history, not fixed here:** classifications already stored keep their verdicts — a re-classification pass is a data
 migration with its own reversible rule, and pretending the fix rewrote yesterday's rows would be a claim the database cannot support.
+
+## Ledger repair — a cell is a field, and a field has no lines (2026-11-10)
+
+Consolidating M70-13's notes to make room for pass 82 hit the 32 KiB cap (the guard fired, as it was built to). The replacement summary
+was written **with raw newlines**; the writer put them in the file verbatim, so the ledger held 6 lone `LF` bytes in a CRLF file and
+`gate.sh ledger` went red on `the real ledger has no lone LF (got 6)`.
+
+Two lessons, both mine:
+
+* **The verdict line is the check.** I read a *slice* of `gate.sh ledger`'s output and saw a log path, not `ok:` or `FAILED:`, and
+  treated it as passing. The gate prints `ok:`/`FAILED:` before any excerpt; reading anything else is reading the wrong thing.
+* **A CSV cell is a field, not a container.** The same rule that moved the journal out of the cell applies inside it: separators and
+  single lines, not paragraphs. The summary is now one line, ` | `-joined.
+
+Repaired by rewriting the cell without newlines; `gate.sh ledger` → `ok: ledger`, `gate.sh repo` → `ok: repo`, `planned` 60, ratchet 36.
