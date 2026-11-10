@@ -447,11 +447,20 @@ pub struct ContentPolicyConfig {
     /// Spain is the default because LO 1/1982 protects honour, personal and family privacy and one's own image in
     /// terms that reach fiction about a living person. A list, not a boolean: the document says which law it means.
     pub honor_rights_jurisdictions: Vec<String>,
+    /// The normalised tag names that mean "this work is about real people".
+    ///
+    /// A list rather than one string because a reader of the taxonomy might use either spelling, and because the
+    /// enforcement below compares against `canonical_entities.norm`, which is what the tag actually is.
+    pub rpf_tag_norms: Vec<String>,
 }
 
 impl Default for ContentPolicyConfig {
     fn default() -> Self {
-        Self { rpf: RpfMode::TagRequired, honor_rights_jurisdictions: vec!["ES".to_string()] }
+        Self {
+            rpf: RpfMode::TagRequired,
+            honor_rights_jurisdictions: vec!["ES".to_string()],
+            rpf_tag_norms: vec!["real person fiction".to_string(), "rpf".to_string()],
+        }
     }
 }
 

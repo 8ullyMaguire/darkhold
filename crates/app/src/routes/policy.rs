@@ -62,6 +62,26 @@ pub fn router() -> Router<crate::state::AppState> {
     Router::new().route("/policy/content", get(get_content_policy))
 }
 
+/// Whether a tag, by its normalised name, declares that a work is about real people.
+///
+/// Kept as a function of the policy rather than inlined in the door so the rule can be tested without a database, and so
+/// a second door that has to enforce the same policy has one place to ask.
+pub fn is_rpf_tag(policy: &ContentPolicyConfig, norm: &str) -> bool {
+    let norm = norm.trim().to_lowercase();
+    policy.rpf_tag_norms.iter().any(|tag| tag.trim().to_lowercase() == norm)
+}
+
+/// The refusal a blocked instance gives when somebody tries to tag a work as real-person fiction.
+pub fn rpf_refusal(policy: &ContentPolicyConfig, canonical: &str) -> Option<String> {
+    if policy.rpf != RpfMode::Blocked {
+        return None;
+    }
+    Some(format!(
+        "policy: this instance does not host real-person fiction, so a work here cannot be tagged `{canonical}`. \
+         The instance states its policy at /api/v1/policy/content."
+    ))
+}
+
 /// `GET /api/v1/policy/content`
 pub async fn get_content_policy(State(state): State<AppState>) -> Json<Value> {
     Json(content_policy_document(&state.config().policy))
@@ -80,6 +100,26 @@ mod tests {
         let blocked = content_policy_document(&policy);
         assert_eq!(blocked["rpf"]["mode"], "blocked");
         assert!(blocked["rpf"]["guidance"].as_str().unwrap().contains("does not host"));
+    }
+
+    #[test]
+    fn the_rpf_tag_is_recognised_by_its_normalised_name() {
+        let policy = ContentPolicyConfig::default();
+        assert!(is_rpf_tag(&policy, "real person fiction"));
+        assert!(is_rpf_tag(&policy, "  RPF "));
+        assert!(!is_rpf_tag(&policy, "slow burn"));
+    }
+
+    #[test]
+    fn only_a_blocked_instance_refuses_the_tag() {
+        let mut policy = ContentPolicyConfig::default();
+        assert!(rpf_refusal(&policy, "real person fiction").is_none(), "tag_required must accept the tag: it is the \
+            thing the mode asks for");
+        policy.rpf = RpfMode::Blocked;
+        let refusal = rpf_refusal(&policy, "real person fiction").expect("blocked names the policy");
+        assert!(refusal.contains("does not host real-person fiction"));
+        assert!(refusal.contains("/api/v1/policy/content"), "a refusal that does not say where the policy is leaves \
+            the author with a dead end");
     }
 
     #[test]
