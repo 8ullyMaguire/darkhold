@@ -182,3 +182,44 @@ green while it measures columns the database does not have, and adding treatment
 `CREATE TABLE` (later definition replaces earlier), `DROP TABLE`, `ALTER TABLE … ADD COLUMN` and `DROP COLUMN`, and take
 the unlinked set from that final shape. Then the 52-column classification above can be written against a schema that
 exists. The two Rust files are untouched in this commit and the row stays `planned`.
+
+## The ordered walk — attempted, and why it needs a database, not a better parser
+
+The next slice above was written and run: `unlinked_account_columns()` rebuilt as an ordered walk (`CREATE TABLE`
+replaces a shape, `DROP TABLE` removes it, `ALTER … ADD/DROP COLUMN/RENAME TO` applies), statements applied in file
+order. It fixes the phantom columns — `blocks.source_pseud_id`, `blocks.target_pseud_id`, `mutes.pseud_id` disappear —
+and it changes the measured set from 52 to **28**:
+
+```
+accounts.folded_from_account_id            announcements.created_by            bounties.account
+bounties.created_by                        categories.created_by               category_proposals.created_by
+challenges.created_by                      chapter_revisions.created_by_pseud_id
+collaboration_invites.invited_by_pseud_id  collaboration_invites.invited_pseud_id
+directory_lists.created_by                 entity_edges.created_by             entry_moderation_proposals.created_by
+events.created_by                          public_pseud_links.source_pseud_id  public_pseud_links.target_pseud_id
+publication_events.actor_pseud_id          reader_sort_preferences.pseud_id    series.owner_pseud_id
+source_credentials.pseud_id                specialist_profiles.pseud_id        specialist_requests.matched_pseud_id
+specialist_requests.requester_pseud_id     specialist_skills.pseud_id          translation_jobs.created_by
+work_contributors.pseud_id                 work_tag_votes.voter_pseud_id       works.owner_pseud_id
+```
+
+All 28 were classified (10 `Rekey("id")` where the column is NOT NULL attribution on a row that outlives its author,
+1 `Sever` for the nullable taxonomy edge, the rest `Delete` as the person's own act, request, vote, claim or
+relationship). The treatments were written; the suite went red in **both** directions at once, and that is the finding:
+
+- **13 existing treatments became "stale"** — `payment_events.account_id`, `module_user_state.account_id`,
+  `curator_lens.account_id`, `push_subscriptions.account` and nine more. The ordered walk counts them as *linked* (their
+  `REFERENCES accounts … ON DELETE SET NULL/CASCADE` is now seen), so they are no longer "FK-free"; but two behaviour
+  tests (`a_row_about_the_person_is_deleted`, `a_row_that_must_survive_loses_its_account_link`) still depend on their
+  treatments for the `erase_account` path. Removing them to satisfy the `stale` assertion broke those tests.
+- So the two directions are not symmetric: `measured` is a claim about the SCHEMA, `classified` is a claim about the
+  ERASURE CODE, and they are only comparable when both come from the same source. A text parser can be made to agree with
+  itself; it cannot be made to agree with a migrated database.
+
+**What the next pass should do instead of a better parser:** build the test's schema by running the migrations into a temp
+SQLite file (this file already has `TestDb` for exactly that) and read `pragma table_info` plus
+`pragma foreign_key_list`. Then `measured` is the schema's own answer and any disagreement with `classified` is a real
+one. Small change, large consequence: the gate stops being a text heuristic about migrations and becomes a statement
+about the database the migrations produce.
+
+Both Rust files are reverted to HEAD in this commit; the suite is 4/4 green and the row stays `planned`.
