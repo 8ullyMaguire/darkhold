@@ -166,6 +166,15 @@ The mode is configured under `[theme]`. The default is `thematic` — an instanc
 
 Adaptive mode requires `long_term_users` in `influence_sources`; startup validation refuses a configuration that drifts without a drift source. Each source is independent — an operator may run thematic mode with only `operator_topics`, or add `admin_taste` for a sharper profile.
 
+**What the pull is, estate-wide (2026-11-10).** The instance field is the fold of `influence_sources`;
+the reader field is that reader's own profile (§16.2/§16.16). The §16.5 dial is the reader's **brake** —
+it narrows what the operator set and can never widen it — and `theme_dial_floor` is a floor under the
+pull, not a ceiling on it. The estate's model adds the missing half: every surface also ranks by the
+reader's **own field** as a positive term, and `g` **grows with the reader's accumulated signals** from
+a low floor on a first visit to a ceiling below 1.0, so relevance-to-themselves comes first and the
+instance's theme leads more the longer they stay. Reading only the dial as "gravity" is what makes the
+pull static. Definition, invariants and the estate's mapping: `10-Projects/gravity-model.md`.
+
 **Transparency.** `/api/v1/meta` surfaces the mode and influence sources (by kind only, not member identities). Adaptive mode additionally publishes a coarse histogram of topic-pull distribution: decile buckets of works by their topic-gravity score. This is enough to audit drift without enabling per-work gaming.
 
 ## 0.4.7 Instance accessibility mode
