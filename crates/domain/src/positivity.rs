@@ -215,6 +215,55 @@ const CONSTRUCTIVE_MARKERS: &[&str] = &[
     "confusing",
 ];
 
+/// Dislike markers: verdicts **about the work**, which are neither hostility (that is about the person) nor craft-specificity
+/// (that is actionable critique). They exist because the branch below used to have a hole: text with no marker at all fell into the
+/// "non-critical engagement" default and was called positive, so `"This is awful and boring. I hate it."` reached the author as praise
+/// and inflated `reader_positivity`.
+///
+/// Every entry is a precision/recall bet, like `HOSTILE_MARKERS`, so the rule is deliberately conservative: **two distinct markers**
+/// with nothing craft-specific around them. One harsh adjective is a reader's colour ("the villain was awful" is praise of the
+/// antagonist); two without craft-specificity is a verdict nobody can act on.
+const DISLIKE_MARKERS: &[&str] = &[
+    "awful",
+    "boring",
+    "hate it",
+    "hated it",
+    "waste of time",
+    "terrible",
+    "disappointing",
+    "disappointed",
+    "couldn't finish",
+    "could not finish",
+    "not worth",
+    "overrated",
+    "mediocre",
+    "unreadable",
+    "poorly written",
+];
+
+/// Words that invert the marker after them. A negation is not a detail: "I don't hate it" contains the marker it argues against.
+const NEGATIONS: &[&str] = &["not ", "n't ", "no ", "never ", "dont ", "don't ", "didn't ", "isn't ", "wasn't ", "without "];
+
+/// Distinct dislike markers that are not negated by the few words before them.
+fn dislikes(haystack: &str) -> Vec<String> {
+    DISLIKE_MARKERS
+        .iter()
+        .filter(|needle| {
+            let mut from = 0;
+            while let Some(position) = haystack[from..].find(**needle) {
+                let at = from + position;
+                let before = &haystack[haystack[..at].char_indices().rev().take(12).last().map_or(0, |(i, _)| i)..at];
+                if !NEGATIONS.iter().any(|negation| before.contains(negation)) {
+                    return true;
+                }
+                from = at + needle.len();
+            }
+            false
+        })
+        .map(|needle| (*needle).to_owned())
+        .collect()
+}
+
 /// Appreciation markers (pre-classified-positive family, spec 12.7).
 const POSITIVE_MARKERS: &[&str] = &[
     "love",
@@ -295,6 +344,19 @@ pub fn classify(text: &str) -> Classification {
             signals,
         };
     }
+    // A verdict about the work with no way to act on it. Two distinct markers, because one harsh adjective is colour rather than a
+    // verdict ("the villain was awful" praises the antagonist), and negation-filtered, because "I don't hate it" is not dislike.
+    let dislike = dislikes(trimmed);
+    if dislike.len() >= 2 {
+        let mut signals = vec!["dislike-without-craft-specificity".to_owned()];
+        signals.extend(dislike.into_iter().take(2));
+        return Classification {
+            class: FeedbackClass::Negative,
+            confidence_bp: 6500,
+            signals,
+        };
+    }
+
     // Anything non-hostile without craft-specificity is non-critical
     // engagement, which the spec counts as positive. The appreciation
     // markers raise confidence; their absence lowers it but does not make
@@ -346,6 +408,53 @@ mod tests {
         assert_eq!(v.class, FeedbackClass::Ambiguous);
         assert!(v.signals.contains(&"all-caps".to_owned()));
     }
+    // The gap pass 81 measured: a verdict with no craft-specific content and no personal attack fell through every branch into the
+    // "non-critical engagement" default, so `"This is awful and boring. I hate it."` was **Positive** — delivered to the author as
+    // praise, and counted as praise by every consumer of `classify`, including the `reader_positivity` quality signal.
+    #[test]
+    fn a_generic_verdict_is_not_praise() {
+        let v = classify("This is awful and boring. I hate it.");
+        assert_eq!(v.class, FeedbackClass::Negative, "{v:?}");
+        assert!(
+            v.signals.contains(&"dislike-without-craft-specificity".to_owned()),
+            "{v:?}"
+        );
+    }
+
+    // The precision bet in the other direction: one harsh adjective is not a verdict. "The villain was awful" is a reader telling
+    // the author the antagonist worked; calling it Negative would hold praise behind the gate.
+    #[test]
+    fn one_harsh_adjective_is_still_engagement() {
+        assert_eq!(classify("The villain was awful.").class, FeedbackClass::Positive);
+        assert_eq!(classify("Awful ending, but I loved it.").class, FeedbackClass::Positive);
+    }
+
+    // Negation is not a small detail here: "I don't hate it" is the opposite of the marker it contains.
+    #[test]
+    fn a_negated_dislike_is_not_negative() {
+        // Two markers, both negated: this is the pair that proves the negation filter is doing work. With one marker the threshold
+        // alone would answer `Positive`, and the test would pass with the filter deleted — measured, the first version of this test
+        // survived exactly that mutation.
+        assert_eq!(
+            classify("I don't hate it and it's not boring at all.").class,
+            FeedbackClass::Positive
+        );
+        assert_eq!(classify("I don't hate it, honestly.").class, FeedbackClass::Positive);
+    }
+
+    // Craft-specificity outranks the verdict: disliking a work *and* saying what to fix is critique, which authors can opt into —
+    // holding it would punish the reader who did the work of explaining.
+    #[test]
+    fn actionable_critique_outranks_dislike() {
+        // Two dislike markers *and* craft-specificity: the ordering is what the test pins. Swapping the two branches leaves this
+        // text `Negative`, and the first version of this test ("Boring in places; …") could not tell — it carried only one dislike
+        // marker, so the threshold answered for the ordering and the mutation survived.
+        assert_eq!(
+            classify("Awful and boring; the pacing drags and the dialogue is thin.").class,
+            FeedbackClass::Constructive
+        );
+    }
+
     #[test]
     fn classification_is_deterministic() {
         let text = "The dialogue could improve, but thank you for sharing!";

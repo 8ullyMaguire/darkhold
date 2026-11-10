@@ -2960,3 +2960,16 @@ Backup `/personal/backups/darkhold-20261110-0320xx-pre-reader-positivity.dump` �
 
 Cleanup: the throwaway account, its pseud, session, the review, its classification and the author's notification were deleted.
 
+### The gate that delivered hostility as praise (2026-11-10)
+
+The classifier's `non-critical-engagement` default was `Positive`, so text with no marker — `"This is awful and boring. I hate it."` —
+was delivered to authors as a review and counted as praise by `reader_positivity`. Now: a verdict about the **work** with **two
+distinct dislike markers**, no craft-specificity and no negation is `Negative` (held by the gate, not counted). One harsh adjective stays
+engagement; craft-specificity outranks the verdict; negation is filtered in the twelve characters before a marker.
+
+Also fixed: `cargo test -p darkhold-domain` was red because `taste_notifications` said `default_on: false` in its registry row and was
+missing from `OPT_IN` — prose and checker disagreed, and the list was the missing half.
+
+Not fixed, and stated as a limit: **stored classifications keep their old verdicts.** Re-classifying history is a data migration with
+its own reversible rule; the fix changes what happens next, not what happened before.
+
