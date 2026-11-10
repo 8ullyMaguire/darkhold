@@ -3270,3 +3270,31 @@ inherits the developer's config file is not a test. The helper now removes `DARK
 
 **Not built, named:** no `dh config unset`, no per-profile `name`/`description`, and the token is not encrypted at rest —
 the file's `0600` is the boundary, the same one `ssh` uses.
+## Blocked rows, and the queue that results (2026-11-10)
+
+A blocked row is demoted, never waited on: it goes to the back, the block is recorded here, and the next
+unblocked row starts in the same turn. The loop pauses only when **every** remaining `planned` row is on
+this table. The rule and the three legal kinds of block are in `~/secondbrain/10-Projects/darkhold/GOAL-2026-11-08.md` §2.1.
+
+| row | kind | what would clear it | taken instead |
+|---|---|---|---|
+| M45-43 — Discord bot (rec commands, per-fandom feeds, account linking) | **credential** | a Discord application's bot token plus an account to link for the live proof. Its offline half is *not* blocked: the command surface and the rec formatting can ship behind a transport trait, exactly as `M45-42` did with `ProfileFetcher` — do that first, then leave the token-dependent half named in the ledger | M45-46 |
+| M63-05b — `dh rec --link epub` | **another row's unbuilt work** | an export/download route for a work's derived file. `output.rs` already fixes the link shape; what is missing is the endpoint, so the flag refuses with its reason rather than printing a 404 with a file extension | M63-15 |
+| M63-33 — reconcile the live database with the workspace migrations (11 tables absent, 12 legacy-named present) | **reserved decision** | the operator's per-table call: the live database was migrated by the other lineage, whose numbers collide with this tree's, so this is a DDL decision over live data with data-loss options. Not a session's call | M63-15 |
+
+**De-facto queue after those demotions** (each row still read before it is implemented; this is an order, not
+a shortcut):
+
+1. **M45-46** — preview before apply. Measured 2026-11-10: the config history *and* rollback already exist
+   (`instance_taste_settings::history`/`rollback`, both with routes), so the missing half is only the
+   **view-as persona preview** of discover/search under a proposed config. Note the shape it must take: the
+   preview may not be a second ranking path (`get_discovery` is the only feed builder, and a twin would drift
+   from it); extract `feed_for(persona, overrides)` and have both doors call it.
+2. **M45-45**, **M45-52**, **M45-54**, **M45-55** — taste as a versioned blendable object; then the three
+   compliance rows, which are one product (notice-and-action, statement of reasons, the RPF/Spain knob).
+3. **M63-15, M63-22, M63-23, M63-24, M63-25, M63-26, M63-29, M63-30, M63-32, M63-05b*, M63-33*, M63-11,
+   M63-12** — the CLI block. `dh doctor`, `admin explain-rec`, `admin backup`, `bench`, `audit`, `stats`,
+   `tui`, calibre, the fandom-tag backfill, then the two `*`-marked demoted ones, then `lib tag --from-csv` and
+   `watch`. Cheapest rows in the ledger: one verb plus a golden-output test each.
+4. **M66 GS-1..GS-5**, then **M69-23/15/24**, then **M64's eight**, then **M71's ten**, then **M73-01..04**,
+   then M29-08 + M44-02 as one product, then **M70-13** (36 orphans at the ratchet).
