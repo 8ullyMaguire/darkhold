@@ -2591,6 +2591,14 @@ pub const ROUTE_TABLE: &[RouteEntry] = &[
     },
     RouteEntry {
         file: "discovery.rs",
+        handler: "preview_discovery",
+        method: "POST",
+        path: "/admin/discovery/preview",
+        // The operator, one account wide: a preview is the page a stranger would get, run for the person deciding.
+        audience: Audience::Operator,
+    },
+    RouteEntry {
+        file: "discovery.rs",
         handler: "get_discovery",
         method: "GET",
         path: "/discovery",

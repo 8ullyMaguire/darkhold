@@ -3336,3 +3336,39 @@ identically with this change stashed, so they predate it; `docs/known-gaps.md` n
 `m29_transparency` suite 49/49 on SQLite; mutant that reads the row and then discards it reddens the mode assertion
 (`taste_weighted` vs `balanced`), reverted from `/tmp`. Live database holds **0** settings rows, so no behaviour changes
 on the instance until an operator writes one — the deploy is batched with the next live-surface row.
+
+### M45-46 — preview before apply, built on the extraction that makes it honest (2026-11-10)
+
+All three bullets now hold. The shape the plan insisted on is the shape it took: the preview is not a second ranking
+path. `get_discovery` became a thin wrapper over
+
+```rust
+async fn feed_for(state, session: Option<&SessionUser>, params, knobs: &taste_knobs::Knobs)
+```
+
+and `POST /admin/discovery/preview` (operator only) calls the same function with `session = None` and a proposed
+`Knobs`. Two consequences worth the refactor:
+
+* **A preview cannot write.** With no session there is no account, so the taste-ordering-and-log arm of the feed cannot
+  fire — the guarantee is structural. An earlier `log: bool` parameter was written and then deleted: the preview is
+  anonymous, so the flag was dead code, and a dead flag is one somebody flips later.
+* **The preview refuses exactly what the write door refuses**, because the mode vocabulary (`SIGNAL_WEIGHT_MODES`) and
+  the basis-point conversion (`from_basis_points`) are shared rather than copied. A preview that accepted `"vibes"` would
+  show a page that could never be served.
+
+It answers in the feed's own shape plus `preview: {applied: false, base: config|stored, knobs}` — `base` because a preview
+of a change to a stored row is not the same preview as a change to the config, and an operator who cannot tell them apart
+reads the wrong number as the starting point.
+
+**Refusals, each a sentence:** a non-operator is refused (`403`/`404`, one account wide); a strength outside
+`0..=10000` basis points is `422` naming `gravity_strength` with the range in the message; an unknown weighting policy is
+`422` naming `signal_weight_mode` and listing the accepted four.
+
+**Proof:** `the_preview_shows_a_strangers_feed_under_proposed_knobs_and_changes_nothing` — green on SQLite and
+PostgreSQL; `m29_transparency` 50/50 on SQLite; two mutants each reddened the intended assertion and were reverted from
+`/tmp`: (a) preview serves the knobs already in force → `0.0` where `0.2` was promised, (b) preview writes the settings
+row it previews → the public feed reads `0.2` afterwards and the panel's `source` stops saying `config`.
+
+**Not done, named:** `concierge` (`home.curated`) and `gravity_dial` still read `state.config().taste` directly and should
+adopt `taste_knobs::effective` in the same pass; the preview is anonymous only, because showing a named reader's feed to
+an operator would put that reader's history on the operator's screen (§0.3).

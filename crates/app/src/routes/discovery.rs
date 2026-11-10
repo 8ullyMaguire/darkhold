@@ -20,6 +20,9 @@ use std::str::FromStr;
 pub fn router() -> Router<AppState> {
     Router::new()
         .route("/discovery", get(get_discovery))
+        // M45-46: what a stranger would be served under knobs that are not in force. Read-only — the point of a
+        // preview is that the instance does not change while the operator looks at it.
+        .route("/admin/discovery/preview", post(preview_discovery))
         .route("/discovery/blind-date", get(get_blind_date))
         .route("/discovery/surprise-me", get(get_surprise_me))
         .route("/discovery/taste-profile", get(get_taste_profile))
@@ -697,8 +700,25 @@ async fn get_discovery(
     MaybeSession(session): MaybeSession,
     Query(params): Query<DiscoveryQuery>,
 ) -> ApiResult<Json<serde_json::Value>> {
+    // M45-46: the knobs in force come from one place (`taste_knobs::effective`), and the same builder is what the
+    // operator's preview runs — a second ranking path for the preview would drift from the page readers get.
+    let knobs = crate::taste_knobs::effective(&state, "discover.feed").await;
+    feed_for(&state, session.as_ref(), &params, &knobs).await
+}
+
+/// Build the feed for one viewer under one set of knobs.
+///
+/// What a viewer *is* decides what may be written: a session means an account means an impression may be recorded, and
+/// `None` means there is nobody to record it for. That is why the operator's preview passes `None` rather than a flag —
+/// an anonymous run cannot pollute the impression record by construction, not by a boolean somebody could flip.
+async fn feed_for(
+    state: &AppState,
+    session: Option<&crate::auth::SessionUser>,
+    params: &DiscoveryQuery,
+    knobs: &crate::taste_knobs::Knobs,
+) -> ApiResult<Json<serde_json::Value>> {
     let limit = 20;
-    let account_id: Option<String> = session.as_ref().map(|s| s.account_id.to_string());
+    let account_id: Option<String> = session.map(|s| s.account_id.to_string());
     // Content filters belong to the pseud the session is acting as, and which
     // pseud that is a session property (`sessions.active_pseud_id`), not an
     // account one. Passing the account here would pick an arbitrary pseud out of
@@ -706,7 +726,7 @@ async fn get_discovery(
     // search but not to recommendations is exactly the bug this closes. The
     // fallback to the account id mirrors `routes/settings.rs`, so the two agree
     // on what a filter without a pseud means.
-    let viewer_pseud: Option<uuid::Uuid> = session.as_ref().map(|s| {
+    let viewer_pseud: Option<uuid::Uuid> = session.map(|s| {
         s.pseud_id
             .as_ref()
             .map(|p| p.as_uuid())
@@ -714,8 +734,7 @@ async fn get_discovery(
     });
 
     // Resolve the effective sort (spec §43.4): query param > stored preference > default.
-    let effective_sort =
-        resolve_sort(&state, session.as_ref(), params.sort.as_deref(), "discover").await;
+    let effective_sort = resolve_sort(state, session, params.sort.as_deref(), "discover").await;
 
     // The feed is the one surface wired to the registry so far (M64-01): its configured set decides which engines
     // run, and the default set is exactly the four engines this function implements.
@@ -723,7 +742,7 @@ async fn get_discovery(
     // M64-02: with `discovery.experiment_buckets > 1`, a signed-in reader is assigned a stored arm once and runs that
     // arm's half of the surface. The assignment happens here, on the read path, because the impression that follows is
     // the event the arm exists to be measured against — assigning at sign-in would be a bucket with no exposure yet.
-    let arm = experiment_arm(&state, viewer_pseud, "discover.feed").await?;
+    let arm = experiment_arm(state, viewer_pseud, "discover.feed").await?;
     // A promoted experiment's algorithms win over both the configured set and the reader's arm: the arm existed to decide
     // between two sets, and once one has won there is nothing left to split. This is the precedence the overrides table
     // documents, and it is read here rather than in `enabled_engines_for_bucket` so the two cannot drift.
@@ -737,10 +756,10 @@ async fn get_discovery(
                 darkhold_domain::recommendation_surfaces::engine_reason(algorithm)
             })
             .collect(),
-        None => enabled_engines_for_bucket(&state, "discover.feed", arm),
+        None => enabled_engines_for_bucket(state, "discover.feed", arm),
     };
     let engines = build_candidate_engines(
-        &state,
+        state,
         account_id.as_deref(),
         viewer_pseud,
         limit,
@@ -969,9 +988,6 @@ async fn get_discovery(
         None => ranked,
     };
 
-    // M45-46: the stored knobs are the ones in force — until this existed, `/operator/taste-profile` wrote a row no
-    // reading path consulted, so the feed served the config file forever and the console's numbers described nothing.
-    let knobs = crate::taste_knobs::effective(&state, "discover.feed").await;
     let instance_strength = knobs.strength;
     // The reader's dial, if they have one. Clamped on read by `effective`, so a stored value from before the operator lowered
     // the instance cannot keep a reader above the new number.
@@ -997,9 +1013,11 @@ async fn get_discovery(
     // signed-in reader only. Placed after every other reordering operator so
     // half-life, operator affinity and theme gravity still get their say, and
     // anonymous readers fall through unchanged.
+    // M45 / spec §47: taste-based ordering plus impression logging, for a signed-in reader only. An anonymous run (the
+    // operator's preview) has no account and no pseud, so this arm cannot fire for it.
     let ranked = match (account_id.as_deref(), viewer_pseud) {
         (Some(account_id), Some(pseud)) => {
-            apply_taste_ordering_and_log(&state, account_id, pseud, ranked).await
+            apply_taste_ordering_and_log(state, account_id, pseud, ranked).await
         }
         _ => ranked,
     };
@@ -1229,6 +1247,58 @@ async fn get_discovery(
             "unchanged": pull.unchanged,
         },
     })))
+}
+
+/// What the operator is asking to preview.
+#[derive(Debug, serde::Deserialize)]
+pub struct PreviewRequest {
+    /// A proposed strength, in basis points of the ceiling.
+    #[serde(default)]
+    pub gravity_strength: Option<i64>,
+    /// A proposed weighting policy; one of `taste_knobs::SIGNAL_WEIGHT_MODES`.
+    #[serde(default)]
+    pub signal_weight_mode: Option<String>,
+}
+
+/// `POST /admin/discovery/preview` — the feed an anonymous reader would get under proposed knobs.
+///
+/// Three things make this a preview rather than a second feed:
+///
+/// 1. **It is the same builder as the public door** (`feed_for`), with different knobs. A separate ranking path would
+///    drift, and the drift would be invisible: the preview and the page would both look plausible.
+/// 2. **It changes nothing.** No settings row is written, no impression is recorded (`log = false`), so looking at a
+///    proposed change does not become the evidence for it.
+/// 3. **It refuses what the write door refuses**, field by field, so the preview teaches the contract it previews.
+///
+/// The viewer is anonymous on purpose: "what would a stranger see" is the question a knob change actually changes, and
+/// impersonating a reader to answer it would mean reading that reader's history into an operator's screen.
+async fn preview_discovery(
+    State(state): State<AppState>,
+    RequireSession(user): RequireSession,
+    Json(body): Json<PreviewRequest>,
+) -> ApiResult<Json<serde_json::Value>> {
+    require_operator(&state, &user)?;
+    let base = crate::taste_knobs::effective(&state, "discover.feed").await;
+    let knobs = crate::taste_knobs::proposed(
+        &base,
+        state.config().taste.gravity_ceiling,
+        body.gravity_strength,
+        body.signal_weight_mode.as_deref(),
+    )
+    .map_err(|(field, message)| ApiError(AppError::field(field, message)))?;
+    let params = DiscoveryQuery { sort: None };
+    let Json(mut page) = feed_for(&state, None, &params, &knobs).await?;
+    page["preview"] = serde_json::json!({
+        "applied": false,
+        // Which source the preview started from, so a preview of a change to a stored row is not mistaken for a preview
+        // of the config.
+        "base": match base.source {
+            crate::taste_knobs::Source::Config => "config",
+            crate::taste_knobs::Source::Stored => "stored",
+        },
+        "knobs": { "strength": knobs.strength, "signal_weight_mode": knobs.signal_weight_mode },
+    });
+    Ok(Json(page))
 }
 
 /// Resolve the effective sort for a surface (spec §43.4).

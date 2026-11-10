@@ -795,6 +795,78 @@ async fn an_operators_taste_profile_change_is_remembered_rather_than_echoed() {
 }
 
 #[tokio::test]
+async fn the_preview_shows_a_strangers_feed_under_proposed_knobs_and_changes_nothing() {
+    // M45-46: the operator sees what a *stranger* would be served under knobs that are not in force, and looking at it
+    // must not make it so — no settings row, no impression, the public feed unchanged afterwards.
+    let harness = Harness::with_operator("previewopp", "Previewee").await;
+    let mut operator = harness.reader("Previewee").await;
+    let path = "/api/v1/admin/discovery/preview";
+
+    let (status, page) = operator
+        .post(
+            path,
+            json!({ "gravity_strength": 2000, "signal_weight_mode": "balanced" }),
+        )
+        .await;
+    assert_eq!(status, StatusCode::OK, "body: {page}");
+    assert_eq!(
+        page["preview"]["applied"], false,
+        "a preview is not an apply"
+    );
+    assert_eq!(
+        page["gravity"]["instance"].as_f64(),
+        Some(0.2),
+        "2000 basis points of the ceiling is the strength the preview serves"
+    );
+    assert_eq!(page["gravity"]["mode"], "balanced");
+    assert!(
+        page.get("items").is_some(),
+        "the preview returns the same page shape as the feed: {page}"
+    );
+
+    // The public door, immediately afterwards: the config is still what is in force, so nothing was written.
+    let (status, feed) = operator.get("/api/v1/discovery").await;
+    assert_eq!(status, StatusCode::OK, "body: {feed}");
+    assert_eq!(
+        feed["gravity"]["instance"].as_f64(),
+        Some(0.0),
+        "the preview must not leave a settings row behind"
+    );
+    assert_eq!(feed["gravity"]["mode"], "taste_weighted");
+    // And the panel's own read door still says the config is the source: no row was written behind the operator's back.
+    let (status, profile) = operator.get("/api/v1/operator/taste-profile").await;
+    assert_eq!(status, StatusCode::OK, "body: {profile}");
+    assert_eq!(
+        profile["source"], "config",
+        "a preview must not write the settings row it previews: {profile}"
+    );
+
+    // The preview refuses what the write door refuses, and names the field — otherwise it teaches a different contract
+    // than the door it previews.
+    let (status, body) = operator.post(path, json!({ "gravity_strength": -1 })).await;
+    assert_eq!(status, StatusCode::UNPROCESSABLE_ENTITY, "body: {body}");
+    assert!(
+        body.to_string().contains("gravity_strength"),
+        "the refusal names the field: {body}"
+    );
+    let (status, body) = operator
+        .post(path, json!({ "signal_weight_mode": "vibes" }))
+        .await;
+    assert_eq!(status, StatusCode::UNPROCESSABLE_ENTITY, "body: {body}");
+    assert!(body.to_string().contains("balanced"), "{body}");
+
+    // A reader who is not the operator cannot preview: the door is one account wide.
+    let mut stranger = harness.reader("PreviewsTranger").await;
+    let (status, _) = stranger
+        .post(path, json!({ "gravity_strength": 2000 }))
+        .await;
+    assert!(
+        status == StatusCode::FORBIDDEN || status == StatusCode::NOT_FOUND,
+        "a stranger is refused, not served: {status}"
+    );
+}
+
+#[tokio::test]
 async fn the_stored_knobs_reach_the_feed_they_are_supposed_to_shape() {
     // M45-46, the half that had to come first. `PUT /operator/taste-profile` wrote a row that **nothing read**:
     // the feed took its strength and its mode from the config file alone. A knob with no reader is a panel that

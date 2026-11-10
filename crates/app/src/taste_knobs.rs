@@ -16,6 +16,12 @@
 
 use crate::state::AppState;
 
+/// The weighting policies the write door accepts.
+///
+/// Shared so the store, the admin door and the operator's preview cannot disagree about the vocabulary: a preview that
+/// accepted a policy the write door refuses would show a page that could never be served.
+pub const SIGNAL_WEIGHT_MODES: [&str; 4] = ["taste_weighted", "balanced", "popularity", "uniform"];
+
 /// Where the value in force came from.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Source {
@@ -82,9 +88,47 @@ fn from_basis_points(stored: i64, ceiling: f64) -> Option<f64> {
     Some((stored as f64 / 10_000.0).clamp(0.0, ceiling))
 }
 
+/// The knobs a *proposed* change would put in force, without writing anything.
+///
+/// Errors are field-level sentences, because each one is an operator mistyping a number in a form: the preview must say
+/// which field and why, exactly as the write door does, or it teaches a different contract than the door it previews.
+pub fn proposed(
+    base: &Knobs,
+    ceiling: f64,
+    strength_bp: Option<i64>,
+    signal_weight_mode: Option<&str>,
+) -> Result<Knobs, (&'static str, String)> {
+    let strength = match strength_bp {
+        Some(value) => from_basis_points(value, ceiling).ok_or_else(|| {
+            (
+                "gravity_strength",
+                format!("a strength is 0..=10000 basis points of the ceiling, not {value}"),
+            )
+        })?,
+        None => base.strength,
+    };
+    let mode = match signal_weight_mode {
+        Some(value) if SIGNAL_WEIGHT_MODES.contains(&value) => value.to_owned(),
+        Some(value) => {
+            return Err((
+                "signal_weight_mode",
+                format!(
+                    "signal_weight_mode must be one of {SIGNAL_WEIGHT_MODES:?}, not \"{value}\""
+                ),
+            ))
+        }
+        None => base.signal_weight_mode.clone(),
+    };
+    Ok(Knobs {
+        strength,
+        signal_weight_mode: mode,
+        source: base.source,
+    })
+}
+
 #[cfg(test)]
 mod tests {
-    use super::from_basis_points;
+    use super::{from_basis_points, proposed, Knobs, Source};
 
     #[test]
     fn the_unit_is_basis_points_of_the_ceiling() {
@@ -109,5 +153,30 @@ mod tests {
             None,
             "above the scale, so it is a different unit"
         );
+    }
+
+    #[test]
+    fn a_proposal_answers_the_same_contract_as_the_write_door() {
+        let base = Knobs {
+            strength: 0.0,
+            signal_weight_mode: "taste_weighted".to_owned(),
+            source: Source::Config,
+        };
+        let ok = proposed(&base, 0.5, Some(2_000), Some("balanced")).expect("a valid proposal");
+        assert!((ok.strength - 0.2).abs() < f64::EPSILON);
+        assert_eq!(ok.signal_weight_mode, "balanced");
+
+        let (field, why) = proposed(&base, 0.5, Some(-1), None).expect_err("a refusal");
+        assert_eq!(field, "gravity_strength");
+        assert!(why.contains("0..=10000"), "{why}");
+
+        let (field, why) = proposed(&base, 0.5, None, Some("vibes")).expect_err("a refusal");
+        assert_eq!(field, "signal_weight_mode");
+        assert!(why.contains("balanced"), "{why}");
+
+        // Omitted fields keep what is in force, so a preview of one knob does not silently zero the other.
+        let partial = proposed(&base, 0.5, None, None).expect("a valid proposal");
+        assert_eq!(partial.signal_weight_mode, "taste_weighted");
+        assert!((partial.strength - 0.0).abs() < f64::EPSILON);
     }
 }
