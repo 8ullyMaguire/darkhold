@@ -2878,3 +2878,23 @@ Still named: **`ReadUnit`** needs a per-unit "already counted" fact (`save_progr
 migration plus a writer, not a route edit. And the **library-item status door** records nothing: it addresses an item whose work is a
 `source_work_key` string, not a `works.id`.
 
+### Deployed 2026-11-10 00:59 — `0.1.0+99e11533` (FinishWork), and a foreign break found by building
+
+Merged `lc/master`, backup `/personal/backups/darkhold-20261110-002223-pre-finishwork.dump` verified at **392 TABLE DATA**,
+release build 13m47s.
+
+**The build failed first, and the failure was not mine.** `polaris-oidc-client` moved to 0.2.0 at 23:54:47 — "the id_token is
+verified, not read" — removing `verify_claims`; `crates/app/src/routes/oidc.rs` still imported it, so every fresh build of the tree
+could not compile. Nobody was mid-build, so this was a real estate break, not a race: the crate's commit message says "three sites",
+and darkhold was the site that had not moved. Adopted `Provider::verify_id_token(raw, nonce)`, which checks the **signature** against
+the provider's published JWKS as well as `iss`/`aud`/`exp`/nonce — the old code read the payload and compared three fields, which a
+token written by anything on the wire would satisfy. The same `Provider` value that exchanged the code holds the key set, so the
+JWKS is fetched once.
+
+`Cargo.lock` was then refreshed and committed (`a39da609`): without it a fresh build rewrote the lock and the binary stamped itself
+`+99e11533.dirty`, a version string that says the artifact matches no commit.
+
+**Live proof:** a throwaway reader finished a public work and `interaction_warmth` held `warmth_bp = 500, tier = react`; re-sending
+`finished` left it at 500 rather than 1000, which is the transition rule visible from the database. Account, status row and warmth
+row deleted afterwards.
+
