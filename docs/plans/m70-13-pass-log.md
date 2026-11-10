@@ -429,3 +429,41 @@ absent again. Mutants: *every visible review counts as positive* (reddens the `5
 test**, which is why the visible-non-positive step exists; and *an empty page keeps the old row* (reddens the `None`).
 
 Ratchet: 36 (unchanged; no orphans resolved or added).
+
+## Pass 82 — the gate that delivered hostility as praise (2026-11-10)
+
+Pass 81 recorded this as a finding rather than fixing it in passing. The classifier had a hole: text with **no marker at all** fell into
+`non-critical-engagement`, which is `Positive`. So `"This is awful and boring. I hate it."` was delivered to the author as a review and
+counted as praise by `reader_positivity`. Two consequences, one of them mine: the signal pass 81 shipped for a work could read `1.0`
+because ten hostile reviews were classified positive.
+
+The rule, and why it is shaped the way it is:
+
+* **A verdict about the work is not hostility.** `HOSTILE_MARKERS` is about the person ("you are an idiot"); the file's own doc says so.
+  Dislike of the work was the missing middle class, and `Negative` is the class the delivery matrix already holds.
+* **Two distinct markers, not one.** "The villain was awful" is a reader praising the antagonist; "Awful ending, but I loved it" carries a
+  positive marker anyway. One harsh adjective is colour, two without craft-specificity is a verdict nobody can act on.
+* **Negation is filtered** in the twelve characters before each marker: "I don't hate it and it's not boring at all" is the opposite of
+  what it contains.
+* **Craft-specificity outranks the verdict.** "Awful and boring; the pacing drags and the dialogue is thin" is critique — actionable,
+  and deliverable when the author opts in. Holding it would punish the reader who did the work of explaining.
+
+Ordering is the whole design: hostile → all-caps → constructive → dislike → positive default.
+
+**Two tests I had to fix because their mutants survived.** The negation test used one marker ("I don't hate it, honestly."), so the
+threshold answered for the negation filter and deleting the filter changed nothing; the ordering test used one dislike marker, so
+swapping the branches changed nothing. Both now carry the pair that makes the branch load-bearing — the failures were in my tests, not
+in the rule.
+
+**Also fixed, found by running the crate:** `cargo test -p darkhold-domain` was **red** before this pass — `taste_notifications` is
+registered `default_on: false` with a written reason ("it writes to people who did not ask for it"), but it was missing from `OPT_IN`, so
+the module-switch invariant demanded the opposite of what the registry said. Prose and checker disagreed; the checker's list was the
+half that was missing.
+
+Proof: red first (generic verdict → `Positive`). Both engines: the domain crate 1145 passed, `m16_07_review` 4/4 and
+`m70_13_quality_positivity` 1/1 (which now also holds a *generic dislike* and shows the signal staying at 1000). Mutants, each red on
+its intended assertion: threshold 1 instead of 2 (one harsh adjective), negation filter disabled (a negated pair), dislike branch moved
+above constructive (actionable critique).
+
+**Consequence for history, not fixed here:** classifications already stored keep their verdicts — a re-classification pass is a data
+migration with its own reversible rule, and pretending the fix rewrote yesterday's rows would be a claim the database cannot support.

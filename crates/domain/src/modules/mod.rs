@@ -549,6 +549,10 @@ mod tests {
         "narration",
         "vanguard",
         "finishers",
+        // It writes to people who did not ask for it, so it stays off until an operator turns it on — the reason is in the
+        // registry row. The list is the machine-readable half of that sentence, and leaving it out is what made this invariant
+        // fail: a module that says "off by default" in prose and "on by default" to the checker is two answers to one question.
+        "taste_notifications",
     ];
 
     #[test]

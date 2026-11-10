@@ -145,6 +145,29 @@ async fn a_review_makes_reader_positivity_real_and_recomputes_on_each_write() {
         "the held review must not be listed: {list}"
     );
 
+    // 2b. The generic verdict the classifier used to call praise: two dislike markers, no craft-specificity, no personal attack. It
+    //     is held by the gate now, so it is neither delivered to the author nor counted here. Before pass 82 it was `Positive`, which
+    //     meant an author received "this is awful and boring" as a review and the quality signal called it praise.
+    let mut disliker = TestClient::new(build(&config, &db));
+    register(&mut disliker, "qp-disliker@example.test", "qpdisliker").await;
+    let (status, body) = disliker
+        .request(
+            "PUT",
+            &format!("/api/v1/works/{work}/reviews"),
+            Some(json!({
+                "body": "This is awful and boring. I hate it.",
+                "is_public": true
+            })),
+        )
+        .await;
+    assert!(status.is_success(), "generic dislike: {body}");
+    let (value, _) = positivity(&mut anon, &work).await;
+    assert_eq!(
+        value,
+        Some(1000),
+        "a held generic verdict must not count as praise"
+    );
+
     // 3. A visible review that is *not* positive counts in the denominator. The author opts in to constructive critique, the critique
     //    is delivered by the next edit, and the value halves — so "positive" is doing real work rather than being the default label
     //    for every visible row.

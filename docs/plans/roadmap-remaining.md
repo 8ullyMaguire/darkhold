@@ -2945,3 +2945,31 @@ with an invented curve attached.
 Extending the marker list is policy (adding `awful`/`boring` would hold "the villain was awful", which is praise), so it needs a
 stated rule and its own tests.
 
+### Deployed 2026-11-10 03:39 — `0.1.0+e56152f8` (reader_positivity)
+
+Backup `/personal/backups/darkhold-20261110-0320xx-pre-reader-positivity.dump` → resolved: the file is
+`darkhold-20261110-0319xx-pre-reader-positivity.dump`; verified **392 TABLE DATA** (3.74 GB). Release build 15m25s; `migrate` 197/0.
+
+**Live, through real HTTP calls on the deployed instance:**
+
+1. a throwaway reader published a review on a public work →
+   `quality_signals` held `reader_positivity | 1000 | 1 | computed`, and `GET /works/{id}/quality` answered
+   `{"composite": 1.0, "signals": [{"kind": "reader_positivity", "value": 1000, "source": "computed"}]}`;
+2. `GET /media?q=min_quality:750` returned **total 1** — the first time that filter has ever returned anything on this instance;
+3. deleting the review through the API removed the signal row (`0` rows) and the composite returned to `null`.
+
+Cleanup: the throwaway account, its pseud, session, the review, its classification and the author's notification were deleted.
+
+### The gate that delivered hostility as praise (2026-11-10)
+
+The classifier's `non-critical-engagement` default was `Positive`, so text with no marker — `"This is awful and boring. I hate it."` —
+was delivered to authors as a review and counted as praise by `reader_positivity`. Now: a verdict about the **work** with **two
+distinct dislike markers**, no craft-specificity and no negation is `Negative` (held by the gate, not counted). One harsh adjective stays
+engagement; craft-specificity outranks the verdict; negation is filtered in the twelve characters before a marker.
+
+Also fixed: `cargo test -p darkhold-domain` was red because `taste_notifications` said `default_on: false` in its registry row and was
+missing from `OPT_IN` — prose and checker disagreed, and the list was the missing half.
+
+Not fixed, and stated as a limit: **stored classifications keep their old verdicts.** Re-classifying history is a data migration with
+its own reversible rule; the fix changes what happens next, not what happened before.
+
