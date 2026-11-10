@@ -3196,7 +3196,11 @@ attached; the owner check removed → an owned work is taken) each reddened the 
 `route_inventory` 5/5; `gate.sh repo` and `gate.sh ledger` ok.
 ### Deployed 2026-11-10 22:22 — M45-39/40/41/42 on thinkcentre (`0.1.0+f7136141`)
 
-One batch, one dump, one verification pass, as the batching decision required. Measured after the restart:
+One batch, one dump, one verification pass, as the batching decision required.
+
+**Backup:** `/personal/backups/darkhold-20261110-205002-pre-m45-39.dump` — 3,740,150,855 bytes, written 20:50→21:18, **393 `TABLE DATA` entries** per `pg_restore -l`, i.e. taken at schema 0201 and therefore before any of 0202–0205 was applied. The order matters and was checked: dump finished 21:18, build finished 22:22, migrate ran after that.
+
+Measured after the restart:
 
 * `_migrations` max version **0201 → 0205**; the six new tables exist (`succession_mirror`, `curator_lens`,
   `share_code`, `share_visit`, `work_claim`, `work_claim_work`).
