@@ -51,7 +51,7 @@ pub async fn create_script(db: &Database, account: &str, name: &str) -> Result<T
         "INSERT INTO tag_scripts (id, account_id, name, created_at, updated_at, version)
          VALUES (?1, ?2, ?3, ?4, ?4, 1)",
         "INSERT INTO tag_scripts (id, account_id, name, created_at, updated_at, version)
-         VALUES ($1::uuid, $2::uuid, $3, $4, $4, 1)",
+         VALUES ($1::uuid, $2::uuid, $3, $4::timestamptz, $4::timestamptz, 1)",
     );
     match db.backend() {
         Backend::Sqlite => {
@@ -157,7 +157,9 @@ pub async fn scripts_for(db: &Database, account: &str) -> Result<Vec<TagScript>>
                     SELECT node_id FROM tag_script_nodes WHERE script_id = s.id ORDER BY position, node_id
                 ) n)
            FROM tag_scripts s WHERE s.account_id = ?1 ORDER BY s.name",
-        "SELECT s.id::text, s.name, s.updated_at,
+        // `tag_scripts.updated_at` is TIMESTAMPTZ on PostgreSQL and TEXT on SQLite; the row reads it into a `String`, so the PG arm
+        // renders it in the same shape `now_rfc3339` writes (RFC3339, UTC) instead of letting sqlx decode a timestamp into a string.
+        "SELECT s.id::text, s.name, to_char(s.updated_at AT TIME ZONE 'UTC', 'YYYY-MM-DD\"T\"HH24:MI:SS\"Z\"'),
                 (SELECT string_agg(n.node_id, ',' ORDER BY n.position, n.node_id)
                    FROM tag_script_nodes n WHERE n.script_id = s.id)
            FROM tag_scripts s WHERE s.account_id = $1::uuid ORDER BY s.name",
@@ -330,7 +332,7 @@ async fn touch(db: &Database, script_id: &str) -> Result<()> {
     let now = now_rfc3339();
     let sql = db.sql(
         "UPDATE tag_scripts SET updated_at = ?, version = version + 1 WHERE id = ?",
-        "UPDATE tag_scripts SET updated_at = $1, version = version + 1 WHERE id = $2::uuid",
+        "UPDATE tag_scripts SET updated_at = $1::timestamptz, version = version + 1 WHERE id = $2::uuid",
     );
     match db.backend() {
         Backend::Sqlite => {

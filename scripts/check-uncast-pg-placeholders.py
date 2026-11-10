@@ -854,6 +854,28 @@ def bool_literal_sites(sql: str, known: dict[str, dict[str, str]]) -> list[str]:
 #
 # Only a comparison or assignment is matched. A column merely named in a SELECT
 # list, next to a cast on some other placeholder, is not this bug.
+def alias_tables(sql: str) -> dict[str, str]:
+    """Map each table name and alias in `sql` to the table it names (`FROM slots s`).
+
+    Only used to decide which table an explicitly qualified column belongs to. A
+    qualifier that is not an alias resolves to itself, which means "not the table under
+    consideration" -- and staying quiet about a table the statement does not mention is
+    the conservative direction: the rule exists to protect comparisons that DO name it.
+    """
+    out: dict[str, str] = {}
+    for match in re.finditer(
+        r"\b(?:FROM|JOIN)\s+([a-z_][\w]*)(?:\s+(?:AS\s+)?([a-z_][\w]*))?",
+        sql,
+        re.IGNORECASE,
+    ):
+        table = match.group(1).lower()
+        out[table] = table
+        alias = (match.group(2) or "").lower()
+        if alias and alias not in SQL_KEYWORDS:
+            out[alias] = table
+    return out
+
+
 def timestamptz_cast_sites(sql: str, known: dict[str, dict[str, str]]) -> list[str]:
     if "::timestamptz" not in sql.lower():
         return []
@@ -885,8 +907,29 @@ def timestamptz_cast_sites(sql: str, known: dict[str, dict[str, str]]) -> list[s
             # the column's type -- while a **comparison has no such coercion** and
             # fails outright. So the cast in a SET clause is harmless and this rule
             # must not touch it.
-            compare = rf"(?:{re.escape(table)}\s*\.\s*)?{re.escape(name)}\s*(?:<=|>=|<|>|!=|<>)\s*\??\$?\w*::timestamptz"
-            if re.search(compare, sql, re.IGNORECASE):
+            compare = (
+                rf"(?:(?P<qual>[a-z_][\w]*)\s*\.\s*)?{re.escape(name)}"
+                rf"\s*(?:<=|>=|<|>|!=|<>)\s*\??\$?\w*::timestamptz"
+            )
+            # A QUALIFIED column belongs to the alias's table. `snapshot_day` compares
+            # `s.created_at` (recommendation_slots, TIMESTAMPTZ) against `$2::timestamptz`
+            # in a statement that also joins `accounts` and `pseuds`, both with a TEXT
+            # `created_at` -- and this rule reported the cast as a fault in those two
+            # columns, which the comparison never mentions. The alias prefix used to be
+            # optional inside a pattern that discarded what it captured.
+            #
+            # Unqualified stays a report: without a qualifier the statement may be
+            # talking about this table, and that is a possibility, not a fact. A
+            # qualifier resolving to another table is a fact, and the rule stays quiet.
+            aliases = alias_tables(sql)
+            hit = False
+            for found in re.finditer(compare, sql, re.IGNORECASE):
+                qual = (found.group("qual") or "").lower()
+                if qual and aliases.get(qual, qual) != table:
+                    continue
+                hit = True
+                break
+            if hit:
                 out.append(
                     f"{table}.{name} is TEXT, not timestamptz: drop the ::timestamptz cast"
                 )
@@ -996,6 +1039,15 @@ SCHEMA = {
     # caller, which is correct. `arena_weights` is already above.
     "generated_content_policy": {"id": "text", "posture": "text", "version": "integer",
                                  "updated_at": "text"},
+    # For the two rules fixed after `gate.sh dialects` reported correct code: a qualified
+    # timestamp comparison in a join, and a correlated COUNT subquery in a SELECT list.
+    # `slots.created_at` is TIMESTAMPTZ while both joined tables' `created_at` are TEXT --
+    # the shape that made the rule blame two columns the statement never mentions.
+    "slots": {"id": "uuid", "created_at": "timestamptz", "account": "uuid"},
+    "accounts": {"id": "uuid", "created_at": "text"},
+    "pseuds": {"id": "uuid", "created_at": "text", "account_id": "uuid"},
+    "canonical_entities": {"id": "text", "canonical": "text", "kind": "text"},
+    "work_tags": {"node_id": "text", "work_id": "uuid"},
 }
 
 # Each case is (SQL, should_report, note). The negative cases are the point:
@@ -1129,6 +1181,22 @@ SELF_TEST_CASES: list[tuple[str, bool, str]] = [
     ("INSERT INTO progress (account, work_id, last_chapter, updated_at) "
      "VALUES ($1::uuid, $2::uuid, $3, $4)", False,
      "an INT4 bind is not a decode, so an INSERT is not a finding"),
+    # A qualified column belongs to its alias's table. This statement joins two tables with
+    # a TEXT `created_at`, and only `slots.created_at` is compared -- as a TIMESTAMPTZ, which
+    # is correct. The rule used to report `accounts.created_at` and `pseuds.created_at`.
+    ("SELECT s.id::text, p.id::text FROM slots s JOIN pseuds p ON p.id = s.account "
+     "JOIN accounts ac ON ac.id = p.account_id WHERE s.created_at >= $1::timestamptz",
+     False, "a qualified TIMESTAMPTZ comparison is not a fault in the joined TEXT tables"),
+    # ... while an UNQUALIFIED comparison of a TEXT column stays a finding: the statement
+    # may be talking about that table, and silence there would hide a real failure.
+    ("SELECT id::text FROM accounts WHERE created_at >= $1::timestamptz", True,
+     "an unqualified TEXT column compared to ::timestamptz is still a finding"),
+    # A subquery's SELECT list is not this statement's: COUNT is INT8, and `work_count`
+    # was reported as an INT4 column read into an i64.
+    ("SELECT id::text, canonical, kind, "
+     "(SELECT COUNT(*) FROM work_tags wt WHERE wt.node_id = canonical_entities.id) AS work_count "
+     "FROM canonical_entities WHERE kind = $1", False,
+     "a correlated COUNT subquery is INT8, not an INT4 column"),
 ]
 
 # Cases that drive `columns_decoded_by` through whole Rust source rather than one
@@ -1592,6 +1660,68 @@ def columns_decoded_by(text: str, pos: int) -> set[str]:
     return columns
 
 
+def split_at_depth_zero_from(sql: str) -> str:
+    """Everything before the first `FROM` that is not inside parentheses."""
+    depth = 0
+    i = 0
+    lower = sql.lower()
+    while i < len(sql):
+        ch = sql[i]
+        if ch == "(":
+            depth += 1
+        elif ch == ")":
+            depth = max(0, depth - 1)
+        elif depth == 0 and lower.startswith("from", i) and (
+            i == 0 or not (sql[i - 1].isalnum() or sql[i - 1] == "_")
+        ):
+            return sql[:i]
+        i += 1
+    return sql
+
+
+def strip_nested_groups(sql: str) -> str:
+    """Remove correlated subqueries from a SELECT list, keeping function calls.
+
+    A subquery's SELECT list is not this statement's list: `taxonomy.rs` selects
+    `( SELECT COUNT(*) ... ) AS work_count`, and once the depth-0 `FROM` cut was right the
+    inner body was read as a projection, so `work_count` -- a COUNT, which is INT8 -- was
+    reported as an INT4 column read into an `i64`.
+
+    Only groups whose body starts with `SELECT` are removed. A function call's parentheses
+    are part of the expression being judged: stripping `CAST(w.severity AS BIGINT)` down to
+    `CAST(sub)` hid the very cast the rule accepts and reported correct code as a fault.
+    """
+    out: list[str] = []
+    i = 0
+    while i < len(sql):
+        ch = sql[i]
+        if ch != "(":
+            out.append(ch)
+            i += 1
+            continue
+        depth = 0
+        j = i
+        while j < len(sql):
+            if sql[j] == "(":
+                depth += 1
+            elif sql[j] == ")":
+                depth -= 1
+                if depth == 0:
+                    break
+            j += 1
+        body = sql[i + 1 : j]
+        if body.lstrip()[:6].upper() == "SELECT":
+            # `(sub) AS work_count` names a value with no column type to judge; drop the
+            # alias too rather than leave a bare identifier for the projection matcher.
+            out.append("(sub)")
+            i = j + 1
+        else:
+            out.append(ch)
+            i += 1
+    text = "".join(out)
+    return re.sub(r"\(sub\)\s+AS\s+[A-Za-z_]\w*", "(sub)", text, flags=re.IGNORECASE)
+
+
 def int4_sites(
     sql: str,
     known: dict[str, dict[str, str]],
@@ -1621,7 +1751,13 @@ def int4_sites(
         # PostgreSQL accepts it; nothing fails, so there is nothing to report.
         # Only reading an INT4 column *into an i64* is a real fault.
         return []
-    head = re.split(r"\bFROM\b", sql, maxsplit=1, flags=re.IGNORECASE)[0]
+    # The SELECT list ends at the first `FROM` at **depth 0**. Splitting on the first
+    # literal `FROM` reads a correlated subquery's own `FROM` as the outer one, so
+    # everything after it -- including that subquery's `ORDER BY n.position` -- was
+    # parsed as a projection of the outer statement, and `tag_scripts::scripts_for`
+    # was reported for a `position` that is never read. Parentheses track depth; a
+    # subquery's clauses are not this statement's SELECT list.
+    head = strip_nested_groups(split_at_depth_zero_from(sql))
     out: list[str] = []
     for match in SELECT_ITEM.finditer(head):
         col = match.group(2).lower()

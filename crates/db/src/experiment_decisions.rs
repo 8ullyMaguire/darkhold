@@ -393,7 +393,7 @@ pub async fn guardrail_history(
              WHERE surface_id = ?1 AND arm IN (?2, ?3) ORDER BY day, arm"
         }
         Backend::Postgres => {
-            "SELECT day, arm, impressions, events FROM experiment_snapshots \
+            "SELECT day, arm::bigint, impressions::bigint, events::bigint FROM experiment_snapshots \
              WHERE surface_id = $1 AND arm IN ($2, $3) ORDER BY day, arm"
         }
     };
@@ -653,7 +653,7 @@ pub async fn decisions_for(db: &Database, surface_id: &str) -> Result<Vec<Stored
              FROM experiment_decisions WHERE surface_id = ?1 ORDER BY created_at DESC"
         }
         Backend::Postgres => {
-            "SELECT surface_id, day, decision, incumbent_arm, challenger_arm, lift, evidence, \
+            "SELECT surface_id, day, decision, incumbent_arm::bigint, challenger_arm::bigint, lift, evidence, \
                     algorithms_before, algorithms_after \
              FROM experiment_decisions WHERE surface_id = $1 ORDER BY created_at DESC"
         }

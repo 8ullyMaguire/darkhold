@@ -40,7 +40,7 @@ pub async fn bucket_for(
     let read = sql_owned(
         db,
         "SELECT bucket FROM experiment_assignments WHERE pseud_id = ?1 AND surface_id = ?2".into(),
-        "SELECT bucket FROM experiment_assignments WHERE pseud_id = $1::uuid AND surface_id = $2"
+        "SELECT bucket::bigint FROM experiment_assignments WHERE pseud_id = $1::uuid AND surface_id = $2"
             .into(),
     );
 

@@ -44,7 +44,7 @@ pub async fn set(db: &Database, pseud_id: Uuid, strength: f64, now: &str) -> Res
              ON CONFLICT (pseud_id) DO UPDATE SET strength = excluded.strength, updated_at = excluded.updated_at"
         }
         Backend::Postgres => {
-            "INSERT INTO reader_gravity (pseud_id, strength, updated_at) VALUES ($1, $2, $3) \
+            "INSERT INTO reader_gravity (pseud_id, strength, updated_at) VALUES ($1::uuid, $2, $3::timestamptz) \
              ON CONFLICT (pseud_id) DO UPDATE SET strength = EXCLUDED.strength, updated_at = EXCLUDED.updated_at"
         }
     };

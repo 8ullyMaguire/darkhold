@@ -3001,3 +3001,22 @@ answers `bool`; both doors credit through that one answer.
 `source_engagement`: uncast placeholders that pass on SQLite and fail on PostgreSQL. Each needs a failing PG test before the cast, not
 just the cast.
 
+### Deployed 2026-11-10 10:54 — `0.1.0+e1fdb38f` (ReadUnit)
+
+Backup `/personal/backups/darkhold-20261110-1037xx-pre-readunit.dump` → verified **392 TABLE DATA**. Build 13m55s. Migration `0201_reader_unit_completions` applied (`migrate` printed it), 198 applied / 0 pending.
+
+**Live proof, through the API on the deployed instance:** a throwaway reader saved a position at 500 permille → `reader_unit_completions` 0 rows, warmth 0; saved at 1000 → 1 completion row and `interaction_warmth` 100 bp; saved the same unit at 1000 again → still 100 bp. Cleanup deleted the completion, warmth, progress, unit-read, session, pseud and account rows (0/0/0 verified).
+
+### `gate.sh dialects` — 14 sites, 12 real defects and 2 gate bugs (2026-11-10)
+
+The 0172–0178 family binds `now_rfc3339()` (a `String`) into `TIMESTAMPTZ` columns: a bind SQLite accepts and PostgreSQL refuses with
+`column "created_at" is of type timestamp with time zone but expression is of type text`. Proven on the server before the fix and after
+it. Twelve sites fixed by casting (`::timestamptz`, `::uuid`, `::bigint`, `to_char` for a timestamp read into a `String`).
+
+The other two were the checker's: a qualified column attributed to every table sharing the column name, and a SELECT list cut at the
+first literal `FROM` so a subquery's `ORDER BY` was read as a projection. Both fixed with three self-test cases, because a gate that
+reports correct code is a gate the next pass ignores.
+
+**Standing rule, now proven twice:** the suite count is not the coverage. 86 files claim dual-backend coverage; 385 make no claim, and
+every defect in this pass lived in the 385.
+

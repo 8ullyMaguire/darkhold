@@ -80,7 +80,7 @@ pub async fn create_cluster(
         "INSERT INTO trope_clusters (id, slug, label, description, priority, created_at, updated_at, version)
          VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?6, 1)",
         "INSERT INTO trope_clusters (id, slug, label, description, priority, created_at, updated_at, version)
-         VALUES ($1::uuid, $2, $3, $4, $5, $6, $6, 1)",
+         VALUES ($1::uuid, $2, $3, $4, $5, $6::timestamptz, $6::timestamptz, 1)",
     );
     match db.backend() {
         Backend::Sqlite => {
@@ -167,7 +167,7 @@ pub async fn all_clusters(db: &Database) -> Result<Vec<TropeCluster>> {
                     SELECT node_id FROM trope_cluster_nodes WHERE cluster_id = c.id ORDER BY node_id
                 ) n)
            FROM trope_clusters c ORDER BY c.priority, c.slug",
-        "SELECT c.id::text, c.slug, c.label, c.description, c.priority,
+        "SELECT c.id::text, c.slug, c.label, c.description, c.priority::bigint,
                 (SELECT string_agg(n.node_id, ',' ORDER BY n.node_id)
                    FROM trope_cluster_nodes n WHERE n.cluster_id = c.id)
            FROM trope_clusters c ORDER BY c.priority, c.slug",

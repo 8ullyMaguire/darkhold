@@ -517,3 +517,39 @@ re-read assertion at 300 vs 100). Reading suites re-run green: `m47_13_reading_g
 `content_policy`, `experiment_decisions`, `trope_clusters`, `experiment_snapshots`, `experiments`, `gravity_prefs`, `shelf_follows`,
 `source_engagement` — all "passes on SQLite, fails on PostgreSQL" uncast placeholders. Recorded here and on the roadmap as the next pass;
 none of them is in a file this pass touched.
+
+## Pass 84 — `gate.sh dialects` was red on 14 sites; 12 were real (2026-11-10)
+
+Found by running the gate rather than by planning a pass: `gate.sh dialects` failed on **14 sites in 9 files** — `tag_scripts`,
+`content_policy`, `experiment_decisions`, `trope_clusters`, `experiment_snapshots`, `experiments`, `gravity_prefs`, `shelf_follows`,
+`source_engagement`. The whole 0172–0178 migration family is another session's work, and every one of those tables types its timestamps
+`TIMESTAMPTZ` while the code binds `now_rfc3339()`, a `String`.
+
+**Reproduced against the server, not argued:**
+
+    PREPARE bad(text) AS INSERT INTO probe_ts (id, created_at) VALUES (gen_random_uuid(), $1);
+    ERROR: column "created_at" is of type timestamp with time zone but expression is of type text
+
+and the fixed shape — `VALUES (gen_random_uuid(), $1::timestamptz)` — inserts. That is the whole class: a bind that SQLite accepts
+and PostgreSQL refuses, invisible while every suite runs on SQLite.
+
+**12 real defects fixed** by casting the placeholder (`$n::timestamptz`, `$n::uuid`) or the column in the SELECT (`::bigint` for INT4
+columns decoded into `i64`, `to_char(... AT TIME ZONE 'UTC', ...)` where a TIMESTAMPTZ was read into a `String`).
+
+**2 were the checker's fault, and fixing the checker was the fix.** The file's own docstring says a gate that reports correct code
+teaches the reader to ignore it — and both false positives were of exactly that kind:
+
+* `timestamptz_cast_sites` treated a **qualified** column (`s.created_at`, a TIMESTAMPTZ) as matching every table that has a TEXT
+  `created_at`, so a correct cast was reported in `accounts` and `pseuds` — columns the statement never mentions. The alias prefix was
+  optional inside a pattern that threw away what it captured. Now the qualifier is resolved through `alias_tables()`; an unqualified
+  comparison still reports, because that is a possibility rather than a fact.
+* `int4_sites` cut the SELECT list at the first literal `FROM`, so a correlated subquery's own `FROM` endeth the list early and its
+  `ORDER BY n.position` became a "projection". Now the cut is at the first depth-0 `FROM`, subquery bodies are replaced with `(sub)`
+  before projections are matched (COUNT is INT8), and function-call parentheses are kept — stripping `CAST(w.severity AS BIGINT)` down to
+  `CAST(sub)` had turned a correct widening cast into a report.
+
+Three self-test cases added for these shapes (one positive: an unqualified TEXT comparison must still report), 37 passing; the tree run
+is `OK: no text bound to a typed column (389 tables)`.
+
+**Why the suites did not catch it:** the gate reports 86 files claiming dual-backend coverage and 385 that make no such claim. These
+features' tests are in the latter set — the same blind spot this ratchet keeps finding, one level up.

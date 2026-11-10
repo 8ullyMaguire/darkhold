@@ -140,7 +140,7 @@ pub async fn revoke(
             SET revoked_at = ?, revoked_by = ?, revoked_reason = ?
           WHERE filter_type = ? AND value = ? AND revoked_at IS NULL",
         "UPDATE content_policy_blocks
-            SET revoked_at = $1, revoked_by = $2::uuid, revoked_reason = $3
+            SET revoked_at = $1::timestamptz, revoked_by = $2::uuid, revoked_reason = $3
           WHERE filter_type = $4 AND value = $5 AND revoked_at IS NULL",
     );
     let affected = match db.backend() {
@@ -327,7 +327,7 @@ pub async fn revoke_override(
             SET revoked_at = ?, revoked_by = ?, revoked_reason = ?
           WHERE work_id = ? AND filter_type = ? AND value = ? AND revoked_at IS NULL",
         "UPDATE content_policy_overrides
-            SET revoked_at = $1, revoked_by = $2::uuid, revoked_reason = $3
+            SET revoked_at = $1::timestamptz, revoked_by = $2::uuid, revoked_reason = $3
           WHERE work_id = $4::uuid AND filter_type = $5 AND value = $6 AND revoked_at IS NULL",
     );
     let affected = match db.backend() {
