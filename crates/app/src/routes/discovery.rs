@@ -969,8 +969,10 @@ async fn get_discovery(
         None => ranked,
     };
 
-    let taste = &state.config().taste;
-    let instance_strength = taste.strength_for("discover.feed");
+    // M45-46: the stored knobs are the ones in force — until this existed, `/operator/taste-profile` wrote a row no
+    // reading path consulted, so the feed served the config file forever and the console's numbers described nothing.
+    let knobs = crate::taste_knobs::effective(&state, "discover.feed").await;
+    let instance_strength = knobs.strength;
     // The reader's dial, if they have one. Clamped on read by `effective`, so a stored value from before the operator lowered
     // the instance cannot keep a reader above the new number.
     let reader_strength = match viewer_pseud {
@@ -988,7 +990,7 @@ async fn get_discovery(
     let (ranked, _pull) = darkhold_domain::discovery::apply_taste_gravity(
         ranked,
         strength,
-        &taste.signal_weight_mode,
+        &knobs.signal_weight_mode,
     );
 
     // M45 / spec §47: taste-based ordering plus impression logging, for a
@@ -1219,7 +1221,7 @@ async fn get_discovery(
         // shelf was pulled toward their taste and how much of the page moved, which is the honest amount of the mechanism to
         // show. `strength` is the strength actually in force after the ceiling, not the configured wish.
         "gravity": {
-            "mode": taste.signal_weight_mode,
+            "mode": knobs.signal_weight_mode.clone(),
             "strength": strength,
             "instance": instance_strength,
             "moved_up": pull.moved_up,

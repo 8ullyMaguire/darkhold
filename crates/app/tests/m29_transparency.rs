@@ -795,6 +795,45 @@ async fn an_operators_taste_profile_change_is_remembered_rather_than_echoed() {
 }
 
 #[tokio::test]
+async fn the_stored_knobs_reach_the_feed_they_are_supposed_to_shape() {
+    // M45-46, the half that had to come first. `PUT /operator/taste-profile` wrote a row that **nothing read**:
+    // the feed took its strength and its mode from the config file alone. A knob with no reader is a panel that
+    // lies, and "preview before apply" is meaningless while apply is a no-op — so the preview waits for this.
+    let harness = Harness::with_operator("knobop", "Knobs").await;
+    let mut operator = harness.reader("Knobs").await;
+
+    // Baseline: the config's values, because no row has been written yet.
+    let (status, feed) = operator.get("/api/v1/discovery").await;
+    assert_eq!(status, StatusCode::OK, "body: {feed}");
+    assert_eq!(
+        feed["gravity"]["instance"].as_f64(),
+        Some(0.0),
+        "the config's default strength, before any stored row"
+    );
+
+    let (status, body) = operator
+        .put(
+            "/api/v1/operator/taste-profile",
+            json!({ "gravity_strength": 750, "signal_weight_mode": "balanced" }),
+        )
+        .await;
+    assert_eq!(status, StatusCode::OK, "body: {body}");
+
+    // The same public door the reader sees: `gravity.instance` is the strength actually in force.
+    let (status, feed) = operator.get("/api/v1/discovery").await;
+    assert_eq!(status, StatusCode::OK, "body: {feed}");
+    assert_eq!(
+        feed["gravity"]["mode"], "balanced",
+        "the stored mode is the one in force, not the config's default"
+    );
+    assert_eq!(
+        feed["gravity"]["instance"].as_f64(),
+        Some(0.075),
+        "750 basis points of the ceiling is 0.075 — the unit the write door and the feed must agree on"
+    );
+}
+
+#[tokio::test]
 async fn a_second_taste_profile_change_bumps_the_version_and_keeps_what_was_omitted() {
     // A partial update is a partial update. An operator who changes one knob
     // should not have to restate the others, and a body that touches only the

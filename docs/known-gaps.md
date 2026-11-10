@@ -873,3 +873,13 @@ because this workspace denies warnings. It did — `polaris-core` used `Atomic::
 `try_update`, and darkhold refused to build. Fixed in the sibling rather than by relaxing the deny.
 
 The fix is a version field or a workspace-level dependency; a symlink is a thing somebody has to remember.
+
+## Two M29 transparency tests answer `500` on PostgreSQL, and did before the taste-knob fix
+
+Measured 2026-11-10 while proving M45-46: `a_promoted_surface_runs_the_algorithms_the_experiment_installed` and
+`a_held_surface_is_skipped_and_a_hand_promotion_is_recorded_as_manual` fail on PostgreSQL with a bare
+`INTERNAL` (request id only), while the whole rest of the suite is green on both engines. The same two fail with
+the working tree stashed, so this predates the change and is not a regression from it — the cause is on the
+experiment-surface path, not the taste one. Not fixed here: the row that owns that path (M64-15, the operator
+console's live-experiment view) is the place to fix it, and a `500` with no column named is exactly what the
+dialect gate exists to catch next time it runs on PostgreSQL.

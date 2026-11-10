@@ -3298,3 +3298,41 @@ a shortcut):
    `watch`. Cheapest rows in the ledger: one verb plus a golden-output test each.
 4. **M66 GS-1..GS-5**, then **M69-23/15/24**, then **M64's eight**, then **M71's ten**, then **M73-01..04**,
    then M29-08 + M44-02 as one product, then **M70-13** (36 orphans at the ratchet).
+
+### M45-46 — the knobs had no reader (2026-11-10, half built; the preview is the missing half)
+
+The row asks for three things: a view-as persona preview of discover/search under a proposed config, config history,
+and rollback. Measured before writing anything: **history and rollback already exist** (`instance_taste_settings::history`
+/ `rollback`, both with routes since M45-45a), and the stored knobs were read by **nothing on a reading path** — the
+feed took its strength and mode from `darkhold.toml`, so the console's numbers described a change that never happened.
+
+That second measurement decided the order: a preview of an ineffectual change is a fiction with a UI. So the shipped half
+is the reader, `crates/app/src/taste_knobs.rs`:
+
+* **stored beats config** — the same precedence the admin read door already documents ("a stored dimension set wins over
+  the config"); two rules for the same two sources would be a bug waiting to be reported;
+* **the unit is basis points of `gravity_ceiling`** — the column is an `INTEGER` with no unit comment, so the unit is
+  stated once, in that module, where both the write door and the read path can point at it: `10_000` = the ceiling,
+  `750` = `0.075`;
+* **out-of-range is unset, not clamped** — a `-250` or a `99999` was written by something that did not share the unit, and
+  clamping turns that into "off" or "maximum" while hiding the mismatch; the config applies and the value is logged;
+* **a failed read is not "no settings"** — it falls back to the config and logs, because a database that cannot answer is
+  not an instance that has no taste.
+
+Wired into `GET /discovery`: `gravity.instance` and `gravity.mode` are now the values actually in force, and the row's test
+reads the public door rather than a private helper.
+
+**Still missing, named in the ledger:** the preview door. It needs the feed builder extracted from `get_discovery` into a
+function taking `(persona, overrides)` — a second ranking path would drift from the one readers get, which is the failure
+the whole milestone is about. `taste_knobs::effective` is that seam's first half: the concierge (`home.curated`) and the
+gravity dial still read `state.config().taste` directly and should adopt it in the same pass.
+
+**Found while proving it, and recorded rather than fixed:** two M29 tests
+(`a_promoted_surface_runs_the_algorithms_the_experiment_installed`,
+`a_held_surface_is_skipped_and_a_hand_promotion_is_recorded_as_manual`) answer `500 INTERNAL` on PostgreSQL. They fail
+identically with this change stashed, so they predate it; `docs/known-gaps.md` names them.
+
+**Proof:** `the_stored_knobs_reach_the_feed_they_are_supposed_to_shape` — green on SQLite and PostgreSQL; the full
+`m29_transparency` suite 49/49 on SQLite; mutant that reads the row and then discards it reddens the mode assertion
+(`taste_weighted` vs `balanced`), reverted from `/tmp`. Live database holds **0** settings rows, so no behaviour changes
+on the instance until an operator writes one — the deploy is batched with the next live-surface row.
