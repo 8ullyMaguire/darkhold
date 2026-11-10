@@ -24,6 +24,15 @@ The batch that was in flight when the previous ssh was killed.
 | CSS | `--surface-2` now resolves (`oklch(18% var(--brand-chroma-surface) var(--brand-hue))` after-hours, `#ffffff` clear-day) — it was the empty string before, which is what made every raised surface transparent |
 | browser, live | on `https://darkhold.polarisocial.xyz/discover` the Read panel is `position: fixed`, `rgb(36, 49, 42)`, bottom 358px against a row bottom of 60px, and **0 of 6 links unhittable** |
 
+**Two zeros in the deploy log that are the probes' fault, not the build's — recorded because they read as failures.**
+`surface2-in-css=0` searched for the literal `--surface-2:var(--color-surface-raised)`, i.e. the *cycle the fix removed*:
+0 is the pass condition, and the label was wrong. `bundle-has-floating=0` fetched `/`, which this server renders
+**without any script tag** (the SPA bundle is only referenced on app routes), so the extracted asset name was empty and
+`curl` returned the landing page. Re-measured properly afterwards: `grep -c floating frontend/dist/assets/index-DQl-Jj6t.js`
+on the host → **1**, and `curl /discover` lists `/assets/index-DQl-Jj6t.js`. The lesson: a built-artifact check has to
+fetch the asset the **route** serves, not the asset `/` happens to mention — and a counter whose expected value is 0 must
+say so in its own label, or the log argues against the build.
+
 **Two deploy lessons, both measured:** a SIGTERM'd `ssh` does **not** stop the remote script — this session's killed deploy kept compiling and linked the binary eight minutes later, so a retry launched on the same tree runs `cargo` against a build that is still going. Check `pgrep -af` for the *remote* script before re-running, and never assume a killed ssh means a stopped build. And a script whose output only goes to the ssh session leaves nothing to read when the session dies: write to a log file on the host.
 
 ## Batch 0 — the family of products (M72, 10 rows) — take this first
