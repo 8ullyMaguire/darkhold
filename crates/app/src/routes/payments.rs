@@ -102,18 +102,14 @@ async fn purchase(
         None => 0,
     };
 
-    let idempotency = body
-        .idempotency_key
-        .as_deref()
-        .map(str::trim)
-        .filter(|key| !key.is_empty())
-        .map_or_else(|| format!("extension:{buyer}:{slug}"), str::to_owned);
-    if idempotency.len() > 200 {
-        return Err(ApiError(AppError::field(
-            "idempotency_key",
-            "an idempotency key is at most 200 characters",
-        )));
-    }
+    // One rule for keys (ADR 0025): trimmed, capped in characters rather than bytes, and — because a purchase retry is a
+    // request for the receipt rather than a second sale — derived from what is being bought when the caller sends none.
+    let idempotency = darkhold_db::idempotency::derive_or(
+        body.idempotency_key.as_deref(),
+        || format!("extension:{buyer}:{slug}"),
+        darkhold_db::idempotency::KeyPolicy::PAYMENT,
+    )
+    .map_err(|refusal| ApiError(AppError::field("idempotency_key", refusal.message())))?;
 
     let version = darkhold_db::gallery::published_versions(state.db(), &slug)
         .await

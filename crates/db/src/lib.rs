@@ -69,6 +69,7 @@ pub mod federation;
 pub mod finder;
 pub mod flow_store;
 pub mod gallery;
+pub mod idempotency;
 pub mod generated_content;
 pub mod governance;
 pub mod gravity_prefs;

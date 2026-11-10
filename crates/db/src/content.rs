@@ -1754,8 +1754,11 @@ pub async fn publish_work(
     idempotency_key: Option<&str>,
 ) -> ContentResult<PublicationOutcome> {
     // A replay must do nothing at all — not merely skip the notification — so
-    // this is checked before the transaction opens.
-    if let Some(key) = idempotency_key {
+    // this is checked before the transaction opens. The key is normalised first (ADR 0025): trimmed and capped in
+    // characters, and `None` stays `None`, because a caller who wants a replay-safe publish has to ask for one.
+    let idempotency_key = crate::idempotency::normalise(idempotency_key, crate::idempotency::KeyPolicy::PUBLICATION)
+        .map_err(|refusal| ContentError::Refused(AppError::field("idempotency_key", refusal.message())))?;
+    if let Some(key) = idempotency_key.as_deref() {
         if publication_event_exists(db, key).await? {
             return Ok(PublicationOutcome::AlreadyApplied);
         }
@@ -1824,7 +1827,7 @@ pub async fn publish_work(
                 .bind(event_id.to_string())
                 .bind(work.id.to_string())
                 .bind(actor.pseud_id.to_string())
-                .bind(idempotency_key)
+                .bind(idempotency_key.as_deref())
                 .bind(&now)
                 .execute(&mut *tx)
                 .await?;
@@ -1863,7 +1866,7 @@ pub async fn publish_work(
                 .bind(event_id.to_string())
                 .bind(work.id.to_string())
                 .bind(actor.pseud_id.to_string())
-                .bind(idempotency_key)
+                .bind(idempotency_key.as_deref())
                 .bind(&now)
                 .execute(&mut *tx)
                 .await?;
@@ -1964,7 +1967,7 @@ pub async fn withdraw_work(
                 .bind(event_id.to_string())
                 .bind(work.id.to_string())
                 .bind(actor.pseud_id.to_string())
-                .bind(idempotency_key)
+                .bind(idempotency_key.as_deref())
                 .bind(&now)
                 .execute(&mut *tx)
                 .await?;
@@ -2000,7 +2003,7 @@ pub async fn withdraw_work(
                 .bind(event_id.to_string())
                 .bind(work.id.to_string())
                 .bind(actor.pseud_id.to_string())
-                .bind(idempotency_key)
+                .bind(idempotency_key.as_deref())
                 .bind(&now)
                 .execute(&mut *tx)
                 .await?;
