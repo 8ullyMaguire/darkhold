@@ -10,7 +10,8 @@
 //! So the answer is memoised per filter set for [`TTL`]. Two consequences are deliberate:
 //!
 //! * **Counts can be up to a minute stale.** A facet panel is a navigation aid, and a counter that is 60 s behind is worth answering in
-//!   2 ms instead of 300. The response carries `facets_computed_at`, so a page can say how old the numbers are rather than pretending.
+//!   2 ms instead of 300. The response carries `computed_at_ms_ago`, so a page can say how old the numbers are rather than pretending. (This note
+//! said `facets_computed_at` for a while — a field name that shipped nowhere, which is how documentation stops being evidence.)
 //! * **The cache is per process.** Two instances would each hold their own; that is correct for a memo (the worst case is one extra scan
 //!   per instance per minute), and it avoids making a read path depend on shared state.
 //!
