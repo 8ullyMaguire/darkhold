@@ -2932,3 +2932,16 @@ operator has scored anything yet**. The door is what shipped; the catalogue stay
 kinds (`completeness`, `reader_positivity`) land with their documented mappings. Claiming the filter is "fixed" would be claiming a
 door is a population.
 
+### `reader_positivity` is real; `completeness` is not a signal (2026-11-10)
+
+`reader_positivity` = `round(1000 * positive / visible)` over `positivity::visible_reviews`, recomputed on every review write and
+deletion. No visible reviews deletes the row: a `0` would claim a verdict nobody reached.
+
+`completeness` is dropped as a derived kind: `completion:complete` is already a filter, so the signal would be the same fact twice
+with an invented curve attached.
+
+**Open decision (not taken in passing):** `"This is awful and boring. I hate it."` classifies **Positive** — it matches no
+`HOSTILE_MARKERS` phrase and falls through to `non-critical-engagement`, so the §12 gate delivers generic hostility to authors.
+Extending the marker list is policy (adding `awful`/`boring` would hold "the villain was awful", which is praise), so it needs a
+stated rule and its own tests.
+
