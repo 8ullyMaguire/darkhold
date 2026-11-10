@@ -84,6 +84,9 @@ COVERED_TABLES = {
 # a question costs a line in a JSON file, a missed column costs a disclosure.
 IDENTITY_NAME_RE = re.compile(
     r"("
+    # M45-65: `\baccount\b|created_by|pseud_id` belong here and are NOT yet added, because widening the pattern
+    # turns this gate red for 87 columns that have no treatment read off their writer. The measured list is
+    # docs/plans/m45-65-inventory.md; the widening is the row's acceptance test, not its first step.
     r"account_id|user_id|owner_id|author_id|actor_id|"
     r"e_?mail|password|passwd|"
     r"token|secret|api_key|private_key|"

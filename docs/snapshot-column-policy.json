@@ -1741,6 +1741,26 @@
       "treatment": "rekey_account",
       "why": "Which account finished which unit, the fact §41.2's reading score is built from. Erasure rekeys the account to a stable pseudonym so the warmth arithmetic still counts a reader who has gone, and nothing in the row names them afterwards. It is the account and not the pseud because the score is between accounts; `reader_unit_read` keeps its own pseud-scoped row.",
       "reviewed_by": "alvaro, 2026-11-10, against spec 11.16.3b"
+    },
+    "work_claim.account_id": {
+      "treatment": "replace",
+      "why": "A claim row names the account that asserted authorship; after erasure the claim must not point at the person, but the row itself is evidence the work was claimed, which other rows reference by claim id.",
+      "reviewer": "M45-42"
+    },
+    "work_claim.token": {
+      "treatment": "drop_column",
+      "why": "The token is the proof-of-control secret placed on the external profile page; it is a credential with no meaning once the claim is decided, and a dump must not carry a live secret that would let a third party re-verify someone else's claim.",
+      "reviewer": "M45-42"
+    },
+    "curator_lens.account_id": {
+      "treatment": "drop_table",
+      "why": "A lens is a curator's named ordering of other people's works; it is that person's editorial statement, so an erased curator takes their lenses with them rather than leaving an unattributed reading list behind.",
+      "reviewer": "M45-40"
+    },
+    "share_code.account_id": {
+      "treatment": "replace",
+      "why": "The code is the attribution the sharer typed into a post; erasing the account must detach the code from the person, but the visits it counted are other people's reads and survive as counts.",
+      "reviewer": "M45-41"
     }
   }
 }

@@ -24,6 +24,24 @@ The batch that was in flight when the previous ssh was killed.
 | CSS | `--surface-2` now resolves (`oklch(18% var(--brand-chroma-surface) var(--brand-hue))` after-hours, `#ffffff` clear-day) — it was the empty string before, which is what made every raised surface transparent |
 | browser, live | on `https://darkhold.polarisocial.xyz/discover` the Read panel is `position: fixed`, `rgb(36, 49, 42)`, bottom 358px against a row bottom of 60px, and **0 of 6 links unhittable** |
 
+## M45-65 as measured — 2026-11-10 (`planned`, inventory done)
+
+The row says both identity gates must see `account`, `created_by`, `pseud_id`. Widening `IDENTITY_NAME_RE` in
+`scripts/check-snapshot-pii.py` and running it produces **87 undecided columns**, not the 37 the requirement names:
+29 bare `account`, 13 `created_by`, and 45 `pseud_id` (the requirement's 37 came from the foreign-key analysis, which
+never looked at pen names). The full list is `docs/plans/m45-65-inventory.md`, grouped by the spelling and by what the
+column is for.
+
+The widening is **reverted** in this commit. The gate's contract is that it fails in both directions until every column
+carries a treatment, and each treatment is a judgement read off the writer — `RequirePseud` or `RequireSession` in the
+handler that inserts the row. A green gate over 87 guessed treatments is the failure mode this row exists to prevent, so
+the row stays `planned` with the inventory attached and the detector untouched.
+
+**Fixed on the way through, and this one was live:** the gate was already **red** at `d2942fc3`, on four tables this
+session shipped — `work_claim.account_id`, `work_claim.token`, `curator_lens.account_id`, `share_code.account_id` had no
+policy rows, and `POST /works/{id}/share` stores a live token. Four decisions added; `check-snapshot-pii.py` now reports
+`OK: 2878 columns across 395 tables`.
+
 **Two zeros in the deploy log that are the probes' fault, not the build's — recorded because they read as failures.**
 `surface2-in-css=0` searched for the literal `--surface-2:var(--color-surface-raised)`, i.e. the *cycle the fix removed*:
 0 is the pass condition, and the label was wrong. `bundle-has-floating=0` fetched `/`, which this server renders
