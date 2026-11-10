@@ -1195,7 +1195,20 @@ mod tests {
     use clap::Parser;
 
     fn args(argv: &[&str]) -> (Cli, RecArgs) {
-        let cli = Cli::try_parse_from(argv).expect("parses");
+        let mut cli = Cli::try_parse_from(argv).expect("parses");
+        // The parser's `--base-url` default is empty so a profile can supply the URL (M63-18); the
+        // value a request actually uses comes from `profiles::resolve`, so these tests resolve too
+        // rather than asserting a parser default no longer exists. The path is one that cannot exist,
+        // which makes the resolution the built-in default.
+        let resolved = crate::profiles::resolve(
+            &cli.base_url,
+            cli.token.as_deref(),
+            cli.cookie.as_deref(),
+            cli.profile.as_deref(),
+            std::path::Path::new("/nonexistent/darkhold/config.toml"),
+        )
+        .expect("the built-in default always resolves");
+        cli.base_url = resolved.url;
         let crate::Command::Rec(rec) = cli.command.clone() else {
             panic!("'rec' is the subcommand this test builds")
         };

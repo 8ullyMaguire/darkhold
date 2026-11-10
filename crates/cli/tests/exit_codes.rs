@@ -84,6 +84,12 @@ fn dh(args: &[&str]) -> i32 {
         .args(args)
         .env_remove("DARKHOLD_TOKEN")
         .env_remove("DARKHOLD_COOKIE")
+        // M63-18: a developer with profiles configured must not change what these tests measure. The
+        // first run of the profile code proved it: an exported `DARKHOLD_CONFIG` carrying a cookie
+        // turned "a local refusal that needs a session" green-looking and the exit code red.
+        .env_remove("DARKHOLD_CONFIG")
+        .env_remove("DARKHOLD_PROFILE")
+        .env_remove("DARKHOLD_BASE_URL")
         .output()
         .expect("run dh");
     output

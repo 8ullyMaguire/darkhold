@@ -22,6 +22,7 @@ mod gen;
 mod http;
 mod module;
 mod output;
+mod profiles;
 mod q;
 mod rec;
 mod redact;
@@ -43,14 +44,31 @@ use crate::cron::CronArgs;
 )]
 pub struct Cli {
     /// Base URL of the instance to talk to.
+    ///
+    /// The default is empty on purpose: an empty value means "not given", which lets the selected
+    /// profile supply the URL. `--base-url` (or `DARKHOLD_BASE_URL`) still wins over the profile, and
+    /// the built-in `http://127.0.0.1:8081` is the last resort when neither names one.
     #[arg(
         long,
         global = true,
         env = "DARKHOLD_BASE_URL",
-        default_value = "http://127.0.0.1:8081",
+        default_value = "",
         value_name = "URL"
     )]
     pub base_url: String,
+
+    /// The config profile to use: a named `(url, token, cookie)` triple in `config.toml`.
+    ///
+    /// ```text
+    /// dh config set profiles.work.url https://work.example
+    /// dh config set profiles.work.token <token>
+    /// dh --profile work rec --engine personal
+    /// ```
+    ///
+    /// Falls back to `default_profile` in the file, then to the built-in defaults. An unknown name is
+    /// refused by name rather than silently using another instance's token.
+    #[arg(long, global = true, env = "DARKHOLD_PROFILE", value_name = "NAME")]
+    pub profile: Option<String>,
 
     /// Session token, for the surfaces that read your own history.
     ///
@@ -162,11 +180,80 @@ pub enum Command {
     /// same value without learning which. Fandom names, handles and titles are left alone — a
     /// redactor that guesses corrupts the output that makes a paste useful.
     Redact,
+    /// Read and write the config file: profiles, their URLs, and which one is the default.
+    ///
+    /// ```text
+    /// dh config path                          where the file is
+    /// dh config get profiles                 the profile names
+    /// dh config set profiles.work.url https://work.example
+    /// dh config get profiles.work.token      `set (hidden, N chars)` — never the secret
+    /// ```
+    ///
+    /// A token written here is stored `0600` and can never be read back in clear: the length and the
+    /// profile name are what tell two entries apart, and a printed prefix is what leaks.
+    Config {
+        #[command(subcommand)]
+        action: ConfigAction,
+    },
+}
+
+/// `dh config …`
+#[derive(clap::Subcommand, Debug, Clone)]
+pub enum ConfigAction {
+    /// Print the config file's path.
+    Path,
+    /// Read one dotted key: `default_profile`, `profiles`, `profiles.<name>.<url|token|cookie>`.
+    Get {
+        /// The dotted key.
+        key: String,
+    },
+    /// Write one dotted key, creating the profile if it does not exist.
+    Set {
+        /// The dotted key.
+        key: String,
+        /// The value.
+        value: String,
+    },
 }
 
 #[tokio::main]
 async fn main() -> std::process::ExitCode {
-    let cli = Cli::parse();
+    let mut cli = Cli::parse();
+
+    // M63-18: fold flags, environment and profile into the two values every request uses. `config`
+    // is exempt because it edits the file that resolution reads — resolving first would refuse a
+    // command that only wanted to fix the file the resolution complained about.
+    let editing_config = matches!(cli.command, Command::Config { .. });
+    if editing_config {
+        let path = profiles::path();
+        return match run_config(&path, &cli.config_action(), cli.profile.as_deref()) {
+            Ok(()) => std::process::ExitCode::SUCCESS,
+            Err(error) => {
+                eprintln!("{error}");
+                std::process::ExitCode::from(2)
+            }
+        };
+    }
+    match profiles::resolve(
+        &cli.base_url,
+        cli.token.as_deref(),
+        cli.cookie.as_deref(),
+        cli.profile.as_deref(),
+        &profiles::path(),
+    ) {
+        Ok(resolved) => {
+            cli.base_url = resolved.url;
+            cli.token = resolved.token;
+            cli.cookie = resolved.cookie;
+        }
+        Err(error) => {
+            // A named profile that does not exist is a refusal, not a reason to install a default:
+            // the next request would carry the wrong instance's token.
+            eprintln!("{error}");
+            return std::process::ExitCode::from(2);
+        }
+    }
+
     match &cli.command {
         Command::Rec(args) => match rec::run(&cli, args).await {
             Ok(()) => std::process::ExitCode::SUCCESS,
@@ -182,6 +269,8 @@ async fn main() -> std::process::ExitCode {
                 std::process::ExitCode::from(error.code)
             }
         },
+        // Handled before this match, because `config` edits the file that resolution reads.
+        Command::Config { .. } => unreachable!("config is dispatched before resolution"),
         Command::Redact => {
             use std::io::Read as _;
             let mut input = String::new();
@@ -228,5 +317,54 @@ async fn main() -> std::process::ExitCode {
                 std::process::ExitCode::from(error.code)
             }
         },
+    }
+}
+
+impl Cli {
+    /// The `config` subcommand, cloned out so `run_config` does not have to borrow the whole CLI.
+    fn config_action(&self) -> ConfigAction {
+        match &self.command {
+            Command::Config { action } => action.clone(),
+            _ => ConfigAction::Path,
+        }
+    }
+}
+
+/// `dh config path|get|set` — the only command that edits the file resolution reads.
+fn run_config(
+    path: &std::path::Path,
+    action: &ConfigAction,
+    profile: Option<&str>,
+) -> anyhow::Result<()> {
+    match action {
+        ConfigAction::Path => {
+            println!("{}", path.display());
+            // Which profile will actually be used is the other half of "where is my config": a file
+            // with four profiles and a `default_profile` answers nothing on its own.
+            let resolved = profiles::resolve("", None, None, profile, path)?;
+            match resolved.profile {
+                Some(name) => println!("profile: {name}"),
+                None => println!("profile: (none; using the built-in default)"),
+            }
+            Ok(())
+        }
+        ConfigAction::Get { key } => {
+            let config = profiles::load(path)?;
+            println!("{}", profiles::get(&config, key)?);
+            Ok(())
+        }
+        ConfigAction::Set { key, value } => {
+            let mut config = profiles::load(path)?;
+            profiles::set(&mut config, key, value)?;
+            profiles::save(path, &config)?;
+            // Name what was written, and for a secret name only that it was written: an echo of the
+            // value would put it in the shell's scrollback, which is the leak `get` is careful about.
+            if key.ends_with(".token") || key.ends_with(".cookie") {
+                println!("{key}: set (hidden)");
+            } else {
+                println!("{key}: {value}");
+            }
+            Ok(())
+        }
     }
 }

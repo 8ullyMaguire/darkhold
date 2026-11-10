@@ -3217,3 +3217,56 @@ Measured after the restart:
 ssh one-liner matches the ssh server's own command line and kills the session (exit 255, no output, nothing executed), and
 a `setsid nohup` build died mid-`Compiling` with no OOM and no cargo process, leaving a log-waiter polling a log that would
 never say `Finished`. The build now runs in the foreground of one tracked ssh that prints its exit code.
+### M63-18 — config profiles: one user, two instances (2026-11-10)
+
+`crates/cli/src/profiles.rs`, `--profile`/`DARKHOLD_PROFILE`, and `dh config path|get|set`. The file is
+`~/.config/darkhold/config.toml` (or `$DARKHOLD_CONFIG`), `0600`, holding `default_profile` and
+`[profiles.<name>] url/token/cookie`.
+
+**One resolution order, in one function:** `--flag` > `DARKHOLD_*` (clap folds the environment into the flag) >
+the selected profile > the built-in default. Two places deciding which instance is being talked to is how a token
+reaches the wrong server, and the failure then looks like a server bug.
+
+**Decisions worth keeping, each in a comment beside the code:**
+
+* **`--base-url` beats the profile's URL but keeps the profile's token.** Pointing one command at a staging instance
+  is about *where*, not *who*; dropping the token because the URL was overridden would answer `401` for a reason the
+  reader never asked about.
+* **An unknown profile is a named error, exit 2, with the file path and the list of profiles.** Falling back to the
+  default would send the *other* instance's token to the *other* instance — the exact failure profiles exist to
+  prevent — and it would do it silently.
+* **A token read back is a description, never a value:** `set (hidden, N chars)`. A prefix is what a screenshot leaks,
+  and the length plus the profile name is what tells two entries apart. `dh config set` on a secret echoes only
+  `set (hidden)` so the value never lands in shell scrollback.
+* **`config` is dispatched before resolution**, because it edits the file resolution reads. Otherwise fixing a broken
+  profile would be refused by the broken profile.
+* **`--base-url`'s clap default became the empty string** ("not given") so a profile can supply the URL. Two `rec`
+  tests asserted the old parser default; they now resolve the way the binary does, which is the value that matters.
+
+**Proven on the built binary, not only in unit tests:**
+
+```text
+$ dh config set profiles.work.url https://work.example
+$ dh config set profiles.work.token supersecret-token-value
+$ dh config get profiles.work.token          → set (hidden, 23 chars)
+$ stat -c %a ~/.config/darkhold/config.toml  → 600
+$ dh --profile work module off arena
+would PATCH https://work.example/api/v1/modules/arena {"enabled":false}
+$ dh --profile work --base-url https://staging.example module off arena
+would PATCH https://staging.example/api/v1/modules/arena {"enabled":false}
+$ dh --profile nope module off arena
+no profile named `nope` in …/config.toml (profiles: work)     [rc=2]
+```
+
+`cargo test -p darkhold-cli` green (98 unit + seven integration suites); mutant making `resolve` load the file and then
+ignore the profile reddened both precedence assertions, reverted from `/tmp`.
+
+**The first full run went red for a reason worth keeping:** `crates/cli/tests/exit_codes.rs` spawns the real binary and
+removed only `DARKHOLD_TOKEN`/`DARKHOLD_COOKIE`, so an exported `DARKHOLD_CONFIG` carrying a profile with a cookie changed
+what the test measured — `a_local_refusal_that_needs_a_session_is_four` failed while the code was correct. A test that
+inherits the developer's config file is not a test. The helper now removes `DARKHOLD_CONFIG`, `DARKHOLD_PROFILE` and
+`DARKHOLD_BASE_URL` too, and the suite was re-run **with the profile environment still exported** to prove the isolation:
+7/7 suites green.
+
+**Not built, named:** no `dh config unset`, no per-profile `name`/`description`, and the token is not encrypted at rest —
+the file's `0600` is the boundary, the same one `ssh` uses.
