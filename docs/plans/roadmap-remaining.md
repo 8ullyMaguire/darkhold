@@ -2990,3 +2990,14 @@ verified).
 **Limit, stated rather than papered over:** reviews classified before this build keep their stored verdicts. Re-classifying history is a
 data migration with its own reversible rule.
 
+### `ReadUnit` — the last of §41.2's four acts (2026-11-10)
+
+"Read" is the reader's own fact: their saved position reached the end of the unit. New table `reader_unit_completions` (account, unit)
+distinct from `reading_unit_read` (pseud, first *open*, consumed by reading goals) — different scope, different act. `save_progress`
+answers `bool`; both doors credit through that one answer.
+
+**Next pass, from a red gate rather than a plan: `gate.sh dialects` fails on 14 pre-existing defects in 9 files** — `tag_scripts`,
+`content_policy`, `experiment_decisions`, `trope_clusters`, `experiment_snapshots`, `experiments`, `gravity_prefs`, `shelf_follows`,
+`source_engagement`: uncast placeholders that pass on SQLite and fail on PostgreSQL. Each needs a failing PG test before the cast, not
+just the cast.
+

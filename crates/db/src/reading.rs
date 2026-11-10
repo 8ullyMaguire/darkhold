@@ -74,7 +74,7 @@ pub struct ProgressInput<'a> {
 /// The upsert is keyed on `(account, pseud, subject, device)`; a NULL device
 /// id is treated as its own key, so two sessions with no device id share one
 /// row rather than colliding.
-pub async fn save_progress(db: &Database, input: ProgressInput<'_>) -> Result<()> {
+pub async fn save_progress(db: &Database, input: ProgressInput<'_>) -> Result<bool> {
     let ProgressInput {
         account,
         pseud,
@@ -89,6 +89,9 @@ pub async fn save_progress(db: &Database, input: ProgressInput<'_>) -> Result<()
 
     let id = uuid::Uuid::new_v4().to_string();
     let now = now_rfc3339();
+    // Handed back to the caller so the warmth credit can follow the row that was *actually* inserted, rather than the fact that a save
+    // arrived. See the completion block in each engine arm.
+    let mut newly_completed = false;
     let revision_text = revision.as_ref().map(ToString::to_string);
     let fraction_i64 = i64::from(fraction);
 
@@ -208,6 +211,30 @@ pub async fn save_progress(db: &Database, input: ProgressInput<'_>) -> Result<()
                     .await
                     .context("recording the chapter read")?;
             }
+            // §41.2's `ReadUnit` needs a fact the schema did not have: **this reader reached the end of this unit**. It is not
+            // `reading_unit_read`, which is written on the first *open* and keyed on the pseud — that table is what the `chapters`
+            // and `words` goals count, and opening is not reading. An insert-or-nothing, and `rows_affected` is the one-time credit:
+            // the row is the "already counted" state, and a second save of the same unit answers `false`.
+            if let Some(unit) = unit_id {
+                if fraction >= 1000 {
+                    let complete_sql = db.sql(
+                        "INSERT INTO reader_unit_completions (account_id, unit_id, work_id, first_completed_at) \
+                         VALUES (?, ?, ?, ?) ON CONFLICT (account_id, unit_id) DO NOTHING",
+                        "INSERT INTO reader_unit_completions (account_id, unit_id, work_id, first_completed_at) \
+                         VALUES ($1::uuid, $2::uuid, $3::uuid, $4) ON CONFLICT (account_id, unit_id) DO NOTHING",
+                    );
+                    newly_completed = sqlx::query(&complete_sql)
+                        .bind(account.to_string())
+                        .bind(unit)
+                        .bind(subject_id)
+                        .bind(&now)
+                        .execute(&mut *tx)
+                        .await
+                        .context("recording the unit completion")?
+                        .rows_affected()
+                        > 0;
+                }
+            }
             tx.commit().await?;
         }
         Backend::Postgres => {
@@ -257,10 +284,34 @@ pub async fn save_progress(db: &Database, input: ProgressInput<'_>) -> Result<()
                     .await
                     .context("recording the chapter read")?;
             }
+            // §41.2's `ReadUnit` needs a fact the schema did not have: **this reader reached the end of this unit**. It is not
+            // `reading_unit_read`, which is written on the first *open* and keyed on the pseud — that table is what the `chapters`
+            // and `words` goals count, and opening is not reading. An insert-or-nothing, and `rows_affected` is the one-time credit:
+            // the row is the "already counted" state, and a second save of the same unit answers `false`.
+            if let Some(unit) = unit_id {
+                if fraction >= 1000 {
+                    let complete_sql = db.sql(
+                        "INSERT INTO reader_unit_completions (account_id, unit_id, work_id, first_completed_at) \
+                         VALUES (?, ?, ?, ?) ON CONFLICT (account_id, unit_id) DO NOTHING",
+                        "INSERT INTO reader_unit_completions (account_id, unit_id, work_id, first_completed_at) \
+                         VALUES ($1::uuid, $2::uuid, $3::uuid, $4) ON CONFLICT (account_id, unit_id) DO NOTHING",
+                    );
+                    newly_completed = sqlx::query(&complete_sql)
+                        .bind(account.to_string())
+                        .bind(unit)
+                        .bind(subject_id)
+                        .bind(&now)
+                        .execute(&mut *tx)
+                        .await
+                        .context("recording the unit completion")?
+                        .rows_affected()
+                        > 0;
+                }
+            }
             tx.commit().await?;
         }
     }
-    Ok(())
+    Ok(newly_completed)
 }
 
 /// Every stored position for a subject for this account, one per device.

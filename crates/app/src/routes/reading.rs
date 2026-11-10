@@ -497,7 +497,7 @@ async fn save_progress(
             revision = reading::current_revision_of_unit(state.db(), unit).await?;
         }
     }
-    reading::save_progress(
+    let completed_unit = reading::save_progress(
         state.db(),
         reading::ProgressInput {
             account: user.account_id,
@@ -512,6 +512,19 @@ async fn save_progress(
         },
     )
     .await?;
+
+    // §41.2's `ReadUnit` (100 bp), credited on the save that *completed* a unit and only on that one — `save_progress` answers
+    // `true` for the insert that created the completion row. Best-effort, like every warmth write: a derived panel must not fail the
+    // reader's save.
+    if completed_unit && request.subject_type == "work" {
+        crate::warmth::record(
+            &state,
+            &user.account_id.to_string(),
+            &request.subject_id,
+            darkhold_domain::longevity::WarmthAction::ReadUnit,
+        )
+        .await;
+    }
 
     // Reading is what puts a work in the reader's history, and this route is
     // the only signal the reader's browser sends on arrival. `touch_history`
