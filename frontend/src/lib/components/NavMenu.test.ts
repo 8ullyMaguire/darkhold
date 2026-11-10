@@ -161,4 +161,20 @@ describe('NavMenu', () => {
     const { trigger } = setup({ current: false });
     expect(trigger.querySelector('.pip')).not.toBeInTheDocument();
   });
+
+  it('renders the panel outside the nav row, so a scrolling row cannot crop it', async () => {
+    // The bug this pins: `.desktop` sets `overflow-x: auto` for the narrow-window
+    // escape hatch, and a non-`visible` overflow on one axis computes `visible` to
+    // `auto` on the other -- so the row became a scroll container and clipped every
+    // `position: absolute` panel at its own bottom edge. The panel is fixed now, and
+    // jsdom reports zero-sized rects, so what is asserted is the mechanism (the
+    // class and the measured inline anchor), not a pixel position.
+    const { trigger } = setup();
+    await fireEvent.click(trigger);
+
+    const panel = screen.getByTestId('menu-panel');
+    expect(panel.className).toContain('floating');
+    expect(panel.getAttribute('style')).toContain('left:');
+    expect(panel.getAttribute('style')).toContain('top:');
+  });
 });

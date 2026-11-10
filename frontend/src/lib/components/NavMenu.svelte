@@ -57,6 +57,59 @@
   let menu = $state<HTMLElement | null>(null);
 
   /**
+   * Where the open panel sits, in viewport coordinates.
+   *
+   * The panel used to be `position: absolute` inside this component, which is
+   * correct until an ancestor scrolls: `.desktop` sets `overflow-x: auto` for the
+   * narrow-window escape hatch, and per CSS a non-`visible` value on one axis
+   * computes `visible` to `auto` on the other -- so the row became a scroll
+   * container and **cropped every panel at its own bottom edge**. The bar looked
+   * like it was eating the menu. `position: fixed` takes the panel out of that
+   * container's box entirely, which is the only fix that keeps the horizontal
+   * scroll for the row itself.
+   *
+   * Measured from the trigger rather than hard-coded to the left edge: the panel
+   * still belongs under the item that opened it.
+   */
+  let anchor = $state<{ left: number; top: number } | null>(null);
+
+  /** The gap between the trigger and the panel, matching `--space-2`. */
+  const PANEL_OFFSET = 8;
+
+  function place() {
+    const rect = button?.getBoundingClientRect();
+    if (!rect) return;
+    anchor = { left: rect.left + rect.width / 2, top: rect.bottom + PANEL_OFFSET };
+  }
+
+  /**
+   * Keep the panel inside the viewport once it has a width.
+   *
+   * `place()` centres on the trigger, and the last menu in the row would hang off
+   * the right edge on a narrow window. Clamping needs the panel's own width, which
+   * is not known until it has rendered, so this runs after open rather than inside
+   * `place()`.
+   */
+  $effect(() => {
+    if (!open || !anchor || !menu) return;
+    const width = menu.getBoundingClientRect().width;
+    if (width === 0) return;
+    const margin = 8;
+    let left = anchor.left;
+    if (left - width / 2 < margin) left = margin + width / 2;
+    if (left + width / 2 > window.innerWidth - margin) {
+      left = window.innerWidth - margin - width / 2;
+    }
+    if (left !== anchor.left) anchor = { ...anchor, left };
+  });
+
+  function show() {
+    place();
+    open = true;
+    onopen?.();
+  }
+
+  /**
    * Focusable descendants, in DOM order.
    *
    * The obvious visibility filter here is `el.offsetParent !== null`, and it is
@@ -82,13 +135,14 @@
   }
 
   function toggle() {
-    open = !open;
     if (open) {
-      onopen?.();
-      // Focus the first item so the keyboard path does not have to Tab through
-      // the page to get into the menu it just opened.
-      queueMicrotask(() => focusables()[0]?.focus());
+      open = false;
+      return;
     }
+    show();
+    // Focus the first item so the keyboard path does not have to Tab through
+    // the page to get into the menu it just opened.
+    queueMicrotask(() => focusables()[0]?.focus());
   }
 
   function onKeydown(event: KeyboardEvent) {
@@ -97,8 +151,7 @@
       // is what a menu is expected to do from the keyboard.
       if (event.key === 'ArrowDown') {
         event.preventDefault();
-        open = true;
-        onopen?.();
+        show();
         queueMicrotask(() => focusables()[0]?.focus());
       }
       return;
@@ -181,6 +234,8 @@
     <div
       bind:this={menu}
       class="panel"
+      class:floating={anchor !== null}
+      style={anchor ? `left: ${anchor.left}px; top: ${anchor.top}px` : undefined}
       role="group"
       aria-label={label}
       data-testid="menu-panel"
@@ -213,6 +268,14 @@
   the page behind stays usable.
 -->
 <svelte:window
+  onscroll={() => {
+    // The panel is `position: fixed`, so it does not travel with the header when
+    // the page scrolls: re-measure or it hangs in the middle of the page.
+    if (open) place();
+  }}
+  onresize={() => {
+    if (open) place();
+  }}
   onclick={(event) => {
     if (!open) return;
     if (event.target instanceof Node && menu?.contains(event.target)) return;
@@ -281,6 +344,15 @@
     display: flex;
     flex-direction: column;
     z-index: 50;
+  }
+
+  /*
+   * The fixed variant. `top`/`left` come from the inline style measured off the
+   * trigger, so this rule only has to take the panel out of the scroll container
+   * and keep the centring transform.
+   */
+  .panel.floating {
+    position: fixed;
   }
 
   .panel a {

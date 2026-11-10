@@ -257,7 +257,9 @@
 :root {
   /* text */
   --text: var(--color-text);
-  --text-2: var(--color-muted);
+  /* `--text-2` is a palette token (after-hours: #adb9ae) and `--color-muted` is defined as `var(--text-2)`, so
+     aliasing it back here is the same cycle as `--surface-2` below: both went empty and every `color: var(--color-muted)`
+     fell back to the inherited colour, which is why muted text looked like ordinary text. */
   --text-muted: var(--color-muted);
   --muted: var(--color-muted);
   --fg-muted: var(--color-muted);
@@ -267,7 +269,12 @@
   --background: var(--color-bg);
   --bg: var(--color-bg);
   --surface: var(--color-surface);
-  --surface-2: var(--color-surface-raised);
+  /* NOT `--surface-2: var(--color-surface-raised)`.
+     `--surface-2` is a PALETTE token (@polaris/ui/palettes/*.css, `#24312a` in after-hours), and
+     `--color-surface-raised` is defined above as `var(--surface-2)`. Aliasing it back closes a cycle, so both
+     resolve to the empty value and every raised surface — the nav menu panels, dialogs, drawers — renders
+     transparent: measured in a built bundle, `getComputedStyle(panel).backgroundColor` was `rgba(0, 0, 0, 0)` with
+     `--surface-2: ""` on the root while `--surface-0`/`--surface-1` resolved fine. The palette owns this name. */
   --surface-alt: var(--color-surface-raised);
   --surface-raised: var(--color-surface-raised);
   --surface-elevated: var(--color-surface-raised);
@@ -290,7 +297,8 @@
   --primary: var(--color-primary);
   --accent: var(--color-accent);
   --accent-bg: var(--color-accent-soft);
-  --accent-subtle: var(--color-accent-soft);
+  /* `--accent-subtle` is a palette token; the cycle here emptied `--color-accent-soft` and every soft chip rendered
+     with no background at all. */
   --color-accent-bg: var(--color-accent-soft);
   --color-accent-subtle: var(--color-accent-soft);
 
