@@ -85,7 +85,7 @@ pub async fn follow(
          VALUES (?1, ?2, ?3)
          ON CONFLICT (follower_account_id, shelf_id) DO NOTHING",
         "INSERT INTO shelf_follows (follower_account_id, shelf_id, created_at)
-         VALUES ($1, $2, $3)
+         VALUES ($1::uuid, $2::uuid, $3::timestamptz)
          ON CONFLICT (follower_account_id, shelf_id) DO NOTHING",
     );
     let now = now_rfc3339();

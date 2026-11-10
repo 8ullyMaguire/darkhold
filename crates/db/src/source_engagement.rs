@@ -108,7 +108,7 @@ pub async fn record(
              value = excluded.value,
              reported_at = excluded.reported_at",
         "INSERT INTO library_item_engagement (library_item_id, metric, value, reported_at)
-         VALUES ($1::uuid, $2, $3, $4)
+         VALUES ($1::uuid, $2, $3, $4::timestamptz)
          ON CONFLICT (library_item_id, metric) DO UPDATE SET
              value = excluded.value,
              reported_at = excluded.reported_at",
