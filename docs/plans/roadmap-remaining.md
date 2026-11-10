@@ -3127,3 +3127,41 @@ visitor earns nothing for anybody. Attribution never fails the page.
 
 Proof: `m45_41_share_attribution` 1/1 both engines; mutants (unique credit key, self-attribution allowed) reddened;
 `route_inventory` 5/5.
+
+### M45-42 — claim your works: plan (written before the code, per the standing rule)
+
+**The problem.** The catalogue holds ~58k works imported as metadata; their authors are not accounts here. A claim
+lets an author take ownership of metadata rows that are already about them, without an operator guessing.
+
+**The proof of authorship.** A token the claimant places in their AO3 profile, because the profile is a page the
+author already controls and AO3 already verifies. Nothing in this instance can be forged into it.
+
+**Shape (decided):**
+
+1. `POST /claims` (session, `{works: [ids], profile_url}`) → `201 {claim_id, token, instructions}`. Token is
+   `dh-claim-<24 hex>`, minted once per (account, profile_url); a second claim reuses it, so an author who opens the
+   page twice does not have two tokens to paste.
+2. `POST /claims/{id}/verify` (session, owner-scoped) → fetches `profile_url`, requires the token verbatim, then
+   attaches every work in the claim whose `owner_pseud_id` is the metadata placeholder and which is not in the
+   exclusion registry. Answers `{claimed: n, refused: [{work, reason}]}` — a claim that attaches nothing must say why
+   per work rather than "0".
+3. `GET /claims/{id}` → the claim's state (`pending`/`verified`/`refused`) and what it would attach, so an author can
+   see the outcome; owner-scoped, 404 to a stranger (a claim id is not a capability).
+
+**Refusals, each a different sentence:**
+
+* a work already owned by a real account → `refused: "already_claimed"`, never silently skipped;
+* a work in the exclusion registry (`is_excluded`, the pass-42 door) → `refused: "excluded_by_author"`;
+* the token absent from the profile → `422` naming `profile_url`, and the claim stays `pending` (fetching a page that
+  does not carry the token is not a failure of the claim, it is a visit that proved nothing);
+* a second account verifying a claim whose works are already claimed → `409` with the per-work list.
+
+**The half that does not exist yet, named here:** there is no mailer and no background fetcher in this instance.
+`verify` fetches the profile **at request time** and only the one URL in the claim; it does not crawl, and it does not
+retry. If the fetch fails, the claim stays `pending` and the answer says `fetch_failed` — a claim is not refused
+because AO3 rate-limited us.
+
+**Test file**: `crates/app/tests/m45_42_claim_works.rs`, both engines, with the profile fetch behind a trait so the
+test answers with a canned body instead of reaching the network. The trait is the seam: `ProfileFetcher` with one
+method, a real implementation for the app and a canned one for the suite — the claim logic is what the row is about,
+not the HTTP client.
