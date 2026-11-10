@@ -2921,3 +2921,27 @@ Named next half: `completeness` and `reader_positivity` are derivable from store
 row each with a documented mapping, not a route that invents a curve. `editorial_review`, `quorum_distinction` and `maturity` stay
 operator/quorum acts by definition.
 
+### Deployed 2026-11-10 02:38 — `0.1.0+fb451f68` (quality-signal door)
+
+Backup `/personal/backups/darkhold-20261110-023836-pre-quality-signals.dump` verified at **392 TABLE DATA**; release build 15m12s;
+`migrate` 197/0.
+
+Live, and stated exactly: `GET /api/v1/works/{id}/quality` answers `{"composite": null, "signals": []}` — the honest empty shape, not
+a fabricated average — the door answers `401` to an anonymous caller, and `min_quality:750` still returns `total: 0` **because no
+operator has scored anything yet**. The door is what shipped; the catalogue stays unscored until an operator uses it or the derived
+kinds (`completeness`, `reader_positivity`) land with their documented mappings. Claiming the filter is "fixed" would be claiming a
+door is a population.
+
+### `reader_positivity` is real; `completeness` is not a signal (2026-11-10)
+
+`reader_positivity` = `round(1000 * positive / visible)` over `positivity::visible_reviews`, recomputed on every review write and
+deletion. No visible reviews deletes the row: a `0` would claim a verdict nobody reached.
+
+`completeness` is dropped as a derived kind: `completion:complete` is already a filter, so the signal would be the same fact twice
+with an invented curve attached.
+
+**Open decision (not taken in passing):** `"This is awful and boring. I hate it."` classifies **Positive** — it matches no
+`HOSTILE_MARKERS` phrase and falls through to `non-critical-engagement`, so the §12 gate delivers generic hostility to authors.
+Extending the marker list is policy (adding `awful`/`boring` would hold "the villain was awful", which is praise), so it needs a
+stated rule and its own tests.
+

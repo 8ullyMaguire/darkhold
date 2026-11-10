@@ -399,3 +399,33 @@ Proof: red first (`GET /works/{id}/quality` was 404). Then, on both engines, the
 no-bounds-check (201 for `1001`).
 
 Ratchet: 37 → 36 (`work_quality_signals` now has its caller).
+
+## Pass 81 — `reader_positivity`: the signal the corpus can prove (2026-11-10)
+
+Of the two kinds pass 80 named as derivable, `completeness` is **not** one: `completion:complete` is already a filter, so a derived
+signal would be a second way to say the same thing with a number attached — a curve invented over a stored enum. Dropped with that
+reason on record.
+
+`reader_positivity` is arithmetic on something that exists: `darkhold_domain::positivity::classify` reads review text and returns a
+class. The signal is `round(1000 * positive / visible)` over `positivity::visible_reviews` — the list the work page serves — and it is
+**recomputed on every review write and deletion**, because an incremental average keeps the first reviewer's verdict winning forever.
+
+Three states kept apart: no visible reviews → the computed row is **deleted** (absent, not `0`); visible non-positive reviews count in
+the denominator (a visible critique is not praise); held reviews are not on the page and therefore not in the number.
+
+**The placement defect this pass caught in itself.** The first version called the recompute *before* the positivity gate. `visible_reviews`
+joins `review_classifications` with `(c.outcome IS NULL OR c.outcome = 'delivered')`, so a row with no classification yet counts as
+visible — a **held** hostile review landed in the signal that exists to describe what readers see. Measured: the value moved to 500
+when the held review should not have moved it at all. Moved after the gate, with the reason written at the call.
+
+**Finding, recorded not fixed: the classifier delivers generic hostility.** `"This is awful and boring. I hate it."` classifies
+**Positive** — it matches no `HOSTILE_MARKERS` phrase and falls through to `non-critical-engagement`. So the gate delivered it to the
+author. The marker list is policy (adding `boring`/`awful` would also hold legitimate critique: "the villain was awful" is praise), so
+this is a decision for the roadmap, not a list I extend in passing.
+
+Proof: red first (no signal after a positive review). Then both engines: absent → `1000` (one positive) → hostile held and uncounted →
+author opts into constructive, critique delivered, `500` → delete the positive, `0` (visible, not positive) → delete the critique,
+absent again. Mutants: *every visible review counts as positive* (reddens the `500`) — this one **survived the first version of the
+test**, which is why the visible-non-positive step exists; and *an empty page keeps the old row* (reddens the `None`).
+
+Ratchet: 36 (unchanged; no orphans resolved or added).

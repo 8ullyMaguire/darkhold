@@ -952,6 +952,14 @@ async fn upsert_review(
         darkhold_domain::positivity::DeliveryOutcome::Delivered
     };
 
+    // **After** the gate, not before it. The first placement of this call sat above the classification, so `visible_reviews` read a
+    // row with no `review_classifications` entry — the join's `(c.outcome IS NULL OR c.outcome = 'delivered')` treats that as visible —
+    // and a held review was counted in the very signal that exists to describe what readers can see. The measurement that caught it:
+    // a hostile review held by the gate still moved the value to 500.
+    if let Err(error) = darkhold_db::media::recompute_reader_positivity(state.db(), &work_id.to_string()).await {
+        tracing::warn!(%error, "reader_positivity could not be recomputed");
+    }
+
     Ok(Json(ReviewView::with_receipt(
         review,
         sender_receipt(outcome).to_owned(),
@@ -969,6 +977,11 @@ async fn delete_review(
     // A review that is not there is not a failure: the caller asked for the
     // end state, and it already holds.
     reading::delete_review(state.db(), pseud_id, work_id).await?;
+    // The deletion changes which reviews a reader can see, so the signal changes with it — including back to *absent* when this was
+    // the last visible review.
+    if let Err(error) = darkhold_db::media::recompute_reader_positivity(state.db(), &work_id.to_string()).await {
+        tracing::warn!(%error, "reader_positivity could not be recomputed after a deletion");
+    }
     Ok(StatusCode::NO_CONTENT)
 }
 

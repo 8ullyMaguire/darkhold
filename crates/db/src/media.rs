@@ -1667,3 +1667,56 @@ pub async fn space_media(
         next_cursor,
     ))
 }
+
+/// Recompute the `reader_positivity` signal for one work, from the reviews a reader can actually see.
+///
+/// §32.1 names this kind; §32.3 makes it filterable. The value is **arithmetic on the classifier's own verdicts**, not a curve I
+/// invented: `round(1000 * positive / visible)`, where `positive` is `FeedbackClass::Positive` and every other class — constructive,
+/// ambiguous, negative — counts as not positive. A constructive review is not a positive one, and rounding it up would be me
+/// overruling the classifier that exists to make that call.
+///
+/// Two states that must not collapse:
+///
+/// * **no visible reviews** removes the computed row and returns `None`. Zero reviews is not "0% positive": that number would sit in
+///   a `min_quality` sort as though somebody had judged the work unkindly, which is the same lie as an empty quality panel.
+/// * *held* reviews are excluded because the source list is `positivity::visible_reviews` — the one list the work page serves. A
+///   number computed from text a reader cannot see is a number about a different page.
+pub async fn recompute_reader_positivity(db: &Database, work_id: &str) -> Result<Option<i64>> {
+    let Ok(work) = work_id.parse::<darkhold_domain::WorkId>() else {
+        return Ok(None);
+    };
+    let reviews = crate::positivity::visible_reviews(db, work).await?;
+    if reviews.is_empty() {
+        let drop = db.sql(
+            "DELETE FROM quality_signals WHERE work_id = ? AND signal_kind = 'reader_positivity' AND source = 'computed'",
+            "DELETE FROM quality_signals WHERE work_id::text = $1 AND signal_kind = 'reader_positivity' AND source = 'computed'",
+        );
+        match db.backend() {
+            Backend::Sqlite => {
+                sqlx::query(&drop)
+                    .bind(work_id)
+                    .execute(db.sqlite_pool().expect("sqlite handle"))
+                    .await?;
+            }
+            Backend::Postgres => {
+                sqlx::query(&drop)
+                    .bind(work_id)
+                    .execute(db.postgres_pool().expect("postgres handle"))
+                    .await?;
+            }
+        }
+        return Ok(None);
+    }
+    let total = reviews.len() as i64;
+    let positive = reviews
+        .iter()
+        .filter(|review| {
+            darkhold_domain::positivity::classify(&review.body).class
+                == darkhold_domain::positivity::FeedbackClass::Positive
+        })
+        .count() as i64;
+    // Integer arithmetic in basis points: `positive * 1000 / total`, rounded half-up.
+    let value = (positive * 1000 + total / 2) / total;
+    store_signal(db, work_id, "reader_positivity", value, 1, "computed").await?;
+    Ok(Some(value))
+}
