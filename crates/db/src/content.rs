@@ -1763,8 +1763,11 @@ pub async fn publish_work(
     // A replay must do nothing at all — not merely skip the notification — so
     // this is checked before the transaction opens. The key is normalised first (ADR 0025): trimmed and capped in
     // characters, and `None` stays `None`, because a caller who wants a replay-safe publish has to ask for one.
-    let idempotency_key = crate::idempotency::normalise(idempotency_key, crate::idempotency::KeyPolicy::PUBLICATION)
-        .map_err(|refusal| ContentError::Refused(AppError::field("idempotency_key", refusal.message())))?;
+    let idempotency_key =
+        crate::idempotency::normalise(idempotency_key, crate::idempotency::KeyPolicy::PUBLICATION)
+            .map_err(|refusal| {
+                ContentError::Refused(AppError::field("idempotency_key", refusal.message()))
+            })?;
     if let Some(key) = idempotency_key.as_deref() {
         if publication_event_exists(db, key).await? {
             return Ok(PublicationOutcome::AlreadyApplied);

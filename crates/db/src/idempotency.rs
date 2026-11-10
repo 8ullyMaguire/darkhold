@@ -135,7 +135,10 @@ mod tests {
         // 150 characters in a script where each is three bytes: 450 bytes, 150 characters. The old `len() > 200` refused it.
         let key: String = "鍵".repeat(150);
         assert!(key.len() > 200, "the fixture must be longer than 200 bytes");
-        assert_eq!(normalise(Some(&key), KeyPolicy::PAYMENT), Ok(Some(key.clone())));
+        assert_eq!(
+            normalise(Some(&key), KeyPolicy::PAYMENT),
+            Ok(Some(key.clone()))
+        );
     }
 
     #[test]
@@ -154,22 +157,34 @@ mod tests {
 
     #[test]
     fn a_payment_without_a_key_derives_one_from_what_was_bought() {
-        let key = derive_or(None, || "extension:buyer-1:slug-1".to_owned(), KeyPolicy::PAYMENT).unwrap();
+        let key = derive_or(
+            None,
+            || "extension:buyer-1:slug-1".to_owned(),
+            KeyPolicy::PAYMENT,
+        )
+        .unwrap();
         assert_eq!(key, "extension:buyer-1:slug-1");
     }
 
     #[test]
     fn a_payment_with_a_key_ignores_the_derivation() {
         // The closure must not run: a derived key would silently replace the caller's retry token.
-        let key = derive_or(Some("caller-token"), || panic!("derivation ran with a key present"), KeyPolicy::PAYMENT)
-            .unwrap();
+        let key = derive_or(
+            Some("caller-token"),
+            || panic!("derivation ran with a key present"),
+            KeyPolicy::PAYMENT,
+        )
+        .unwrap();
         assert_eq!(key, "caller-token");
     }
 
     #[test]
     fn the_duplicate_behaviour_is_declared_per_route_and_differs() {
         assert_eq!(KeyPolicy::PAYMENT.on_duplicate, OnDuplicate::Replay);
-        assert_eq!(KeyPolicy::PUBLICATION.on_duplicate, OnDuplicate::AlreadyApplied);
+        assert_eq!(
+            KeyPolicy::PUBLICATION.on_duplicate,
+            OnDuplicate::AlreadyApplied
+        );
         assert_eq!(KeyPolicy::JOB.on_duplicate, OnDuplicate::Skip);
     }
 

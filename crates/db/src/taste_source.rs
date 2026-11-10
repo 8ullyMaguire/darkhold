@@ -73,7 +73,10 @@ pub async fn contributors(db: &Database) -> Result<Vec<ContributorRow>> {
     let mut rows = Vec::new();
     match db.backend() {
         Backend::Sqlite => {
-            let fetched = sqlx::query_as::<_, (String, i64, i64, Option<i64>, i64, Option<String>)>(&statement)
+            let fetched =
+                sqlx::query_as::<_, (String, i64, i64, Option<i64>, i64, Option<String>)>(
+                    &statement,
+                )
                 .fetch_all(db.sqlite_pool().expect("sqlite"))
                 .await?;
             for (id, curator, trust, score_bp, evidence_bp, badges) in fetched {
@@ -81,14 +84,18 @@ pub async fn contributors(db: &Database) -> Result<Vec<ContributorRow>> {
                     id,
                     is_curator: curator != 0,
                     trust_level: u8::try_from(trust.clamp(0, 255)).unwrap_or(0),
-                    affinity: score_bp.map(|bp| f64::from(i32::try_from(bp).unwrap_or(0)) / 10_000.0),
+                    affinity: score_bp
+                        .map(|bp| f64::from(i32::try_from(bp).unwrap_or(0)) / 10_000.0),
                     affinity_evidence: u32::try_from((evidence_bp / 1_000).max(0)).unwrap_or(0),
                     badges: split_badges(badges),
                 });
             }
         }
         Backend::Postgres => {
-            let fetched = sqlx::query_as::<_, (String, bool, i64, Option<i32>, i64, Option<String>)>(&statement)
+            let fetched =
+                sqlx::query_as::<_, (String, bool, i64, Option<i32>, i64, Option<String>)>(
+                    &statement,
+                )
                 .fetch_all(db.postgres_pool().expect("postgres"))
                 .await?;
             for (id, curator, trust, score_bp, evidence_bp, badges) in fetched {
@@ -145,10 +152,11 @@ pub async fn evidence(db: &Database, limit: i64) -> Result<Vec<EvidenceRow>> {
     let mut rows = Vec::new();
     match db.backend() {
         Backend::Sqlite => {
-            let fetched = sqlx::query_as::<_, (String, String, String, f64, Option<f64>)>(&statement)
-                .bind(limit)
-                .fetch_all(db.sqlite_pool().expect("sqlite"))
-                .await?;
+            let fetched =
+                sqlx::query_as::<_, (String, String, String, f64, Option<f64>)>(&statement)
+                    .bind(limit)
+                    .fetch_all(db.sqlite_pool().expect("sqlite"))
+                    .await?;
             for (contributor, verb, subject, strength, age) in fetched {
                 rows.push(EvidenceRow {
                     contributor,
@@ -160,10 +168,11 @@ pub async fn evidence(db: &Database, limit: i64) -> Result<Vec<EvidenceRow>> {
             }
         }
         Backend::Postgres => {
-            let fetched = sqlx::query_as::<_, (String, String, String, f64, Option<f64>)>(&statement)
-                .bind(limit)
-                .fetch_all(db.postgres_pool().expect("postgres"))
-                .await?;
+            let fetched =
+                sqlx::query_as::<_, (String, String, String, f64, Option<f64>)>(&statement)
+                    .bind(limit)
+                    .fetch_all(db.postgres_pool().expect("postgres"))
+                    .await?;
             for (contributor, verb, subject, strength, age) in fetched {
                 rows.push(EvidenceRow {
                     contributor,
@@ -195,7 +204,10 @@ mod tests {
 
     #[test]
     fn a_badge_list_is_split_and_trimmed() {
-        assert_eq!(split_badges(Some("attuned, curator".to_owned())), vec!["attuned", "curator"]);
+        assert_eq!(
+            split_badges(Some("attuned, curator".to_owned())),
+            vec!["attuned", "curator"]
+        );
     }
 
     #[test]

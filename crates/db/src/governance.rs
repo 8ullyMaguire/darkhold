@@ -1818,12 +1818,10 @@ async fn into_entry(row: ModlogRow, db: &Database) -> Result<ModlogEntry, sqlx::
     // A stored timestamp that does not parse is a data defect, and failing the page is better than publishing a date
     // the row never carried. The conversion goes through (secs, nanos) because this crate's date library is `time`
     // and the rules crate deliberately does not insist on its own.
-    let at = time::OffsetDateTime::parse(
-        &created_at,
-        &time::format_description::well_known::Rfc3339,
-    )
-    .map(|t| polaris_ledger::from_unix(t.unix_timestamp(), t.nanosecond()))
-    .map_err(|e| sqlx::Error::Decode(Box::new(e)))?;
+    let at =
+        time::OffsetDateTime::parse(&created_at, &time::format_description::well_known::Rfc3339)
+            .map(|t| polaris_ledger::from_unix(t.unix_timestamp(), t.nanosecond()))
+            .map_err(|e| sqlx::Error::Decode(Box::new(e)))?;
 
     // What this function does is *resolve*: which pseudonym the actor had, which public face the subject had. What may
     // be published is the crate's decision, not this function's — the account id is never in the `Act` at all, because

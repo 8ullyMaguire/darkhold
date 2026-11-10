@@ -1,0 +1,13 @@
+# One formatter, one compiler, every host.
+#
+# The workspace was formatted on two machines running different stables — 1.99.0 where it is edited, 1.98.1 where it is
+# built — and `cargo fmt --check` disagreed with itself: the same file was clean on one host and dirty on the other, so
+# the fmt gate was green in one checkout and red in the other with no code difference at all. A gate whose answer depends
+# on which machine runs it is not a gate.
+#
+# Pinned to the toolchain already installed on the build host, which is also >= the workspace's declared MSRV (1.82).
+# Bump this file, both hosts' toolchains and a reformat in one commit, or not at all.
+[toolchain]
+channel = "1.98.1"
+components = ["rustfmt", "clippy"]
+profile = "minimal"
