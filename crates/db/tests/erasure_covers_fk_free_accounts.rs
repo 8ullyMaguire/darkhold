@@ -19,93 +19,111 @@
 //! option, which is what the leak was.
 
 use std::collections::BTreeSet;
-use std::path::{Path, PathBuf};
 
 use darkhold_db::erasure::{erase_account, FK_FREE_ACCOUNT_COLUMNS};
 use darkhold_db::Backend;
 use test_support::TestDb;
 
-fn migrations_dir() -> PathBuf {
-    Path::new(env!("CARGO_MANIFEST_DIR"))
-        .join("..")
-        .join("..")
-        .join("migrations")
-        .join("sqlite")
-}
 
 /// `(table, column)` for every account-keyed column that no `REFERENCES accounts` clause covers.
-fn unlinked_account_columns() -> BTreeSet<(String, String)> {
-    let mut out = BTreeSet::new();
-    let mut files: Vec<PathBuf> = std::fs::read_dir(migrations_dir())
-        .expect("migrations/sqlite")
-        .filter_map(|entry| entry.ok().map(|e| e.path()))
-        .filter(|path| path.extension().is_some_and(|ext| ext == "sql"))
-        .collect();
-    files.sort();
+/// What the migrated schema says, not what the migration text mentions.
+///
+/// The first version of this scan read every `CREATE TABLE` block it could find and unioned them. That is wrong twice
+/// over: `0013_community.sql` begins `DROP TABLE IF EXISTS blocks; DROP TABLE IF EXISTS mutes;` and recreates both, so
+/// the union kept five columns the database does not have; and a `REFERENCES accounts` clause written on a line the
+/// pattern did not reach made a linked column look unlinked. A text parser can be made to agree with itself. It cannot
+/// be made to agree with a database.
+///
+/// So the schema comes from SQLite: `sqlite_master` for the tables, `pragma_table_info` for the columns,
+/// `pragma_foreign_key_list` for the edges. A column is *measured* when its name is one of the account spellings and its
+/// table cannot reach `accounts` by following foreign keys — because a table that can reach `accounts` is deleted or
+/// severed by the database itself, and a treatment there would be a second opinion about a job already done.
+async fn measured_account_columns(tdb: &TestDb) -> (BTreeSet<(String, String)>, BTreeSet<(String, String)>) {
+    let pool = tdb
+        .db()
+        .sqlite_pool()
+        .expect("this scanner reads the SQLite schema; the PG run has its own migrations");
+    let tables: Vec<String> = sqlx::query_scalar(
+        "SELECT name FROM sqlite_master WHERE type = 'table' AND name NOT LIKE 'sqlite_%' ORDER BY name",
+    )
+    .fetch_all(pool)
+    .await
+    .expect("list tables");
 
-    for path in files {
-        let text = std::fs::read_to_string(&path).expect("read a migration");
-        // Walk `CREATE TABLE <name> ( … );` blocks. The migrations are plain SQL and this scanner
-        // only needs the block's text, so a simple delimiter scan is enough and a full parser would
-        // be a second thing to keep correct.
-        let mut rest = text.as_str();
-        while let Some(start) = rest.find("CREATE TABLE") {
-            let after = &rest[start..];
-            let Some(open) = after.find('(') else { break };
-            let Some(close) = after[open..].find("\n);") else {
-                break;
-            };
-            let block = &after[..open + close];
-            // `CREATE TABLE [IF NOT EXISTS] <name> (` — the `IF NOT EXISTS` form is the common one
-            // in this tree, and taking the third word blindly names every such table `IF`.
-            let name = after
-                .split('(')
-                .next()
-                .unwrap_or_default()
-                .trim()
-                .trim_start_matches("CREATE TABLE")
-                .trim()
-                .trim_start_matches("IF NOT EXISTS")
-                .trim()
-                .trim_matches('"')
-                .split_whitespace()
-                .next()
-                .unwrap_or_default()
-                .to_string();
-            let table_covers_account = block.contains("REFERENCES accounts");
-            for line in block.lines() {
-                let mut words = line.trim().trim_end_matches(',').split_whitespace();
-                let Some(column) = words.next() else { continue };
-                // `account_id`, `*_account` (payment_events.author_account), `*_account_id`
-                // (trust_events.actor_account_id) and a bare `account` are the four spellings the tree uses.
-                // Missing the third is how this test found its own list wrong on the first run; missing the
-                // bare `account` is how the leak survived it — `trust_levels.account` is a plain TEXT column
-                // with no REFERENCES clause, so an account deleted out from under it left 189 live rows
-                // behind while this test stayed green, because the column is not spelled any of the first
-                // three ways. Every spelling a migration uses is a spelling the checker has to know.
-                let account_keyed = column == "account_id"
-                    || column == "account"
-                    || column.ends_with("_account")
-                    || column.ends_with("_account_id");
-                if !account_keyed || column.starts_with("--") {
-                    continue;
-                }
-                // A per-column `REFERENCES accounts` covers this column; the table-level check above
-                // covers the common shape where the clause sits on the column's own line.
-                let column_covers = line.contains("REFERENCES accounts");
-                if !column_covers && !table_covers_account {
-                    out.insert((name.clone(), column.to_string()));
-                }
+    let mut columns: BTreeSet<(String, String)> = BTreeSet::new();
+    let mut edges: std::collections::BTreeMap<String, Vec<String>> = std::collections::BTreeMap::new();
+
+    for table in &tables {
+        let names: Vec<String> = sqlx::query_scalar("SELECT name FROM pragma_table_info(?)")
+            .bind(table)
+            .fetch_all(pool)
+            .await
+            .expect("columns of a table");
+        for name in names {
+            columns.insert((table.clone(), name));
+        }
+        let targets: Vec<String> =
+            sqlx::query_scalar("SELECT \"table\" FROM pragma_foreign_key_list(?)")
+                .bind(table)
+                .fetch_all(pool)
+                .await
+                .expect("foreign keys of a table");
+        edges.insert(table.clone(), targets);
+    }
+
+    // Reachability: a table reaches `accounts` if it points at it, or at a table that does.
+    let mut reaches: std::collections::BTreeSet<String> = std::collections::BTreeSet::new();
+    reaches.insert("accounts".to_string());
+    loop {
+        let before = reaches.len();
+        for (table, targets) in &edges {
+            if reaches.contains(table) {
+                continue;
             }
-            rest = &after[open + close..];
+            if targets.iter().any(|target| reaches.contains(target)) {
+                reaches.insert(table.clone());
+            }
+        }
+        if reaches.len() == before {
+            break;
         }
     }
-    out
+
+    let measured = columns
+        .iter()
+        .filter(|(table, column)| !reaches.contains(table) && is_account_spelling(column))
+        .cloned()
+        .collect();
+    (measured, columns)
 }
 
-#[test]
-fn every_account_column_outside_the_fk_graph_is_classified() {
-    let measured = unlinked_account_columns();
+/// The spellings the schema actually uses. Missing one is how a leak survives a green gate:
+/// `trust_levels.account` is a plain TEXT column with no `REFERENCES` clause, and it stayed green for as long as the
+/// pattern only knew `account_id`. `created_by` and `*_pseud_id` are the same story two migrations later.
+fn is_account_spelling(column: &str) -> bool {
+    column == "account"
+        || column == "account_id"
+        || column == "created_by"
+        || column.ends_with("_account")
+        || column.ends_with("_account_id")
+        || column.ends_with("pseud_id")
+}
+
+#[tokio::test]
+async fn every_account_column_outside_the_fk_graph_is_classified() {
+    let tdb = TestDb::connect_with_dir(
+        "m45_65_identity_scan",
+        &test_support::scratch_dir("m45_65_identity_scan"),
+    )
+    .await;
+    if tdb.is_postgres() {
+        // The scan reads `sqlite_master` and the `pragma_*` table functions, so it is a statement about the SQLite
+        // schema only. The behaviour tests in this file run on both engines; this one announces why it does not.
+        eprintln!("skipped on PostgreSQL: the identity scan reads the SQLite schema");
+        return;
+    }
+    let (measured, schema_columns) = measured_account_columns(&tdb).await;
+
     assert!(
         !measured.is_empty(),
         "the scan found no unlinked account columns at all, which means the scanner broke rather \
@@ -128,8 +146,13 @@ fn every_account_column_outside_the_fk_graph_is_classified() {
         unclassified.join("\n  ")
     );
 
+    // Stale means "the schema does not have this column" — a rename or a typo, where the treatment
+    // silently stops being applied. It deliberately does NOT mean "the schema links it":
+    // `payment_events.account_id` reaches `accounts` through its own foreign key, and the erasure
+    // path still wants its treatment, so comparing classified against *measured* would have deleted
+    // a decision that is doing work. Two different questions, two different sets.
     let stale: Vec<String> = classified
-        .difference(&measured)
+        .difference(&schema_columns)
         .map(|(t, c)| format!("{t}.{c}"))
         .collect();
     assert!(

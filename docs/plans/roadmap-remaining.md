@@ -24,6 +24,33 @@ The batch that was in flight when the previous ssh was killed.
 | CSS | `--surface-2` now resolves (`oklch(18% var(--brand-chroma-surface) var(--brand-hue))` after-hours, `#ffffff` clear-day) — it was the empty string before, which is what made every raised surface transparent |
 | browser, live | on `https://darkhold.polarisocial.xyz/discover` the Read panel is `position: fixed`, `rgb(36, 49, 42)`, bottom 358px against a row bottom of 60px, and **0 of 6 links unhittable** |
 
+## M45-65 — done 2026-11-10: both identity gates read the schema, not the migration text
+
+The row is BOTH gates seeing `account`, `created_by` and `pseud_id`. The snapshot half widened `IDENTITY_NAME_RE`,
+classified 87 columns and left the builder emitting 119 `snapshot_account` projections. The erasure half needed the
+scanner rebuilt, and the two failed attempts are the useful part of this record.
+
+**Attempt 1 — widening the text matcher.** Named 52 columns, five of which do not exist: `0013_community.sql` does
+`DROP TABLE IF EXISTS blocks; DROP TABLE IF EXISTS mutes;` and recreates both, and the scanner unioned every
+`CREATE TABLE` block it found. A treatment for one of those made `erase_account` answer `no such column:
+source_pseud_id`.
+
+**Attempt 2 — an ordered text walk** (`CREATE TABLE` replaces, `DROP TABLE` removes, `ALTER … ADD/DROP COLUMN/RENAME`
+applies). The phantoms went and the set fell to 28 — but 13 *existing* treatments became "stale", because the walk could
+now see their `REFERENCES accounts` while two behaviour tests still depend on those treatments. That is the lesson:
+`measured` is a claim about the SCHEMA and `classified` is a claim about the ERASURE CODE, and comparing them directly
+conflates "the database already handles this" with "nobody thought about this".
+
+**What shipped.** The scan reads the database: `sqlite_master`, `pragma_table_info`, `pragma_foreign_key_list`; it
+computes which tables reach `accounts` by following foreign keys and measures only the columns outside that reach — 23
+of them today. The `stale` assertion now asks the schema whether a column exists (a rename or typo), which is a different
+question from whether the schema already links it. 23 treatments: 9 `Rekey("id")` on NOT NULL attribution, 2 `Sever` on
+nullable attribution, 12 `Delete` for the person's own act.
+
+**Proof.** `cargo test -p darkhold-db --test erasure_covers_fk_free_accounts` 4/4 (the scan announces its skip on
+PostgreSQL in one line rather than passing silently); mutant removing `search_history.pseud_id` names it and reddens;
+`check-snapshot-pii.py` OK 2878/395. Ledger 53 planned.
+
 ## M45-65 as measured — 2026-11-10 (`planned`, inventory done)
 
 The row says both identity gates must see `account`, `created_by`, `pseud_id`. Widening `IDENTITY_NAME_RE` in
