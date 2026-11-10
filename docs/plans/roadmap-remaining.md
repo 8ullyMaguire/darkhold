@@ -3020,3 +3020,23 @@ reports correct code is a gate the next pass ignores.
 **Standing rule, now proven twice:** the suite count is not the coverage. 86 files claim dual-backend coverage; 385 make no claim, and
 every defect in this pass lived in the 385.
 
+### Deployed 2026-11-10 11:45 — `0.1.0+544e9503` (dialect casts)
+
+Backup `/personal/backups/darkhold-20261110-111419-pre-dialect-casts.dump` → verified **393 TABLE DATA** (one more than last time: `reader_unit_completions`). Build 18m26s (concurrent with another session's build). `migrate` 198/0.
+
+**Live proof:** a throwaway account created a tag script — `POST /api/v1/tag-scripts` → **201** with `updated_at: "2026-11-10T10:44:01Z"`, and `GET /api/v1/tag-scripts` → **200** decoding the same value. Both halves were PostgreSQL 500s before this build: a `String` bound into `TIMESTAMPTZ` on the write, a `TIMESTAMPTZ` read into a `String` on the read. Row and account deleted after (0/0 verified).
+
+**Still red in `gate.sh dialects`, and it is the next pass:** `find-single-backend-suites.py` lists ~20 test helpers that reach `sqlite_pool()` — `m69_03_passport`, `m69_09_affinity`, `m69_14_live_badge`, `m69_18_trope_coverage`, `m69_19_npmi`, `m70_01_orphan_route`, `m70_02_whole_work`, `m70_04_restricted`, `m70_05_collection_tags`, `m70_07_marked_for_later`, `m71_04_provenance`, `m71_11_facet_cache`, `m71_16_machine_surfaces`, `work_page`, `m70_12_visibility_surfaces` — each makes its whole file SQLite-only, which is where the defects above lived.
+
+### Fourteen suites now run on PostgreSQL (2026-11-10)
+
+`check-pg-arm-uses-sqlite-pool.py` had 43 findings; 25 fixed here (14 files converted and green on both engines, plus the helpers that
+made the rest mechanical). What remains is 18 sites in `landing_page`, `m16_*`, `m64_*` and `m69_03_passport`.
+
+**Opening finding for the next pass:** with `m69_03_passport` ported, `GET /me/passport` answers **500 on PostgreSQL** — a product
+defect the SQLite-only harness had hidden. The suspects are the three reads between the handler and the document: `taste_bp`,
+`contribution_counts`, `reader_affinity::for_account`.
+
+**Standing rule:** a fixture id must be a valid UUID, and `randomblob` has no PostgreSQL twin in a seed — both only fail on the second
+row, which is why replacing them with literals "works" until the fixture has two rows.
+

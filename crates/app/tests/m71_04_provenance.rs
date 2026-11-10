@@ -76,11 +76,11 @@ impl Harness {
         server::build_router(AppState::new(self.config.clone(), self.tdb.db().clone()))
     }
 
+    /// Run a fixture statement on whichever engine the suite is running against. The statements are literals and `?`
+    /// binds; `exec_one` rewrites the placeholders for PostgreSQL, and an INSERT of literal values needs no cast because
+    /// assignment coerces. Reaching for `sqlite_pool()` here is what made this whole file invisible to the deployed engine.
     async fn exec(&self, statement: &str) {
-        sqlx::query(statement)
-            .execute(self.tdb.db().sqlite_pool().expect("sqlite"))
-            .await
-            .unwrap_or_else(|error| panic!("{statement}\n{error}"));
+        test_support::exec_one(self.tdb.db(), statement).await;
     }
 
     async fn seed(&self) {

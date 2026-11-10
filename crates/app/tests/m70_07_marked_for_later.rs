@@ -13,7 +13,6 @@ use axum::http::{header, Request, StatusCode};
 use darkhold_app::config::Config;
 use darkhold_app::server::{self, set_trust_proxy};
 use darkhold_app::state::AppState;
-use darkhold_db::DatabaseConfig;
 use serde_json::{json, Value};
 use std::path::{Path, PathBuf};
 use tower::ServiceExt;
@@ -32,10 +31,8 @@ fn scratch_dir(tag: &str) -> PathBuf {
 fn config_for(dir: &Path) -> Config {
     let mut config = Config::development_defaults();
     config.storage.root = dir.to_path_buf();
-    config.database = DatabaseConfig::new(format!(
-        "sqlite://{}/darkhold.sqlite?mode=rwc",
-        dir.display()
-    ));
+    // No `config.database`: the router is built over `TestDb`'s database, which honours `DARKHOLD_TEST_PG_URL`. A sqlite
+    // URL left here is a second, unread configuration that once made this file look SQLite-only to the dialect gate.
     config
 }
 
@@ -68,23 +65,32 @@ impl Harness {
     /// Seed a published work owned by the pseud of `account_id`, and return its id.
     async fn seed_work(&self, account_id: &str) -> String {
         let db = self.tdb.db();
-        let pseud: String = sqlx::query_scalar("SELECT id FROM pseuds WHERE account_id = ?")
-            .bind(account_id)
-            .fetch_one(db.sqlite_pool().expect("sqlite"))
-            .await
-            .expect("the registered account has a pseud");
+        // `account_id` is a `uuid` column on PostgreSQL and TEXT on SQLite: the column is cast to text so the bind is text on
+        // both engines and the comparison means the same thing in both.
+        let pseud = test_support::scalar_pair_with(
+            db,
+            "SELECT id FROM pseuds WHERE account_id = ?",
+            "SELECT id::text FROM pseuds WHERE account_id = $1::uuid",
+            account_id,
+        )
+        .await
+        .expect("the registered account has a pseud");
         let work = uuid::Uuid::new_v4().to_string();
-        sqlx::query(
+        // Two texts rather than one: the ids land in `uuid` columns on PostgreSQL, where a text bind is not coerced by a
+        // placeholder the way a literal is. `?` and `$n::uuid` say the same thing in the two dialects.
+        test_support::exec_binds(
+            db,
             "INSERT INTO works (id, owner_pseud_id, title, summary, language, rating, visibility, lifecycle, \
              completion, created_at, updated_at, version) \
              VALUES (?, ?, 'The Long Way Round', '', 'en', 'general', 'public', 'published', 'complete', \
                      '2026-01-01T00:00:00Z', '2026-01-01T00:00:00Z', 1)",
+            "INSERT INTO works (id, owner_pseud_id, title, summary, language, rating, visibility, lifecycle, \
+             completion, created_at, updated_at, version) \
+             VALUES ($1::uuid, $2::uuid, 'The Long Way Round', '', 'en', 'general', 'public', 'published', 'complete', \
+                     '2026-01-01T00:00:00Z', '2026-01-01T00:00:00Z', 1)",
+            &[&work, &pseud],
         )
-        .bind(&work)
-        .bind(&pseud)
-        .execute(db.sqlite_pool().expect("sqlite"))
-        .await
-        .expect("seed work");
+        .await;
         work
     }
 }

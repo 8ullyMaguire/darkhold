@@ -303,6 +303,9 @@ async fn export_without_a_configured_key_is_refused_with_the_reason_and_the_door
 
 async fn seed_shelved(tdb: &TestDb, account: &str, title: &str, tags: &[&str]) {
     let now = "2026-11-07T00:00:00Z";
+    // SQLITE-ONLY, and deliberately: porting this suite to PostgreSQL reached `GET /me/passport` and hit a 500 in the
+    // product, not in the fixture. The passport suite is the reproduction for that defect (m69-03/passport export), and
+    // until it is fixed the harness must keep saying which engine it runs on rather than pretend to cover both.
     let pseud: String = sqlx::query_scalar("SELECT id FROM pseuds ORDER BY created_at LIMIT 1")
         .fetch_one(tdb.db().sqlite_pool().expect("sqlite"))
         .await
@@ -313,8 +316,6 @@ async fn seed_shelved(tdb: &TestDb, account: &str, title: &str, tags: &[&str]) {
         .expect("create work");
     let work_id = work.id.to_string();
     for tag in tags {
-        // The passport reads the tag's canonical name, so the node has to exist as a taxonomy node: a bare node id in
-        // ``work_tags` is an id nothing can name.
         sqlx::query(
             "INSERT OR IGNORE INTO canonical_entities (id, kind, canonical, norm, created_at)
              VALUES (?, 'tag', ?, ?, ?)",
@@ -351,11 +352,11 @@ async fn seed_shelved(tdb: &TestDb, account: &str, title: &str, tags: &[&str]) {
 }
 
 async fn imported_signals(tdb: &TestDb, account: &str) -> Vec<String> {
-    sqlx::query_scalar(
+    test_support::strings_pair_with(
+        tdb.db(),
         "SELECT origin FROM taste_signals WHERE account_id = ? AND source_key LIKE 'passport:%'",
+        "SELECT origin FROM taste_signals WHERE account_id = $1::uuid AND source_key LIKE 'passport:%'",
+        account,
     )
-    .bind(account)
-    .fetch_all(tdb.db().sqlite_pool().expect("sqlite"))
     .await
-    .expect("signals")
 }

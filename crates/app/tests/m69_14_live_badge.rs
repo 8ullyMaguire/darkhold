@@ -314,59 +314,63 @@ fn router_with_operator(tdb: &TestDb, dir: &std::path::Path, operator: &str) -> 
 
 async fn seed_work(tdb: &TestDb, title: &str, tags: &[&str]) -> String {
     let now = "2026-11-07T00:00:00Z";
-    let pseud: String = sqlx::query_scalar("SELECT id FROM pseuds ORDER BY created_at LIMIT 1")
-        .fetch_one(tdb.db().sqlite_pool().expect("sqlite"))
-        .await
-        .expect("a pseud exists");
+    let pseud = test_support::scalar_pair(
+        tdb.db(),
+        "SELECT id FROM pseuds ORDER BY created_at LIMIT 1",
+        "SELECT id::text FROM pseuds ORDER BY created_at LIMIT 1",
+    )
+    .await
+    .expect("a pseud exists");
     let owner: darkhold_domain::ids::PseudId = pseud.parse().expect("pseud id");
     let work = darkhold_db::content::create_work(tdb.db(), owner, title, None)
         .await
         .expect("create work");
     let id = work.id.to_string();
     for tag in tags {
-        sqlx::query(
+        // `INSERT OR IGNORE` is SQLite's spelling; PostgreSQL refuses it and wants `ON CONFLICT DO NOTHING`.
+        test_support::exec_binds(
+            tdb.db(),
             "INSERT OR IGNORE INTO work_tags (work_id, node_id, added_at) VALUES (?, ?, ?)",
+            "INSERT INTO work_tags (work_id, node_id, added_at) VALUES ($1::uuid, $2, $3) ON CONFLICT DO NOTHING",
+            &[&id, &format!("node-{tag}"), now],
         )
-        .bind(&id)
-        .bind(format!("node-{tag}"))
-        .bind(now)
-        .execute(tdb.db().sqlite_pool().expect("sqlite"))
-        .await
-        .expect("tag");
+        .await;
     }
     id
 }
 
 async fn set_operator_affinity(tdb: &TestDb, work: &str, bp: i64) {
-    sqlx::query(
+    let bp = bp.to_string();
+    test_support::exec_binds(
+        tdb.db(),
         "INSERT INTO operator_affinities (work_id, affinity_bp, operator, rationale, set_at)
          VALUES (?, ?, 'operator', 'seed', '2026-11-07T00:00:00Z')",
+        "INSERT INTO operator_affinities (work_id, affinity_bp, operator, rationale, set_at)
+         VALUES ($1::uuid, $2::bigint, 'operator', 'seed', '2026-11-07T00:00:00Z')",
+        &[work, &bp],
     )
-    .bind(work)
-    .bind(bp)
-    .execute(tdb.db().sqlite_pool().expect("sqlite"))
-    .await
-    .expect("operator affinity");
+    .await;
 }
 
 async fn unbookmark(tdb: &TestDb, account: &str, work: &str) {
-    sqlx::query("DELETE FROM bookmarks WHERE account_id = ? AND subject_id = ?")
-        .bind(account)
-        .bind(work)
-        .execute(tdb.db().sqlite_pool().expect("sqlite"))
-        .await
-        .expect("unbookmark");
+    test_support::exec_binds(
+        tdb.db(),
+        "DELETE FROM bookmarks WHERE account_id = ? AND subject_id = ?",
+        "DELETE FROM bookmarks WHERE account_id = $1::uuid AND subject_id = $2::uuid",
+        &[account, work],
+    )
+    .await;
 }
 
 async fn bookmark(tdb: &TestDb, account: &str, work: &str) {
-    sqlx::query(
+    let id = uuid::Uuid::new_v4().to_string();
+    test_support::exec_binds(
+        tdb.db(),
         "INSERT INTO bookmarks (id, account_id, subject_type, subject_id, note, is_public, created_at, updated_at)
          VALUES (?, ?, 'work', ?, '', 0, '2026-11-07T00:00:00Z', '2026-11-07T00:00:00Z')",
+        "INSERT INTO bookmarks (id, account_id, subject_type, subject_id, note, is_public, created_at, updated_at)
+         VALUES ($1::uuid, $2::uuid, 'work', $3::uuid, '', false, '2026-11-07T00:00:00Z', '2026-11-07T00:00:00Z')",
+        &[&id, account, work],
     )
-    .bind(uuid::Uuid::new_v4().to_string())
-    .bind(account)
-    .bind(work)
-    .execute(tdb.db().sqlite_pool().expect("sqlite"))
-    .await
-    .expect("bookmark");
+    .await;
 }

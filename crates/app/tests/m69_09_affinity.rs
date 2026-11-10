@@ -77,25 +77,26 @@ impl Harness {
         let id = work.id.to_string();
         for tag in tags {
             let node = format!("node-{tag}");
-            sqlx::query(
-                // No `weight` column: 0103 rebuilt `work_tags` and the live shape is (work_id, node_id, added_at, …).
+            // No `weight` column: 0103 rebuilt `work_tags` and the live shape is (work_id, node_id, added_at, …).
+            // `INSERT OR IGNORE` is SQLite's spelling; PostgreSQL wants `ON CONFLICT DO NOTHING`.
+            test_support::exec_binds(
+                self.tdb.db(),
                 "INSERT OR IGNORE INTO work_tags (work_id, node_id, added_at) VALUES (?, ?, ?)",
+                "INSERT INTO work_tags (work_id, node_id, added_at) VALUES ($1::uuid, $2, $3) ON CONFLICT DO NOTHING",
+                &[&id, &node, now],
             )
-            .bind(&id)
-            .bind(&node)
-            .bind(now)
-            .execute(self.tdb.db().sqlite_pool().expect("sqlite"))
-            .await
-            .expect("insert tag");
+            .await;
         }
         id
     }
 
     async fn first_pseud(&self) -> Option<String> {
-        sqlx::query_scalar::<_, String>("SELECT id FROM pseuds ORDER BY created_at LIMIT 1")
-            .fetch_optional(self.tdb.db().sqlite_pool().expect("sqlite"))
-            .await
-            .expect("pseud lookup")
+        test_support::scalar_pair(
+            self.tdb.db(),
+            "SELECT id FROM pseuds ORDER BY created_at LIMIT 1",
+            "SELECT id::text FROM pseuds ORDER BY created_at LIMIT 1",
+        )
+        .await
     }
 }
 
@@ -202,29 +203,30 @@ impl Client {
 
 /// Bookmark a work for an account, straight into the store: the sweep is the subject, not the bookmark route.
 async fn bookmark(h: &Harness, account: &str, work: &str) {
-    sqlx::query(
+    let id = uuid::Uuid::new_v4().to_string();
+    test_support::exec_binds(
+        h.tdb.db(),
         "INSERT INTO bookmarks (id, account_id, subject_type, subject_id, note, is_public, created_at, updated_at)
          VALUES (?, ?, 'work', ?, '', 0, '2026-11-07T00:00:00Z', '2026-11-07T00:00:00Z')",
+        "INSERT INTO bookmarks (id, account_id, subject_type, subject_id, note, is_public, created_at, updated_at)
+         VALUES ($1::uuid, $2::uuid, 'work', $3::uuid, '', false, '2026-11-07T00:00:00Z', '2026-11-07T00:00:00Z')",
+        &[&id, account, work],
     )
-    .bind(uuid::Uuid::new_v4().to_string())
-    .bind(account)
-    .bind(work)
-    .execute(h.tdb.db().sqlite_pool().expect("sqlite"))
-    .await
-    .expect("insert bookmark");
+    .await;
 }
 
 /// The operator's opinion of a work.
 async fn value_work(h: &Harness, work: &str, bp: i64) {
-    sqlx::query(
+    let bp = bp.to_string();
+    test_support::exec_binds(
+        h.tdb.db(),
         "INSERT INTO operator_affinities (work_id, affinity_bp, operator, rationale, set_at)
          VALUES (?, ?, 'operator', 'seed', '2026-11-07T00:00:00Z')",
+        "INSERT INTO operator_affinities (work_id, affinity_bp, operator, rationale, set_at)
+         VALUES ($1::uuid, $2::bigint, 'operator', 'seed', '2026-11-07T00:00:00Z')",
+        &[work, &bp],
     )
-    .bind(work)
-    .bind(bp)
-    .execute(h.tdb.db().sqlite_pool().expect("sqlite"))
-    .await
-    .expect("insert operator affinity");
+    .await;
 }
 
 #[tokio::test]
@@ -364,10 +366,7 @@ async fn a_second_sweep_over_unchanged_data_reports_zeros() {
     );
     assert_eq!(second["unchanged"], json!(1), "{second}");
 
-    let rows: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM reader_affinity")
-        .fetch_one(h.tdb.db().sqlite_pool().expect("sqlite"))
-        .await
-        .expect("count");
+    let rows = test_support::count_rows(h.tdb.db(), "SELECT COUNT(*) FROM reader_affinity").await;
     assert_eq!(
         rows, 1,
         "one reader is one row, however many times the sweep runs"
@@ -395,10 +394,7 @@ async fn a_second_sweep_over_unchanged_data_reports_zeros() {
         me["affinity"]["score_bp"].as_i64().expect("score") < 10_000,
         "the reader now shares the instance's tag interest with two works instead of one, so the overlap fell: {me}"
     );
-    let rows: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM reader_affinity")
-        .fetch_one(h.tdb.db().sqlite_pool().expect("sqlite"))
-        .await
-        .expect("count");
+    let rows = test_support::count_rows(h.tdb.db(), "SELECT COUNT(*) FROM reader_affinity").await;
     assert_eq!(
         rows, 1,
         "a repair run does not add a second row per reader: {third}"
@@ -436,9 +432,6 @@ async fn an_instance_with_no_operator_scores_nobody_rather_than_scoring_everybod
     );
     assert!(!report.wrote());
 
-    let rows: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM reader_affinity")
-        .fetch_one(h.tdb.db().sqlite_pool().expect("sqlite"))
-        .await
-        .expect("count");
+    let rows = test_support::count_rows(h.tdb.db(), "SELECT COUNT(*) FROM reader_affinity").await;
     assert_eq!(rows, 0, "no operator means no score, not a score of zero");
 }
