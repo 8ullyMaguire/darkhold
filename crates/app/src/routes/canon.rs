@@ -205,6 +205,8 @@ async fn require_operator(state: &AppState, user: &crate::auth::SessionUser) -> 
 mod tests {
     #[test]
     fn the_page_is_a_shelf_not_a_feed() {
-        assert!(super::PAGE <= 24, "a long shelf is a feed");
+        // A const block, not a runtime assert: the bound is a fact about the source, so it should fail the build rather than a
+        // test run — and clippy is right that asserting a constant inside a test proves nothing at test time.
+        const { assert!(super::PAGE <= 24, "a long shelf is a feed") };
     }
 }

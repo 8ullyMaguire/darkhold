@@ -78,9 +78,7 @@ async fn get_settings_route(
     RequireSession(user): RequireSession,
 ) -> ApiResult<Json<Value>> {
     operator_only(&state, &user)?;
-    let settings = exchange::get_settings(state.db())
-        .await
-        .map_err(|error| internal(error.into()))?;
+    let settings = exchange::get_settings(state.db()).await.map_err(internal)?;
     Ok(Json(settings_view(settings.as_ref())))
 }
 
@@ -138,12 +136,12 @@ async fn put_settings_route(
         }
         exchange::set_instance_id(state.db(), candidate)
             .await
-            .map_err(|error| internal(error.into()))?;
+            .map_err(internal)?;
     }
     if let Some(enabled) = body.enabled {
         exchange::set_enabled(state.db(), enabled)
             .await
-            .map_err(|error| internal(error.into()))?;
+            .map_err(internal)?;
     }
 
     // A settings change is an operator decision other operators need to be able to explain, and the instance id is what
@@ -175,9 +173,7 @@ async fn put_settings_route(
     .await
     .map_err(|error| internal(error.into()))?;
 
-    let settings = exchange::get_settings(state.db())
-        .await
-        .map_err(|error| internal(error.into()))?;
+    let settings = exchange::get_settings(state.db()).await.map_err(internal)?;
     Ok(Json(settings_view(settings.as_ref())))
 }
 
@@ -188,7 +184,7 @@ async fn latent_demand_route(
     operator_only(&state, &user)?;
     let items = exchange::list_latent_demand(state.db(), 100)
         .await
-        .map_err(|error| internal(error.into()))?;
+        .map_err(internal)?;
     let views: Vec<Value> = items
         .iter()
         .map(|item| {
@@ -213,7 +209,7 @@ async fn work_provenance_route(
     operator_only(&state, &user)?;
     let signals = exchange::count_provenance_signals(state.db(), &work_id)
         .await
-        .map_err(|error| internal(error.into()))?;
+        .map_err(internal)?;
     Ok(Json(json!({
         "work_id": work_id,
         // The field name is the whole point of the store function's name: distinct signals retained, never people.

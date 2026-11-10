@@ -8,7 +8,7 @@
    * server-sanitized unit HTML the Reader renders); user content never
    * passes through this path.
    */
-  import { Breadcrumb, Kbd } from '@polaris/ui';
+  import { Breadcrumb } from '@polaris/ui';
   import { marked } from 'marked';
   import { DOCS, docBySlug } from '../lib/docs';
 

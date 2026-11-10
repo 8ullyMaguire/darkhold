@@ -110,9 +110,8 @@ async fn a_work_that_does_not_accept_feedback_does_not_get_public_feedback() {
         StatusCode::UNPROCESSABLE_ENTITY,
         "a public DNF needs the author's opt-in: {body}"
     );
-    assert_eq!(
+    assert!(
         body["error"]["field_errors"]["is_public"].is_string(),
-        true,
         "the refusal names the field that asked for publication, not the work or the reason: {body}"
     );
 

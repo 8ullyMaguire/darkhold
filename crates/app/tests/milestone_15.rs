@@ -549,8 +549,11 @@ async fn payment_events_record_processor_fees() {
     // were accepted on one dialect and rejected with 23503 on the other. A
     // ledger row with no subject is also the ordinary shape for a processor
     // callback that arrives before attribution.
-    let event_id = monetization::record_payment_event(
+    // The event key is the processor's own id for this callback (migration 0200 added it, together with the `already
+    // recorded` flag this call now returns), and it is what makes a replayed callback a no-op rather than a second row.
+    let (event_id, newly_recorded) = monetization::record_payment_event(
         harness.tdb.db(),
+        "evt_milestone_15_purchase",
         "purchase",
         None,
         None,
@@ -562,6 +565,10 @@ async fn payment_events_record_processor_fees() {
     .await
     .expect("record payment event");
     assert!(!event_id.is_empty());
+    assert!(
+        newly_recorded,
+        "the first delivery of an event key is the one that writes"
+    );
 
     match harness.tdb.db().backend() {
         darkhold_db::Backend::Sqlite => {

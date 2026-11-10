@@ -185,7 +185,7 @@ async fn import_signals_route(
     if body.signals.len() > MAX_SIGNALS_PER_IMPORT {
         return Err(ApiError(darkhold_domain::AppError::field(
             "signals",
-            &format!("at most {MAX_SIGNALS_PER_IMPORT} in one import"),
+            format!("at most {MAX_SIGNALS_PER_IMPORT} in one import"),
         )));
     }
 
@@ -204,7 +204,7 @@ async fn import_signals_route(
         if owned.source_key != body.source_key.trim() {
             return Err(ApiError(darkhold_domain::AppError::field(
                 "credential_id",
-                &format!(
+                format!(
                     "that credential belongs to {}, and this import is from {}",
                     owned.source_key,
                     body.source_key.trim()

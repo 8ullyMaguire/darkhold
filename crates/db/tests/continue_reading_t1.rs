@@ -735,7 +735,7 @@ async fn unfinished_works_ranks_by_recency_and_is_bounded() {
 
 /// The DNF list item 11's mark feeds, with the reason kept so the caller can decide.
 #[tokio::test]
-async fn dnf_works_for_returns_only_shared_marks_with_their_reason() {
+async fn dnf_works_for_is_the_writers_own_list_so_a_private_mark_is_still_there() {
     let (db, schema) = connect("dnf").await;
     let a = account(&db, "dnf").await;
     let p = pseud(&db, &a).await;
@@ -783,13 +783,35 @@ async fn dnf_works_for_returns_only_shared_marks_with_their_reason() {
     .await;
 
     let rows = dnf_works_for(&db, &a).await.expect("query");
+
+    // This is the writer's OWN list, so a private mark belongs on it: `is_public` says what *other* readers may see, and a
+    // reader who marks a work privately is telling the recommender to stop suggesting it, not hiding it from themselves.
+    // Filtering on it here made two surfaces disagree — this one and `/me/dnf` — and a mutant that re-adds the filter reddens
+    // this assertion. A soft-deleted mark, by contrast, is gone for everyone, writer included.
     assert_eq!(
         rows.len(),
-        1,
-        "private and soft-deleted marks must not appear"
+        2,
+        "the private mark is the writer's, so it stays"
     );
-    assert_eq!(rows[0].0, shared);
-    assert_eq!(rows[0].1, "slow_pacing", "the reason travels with the id");
+    let ids: Vec<&str> = rows.iter().map(|row| row.0.as_str()).collect();
+    assert!(ids.contains(&shared.as_str()), "{ids:?}");
+    assert!(
+        ids.contains(&priv_row.as_str()),
+        "a private mark must not vanish from its own writer's list: {ids:?}"
+    );
+    assert!(
+        !ids.contains(&gone.as_str()),
+        "a soft-deleted mark is gone for everyone: {ids:?}"
+    );
+    let shared_row = rows
+        .iter()
+        .find(|row| row.0 == shared)
+        .expect("the shared mark");
+    assert_eq!(
+        shared_row.1, "slow_pacing",
+        "the reason travels with the id"
+    );
+    assert!(shared_row.2, "and so does the flag that made it shared");
     if let Some(s) = schema {
         drop_schema(&s).await;
     }

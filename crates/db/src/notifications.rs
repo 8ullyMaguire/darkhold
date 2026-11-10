@@ -120,15 +120,15 @@ pub async fn notify(
 // Reads
 // ---------------------------------------------------------------------------
 
-/// The caller's inbox, newest first. Unfiltered; callers that can see a work
-/// should use [`list_filtered`], which applies the reader's content filters.
-///
-/// **Kept, after being considered for deletion** (M70-13, 2026-11-09). It looks like the classic unsafe twin — the same rows as
-/// [`list_filtered`] without the exclusions, one import away from leaking a filtered work's title. Measuring the pair settled it
-/// the other way: `list_filtered` with an empty rule set *is* this query, so the leak lives in the caller that passes no rules, not
-/// in the function that takes none. Deleting this would have pushed ten test call sites through a filter API with an empty list —
-/// the primitives (`notify`, `mark_read`, `unread_count`) are clearer against the unfiltered read, and the route that serves readers
-/// passes rules. The warning above is what keeps a caller honest, and it now has a measurement behind it.
+// The caller's inbox, newest first. Unfiltered; callers that can see a work
+// should use [`list_filtered`], which applies the reader's content filters.
+//
+// **Kept, after being considered for deletion** (M70-13, 2026-11-09). It looks like the classic unsafe twin — the same rows as
+// [`list_filtered`] without the exclusions, one import away from leaking a filtered work's title. Measuring the pair settled it
+// the other way: `list_filtered` with an empty rule set *is* this query, so the leak lives in the caller that passes no rules, not
+// in the function that takes none. Deleting this would have pushed ten test call sites through a filter API with an empty list —
+// the primitives (`notify`, `mark_read`, `unread_count`) are clearer against the unfiltered read, and the route that serves readers
+// passes rules. The warning above is what keeps a caller honest, and it now has a measurement behind it.
 // `list` lived here: the same query as `list_filtered` without the caller's content-filter rules. The route serves
 // `list_filtered` and always has, so `list` had no caller — and if anything had called it, a reader would have been
 // shown works they had asked not to see. A twin that is only ever wrong in the direction of the blocklist is not a
@@ -246,7 +246,7 @@ pub async fn unread_count_filtered(
     }
 }
 
-/// How many entries are still unread.
+// How many entries are still unread.
 // `unread_count` lived here: the same count as `unread_count_filtered` with no rules. The route serves the
 // filtered form, so the twin had no product caller, and the count a reader is shown must be the count they can reach.
 

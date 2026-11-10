@@ -310,6 +310,52 @@ pub fn by_source(summary: &Summary) -> HashMap<String, SourceReport> {
         .collect()
 }
 
+/// Record every adapter this build carries in the `sources` catalogue.
+///
+/// `imports::upsert_source`'s doc comment has always said it is "called at startup for every registered adapter, so the
+/// catalogue a reader sees cannot drift from the adapters the binary actually has". Nothing called it. The table was
+/// whatever a migration had seeded, which means a deploy that added an adapter showed a source nobody could choose and a
+/// deploy that removed one left a row pointing at an adapter that no longer exists.
+///
+/// Two things this deliberately does not do. It does not touch `enabled`: a paused source stays paused across a deploy,
+/// which is the half of `upsert_source`'s contract that keeps an operator's decision from being undone by a restart. And
+/// it does not fail the boot: a source that cannot be written is logged and skipped, because taking the server down over
+/// one catalogue row would be a worse trade than a stale row.
+pub async fn sync_source_catalogue(state: &AppState) -> usize {
+    let build = crate::version::build_id();
+    let mut written = 0;
+    for entry in state.registry().catalogue() {
+        let capabilities = match serde_json::to_string(&entry.capabilities) {
+            Ok(json) => json,
+            Err(error) => {
+                tracing::warn!(%error, key = %entry.key, "could not serialise a source's capabilities");
+                continue;
+            }
+        };
+        // The adapter version is the build that carries the adapter. A source's capabilities are the parser's, and the
+        // parser ships with the binary, so "which build wrote this row" is the only version string that means anything.
+        match imports::upsert_source(
+            state.db(),
+            entry.key.as_str(),
+            &entry.display_name,
+            &build,
+            &capabilities,
+        )
+        .await
+        {
+            Ok(()) => written += 1,
+            Err(error) => {
+                tracing::warn!(%error, key = %entry.key, "could not record a source in the catalogue");
+            }
+        }
+    }
+    tracing::info!(
+        sources = written,
+        "source catalogue recorded from the adapter registry"
+    );
+    written
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -375,50 +421,4 @@ mod tests {
         assert_eq!(bodies_for_host("fanfiktion.de"), Some(Bodies::Blocked));
         assert_eq!(bodies_for_host("example.invalid"), None);
     }
-}
-
-/// Record every adapter this build carries in the `sources` catalogue.
-///
-/// `imports::upsert_source`'s doc comment has always said it is "called at startup for every registered adapter, so the
-/// catalogue a reader sees cannot drift from the adapters the binary actually has". Nothing called it. The table was
-/// whatever a migration had seeded, which means a deploy that added an adapter showed a source nobody could choose and a
-/// deploy that removed one left a row pointing at an adapter that no longer exists.
-///
-/// Two things this deliberately does not do. It does not touch `enabled`: a paused source stays paused across a deploy,
-/// which is the half of `upsert_source`'s contract that keeps an operator's decision from being undone by a restart. And
-/// it does not fail the boot: a source that cannot be written is logged and skipped, because taking the server down over
-/// one catalogue row would be a worse trade than a stale row.
-pub async fn sync_source_catalogue(state: &AppState) -> usize {
-    let build = crate::version::build_id();
-    let mut written = 0;
-    for entry in state.registry().catalogue() {
-        let capabilities = match serde_json::to_string(&entry.capabilities) {
-            Ok(json) => json,
-            Err(error) => {
-                tracing::warn!(%error, key = %entry.key, "could not serialise a source's capabilities");
-                continue;
-            }
-        };
-        // The adapter version is the build that carries the adapter. A source's capabilities are the parser's, and the
-        // parser ships with the binary, so "which build wrote this row" is the only version string that means anything.
-        match imports::upsert_source(
-            state.db(),
-            entry.key.as_str(),
-            &entry.display_name,
-            &build,
-            &capabilities,
-        )
-        .await
-        {
-            Ok(()) => written += 1,
-            Err(error) => {
-                tracing::warn!(%error, key = %entry.key, "could not record a source in the catalogue");
-            }
-        }
-    }
-    tracing::info!(
-        sources = written,
-        "source catalogue recorded from the adapter registry"
-    );
-    written
 }

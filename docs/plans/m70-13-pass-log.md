@@ -651,3 +651,29 @@ through that helper.
 **`gate.sh dialects` is now green**, and the checker itself learned nothing new this pass: the last red site was a *comment* that
 named `sqlite_pool()` inside an already-converted helper. The checker reads function bodies as text, comments included, so a
 comment describing the bug it fixed reads as the bug.
+
+## Pass 88 — the gates that were red behind the branch (2026-11-10)
+
+`gate.sh all` had not been run for several passes — the loop was running `ledger`, `repo` and `dialects` only, and each pass
+ran its own targeted suite. Four independent failures were waiting behind that gap, and none of them was this pass's work:
+
+* **fmt** — `cargo fmt --all` also formats *path dependencies*, and `polaris-oidc-client` is edition 2024 while this workspace is
+  2021, so the check compared a file this repository does not own against this repository's style. It could never pass. The step
+  now walks the workspace's own members, one package at a time. Positive control: an unformatted function in `crates/domain`
+  fails the step; restored, it passes.
+* **lint** — 23 sites, mostly `AppError::Internal(e.into())` where the variant now takes `anyhow::Error` directly. Two were real
+  staleness: `crates/db/tests/reading_goal.rs` still called `reading_goal::record_unit_read` (deleted two passes ago as a
+  non-transactional twin of `save_progress`), and `milestone_15` called `record_payment_event` with the arity it had before
+  migration 0200 added the event key. `test-support`'s `#[cfg(test)]` module had helpers appended after it.
+* **snapshot PII** — no policy decision for `reader_unit_completions.account_id`, so the published-dataset gate refused every
+  table. Recorded as `rekey_account`.
+* **reachability** — the known-gaps file had drifted *because of this loop's own work*: `payment_events`, `quality_signals` and
+  `work_tag_votes` are now read and written (passes 80, 81 and the tag-vote door), `forum_search_misses` gained a reader
+  elsewhere, and `identity_merge_history`/`identity_merge_proposals` lost theirs. And `reader_unit_completions`, added in pass 83,
+  is written with no reader: the row *is* the idempotency key — `save_progress` learns "first completion" from `rows_affected` —
+  so it is recorded as a deliberate gap with the reason.
+
+**A flake worth naming**: `m71_11_facet_cache` asserted the catalogue held exactly one work. The cache is per-process and the
+binary's tests run in parallel, so under full-suite load another test's work landed in the cache first. The claim the test means is
+"the second answer is the one that was computed", so it now measures the first response and compares the second to it — same
+assertion under the mutant, no assumption about isolation.

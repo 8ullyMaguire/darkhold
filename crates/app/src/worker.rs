@@ -255,7 +255,7 @@ impl Worker {
             ticker.tick().await; // the first tick is immediate
             loop {
                 ticker.tick().await;
-                match jobs::heartbeat(&state.db(), job, &worker, lease, OffsetDateTime::now_utc())
+                match jobs::heartbeat(state.db(), job, &worker, lease, OffsetDateTime::now_utc())
                     .await
                 {
                     Ok(true) => {}

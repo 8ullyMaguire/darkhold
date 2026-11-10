@@ -164,7 +164,7 @@ async fn record_my_probe(
     if !ENGAGEMENTS.contains(&engagement) {
         return Err(ApiError(darkhold_domain::AppError::field(
             "engagement",
-            &format!("one of {}", ENGAGEMENTS.join(", ")),
+            format!("one of {}", ENGAGEMENTS.join(", ")),
         )));
     }
 

@@ -118,9 +118,8 @@ async fn an_original_instance_will_not_price_a_fanwork_assertion() {
     // 1. A work nobody has asserted anything about cannot be priced, and the refusal names the field a client must set.
     let (status, body) = price(&mut author, &work).await;
     assert_eq!(status, StatusCode::UNPROCESSABLE_ENTITY, "{body}");
-    assert_eq!(
+    assert!(
         body["error"]["field_errors"]["assertion"].is_string(),
-        true,
         "{body}"
     );
     assert!(
@@ -156,11 +155,7 @@ async fn an_original_instance_will_not_price_a_fanwork_assertion() {
         )
         .await;
     assert_eq!(status, StatusCode::UNPROCESSABLE_ENTITY, "{body}");
-    assert_eq!(
-        body["error"]["field_errors"]["kind"].is_string(),
-        true,
-        "{body}"
-    );
+    assert!(body["error"]["field_errors"]["kind"].is_string(), "{body}");
 
     // 5. **The mode distinction.** A `rights-held` assertion is stored, readable, and still not enough on an `original`
     //    instance — which is the whole of what §20.9.1's stricter mode is for.
@@ -249,9 +244,8 @@ async fn an_original_instance_will_not_price_a_fanwork_assertion() {
         StatusCode::UNPROCESSABLE_ENTITY,
         "the sale asks the same question the price was asked: {body}"
     );
-    assert_eq!(
+    assert!(
         body["error"]["field_errors"]["work_id"].is_string(),
-        true,
         "{body}"
     );
 
@@ -274,9 +268,5 @@ async fn an_original_instance_will_not_price_a_fanwork_assertion() {
     );
     let (status, body) = price(&mut off_author, &unsold).await;
     assert_eq!(status, StatusCode::UNPROCESSABLE_ENTITY, "{body}");
-    assert_eq!(
-        body["error"]["field_errors"]["model"].is_string(),
-        true,
-        "{body}"
-    );
+    assert!(body["error"]["field_errors"]["model"].is_string(), "{body}");
 }

@@ -144,11 +144,7 @@ async fn standing_is_given_by_a_door_and_read_where_it_is_enforced() {
         )
         .await;
     assert_eq!(status, StatusCode::UNPROCESSABLE_ENTITY, "{body}");
-    assert_eq!(
-        body["error"]["field_errors"]["level"].is_string(),
-        true,
-        "{body}"
-    );
+    assert!(body["error"]["field_errors"]["level"].is_string(), "{body}");
 
     // 2. A trust change with no reason is refused by name: it is a decision in the one log that cannot be edited.
     let (status, body) = operator
@@ -158,9 +154,8 @@ async fn standing_is_given_by_a_door_and_read_where_it_is_enforced() {
         )
         .await;
     assert_eq!(status, StatusCode::UNPROCESSABLE_ENTITY, "{body}");
-    assert_eq!(
+    assert!(
         body["error"]["field_errors"]["reason"].is_string(),
-        true,
         "{body}"
     );
 
@@ -249,11 +244,7 @@ async fn standing_is_given_by_a_door_and_read_where_it_is_enforced() {
         )
         .await;
     assert_eq!(status, StatusCode::UNPROCESSABLE_ENTITY, "{body}");
-    assert_eq!(
-        body["error"]["field_errors"]["role"].is_string(),
-        true,
-        "{body}"
-    );
+    assert!(body["error"]["field_errors"]["role"].is_string(), "{body}");
 
     // 8. A recognised one lands in the table the estate reads.
     let (status, body) = operator

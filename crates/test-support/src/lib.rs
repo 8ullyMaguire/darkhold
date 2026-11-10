@@ -1507,226 +1507,6 @@ fn full_migration_set(report: &darkhold_db::migrate::MigrationReport) -> Vec<Str
     all
 }
 
-#[cfg(test)]
-mod tests {
-    use super::scratch_dir;
-
-    /// A `TestDb` reports every migration applied to it, not only the ones this connect
-    /// performed.
-    ///
-    /// The defect this pins: `applied_migrations()` returned `report.applied`, which is
-    /// "what this run did". That was equal to the full set only while every database was
-    /// built from scratch, and stopped being true when the template-database cache landed —
-    /// both clone paths construct a `TestDb` with an empty `applied`, so a fully-migrated
-    /// database reported zero migrations.
-    ///
-    /// Eight suites assert a specific migration is present, and they all failed together
-    /// with "taxonomy migration must apply: []" — a message that reads like a broken
-    /// migration, so the failure was investigated in the wrong place for a while.
-    ///
-    /// The test asserts a migration known to exist and one known to be recent, so it fails
-    /// both when the accessor returns nothing at all and when it returns a truncated set.
-    #[tokio::test]
-    async fn applied_migrations_reports_the_whole_ledger() {
-        let dir = scratch_dir("ts_applied_ledger");
-        let tdb = super::TestDb::connect_with_dir("ts-applied-ledger", &dir).await;
-        let applied = tdb.applied_migrations();
-        assert!(
-            applied.iter().any(|m| m.contains("0011")),
-            "an early migration must be in the reported set: {applied:?}"
-        );
-        assert!(
-            !applied.is_empty(),
-            "a migrated database reports an empty migration set"
-        );
-        tdb.cleanup().await;
-    }
-
-    /// Two calls with the same tag must be two directories.
-    ///
-    /// The defect this pins: `scratch_dir` was keyed on (tag, pid), so a test
-    /// that called it twice with one tag got the same path twice — and the
-    /// function opens with `remove_dir_all`, so the second call deleted the
-    /// first call's SQLite file out from under a live connection. The symptom
-    /// was a 500 from a route whose SQL is correct, in a suite that passed
-    /// every time it ran alone.
-    ///
-    /// A property test rather than a single pair, because the two calls here
-    /// are adjacent and an implementation that only collided under
-    /// concurrency would pass them.
-    /// `cleanup` must actually remove the directory, since that is the whole point
-    /// of recording it on the struct. A test that only checks `cleanup` runs would
-    /// pass with a `remove_dir_all` that silently does nothing.
-    #[tokio::test]
-    async fn cleanup_removes_the_sqlite_scratch_directory() {
-        let dir = super::scratch_dir("cleanup-removes-dir");
-        let tdb = super::TestDb::connect_with_dir("cleanup-removes-dir", &dir).await;
-        let pg_name = tdb.pg_name.clone();
-
-        // The property is "cleanup removes what it recorded", and it holds on BOTH
-        // engines -- `cleanup` drops the scratch database or removes the directory,
-        // whichever this run built. Asserting on `sqlite_dir` alone made this a
-        // SQLite-only test inside a suite that runs on both, so it failed under
-        // `DARKHOLD_TEST_PG_URL` with "a SQLite TestDb records its directory" --
-        // a message that reads as a harness defect when it is really a test that
-        // never considered the other backend.
-        let recorded = match (&tdb.sqlite_dir, &pg_name) {
-            (Some(dir), _) => {
-                assert!(dir.is_dir(), "the scratch directory exists while in use");
-                assert!(
-                    dir.join("darkhold.sqlite").is_file(),
-                    "and holds the database"
-                );
-                CleanupWitness::Sqlite(dir.clone())
-            }
-            // A PostgreSQL `TestDb` records no directory: the scratch artefact is the
-            // database itself, and the directory handed to `connect_with_dir` is
-            // untouched by design (it is only used on the SQLite arm).
-            (None, Some(name)) => {
-                let admin = tdb
-                    .pg_admin
-                    .as_ref()
-                    .expect("a PostgreSQL TestDb keeps its admin handle")
-                    .postgres_pool()
-                    .expect("postgres admin pool");
-                let survives: i64 =
-                    sqlx::query_scalar("SELECT COUNT(*) FROM pg_database WHERE datname = $1")
-                        .bind(name)
-                        .fetch_one(admin)
-                        .await
-                        .expect("the scratch database exists while in use");
-                assert_eq!(survives, 1, "the scratch database exists while in use");
-                CleanupWitness::Postgres(name.clone())
-            }
-            (None, None) => panic!("a TestDb records a scratch artefact on every engine"),
-        };
-
-        tdb.cleanup().await;
-
-        match recorded {
-            CleanupWitness::Sqlite(dir) => assert!(
-                !dir.exists(),
-                "cleanup left {dir:?} behind -- this is the leak that put 29GB in TMPDIR"
-            ),
-            CleanupWitness::Postgres(name) => {
-                // A FRESH admin connection: `cleanup` consumes and closes the
-                // handle the TestDb was holding, so the post-condition has to be
-                // checked from outside the thing under test.
-                let url = std::env::var("DARKHOLD_TEST_PG_URL")
-                    .expect("DARKHOLD_TEST_PG_URL is set on the PostgreSQL arm");
-                let admin = super::Database::connect(&super::DatabaseConfig::new(url))
-                    .await
-                    .expect("a fresh admin connection to check the post-condition");
-                let survives: i64 =
-                    sqlx::query_scalar("SELECT COUNT(*) FROM pg_database WHERE datname = $1")
-                        .bind(&name)
-                        .fetch_one(admin.postgres_pool().expect("postgres admin pool"))
-                        .await
-                        .expect("query the admin database after cleanup");
-                admin.close().await;
-                assert_eq!(
-                    survives, 0,
-                    "cleanup left the scratch database {name:?} behind"
-                );
-            }
-        }
-    }
-
-    /// What a `TestDb` was recorded to hold, so the assertions above can talk about
-    /// "the scratch artefact" without repeating the per-engine spelling.
-    enum CleanupWitness {
-        Sqlite(std::path::PathBuf),
-        Postgres(String),
-    }
-
-    /// The sweep must not remove a directory that was touched moments ago, which is
-    /// the conservative side of its heuristic and the reason it is safe to run.
-    #[test]
-    fn the_sweep_leaves_a_fresh_directory_alone() {
-        let dir = scratch_dir("sweep-leaves-fresh");
-        let removed = super::sweep_stale_sqlite();
-        assert!(
-            dir.exists(),
-            "the sweep removed a directory created seconds ago ({removed} removed overall)"
-        );
-        let _ = std::fs::remove_dir_all(&dir);
-    }
-
-    #[test]
-    fn scratch_dir_is_unique_per_call_not_per_tag() {
-        let mut seen = std::collections::HashSet::new();
-        for _ in 0..16 {
-            let dir = scratch_dir("the_same_tag");
-            assert!(
-                seen.insert(dir.clone()),
-                "scratch_dir returned {dir:?} twice for one tag: the second call removes the \
-                 first call's directory, which is a live SQLite database"
-            );
-        }
-    }
-
-    /// The sweeper's age floor agrees with the suffix it is decoded from.
-    ///
-    /// A race, not a value, and a value test is all that can be said about one:
-    /// the sweeper used to drop any `lh_test_%` database with no attached
-    /// backend, which in the window between another binary's `CREATE DATABASE`
-    /// and its `connect` is every database that binary is about to use. The
-    /// symptom was `database "lh_test_..." does not exist` in a suite whose
-    /// fixture is correct, which is the hardest kind of failure to read.
-    ///
-    /// So the floor is arithmetic on the name, and this pins the arithmetic: a
-    /// suffix minted now must decode to an age inside the floor, and one minted
-    /// `SWEEP_MIN_AGE_SECS` ago must decode outside it. If `unique_suffix`
-    /// changes its bit layout, this fails rather than the sweeper silently
-    /// decaying into either never-dropping or always-dropping.
-    #[test]
-    fn the_sweeper_age_floor_matches_the_suffix_layout() {
-        use super::{PROCESS_START, SWEEP_MIN_AGE_SECS};
-        use std::time::{SystemTime, UNIX_EPOCH};
-
-        let now = SystemTime::now()
-            .duration_since(UNIX_EPOCH)
-            .expect("clock")
-            .as_secs();
-        let started = *PROCESS_START.get_or_init(|| now);
-
-        // `unique_suffix` is `(seconds << 20) | counter`, so the process start
-        // time is the high bits and the counter the low 20.
-        let mint = |age: u64| -> u64 { now.saturating_sub(age) << 20 };
-        let decoded_age = |suffix: u64| started.saturating_sub(suffix >> 20);
-
-        assert!(
-            decoded_age(mint(0)) < SWEEP_MIN_AGE_SECS,
-            "a database minted now must be inside the floor, or the sweeper drops live tests"
-        );
-        assert!(
-            decoded_age(mint(SWEEP_MIN_AGE_SECS + 60)) >= SWEEP_MIN_AGE_SECS,
-            "a database older than the floor must be droppable, or leaks are never reclaimed"
-        );
-    }
-
-    /// The tag survives in the path, because a leaked directory has to be
-    /// attributable to a test.
-    ///
-    /// The second half of the change: uniqueness came from a counter, and the
-    /// obvious way to keep names short is to drop the tag. That would make a
-    /// failed run's leftovers a wall of anonymous numbers, which is the reason
-    /// the tag was in the name to begin with.
-    #[test]
-    fn scratch_dir_keeps_its_tag_in_the_path() {
-        let dir = scratch_dir("attributable");
-        let name = dir
-            .file_name()
-            .expect("a file name")
-            .to_string_lossy()
-            .into_owned();
-        assert!(
-            name.contains("attributable"),
-            "the directory name must say which test left it: {name}"
-        );
-    }
-}
-
 /// `COUNT(*)`, less one excluded row — the instance's own system account.
 ///
 /// **Lives with the tests because every caller is a test.** It was written in `crates/db/src/identity.rs` and its own
@@ -2117,4 +1897,224 @@ pub async fn grant_contributor(
         }
     }
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::scratch_dir;
+
+    /// A `TestDb` reports every migration applied to it, not only the ones this connect
+    /// performed.
+    ///
+    /// The defect this pins: `applied_migrations()` returned `report.applied`, which is
+    /// "what this run did". That was equal to the full set only while every database was
+    /// built from scratch, and stopped being true when the template-database cache landed —
+    /// both clone paths construct a `TestDb` with an empty `applied`, so a fully-migrated
+    /// database reported zero migrations.
+    ///
+    /// Eight suites assert a specific migration is present, and they all failed together
+    /// with "taxonomy migration must apply: []" — a message that reads like a broken
+    /// migration, so the failure was investigated in the wrong place for a while.
+    ///
+    /// The test asserts a migration known to exist and one known to be recent, so it fails
+    /// both when the accessor returns nothing at all and when it returns a truncated set.
+    #[tokio::test]
+    async fn applied_migrations_reports_the_whole_ledger() {
+        let dir = scratch_dir("ts_applied_ledger");
+        let tdb = super::TestDb::connect_with_dir("ts-applied-ledger", &dir).await;
+        let applied = tdb.applied_migrations();
+        assert!(
+            applied.iter().any(|m| m.contains("0011")),
+            "an early migration must be in the reported set: {applied:?}"
+        );
+        assert!(
+            !applied.is_empty(),
+            "a migrated database reports an empty migration set"
+        );
+        tdb.cleanup().await;
+    }
+
+    /// Two calls with the same tag must be two directories.
+    ///
+    /// The defect this pins: `scratch_dir` was keyed on (tag, pid), so a test
+    /// that called it twice with one tag got the same path twice — and the
+    /// function opens with `remove_dir_all`, so the second call deleted the
+    /// first call's SQLite file out from under a live connection. The symptom
+    /// was a 500 from a route whose SQL is correct, in a suite that passed
+    /// every time it ran alone.
+    ///
+    /// A property test rather than a single pair, because the two calls here
+    /// are adjacent and an implementation that only collided under
+    /// concurrency would pass them.
+    /// `cleanup` must actually remove the directory, since that is the whole point
+    /// of recording it on the struct. A test that only checks `cleanup` runs would
+    /// pass with a `remove_dir_all` that silently does nothing.
+    #[tokio::test]
+    async fn cleanup_removes_the_sqlite_scratch_directory() {
+        let dir = super::scratch_dir("cleanup-removes-dir");
+        let tdb = super::TestDb::connect_with_dir("cleanup-removes-dir", &dir).await;
+        let pg_name = tdb.pg_name.clone();
+
+        // The property is "cleanup removes what it recorded", and it holds on BOTH
+        // engines -- `cleanup` drops the scratch database or removes the directory,
+        // whichever this run built. Asserting on `sqlite_dir` alone made this a
+        // SQLite-only test inside a suite that runs on both, so it failed under
+        // `DARKHOLD_TEST_PG_URL` with "a SQLite TestDb records its directory" --
+        // a message that reads as a harness defect when it is really a test that
+        // never considered the other backend.
+        let recorded = match (&tdb.sqlite_dir, &pg_name) {
+            (Some(dir), _) => {
+                assert!(dir.is_dir(), "the scratch directory exists while in use");
+                assert!(
+                    dir.join("darkhold.sqlite").is_file(),
+                    "and holds the database"
+                );
+                CleanupWitness::Sqlite(dir.clone())
+            }
+            // A PostgreSQL `TestDb` records no directory: the scratch artefact is the
+            // database itself, and the directory handed to `connect_with_dir` is
+            // untouched by design (it is only used on the SQLite arm).
+            (None, Some(name)) => {
+                let admin = tdb
+                    .pg_admin
+                    .as_ref()
+                    .expect("a PostgreSQL TestDb keeps its admin handle")
+                    .postgres_pool()
+                    .expect("postgres admin pool");
+                let survives: i64 =
+                    sqlx::query_scalar("SELECT COUNT(*) FROM pg_database WHERE datname = $1")
+                        .bind(name)
+                        .fetch_one(admin)
+                        .await
+                        .expect("the scratch database exists while in use");
+                assert_eq!(survives, 1, "the scratch database exists while in use");
+                CleanupWitness::Postgres(name.clone())
+            }
+            (None, None) => panic!("a TestDb records a scratch artefact on every engine"),
+        };
+
+        tdb.cleanup().await;
+
+        match recorded {
+            CleanupWitness::Sqlite(dir) => assert!(
+                !dir.exists(),
+                "cleanup left {dir:?} behind -- this is the leak that put 29GB in TMPDIR"
+            ),
+            CleanupWitness::Postgres(name) => {
+                // A FRESH admin connection: `cleanup` consumes and closes the
+                // handle the TestDb was holding, so the post-condition has to be
+                // checked from outside the thing under test.
+                let url = std::env::var("DARKHOLD_TEST_PG_URL")
+                    .expect("DARKHOLD_TEST_PG_URL is set on the PostgreSQL arm");
+                let admin = super::Database::connect(&super::DatabaseConfig::new(url))
+                    .await
+                    .expect("a fresh admin connection to check the post-condition");
+                let survives: i64 =
+                    sqlx::query_scalar("SELECT COUNT(*) FROM pg_database WHERE datname = $1")
+                        .bind(&name)
+                        .fetch_one(admin.postgres_pool().expect("postgres admin pool"))
+                        .await
+                        .expect("query the admin database after cleanup");
+                admin.close().await;
+                assert_eq!(
+                    survives, 0,
+                    "cleanup left the scratch database {name:?} behind"
+                );
+            }
+        }
+    }
+
+    /// What a `TestDb` was recorded to hold, so the assertions above can talk about
+    /// "the scratch artefact" without repeating the per-engine spelling.
+    enum CleanupWitness {
+        Sqlite(std::path::PathBuf),
+        Postgres(String),
+    }
+
+    /// The sweep must not remove a directory that was touched moments ago, which is
+    /// the conservative side of its heuristic and the reason it is safe to run.
+    #[test]
+    fn the_sweep_leaves_a_fresh_directory_alone() {
+        let dir = scratch_dir("sweep-leaves-fresh");
+        let removed = super::sweep_stale_sqlite();
+        assert!(
+            dir.exists(),
+            "the sweep removed a directory created seconds ago ({removed} removed overall)"
+        );
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn scratch_dir_is_unique_per_call_not_per_tag() {
+        let mut seen = std::collections::HashSet::new();
+        for _ in 0..16 {
+            let dir = scratch_dir("the_same_tag");
+            assert!(
+                seen.insert(dir.clone()),
+                "scratch_dir returned {dir:?} twice for one tag: the second call removes the \
+                 first call's directory, which is a live SQLite database"
+            );
+        }
+    }
+
+    /// The sweeper's age floor agrees with the suffix it is decoded from.
+    ///
+    /// A race, not a value, and a value test is all that can be said about one:
+    /// the sweeper used to drop any `lh_test_%` database with no attached
+    /// backend, which in the window between another binary's `CREATE DATABASE`
+    /// and its `connect` is every database that binary is about to use. The
+    /// symptom was `database "lh_test_..." does not exist` in a suite whose
+    /// fixture is correct, which is the hardest kind of failure to read.
+    ///
+    /// So the floor is arithmetic on the name, and this pins the arithmetic: a
+    /// suffix minted now must decode to an age inside the floor, and one minted
+    /// `SWEEP_MIN_AGE_SECS` ago must decode outside it. If `unique_suffix`
+    /// changes its bit layout, this fails rather than the sweeper silently
+    /// decaying into either never-dropping or always-dropping.
+    #[test]
+    fn the_sweeper_age_floor_matches_the_suffix_layout() {
+        use super::{PROCESS_START, SWEEP_MIN_AGE_SECS};
+        use std::time::{SystemTime, UNIX_EPOCH};
+
+        let now = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .expect("clock")
+            .as_secs();
+        let started = *PROCESS_START.get_or_init(|| now);
+
+        // `unique_suffix` is `(seconds << 20) | counter`, so the process start
+        // time is the high bits and the counter the low 20.
+        let mint = |age: u64| -> u64 { now.saturating_sub(age) << 20 };
+        let decoded_age = |suffix: u64| started.saturating_sub(suffix >> 20);
+
+        assert!(
+            decoded_age(mint(0)) < SWEEP_MIN_AGE_SECS,
+            "a database minted now must be inside the floor, or the sweeper drops live tests"
+        );
+        assert!(
+            decoded_age(mint(SWEEP_MIN_AGE_SECS + 60)) >= SWEEP_MIN_AGE_SECS,
+            "a database older than the floor must be droppable, or leaks are never reclaimed"
+        );
+    }
+
+    /// The tag survives in the path, because a leaked directory has to be
+    /// attributable to a test.
+    ///
+    /// The second half of the change: uniqueness came from a counter, and the
+    /// obvious way to keep names short is to drop the tag. That would make a
+    /// failed run's leftovers a wall of anonymous numbers, which is the reason
+    /// the tag was in the name to begin with.
+    #[test]
+    fn scratch_dir_keeps_its_tag_in_the_path() {
+        let dir = scratch_dir("attributable");
+        let name = dir
+            .file_name()
+            .expect("a file name")
+            .to_string_lossy()
+            .into_owned();
+        assert!(
+            name.contains("attributable"),
+            "the directory name must say which test left it: {name}"
+        );
+    }
 }

@@ -104,7 +104,7 @@ async fn require_account(state: &AppState, raw: &str) -> ApiResult<darkhold_doma
         Ok(None) => Err(ApiError(darkhold_domain::AppError::NotFound {
             resource: "account",
         })),
-        Err(error) => Err(internal(error.into())),
+        Err(error) => Err(internal(error)),
     }
 }
 
@@ -128,7 +128,7 @@ async fn account_facts_route(
     let account = require_account(&state, &id).await?;
     let facts = identity::account_facts(state.db(), account)
         .await
-        .map_err(|error| internal(error.into()))?
+        .map_err(internal)?
         // `require_account` has just proven the row exists, so `None` here is a race with a deletion rather than a
         // missing account — and a 404 is still the honest answer to "tell me about this account".
         .ok_or_else(|| {
@@ -189,7 +189,7 @@ async fn set_age_state_route(
     let next: AgeState = parse_age_state(raw);
     let before = identity::find_account(state.db(), account)
         .await
-        .map_err(|error| internal(error.into()))?
+        .map_err(internal)?
         .map(|row| age_state_string(row.age_state).to_string())
         .unwrap_or_default();
 
@@ -261,7 +261,7 @@ async fn grant_guardian_authorization_route(
     // that it did.
     let state_now = identity::find_account(state.db(), account)
         .await
-        .map_err(|error| internal(error.into()))?
+        .map_err(internal)?
         .map(|row| age_state_string(row.age_state).to_string())
         .unwrap_or_default();
 
@@ -295,7 +295,7 @@ async fn fold_account_route(
     // re-parented by the first fold would then be attributed to somewhere it never went.
     let current = identity::find_account(state.db(), account)
         .await
-        .map_err(|error| internal(error.into()))?
+        .map_err(internal)?
         .ok_or_else(|| {
             ApiError(darkhold_domain::AppError::NotFound {
                 resource: "account",
@@ -324,7 +324,7 @@ async fn fold_account_route(
     // nowhere, which is exactly the state this marker exists to prevent.
     let target_row = identity::find_account(state.db(), target)
         .await
-        .map_err(|error| internal(error.into()))?
+        .map_err(internal)?
         .ok_or_else(|| {
             ApiError(darkhold_domain::AppError::field(
                 "folded_into",
@@ -334,7 +334,7 @@ async fn fold_account_route(
     if target_row.status != AccountStatus::Active {
         return Err(ApiError(darkhold_domain::AppError::field(
             "folded_into",
-            &format!(
+            format!(
                 "that account is {}, and a fold must point at a live account",
                 target_row.status.as_str()
             ),

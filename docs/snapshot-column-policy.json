@@ -1736,6 +1736,11 @@
       "treatment": "drop_column",
       "why": "The column IS the subject -- the reader who followed somebody else's filter -- so erasing the reader removes the row. The view it points at belongs to a different person and survives; only the arrow from the gone reader is dropped. Erasing the view's owner instead deletes the view, and the foreign key cascades this row with it, which is the honest outcome: a subscription to a filter that no longer exists is not a subscription.",
       "reviewed_by": "alvaro, 2026-11-08, against spec 11.16"
+    },
+    "reader_unit_completions.account_id": {
+      "treatment": "rekey_account",
+      "why": "Which account finished which unit, the fact §41.2's reading score is built from. Erasure rekeys the account to a stable pseudonym so the warmth arithmetic still counts a reader who has gone, and nothing in the row names them afterwards. It is the account and not the pseud because the score is between accounts; `reader_unit_read` keeps its own pseud-scoped row.",
+      "reviewed_by": "alvaro, 2026-11-10, against spec 11.16.3b"
     }
   }
 }

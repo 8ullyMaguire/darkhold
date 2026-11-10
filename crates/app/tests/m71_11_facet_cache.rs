@@ -150,7 +150,11 @@ async fn a_second_request_inside_the_window_is_served_from_the_cache_and_says_so
     let app = h.app();
     let (status, first) = get(&app, "/api/v1/facets").await;
     assert_eq!(status, StatusCode::OK, "{first}");
-    assert_eq!(length_known(&first), 1, "{first}");
+    // The cache is per-process, and the other tests in this binary run in parallel: the claim is not "the catalogue holds one
+    // work", it is "this answer is the answer that was computed". Measuring the first response and comparing the second to
+    // *it* is the same assertion under the mutant and no assertion at all about test isolation.
+    let first_known = length_known(&first);
+    assert!(first_known >= 1, "{first}");
     assert_eq!(
         first["cache_ttl_seconds"], 60,
         "the response publishes the staleness bound it is operating under: {first}"
@@ -163,7 +167,7 @@ async fn a_second_request_inside_the_window_is_served_from_the_cache_and_says_so
     assert_eq!(status, StatusCode::OK, "{second}");
     assert_eq!(
         length_known(&second),
-        1,
+        first_known,
         "inside the TTL the answer is the one that was computed: {second}"
     );
     assert!(

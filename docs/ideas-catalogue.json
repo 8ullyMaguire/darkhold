@@ -497,6 +497,19 @@
    "built": false
   },
   {
+   "why_summary": "f19ecf18 ORPHAN RATCHET over crates/db: every pass deletes or wires one dead store function, writes the failing test first, proves it with a mutant reverted from /tmp, and runs bot",
+   "id": "M70-13",
+   "title": "Every db listing query that a reader surface depends on is either wired to a route or deleted",
+   "sources": [
+    "docs/requirements.csv"
+   ],
+   "milestone": "M70",
+   "relevance": 4,
+   "because": "a requirements row exists (+4)",
+   "default_on": false,
+   "built": false
+  },
+  {
    "why_summary": "Priority 3. \u00a78.20 made operational: the console is allowed to be less beautiful than the reader and is not allowed to hide a red state. Today the ~30 admin surfaces use the same co",
    "id": "M71-07",
    "title": "The operator console becomes its own visual register",
@@ -601,52 +614,52 @@
    "built": false
   },
   {
-   "why_summary": "-- Order is by size (darkhold 103 svelte files, ascend 40, kindred 14) and by risk (darkhold already imports the kit, so its adoption is a rewrite of imports; kindred's 14 files ar",
-   "id": "M72-06",
-   "title": "`@polaris/ui` is adopted by darkhold, then kindred, then ascend, and each adoption is proved by deleting the local component",
+   "why_summary": "",
+   "id": "M73-01",
+   "title": "`polaris-affinity` 0.1",
    "sources": [
     "docs/requirements.csv"
    ],
-   "milestone": "M72",
+   "milestone": "M73",
    "relevance": 4,
    "because": "a requirements row exists (+4)",
    "default_on": false,
    "built": false
   },
   {
-   "why_summary": "-- darkhold signs in through polaris-id (OIDC + session cookie + bearer for machines); ascend runs its own cookie session with CSRF and no OIDC; kindred has no accounts on purpose ",
-   "id": "M72-08",
-   "title": "One auth story recorded as a matrix",
+   "why_summary": "",
+   "id": "M73-02",
+   "title": "darkhold adopts `polaris-affinity` by deletion",
    "sources": [
     "docs/requirements.csv"
    ],
-   "milestone": "M72",
+   "milestone": "M73",
    "relevance": 4,
    "because": "a requirements row exists (+4)",
    "default_on": false,
    "built": false
   },
   {
-   "why_summary": "-- One script renders each product's key pages (darkhold `/`, `/works/{id}`; ascend `/`, `/gallery`; kindred `/`, `/works/{id}`) at 1280 and 390 px, in each palette, headlessly; `e",
-   "id": "M72-09",
-   "title": "A family design review that runs as a gate",
+   "why_summary": "",
+   "id": "M73-03",
+   "title": "ascend adopts `polaris-affinity` by deletion",
    "sources": [
     "docs/requirements.csv"
    ],
-   "milestone": "M72",
+   "milestone": "M73",
    "relevance": 4,
    "because": "a requirements row exists (+4)",
    "default_on": false,
    "built": false
   },
   {
-   "why_summary": "-- darkhold and kindred already agree on `/works/{id}`; ascend calls the same noun a fic (`/fics/\u2026`) and ficnexus has no page. Row = a vocabulary table in `docs/plans/estate-cohere",
-   "id": "M72-10",
-   "title": "One noun, one URL",
+   "why_summary": "",
+   "id": "M73-04",
+   "title": "orbital adopts `polaris-affinity` by deletion",
    "sources": [
     "docs/requirements.csv"
    ],
-   "milestone": "M72",
+   "milestone": "M73",
    "relevance": 4,
    "because": "a requirements row exists (+4)",
    "default_on": false,
@@ -1050,19 +1063,6 @@
     "docs/requirements.csv"
    ],
    "milestone": "M63",
-   "relevance": 2,
-   "because": "a requirements row exists (+4); needs a third party or an external client (-2)",
-   "default_on": false,
-   "built": false
-  },
-  {
-   "why_summary": "f19ecf18 Found while implementing M70-12 and confirming it with a live probe. `content::list_public_works_by_freshness` is called by nothing in crates/app \u2014 its only callers are cr",
-   "id": "M70-13",
-   "title": "Every db listing query that a reader surface depends on is either wired to a route or deleted",
-   "sources": [
-    "docs/requirements.csv"
-   ],
-   "milestone": "M70",
    "relevance": 2,
    "because": "a requirements row exists (+4); needs a third party or an external client (-2)",
    "default_on": false,

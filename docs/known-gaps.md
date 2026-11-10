@@ -746,14 +746,13 @@ so the count can only go down and every fix is visible.**
 | `refunds` | written, never read | a refund is recorded as an event and the balance it adjusts lives on `payments.refunded_minor`; no surface reads the event log yet |
 | `work_ratings` | read, never written | migration 0129's arena ladder. A reader still asks it for a work's standing; the writes belong to the `polaris-taste` service that now keeps the ladder (ADR 0001), so on a fresh instance the table is empty and the reader falls back. Kept so an instance migrated from the pre-move ladder does not lose its rating history |
 | `exchange_signal_entities` | written, never read | the row is written on every event and read by nothing |
+| `reader_unit_completions` | written, never read | the row IS the idempotency key for §41.2's ReadUnit credit: `save_progress` learns "first completion" from `rows_affected`, never from a SELECT, so the scanner sees a write with no read. The reader this table wants — completions per reader, a streak surface — is not built. |
 | `forum_post_first_vote_notified` | written, never read | the row is written on every event and read by nothing |
-| `forum_search_misses` | written, never read | the row is written on every event and read by nothing |
 | `forum_topic_activity` | written, never read | the row is written on every event and read by nothing |
 | `lifecycle_events` | written, never read | the row is written on every event and read by nothing |
 | `media_edition_creators` | written, never read | the row is written on every event and read by nothing |
 | `mention_events` | written, never read | the row is written on every event and read by nothing |
 | `monetization_period_summaries` | written, never read | the row is written on every event and read by nothing |
-| `payment_events` | written, never read | the row is written on every event and read by nothing |
 | `pool_b_distributions` | written, never read | the row is written on every event and read by nothing |
 | `push_subscriptions` | written, never read | the row is written on every event and read by nothing |
 | `roadmap_suggestions` | written, never read | the row is written on every event and read by nothing |
@@ -762,12 +761,11 @@ so the count can only go down and every fix is visible.**
 | `translation_reviews` | written, never read | the row is written on every event and read by nothing |
 | `curator_standing_bounties` | read, never written | a reader with no writer: the feature's other half was never built |
 | `forum_vote_types` | read, never written | a reader with no writer: the feature's other half was never built |
-| `identity_merge_history` | read, never written | a reader with no writer: the feature's other half was never built |
-| `identity_merge_proposals` | read, never written | a reader with no writer: the feature's other half was never built |
+| `identity_merge_history` | neither | nothing reads it and nothing writes it: the reader this file used to claim has been removed too, so the whole merge-proposal feature is schema without code |
+| `identity_merge_proposals` | neither | nothing reads it and nothing writes it: the reader this file used to claim has been removed too, so the whole merge-proposal feature is schema without code |
 | `mechanism_declarations` | read, never written | a reader with no writer: the feature's other half was never built |
 | `media_collection_items` | read, never written | a reader with no writer: the feature's other half was never built |
 | `media_rights` | read, never written | a reader with no writer: the feature's other half was never built |
-| `quality_signals` | read, never written | a reader with no writer: the feature's other half was never built |
 | `work_moods` | read, never written | a reader with no writer: the feature's other half was never built |
 | `ai_consents` | neither | a migration with a table: nothing in the instance uses it |
 | `announcements` | neither | a migration with a table: nothing in the instance uses it |
@@ -802,7 +800,6 @@ so the count can only go down and every fix is visible.**
 | `work_index_policy` | neither | a migration with a table: nothing in the instance uses it |
 | `work_orphans` | neither | a migration with a table: nothing in the instance uses it |
 | `work_passages` | neither | a migration with a table: nothing in the instance uses it |
-| `work_tag_votes` | read, never written | a reader with no writer: the votes are counted into a tag's confidence (M6-04), and **no surface collects them yet** — the reader layer that would write them is not built |
 
 Pinned by `the_unreachable_tables_are_exactly_the_ones_the_known_gaps_file_claims`
 in `crates/app/tests/reachability.rs`, so the list fails **in both directions**: a

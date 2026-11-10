@@ -61,6 +61,15 @@
 {#if error}
   <span class="budget-badge error" title="Could not load vote budget">—</span>
 {:else if budget}
+  <!--
+    The narrowing has to be captured here, not relied on inside: a `{#snippet}` body is compiled as its own function, so
+    TypeScript sees `budget` as the nullable state variable again and every `budget.remaining` inside the tip is an error
+    ("'budget' is possibly 'null'"). `{@const}` is the narrower value, and it is the same value in both branches.
+  -->
+  {@const remaining = budget.remaining}
+  {@const limit = budget.limit}
+  {@const exhausted = budget.exhausted}
+  {@const resetsAt = budget.resets_at}
   {#if compact}
     <!--
       The same sentence the `title` used to carry, now reachable: a title is invisible to a keyboard user
@@ -68,16 +77,16 @@
       that — the pill becomes a focus stop, and it is one because this is the only place the remaining
       count is explained in words.
     -->
-    <Tooltip text={`Vote budget: ${budget.remaining}/${budget.limit} remaining. ${formatReset(budget.resets_at)}`}>
+    <Tooltip text={`Vote budget: ${remaining}/${limit} remaining. ${formatReset(resetsAt)}`}>
       {#snippet tip(describedBy)}
         <span
           class="budget-pill"
-          class:low={budget.remaining < 5}
-          class:exhausted={budget.exhausted}
+          class:low={remaining < 5}
+          class:exhausted={exhausted}
           tabindex="0"
           aria-describedby={describedBy}
         >
-          {budget.remaining}/{budget.limit}
+          {remaining}/{limit}
         </span>
       {/snippet}
     </Tooltip>

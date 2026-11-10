@@ -13,6 +13,7 @@
 
 use std::time::Duration;
 
+use darkhold_db::reading::{current_revision_of_unit, save_progress, ProgressInput};
 use darkhold_db::reading_goal as store;
 use darkhold_db::Database;
 use darkhold_domain::reading_goal::{Goal, Metric, Period};
@@ -160,12 +161,45 @@ async fn work(db: &Database, pseud: &str, chapters: usize, words: i64) -> (Strin
 
 /// One chapter read by `reader` at `at`, through the store the route writes.
 ///
-/// Deliberately through `record_unit_read` rather than raw SQL: the fixture is then proving the
-/// same statement the progress route runs, and a change to one cannot pass while the other drifts.
+/// Deliberately through `save_progress` rather than raw SQL, and through the same entry point the progress route runs: the
+/// chapter record is written in the position's transaction, so a fixture that inserted it itself could pass while the route
+/// silently failed to. `reading_goal::record_unit_read` used to be called here; it was a second writer of the same fact with no
+/// transaction to share, and deleting it is what makes this fixture prove something.
 async fn read_chapter(db: &Database, reader: &Reader, work: &str, chapter: &str, at: &str) {
-    store::record_unit_read(db, &reader.pseud, work, chapter, at)
+    let account = reader.account.parse().expect("an account id");
+    let pseud = reader.pseud.parse().expect("a pseud id");
+    let revision = current_revision_of_unit(db, chapter)
         .await
-        .expect("record the chapter read");
+        .expect("the chapter's current revision");
+
+    save_progress(
+        db,
+        ProgressInput {
+            account,
+            pseud: Some(pseud),
+            subject_type: "work",
+            subject_id: work,
+            unit_id: Some(chapter),
+            revision,
+            anchor: None,
+            fraction: 1000,
+            device: None,
+        },
+    )
+    .await
+    .expect("record the chapter read");
+
+    // The writer stamps the clock it has; the fixture needs a read that happened at a stated instant, because every goal is read
+    // against a window. Setting the two timestamps here keeps the product path the one that WROTE the row while the test owns
+    // the time - the alternative, teaching `save_progress` a test-only timestamp, would put a fixture concern in the product.
+    exec(
+        db,
+        &format!(
+            "UPDATE reading_unit_read SET first_read_at = '{at}', last_read_at = '{at}' \
+             WHERE unit_id = '{chapter}'"
+        ),
+    )
+    .await;
 }
 
 fn daily(metric: Metric, target: i64) -> Goal {

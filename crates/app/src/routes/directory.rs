@@ -1013,7 +1013,7 @@ async fn set_max_categories(
     if body.max != current {
         return Err(ApiError(darkhold_domain::AppError::field(
             "max",
-            &format!(
+            format!(
                 "the ceiling is {current} and is set by configuration \
                  (directory.governance.max_active_categories), not at runtime; change it there and restart"
             ),

@@ -87,7 +87,7 @@ pub async fn set_pricing(
     }
     if !assertion_satisfied(state.db(), eligibility, &work_id.to_canonical_string())
         .await
-        .map_err(|e| ApiError(darkhold_domain::AppError::Internal(e.into())))?
+        .map_err(|e| ApiError(darkhold_domain::AppError::Internal(e)))?
     {
         return Err(ApiError(darkhold_domain::AppError::field(
             "assertion",
@@ -190,7 +190,7 @@ pub async fn purchase(
     if !darkhold_domain::monetization::Rules::pricing_enabled(eligibility)
         || !assertion_satisfied(state.db(), eligibility, &work_id.to_canonical_string())
             .await
-            .map_err(|e| ApiError(darkhold_domain::AppError::Internal(e.into())))?
+            .map_err(|e| ApiError(darkhold_domain::AppError::Internal(e)))?
     {
         return Err(ApiError(darkhold_domain::AppError::field(
             "work_id",
