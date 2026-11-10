@@ -2898,3 +2898,26 @@ JWKS is fetched once.
 `finished` left it at 500 rather than 1000, which is the transition rule visible from the database. Account, status row and warmth
 row deleted afterwards.
 
+### Deployed 2026-11-10 01:48 — `0.1.0+ed82e4f0` (clean stamp)
+
+Merged `lc/master` (passes 78–79 plus the oidc adoption and the lockfile), release build 14m19s. The stamp carries no `.dirty`
+suffix now that `Cargo.lock` is committed — the version string matches the tree, which is the only reason to read it.
+
+Live: `/health/live` 200, `/api/v1/notifications` and `/api/v1/me/audience` 401 (present, session-gated), `migrate` 197/0. Earlier in
+this deploy the same tree failed to compile at all because `polaris-oidc-client` 0.2.0 had removed `verify_claims`; that adoption is
+in this build, so the deployed artifact verifies the `id_token` signature instead of reading its claims.
+
+`gate.sh repo`, `gate.sh ledger` and `gate.sh design` are all `ok` on the dev tree at `78d00579`.
+
+### Quality signals: the filter dimension nothing could write (2026-11-10)
+
+`min_quality` and `quality:<kind>:<min>` compiled, the "Hidden gems" surface declared `quality_signals` a data need, and the table
+held **0 rows** on a 58,042-work instance: the only writer in the tree was a test fixture. Every quality filter answered "nothing".
+
+Now: `POST /admin/works/{id}/quality-signals` (operator judgement, `source = operator:<account>`, replacing that operator's previous
+row for the same kind) and `GET /works/{id}/quality` (public components + the composite computed with the **filter's own formula**).
+
+Named next half: `completeness` and `reader_positivity` are derivable from stored facts, but their mappings are policy — a migration
+row each with a documented mapping, not a route that invents a curve. `editorial_review`, `quorum_distinction` and `maturity` stay
+operator/quorum acts by definition.
+

@@ -119,9 +119,12 @@ pub struct QualitySignal {
     pub id: String,
     pub work_id: String,
     pub signal_kind: String,
-    pub value: String,
-    pub weight: f64,
-    pub source: Option<String>,
+    /// 0..=1000, as `quality_signals.value` stores it (BIGINT on PostgreSQL, INTEGER on SQLite). It was declared `String`
+    /// here, which no engine can decode from an integer column — the reader was unreachable *and* unreadable.
+    pub value: i64,
+    /// Instance-configured weight (BIGINT). Declared `f64` it could not decode on PostgreSQL either.
+    pub weight: i64,
+    pub source: String,
     pub computed_at: String,
 }
 
@@ -864,25 +867,123 @@ async fn read_collections_by_kind(
 
 /// Get quality signals for a work.
 pub async fn work_quality_signals(db: &Database, work_id: &str) -> Result<Vec<QualitySignal>> {
-    let sqlite = "SELECT id, work_id, signal_kind, value, weight, \\
-                  source, computed_at FROM quality_signals WHERE work_id = ?";
-    let postgres = "SELECT id, work_id, signal_kind, value, weight, \\
-                    source, computed_at FROM quality_signals WHERE work_id = ?";
+    // `work_id` is UUID on PostgreSQL and TEXT on SQLite: the comparison casts the *column* to text rather than the parameter to
+    // uuid, so a malformed id is an empty list instead of a `500` (`invalid input syntax for type uuid`).
+    let sql = db.sql(
+        "SELECT id, work_id, signal_kind, value, weight, source, computed_at FROM quality_signals WHERE work_id = ?",
+        "SELECT id::text, work_id::text, signal_kind, value, weight, source, computed_at FROM quality_signals WHERE work_id::text = $1",
+    );
     let rows = match db.backend() {
         Backend::Sqlite => {
-            sqlx::query_as::<_, QualitySignal>(&db.sql(sqlite, postgres))
+            sqlx::query_as::<_, QualitySignal>(&sql)
                 .bind(work_id)
                 .fetch_all(db.sqlite_pool().expect("sqlite handle"))
                 .await?
         }
         Backend::Postgres => {
-            sqlx::query_as::<_, QualitySignal>(&db.sql(sqlite, postgres))
+            sqlx::query_as::<_, QualitySignal>(&sql)
                 .bind(work_id)
                 .fetch_all(db.postgres_pool().expect("postgres handle"))
                 .await?
         }
     };
     Ok(rows)
+}
+
+/// Replace this `(work, kind, source)` signal, returning the row that now stands.
+///
+/// Replace, not insert: `quality_signals` has no unique key on `(work_id, signal_kind, source)`, and the composite is a
+/// *weighted sum divided by the sum of weights* — so two rows for the same judgement double its weight and quietly outvote every
+/// other signal. An operator correcting a value must correct it, not add a second opinion to their own first one.
+pub async fn store_signal(
+    db: &Database,
+    work_id: &str,
+    kind: &str,
+    value: i64,
+    weight: i64,
+    source: &str,
+) -> Result<QualitySignal> {
+    let now = crate::identity::now_rfc3339();
+    let id = Uuid::new_v4().to_string();
+    let delete = db.sql(
+        "DELETE FROM quality_signals WHERE work_id = ? AND signal_kind = ? AND source = ?",
+        "DELETE FROM quality_signals WHERE work_id::text = $1 AND signal_kind = $2 AND source = $3",
+    );
+    let insert = db.sql(
+        "INSERT INTO quality_signals (id, work_id, signal_kind, value, weight, source, computed_at)          VALUES (?, ?, ?, ?, ?, ?, ?)",
+        "INSERT INTO quality_signals (id, work_id, signal_kind, value, weight, source, computed_at)          VALUES ($1::uuid, $2::uuid, $3, $4, $5, $6, $7)",
+    );
+    match db.backend() {
+        Backend::Sqlite => {
+            let pool = db.sqlite_pool().expect("sqlite handle");
+            sqlx::query(&delete)
+                .bind(work_id)
+                .bind(kind)
+                .bind(source)
+                .execute(pool)
+                .await?;
+            sqlx::query(&insert)
+                .bind(&id)
+                .bind(work_id)
+                .bind(kind)
+                .bind(value)
+                .bind(weight)
+                .bind(source)
+                .bind(&now)
+                .execute(pool)
+                .await?;
+        }
+        Backend::Postgres => {
+            let pool = db.postgres_pool().expect("postgres handle");
+            sqlx::query(&delete)
+                .bind(work_id)
+                .bind(kind)
+                .bind(source)
+                .execute(pool)
+                .await?;
+            sqlx::query(&insert)
+                .bind(&id)
+                .bind(work_id)
+                .bind(kind)
+                .bind(value)
+                .bind(weight)
+                .bind(source)
+                .bind(&now)
+                .execute(pool)
+                .await?;
+        }
+    }
+    Ok(QualitySignal {
+        id,
+        work_id: work_id.to_owned(),
+        signal_kind: kind.to_owned(),
+        value,
+        weight,
+        source: source.to_owned(),
+        computed_at: now,
+    })
+}
+
+/// The composite the search filter computes: weighted mean over signals with positive weight, scaled to 0..1.
+///
+/// The formula is the filter's (`domain::query_sql::QueryField::MinQuality`), not a second opinion: a reader who sees `0.8` here
+/// and then filters `min_quality:0.8` must get this work back, or the two numbers are describing different instances.
+pub async fn quality_composite(db: &Database, work_id: &str) -> Result<Option<f64>> {
+    let sql = db.sql(
+        "SELECT SUM(CAST(value AS REAL) * weight) / NULLIF(SUM(weight), 0)            FROM quality_signals WHERE work_id = ? AND weight > 0",
+        "SELECT SUM(CAST(value AS DOUBLE PRECISION) * weight) / NULLIF(CAST(SUM(weight) AS BIGINT), 0)            FROM quality_signals WHERE work_id::text = $1 AND weight > 0",
+    );
+    let mean: Option<f64> = match db.backend() {
+        Backend::Sqlite => sqlx::query_scalar(&sql)
+            .bind(work_id)
+            .fetch_one(db.sqlite_pool().expect("sqlite handle"))
+            .await?,
+        Backend::Postgres => sqlx::query_scalar(&sql)
+            .bind(work_id)
+            .fetch_one(db.postgres_pool().expect("postgres handle"))
+            .await?,
+    };
+    Ok(mean.map(|value| value / 1000.0))
 }
 
 // ---------------------------------------------------------------------------
