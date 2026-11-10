@@ -11,6 +11,21 @@ Two rules that decide the order:
 * **A row that gates other rows is taken as soon as its blocker clears.** Nine of the M64 rows read a snapshot built by
   M64-01..M64-03; taking them first would mean writing the same aggregation three times.
 
+## Deployed 2026-11-10 23:55 — M45-46 preview + the nav fix (`0.1.0+d2942fc3`)
+
+The batch that was in flight when the previous ssh was killed.
+
+| step | measured |
+|---|---|
+| dump | `/personal/backups/darkhold-20261110-2312xx-pre-nav-fix.dump`, 3,740,163,393 bytes, 399 `TABLE DATA` (the dump alone takes ~18 min on this database, so a "small" deploy is ~45 min) |
+| frontend | `vite build` → `dist/assets/index-DQl-Jj6t.js`; the bundle contains `floating` (the panel's fixed class), which is how the built artifact is proved rather than the source |
+| backend | `cargo build --release -p darkhold-app --bin darkhold`, binary 23:55 |
+| live | `/api/v1/meta` → `0.1.0+d2942fc3`; `POST /admin/discovery/preview` unauthenticated → **401** (the route exists and is operator-only); `/discover` serves the new bundle |
+| CSS | `--surface-2` now resolves (`oklch(18% var(--brand-chroma-surface) var(--brand-hue))` after-hours, `#ffffff` clear-day) — it was the empty string before, which is what made every raised surface transparent |
+| browser, live | on `https://darkhold.polarisocial.xyz/discover` the Read panel is `position: fixed`, `rgb(36, 49, 42)`, bottom 358px against a row bottom of 60px, and **0 of 6 links unhittable** |
+
+**Two deploy lessons, both measured:** a SIGTERM'd `ssh` does **not** stop the remote script — this session's killed deploy kept compiling and linked the binary eight minutes later, so a retry launched on the same tree runs `cargo` against a build that is still going. Check `pgrep -af` for the *remote* script before re-running, and never assume a killed ssh means a stopped build. And a script whose output only goes to the ssh session leaves nothing to read when the session dies: write to a log file on the host.
+
 ## Batch 0 — the family of products (M72, 10 rows) — take this first
 
 Added 2026-11-08 at the user's direction, ahead of everything else, because it changes the *shape* of the work that
