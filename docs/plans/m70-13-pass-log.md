@@ -467,3 +467,53 @@ above constructive (actionable critique).
 
 **Consequence for history, not fixed here:** classifications already stored keep their verdicts — a re-classification pass is a data
 migration with its own reversible rule, and pretending the fix rewrote yesterday's rows would be a claim the database cannot support.
+
+## Ledger repair — a cell is a field, and a field has no lines (2026-11-10)
+
+Consolidating M70-13's notes to make room for pass 82 hit the 32 KiB cap (the guard fired, as it was built to). The replacement summary
+was written **with raw newlines**; the writer put them in the file verbatim, so the ledger held 6 lone `LF` bytes in a CRLF file and
+`gate.sh ledger` went red on `the real ledger has no lone LF (got 6)`.
+
+Two lessons, both mine:
+
+* **The verdict line is the check.** I read a *slice* of `gate.sh ledger`'s output and saw a log path, not `ok:` or `FAILED:`, and
+  treated it as passing. The gate prints `ok:`/`FAILED:` before any excerpt; reading anything else is reading the wrong thing.
+* **A CSV cell is a field, not a container.** The same rule that moved the journal out of the cell applies inside it: separators and
+  single lines, not paragraphs. The summary is now one line, ` | `-joined.
+
+Repaired by rewriting the cell without newlines; `gate.sh ledger` → `ok: ledger`, `gate.sh repo` → `ok: repo`, `planned` 60, ratchet 36.
+
+## Pass 83 — `ReadUnit`, the last of §41.2's four acts (2026-11-10)
+
+Passes 77–78 wired `React` and `FinishWork`. `ReadUnit` (100 bp) stayed unwired for a reason that was a missing **fact**, not missing
+glue: `save_progress` stores a position, and a position is overwritten.
+
+**The near-miss first.** I wrote a migration for a new `reader_unit_reads` table, then found `reading_unit_read` already existed — keyed
+on the **pseud**, written on the first *open* of a unit, and consumed by the `chapters`/`words` reading goals. Two facts, not one:
+
+| table | key | when | consumer |
+|---|---|---|---|
+| `reading_unit_read` | pseud | first open | reading goals (§9.7.9) |
+| `reader_unit_completions` | account | first **completion** | warmth (§41.2) |
+
+The scope differs because §41.2's score is between accounts; the fact differs because opening is not reading, and crediting on open would
+make 100 bp cost one click. The migration is named for what it stores, and the reason for both tables is written beside the writer.
+
+**The rule.** "Read" is the reader's own fact: their saved position reached the end of the unit (`position_permille = 1000`). No guess
+about unit length, no word counts. `INSERT … ON CONFLICT DO NOTHING`, and **`rows_affected` is the one-time credit** — the row is the
+"already counted" state, and `save_progress` now answers `bool` so both doors (the API save and the reader page form) credit the same act
+through one decision.
+
+Proof: red first (a completed unit credited 0). Both engines: 500 permille credits nothing; 1000 credits 100 bp; saving the same unit
+twice more leaves 100; a second unit reaches 200 bp — `react` on the author's panel, the first non-`lurk` reader from reading alone.
+Mutants: `fraction >= 1` instead of `>= 1000` (reddens the half-unit assertion), and "every save reports a completion" (reddens the
+re-read assertion at 300 vs 100). Reading suites re-run green: `m47_13_reading_goals`, `m71_09_resume_state`, `m70_13_work_readers`,
+`m70_13_unfinished_shelf`, `m70_13_warmth_producer`.
+
+**Test-harness defect caught by the PG run:** `interaction_warmth.warmth_bp` is INT4, and the helper read it as `i64`; cast in the SELECT
+(`::bigint`) rather than loosening the reader.
+
+**A gate finding, not mine and not small:** `gate.sh dialects` is **red** on 14 pre-existing defects in 9 files — `tag_scripts`,
+`content_policy`, `experiment_decisions`, `trope_clusters`, `experiment_snapshots`, `experiments`, `gravity_prefs`, `shelf_follows`,
+`source_engagement` — all "passes on SQLite, fails on PostgreSQL" uncast placeholders. Recorded here and on the roadmap as the next pass;
+none of them is in a file this pass touched.

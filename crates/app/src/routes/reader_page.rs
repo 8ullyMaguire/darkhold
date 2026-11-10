@@ -480,8 +480,20 @@ async fn save_position(
         },
     )
     .await;
-    if let Err(error) = result {
-        tracing::error!(%error, "the position save failed");
+    match result {
+        Ok(true) => {
+            // The reader form is the same act as the API save, so it credits the same `ReadUnit` warmth — one code path decides what
+            // "completed a unit" means (`save_progress`), and both doors follow it.
+            crate::warmth::record(
+                &state,
+                &user.account_id.to_string(),
+                &work_id.to_string(),
+                darkhold_domain::longevity::WarmthAction::ReadUnit,
+            )
+            .await;
+        }
+        Ok(false) => {}
+        Err(error) => tracing::error!(%error, "the position save failed"),
     }
 
     Ok(Redirect::to(&back).into_response())
