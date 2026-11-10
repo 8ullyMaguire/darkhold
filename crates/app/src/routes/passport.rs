@@ -99,7 +99,7 @@ async fn taste_bp(state: &AppState, account: &str) -> ApiResult<BTreeMap<String,
                    FROM bookmarks b
                    JOIN work_tags wt ON wt.work_id = b.subject_id
                    JOIN canonical_entities tn ON tn.id = wt.node_id
-                  WHERE b.account_id = $1 AND b.subject_type = 'work'
+                  WHERE b.account_id = $1::uuid AND b.subject_type = 'work'
                   GROUP BY tn.canonical
                   ORDER BY n DESC
                   LIMIT 200",
@@ -158,8 +158,11 @@ async fn contribution_counts(state: &AppState, account: &str) -> ApiResult<Contr
     .await?;
     let comments = count(
         state,
+        // `comments.author_pseud` is TEXT (0013) while `pseuds.id` is UUID, so the PostgreSQL arm casts the column -- and the
+        // SQLite arm must NOT: `::` is not SQLite syntax, and a cast there is a syntax error that turns the whole route into a
+        // 500 on the engine the suite runs by default.
         "SELECT COUNT(*) FROM comments c JOIN pseuds p ON p.id = c.author_pseud WHERE p.account_id = ?",
-        "SELECT CAST(COUNT(*) AS BIGINT) FROM comments c JOIN pseuds p ON p.id = c.author_pseud WHERE p.account_id = $1::uuid",
+        "SELECT CAST(COUNT(*) AS BIGINT) FROM comments c JOIN pseuds p ON p.id::text = c.author_pseud WHERE p.account_id = $1::uuid",
         account,
     )
     .await?;
@@ -265,10 +268,10 @@ async fn favourite_sources(state: &AppState, account: &str) -> ApiResult<Vec<Str
                 "SELECT li.source_url
                    FROM bookmarks b
                    JOIN library_items li ON li.work_id = b.subject_id AND li.account_id = b.account_id
-                  WHERE b.account_id = $1 AND b.subject_type = 'work'
+                  WHERE b.account_id = $1::uuid AND b.subject_type = 'work'
                   GROUP BY li.source_url
                   ORDER BY COUNT(*) DESC
-                  LIMIT ?",
+                  LIMIT $2",
             )
             .bind(account)
             .bind(i64::try_from(passport::MAX_SOURCES).unwrap_or(100))

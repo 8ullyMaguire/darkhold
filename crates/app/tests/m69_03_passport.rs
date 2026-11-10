@@ -303,52 +303,50 @@ async fn export_without_a_configured_key_is_refused_with_the_reason_and_the_door
 
 async fn seed_shelved(tdb: &TestDb, account: &str, title: &str, tags: &[&str]) {
     let now = "2026-11-07T00:00:00Z";
-    // SQLITE-ONLY, and deliberately: porting this suite to PostgreSQL reached `GET /me/passport` and hit a 500 in the
-    // product, not in the fixture. The passport suite is the reproduction for that defect (m69-03/passport export), and
-    // until it is fixed the harness must keep saying which engine it runs on rather than pretend to cover both.
-    let pseud: String = sqlx::query_scalar("SELECT id FROM pseuds ORDER BY created_at LIMIT 1")
-        .fetch_one(tdb.db().sqlite_pool().expect("sqlite"))
-        .await
-        .expect("a pseud exists");
+    let pseud = test_support::scalar_pair(
+        tdb.db(),
+        "SELECT id FROM pseuds ORDER BY created_at LIMIT 1",
+        "SELECT id::text FROM pseuds ORDER BY created_at LIMIT 1",
+    )
+    .await
+    .expect("a pseud exists");
     let owner: darkhold_domain::ids::PseudId = pseud.parse().expect("pseud id");
     let work = darkhold_db::content::create_work(tdb.db(), owner, title, None)
         .await
         .expect("create work");
     let work_id = work.id.to_string();
     for tag in tags {
-        sqlx::query(
+        let node = format!("node-{tag}");
+        // The passport reads the tag's canonical name, so the node has to exist as a taxonomy node: a bare node id in
+        // `work_tags` is an id nothing can name. `INSERT OR IGNORE` is SQLite's spelling; PostgreSQL wants ON CONFLICT.
+        test_support::exec_binds(
+            tdb.db(),
             "INSERT OR IGNORE INTO canonical_entities (id, kind, canonical, norm, created_at)
              VALUES (?, 'tag', ?, ?, ?)",
+            "INSERT INTO canonical_entities (id, kind, canonical, norm, created_at)
+             VALUES ($1, 'tag', $2, $3, $4) ON CONFLICT DO NOTHING",
+            &[&node, tag, tag, now],
         )
-        .bind(format!("node-{tag}"))
-        .bind(tag)
-        .bind(tag)
-        .bind(now)
-        .execute(tdb.db().sqlite_pool().expect("sqlite"))
-        .await
-        .expect("canonical entity");
-        sqlx::query(
+        .await;
+        test_support::exec_binds(
+            tdb.db(),
             "INSERT OR IGNORE INTO work_tags (work_id, node_id, added_at) VALUES (?, ?, ?)",
+            "INSERT INTO work_tags (work_id, node_id, added_at) VALUES ($1::uuid, $2, $3) ON CONFLICT DO NOTHING",
+            &[&work_id, &node, now],
         )
-        .bind(&work_id)
-        .bind(format!("node-{tag}"))
-        .bind(now)
-        .execute(tdb.db().sqlite_pool().expect("sqlite"))
-        .await
-        .expect("tag");
+        .await;
     }
-    sqlx::query(
+    let id = uuid::Uuid::new_v4().to_string();
+    test_support::exec_binds(
+        tdb.db(),
+        // `?4` twice, not a fifth placeholder: the two timestamps are one value, and SQLite counts `?` positionally.
         "INSERT INTO bookmarks (id, account_id, subject_type, subject_id, note, is_public, created_at, updated_at)
-         VALUES (?, ?, 'work', ?, '', 0, ?, ?)",
+         VALUES (?1, ?2, 'work', ?3, '', 0, ?4, ?4)",
+        "INSERT INTO bookmarks (id, account_id, subject_type, subject_id, note, is_public, created_at, updated_at)
+         VALUES ($1::uuid, $2::uuid, 'work', $3::uuid, '', false, $4, $4)",
+        &[&id, account, &work_id, now],
     )
-    .bind(uuid::Uuid::new_v4().to_string())
-    .bind(account)
-    .bind(&work_id)
-    .bind(now)
-    .bind(now)
-    .execute(tdb.db().sqlite_pool().expect("sqlite"))
-    .await
-    .expect("bookmark");
+    .await;
 }
 
 async fn imported_signals(tdb: &TestDb, account: &str) -> Vec<String> {
