@@ -441,6 +441,29 @@ pub const ROUTE_TABLE: &[RouteEntry] = &[
         audience: Audience::AdminOf { site: None },
     },
     RouteEntry {
+        file: "taste.rs",
+        handler: "profile",
+        method: "GET",
+        path: "/taste",
+        // The caller's own taste page: signed in, because the answer is a function of who is asking.
+        audience: Audience::Authenticated,
+    },
+    RouteEntry {
+        file: "succession.rs",
+        handler: "write_mirror",
+        method: "PUT",
+        path: "/admin/succession/mirrors",
+        // Cross-site, like the plan it belongs to: which peer holds a copy is estate state (ADR 0003).
+        audience: Audience::AdminOf { site: None },
+    },
+    RouteEntry {
+        file: "succession.rs",
+        handler: "withdraw_mirror",
+        method: "DELETE",
+        path: "/admin/succession/mirrors/{peer}",
+        audience: Audience::AdminOf { site: None },
+    },
+    RouteEntry {
         file: "succession.rs",
         handler: "write_plan",
         method: "PUT",

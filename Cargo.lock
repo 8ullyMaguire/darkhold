@@ -2775,7 +2775,7 @@ version = "0.1.0"
 
 [[package]]
 name = "polaris-taste-source"
-version = "0.1.0"
+version = "0.2.0"
 
 [[package]]
 name = "poly1305"

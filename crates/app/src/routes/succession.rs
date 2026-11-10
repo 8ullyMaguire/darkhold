@@ -20,7 +20,8 @@
 //! Same rule as the leakage view and the rest of this tree: an endpoint whose existence is a
 //! disclosure must not answer 403.
 
-use axum::extract::{Query, State};
+use axum::extract::{Path, Query, State};
+use axum::http::StatusCode;
 use axum::routing::{get, post, put};
 use axum::{Json, Router};
 use serde::{Deserialize, Serialize};
@@ -41,6 +42,11 @@ pub fn router() -> Router<AppState> {
         .route("/succession", axum::routing::delete(withdraw_plan))
         .route("/succession/redirects", put(write_redirect))
         .route("/admin/succession/redirects", get(list_redirects))
+        .route("/admin/succession/mirrors", put(write_mirror))
+        .route(
+            "/admin/succession/mirrors/{peer}",
+            axum::routing::delete(withdraw_mirror),
+        )
 }
 
 /// The public document.
@@ -48,6 +54,8 @@ pub fn router() -> Router<AppState> {
 pub struct SuccessionView {
     /// The plan, or `null` when this instance has published none.
     pub plan: Option<PlanView>,
+    /// The peers an operator has asserted hold a copy, ordered by peer id.
+    pub mirrors: Vec<MirrorView>,
     /// What this document does not cover, said in the document rather than in a roadmap.
     ///
     /// A reader deciding whether to trust the pointer is told which halves of instance-death
@@ -72,6 +80,31 @@ pub struct PlanView {
     pub review_due: Option<String>,
     /// Whether it has outlived the window — computed at read time.
     pub stale: bool,
+}
+
+/// One peer holding a copy, as the public document states it.
+#[derive(Debug, Serialize)]
+pub struct MirrorView {
+    /// The peer, by the id its fingerprint declares.
+    pub peer_id: String,
+    /// Where its copy of the export can be fetched.
+    pub export_url: String,
+    /// When the operator asserted it holds that copy, RFC 3339.
+    pub asserted_at: String,
+    /// Always false: this instance records an assertion and cannot reach into a peer's disk.
+    ///
+    /// The field exists so a reader is not invited to read "a copy exists" as "a copy was checked". It is a constant
+    /// rather than an absent field because silence reads as a yes.
+    pub verified: bool,
+}
+
+/// The body an operator sends to record a peer.
+#[derive(Debug, Deserialize)]
+pub struct MirrorRequest {
+    /// The peer, by the id its fingerprint declares.
+    pub peer_id: String,
+    /// Where its copy of this instance's export can be fetched. `https://` only.
+    pub export_url: String,
 }
 
 /// The body an operator sends to set the plan.
@@ -130,6 +163,8 @@ async fn read_plan(
     MaybeSession(_user): MaybeSession,
 ) -> ApiResult<Json<SuccessionView>> {
     let plan = darkhold_db::succession::plan(state.db()).await?;
+    let mirrors = darkhold_db::succession::mirrors(state.db()).await?;
+    let has_mirror = !mirrors.is_empty();
     let now = time::OffsetDateTime::now_utc();
     Ok(Json(SuccessionView {
         plan: plan.map(|plan| PlanView {
@@ -141,10 +176,26 @@ async fn read_plan(
             review_days: plan.review_days,
             confirmed_at: plan.confirmed_at,
         }),
-        not_built: vec![
-            "mutual backup with a peer instance".to_owned(),
-            "ActivityPub account Move".to_owned(),
-        ],
+        mirrors: mirrors
+            .into_iter()
+            .map(|mirror| MirrorView {
+                peer_id: mirror.peer_id,
+                export_url: mirror.export_url,
+                asserted_at: mirror.asserted_at,
+                verified: false,
+            })
+            .collect(),
+        // Computed from the rows, never hardcoded: an instance that has recorded a mirror must stop confessing that the
+        // half is missing, and one whose operator withdrew it must start again. `ActivityPub account Move` stays
+        // unconditional — darkhold federates inbound only, so that half is not this instance's to build.
+        not_built: {
+            let mut missing = Vec::new();
+            if !has_mirror {
+                missing.push("mutual backup with a peer instance".to_owned());
+            }
+            missing.push("ActivityPub account Move".to_owned());
+            missing
+        },
     }))
 }
 
@@ -292,6 +343,55 @@ async fn write_redirect(
         )));
     }
     Ok(Json(ResolveView { to: request.to_url }))
+}
+
+/// Record the assertion that a peer holds a copy.
+async fn write_mirror(
+    State(state): State<AppState>,
+    RequireSession(user): RequireSession,
+    Json(request): Json<MirrorRequest>,
+) -> ApiResult<(StatusCode, Json<SuccessionView>)> {
+    // `require_admin_of` answers `404` to a caller with no standing at all and `403` to one whose role is real but wrong
+    // for this door (ADR 0030), so these doors need no shape check of their own.
+    crate::routes::admin_scope::require_admin_of(&state, &user, None).await?;
+    let peer = request.peer_id.trim();
+    if peer.is_empty() || peer.len() > 64 || !peer
+        .chars()
+        .all(|c| c.is_ascii_alphanumeric() || matches!(c, '-' | '_' | '.' | ':'))
+    {
+        // A peer id is a name another instance publishes, not free text: empty means "no peer", and the characters are the
+        // ones an instance id is spelled with. Refused by field so the operator knows which half to fix.
+        return Err(ApiError(AppError::field(
+            "peer_id",
+            "A peer id is 1..=64 characters of letters, digits, '-', '_', '.' or ':'.",
+        )));
+    }
+    if !request.export_url.starts_with("https://") {
+        return Err(ApiError(AppError::field(
+            "export_url",
+            "A mirror's export must be https.",
+        )));
+    }
+    darkhold_db::succession::set_mirror(state.db(), peer, &request.export_url).await?;
+    let view = read_plan(State(state), MaybeSession(None)).await?;
+    Ok((StatusCode::CREATED, view))
+}
+
+/// Withdraw one peer's assertion.
+async fn withdraw_mirror(
+    State(state): State<AppState>,
+    RequireSession(user): RequireSession,
+    Path(peer): Path<String>,
+) -> ApiResult<StatusCode> {
+    // `require_admin_of` answers `404` to a caller with no standing at all and `403` to one whose role is real but wrong
+    // for this door (ADR 0030), so these doors need no shape check of their own.
+    crate::routes::admin_scope::require_admin_of(&state, &user, None).await?;
+    if !darkhold_db::succession::remove_mirror(state.db(), &peer).await? {
+        // Withdrawing an assertion nobody made is not "already gone": it is a request about a peer this instance never
+        // recorded, and `404` says exactly that instead of implying the operator's work was done.
+        return Err(ApiError(AppError::NotFound { resource: "mirror" }));
+    }
+    Ok(StatusCode::NO_CONTENT)
 }
 
 // The local `require_operator` is gone: succession re-points an identity, which is estate state rather than this community's

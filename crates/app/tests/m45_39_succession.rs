@@ -443,3 +443,124 @@ async fn confirming_nothing_is_a_404_and_withdrawing_empties_the_document() {
     assert_eq!(status, StatusCode::OK, "{body}");
     assert_eq!(body["plan"], Value::Null, "withdrawn: {body}");
 }
+
+fn mirror_body() -> Value {
+    json!({
+        "peer_id": "peer-alpha",
+        "export_url": "https://peer-alpha.example/export",
+    })
+}
+
+/// The half §11.11a's own document confessed was missing: a peer that holds a copy.
+///
+/// The confession is the interesting assertion. `GET /succession` publishes `not_built` so a reader does not read "there is
+/// an export URL" as "the archive is mirrored" — so the day an operator records a mirror, the document has to stop saying
+/// the half is missing, and the day they withdraw it, it has to say so again. A hardcoded list would lie in one direction
+/// for as long as the instance lives.
+#[tokio::test]
+async fn a_recorded_mirror_is_published_and_the_confession_stops_naming_it() {
+    let h = Harness::new("mirrors").await;
+    let mut admin = h.signed_in("operator").await;
+    let mut stranger = h.client();
+
+    // 1. Nothing recorded: the document says the half is missing, in the document itself.
+    let (status, body) = stranger.get("/api/v1/succession").await;
+    assert_eq!(status, StatusCode::OK, "{body}");
+    assert_eq!(body["mirrors"], json!([]), "{body}");
+    assert!(
+        names_mutual_backup(&body),
+        "an instance with no mirror must say so: {body}"
+    );
+
+    // 2. A reader may not record one, and gets 404 rather than 403: the door does not exist for them.
+    let mut reader = h.signed_in("reader").await;
+    let (status, _) = reader
+        .send("PUT", "/api/v1/admin/succession/mirrors", mirror_body())
+        .await;
+    assert_eq!(status, StatusCode::NOT_FOUND);
+
+    // 3. The operator records a peer, and the public document carries it — with the date it was asserted and a flag that
+    //    says this instance did not check the peer's disk, because it cannot.
+    let (status, body) = admin
+        .send("PUT", "/api/v1/admin/succession/mirrors", mirror_body())
+        .await;
+    assert_eq!(status, StatusCode::CREATED, "{body}");
+
+    let (status, body) = stranger.get("/api/v1/succession").await;
+    assert_eq!(status, StatusCode::OK, "{body}");
+    let mirrors = body["mirrors"].as_array().expect("mirrors");
+    assert_eq!(mirrors.len(), 1, "{body}");
+    assert_eq!(mirrors[0]["peer_id"], json!("peer-alpha"), "{body}");
+    assert_eq!(
+        mirrors[0]["export_url"],
+        json!("https://peer-alpha.example/export"),
+        "{body}"
+    );
+    assert!(
+        mirrors[0]["asserted_at"]
+            .as_str()
+            .is_some_and(|stamp| stamp.contains('T')),
+        "the assertion carries a date: {body}"
+    );
+    assert_eq!(
+        mirrors[0]["verified"],
+        json!(false),
+        "an assertion is not a verification: {body}"
+    );
+    assert!(
+        !names_mutual_backup(&body),
+        "a recorded mirror answers the confession: {body}"
+    );
+
+    // 4. Recording the same peer again is a correction, not a second copy of the same claim.
+    let mut corrected = mirror_body();
+    corrected["export_url"] = json!("https://peer-alpha.example/new-export");
+    let (status, body) = admin
+        .send("PUT", "/api/v1/admin/succession/mirrors", corrected)
+        .await;
+    assert!(status.is_success(), "{body}");
+    let (_, body) = stranger.get("/api/v1/succession").await;
+    assert_eq!(body["mirrors"].as_array().expect("mirrors").len(), 1, "{body}");
+    assert_eq!(
+        body["mirrors"][0]["export_url"],
+        json!("https://peer-alpha.example/new-export"),
+        "{body}"
+    );
+
+    // 5. Withdrawing it puts the confession back: the document must not keep claiming a backup nobody asserts.
+    let (status, _) = admin
+        .request("DELETE", "/api/v1/admin/succession/mirrors/peer-alpha", None)
+        .await;
+    assert_eq!(status, StatusCode::NO_CONTENT);
+    let (_, body) = stranger.get("/api/v1/succession").await;
+    assert_eq!(body["mirrors"], json!([]), "{body}");
+    assert!(
+        names_mutual_backup(&body),
+        "with the mirror gone the half is missing again: {body}"
+    );
+
+    // 6. A peer id is a name, not free text: an empty one is refused, and the refusal names the field.
+    let (status, body) = admin
+        .send(
+            "PUT",
+            "/api/v1/admin/succession/mirrors",
+            json!({ "peer_id": "", "export_url": "https://x.example/e" }),
+        )
+        .await;
+    assert_eq!(status, StatusCode::UNPROCESSABLE_ENTITY, "{body}");
+    assert!(
+        body["error"]["field_errors"]["peer_id"].is_string(),
+        "{body}"
+    );
+}
+
+fn names_mutual_backup(body: &Value) -> bool {
+    body["not_built"]
+        .as_array()
+        .map(|items| {
+            items
+                .iter()
+                .any(|item| item.as_str().unwrap_or_default().contains("mutual backup"))
+        })
+        .unwrap_or(false)
+}

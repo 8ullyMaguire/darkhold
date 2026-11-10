@@ -3068,3 +3068,25 @@ check permanently red on a file this repository does not own. The step now walks
 **Next:** the road-map order falls through to M45, M66 GS-1..GS-5, M69, M63, M64 and M71 rows, with the M70-13 ratchet at 36
 orphans as the fallback.
 
+### M45-39 — mutual backup is a recorded assertion, and the document stops lying about it (2026-11-10)
+
+The row had two halves built (the review-window switch, the redirect registry) and one that `GET /succession` itself
+confessed was missing: "mutual backup with a peer instance". That confession was a hardcoded string, which meant the
+document would keep saying the half was missing on the day an operator recorded one — a document that lies in the
+direction of modesty is still lying.
+
+`succession_mirror` (migration 0202) records the peers an operator asserts hold a copy; `PUT
+/admin/succession/mirrors` is an upsert on the peer id (a second PUT is a correction, not a second copy);
+`DELETE /admin/succession/mirrors/{peer}` withdraws it and answers 404 to a peer nobody recorded. The public
+document carries `mirrors: [{peer_id, export_url, asserted_at, verified}]`, and `not_built` is computed from the
+rows.
+
+`verified` is always `false` and is emitted anyway: this instance records an assertion and cannot reach into a
+peer's disk, so the field says what a reader would otherwise assume. An omitted field reads as a yes.
+
+**The boundary, decided and recorded**: acting on a lapsed plan — a successor publishing the export and taking the
+redirects live — belongs to the successor's instance. Darkhold federates inbound only, so that half is theirs;
+`ActivityPub account Move` stays in `not_built` unconditionally rather than becoming a false claim.
+
+Proof: `m45_39_succession` 7/7 on both engines, including the two assertions that pin the confession (absent with no
+mirror, gone with one, back after withdrawal); mutant `has_mirror = false` reddens exactly that step.

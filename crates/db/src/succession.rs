@@ -164,6 +164,117 @@ pub async fn clear(db: &Database) -> Result<bool> {
     Ok(affected > 0)
 }
 
+/// One peer that holds a copy of this instance, as the operator asserted it.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Mirror {
+    /// The peer, by the id its fingerprint declares.
+    pub peer_id: String,
+    /// Where the peer's copy of the export can be fetched.
+    pub export_url: String,
+    /// When the operator asserted the peer holds it, RFC 3339.
+    pub asserted_at: String,
+}
+
+/// Every peer the operator has asserted holds a copy, ordered by peer id so the document is stable between reads.
+pub async fn mirrors(db: &Database) -> Result<Vec<Mirror>> {
+    let sql = db.sql(
+        "SELECT peer_id, export_url, asserted_at FROM succession_mirror ORDER BY peer_id",
+        "SELECT peer_id, export_url, asserted_at FROM succession_mirror ORDER BY peer_id",
+    );
+    let rows: Vec<(String, String, String)> = match db.backend() {
+        Backend::Sqlite => {
+            sqlx::query_as(&sql)
+                .fetch_all(db.sqlite_pool().expect("sqlite handle"))
+                .await?
+        }
+        Backend::Postgres => {
+            sqlx::query_as(&sql)
+                .fetch_all(db.postgres_pool().expect("postgres handle"))
+                .await?
+        }
+    };
+    Ok(rows
+        .into_iter()
+        .map(|(peer_id, export_url, asserted_at)| Mirror {
+            peer_id,
+            export_url,
+            asserted_at,
+        })
+        .collect())
+}
+
+/// Record (or correct) the assertion that `peer_id` holds a copy at `export_url`.
+///
+/// Upsert on the peer id: a second `PUT` for the same peer is the operator correcting themselves — a moved export URL — and
+/// two rows would say the peer holds two copies, which nobody asserted.
+pub async fn set_mirror(db: &Database, peer_id: &str, export_url: &str) -> Result<Mirror> {
+    let now = crate::identity::now_rfc3339();
+    let sql = db.sql(
+        "INSERT INTO succession_mirror (peer_id, export_url, asserted_at, updated_at)
+         VALUES (?, ?, ?, ?)
+         ON CONFLICT (peer_id) DO UPDATE SET
+             export_url = excluded.export_url,
+             asserted_at = excluded.asserted_at,
+             updated_at = excluded.updated_at",
+        "INSERT INTO succession_mirror (peer_id, export_url, asserted_at, updated_at)
+         VALUES ($1, $2, $3, $4)
+         ON CONFLICT (peer_id) DO UPDATE SET
+             export_url = excluded.export_url,
+             asserted_at = excluded.asserted_at,
+             updated_at = excluded.updated_at",
+    );
+    match db.backend() {
+        Backend::Sqlite => {
+            sqlx::query(&sql)
+                .bind(peer_id)
+                .bind(export_url)
+                .bind(&now)
+                .bind(&now)
+                .execute(db.sqlite_pool().expect("sqlite handle"))
+                .await?;
+        }
+        Backend::Postgres => {
+            sqlx::query(&sql)
+                .bind(peer_id)
+                .bind(export_url)
+                .bind(&now)
+                .bind(&now)
+                .execute(db.postgres_pool().expect("postgres handle"))
+                .await?;
+        }
+    }
+    Ok(Mirror {
+        peer_id: peer_id.to_owned(),
+        export_url: export_url.to_owned(),
+        asserted_at: now,
+    })
+}
+
+/// Withdraw the assertion. `false` when there was none, so the caller can refuse a no-op rather than answer `204` to it.
+pub async fn remove_mirror(db: &Database, peer_id: &str) -> Result<bool> {
+    let sql = db.sql(
+        "DELETE FROM succession_mirror WHERE peer_id = ?",
+        "DELETE FROM succession_mirror WHERE peer_id = ?",
+    );
+    let affected = match db.backend() {
+        Backend::Sqlite => {
+            sqlx::query(&sql)
+                .bind(peer_id)
+                .execute(db.sqlite_pool().expect("sqlite handle"))
+                .await?
+                .rows_affected()
+        }
+        Backend::Postgres => {
+            sqlx::query(&sql)
+                .bind(peer_id)
+                .execute(db.postgres_pool().expect("postgres handle"))
+                .await?
+                .rows_affected()
+        }
+    };
+    Ok(affected > 0)
+}
+
 /// Register (or re-point) one redirect.
 ///
 /// Re-pointing is an update rather than a conflict: an operator who has moved an archive once will
