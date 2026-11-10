@@ -1,5 +1,36 @@
 # Handoff
 
+## Two rows closed, a gate that lied twice, and a policy knob — 2026-11-10 (late)
+
+**M45-65 done (`09ec61b1`).** Both identity gates now see `account`, `created_by` and `pseud_id`. The snapshot half widened
+`IDENTITY_NAME_RE`, classified 87 columns and the builder emits 119 `snapshot_account` projections. The erasure half had to
+stop reading migration text: `sqlite_master` + `pragma_table_info` + `pragma_foreign_key_list` from a migrated database,
+reachability through foreign keys, 23 columns measured, 23 treatments written (9 `Rekey("id")`, 2 `Sever`, 12 `Delete`).
+Three numbers are the lesson — 52 from the union-of-blocks scan (five phantoms from a table `0013` drops and recreates),
+28 from an ordered text walk (13 live treatments looked stale), 23 from the database. `measured` is a claim about the
+schema, `classified` a claim about the erasure code; comparing them directly conflates "the database handles it" with
+"nobody decided". `stale` now asks the schema whether the column exists.
+
+**M45-54 shipped, not complete (`abaadec5`).** `[policy] rpf = allow|tag_required|blocked` (default `tag_required`) and
+`honor_rights_jurisdictions = ["ES"]`, read by `GET /api/v1/policy/content` — anonymous, module `content_policy`, default
+on. The document cites LO 1/1982 rather than gesturing at "honour rights". Marked `implemented`, not
+`implemented-fully-tested`, because `blocked` has a reader and no enforcement: `CreateWorkRequest` takes only a `title`, so
+there is nowhere at the work door to refuse an RPF payload yet. The honest next slice is the tag assertion door
+(`POST /works/{id}/tags`), where an RPF tag can be refused by name, plus accepting tags at creation.
+
+**Also fixed on the way:** `scripts/build-snapshot-sql.py` raised `ArgumentError: conflicting option string` on every
+invocation without `--out` (it added the option after `parse_args()`), so the snapshot pipeline could not run at all while
+its gate was green. And four tables this session shipped had no snapshot policy row at all — `work_claim.token` is a live
+proof-of-control secret — so the gate had been red since the M45-39..42 deploy.
+
+**Ledger: 52 planned.** Blocked and demoted: `M45-43` (Discord bot token), `M63-05b` (no download route to link to),
+`M63-33` (the operator's call on the live database). Gates: `gate.sh ledger` 0, `gate.sh repo` 0, snapshot gate
+2878 columns / 395 tables, erasure suite 4/4, route inventory 5/5, policy unit tests 2/2.
+
+**Deploy state:** `proc_2948b06943ae` was building `09ec61b1` at 00:23 (dump done at ~00:26, build ~16 min). That tree does
+NOT contain `abaadec5`, so the policy endpoint needs a second pass — build only, the dump can be skipped when nothing
+schema-level changed.
+
 ## Four rows shipped, two browser bugs, and a rule that had to be written twice — 2026-11-10
 
 **Shipped and deployed (`0.1.0+f7136141`, schema `0201 → 0205`):** `M45-39` succession mirrors (`PUT|DELETE
