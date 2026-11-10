@@ -355,9 +355,11 @@ async fn write_mirror(
     // for this door (ADR 0030), so these doors need no shape check of their own.
     crate::routes::admin_scope::require_admin_of(&state, &user, None).await?;
     let peer = request.peer_id.trim();
-    if peer.is_empty() || peer.len() > 64 || !peer
-        .chars()
-        .all(|c| c.is_ascii_alphanumeric() || matches!(c, '-' | '_' | '.' | ':'))
+    if peer.is_empty()
+        || peer.len() > 64
+        || !peer
+            .chars()
+            .all(|c| c.is_ascii_alphanumeric() || matches!(c, '-' | '_' | '.' | ':'))
     {
         // A peer id is a name another instance publishes, not free text: empty means "no peer", and the characters are the
         // ones an instance id is spelled with. Refused by field so the operator knows which half to fix.

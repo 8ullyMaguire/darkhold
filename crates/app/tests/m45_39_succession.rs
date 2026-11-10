@@ -520,7 +520,11 @@ async fn a_recorded_mirror_is_published_and_the_confession_stops_naming_it() {
         .await;
     assert!(status.is_success(), "{body}");
     let (_, body) = stranger.get("/api/v1/succession").await;
-    assert_eq!(body["mirrors"].as_array().expect("mirrors").len(), 1, "{body}");
+    assert_eq!(
+        body["mirrors"].as_array().expect("mirrors").len(),
+        1,
+        "{body}"
+    );
     assert_eq!(
         body["mirrors"][0]["export_url"],
         json!("https://peer-alpha.example/new-export"),
@@ -529,7 +533,11 @@ async fn a_recorded_mirror_is_published_and_the_confession_stops_naming_it() {
 
     // 5. Withdrawing it puts the confession back: the document must not keep claiming a backup nobody asserts.
     let (status, _) = admin
-        .request("DELETE", "/api/v1/admin/succession/mirrors/peer-alpha", None)
+        .request(
+            "DELETE",
+            "/api/v1/admin/succession/mirrors/peer-alpha",
+            None,
+        )
         .await;
     assert_eq!(status, StatusCode::NO_CONTENT);
     let (_, body) = stranger.get("/api/v1/succession").await;

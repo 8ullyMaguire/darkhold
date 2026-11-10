@@ -257,20 +257,16 @@ pub async fn remove_mirror(db: &Database, peer_id: &str) -> Result<bool> {
         "DELETE FROM succession_mirror WHERE peer_id = ?",
     );
     let affected = match db.backend() {
-        Backend::Sqlite => {
-            sqlx::query(&sql)
-                .bind(peer_id)
-                .execute(db.sqlite_pool().expect("sqlite handle"))
-                .await?
-                .rows_affected()
-        }
-        Backend::Postgres => {
-            sqlx::query(&sql)
-                .bind(peer_id)
-                .execute(db.postgres_pool().expect("postgres handle"))
-                .await?
-                .rows_affected()
-        }
+        Backend::Sqlite => sqlx::query(&sql)
+            .bind(peer_id)
+            .execute(db.sqlite_pool().expect("sqlite handle"))
+            .await?
+            .rows_affected(),
+        Backend::Postgres => sqlx::query(&sql)
+            .bind(peer_id)
+            .execute(db.postgres_pool().expect("postgres handle"))
+            .await?
+            .rows_affected(),
     };
     Ok(affected > 0)
 }
