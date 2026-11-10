@@ -3194,3 +3194,22 @@ to keep with no way to know which one the instance is watching for.
 **Proof:** `m45_42_claim_works` 2/2 SQLite, 2/2 PostgreSQL; mutants (exclusion lookup removed → the excluded work is
 attached; the owner check removed → an owned work is taken) each reddened the intended assertion, reverted from /tmp;
 `route_inventory` 5/5; `gate.sh repo` and `gate.sh ledger` ok.
+### Deployed 2026-11-10 22:22 — M45-39/40/41/42 on thinkcentre (`0.1.0+f7136141`)
+
+One batch, one dump, one verification pass, as the batching decision required. Measured after the restart:
+
+* `_migrations` max version **0201 → 0205**; the six new tables exist (`succession_mirror`, `curator_lens`,
+  `share_code`, `share_visit`, `work_claim`, `work_claim_work`).
+* `/api/v1/meta` reports `0.1.0+f7136141` — the artifact that was built, not the previous binary.
+* `strings` on the installed binary: **2** hits for `admin/succession/mirrors`, 1 each for `/lens/`, `works/{id}/share`,
+  `claims/{id}/verify`. A merged-but-unbuilt route has 0 here whatever the build log said.
+* `GET /succession` → `{"plan":null,"mirrors":[],"not_built":["mutual backup with a peer instance","ActivityPub
+  account Move"]}` — the mirror half is still confessed because no mirror is recorded, which is the computed answer, not
+  the old hardcoded one (a PUT would remove that line).
+* `GET /discovery` 200 (public), `GET /lens` 200 (public list), `GET /lens/nobody` **404**, `PUT /lens/x` **401**,
+  `POST /works/{id}/share` **401**, `POST /claims` **401** — the anonymous refusals are auth-before-validation by design.
+
+**Two deploy traps cost the time this batch, both recorded in the deploy skill:** `pkill -f "/tmp/deploy45.sh"` inside an
+ssh one-liner matches the ssh server's own command line and kills the session (exit 255, no output, nothing executed), and
+a `setsid nohup` build died mid-`Compiling` with no OOM and no cargo process, leaving a log-waiter polling a log that would
+never say `Finished`. The build now runs in the foreground of one tracked ssh that prints its exit code.
