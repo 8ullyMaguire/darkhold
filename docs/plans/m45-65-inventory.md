@@ -101,3 +101,33 @@ treatment, and a green gate with half-read treatments would be worse than the pl
 - work_gifts.recipient_pseud_id
 - work_orphans.former_owner_pseud_id
 - work_tag_votes.voter_pseud_id
+
+## What the types say — measured 2026-11-10, and why the treatments are NOT uniform
+
+Read from `migrations/postgres/*.sql` (CREATE TABLE bodies plus `ALTER TABLE … ADD COLUMN`), scoped per table:
+
+| spelling | column type | columns |
+|---|---|---|
+| pseud | `uuid` | 36 |
+| account | `text` | 21 |
+| created_by | `text` | 9 |
+| account | `uuid` | 8 |
+| pseud | `text` | 8 |
+| created_by | `uuid` | 3 |
+| created_by | `None` | 1 |
+| pseud | `None` | 1 |
+
+This matters because the snapshot builder's treatments are typed:
+
+- `rekey_account` emits `snapshot_account(voter_pseud_id::uuid)` and `rekey_pseud` emits `snapshot_pseud(voter_pseud_id::uuid)`, so **both
+  require a `uuid` column**. The `account` columns that are `text` are handles, not keys — re-keying them with the account
+  derivation would either fail the cast or, worse, hash a handle into something that is not the key foreign keys join on.
+  Those want `rekey_text` (which the policy already warns is the wrong answer for a *key* and the right one for a name).
+- **8 `pseud_id` columns are `text`**, so `rekey_pseud` cannot take them as written. Either they hold uuid strings and the
+  cast is safe (check the writer), or the builder needs a text variant of `snapshot_pseud`. Deciding this per column, from
+  the writer, is the rest of this row.
+- Two columns the parser did not resolve — `entity_edges.created_by` and `revisions.created_by_pseud_id` — were added in a
+  form the CREATE TABLE scan misses; read them out of the migration that adds them before classifying.
+
+So the judgement is not "pick a treatment for a name"; it is "read the type, then the writer". The widening stays reverted
+until that is done column by column.
