@@ -516,6 +516,22 @@ pub const MODULES: &[Module] = &[
         source: "crates/app/src/routes/governance.rs",
     },
     Module {
+        id: "import_claims",
+        name: "Imported Work Claims",
+        summary: "M45-42 — claim works that arrived as metadata, proved by a token in the author's own profile.",
+        // Default on: an imported catalogue whose authors cannot claim their own works is a catalogue of orphans, and the
+        // door changes nothing about an instance that has no imported rows.
+        default_on: true,
+        stability: Stability::Stable,
+        toggle: Toggle::Operator,
+        requires: &[],
+        milestone: "M45-42",
+        spec: "§0.3, §E4",
+        nav: &[],
+        relevance: 10,
+        source: "crates/app/src/routes/claims.rs",
+    },
+    Module {
         id: "imports",
         name: "Imports",
         summary: "Imports, the source catalogue and source credentials (spec §11.3, §11.6).",

@@ -449,6 +449,28 @@ pub const ROUTE_TABLE: &[RouteEntry] = &[
         audience: Audience::Authenticated,
     },
     RouteEntry {
+        file: "claims.rs",
+        handler: "create_claim",
+        method: "POST",
+        path: "/claims",
+        // A session: a claim is a person's assertion about their own works.
+        audience: Audience::Authenticated,
+    },
+    RouteEntry {
+        file: "claims.rs",
+        handler: "read_claim",
+        method: "GET",
+        path: "/claims/{id}",
+        audience: Audience::Authenticated,
+    },
+    RouteEntry {
+        file: "claims.rs",
+        handler: "verify_claim",
+        method: "POST",
+        path: "/claims/{id}/verify",
+        audience: Audience::Authenticated,
+    },
+    RouteEntry {
         file: "lens.rs",
         handler: "list_lenses",
         method: "GET",

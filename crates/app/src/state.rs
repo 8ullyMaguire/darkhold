@@ -29,6 +29,11 @@ struct Inner {
     /// could route to one adapter when previewed and another when imported, and
     /// the reader would have confirmed a plan that nothing then followed.
     registry: Registry,
+    /// Where a claim looks for its token (M45-42).
+    ///
+    /// Held on the state rather than constructed in the handler, so the suite can answer with a canned page: the claim row
+    /// is about the token and the refusals, and a test that reaches AO3 is a test of AO3.
+    profile_fetcher: Arc<dyn crate::profile_fetch::ProfileFetcher>,
     /// The extension sandbox's concurrency bound (M16-06).
     ///
     /// Per **state**, not a process static: the count belongs to the instance that runs work, and a static made every test in a binary
@@ -143,6 +148,7 @@ impl AppState {
                 db,
                 rate_limiter,
                 started_at: Instant::now(),
+                profile_fetcher: Arc::new(crate::profile_fetch::HttpProfileFetcher::new()),
                 sandbox_slots: crate::routes::sandbox::Slots::new(
                     crate::routes::sandbox::MAX_CONCURRENT_RUNS,
                 ),
@@ -169,6 +175,24 @@ impl AppState {
 
     /// The active configuration.
     #[must_use]
+    /// Answer claim verification with a canned page (tests).
+    pub fn with_profile_fetcher(
+        mut self,
+        fetcher: Arc<dyn crate::profile_fetch::ProfileFetcher>,
+    ) -> Self {
+        // The state is freshly built and holds the only reference, so this always succeeds; taking rather than cloning keeps
+        // `Inner` free of a `Clone` bound it would otherwise need for every field it holds.
+        if let Some(inner) = Arc::get_mut(&mut self.inner) {
+            inner.profile_fetcher = fetcher;
+        }
+        self
+    }
+
+    /// The profile fetcher this instance verifies claims against.
+    pub fn profile_fetcher(&self) -> &Arc<dyn crate::profile_fetch::ProfileFetcher> {
+        &self.inner.profile_fetcher
+    }
+
     pub fn config(&self) -> &Config {
         &self.inner.config
     }

@@ -540,6 +540,14 @@ pub fn build_router(state: AppState) -> Router {
         ))
         .merge(module_mount(
             &state,
+            "import_claims",
+            // M45-42: claiming a metadata row. Its own module because it is the only door that changes who owns a work
+            // without the owner acting, so an instance that does not want claims can switch it off.
+            routes::claims::router(),
+            RouteClass::Default,
+        ))
+        .merge(module_mount(
+            &state,
             "search",
             routes::search::router().merge(routes::inbox_proxy::router()),
             RouteClass::Default,

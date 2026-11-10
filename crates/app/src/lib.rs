@@ -61,6 +61,7 @@ pub mod secrets;
 pub mod seed;
 pub mod server;
 pub mod source_sync;
+pub mod profile_fetch;
 pub mod state;
 pub mod taste;
 pub mod taste_notify;
