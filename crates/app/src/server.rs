@@ -551,7 +551,10 @@ pub fn build_router(state: AppState) -> Router {
             // strategies this module resolves, and a second module gate would gate the same feature twice.
             routes::discovery::router()
                 .merge(routes::surfaces::router())
-                .merge(routes::gravity_dial::router()),
+                .merge(routes::gravity_dial::router())
+                // M45-40's lenses ride discovery too: a lens is one recommendation order, published, and it reads the
+                // same catalogue the strategies here read. A second gate would gate the same feature twice.
+                .merge(routes::lens::router()),
             RouteClass::Default,
         ))
         // §16.10a: the draw. Default class, like discovery: two reads and one

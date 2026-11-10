@@ -82,6 +82,7 @@ pub mod instance_theme;
 pub mod jobs;
 pub mod ladder;
 pub mod lending;
+pub mod lens;
 pub mod library;
 pub mod live_badges;
 pub mod longevity;

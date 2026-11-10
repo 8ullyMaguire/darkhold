@@ -441,6 +441,36 @@ pub const ROUTE_TABLE: &[RouteEntry] = &[
         audience: Audience::AdminOf { site: None },
     },
     RouteEntry {
+        file: "lens.rs",
+        handler: "list_lenses",
+        method: "GET",
+        path: "/lens",
+        // Public: the list is what a reader consults before trusting a lens, and it names only published ones.
+        audience: Audience::Public,
+    },
+    RouteEntry {
+        file: "lens.rs",
+        handler: "read_lens",
+        method: "GET",
+        path: "/lens/{handle}",
+        audience: Audience::Public,
+    },
+    RouteEntry {
+        file: "lens.rs",
+        handler: "publish_lens",
+        method: "PUT",
+        path: "/lens/{handle}",
+        // A session, and then two narrower refusals in the handler: the rec-blogger role, and the caller's own handle.
+        audience: Audience::Authenticated,
+    },
+    RouteEntry {
+        file: "lens.rs",
+        handler: "withdraw_lens",
+        method: "DELETE",
+        path: "/lens/{handle}",
+        audience: Audience::Authenticated,
+    },
+    RouteEntry {
         file: "taste.rs",
         handler: "profile",
         method: "GET",

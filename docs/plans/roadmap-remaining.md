@@ -3090,3 +3090,23 @@ redirects live — belongs to the successor's instance. Darkhold federates inbou
 
 Proof: `m45_39_succession` 7/7 on both engines, including the two assertions that pin the confession (absent with no
 mirror, gone with one, back after withdrawal); mutant `has_mirror = false` reddens exactly that step.
+
+### M45-40 — the lens is an order, and the operator has none (2026-11-10)
+
+`curator_lens` (migration 0203) is one row per account: a person has one view, and publishing twice is that view
+edited. `PUT /lens/{handle}` needs the rec-blogger role and the caller's own handle; `GET /lens/{handle}` is public
+and 404s for a lens nobody published; `GET /lens` lists them.
+
+Two decisions worth keeping. **The candidate set is search's, not the lens's** — `ranked_for` calls
+`search_works_ast_scoped` and only re-orders what search already agreed to show, so visibility and blocked tags keep
+one owner. **The `basis` field exists because an order without a reason is the thing §0.3 forbids** when the operator
+does it: `taste` when the curator's kudos overlap the candidates, `catalogue` when they do not, ties keeping the
+catalogue's position.
+
+The operator's lens is refused on the write door (403), the read door (404) and the list (filtered). The read-door
+refusal is proved by seeding the row through the store, because the write door never lets one exist — a guard tested
+only through a door that refuses first is a guard nothing reaches.
+
+Proof: `m45_40_curator_lens` 2/2 on both engines. Mutants, each reverted from `/tmp`: write-door rule removed
+(204 instead of 403), read-door rule removed (200 instead of 404), ordering removed (catalogue order instead of
+3/2/1). `route_inventory` 5/5.

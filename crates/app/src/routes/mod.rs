@@ -50,6 +50,7 @@ pub mod decision_service;
 pub mod derivative;
 pub mod directory;
 pub mod discovery;
+pub mod lens;
 pub mod document;
 // §16.10a: the draw slot.
 pub mod dnf;
