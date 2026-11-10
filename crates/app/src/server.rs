@@ -463,6 +463,14 @@ pub fn build_router(state: AppState) -> Router {
             routes::roadmap::admin_router(),
             RouteClass::Write,
         ))
+        // What this instance hosts, and whose law it names (M45-54). Public: a rights-holder who cannot read the
+        // policy without an account has not been told anything.
+        .merge(module_mount(
+            &state,
+            "content_policy",
+            routes::policy::router(),
+            RouteClass::Default,
+        ))
         .merge(module_mount(
             &state,
             "meta",

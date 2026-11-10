@@ -128,6 +128,8 @@ pub struct Config {
     pub age: AgeConfig,
     /// Operator-only settings.
     pub administration: AdministrationConfig,
+    /// What this instance will host, and whose law its public policy names (M45-54).
+    pub policy: ContentPolicyConfig,
     /// Rate limits.
     pub rate_limits: crate::limiter::Limits,
     /// What the importer may do about a source that refuses a plain request.
@@ -429,6 +431,48 @@ impl Default for AdoptionConfig {
 /// M13 replaces it with a trust level (see
 /// `docs/plans/junior-implementation-plan.md` §M13), and a `is_admin` flag would
 /// have survived until then and been wrong in every query that read it.
+/// What this instance will host, and whose law its public policy names (spec §0.3, M45-54).
+#[derive(Debug, Clone, Deserialize)]
+#[serde(default)]
+pub struct ContentPolicyConfig {
+    /// Real-person fiction: `allow`, `tag_required`, or `blocked`.
+    ///
+    /// `tag_required` is the default rather than `allow`: RPF is lawful in most places this software runs, and it is
+    /// also the category that draws the most take-down demands, so an instance that hosts it must be able to answer
+    /// "was the reader told". `blocked` exists for an operator who will not host it, and the public document reports
+    /// the mode instead of leaving a reader to infer it from what they cannot find.
+    pub rpf: RpfMode,
+    /// Jurisdictions whose honour and image rights this instance names.
+    ///
+    /// Spain is the default because LO 1/1982 protects honour, personal and family privacy and one's own image in
+    /// terms that reach fiction about a living person. A list, not a boolean: the document says which law it means.
+    pub honor_rights_jurisdictions: Vec<String>,
+}
+
+impl Default for ContentPolicyConfig {
+    fn default() -> Self {
+        Self { rpf: RpfMode::TagRequired, honor_rights_jurisdictions: vec!["ES".to_string()] }
+    }
+}
+
+/// How this instance treats real-person fiction.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum RpfMode {
+    /// Hosted without further condition.
+    Allow,
+    /// Hosted, and the work must carry the RPF tag so a reader can filter it. The default.
+    TagRequired,
+    /// Not hosted: the work door refuses it and names the policy.
+    Blocked,
+}
+
+impl Default for RpfMode {
+    fn default() -> Self {
+        Self::TagRequired
+    }
+}
+
 #[derive(Debug, Clone, Default)]
 pub struct AdministrationConfig {
     /// The account allowed to reach `/admin` routes, if any.
@@ -3313,6 +3357,7 @@ impl Config {
             logging,
             assets,
             preservation: file.preservation.clone().unwrap_or_default(),
+            policy: ContentPolicyConfig::default(),
             administration: AdministrationConfig {
                 operator_account_id,
                 webhook_timeout_secs: file
@@ -4086,6 +4131,7 @@ impl Config {
                 format: LogFormat::Pretty,
             },
             assets: AssetsConfig { dir: None },
+            policy: ContentPolicyConfig::default(),
             administration: AdministrationConfig {
                 operator_account_id: None,
                 webhook_timeout_secs: 10,

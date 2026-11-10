@@ -516,6 +516,22 @@ pub const MODULES: &[Module] = &[
         source: "crates/app/src/routes/governance.rs",
     },
     Module {
+        id: "content_policy",
+        name: "Content Policy",
+        summary: "M45-54 — the public document saying what this instance hosts and whose honour and image rights it names.",
+        // Default on: a reader, an author and a rights-holder all need to know the rules before anything else works, and
+        // the document changes nothing on an instance that never asks for it.
+        default_on: true,
+        stability: Stability::Stable,
+        toggle: Toggle::Operator,
+        requires: &[],
+        milestone: "M45-54",
+        spec: "§0.3",
+        nav: &[],
+        relevance: 10,
+        source: "crates/app/src/routes/policy.rs",
+    },
+    Module {
         id: "import_claims",
         name: "Imported Work Claims",
         summary: "M45-42 — claim works that arrived as metadata, proved by a token in the author's own profile.",

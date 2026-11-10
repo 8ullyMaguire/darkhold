@@ -2590,6 +2590,14 @@ pub const ROUTE_TABLE: &[RouteEntry] = &[
         audience: Audience::Anonymous,
     },
     RouteEntry {
+        file: "policy.rs",
+        handler: "get_content_policy",
+        method: "GET",
+        path: "/policy/content",
+        // Anonymous: a rights-holder who cannot read the policy without an account has not been told anything.
+        audience: Audience::Anonymous,
+    },
+    RouteEntry {
         file: "discovery.rs",
         handler: "preview_discovery",
         method: "POST",

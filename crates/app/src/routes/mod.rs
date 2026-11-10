@@ -88,6 +88,7 @@ pub mod media;
 pub mod media_health;
 pub mod media_resilience;
 pub mod meta;
+pub mod policy;
 pub mod mirror_admin;
 pub mod moderation;
 pub mod modules;
