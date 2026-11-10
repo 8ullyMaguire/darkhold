@@ -25,10 +25,7 @@ const QUIET_WORK: &str = "01957000-0000-4000-8000-0000000000d3";
 const TAG: &str = "01958000-0000-4000-8000-0000000000a1";
 
 async fn exec(tdb: &TestDb, statement: &str) {
-    sqlx::query(statement)
-        .execute(tdb.db().sqlite_pool().expect("sqlite"))
-        .await
-        .unwrap_or_else(|error| panic!("{statement}\n{error}"));
+    test_support::exec_one(tdb.db(), statement).await;
 }
 
 async fn seed(tdb: &TestDb) {

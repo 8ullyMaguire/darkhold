@@ -553,3 +553,42 @@ is `OK: no text bound to a typed column (389 tables)`.
 
 **Why the suites did not catch it:** the gate reports 86 files claiming dual-backend coverage and 385 that make no such claim. These
 features' tests are in the latter set — the same blind spot this ratchet keeps finding, one level up.
+
+## Pass 85 — fourteen suites learned to run on PostgreSQL (2026-11-10)
+
+`gate.sh dialects` also fails on `check-pg-arm-uses-sqlite-pool.py`: test helpers that reach `sqlite_pool()` with no backend arm make
+their **whole file** SQLite-only. The list was longer than the gate's 40-line tail showed — 43 sites at the start, 18 now.
+
+**The reproduction is a panic with the message "sqlite".** Before the fix, `m71_04_provenance` under `DARKHOLD_TEST_PG_URL` failed
+every test at `sqlite_pool().expect("sqlite")` — the fixture never reached a request.
+
+**The seam that made it mechanical.** `crates/test-support` already had `exec` for one bind; it now has:
+
+| helper | shape |
+|---|---|
+| `exec_one` | one statement, written once: `?`→`$n`, and `lower(hex(randomblob(16)))`→`gen_random_uuid()` |
+| `exec_one_with` / `exec_binds` | the same with N binds; `exec_binds` takes both texts when a bind lands in a `uuid` column |
+| `scalar_pair` / `scalar_pair_with` | one text value, either engine |
+| `strings_pair_with` | every value of one text column |
+| `count_rows` | `COUNT(*)`, which is int8 on both |
+
+Fourteen files converted, each verified green on **both** engines: `m69_18_trope_coverage`, `m69_19_npmi`, `m69_09_affinity`,
+`m69_14_live_badge`, `m70_01_orphan_route`, `m70_02_whole_work`, `m70_04_restricted`, `m70_05_collection_tags`, `m70_07_marked_for_later`,
+`m71_04_provenance`, `m71_11_facet_cache`, `m71_16_machine_surfaces`, `work_page`, and `crates/db/tests/m70_12_visibility_surfaces`.
+
+**Three fixture faults surfaced only on the deployed engine**, and each is the same blind spot one level down:
+
+* pseudo-ids that are not UUIDs (`...0000p1`) — SQLite stores them in a TEXT column, PostgreSQL rejects them with `invalid input
+  syntax for type uuid`. Ids are now real UUIDs, mapped deterministically.
+* `lower(hex(randomblob(16)))` — SQLite has no `gen_random_uuid`. Replacing it with a *literal* id looks right and then fails on the
+  second work in the same fixture with a duplicate key; the translation belongs in one place, and now it is.
+* `INSERT OR IGNORE` — PostgreSQL wants `ON CONFLICT DO NOTHING`; a statement pair, not a rewrite.
+
+**One conversion was reverted on purpose.** `m69_03_passport` reached `GET /me/passport` on PostgreSQL and the route answered **500** —
+a defect in the product, not the fixture. The suite is back to SQLite-only with the reason written at the helper, and the 500 is the
+opening finding of the next pass: `GET /me/passport` 500s on PostgreSQL, request id captured, suspects are the three reads between the
+handler and the document (`taste_bp`, `contribution_counts`, `reader_affinity::for_account`).
+
+**Still red, 18 sites, all in files this pass did not touch:** `landing_page`, `m16_07_review`, `m16_08_gallery`, `m16_11_payments`
+(3), `m16_12_acceptance` (3), `m16_13_themes` (2), `m16_14_webhooks` (2), `m64_01_surfaces` (2), `m64_07_crosspost_union`,
+`m64_10_facets`, and `m69_03_passport` (deliberate).

@@ -1808,6 +1808,200 @@ pub async fn exec(db: &darkhold_db::Database, sqlite: &str, postgres: &str, bind
     }
 }
 
+/// One statement with no binds, either engine.
+///
+/// The sibling of `exec` for the helpers that build their SQL by `format!`: a seam row seeded with literal ids has nothing to
+/// bind, and the two texts still differ (`?` against inline values, casts on typed columns). A test helper that reaches for
+/// `sqlite_pool()` directly makes its whole file SQLite-only, and this project has paid for that: `m71_04_provenance` panicked
+/// with the message "sqlite" the moment it was first run against PostgreSQL.
+pub async fn exec_pair(db: &darkhold_db::Database, sqlite: &str, postgres: &str) {
+    match db.backend() {
+        darkhold_db::Backend::Sqlite => {
+            sqlx::query(sqlite)
+                .execute(db.sqlite_pool().expect("sqlite"))
+                .await
+                .unwrap_or_else(|error| panic!("{sqlite}\n{error}"));
+        }
+        darkhold_db::Backend::Postgres => {
+            sqlx::query(postgres)
+                .execute(db.postgres_pool().expect("postgres"))
+                .await
+                .unwrap_or_else(|error| panic!("{postgres}\n{error}"));
+        }
+    }
+}
+
+/// The PostgreSQL spelling of a fixture statement written for SQLite.
+///
+/// Two differences, both mechanical and both of which have cost a suite real time: `?` placeholders become `$1…$n`, and
+/// `lower(hex(randomblob(16)))` -- the SQLite idiom for a fresh uuid in a seed -- becomes `gen_random_uuid()`. Replacing the
+/// random id with a literal looks like it works and then fails on the second work in the same fixture with a duplicate key,
+/// which is how `work_page` failed the first time this was ported.
+pub fn pg_fixture_sql(statement: &str) -> String {
+    darkhold_db::rewrite_placeholders(statement)
+        .replace("lower(hex(randomblob(16)))", "gen_random_uuid()")
+}
+
+/// Execute one fixture statement, written once, on either engine.
+///
+/// These suites build their seeds with `format!` and literal ids, so the only spelling that differs is the placeholder:
+/// PostgreSQL wants `$1…$n`, and `darkhold_db::rewrite_placeholders` is the function the product's own SQL rewriter uses.
+/// A literal needs no cast on assignment -- PostgreSQL coerces `'<uuid>'` into a uuid column -- so an INSERT of literal
+/// values is the same statement on both engines. A *comparison* is where a literal is not coerced, and those are written
+/// against `col::text = ?` so the text bind matches a text column on both.
+pub async fn exec_one(db: &darkhold_db::Database, statement: &str) {
+    match db.backend() {
+        darkhold_db::Backend::Sqlite => {
+            sqlx::query(statement)
+                .execute(db.sqlite_pool().expect("sqlite"))
+                .await
+                .unwrap_or_else(|error| panic!("{statement}\n{error}"));
+        }
+        darkhold_db::Backend::Postgres => {
+            let sql = pg_fixture_sql(statement);
+            sqlx::query(&sql)
+                .execute(db.postgres_pool().expect("postgres"))
+                .await
+                .unwrap_or_else(|error| panic!("{sql}\n{error}"));
+        }
+    }
+}
+
+/// `COUNT(*)` from one statement written once, on either engine. COUNT is int8 on both.
+pub async fn count_rows(db: &darkhold_db::Database, statement: &str) -> i64 {
+    match db.backend() {
+        darkhold_db::Backend::Sqlite => sqlx::query_scalar(statement)
+            .fetch_one(db.sqlite_pool().expect("sqlite"))
+            .await
+            .unwrap_or_else(|error| panic!("{statement}\n{error}")),
+        darkhold_db::Backend::Postgres => {
+            let sql = darkhold_db::rewrite_placeholders(statement);
+            sqlx::query_scalar(&sql)
+                .fetch_one(db.postgres_pool().expect("postgres"))
+                .await
+                .unwrap_or_else(|error| panic!("{sql}\n{error}"))
+        }
+    }
+}
+
+/// One statement, N string binds, either engine.
+pub async fn exec_binds(
+    db: &darkhold_db::Database,
+    sqlite: &str,
+    postgres: &str,
+    binds: &[&str],
+) {
+    match db.backend() {
+        darkhold_db::Backend::Sqlite => {
+            let mut query = sqlx::query(sqlite);
+            for bind in binds {
+                query = query.bind(*bind);
+            }
+            query
+                .execute(db.sqlite_pool().expect("sqlite"))
+                .await
+                .unwrap_or_else(|error| panic!("{sqlite}\n{error}"));
+        }
+        darkhold_db::Backend::Postgres => {
+            let mut query = sqlx::query(postgres);
+            for bind in binds {
+                query = query.bind(*bind);
+            }
+            query
+                .execute(db.postgres_pool().expect("postgres"))
+                .await
+                .unwrap_or_else(|error| panic!("{postgres}\n{error}"));
+        }
+    }
+}
+
+/// Every value of one text column, one string bind, either engine. Rows come back in the order the statement asks for.
+pub async fn strings_pair_with(
+    db: &darkhold_db::Database,
+    sqlite: &str,
+    postgres: &str,
+    bind: &str,
+) -> Vec<String> {
+    match db.backend() {
+        darkhold_db::Backend::Sqlite => sqlx::query_scalar(sqlite)
+            .bind(bind)
+            .fetch_all(db.sqlite_pool().expect("sqlite"))
+            .await
+            .unwrap_or_else(|error| panic!("{sqlite}\n{error}")),
+        darkhold_db::Backend::Postgres => sqlx::query_scalar(postgres)
+            .bind(bind)
+            .fetch_all(db.postgres_pool().expect("postgres"))
+            .await
+            .unwrap_or_else(|error| panic!("{postgres}\n{error}")),
+    }
+}
+
+/// `exec_one` with binds, for the seeds that take their ids as parameters.
+pub async fn exec_one_with(db: &darkhold_db::Database, statement: &str, binds: &[&str]) {
+    match db.backend() {
+        darkhold_db::Backend::Sqlite => {
+            let mut query = sqlx::query(statement);
+            for bind in binds {
+                query = query.bind(*bind);
+            }
+            query
+                .execute(db.sqlite_pool().expect("sqlite"))
+                .await
+                .unwrap_or_else(|error| panic!("{statement}\n{error}"));
+        }
+        darkhold_db::Backend::Postgres => {
+            let sql = pg_fixture_sql(statement);
+            let mut query = sqlx::query(&sql);
+            for bind in binds {
+                query = query.bind(*bind);
+            }
+            query
+                .execute(db.postgres_pool().expect("postgres"))
+                .await
+                .unwrap_or_else(|error| panic!("{sql}\n{error}"));
+        }
+    }
+}
+
+/// One text value from a statement with no binds, either engine. `None` when no row matches.
+pub async fn scalar_pair(
+    db: &darkhold_db::Database,
+    sqlite: &str,
+    postgres: &str,
+) -> Option<String> {
+    match db.backend() {
+        darkhold_db::Backend::Sqlite => sqlx::query_scalar(sqlite)
+            .fetch_optional(db.sqlite_pool().expect("sqlite"))
+            .await
+            .unwrap_or_else(|error| panic!("{sqlite}\n{error}")),
+        darkhold_db::Backend::Postgres => sqlx::query_scalar(postgres)
+            .fetch_optional(db.postgres_pool().expect("postgres"))
+            .await
+            .unwrap_or_else(|error| panic!("{postgres}\n{error}")),
+    }
+}
+
+/// One text value from a statement with one string bind, either engine.
+pub async fn scalar_pair_with(
+    db: &darkhold_db::Database,
+    sqlite: &str,
+    postgres: &str,
+    bind: &str,
+) -> Option<String> {
+    match db.backend() {
+        darkhold_db::Backend::Sqlite => sqlx::query_scalar(sqlite)
+            .bind(bind)
+            .fetch_optional(db.sqlite_pool().expect("sqlite"))
+            .await
+            .unwrap_or_else(|error| panic!("{sqlite}\n{error}")),
+        darkhold_db::Backend::Postgres => sqlx::query_scalar(postgres)
+            .bind(bind)
+            .fetch_optional(db.postgres_pool().expect("postgres"))
+            .await
+            .unwrap_or_else(|error| panic!("{postgres}\n{error}")),
+    }
+}
+
 pub async fn set_account_trust(db: &darkhold_db::Database, account_id: &str, level: u8) {
     // Bind as i64: PostgreSQL has no unsigned scalar types, so binding a u8 would pin the query to one dialect.
     let level = i64::from(level);

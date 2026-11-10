@@ -3028,3 +3028,15 @@ Backup `/personal/backups/darkhold-20261110-111419-pre-dialect-casts.dump` → v
 
 **Still red in `gate.sh dialects`, and it is the next pass:** `find-single-backend-suites.py` lists ~20 test helpers that reach `sqlite_pool()` — `m69_03_passport`, `m69_09_affinity`, `m69_14_live_badge`, `m69_18_trope_coverage`, `m69_19_npmi`, `m70_01_orphan_route`, `m70_02_whole_work`, `m70_04_restricted`, `m70_05_collection_tags`, `m70_07_marked_for_later`, `m71_04_provenance`, `m71_11_facet_cache`, `m71_16_machine_surfaces`, `work_page`, `m70_12_visibility_surfaces` — each makes its whole file SQLite-only, which is where the defects above lived.
 
+### Fourteen suites now run on PostgreSQL (2026-11-10)
+
+`check-pg-arm-uses-sqlite-pool.py` had 43 findings; 25 fixed here (14 files converted and green on both engines, plus the helpers that
+made the rest mechanical). What remains is 18 sites in `landing_page`, `m16_*`, `m64_*` and `m69_03_passport`.
+
+**Opening finding for the next pass:** with `m69_03_passport` ported, `GET /me/passport` answers **500 on PostgreSQL** — a product
+defect the SQLite-only harness had hidden. The suspects are the three reads between the handler and the document: `taste_bp`,
+`contribution_counts`, `reader_affinity::for_account`.
+
+**Standing rule:** a fixture id must be a valid UUID, and `randomblob` has no PostgreSQL twin in a seed — both only fail on the second
+row, which is why replacing them with literals "works" until the fixture has two rows.
+

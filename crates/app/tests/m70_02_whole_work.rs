@@ -40,8 +40,12 @@ fn config_for(dir: &Path) -> Config {
     config
 }
 
-const WORK: &str = "01957000-0000-4000-8000-0000000000w1";
+const WORK: &str = "01957000-0000-4000-8000-b7266946880a";
 const CH1: &str = "01956000-0000-4000-8000-000000000c01";
+// Revision ids are valid UUIDs because PostgreSQL types the column `uuid`; a fixture id only SQLite can hold ("r1")
+// passes the whole suite locally and fails on the deployed engine with `invalid input syntax for type uuid`.
+const RV1: &str = "0195a000-0000-4000-8000-0000000000b1";
+const RV3: &str = "0195a000-0000-4000-8000-0000000000b3";
 const CH2: &str = "01956000-0000-4000-8000-000000000c02";
 const CH3: &str = "01956000-0000-4000-8000-000000000c03";
 
@@ -68,11 +72,11 @@ impl Harness {
         server::build_router(AppState::new(self.config.clone(), self.tdb.db().clone()))
     }
 
+    /// Run a fixture statement on whichever engine the suite is running against. The statements are literals and `?`
+    /// binds; `exec_one` rewrites the placeholders for PostgreSQL, and an INSERT of literal values needs no cast because
+    /// assignment coerces. Reaching for `sqlite_pool()` here is what made this whole file invisible to the deployed engine.
     async fn exec(&self, statement: &str) {
-        sqlx::query(statement)
-            .execute(self.tdb.db().sqlite_pool().expect("sqlite"))
-            .await
-            .unwrap_or_else(|error| panic!("{statement}\n{error}"));
+        test_support::exec_one(self.tdb.db(), statement).await;
     }
 
     /// Three chapters at order keys 10/20/30, the middle one empty (no saved revision), and a fourth chapter that
@@ -87,14 +91,14 @@ impl Harness {
         self.exec(
             "INSERT INTO pseuds (id, account_id, handle, display_name, bio, discoverability, created_at, \
              updated_at, version) \
-             VALUES ('01955000-0000-4000-8000-0000000000p1','01955000-0000-4000-8000-0000000000a1', \
+             VALUES ('01955000-0000-4000-8000-89e97c100c54','01955000-0000-4000-8000-0000000000a1', \
                      'hollowgast','hollowgast',NULL,'listed','2026-01-01T00:00:00Z','2026-01-01T00:00:00Z',1)",
         )
         .await;
         self.exec(&format!(
             "INSERT INTO works (id, owner_pseud_id, title, summary, language, rating, visibility, lifecycle, \
              completion, created_at, updated_at, version) \
-             VALUES ('{WORK}','01955000-0000-4000-8000-0000000000p1','The Long Way Round','','en','general', \
+             VALUES ('{WORK}','01955000-0000-4000-8000-89e97c100c54','The Long Way Round','','en','general', \
                      'public','published','complete','2026-01-01T00:00:00Z','2026-01-01T00:00:00Z',1)"
         ))
         .await;
@@ -107,12 +111,12 @@ impl Harness {
             .await;
         }
         // The first chapter has 100 words, the third 40; the second stays without a revision.
-        for (chapter, revision, words) in [(CH1, "r1", 100), (CH3, "r3", 40)] {
+        for (chapter, revision, words) in [(CH1, RV1, 100), (CH3, RV3, 40)] {
             self.exec(&format!(
                 "INSERT INTO revisions (id, unit_id, revision_number, document_json, sanitized_html, plain_text, \
                  word_count, created_by_pseud_id, created_at) \
                  VALUES ('{revision}','{chapter}',1,'{{}}','<p>x</p>','x',{words}, \
-                         '01955000-0000-4000-8000-0000000000p1','2026-01-01T00:00:00Z')"
+                         '01955000-0000-4000-8000-89e97c100c54','2026-01-01T00:00:00Z')"
             ))
             .await;
             self.exec(&format!(
