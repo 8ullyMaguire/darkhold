@@ -1277,6 +1277,27 @@ pub const ROUTE_TABLE: &[RouteEntry] = &[
         audience: Audience::Authenticated,
     },
     RouteEntry {
+        file: "taste_proposals.rs",
+        handler: "open_proposal",
+        method: "POST",
+        path: "/operator/taste-proposals",
+        audience: Audience::Authenticated,
+    },
+    RouteEntry {
+        file: "taste_proposals.rs",
+        handler: "read_proposal",
+        method: "GET",
+        path: "/taste-proposals/{id}",
+        audience: Audience::Authenticated,
+    },
+    RouteEntry {
+        file: "taste_proposals.rs",
+        handler: "cast_vote",
+        method: "POST",
+        path: "/taste-proposals/{id}/vote",
+        audience: Audience::Authenticated,
+    },
+    RouteEntry {
         file: "experiment_sweep.rs",
         handler: "revoke_content_policy_block",
         method: "DELETE",

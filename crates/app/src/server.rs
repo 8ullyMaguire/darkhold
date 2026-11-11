@@ -1248,6 +1248,7 @@ pub fn build_router(state: AppState) -> Router {
         .merge(routes::themes::router())
         .merge(routes::affinity::router())
         .merge(routes::taste::router())
+        .merge(routes::taste_proposals::router())
         .merge(routes::peering::router())
         .merge(routes::passport::router())
         .merge(routes::tombstones::router())
