@@ -137,6 +137,7 @@ pub fn router() -> axum::Router<AppState> {
         .route("/admin/migrations", get(applied_migrations))
         // M69-23: what each import source may bring in, and what it queues — plus the dry run that makes the policy
         // inspectable rather than trusted.
+        .route("/admin/trust-events", get(list_trust_events))
         .route("/admin/sources", get(list_source_policies))
         .route(
             "/admin/sources/{key}/intake-policy",
@@ -385,4 +386,65 @@ pub async fn test_source_intake_policy(
         "configured": true,
         "decision": decision.describe(),
     })))
+}
+
+/// Every trust-level change on this instance, newest first, with a stable cursor.
+///
+/// **Why this door.** `trust_events::list_all` has existed since the ladder did and nothing called it: the table records every move
+/// (`from_level`, `to_level`, `cause`, `evidence_ref`, who did it) and the operator surface could set a level without ever being able to say
+/// what had happened to one. "Why is this account at level 4?" is the first question a moderation dispute asks.
+///
+/// `audit` keeps its own trail; this one is the ladder's own record and is deliberately narrow — it answers the trust question and nothing
+/// else. Cursor is `(created_at, id)` so a page boundary inside one millisecond cannot make two pages overlap.
+pub async fn list_trust_events(
+    State(state): State<AppState>,
+    RequireSession(user): RequireSession,
+    Query(params): Query<TrustEventQuery>,
+) -> ApiResult<Json<Value>> {
+    crate::routes::discovery::require_operator(&state, &user)?;
+    let limit = params.limit.unwrap_or(50).clamp(1, 200);
+    let cursor = match (params.after.as_deref(), params.after_id.as_deref()) {
+        (Some(time), Some(id)) => Some((time, id)),
+        // A cursor is two halves and half of one is not a cursor: taking it silently would page from the wrong place.
+        (None, None) => None,
+        _ => {
+            return Err(ApiError(darkhold_domain::AppError::field(
+                "after",
+                "a cursor is after and after_id together",
+            )))
+        }
+    };
+    let events = darkhold_db::trust_events::list_all(state.db(), limit, cursor)
+        .await
+        .map_err(|error| ApiError(darkhold_domain::AppError::Internal(error.into())))?;
+    let next = events
+        .last()
+        .map(|event| json!({ "after": event.created_at, "after_id": event.id }));
+    Ok(Json(json!({
+        "events": events
+            .into_iter()
+            .map(|event| json!({
+                "id": event.id,
+                "account_id": event.account_id,
+                "from_level": event.from_level,
+                "to_level": event.to_level,
+                "cause": event.cause.as_str(),
+                "evidence_ref": event.evidence_ref,
+                "actor_account_id": event.actor_account_id,
+                "created_at": event.created_at,
+            }))
+            .collect::<Vec<_>>(),
+        "next": next,
+    })))
+}
+
+/// Paging for the trust trail.
+#[derive(Debug, Deserialize)]
+pub struct TrustEventQuery {
+    /// How many, at most.
+    limit: Option<i64>,
+    /// The cursor's timestamp half, from the previous page's `next`.
+    after: Option<String>,
+    /// The cursor's id half, from the previous page's `next`.
+    after_id: Option<String>,
 }

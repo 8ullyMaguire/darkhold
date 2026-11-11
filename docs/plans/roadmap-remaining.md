@@ -240,6 +240,22 @@ they are not what a stranger sees, and their own room rules already apply.
 `m69_15_membership_gate` — **6/6 SQLite and 6/6 PostgreSQL**. Mutants: the works guard removed → two tests fail `201` vs
 `422`; the comment guard removed → the comment is accepted.
 
+## M70-13 ratchet pass 4 — 35 → 34, the trust trail gets a door — 2026-11-11
+
+`trust_events::list_all` has existed since the ladder did and nothing called it: the table records every move (`from_level`, `to_level`, `cause`,
+`evidence_ref`, who, when, and a `seq` that exists because `created_at` has one-second resolution) and `POST /admin/accounts/{id}/trust` could
+**set** a level while no door could say what had happened to one. "Why is this account at level 4?" is the first question a dispute asks.
+
+`GET /api/v1/admin/trust-events` (Operator): `limit` 1..200 (default 50), and a **stable cursor of `(created_at, id)`** — a page boundary inside
+one second cannot make two pages overlap, which is why the cursor is two halves. Half a cursor is refused `422` rather than silently ignored,
+because taking one half pages from the wrong place; the response carries `next` so no caller builds a cursor by hand.
+
+`trust_trail` **2/2 SQLite and 2/2 PostgreSQL**. Mutant: `require_operator` removed → the stranger case fails `200` vs `404`.
+
+**The category is holding:** of the last four ratchet steps, three were wires (a store function with no door) and one was a deletion (superseded
+by an inline mechanism). The baseline moving down is a side effect; the finding is that this repo's debt is mostly *built-but-unreachable*, not
+*dead*.
+
 ## M70-13 ratchet pass 3 — 36 → 35, and this one was a wire — 2026-11-11
 
 `governance::statement_for_task` had existed since M45-52 step 1 and was reached only by tests. Step 3 notified the author with their facts, the

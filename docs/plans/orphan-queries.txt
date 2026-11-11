@@ -9,7 +9,7 @@
 # outside this list, which is why the operator audit route always answered an empty trail. Correcting the
 # measurement moved the baseline from 43 to 57. An intermediate version that ignored `use` imports said 80; the
 # debt was never new, the ruler was wrong in both directions.
-# measured 2026-11-11: 35 orphan(s)
+# measured 2026-11-11: 34 orphan(s)
 
 increment_abuse_counter  # crates/db/src/admin.rs
 session_for  # crates/db/src/concierge_store.rs
@@ -42,7 +42,6 @@ submissions_by  # crates/db/src/source_adapters.rs
 published_source_manifests  # crates/db/src/source_adapters.rs
 record_payout  # crates/db/src/taste_leakage.rs
 get_payout  # crates/db/src/taste_leakage.rs
-list_all  # crates/db/src/trust_events.rs
 meta_actions_on_vote  # crates/db/src/typed_votes.rs
 measured_coordinates_for  # crates/db/src/work_coordinates.rs
 clear_coordinates  # crates/db/src/work_coordinates.rs

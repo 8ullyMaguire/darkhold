@@ -7273,6 +7273,13 @@ pub const ROUTE_TABLE: &[RouteEntry] = &[
     },
     RouteEntry {
         file: "admin.rs",
+        handler: "list_trust_events",
+        method: "GET",
+        path: "/admin/trust-events",
+        audience: Audience::Operator,
+    },
+    RouteEntry {
+        file: "admin.rs",
         handler: "list_source_policies",
         method: "GET",
         path: "/admin/sources",
