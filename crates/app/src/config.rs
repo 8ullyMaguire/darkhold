@@ -1507,9 +1507,32 @@ impl Default for VanguardConfig {
     }
 }
 
+/// Who owns the instance's taste lens — the knobs and dimensions that decide what the feed favours (M45-45).
+///
+/// Two modes, and only two, because only two are implemented: `operator` is the door as it has always worked, and `vote`
+/// refuses a direct write and names the mode. `council` is deliberately absent rather than declared and ignored — a mode
+/// that silently behaves like `operator` is a switch that lies, which is the defect this session has spent its time
+/// removing.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum LensOwner {
+    /// The operator writes the lens directly. The default, and today's behaviour.
+    Operator,
+    /// A direct write is refused: a lens change has to arrive through a proposal the instance votes on.
+    Vote,
+}
+
+impl Default for LensOwner {
+    fn default() -> Self {
+        Self::Operator
+    }
+}
+
 /// Taste gravity settings (spec §0.4, §16.17).
 #[derive(Debug, Clone)]
 pub struct TasteConfig {
+    /// Who may write the instance's taste lens (M45-45). Default `operator`.
+    pub lens_owner: LensOwner,
     /// Taste gravity strength (0.0 = off, 1.0 = full influence).
     pub gravity_strength: f64,
     /// Signal weighting mode.
@@ -1576,6 +1599,7 @@ impl TasteConfig {
 impl Default for TasteConfig {
     fn default() -> Self {
         Self {
+            lens_owner: LensOwner::Operator,
             gravity_strength: 0.0,
             signal_weight_mode: "taste_weighted".to_string(),
             admin_weight: 1.0,
@@ -3748,6 +3772,15 @@ impl Config {
                     // refused here, where the operator can see it, rather than
                     // reaching the runtime and meaning `embedded` by accident.
                     mode: t.mode.unwrap_or_else(|| "embedded".to_string()),
+                    lens_owner: match t.lens_owner.as_deref() {
+                        // Parsed rather than defaulted for the same reason as `mode`: an unrecognised value must be
+                        // refused where the operator can see it.
+                        None | Some("operator") => LensOwner::Operator,
+                        Some("vote") => LensOwner::Vote,
+                        Some(other) => {
+                            anyhow::bail!("taste.lens_owner: `{other}` is not `operator` or `vote`")
+                        }
+                    },
                     gravity_strength: t.gravity_strength.unwrap_or(0.0),
                     signal_weight_mode: t
                         .signal_weight_mode
@@ -5292,6 +5325,8 @@ struct ThemeSection {
 struct TasteSection {
     /// `embedded` or `service` (spec §8.2).
     mode: Option<String>,
+    /// `operator` or `vote` (M45-45).
+    lens_owner: Option<String>,
     gravity_strength: Option<f64>,
     signal_weight_mode: Option<String>,
     admin_weight: Option<f64>,

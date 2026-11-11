@@ -1651,6 +1651,10 @@ async fn update_admin_taste_profile(
         "diversity_injection_percent",
     ];
     let touches_knobs = knob_keys.iter().any(|k| body.get(*k).is_some());
+    // M45-45: who owns the lens. Under `vote` a direct write is refused by name rather than silently accepted, because
+    // the version a reader then sees would carry `changed_by: <operator>` for a decision the instance was supposed to
+    // take together. The dimensions above are the same lens and are refused by the same rule.
+    lens_write_allowed(state.config().taste.lens_owner)?;
     if !touches_knobs {
         return Ok(Json(serde_json::json!({
             "status": "updated",
@@ -2193,4 +2197,45 @@ pub async fn curator_bounty_queue(
         "queue": refs_json,
         "count": refs_json.len(),
     })))
+}
+
+/// Who owns the taste lens (M45-45), as one function so the refusal can be read without a router.
+///
+/// Under `vote` a direct write is refused by name rather than silently accepted: the version a reader would then see
+/// carries `changed_by: <operator>` for a decision the instance was supposed to take together. Only two modes exist —
+/// `operator` (today's behaviour) and `vote` — because a third that behaved like `operator` would be a switch that lies.
+pub fn lens_write_allowed(lens: crate::config::LensOwner) -> ApiResult<()> {
+    if lens == crate::config::LensOwner::Operator {
+        return Ok(());
+    }
+    let mut field_errors = std::collections::BTreeMap::new();
+    field_errors.insert(
+        "lens_owner".to_string(),
+        "this instance's taste lens is owned by a vote: a change has to arrive as a proposal the instance votes on, \
+         not as a direct write"
+            .to_string(),
+    );
+    Err(ApiError(AppError::Validation {
+        message: "the taste lens is not the operator's to set on this instance".to_string(),
+        field_errors,
+    }))
+}
+
+#[cfg(test)]
+mod lens_owner_tests {
+    use super::*;
+    use crate::config::LensOwner;
+
+    #[test]
+    fn an_operator_owned_lens_accepts_a_direct_write() {
+        assert!(lens_write_allowed(LensOwner::Operator).is_ok());
+    }
+
+    #[test]
+    fn a_vote_owned_lens_refuses_and_names_the_field() {
+        let refusal = lens_write_allowed(LensOwner::Vote).expect_err("a vote-owned lens refuses a direct write");
+        let rendered = format!("{refusal:?}");
+        assert!(rendered.contains("lens_owner"), "the refusal must name the field a client can act on: {rendered}");
+        assert!(rendered.contains("votes on"), "and say what would work instead: {rendered}");
+    }
 }
