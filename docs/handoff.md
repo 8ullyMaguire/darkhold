@@ -1,3 +1,32 @@
+## GS-2, GS-3, GS-4 closed and GS-5 half built — and a CSRF layer that ran on one router of four — 2026-11-11
+
+**Answer to GS-3: `verify_csrf` was layered on `account_routes` only.** Every write merged into the `api` router —
+bookmarks, kudos, comments, reading positions, roadmap — accepted the session cookie alone. The guard skips a request with
+no `SessionUser` extension, which is exactly what a missing mount looks like: in the file, running on one subtree, refusing
+nothing, logging nothing, and no test failed because no test sent a deliberately token-less write. Found by writing the row
+as a door test rather than trusting the table (`a_cookie_alone_cannot_write`: 201 where 403 was expected). Fixed with one
+layer on `api`, added before `load_session` in source order so `load_session` stays outermost. Live on `0.1.0+b932a388`:
+`cookie-only-write=403`, `token-write=201`.
+
+**Rows this turn.** GS-2 (`9a999581`): registration from a guest **upgrades the account in place** — `upgrade_guest` carries
+the `is_guest = 1` predicate inside the UPDATE, and the pseud is renamed rather than replaced because
+`reading_progress.pseud_id` names it. GS-3 (`61bb400b`): the CSRF fix, plus three tests proving the cookie is the whole
+identity across a rebuilt client and that what a guest wrote through the door survives registration. GS-4 (`bbb72a09`): trust
+already reads the acts and refuses the `forum_karma` ledger (**spec §35.2**), so the row's work was to pin it — a
+5,000,000-bp account with no acts has exactly the level of one with no ledger, and wiring the ledger in takes the test from
+`(2, 0)` to `(4, 50000)` and fails. GS-5 (`b992de5c`) is **half built and stays `planned`**: the jury draw is a pure rule
+with reproducible seeds and structural exclusions, 7/7, but the pool read, panel persistence, route, appeal path and verdict
+surface are named as missing rather than implied.
+
+`planned 46 → 43`. Two rows are now blocked-by-nothing and one is blocked by its own size; the next unblocked row in queue
+order is **M69-15 (taste-gated membership)**, then M69-23 and M69-24.
+
+**Two things the deploy taught, again.** The thinkcentre checkout had diverged by one docs-only commit that a session
+committed there without pushing: `git merge --ff-only` refused, and the deploy script **kept building the old HEAD** —
+caught by the version probe (`0.1.0+b932a388`) and not by the build. Resolved by cherry-picking it onto master and resetting
+the propagation checkout. And `gate.sh repo` was red on `docs/spec/61` because that same unpushed commit appended §61.5 to
+`docs/spec.md` without regenerating the split; `scripts/split-spec.py` is the fix and the split is sound at 71 files.
+
 ## M45-52 complete, and a bot that already existed — 2026-11-11
 
 **Two rows moved, and one of them moved by deleting my own work first.**
