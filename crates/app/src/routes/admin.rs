@@ -12,22 +12,21 @@ use crate::state::AppState;
 
 /// Get admin stats.
 pub async fn get_stats(
-    State(_state): State<AppState>,
-    MaybeSession(user): MaybeSession,
+    State(state): State<AppState>,
+    RequireSession(user): RequireSession,
 ) -> ApiResult<Json<Value>> {
-    // Anonymous users get basic stats; operators get detailed
-    if user.is_none() {
-        return Ok(Json(
-            json!({ "reading": 0, "posting": 0, "engagement": 0, "discovery": 0 }),
-        ));
-    }
+    // **The numbers below are placeholders, and the payload now says so.** This handler answered any session with 100/50/25/10 regardless of the
+    // instance — invented data on an admin console surface, which is worse than a 404 because a console that renders it looks like it measured
+    // something. It is operator-only until it reads real counts; `honest_gap` is what a console should render instead of a fabricated figure.
+    crate::routes::admin_scope::require_admin_of(&state, &user, None).await?;
 
     Ok(Json(json!({
-        "reading": 100,
-        "posting": 50,
-        "engagement": 25,
-        "discovery": 10,
-        "honest_gap": false,
+        "reading": 0,
+        "posting": 0,
+        "engagement": 0,
+        "discovery": 0,
+        "honest_gap": true,
+        "note": "not yet implemented: these are zero because nothing is counted, not because nothing happened",
     })))
 }
 

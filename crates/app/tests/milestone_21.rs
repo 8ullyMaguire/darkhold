@@ -416,9 +416,11 @@ async fn a_signed_in_caller_reaches_the_monetization_contracts() {
     let (status, _) = client.get("/api/v1/me/gifts").await;
     assert_eq!(status, StatusCode::OK);
 
-    // Admin monetization endpoint gates on trust level.
+    // The admin monetization view is the operator's, not a level's: it used to answer `trust >= 5` with the instance's revenue, pending payouts and
+    // payer counts. A plain session now gets the ADR 0030 answer for a caller with no admin standing — 404, because confirming the surface exists is
+    // itself a disclosure about the instance's finances.
     let (status, _) = client.get("/api/v1/admin/monetization").await;
-    assert_eq!(status, StatusCode::FORBIDDEN);
+    assert_eq!(status, StatusCode::NOT_FOUND);
 
     fx.cleanup().await;
 }
@@ -861,6 +863,46 @@ async fn only_the_owner_may_price_a_work() {
         .delete(&format!("/api/v1/works/{work_id}/pricing"))
         .await;
     assert_eq!(status, StatusCode::OK, "owner removes pricing");
+
+    fx.cleanup().await;
+}
+
+/// Trust is not standing: a level-9 moderator cannot read the instance's books.
+///
+/// The view answered `trust >= 5`, which is a statement about a reader's standing in a community — not a permission to read platform revenue,
+/// pending payouts, active authors and payer counts.
+#[tokio::test]
+async fn a_high_trust_reader_cannot_read_the_monetization_view() {
+    let fx = Fixture::new("money-operator-only").await;
+    let mut client = fx.client();
+    register(&mut client, "m21-hightrust@example.com", "m21hightrust").await;
+    let account: String = {
+        use darkhold_db::Backend;
+        match fx.tdb.db().backend() {
+            Backend::Sqlite => sqlx::query_scalar(
+                "SELECT account_id FROM pseuds WHERE lower(handle) = 'm21hightrust' LIMIT 1",
+            )
+            .fetch_one(fx.tdb.db().sqlite_pool().expect("sqlite"))
+            .await
+            .expect("account"),
+            Backend::Postgres => sqlx::query_scalar(
+                "SELECT account_id::text FROM pseuds WHERE lower(handle) = 'm21hightrust' LIMIT 1",
+            )
+            .fetch_one(fx.tdb.db().postgres_pool().expect("postgres"))
+            .await
+            .expect("account"),
+        }
+    };
+    darkhold_db::governance::set_trust(fx.tdb.db(), &account, 9, "test")
+        .await
+        .expect("grant trust");
+
+    let (status, body) = client.get("/api/v1/admin/monetization").await;
+    assert_eq!(
+        status,
+        StatusCode::NOT_FOUND,
+        "a level is not a permission to read the books: {status} {body}"
+    );
 
     fx.cleanup().await;
 }

@@ -1041,7 +1041,7 @@ fn the_reverse_check_catches_an_unmounted_router() {
 /// Every `/admin/` door is closed to a plain session — as a ratchet, because 26 of them are not.
 ///
 /// The abuse lookup shipped as `Audience::Authenticated` and the table recorded exactly that: an inventory describes the code, so it cannot catch a
-/// gate that was never written. The prefix is the invariant that can — but the current tree has **23** `/admin/` rows below operator standing, and
+/// gate that was never written. The prefix is the invariant that can — but the current tree has **4** `/admin/` rows below operator standing, all of them the same §14.4 namespace mistake below operator standing, and
 /// each needs its handler read before anybody claims which are internal gates that work and which are the abuse bug again. Changing 26 gates in one
 /// commit would be the same guess in the other direction.
 ///
@@ -1052,25 +1052,13 @@ fn the_reverse_check_catches_an_unmounted_router() {
 /// Auditing these is the debt this records. The pattern to look for in each handler is a `require_admin_of` / internal role check in the body — the
 /// retention routes were converted from that shape to `AdminOf` in the signature, and the abuse routes in the same commit.
 const KNOWN_BELOW_OPERATOR: &[(&str, &str)] = &[
-    ("GET", "/admin/jobs"),
-    ("GET", "/admin/jobs/summary"),
-    ("POST", "/admin/jobs/{id}/retry"),
-    ("GET", "/admin/stats"),
-    ("GET", "/admin/monetization"),
-    ("POST", "/admin/taste-notifications/drain"),
-    ("POST", "/admin/notes/links/sweep"),
-    ("GET", "/admin/media/references/at-risk"),
-    ("POST", "/admin/local-mirrors"),
-    ("DELETE", "/admin/local-mirrors/{mirror_id}"),
+    // **Not holes — a namespace mistake.** §14.4 makes a tag proposal a *member's* privilege (level 2): proposing a tag change is something a reader
+    // does, and approving it is a reviewer's. They live under `/admin/` for historical reasons, so the prefix rule flags them. Moving them would be a
+    // URL break (ADR 0006), so they stay, and the reason is recorded here rather than the path being silently exempted.
+    // A DMCA notice is filed by a *claimant*, who may hold no account at all — the filing route is public on purpose and the review happens at
+    // resolution, which is operator-only (`PUT /admin/dmca-takedowns/{id}`). Public filing with a private decision is the shape the law wants; an
+    // operator-gated complaint form is one most complainants never find.
     ("POST", "/admin/dmca-takedowns"),
-    ("GET", "/admin/dmca-takedowns"),
-    ("PUT", "/admin/dmca-takedowns/{takedown_id}"),
-    ("GET", "/admin/media-health/overview"),
-    ("GET", "/admin/media-health/link-rot"),
-    ("GET", "/admin/media-health/curator-leaderboard"),
-    ("GET", "/admin/media-health/bounty-status"),
-    ("GET", "/admin/media-health/storage"),
-    ("GET", "/admin/media-health/providers"),
     ("POST", "/admin/tag-wrangling/proposals"),
     ("POST", "/admin/tag-wrangling/proposals/{id}/approve"),
     ("POST", "/admin/tag-wrangling/proposals/{id}/reject"),

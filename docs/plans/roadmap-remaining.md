@@ -280,6 +280,22 @@ no token column. The store scopes by `actor`, which is the human. So the surface
 this token did*. That needs the write path to record which credential was used; until then the attribution half is unbuilt and named here rather
 than papered over with a `dh audit` verb that would imply it.
 
+## The books, a fabricated stats page, and the `/admin/` baseline down to five exceptions — 2026-11-11
+
+- **`GET /admin/monetization` answered to `trust >= 5`** — platform revenue, pending payouts, active authors, payer counts. A trust level says who
+  someone is in a community; it does not grant the instance's books. Now `require_admin_of`.
+- **`GET /admin/stats` was a stub returning hard-coded `100/50/25/10` to any session.** Invented figures on an admin console, where a rendered number
+  reads as a measurement. It is operator-only now and answers zeros with `honest_gap: true` and a sentence saying nothing is counted — a console should
+  render a gap, not a fabrication. The real counters are named as the remaining work.
+- **17 `/admin/` rows were correctly gated in their handler bodies but tabled `Authenticated`/`Public`.** Relabelled `AdminOf` so the inventory
+  describes intent, not just the extractor.
+
+That leaves the ratchet's baseline at **five documented exceptions**, each with its reason in the list: the four tag-wrangling routes (§14.4 makes a tag
+proposal a *member's* privilege — the path is a namespace mistake and moving it is a URL break under ADR 0006) and `POST /admin/dmca-takedowns` (a
+notice is filed by a *claimant*, who may hold no account; the review is operator-only at `PUT`).
+
+`milestone_21` **24/24** and the new high-trust case on PostgreSQL; `route_inventory` 6/6; mutant (gate removed from `admin_monetization`) → `200`.
+
 ## Settlement was open to any session, and so was the admin action log — 2026-11-11
 
 Two more items off the `/admin/` baseline, both found by reading rather than by a failing test:

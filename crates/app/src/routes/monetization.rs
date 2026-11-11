@@ -515,12 +515,14 @@ pub async fn admin_monetization(
     State(state): State<AppState>,
     RequireSession(user): RequireSession,
 ) -> ApiResult<Json<Value>> {
+    // **Financial data, so the operator's, not a level's.** This answered to `trust >= 5` — the same shape as the DSAR read: a level is a statement
+    // about a reader's standing in a community, and platform revenue, pending payouts and payer counts are the instance's books. `require_admin_of`
+    // (ADR 0030: 404 with no admin standing).
+    crate::routes::admin_scope::require_admin_of(&state, &user, None).await?;
+    // Kept in the payload: `trust_level` is the caller's own standing, which a console shows next to the numbers it is reading.
     let level = darkhold_db::governance::trust_for(state.db(), &user.account_id.to_string())
         .await
         .map_err(|e| ApiError(darkhold_domain::AppError::Internal(e.into())))?;
-    if level < 5 {
-        return Err(ApiError(darkhold_domain::AppError::AccessDenied));
-    }
 
     let total_revenue = monetization::total_platform_revenue(state.db())
         .await
