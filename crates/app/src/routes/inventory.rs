@@ -5048,6 +5048,13 @@ pub const ROUTE_TABLE: &[RouteEntry] = &[
     },
     RouteEntry {
         file: "derivative.rs",
+        handler: "download_derivative",
+        method: "GET",
+        path: "/derivatives/{id}/download",
+        audience: Audience::Public,
+    },
+    RouteEntry {
+        file: "derivative.rs",
         handler: "get_derivative",
         method: "GET",
         path: "/derivatives/{id}",

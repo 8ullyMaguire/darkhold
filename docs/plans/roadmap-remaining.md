@@ -11,7 +11,34 @@ Two rules that decide the order:
 * **A row that gates other rows is taken as soon as its blocker clears.** Nine of the M64 rows read a snapshot built by
   M64-01..M64-03; taking them first would mean writing the same aggregation three times.
 
-##### Deployed 2026-11-11 08:53 — M45-45 step 3 (`0.1.0+4b686729`, schema 0207)
+##### M63-05b unblocked — the download route, 2026-11-11
+
+`GET /derivatives/{id}/download` (`crates/app/src/routes/derivative.rs`) serves the **built bytes**, not the metadata:
+`Content-Type` from the derivative's own `output_mime_type`, `Content-Disposition: attachment; filename=work-<work>-<derivative>.<kind>`.
+
+Three refusals, each naming a different fact:
+
+* the work is not readable → the work door's own answer, so a rendition of a work the caller cannot read is not disclosed;
+* **no built file** → `404 no such built derivative`, deliberately not `422`: nothing about the request is wrong and a
+  client polling a job should not be told it made a mistake (the metadata route carries `state` and `error_message`);
+* **a checksum with no blob** → `500`, because that is a broken instance and an empty 200 would hide it.
+
+`crates/app/tests/m63_05b_derivative_download.rs` — **3/3 on SQLite and 3/3 on PostgreSQL**:
+
+| test | what it pins |
+|---|---|
+| a built rendition is served as the file it is | 200, the recorded content type, an `attachment` disposition ending `.epub`, and body == stored bytes |
+| a queued rendition has no file to serve | 404 — a job that has not finished has no bytes |
+| a stale rendition is not served even though its bytes are still there | 404 — the state filter, which the queued case alone does **not** exercise |
+
+That last one exists because the first mutant was useless: removing the `state == "ready"` filter left the queued test
+green, since a queued row has no `output_checksum` either. The filter's real job is the row that **was** built and then
+went stale, and only a stale fixture reddens it (`left: 200` when the filter is removed, restored from `/tmp`).
+
+**Remaining:** `dh rec --link epub` still refuses. The route it needs now exists; wiring the CLI is a second change that
+asks the server for each row's derivatives and prints the download URL where one is ready.
+
+## Deployed 2026-11-11 08:53 — M45-45 step 3 (`0.1.0+4b686729`, schema 0207)
 
 One deploy carried the proposal tables and the three doors. Measured, from `/tmp/deploy-m4545.log` on the host:
 
@@ -3548,7 +3575,7 @@ this table. The rule and the three legal kinds of block are in `~/secondbrain/10
 | row | kind | what would clear it | taken instead |
 |---|---|---|---|
 | M45-43 — Discord bot (rec commands, per-fandom feeds, account linking) | **credential** | a Discord application's bot token plus an account to link for the live proof. Its offline half is *not* blocked: the command surface and the rec formatting can ship behind a transport trait, exactly as `M45-42` did with `ProfileFetcher` — do that first, then leave the token-dependent half named in the ledger | M45-46 |
-| M63-05b — `dh rec --link epub` | **another row's unbuilt work** | an export/download route for a work's derived file. `output.rs` already fixes the link shape; what is missing is the endpoint, so the flag refuses with its reason rather than printing a 404 with a file extension | M63-15 |
+| M63-05b — `dh rec --link epub` | **cleared 2026-11-11** | the download route now exists (`GET /derivatives/{id}/download`, see the section below); the CLI wiring is the only work left, so the row is unblocked and back in the queue. `output.rs` already fixes the link shape; what is missing is the endpoint, so the flag refuses with its reason rather than printing a 404 with a file extension | M63-15 |
 | M63-33 — reconcile the live database with the workspace migrations (11 tables absent, 12 legacy-named present) | **reserved decision** | the operator's per-table call: the live database was migrated by the other lineage, whose numbers collide with this tree's, so this is a DDL decision over live data with data-loss options. Not a session's call | M63-15 |
 
 **De-facto queue after those demotions** (each row still read before it is implemented; this is an order, not

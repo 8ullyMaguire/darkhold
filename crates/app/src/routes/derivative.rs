@@ -1,6 +1,9 @@
 //! Derivative pipeline routes (M25 / spec §32.4).
 
+use axum::body::Body;
 use axum::extract::{Path, State};
+use axum::http::{header, HeaderValue, StatusCode};
+use axum::response::{IntoResponse, Response};
 use axum::routing::get;
 use axum::{Json, Router};
 use serde::Deserialize;
@@ -10,6 +13,7 @@ use crate::auth::{MaybeSession, RequireSession};
 use crate::http::{ApiError, ApiResult};
 use crate::routes::works::{reading_for_work, require_contributor, Reading};
 use crate::state::AppState;
+use darkhold_domain::AppError;
 
 #[derive(Debug, Deserialize)]
 pub struct RequestDerivative {
@@ -25,6 +29,9 @@ pub fn router() -> Router<AppState> {
             get(list_derivatives).post(request_derivative),
         )
         .route("/derivatives/{id}", get(get_derivative))
+        // M63-05b: the built file, not its metadata. Without this a rendition is a row describing bytes nobody
+        // can fetch, and `dh rec --link epub` has nothing to point at.
+        .route("/derivatives/{id}/download", get(download_derivative))
 }
 
 fn validation(message: &str) -> ApiError {
@@ -191,4 +198,83 @@ pub async fn get_derivative(
         "built_at": derivative.built_at,
         "verified_at": derivative.verified_at,
     })))
+}
+
+/// The built rendition, as a file a client can save.
+///
+/// Three refusals, and each names a different fact rather than the same 404:
+///
+/// * **the work is not readable** — the work door's own answer, exactly as the metadata route gives it, because a
+///   rendition of a work the caller cannot read must not be disclosed either;
+/// * **no file exists yet** — a derivative in `queued`/`running` has no bytes, and the honest answer is that there is no
+///   built derivative. It is deliberately **not** `422`: nothing about the request is wrong, and a client polling for a
+///   job to finish should not be told it made a mistake. The metadata route carries `state` and `error_message` for a
+///   caller that wants to know why;
+/// * **the blob is gone** — a checksum with no bytes behind it is a broken instance, and the message says so instead of
+///   answering an empty 200.
+pub async fn download_derivative(
+    State(state): State<AppState>,
+    MaybeSession(session): MaybeSession,
+    Path(id): Path<String>,
+) -> ApiResult<Response> {
+    let db = state.db();
+    let derivative = darkhold_db::derivative::find_derivative(db, &id)
+        .await?
+        .ok_or_else(|| {
+            ApiError::from(darkhold_domain::AppError::NotFound {
+                resource: "derivative",
+            })
+        })?;
+    if let Reading::Denied(error) =
+        reading_for_work(&state, &derivative.work_id, session.as_ref()).await?
+    {
+        return Err(ApiError(error));
+    }
+
+    let checksum = derivative
+        .output_checksum
+        .clone()
+        .filter(|_| derivative.state == "ready")
+        .ok_or_else(|| {
+            ApiError::from(darkhold_domain::AppError::NotFound {
+                resource: "built derivative",
+            })
+        })?;
+
+    let store = darkhold_db::storage::BlobStore::new(state.config().storage.root.clone());
+    let bytes = store
+        .get(db, &checksum)
+        .await
+        .map_err(|e| ApiError(AppError::Internal(e.into())))?
+        .ok_or_else(|| {
+            ApiError::from(AppError::Internal(anyhow::anyhow!(
+                "derivative {id} records output {checksum} but the blob store has no such object"
+            )))
+        })?;
+
+    let media_type = derivative
+        .output_mime_type
+        .clone()
+        .unwrap_or_else(|| "application/octet-stream".to_owned());
+    let extension = derivative
+        .derivative_kind
+        .clone()
+        .split('/')
+        .next_back()
+        .unwrap_or("bin")
+        .to_owned();
+    let filename = format!("work-{}-{}.{extension}", derivative.work_id, derivative.id);
+
+    let mut response = (StatusCode::OK, Body::from(bytes)).into_response();
+    response.headers_mut().insert(
+        header::CONTENT_TYPE,
+        HeaderValue::from_str(&media_type)
+            .unwrap_or_else(|_| HeaderValue::from_static("application/octet-stream")),
+    );
+    response.headers_mut().insert(
+        header::CONTENT_DISPOSITION,
+        HeaderValue::from_str(&format!("attachment; filename=\"{filename}\""))
+            .unwrap_or_else(|_| HeaderValue::from_static("attachment")),
+    );
+    Ok(response)
 }
