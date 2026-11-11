@@ -124,6 +124,7 @@ pub mod rec_strategy;
 pub mod recommendation_slots;
 pub mod retention;
 pub mod retention_proposals;
+pub mod taste_lens_proposals;
 pub mod revisions;
 pub mod roadmap;
 pub mod roles;

@@ -23,6 +23,26 @@ So this row is not "add coverage to pages" — it is one clause away, and that c
 schema does not yet draw. Widening `Coverage` with two numbers before an origin concept exists would produce a split
 that is really `lifecycle=published` twice under two names.
 
+# M45-45 step 3, as built 2026-11-11
+
+`crates/db/src/taste_lens_proposals.rs` + migrations `0206_taste_lens_proposals` and `0207_taste_lens_cause`:
+
+* a proposal carries the **whole lens**, so a vote is for a feed a reader can picture;
+* the **threshold is stored per proposal**, so raising the default later cannot retroactively pass an old vote;
+* **one vote per account**, enforced by the primary key — a reader who changes their mind replaces their vote rather
+  than counting twice (proved: yes-then-no leaves `(0, 1)`);
+* **no votes is not a rejection**: the proposal stays `open` with no `decided_at`, so an operator sees that nobody
+  engaged instead of reading a decision the instance never took;
+* a passing proposal writes through `write_as` with `cause = proposal:<id>`.
+
+The measurement that changed the design: `instance_taste_settings_history.changed_by` is a **UUID column** on PostgreSQL,
+so `proposal:<id>` is not storable there, and the proposal's UUID in that column would be indistinguishable from a person.
+0207 adds `cause TEXT NOT NULL DEFAULT 'operator'`; `updated_by` keeps naming the operator who opened the proposal.
+
+Tests `crates/db/tests/m45_45_taste_lens_proposal.rs` 4/4 on **both engines**; mutants (threshold ignored, cause fixed to
+a constant) each redden their own assertion, restored from `/tmp`. Remaining: the HTTP doors — `POST /taste-proposals`
+and `POST /taste-proposals/{id}/vote` — without which an operator under `vote` has a policy and no way to change the lens.
+
 # M45-45 step 3, measured before it is written — 2026-11-11
 
 The `vote` path needs a proposal the instance can vote on, and the tree already has one machinery of that shape:

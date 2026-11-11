@@ -87,6 +87,15 @@ pub struct TasteSettingsUpdate {
 /// common case is the second write, and making that the awkward one would invite
 /// a check-then-insert race between two operators.
 pub async fn write(db: &Database, update: &TasteSettingsUpdate, updated_by: Uuid) -> Result<i64> {
+    write_as(db, update, &updated_by.to_string(), "operator").await
+}
+
+/// The same write, with the actor named as a string.
+///
+/// M45-45: a lens change that arrived through a vote is recorded as `proposal:<id>` rather than as the operator who
+/// applied it, because the history row's job is to say *why* a version changed. An account id cannot hold that, and a
+/// second "cause" column would leave two things to keep in step.
+pub async fn write_as(db: &Database, update: &TasteSettingsUpdate, updated_by: &str, cause: &str) -> Result<i64> {
     let now = crate::identity::now_rfc3339();
 
     // Read the current state first, so the history row can record it. Done
@@ -124,12 +133,12 @@ pub async fn write(db: &Database, update: &TasteSettingsUpdate, updated_by: Uuid
     let history = db.sql(
         "INSERT INTO instance_taste_settings_history
            (history_id, replaced_version, gravity_strength, signal_weight_mode,
-            admin_weight, diversity_injection_percent, changed_by, changed_at)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+            admin_weight, diversity_injection_percent, changed_by, changed_at, cause)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
         "INSERT INTO instance_taste_settings_history
            (history_id, replaced_version, gravity_strength, signal_weight_mode,
-            admin_weight, diversity_injection_percent, changed_by, changed_at)
-         VALUES (?::uuid, ?, ?, ?, ?, ?, ?::uuid, ?::timestamptz)",
+            admin_weight, diversity_injection_percent, changed_by, changed_at, cause)
+         VALUES (?::uuid, ?, ?, ?, ?, ?, ?::uuid, ?::timestamptz, ?)",
     );
 
     let history_id = Uuid::new_v4();
@@ -160,6 +169,7 @@ pub async fn write(db: &Database, update: &TasteSettingsUpdate, updated_by: Uuid
                 .bind(prev_diversity)
                 .bind(updated_by.to_string())
                 .bind(&now)
+                .bind(cause)
                 .execute(&mut *tx)
                 .await?;
             sqlx::query(&upsert)
@@ -191,6 +201,7 @@ pub async fn write(db: &Database, update: &TasteSettingsUpdate, updated_by: Uuid
                 .bind(prev_diversity)
                 .bind(updated_by)
                 .bind(&now)
+                .bind(cause)
                 .execute(&mut *tx)
                 .await?;
             sqlx::query(&upsert)
@@ -231,13 +242,13 @@ pub async fn write(db: &Database, update: &TasteSettingsUpdate, updated_by: Uuid
 pub async fn history(db: &Database, limit: i64) -> Result<Vec<TasteHistoryEntry>> {
     let sql = db.sql(
         "SELECT history_id, replaced_version, gravity_strength, signal_weight_mode,
-                admin_weight, diversity_injection_percent, changed_by, changed_at
+                admin_weight, diversity_injection_percent, changed_by, changed_at, cause
            FROM instance_taste_settings_history
           ORDER BY (replaced_version IS NULL), replaced_version DESC, rowid DESC LIMIT ?",
         "SELECT history_id::text, replaced_version::bigint, gravity_strength::bigint AS gravity_strength,
                 signal_weight_mode, admin_weight::bigint AS admin_weight,
                 diversity_injection_percent::bigint AS diversity_injection_percent,
-                changed_by::text AS changed_by, changed_at::text AS changed_at
+                changed_by::text AS changed_by, changed_at::text AS changed_at, cause
            FROM instance_taste_settings_history
           ORDER BY replaced_version DESC NULLS LAST, changed_at DESC, history_id DESC LIMIT ?",
     );
@@ -341,6 +352,8 @@ pub struct TasteHistoryEntry {
     pub admin_weight: i64,
     pub diversity_injection_percent: i64,
     pub changed_by: Option<String>,
+    /// `operator` for a direct write, `proposal:<id>` for a lens the instance voted on (M45-45).
+    pub cause: String,
     pub changed_at: String,
 }
 
@@ -371,6 +384,7 @@ struct TasteHistoryRow {
     diversity_injection_percent: i64,
     changed_by: Option<String>,
     changed_at: String,
+    cause: String,
 }
 
 impl TasteHistoryRow {
@@ -384,6 +398,7 @@ impl TasteHistoryRow {
             diversity_injection_percent: self.diversity_injection_percent,
             changed_by: self.changed_by,
             changed_at: self.changed_at,
+            cause: self.cause,
         }
     }
 }
