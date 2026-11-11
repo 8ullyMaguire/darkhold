@@ -38,53 +38,40 @@ went stale, and only a stale fixture reddens it (`left: 200` when the filter is 
 **Remaining:** `dh rec --link epub` still refuses. The route it needs now exists; wiring the CLI is a second change that
 asks the server for each row's derivatives and prints the download URL where one is ready.
 
-## M45-43 — Discord bot, measured and planned 2026-11-11 (credential now available)
+## M45-43 — the bot already exists; measured 2026-11-11
 
-`docs/spec/37-multi-platform-companion-bot.md` reserves a **separate workspace** (`darkhold-bot`) with Poise + Serenity
-adapters and Redis for tokens, pages and rate limits. Measured against this deployment, that shape is wrong here for
-three concrete reasons:
+The row was planned as an interactions endpoint inside this server, and that plan is **withdrawn**: a census of the estate
+found the bot already built, and a second one would have been the third copy of a solved problem.
 
-* **Redis is not in this stack.** The spec's token store, pagination cache and rate limiter are all Redis; darkhold has
-  Postgres and nothing else, and adding Redis to serve a bot is a second stateful service to back up.
-* **Serenity needs a gateway websocket**, i.e. a long-running process. The server is a user unit that also runs a worker;
-  a second always-on socket is a new failure mode for a feature whose commands are request/response.
-* **A separate workspace cannot be tested by this repo's gates.** Nothing in `scripts/gate.sh` would see it, which is how
-  surfaces drift.
+**Measured (read-only, `rg` over `~/code-local/rust` and `~/code/rust`, 2026-11-11):**
 
-So M45-43 ships as **an interactions endpoint on the existing server**, which Discord supports natively: Discord POSTs an
-interaction (slash command invoked) to a URL the operator configures, signed with Ed25519. No gateway, no websocket, no
-Redis, and the dispatch is a normal Axum handler the existing tests and gates already cover.
+| what | where | lines |
+|---|---|---|
+| a multi-platform bot **for darkhold** | `~/code-local/rust/darkbot` — `darkbot-core`, `darkbot-adapter` (trait + conformance suite), `darkbot-api`, and `discord`/`matrix`/`telegram` adapters | 12,489 |
+| a second multi-platform bot framework | `~/code/rust/fanfic-archivist-bot` — `archivist-core` (`PlatformMessage` IR) + discord/matrix/telegram/slack/irc/fediverse/webhook adapters | 30,691 |
+| hand-rolled HTTP-interaction endpoints | asc **818**, darkhold **223** (mine, deleted this turn), suki **170** | 1,211 |
+| gateway clients (`serenity` / `twilight`) | none | — |
 
-**Steps, in the order they can be checked:**
+**What darkbot needs from darkhold, and what exists:** `public/search`, `public/works/{id}`, `works/{id}/kudos`,
+`me/tokens`, `me/tokens/{id}` — all present. Its link handshake (`POST bot/link/start`, `POST bot/link/exchange`) does
+**not** match §23.2, which is already implemented and better: `/me/bots/{id}/link-challenge` → `GET /bots/link/{code}` (the
+reader is shown what is being asked for) → `POST /bots/link/{code}` (confirm, token issued once, to the reader's own
+session). darkbot's version has the *bot* holding the code and exchanging it; §23.2 never lets a bot hold a reader's
+credential. **darkbot is the one that should adapt**, not this server.
 
-1. **`[discord]` config** (`enabled`, `application_id`, `public_key`, `token` — the secret, on the host, 0600, never in the
-   tree) with `deny_unknown_fields` respected; module row `discord_bot`, `default_on: false`, `Toggle::Operator`.
-2. **Signature verification first, body parsing second.** `POST /discord/interactions` verifies
-   `X-Signature-Ed25519` over `timestamp + body` with the configured public key and answers `401` before reading a single
-   field of JSON. A bot endpoint that parses first is a remote parser for anyone who can reach the port.
-3. **PING/PONG** (type 1) answers `{"type": 1}` so Discord accepts the endpoint.
-4. **Three commands with no account**: `/search <query>`, `/fandom <slug>`, `/fresh`. Each renders a `PlatformMessage`
-   (title + up to five rows + a footer link) from the same public API a reader uses — the bot is a thin client, exactly
-   as §37 says, and it must call the HTTP API rather than the database so the two cannot disagree.
-5. **Account linking**: `POST /discord/link` (session) mints a one-time code (table `discord_link`, 10-minute expiry, one
-   use); `/link <code>` in Discord redeems it for `(guild, discord_user)` → account. A code is a capability: it is
-   single-use, expires, and is refused by name when used twice.
-6. **Account-scoped commands** (`/recs`, `/bookmark`) refuse with a link instruction when no binding exists — not a 500,
-   and not a silent empty list.
-7. **Per-fandom feeds** (`/feed subscribe <fandom>` per channel) as `discord_feed(channel_id, fandom, created_by)`; a
-   worker pass posts new works, reusing the outbox rather than inventing a poller.
+**Verdict on sharing, with the estate's own scoring (leverage = dup × platforms ÷ complexity):**
 
-**Acceptance tests, per step:** (2) `a_body_without_a_valid_signature_is_refused_before_it_is_parsed`; (3)
-`a_ping_answers_pong`; (4) `a_search_interaction_answers_an_embed_with_work_links`; (5) `a_link_code_works_once_and_expires`;
-(6) `an_unlinked_recs_interaction_answers_a_link_instruction`; (7) `a_feed_row_survives_and_names_its_fandom`.
+* *Discord signature verification* (hex decode, `timestamp || body`, PING/PONG) is ~120 lines repeated three times —
+  dup 3, platforms 3, complexity 1 → leverage **9**. That is a kit nobody should build: two of its three copies are
+  per-product endpoints with no shared API, and the third is a bot that does not use the transport at all. **No crate.**
+* *The bot framework* is the real shared component and **already exists**: `darkbot-adapter`'s `PlatformMessage` IR,
+  `Adapter` trait (`parse` / `render` / `send`, `capabilities`, `CannotSendPrivately`) and conformance suite. Two
+  independent implementations of the same architecture (`archivist-core` and `darkbot-core`) is the census finding worth
+  acting on; converging the two IRs is a crate-plus-wiring job for whoever needs the *second* non-darkhold bot.
 
-**Live proof of the credential, cheap and first:** `GET https://discord.com/api/v10/users/@me` with
-`Authorization: Bot <token>` answers the bot's own identity. That proves the token before any code depends on it, and it is
-the one call that needs the network — the rest of the suite uses a transport trait with a canned answer, the `ProfileFetcher`
-pattern M45-42 established.
-
-**The token is not written into this repository, this ledger, or any doc.** It lives in the host's `darkhold.toml` (0600)
-and every reference to it reads `[REDACTED]`.
+**So the row becomes:** point darkbot at the live instance, adapt its two link calls to §23.2's three doors, and prove one
+command end to end in a real guild. No new Discord code in this server; the endpoint written this turn was deleted rather
+than kept as dead surface (`git status` clean at `4aa91888`).
 
 ## Deployed 2026-11-11 08:53 — M45-45 step 3 (`0.1.0+4b686729`, schema 0207)
 
