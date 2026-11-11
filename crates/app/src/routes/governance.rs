@@ -65,6 +65,9 @@ fn routes() -> Router<AppState> {
         .route("/moderation/queue", get(moderation_queue))
         .route("/moderation/reports/{id}/assign", post(assign_task))
         .route("/moderation/tasks/{id}/decide", post(decide_task))
+        // M45-52 step 5: the transparency report in miniature. Counts per ground and outcome, nothing that can be
+        // deanonymised — a cell below the threshold is suppressed, not rounded into a lie.
+        .route("/statements/summary", get(statements_summary))
         .route("/sanctions", post(issue_sanction))
         // Two-phase for the IRREVERSIBLE case (capability ledger 3.4): filing creates a pending
         // case and changes nothing, executing applies it. Ported from gravity's
@@ -384,6 +387,66 @@ async fn decide_task(
         "statement_id": statement_id,
         "ground": ground.as_str(),
         "appeal_until": appeal_until,
+    })))
+}
+
+/// `GET /statements/summary` — counts per ground and outcome (M45-52 step 5).
+///
+/// Public on purpose: Article 24's transparency obligation is owed to the public, not to the operator. What it is *not*
+/// is a list — no statement ids, no accounts, no report ids. A cell smaller than `TRANSPARENCY_MIN_COUNT` is reported as
+/// suppressed with the threshold named, because a count of one is a person.
+async fn statements_summary(
+    State(state): State<AppState>,
+    // Public, and the extractor is not decoration: it is how this tree records that a door was *offered* to an anonymous
+    // caller rather than only to a session (the route inventory checks every public door takes it).
+    MaybeSession(_viewer): MaybeSession,
+) -> ApiResult<Json<Value>> {
+    let rows = darkhold_db::governance::statement_summary(state.db())
+        .await
+        .map_err(|e| ApiError(AppError::Internal(e.into())))?;
+
+    let mut by_ground: Vec<Value> = Vec::new();
+    for ground in darkhold_domain::governance::StatementGround::ALL {
+        let cells: Vec<&(String, String, i64)> = rows
+            .iter()
+            .filter(|(name, _, _)| name == ground.as_str())
+            .collect();
+        if cells.is_empty() {
+            continue;
+        }
+        let outcomes: Vec<Value> = cells
+            .iter()
+            .map(|(_, outcome, count)| {
+                if *count < darkhold_domain::governance::TRANSPARENCY_MIN_COUNT {
+                    json!({
+                        "outcome": outcome,
+                        "count": Value::Null,
+                        "suppressed": true,
+                        "reason": format!(
+                            "below the transparency threshold of {}",
+                            darkhold_domain::governance::TRANSPARENCY_MIN_COUNT
+                        ),
+                    })
+                } else {
+                    json!({ "outcome": outcome, "count": count, "suppressed": false })
+                }
+            })
+            .collect();
+        let published: i64 = cells
+            .iter()
+            .filter(|(_, _, count)| *count >= darkhold_domain::governance::TRANSPARENCY_MIN_COUNT)
+            .map(|(_, _, count)| count)
+            .sum();
+        by_ground.push(json!({
+            "ground": ground.as_str(),
+            "outcomes": outcomes,
+            "published_total": published,
+        }));
+    }
+
+    Ok(Json(json!({
+        "min_count": darkhold_domain::governance::TRANSPARENCY_MIN_COUNT,
+        "grounds": by_ground,
     })))
 }
 

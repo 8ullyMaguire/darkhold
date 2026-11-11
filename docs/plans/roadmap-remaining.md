@@ -171,6 +171,14 @@ belongs to somebody else (a stranger learns nothing, not even that it exists), a
 message** once it has passed. Two tests: inside the window → accepted; after it → refused naming `2020-01-01T00:00:00Z`.
 Mutant: the comparison disabled → `left: 200 / right: 422`. 5/5 SQLite and 5/5 PostgreSQL for the suite.
 
+**Step 5 also built (same turn) — the transparency summary is a count.** `GET /statements/summary` is public (Article 24's
+obligation is owed to the public) and returns counts per ground and outcome with **`TRANSPARENCY_MIN_COUNT = 5`**: a cell
+below the threshold is `{count: null, suppressed: true, reason: "below the transparency threshold of 5"}`, because a count
+of two is two people. No statement id, task id or account appears in the body — the test asserts their absence, not just
+their omission. Mutant: suppression disabled → `left: Number(2) / right: Null`. Suite 6/6 SQLite and 6/6 PostgreSQL.
+`route_inventory` 5/5 (the public door takes `MaybeSession`, which is how this tree records that a door is offered to an
+anonymous caller).
+
 **Still planned — the named remainder:** (3) tell both sides through the existing notification machinery, (4) enforce
 `appeal_until` at `POST /appeals`, (5) `GET /statements/summary` as counts per ground and outcome, (6) the `dsa|dmca`
 discriminator with DMCA's four statutory elements. Steps 1–2 are the part the other four read from, which is why they

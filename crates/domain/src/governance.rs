@@ -218,6 +218,13 @@ impl StatementGround {
 /// about.
 pub const APPEAL_WINDOW_DAYS: i64 = 30;
 
+/// The smallest count a transparency summary may publish (M45-52 step 5).
+///
+/// A count of one is a person. The DSA wants numbers and the reader wants not to be identified by a number, and both are
+/// satisfiable: a cell below this threshold is reported as *suppressed with the threshold it fell under* rather than as a
+/// number, so the report is testable and nobody is countable into existence.
+pub const TRANSPARENCY_MIN_COUNT: i64 = 5;
+
 // ---------------------------------------------------------------------------
 // Tests
 // ---------------------------------------------------------------------------

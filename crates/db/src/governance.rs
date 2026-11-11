@@ -2458,3 +2458,38 @@ pub async fn statement_by_id(
         }
     }
 }
+
+/// How many decisions were taken under each ground, split by outcome (M45-52 step 5).
+///
+/// Counts only. No statement ids and no accounts: a report that names the people it counts is not a transparency report,
+/// it is a list.
+pub async fn statement_summary(db: &Database) -> Result<Vec<(String, String, i64)>, sqlx::Error> {
+    use sqlx::Row;
+    const SQL: &str = "SELECT ground, outcome, COUNT(*) AS n FROM statement_of_reasons GROUP BY ground, outcome ORDER BY ground, outcome";
+    match db.backend() {
+        Backend::Sqlite => Ok(sqlx::query(SQL)
+            .fetch_all(db.sqlite_pool().expect("sqlite"))
+            .await?
+            .into_iter()
+            .map(|row| {
+                (
+                    row.get::<String, _>("ground"),
+                    row.get::<String, _>("outcome"),
+                    row.get::<i64, _>("n"),
+                )
+            })
+            .collect()),
+        Backend::Postgres => Ok(sqlx::query(SQL)
+            .fetch_all(db.postgres_pool().expect("postgres"))
+            .await?
+            .into_iter()
+            .map(|row| {
+                (
+                    row.get::<String, _>("ground"),
+                    row.get::<String, _>("outcome"),
+                    row.get::<i64, _>("n"),
+                )
+            })
+            .collect()),
+    }
+}

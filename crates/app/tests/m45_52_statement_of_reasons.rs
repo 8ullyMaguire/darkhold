@@ -448,3 +448,77 @@ async fn an_appeal_after_the_window_is_refused_naming_the_deadline() {
         "the refusal names the deadline it passed: {body}"
     );
 }
+
+/// The transparency summary is a count, and a count below the threshold is not published.
+///
+/// The decisions are seeded directly: the *writer* is what the tests above prove, and re-deciding seven reports to reach a
+/// number would test the queue again rather than the report.
+#[tokio::test]
+async fn the_summary_counts_grounds_and_never_names_an_account() {
+    let harness = Harness::new("summary").await;
+    let seed = |ground: &'static str, legal: &'static str, n: usize| {
+        let harness = &harness;
+        async move {
+            for _ in 0..n {
+                harness
+                    .exec(&format!(
+                        "INSERT INTO statement_of_reasons \
+                         (id, task_id, report_id, outcome, ground, facts, legal_ground, decided_by, decided_at, appeal_until) \
+                         VALUES ('{}', '{}', NULL, 'uphold', '{ground}', 'f', '{legal}', 'reviewer-account', \
+                                 '2026-11-01T00:00:00Z', '2026-12-01T00:00:00Z')",
+                        uuid::Uuid::new_v4(),
+                        uuid::Uuid::new_v4()
+                    ))
+                    .await;
+            }
+        }
+    };
+    seed("spam", "", 6).await;
+    seed("copyright", "17 U.S.C. 512", 2).await;
+
+    let mut anonymous = harness.client();
+    let (status, body) = anonymous.get("/api/v1/statements/summary").await;
+    assert_eq!(status, StatusCode::OK, "a transparency report is public: {status} {body}");
+    assert_eq!(body["min_count"], 5);
+
+    let grounds = body["grounds"].as_array().expect("grounds");
+    let spam = grounds
+        .iter()
+        .find(|g| g["ground"] == "spam")
+        .expect("the spam ground is reported");
+    let upheld = spam["outcomes"]
+        .as_array()
+        .expect("outcomes")
+        .iter()
+        .find(|o| o["outcome"] == "uphold")
+        .expect("the uphold outcome is reported");
+    assert_eq!(upheld["count"], 6, "six decisions are six: {upheld}");
+    assert_eq!(upheld["suppressed"], false);
+
+    let copyright = grounds
+        .iter()
+        .find(|g| g["ground"] == "copyright")
+        .expect("the copyright ground is reported");
+    let two = copyright["outcomes"]
+        .as_array()
+        .expect("outcomes")
+        .iter()
+        .find(|o| o["outcome"] == "uphold")
+        .expect("the uphold outcome is reported");
+    assert_eq!(
+        two["count"],
+        Value::Null,
+        "a count of two is two people: {two}"
+    );
+    assert_eq!(two["suppressed"], true);
+    assert!(
+        two["reason"].as_str().unwrap_or_default().contains("5"),
+        "the cell says which threshold it fell under: {two}"
+    );
+
+    // The report contains no statement, no account and no report id — the reason it is a report at all.
+    let text = body.to_string();
+    assert!(!text.contains("reviewer-account"), "no account appears: {text}");
+    assert!(!text.contains("task_id"), "no task id appears");
+    assert!(!text.contains("statement_id"), "no statement id appears");
+}

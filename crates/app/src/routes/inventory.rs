@@ -3551,6 +3551,13 @@ pub const ROUTE_TABLE: &[RouteEntry] = &[
     },
     RouteEntry {
         file: "governance.rs",
+        handler: "statements_summary",
+        method: "GET",
+        path: "/statements/summary",
+        audience: Audience::Public,
+    },
+    RouteEntry {
+        file: "governance.rs",
         handler: "decide_task",
         method: "POST",
         path: "/moderation/tasks/{id}/decide",
