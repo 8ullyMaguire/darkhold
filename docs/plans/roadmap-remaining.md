@@ -318,6 +318,25 @@ invariant.
 
 `the_abuse_view_lists_the_busy_keys_and_no_reader_can_read_it` **1/1 both engines**; mutant (gate removed) → `200` where `404` was required.
 
+## Blocked (environmental, not a §2.1 row block): deploying while thinkcentre is starved — 2026-11-11 23:05–00:11
+
+Four release builds of `darkhold-app` were killed on thinkcentre tonight, each with `rustc … (signal: 15, SIGTERM)` or `(signal: 9, SIGKILL)`:
+
+    earlyoom[785]: sending SIGTERM to process 3035972 uid 1000 "rustc": badness 856, VmRSS 3428 MiB
+    uptime: load average 39.74, 37.48, 31.16;  132 earlyoom messages in 30 minutes
+
+`systemctl is-active systemd-oomd` says **inactive** — the killer is `earlyoom`, and it also killed `search`, `polaris-media`, `omniroute`,
+`ascend-worker` and `ascend-og` in the same minutes. The cause is a `suki originals --concurrency 4 --limit 21713` crawl that has been running for
+13+ hours. `-j 1`, a `avail >= 3G` gate and a 6 GB head start all made no difference: one `rustc` for this crate peaks ~3.4 GB and earlyoom kills by
+RSS, not by job count.
+
+**What clears it:** that crawl finishing (or an operator pausing it), or a decision to build this crate with a lower `codegen-units` — which changes
+the shipped artifact, so it is the user's call, not a deploy script's convenience.
+
+**State while blocked:** live is `0.1.0+00790ea4`, which carries the three ratchet doors (`/admin/trust-events`, `/admin/retention/changes`,
+`/extensions/source-adapters/mine`). Committed and tested but **not live**: `/admin/works/{id}/copies`, `since` on `/me/audit-log`, `/admin/abuse`
+and the stricter gate on `/admin/abuse-status/{key}`. None of them is a migration, so a single later deploy carries all of it.
+
 ## M70-13 ratchet pass 9 — 30 → 29, and the abuse counters had a reader and no writer — 2026-11-11
 
 `admin::increment_abuse_counter` has existed since the abuse table did and **nothing called it**, while `check_abuse_status` had a route
