@@ -1,3 +1,25 @@
+# Known gaps
+
+## M45-45 — the proposal doors answer `404` to a POST (measured 2026-11-11)
+
+`crates/app/src/routes/taste_proposals.rs` is mounted at `server.rs:1251` (`.merge(routes::taste_proposals::router())`,
+beside `routes::taste::router()`), `route_inventory` is 5/5, and `GET /api/v1/taste-proposals` answers **405 Method Not
+Allowed** — so the path is in the table with a `POST` handler. A `POST` to the same path answers
+`404 {"code":"NOT_FOUND","message":"page not found"}`, and so does a vote POST on `/taste-proposals/{id}/vote`.
+
+Three attempts, each measured, none of them the cause:
+
+1. mount through `module_mount(..., "taste_proposals", ..., RouteClass::Write)` + a registry row — still 404;
+2. mount through `module_mount(..., RouteClass::Default)` next to `import_claims` (the pattern `claims` uses, whose POST
+   works) — still 404;
+3. disambiguate the path to `/taste-proposals/open` so it cannot collide with `/taste-proposals/{id}` — still 404.
+
+The inference to test next: **the chain containing line 1251 is not the chain `build_router` serves under `/api/v1`.**
+`routes::claims::router()` is mounted at `server.rs:549` inside `account_routes` (which begins at 389 and is merged at 963);
+line 1251 is in a different chain that merely *looks* like the same one. Read `build_router` from 381 to the `.nest("/api/v1", api)`
+at 1494 and find which variable is actually nested before moving the mount again. Until then the doors must not be
+advertised as working: the code compiles, the table knows them, and a caller would get a 404.
+
 ## `payment_events` declares foreign keys on PostgreSQL that SQLite does not
 
 **Found:** 2026-11-02, by `M45-64`'s PostgreSQL run refusing an insert that SQLite accepted.

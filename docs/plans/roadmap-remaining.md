@@ -79,6 +79,16 @@ taste lens is a row in that instance, so it inherits with it — no second succe
 So M45-45 has **one** remaining step, not two: the vote path (step 3). The ledger note is corrected to say so; the
 earlier "two halves remaining" was my reading of the note rather than of the code.
 
+### M45-45 doors — mounted, tabled, and answering 404 (measured 2026-11-11)
+
+`crates/app/src/routes/taste_proposals.rs` (open / read / vote) compiles, is merged at `server.rs:1251`, and
+`route_inventory` is 5/5. `GET` on `/api/v1/taste-proposals` answers **405** — the path is in the table with a POST — but
+a **POST answers 404 "page not found"**, and so does a vote. Three edits did not change it (write-class module mount;
+default-class mount beside `import_claims`; a disambiguated `/taste-proposals/open`), so the route is not the problem:
+the chain at 1251 is probably not the one `build_router` nests at `/api/v1` (claims mounts at 549, inside
+`account_routes`, which begins at 389 and is merged at 963). Recorded in `docs/known-gaps.md`; the next step is to read
+`build_router` 381→1494 and move the mount, not to try a fourth variation. The doors are **not** live until that is done.
+
 ## M45-45 as measured — 2026-11-10 (`planned`, two thirds built, one half designed)
 
 The row is "taste as versioned blendable object with governance mode", and three of its four words are already true in the
