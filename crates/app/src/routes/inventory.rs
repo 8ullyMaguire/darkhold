@@ -2309,6 +2309,13 @@ pub const ROUTE_TABLE: &[RouteEntry] = &[
     },
     RouteEntry {
         file: "reader_body_copies.rs",
+        handler: "copies",
+        method: "GET",
+        path: "/admin/works/{id}/copies",
+        audience: Audience::Operator,
+    },
+    RouteEntry {
+        file: "reader_body_copies.rs",
         handler: "status",
         method: "GET",
         path: "/works/{id}/body-request",

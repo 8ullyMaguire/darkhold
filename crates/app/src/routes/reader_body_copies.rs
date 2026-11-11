@@ -39,7 +39,12 @@ use crate::state::AppState;
 use super::retention_proposals::{error_response, internal};
 
 pub(crate) fn router() -> Router<AppState> {
-    Router::new().route("/works/{id}/body-request", get(status).post(request))
+    Router::new()
+        .route("/works/{id}/body-request", get(status).post(request))
+        // The replication footprint of one work. `count_copies` existed since the copies table did and was reached
+        // only by tests: the operator could see the instance's retention mode and never how much of a given work the
+        // instance is actually holding — which is the number an erasure or a takedown has to reach.
+        .route("/admin/works/{id}/copies", get(copies))
 }
 
 /// What `GET` answers, and what `POST` returns.
@@ -247,4 +252,36 @@ async fn status(
         sanitized_html: body.and_then(|b| b.sanitized_html),
     };
     (StatusCode::OK, Json(view)).into_response()
+}
+
+/// `GET /api/v1/admin/works/{id}/copies` — how many reader copies of this work exist.
+///
+/// **Why an operator needs the number.** §11.15's body mode is a promise about what the instance holds, and a reader copy is the one part of it
+/// that multiplies: one work can be held once per reader who asked. `reader_body_copies::count_copies` has existed since the table did and was
+/// reached only by tests, so "how much of this work is replicated" — the question a takedown, an erasure check or a storage decision starts with —
+/// had no answer that did not involve psql.
+///
+/// It reports a **count, never who**: whose copy it is, is the same personal fact the reader route deliberately refuses to serialise.
+async fn copies(
+    State(state): State<AppState>,
+    RequireSession(user): RequireSession,
+    Path(id): Path<String>,
+) -> Response {
+    if let Err(refusal) = crate::routes::admin_scope::require_admin_of(&state, &user, None).await {
+        return refusal.into_response();
+    }
+    match darkhold_db::reader_body_copies::count_copies(state.db(), &id).await {
+        Ok(copies) => (
+            StatusCode::OK,
+            Json(json!({
+                "work_id": id,
+                "copies": copies,
+                // Said in the payload because a bare number invites the wrong reading: this is the instance's replication of one work, and it
+                // goes to zero when the copies are erased — it is not a count of readers who ever asked.
+                "note": "reader copies currently held for this work; erased copies are not counted",
+            })),
+        )
+            .into_response(),
+        Err(error) => internal(error).into_response(),
+    }
 }

@@ -109,6 +109,19 @@ impl Client {
         if !self.cookies.is_empty() {
             builder = builder.header(header::COOKIE, self.cookie_header());
         }
+        // GS-3 (2026-11-11) put the CSRF guard on the whole `api` router, so every write from a test client must echo the token the session
+        // cookie set. Copy-pasted clients like this one drifted from `test_support`'s, which has done this since it existed — the failure is a
+        // bare 403 ACCESS_DENIED "did not include a valid CSRF token" on a write the test believes it is allowed to make.
+        if method != "GET" && method != "HEAD" {
+            if let Some(token) = self
+                .cookies
+                .iter()
+                .find(|(name, _)| name == "darkhold_csrf")
+                .map(|(_, value)| value.clone())
+            {
+                builder = builder.header("x-csrf-token", token);
+            }
+        }
         let request = match body {
             Some(value) => builder
                 .header(header::CONTENT_TYPE, "application/json")

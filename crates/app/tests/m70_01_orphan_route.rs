@@ -140,6 +140,13 @@ impl Client {
         for (name, value) in &self.cookies {
             builder = builder.header(header::COOKIE, format!("{name}={value}"));
         }
+        // GS-3 (2026-11-11) put the CSRF guard on the whole `api` router: a write must echo the token the session cookie set, or it is a
+        // bare 403 that reads like a permissions bug. `test_support`'s client has done this since it existed; hand-rolled clients drift.
+        if method != "GET" && method != "HEAD" {
+            if let Some((_, token)) = self.cookies.iter().find(|(k, _)| k == "darkhold_csrf") {
+                builder = builder.header("x-csrf-token", token.clone());
+            }
+        }
         let body = match body {
             Some(v) => Body::from(v.to_string()),
             None => Body::empty(),

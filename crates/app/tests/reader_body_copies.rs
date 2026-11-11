@@ -93,6 +93,19 @@ impl Client {
         if !self.cookies.is_empty() {
             builder = builder.header(header::COOKIE, self.cookie_header());
         }
+        // GS-3 (2026-11-11) put the CSRF guard on the whole `api` router, so every write from a test client must echo the token the session
+        // cookie set. Copy-pasted clients like this one drifted from `test_support`'s, which has done this since it existed — the failure is a
+        // bare 403 ACCESS_DENIED "did not include a valid CSRF token" on a write the test believes it is allowed to make.
+        if method != "GET" && method != "HEAD" {
+            if let Some(token) = self
+                .cookies
+                .iter()
+                .find(|(name, _)| name == "darkhold_csrf")
+                .map(|(_, value)| value.clone())
+            {
+                builder = builder.header("x-csrf-token", token);
+            }
+        }
         let request = match body {
             Some(value) => builder
                 .header(header::CONTENT_TYPE, "application/json")
@@ -688,5 +701,77 @@ async fn an_unsigned_in_reader_cannot_request_or_read_a_copy() {
     assert!(
         status == StatusCode::UNAUTHORIZED || status == StatusCode::FORBIDDEN,
         "an anonymous GET is refused, got {status}: {body}"
+    );
+}
+
+// ====================== the operator's replication count ======================
+
+/// How much of one work this instance is actually holding — the number a takedown or an erasure check starts with.
+///
+/// `reader_body_copies::count_copies` has existed since the copies table did and was reached only by tests. §11.15's body mode is a promise about
+/// what the instance holds, and a reader copy is the part of it that multiplies: one work can be held once per reader who asked.
+#[tokio::test]
+async fn the_operator_counts_the_copies_of_a_work_and_nobody_else_does() {
+    let mut harness = Harness::new("admin-copies").await;
+    // Readers first: `imported_work` attributes the import to an existing pseud, so a work explained before anybody registered has no owner to
+    // attribute it to and the insert fails.
+    let mut alice = harness.reader("alice").await;
+    let mut bob = harness.reader("bob").await;
+    let work = harness
+        .imported_work("archive:example.org", "A Replicated Work")
+        .await;
+    harness.set_source_mode("archive:example.org", "cache").await;
+    for reader in [&mut alice, &mut bob] {
+        let (status, body) = reader
+            .post(&format!("/api/v1/works/{work}/body-request"), json!({}))
+            .await;
+        assert_eq!(status, StatusCode::ACCEPTED, "{body}");
+    }
+
+    // Alice becomes the operator *after* registering, because `config_for` builds the config before any account exists and
+    // `require_admin_of` compares the session against `administration.operator_account_id`.
+    let alice_account = account_of(&harness.db, "alice").await;
+    harness.config.administration.operator_account_id = Some(alice_account.into());
+    let mut ops = harness.client();
+    let (status, body) = ops
+        .post(
+            "/api/v1/auth/login",
+            json!({ "email": "alice@example.com", "password": GOOD_PASSWORD }),
+        )
+        .await;
+    assert!(status.is_success(), "operator login: {status} {body}");
+
+    let (status, counted) = ops
+        .get(&format!("/api/v1/admin/works/{work}/copies"))
+        .await;
+    assert_eq!(status, StatusCode::OK, "{counted}");
+    assert_eq!(
+        counted["copies"], 2,
+        "two readers asked, so this instance holds two copies of one work: {counted}"
+    );
+    assert_eq!(counted["work_id"], work, "{counted}");
+    // The door reports a count, never who — whose copy it is, is the personal fact the reader route refuses to serialise.
+    let rendered = counted.to_string();
+    for field in ["account_id", "alice", "bob", &alice_account.to_string()] {
+        assert!(
+            !rendered.contains(&*field),
+            "the count must not name anybody ({field}): {rendered}"
+        );
+    }
+
+    // A reader without operator standing is told the surface does not exist.
+    let (status, refused) = bob
+        .get(&format!("/api/v1/admin/works/{work}/copies"))
+        .await;
+    assert_eq!(status, StatusCode::NOT_FOUND, "{refused}");
+
+    // And an anonymous caller does not reach it either.
+    let (status, anonymous) = harness
+        .client()
+        .get(&format!("/api/v1/admin/works/{work}/copies"))
+        .await;
+    assert!(
+        status == StatusCode::UNAUTHORIZED || status == StatusCode::NOT_FOUND,
+        "anonymous: {status} {anonymous}"
     );
 }

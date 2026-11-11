@@ -280,6 +280,35 @@ no token column. The store scopes by `actor`, which is the human. So the surface
 this token did*. That needs the write path to record which credential was used; until then the attribution half is unbuilt and named here rather
 than papered over with a `dh audit` verb that would imply it.
 
+## GS-3's CSRF layer reddened 19 tests in 8 suites, and the blast-radius check missed all of them — 2026-11-11
+
+Found while adding a route beside `reader_body_copies`: `cargo test -p darkhold-app --test reader_body_copies` was **0/8**, every write answering
+`403 ACCESS_DENIED "This request did not include a valid CSRF token"`. Also red: `bounties` 0/5 and `m70_01_orphan_route`,
+`m70_05_collection_tags`, `m70_06_reader_skin`, `m70_07_marked_for_later`, `m70_09_extension_documents`, `m70_10_document_browse` 1/1 each.
+
+`test_support`'s client echoes the `darkhold_csrf` cookie in `x-csrf-token` and always has. **Eleven test files carry their own copy-pasted
+client that does not**, and the new router-level layer reached them for the first time. The earlier blast-radius check ran five suites I thought
+were related — the middleware's reach is every hand-rolled client, and guessing is not measuring:
+
+```sh
+for f in crates/app/tests/*.rs; do grep -q 'struct Client' "$f" && ! grep -q 'x-csrf-token' "$f" && echo "$f"; done
+```
+
+All eleven now send the header (harmless when CSRF is off). Green again: `reader_body_copies` 8/8, `retention_proposal_routes` 20/20,
+`retention_routes` 10/10, `import_visibility` 5/5, `bounties` 5/5, `work_page` 6/6, four `m70_*` 1/1. **The layer was right; the evidence behind
+"fully tested" was thinner than the status claimed**, and the ledger says so on GS-3 rather than only in this file.
+
+## M70-13 ratchet pass 8 — 31 → 30, the replication count — 2026-11-11
+
+`reader_body_copies::count_copies` had existed since the copies table did and only tests reached it: the instance could state its retention mode
+and never say how much of a given work it actually holds — the number a takedown, an erasure check or a storage decision starts with. Now
+`GET /api/v1/admin/works/{id}/copies` (Operator): the count, the work id, and one sentence saying what the number means, because a bare number
+invites the wrong reading. It reports a **count and never who** — whose copy it is, is the fact the reader route already refuses to serialise, and
+the test asserts neither account id nor either handle appears in the bytes.
+
+`reader_body_copies` 8/8 SQLite and the new case 1/1 PostgreSQL; a reader without operator standing gets 404. Mutant: `require_admin_of` removed →
+`200` vs `404`.
+
 ## M70-13 ratchet pass 7 — 32 → 31, a duplicate that always answered `{}` — 2026-11-11
 
 `instance_theme::compute_theme_from_bookmarks` computed the instance's own theme vector and nothing called it. Its own doc comment recorded the
