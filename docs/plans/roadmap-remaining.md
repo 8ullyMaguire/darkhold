@@ -11,6 +11,23 @@ Two rules that decide the order:
 * **A row that gates other rows is taken as soon as its blocker clears.** Nine of the M64 rows read a snapshot built by
   M64-01..M64-03; taking them first would mean writing the same aggregation three times.
 
+## Deployed 2026-11-11 01:07 — M45-65 and M45-54 (`0.1.0+d4b718f6`)
+
+Build-only for the last pass (no DDL, so no second dump; the named backup for the batch is
+`darkhold-20261111-001448-pre-m45-65.dump`, 3,740,163,926 bytes, 399 `TABLE DATA`). Build 14m56s, `strings` count for
+`policy/content` = 2, service active, `/api/v1/meta` → `0.1.0+d4b718f6`.
+
+`GET /api/v1/policy/content` live:
+
+```
+{"honor_rights":{"basis":"honour, personal and family privacy, and one's own image","jurisdictions":["ES"],
+ "laws":[{"instrument":"Ley Orgánica 1/1982","jurisdiction":"ES",...}], ...}, "rpf":{"mode":"tag_required",...}}
+```
+
+A build for `b89eff14` was killed by PID mid-compile once `d4b718f6` landed, rather than letting it finish and paying for
+a second 16-minute build. Cargo replaces the binary atomically, so the live artifact stayed at `0.1.0+09ec61b1` until the
+replacement linked — verified before and after the kill.
+
 ## Deployed 2026-11-10 23:55 — M45-46 preview + the nav fix (`0.1.0+d2942fc3`)
 
 The batch that was in flight when the previous ssh was killed.
