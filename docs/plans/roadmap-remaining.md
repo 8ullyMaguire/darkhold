@@ -165,6 +165,12 @@ All reverted from `/tmp`, never `git checkout`.
 **The gate this row deliberately reddened:** `trust_demotion`'s helper called `decide` with `{"outcome":"uphold"}` only.
 It now sends ground and facts — that suite is 5/5 again, and the failure was the row working, not a regression.
 
+**Step 4 also built (same turn) — the window is enforced.** `POST /appeals` loads the sanction, refuses `404` when it
+belongs to somebody else (a stranger learns nothing, not even that it exists), and when `reason_ref` is
+`statement:<id>` it parses the stored `appeal_until` and refuses **`422` naming `appeal_until` with the deadline in the
+message** once it has passed. Two tests: inside the window → accepted; after it → refused naming `2020-01-01T00:00:00Z`.
+Mutant: the comparison disabled → `left: 200 / right: 422`. 5/5 SQLite and 5/5 PostgreSQL for the suite.
+
 **Still planned — the named remainder:** (3) tell both sides through the existing notification machinery, (4) enforce
 `appeal_until` at `POST /appeals`, (5) `GET /statements/summary` as counts per ground and outcome, (6) the `dsa|dmca`
 discriminator with DMCA's four statutory elements. Steps 1–2 are the part the other four read from, which is why they

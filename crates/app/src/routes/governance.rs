@@ -663,6 +663,43 @@ async fn open_appeal(
     Json(body): Json<OpenAppealBody>,
 ) -> ApiResult<Json<Value>> {
     let appellant = user.account_id.to_string();
+
+    // M45-52 step 4: **the appeal window is a field, not a convention.**
+    //
+    // The deadline was stored when the decision was written, so it cannot move afterwards. A sanction whose reasons were
+    // filed as `statement:<id>` inherits that deadline; one issued without reasons has no window to check, which is itself
+    // the honest state (and the row that fixes it is step 3's notification, not a guessed default here).
+    let (owner, reason_ref) = darkhold_db::governance::sanction_subject(state.db(), &body.sanction_id)
+        .await
+        .map_err(|e| ApiError(AppError::Internal(e.into())))?
+        .ok_or_else(|| ApiError(AppError::NotFound { resource: "sanction" }))?;
+    // A stranger learns nothing about a sanction that is not theirs — not even that it exists.
+    if owner != appellant {
+        return Err(ApiError(AppError::NotFound { resource: "sanction" }));
+    }
+    if let Some(statement_id) = reason_ref.strip_prefix("statement:") {
+        if let Some(statement) =
+            darkhold_db::governance::statement_by_id(state.db(), statement_id)
+                .await
+                .map_err(|e| ApiError(AppError::Internal(e.into())))?
+        {
+            let deadline = time::OffsetDateTime::parse(
+                &statement.appeal_until,
+                &time::format_description::well_known::Rfc3339,
+            )
+            .map_err(|e| ApiError(AppError::Internal(anyhow::anyhow!(e.to_string()))))?;
+            if time::OffsetDateTime::now_utc() > deadline {
+                return Err(ApiError(AppError::field(
+                    "appeal_until",
+                    format!(
+                        "the appeal window for this decision closed at {}",
+                        statement.appeal_until
+                    ),
+                )));
+            }
+        }
+    }
+
     let id = darkhold_db::governance::open_appeal(
         state.db(),
         &body.sanction_id,

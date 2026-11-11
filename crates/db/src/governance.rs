@@ -2377,3 +2377,84 @@ pub async fn statement_for_task(
         }
     }
 }
+
+/// The account a sanction was issued to, and the reference the reasons were filed under.
+pub async fn sanction_subject(
+    db: &Database,
+    sanction_id: &str,
+) -> Result<Option<(String, String)>, sqlx::Error> {
+    use sqlx::Row;
+    match db.backend() {
+        Backend::Sqlite => {
+            let row = sqlx::query("SELECT account, reason_ref FROM sanctions WHERE id = ?")
+                .bind(sanction_id)
+                .fetch_optional(db.sqlite_pool().expect("sqlite"))
+                .await?;
+            Ok(row.map(|row| {
+                (
+                    row.get::<String, _>("account"),
+                    row.get::<String, _>("reason_ref"),
+                )
+            }))
+        }
+        Backend::Postgres => {
+            let row = sqlx::query("SELECT account, reason_ref FROM sanctions WHERE id = $1")
+                .bind(sanction_id)
+                .fetch_optional(db.postgres_pool().expect("postgres"))
+                .await?;
+            Ok(row.map(|row| {
+                (
+                    row.get::<String, _>("account"),
+                    row.get::<String, _>("reason_ref"),
+                )
+            }))
+        }
+    }
+}
+
+/// A statement of reasons by its own id.
+pub async fn statement_by_id(
+    db: &Database,
+    statement_id: &str,
+) -> Result<Option<StatementOfReasons>, sqlx::Error> {
+    use sqlx::Row;
+    let columns = "id, task_id, report_id, outcome, ground, facts, legal_ground, decided_by, decided_at, appeal_until";
+    match db.backend() {
+        Backend::Sqlite => {
+            let row = sqlx::query(&format!("SELECT {columns} FROM statement_of_reasons WHERE id = ?"))
+                .bind(statement_id)
+                .fetch_optional(db.sqlite_pool().expect("sqlite"))
+                .await?;
+            Ok(row.map(|row| StatementOfReasons {
+                id: row.get("id"),
+                task_id: row.get("task_id"),
+                report_id: row.get("report_id"),
+                outcome: row.get("outcome"),
+                ground: row.get("ground"),
+                facts: row.get("facts"),
+                legal_ground: row.get("legal_ground"),
+                decided_by: row.get("decided_by"),
+                decided_at: row.get("decided_at"),
+                appeal_until: row.get("appeal_until"),
+            }))
+        }
+        Backend::Postgres => {
+            let row = sqlx::query(&format!("SELECT {columns} FROM statement_of_reasons WHERE id = $1"))
+                .bind(statement_id)
+                .fetch_optional(db.postgres_pool().expect("postgres"))
+                .await?;
+            Ok(row.map(|row| StatementOfReasons {
+                id: row.get("id"),
+                task_id: row.get("task_id"),
+                report_id: row.get("report_id"),
+                outcome: row.get("outcome"),
+                ground: row.get("ground"),
+                facts: row.get("facts"),
+                legal_ground: row.get("legal_ground"),
+                decided_by: row.get("decided_by"),
+                decided_at: row.get("decided_at"),
+                appeal_until: row.get("appeal_until"),
+            }))
+        }
+    }
+}

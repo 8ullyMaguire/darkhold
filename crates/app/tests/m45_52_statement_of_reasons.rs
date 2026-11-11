@@ -155,11 +155,30 @@ impl Harness {
         )))
     }
 
+
+    /// Run one statement against whichever engine the harness is on.
+    async fn exec(&self, statement: &str) {
+        match self.db().backend() {
+            darkhold_db::Backend::Sqlite => {
+                sqlx::query(statement)
+                    .execute(self.db().sqlite_pool().expect("sqlite"))
+                    .await
+                    .expect("seed statement");
+            }
+            darkhold_db::Backend::Postgres => {
+                sqlx::query(statement)
+                    .execute(self.db().postgres_pool().expect("postgres"))
+                    .await
+                    .expect("seed statement");
+            }
+        }
+    }
+
     /// A reviewer with standing to resolve reports, the task a report became, and the reviewer's account id.
     ///
     /// One client does the whole thing — register, grant standing, assign, decide — because the point of the row is what
     /// *the act of deciding* must carry, not who assigned it.
-    async fn assigned_task(&self, tag: &str) -> (Client, String, String) {
+    async fn assigned_task_with_target(&self, tag: &str) -> (Client, String, String, String) {
         let mut reviewer = self.client();
         let reviewer_account = reviewer
             .register(&format!("{tag}-reviewer@example.test"), "Reviewer")
@@ -195,7 +214,15 @@ impl Harness {
             .await;
         assert_eq!(status, StatusCode::OK, "assign the review task: {status} {body}");
         let task_id = body["task_id"].as_str().expect("task id").to_owned();
-        (reviewer, task_id, reviewer_account)
+        (reviewer, task_id, reviewer_account, target)
+    }
+}
+
+impl Harness {
+    /// The three-value form the statement tests use.
+    async fn assigned_task(&self, tag: &str) -> (Client, String, String) {
+        let (reviewer, task_id, account, _target) = self.assigned_task_with_target(tag).await;
+        (reviewer, task_id, account)
     }
 }
 
@@ -295,5 +322,129 @@ async fn a_lawful_ground_must_name_its_instrument() {
     assert!(
         body["error"]["field_errors"].get("legal_ground").is_some(),
         "copyright is a claim about law, so it must name the rule: {body}"
+    );
+}
+
+/// Issuing the sanction the decision justifies, with the reasons filed under the statement.
+async fn sanction_from_statement(
+    reviewer: &mut Client,
+    target: &str,
+    statement_id: &str,
+) -> String {
+    let (status, body) = reviewer
+        .post(
+            "/api/v1/sanctions",
+            json!({
+                "account": target,
+                "kind": "rate_limit",
+                "reason_ref": format!("statement:{statement_id}"),
+                "duration_days": 7,
+            }),
+        )
+        .await;
+    assert!(
+        status == StatusCode::OK || status == StatusCode::CREATED,
+        "issue the sanction: {status} {body}"
+    );
+    body["id"]
+        .as_str()
+        .or_else(|| body["sanction_id"].as_str())
+        .expect("sanction id")
+        .to_owned()
+}
+
+#[tokio::test]
+async fn an_appeal_inside_the_window_is_accepted() {
+    let harness = Harness::new("inside").await;
+    let (mut reviewer, task_id, _account, target) =
+        harness.assigned_task_with_target("inside").await;
+
+    let (status, body) = reviewer
+        .post(
+            &format!("/api/v1/moderation/tasks/{task_id}/decide"),
+            json!({
+                "outcome": "uphold",
+                "ground": "spam",
+                "facts": "Six identical promotional replies within one hour.",
+            }),
+        )
+        .await;
+    assert_eq!(status, StatusCode::OK, "{status} {body}");
+    let statement_id = body["statement_id"].as_str().expect("statement id").to_owned();
+    let sanction = sanction_from_statement(&mut reviewer, &target, &statement_id).await;
+
+    // The sanction is against `target`, so the appeal must come from that account. Sign in as it.
+    let mut owner = harness.client();
+    let (status, body) = owner
+        .post(
+            "/api/v1/auth/login",
+            json!({ "email": "inside-target@example.test", "password": PASSWORD }),
+        )
+        .await;
+    assert!(status == StatusCode::OK || status == StatusCode::CREATED, "sign in: {status} {body}");
+
+    let (status, body) = owner
+        .post("/api/v1/appeals", json!({ "sanction_id": sanction, "statement": "The replies were answers to direct questions." }))
+        .await;
+    assert_eq!(
+        status,
+        StatusCode::OK,
+        "inside the window an appeal is accepted: {status} {body}"
+    );
+    assert!(body["id"].as_str().is_some_and(|id| !id.is_empty()));
+}
+
+#[tokio::test]
+async fn an_appeal_after_the_window_is_refused_naming_the_deadline() {
+    let harness = Harness::new("after").await;
+    let (mut reviewer, task_id, _account, target) =
+        harness.assigned_task_with_target("after").await;
+
+    let (status, body) = reviewer
+        .post(
+            &format!("/api/v1/moderation/tasks/{task_id}/decide"),
+            json!({
+                "outcome": "uphold",
+                "ground": "spam",
+                "facts": "Six identical promotional replies within one hour.",
+            }),
+        )
+        .await;
+    assert_eq!(status, StatusCode::OK, "{status} {body}");
+    let statement_id = body["statement_id"].as_str().expect("statement id").to_owned();
+    let sanction = sanction_from_statement(&mut reviewer, &target, &statement_id).await;
+
+    // The window closed yesterday — set on the stored row, because that is the only way it can close: the deadline was
+    // written with the decision and nothing recomputes it.
+    harness
+        .exec(&format!(
+            "UPDATE statement_of_reasons SET appeal_until = '2020-01-01T00:00:00Z' WHERE id = '{statement_id}'"
+        ))
+        .await;
+
+    let mut owner = harness.client();
+    let (status, body) = owner
+        .post(
+            "/api/v1/auth/login",
+            json!({ "email": "after-target@example.test", "password": PASSWORD }),
+        )
+        .await;
+    assert!(status == StatusCode::OK || status == StatusCode::CREATED, "sign in: {status} {body}");
+
+    let (status, body) = owner
+        .post(
+            "/api/v1/appeals",
+            json!({ "sanction_id": sanction, "statement": "I would like this reviewed." }),
+        )
+        .await;
+
+    assert_eq!(status, StatusCode::UNPROCESSABLE_ENTITY, "{status} {body}");
+    let refusal = body["error"]["field_errors"]["appeal_until"]
+        .as_str()
+        .unwrap_or_default()
+        .to_owned();
+    assert!(
+        refusal.contains("2020-01-01T00:00:00Z"),
+        "the refusal names the deadline it passed: {body}"
     );
 }
