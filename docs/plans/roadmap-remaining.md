@@ -240,6 +240,36 @@ they are not what a stranger sees, and their own room rules already apply.
 `m69_15_membership_gate` — **6/6 SQLite and 6/6 PostgreSQL**. Mutants: the works guard removed → two tests fail `201` vs
 `422`; the comment guard removed → the comment is accepted.
 
+## M45-57 DEFECT found while ratcheting — the declarative adapter pipeline ends at approval — 2026-11-11
+
+Found because `published_source_manifests` was on the M70-13 baseline and its own doc comment said "what the registry loads at boot". It does not:
+
+| claim | measurement |
+|---|---|
+| something loads approved manifests | **no** — its only callers are `crates/db/tests/source_adapters.rs` |
+| a declarative adapter is ever built in the product | **no** — `DeclarativeAdapter::new` appears only in `declarative.rs` / `declarative_check.rs` tests |
+| the state's registry reads the database | **no** — `AppState` uses `darkhold_scrapers::sites::default_registry()` |
+| `parse_and_compile` runs anywhere but submission | **no** — the app uses it only to validate what a curator typed |
+
+So a curator can submit a manifest, have it reviewed, have it approved — and import nothing, with every test green, because the tests exercise the
+store and the parser and never the wiring. M45-57 is downgraded to `implemented` on that evidence.
+
+**The fix, named:** after migrations and before serving, read `published_source_manifests`, `parse_and_compile` each, build a
+`DeclarativeAdapter`, register it in the state's registry; a manifest that no longer compiles is logged and skipped rather than crashing the
+instance, because an adapter valid at approval can be invalid after a schema change. **The acceptance test:** approve a manifest, restart, assert
+the adapter is in the registry *and* that an import through it reaches a fixture page. Until that exists, "verified-e2e" was a claim about the
+store.
+
+## M70-13 ratchet pass 5 — 34 → 33, the submitter's missing half — 2026-11-11
+
+`source_adapters::submissions_by` was reached only by tests, and the gap was visible from outside: `POST /extensions/source-adapters` exists,
+`GET` on the same path lists what is **pending for reviewers**, and a submitter could file an adapter and never learn the outcome — not the state,
+and not the `reason` a rejection recorded. Now `GET /api/v1/extensions/source-adapters/mine`: the caller's own submissions with state, reason,
+submitted_at, decided_at and kind. The static `mine` segment outranks the `{id}` parameter, the ordering the module header already relies on.
+
+`source_adapters_mine` **1/1 SQLite and 1/1 PostgreSQL**; another account's list is empty because the door is scoped by account rather than
+filtered afterwards. Mutant: the submitter predicate dropped from the query → the other account sees 1 row instead of 0.
+
 ## M70-13 ratchet pass 4 — 35 → 34, the trust trail gets a door — 2026-11-11
 
 `trust_events::list_all` has existed since the ladder did and nothing called it: the table records every move (`from_level`, `to_level`, `cause`,

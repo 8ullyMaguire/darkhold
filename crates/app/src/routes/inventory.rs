@@ -3950,6 +3950,13 @@ pub const ROUTE_TABLE: &[RouteEntry] = &[
     },
     RouteEntry {
         file: "source_adapters.rs",
+        handler: "list_my_submissions",
+        method: "GET",
+        path: "/extensions/source-adapters/mine",
+        audience: Audience::Authenticated,
+    },
+    RouteEntry {
+        file: "source_adapters.rs",
         handler: "get_submission",
         method: "GET",
         path: "/extensions/source-adapters/{id}",

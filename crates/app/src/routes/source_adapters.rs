@@ -224,9 +224,42 @@ pub fn router() -> axum::Router<AppState> {
             "/extensions/source-adapters",
             post(submit_adapter).get(list_submissions),
         )
+        // The submitter's own history, including the reason a rejection gave them. A static segment outranks the `{id}` parameter below,
+        // which is the same ordering the module's header relies on.
+        .route("/extensions/source-adapters/mine", get(list_my_submissions))
         .route("/extensions/source-adapters/{id}", get(get_submission))
         .route(
             "/extensions/source-adapters/{id}/reviews",
             get(list_reviews).post(record_review),
         )
+}
+
+/// `GET /api/v1/extensions/source-adapters/mine` — every submission this curator has made, with its state and its reason.
+///
+/// **The missing half of submit.** `POST /extensions/source-adapters` has existed since the registry did, and `GET` on the same path lists
+/// what is **pending** for reviewers — so a submitter could file an adapter and then never learn what happened to it: not that it was approved,
+/// and not the `reason` a rejection recorded. `source_adapters::submissions_by` had existed the whole time and was reached only by tests, which
+/// is the M70-13 pattern exactly: the store knew, the product never asked.
+pub async fn list_my_submissions(
+    State(state): State<AppState>,
+    RequireSession(user): RequireSession,
+) -> ApiResult<Json<Value>> {
+    let account = user.account_id.to_string();
+    let rows = source_adapters::submissions_by(state.db(), &account)
+        .await
+        .map_err(|e| ApiError(darkhold_domain::AppError::Internal(e.into())))?;
+    Ok(Json(json!({
+        "mine": rows
+            .into_iter()
+            .map(|row| json!({
+                "id": row.id,
+                "state": row.state,
+                // The reason is the whole point of the door: an approved submission needs none, a rejected one is useless without it.
+                "reason": row.reason,
+                "submitted_at": row.created_at,
+                "decided_at": row.decided_at,
+                "kind": if row.source_manifest.is_some() { "source_adapter" } else { "extension" },
+            }))
+            .collect::<Vec<_>>(),
+    })))
 }
