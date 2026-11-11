@@ -915,6 +915,122 @@ pub async fn set_intake_policy(db: &Database, key: &str, policy_json: &str) -> R
     Ok(done > 0)
 }
 
+/// One arrival an intake policy chose to hold (M69-23).
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct QueuedArrival {
+    /// Identifier.
+    pub id: String,
+    /// The account the import was for.
+    pub account_id: String,
+    /// The source's key.
+    pub source_key: String,
+    /// The source's own identifier for the work.
+    pub source_work_key: String,
+    /// The candidate as it was judged, as JSON.
+    pub candidate_json: String,
+    /// The sentence from `IntakeDecision::describe()`.
+    pub decision: String,
+    /// When it was held.
+    pub created_at: String,
+}
+
+/// Hold an arrival the policy did not bring in, replacing any earlier row for the same work.
+///
+/// The upsert is the point: the same work imported twice must not fill the queue with two rows saying the same thing, and a retry after
+/// an operator widens the policy must update the row rather than add to it.
+pub async fn queue_intake(
+    db: &Database,
+    account_id: &str,
+    source_key: &str,
+    source_work_key: &str,
+    candidate_json: &str,
+    decision: &str,
+) -> Result<()> {
+    let id = uuid::Uuid::new_v4().to_string();
+    let now = now_rfc3339();
+    let sql = db.sql(
+        "INSERT INTO import_intake_queue (id, account_id, source_key, source_work_key, candidate_json, decision, created_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?)
+         ON CONFLICT (account_id, source_key, source_work_key) DO UPDATE SET
+             candidate_json = excluded.candidate_json,
+             decision = excluded.decision,
+             created_at = excluded.created_at",
+        "INSERT INTO import_intake_queue (id, account_id, source_key, source_work_key, candidate_json, decision, created_at)
+         VALUES ($1::uuid, $2::uuid, $3, $4, $5, $6, $7)
+         ON CONFLICT (account_id, source_key, source_work_key) DO UPDATE SET
+             candidate_json = excluded.candidate_json,
+             decision = excluded.decision,
+             created_at = excluded.created_at",
+    );
+    match db.backend() {
+        Backend::Sqlite => {
+            sqlx::query(&sql)
+                .bind(&id)
+                .bind(account_id)
+                .bind(source_key)
+                .bind(source_work_key)
+                .bind(candidate_json)
+                .bind(decision)
+                .bind(&now)
+                .execute(db.sqlite_pool().expect("sqlite handle"))
+                .await?;
+        }
+        Backend::Postgres => {
+            sqlx::query(&sql)
+                .bind(&id)
+                .bind(account_id)
+                .bind(source_key)
+                .bind(source_work_key)
+                .bind(candidate_json)
+                .bind(decision)
+                .bind(&now)
+                .execute(db.postgres_pool().expect("postgres handle"))
+                .await?;
+        }
+    }
+    Ok(())
+}
+
+/// The arrivals an account's sources are holding, newest first.
+pub async fn queued_arrivals(db: &Database, account_id: &str, limit: i64) -> Result<Vec<QueuedArrival>> {
+    let sql = db.sql(
+        "SELECT id, account_id, source_key, source_work_key, candidate_json, decision, created_at
+           FROM import_intake_queue WHERE account_id = ? ORDER BY created_at DESC LIMIT ?",
+        "SELECT id::text, account_id::text, source_key, source_work_key, candidate_json, decision, created_at
+           FROM import_intake_queue WHERE account_id = $1::uuid ORDER BY created_at DESC LIMIT $2",
+    );
+    let rows: Vec<(String, String, String, String, String, String, String)> = match db.backend() {
+        Backend::Sqlite => {
+            sqlx::query_as(&sql)
+                .bind(account_id)
+                .bind(limit)
+                .fetch_all(db.sqlite_pool().expect("sqlite handle"))
+                .await?
+        }
+        Backend::Postgres => {
+            sqlx::query_as(&sql)
+                .bind(account_id)
+                .bind(limit)
+                .fetch_all(db.postgres_pool().expect("postgres handle"))
+                .await?
+        }
+    };
+    Ok(rows
+        .into_iter()
+        .map(|(id, account_id, source_key, source_work_key, candidate_json, decision, created_at)| {
+            QueuedArrival {
+                id,
+                account_id,
+                source_key,
+                source_work_key,
+                candidate_json,
+                decision,
+                created_at,
+            }
+        })
+        .collect())
+}
+
 /// The `Option`-returning half of [`find_source`], split out so the two driver
 /// arms are written once.
 async fn fetch_optional_source(db: &Database, sql: &str, key: &str) -> Result<Option<Source>> {

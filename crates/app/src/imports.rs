@@ -531,6 +531,47 @@ pub async fn run(
         return Ok(());
     }
 
+    // M69-23: the source's intake policy decides what may be written without a person, and what waits for one.
+    //
+    // Two conditions, and the order matters. `is_configured` first: `{}` is what every source carries until an operator writes a
+    // policy, and a source nobody configured must import exactly as it did before this feature existed — consulting `decide`
+    // unconditionally would hold every arrival on the instance, which is a worse failure than not having the feature.
+    //
+    // Then the decision itself. A refusal writes the arrival and the sentence that judged it into `import_intake_queue` and finishes
+    // the job `completed` with a report naming the queue — `completed` and not `failed`, because nothing went wrong and the retry
+    // after a policy change must be allowed; and not `paused`, because there is no resume route and a paused job would strand the
+    // work (a second import of the same URL is refused while a live job exists).
+    let policy_document = darkhold_db::imports::intake_policy(state.db(), &row.source_key)
+        .await
+        .map_err(transient)?;
+    let policy: darkhold_domain::intake::IntakePolicy =
+        serde_json::from_str(policy_document.as_deref().unwrap_or("{}")).unwrap_or_default();
+    if policy.is_configured() {
+        let candidate = intake_candidate(&work);
+        let decision = darkhold_domain::intake::decide(&policy, &candidate);
+        if !decision.brings_in() {
+            let candidate_json = serde_json::to_string(&candidate).unwrap_or_default();
+            darkhold_db::imports::queue_intake(
+                state.db(),
+                &row.account_id,
+                &row.source_key,
+                &work.source_work_key,
+                &candidate_json,
+                &decision.describe(),
+            )
+            .await
+            .map_err(transient)?;
+            let held = json!({
+                "intake": { "queued": true, "decision": decision.describe() },
+                "work": work.title,
+                "source": row.source_key,
+            })
+            .to_string();
+            finish(state, &row, import_job_id, "completed", &held).await?;
+            return Ok(());
+        }
+    }
+
     let item_id = row
         .library_item_id
         .clone()
@@ -959,6 +1000,30 @@ async fn fail_import(
     )
     .await
     .map_err(transient)
+}
+
+/// The policy's view of an arrival (M69-23), built from what the adapter actually reported.
+///
+/// Every field is something the source published — nothing is guessed. The host comes from the canonical URL the adapter normalised
+/// (a missing host is the empty string, which no `host_in` rule matches, so an unparseable URL queues rather than sneaking in on a
+/// host rule). Tags are lowercased, sorted and deduplicated here rather than in the rule evaluator, so a `tag_all` rule compares the
+/// same shape every time and the candidate JSON stored beside a held arrival is canonical.
+fn intake_candidate(work: &SourceWork) -> darkhold_domain::intake::IntakeCandidate {
+    let host = url::Url::parse(&work.source_url)
+        .ok()
+        .and_then(|url| url.host_str().map(str::to_lowercase))
+        .unwrap_or_default();
+    let mut tags: Vec<String> = work.tags.iter().map(|tag| tag.to_lowercase()).collect();
+    tags.sort();
+    tags.dedup();
+    darkhold_domain::intake::IntakeCandidate {
+        host,
+        language: work.language.clone().unwrap_or_default().to_lowercase(),
+        words: work.word_count.unwrap_or(0),
+        tags,
+        title: work.title.clone(),
+        complete: matches!(work.status, darkhold_scrapers::WorkStatus::Complete),
+    }
 }
 
 /// The library row for a previewed work.

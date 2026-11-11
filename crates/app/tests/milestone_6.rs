@@ -3080,3 +3080,109 @@ async fn with_tombstones_off_the_same_work_imports() {
 
     harness.cleanup().await;
 }
+
+// ---------------------------------------------------------------------------
+// M69-23 — the source's intake policy, at the door
+// ---------------------------------------------------------------------------
+
+/// A policy that is *configured* (so the importer consults it) and admits nothing: the only rule takes a host this fixture is not.
+fn a_policy_that_holds_everything() -> String {
+    json!({ "rules": [ { "when": [ { "kind": "host_in", "value": ["nowhere.invalid"] } ], "then": "bring_in" } ] })
+        .to_string()
+}
+
+/// A policy that admits this fixture's arrivals.
+fn a_policy_that_admits() -> String {
+    json!({ "rules": [ { "when": [ { "kind": "words_at_least", "value": 1 } ], "then": "bring_in" } ] }).to_string()
+}
+
+/// **The held arrival.** A configured policy that does not admit the work must leave no library item, write the arrival and the
+/// sentence that judged it into `import_intake_queue`, and finish the job `completed` — because nothing failed and the retry after a
+/// policy change has to be allowed. `paused` would strand it: there is no resume route and a second import of the same URL is
+/// refused while a live job exists.
+#[tokio::test]
+async fn a_held_arrival_queues_itself_and_writes_no_library_item() {
+    let harness = Harness::new("import-intake-hold").await;
+    let (_client, account, pseud) = signed_in(&harness, "held@example.org", "held").await;
+    harness.seed_source(true, None).await;
+    darkhold_db::imports::set_intake_policy(harness.tdb.db(), SOURCE, &a_policy_that_holds_everything())
+        .await
+        .expect("set policy");
+
+    let state = harness.state_with(FixtureArchive::new());
+    let import_id = queue_import(&harness, account, &pseud, false).await;
+    run_passes(&state, 6).await;
+
+    let row = import_row(&harness, &import_id).await;
+    assert_eq!(
+        row.state, "completed",
+        "held is not failed: the same URL must be retryable after the policy changes — report {:?}",
+        row.report_json
+    );
+    let report: Value = serde_json::from_str(row.report_json.as_deref().unwrap_or("{}")).unwrap_or_default();
+    assert_eq!(report["intake"]["queued"], true, "the report names the queue: {report}");
+    assert!(
+        report["intake"]["decision"]
+            .as_str()
+            .unwrap_or_default()
+            .contains("no rule matched"),
+        "and says why, in the operator's words: {report}"
+    );
+
+    assert!(
+        imports::find_library_item(harness.tdb.db(), &account.to_string(), SOURCE, WORK_KEY)
+            .await
+            .expect("find item")
+            .is_none(),
+        "a held arrival must not be written as a library item"
+    );
+
+    let queued = imports::queued_arrivals(harness.tdb.db(), &account.to_string(), 10)
+        .await
+        .expect("read queue");
+    assert_eq!(queued.len(), 1, "one arrival, one row: {queued:?}");
+    assert_eq!(queued[0].source_key, SOURCE);
+    assert_eq!(queued[0].source_work_key, WORK_KEY);
+    assert!(
+        queued[0].decision.contains("no rule matched"),
+        "the stored sentence is the operator's reason: {}",
+        queued[0].decision
+    );
+    let candidate: Value = serde_json::from_str(&queued[0].candidate_json).expect("candidate json");
+    assert!(
+        candidate["words"].as_i64().unwrap_or(0) > 0,
+        "the candidate is stored as it was judged, so the operator does not have to re-fetch a page that may have changed: {candidate}"
+    );
+}
+
+/// **The release.** Widen the policy and import again: the same work now reaches the library, which is what makes the queue a queue
+/// rather than a dead end.
+#[tokio::test]
+async fn the_same_arrival_imports_once_the_policy_admits_it() {
+    let harness = Harness::new("import-intake-release").await;
+    let (_client, account, pseud) = signed_in(&harness, "released@example.org", "released").await;
+    harness.seed_source(true, None).await;
+    darkhold_db::imports::set_intake_policy(harness.tdb.db(), SOURCE, &a_policy_that_holds_everything())
+        .await
+        .expect("set holding policy");
+
+    let state = harness.state_with(FixtureArchive::new());
+    let first = queue_import(&harness, account, &pseud, false).await;
+    run_passes(&state, 6).await;
+    assert_eq!(import_row(&harness, &first).await.state, "completed");
+
+    darkhold_db::imports::set_intake_policy(harness.tdb.db(), SOURCE, &a_policy_that_admits())
+        .await
+        .expect("set admitting policy");
+    let second = queue_import(&harness, account, &pseud, false).await;
+    run_passes(&harness.state_with(FixtureArchive::new()), 6).await;
+    assert_eq!(import_row(&harness, &second).await.state, "completed");
+
+    assert!(
+        imports::find_library_item(harness.tdb.db(), &account.to_string(), SOURCE, WORK_KEY)
+            .await
+            .expect("find item")
+            .is_some(),
+        "once the policy admits the work, the ordinary import path writes the item"
+    );
+}

@@ -350,8 +350,17 @@ Measured 2026-11-11 before touching the import path:
 3. **The release door** lists queued arrivals and re-runs one through the normal import path, because a queue nobody can drain is exactly
    the doorless-surface fault M70-13 exists to name.
 
-Each of the three is a migration-or-route-sized piece with its own test, so the row stays `planned` and the next session starts here
-rather than re-deriving it.
+**Step 2 built (same day), and the census corrected.** Tags *are* available at the decision point — `SourceWork.tags` carries them — so a
+tag rule is evaluated, not inert. Migration `0212` adds `import_intake_queue` (unique on account+source+work, so a re-import replaces the
+row); `intake_candidate(&SourceWork)` builds the candidate from what the adapter reported (host from the canonical URL — a missing host is
+the empty string, which no `host_in` rule matches, so an unparseable URL queues rather than sneaking in); the guard sits after the tombstone
+check and before `upsert_library_item`, behind `is_configured()`, and a held arrival finishes `completed` with
+`{intake:{queued,decision}}`.
+
+`milestone_6` **49/49 SQLite**, and both new tests pass on PostgreSQL. Mutant: `is_configured()` forced false → the held test fails.
+
+**Step 3 is the drain surface** and it is not built: nothing lists the queue yet, and a queue nobody can drain is the doorless-surface
+fault. The release path that works today is "widen the policy and retry the import", which the second test proves end to end.
 
 ## M69-15 half built — the membership rule and its switches, with no door enforcing it yet — 2026-11-11
 
