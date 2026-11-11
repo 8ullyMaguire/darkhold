@@ -930,6 +930,8 @@ pub struct QueuedArrival {
     pub candidate_json: String,
     /// The sentence from `IntakeDecision::describe()`.
     pub decision: String,
+    /// The canonical URL the adapter produced, so a release re-runs the same work rather than a rebuilt guess at it.
+    pub source_url: String,
     /// When it was held.
     pub created_at: String,
 }
@@ -945,18 +947,20 @@ pub async fn queue_intake(
     source_work_key: &str,
     candidate_json: &str,
     decision: &str,
+    source_url: &str,
 ) -> Result<()> {
     let id = uuid::Uuid::new_v4().to_string();
     let now = now_rfc3339();
     let sql = db.sql(
-        "INSERT INTO import_intake_queue (id, account_id, source_key, source_work_key, candidate_json, decision, created_at)
-         VALUES (?, ?, ?, ?, ?, ?, ?)
+        "INSERT INTO import_intake_queue (id, account_id, source_key, source_work_key, candidate_json, decision, source_url, created_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?)
          ON CONFLICT (account_id, source_key, source_work_key) DO UPDATE SET
              candidate_json = excluded.candidate_json,
              decision = excluded.decision,
+             source_url = excluded.source_url,
              created_at = excluded.created_at",
-        "INSERT INTO import_intake_queue (id, account_id, source_key, source_work_key, candidate_json, decision, created_at)
-         VALUES ($1::uuid, $2::uuid, $3, $4, $5, $6, $7)
+        "INSERT INTO import_intake_queue (id, account_id, source_key, source_work_key, candidate_json, decision, source_url, created_at)
+         VALUES ($1::uuid, $2::uuid, $3, $4, $5, $6, $7, $8)
          ON CONFLICT (account_id, source_key, source_work_key) DO UPDATE SET
              candidate_json = excluded.candidate_json,
              decision = excluded.decision,
@@ -971,6 +975,7 @@ pub async fn queue_intake(
                 .bind(source_work_key)
                 .bind(candidate_json)
                 .bind(decision)
+                .bind(source_url)
                 .bind(&now)
                 .execute(db.sqlite_pool().expect("sqlite handle"))
                 .await?;
@@ -983,6 +988,7 @@ pub async fn queue_intake(
                 .bind(source_work_key)
                 .bind(candidate_json)
                 .bind(decision)
+                .bind(source_url)
                 .bind(&now)
                 .execute(db.postgres_pool().expect("postgres handle"))
                 .await?;
@@ -994,12 +1000,12 @@ pub async fn queue_intake(
 /// The arrivals an account's sources are holding, newest first.
 pub async fn queued_arrivals(db: &Database, account_id: &str, limit: i64) -> Result<Vec<QueuedArrival>> {
     let sql = db.sql(
-        "SELECT id, account_id, source_key, source_work_key, candidate_json, decision, created_at
+        "SELECT id, account_id, source_key, source_work_key, candidate_json, decision, source_url, created_at
            FROM import_intake_queue WHERE account_id = ? ORDER BY created_at DESC LIMIT ?",
-        "SELECT id::text, account_id::text, source_key, source_work_key, candidate_json, decision, created_at
+        "SELECT id::text, account_id::text, source_key, source_work_key, candidate_json, decision, source_url, created_at
            FROM import_intake_queue WHERE account_id = $1::uuid ORDER BY created_at DESC LIMIT $2",
     );
-    let rows: Vec<(String, String, String, String, String, String, String)> = match db.backend() {
+    let rows: Vec<(String, String, String, String, String, String, String, String)> = match db.backend() {
         Backend::Sqlite => {
             sqlx::query_as(&sql)
                 .bind(account_id)
@@ -1017,7 +1023,56 @@ pub async fn queued_arrivals(db: &Database, account_id: &str, limit: i64) -> Res
     };
     Ok(rows
         .into_iter()
-        .map(|(id, account_id, source_key, source_work_key, candidate_json, decision, created_at)| {
+        .map(
+            |(id, account_id, source_key, source_work_key, candidate_json, decision, source_url, created_at)| {
+                QueuedArrival {
+                    id,
+                    account_id,
+                    source_key,
+                    source_work_key,
+                    candidate_json,
+                    decision,
+                    source_url,
+                    created_at,
+                }
+            },
+        )
+        .collect())
+}
+
+/// One queued arrival, if it belongs to this account.
+///
+/// Scoped by account in the WHERE clause rather than checked in the caller: a release route that loaded the row first and compared ids
+/// afterwards would have to be right twice, and the failure mode of getting it wrong is releasing somebody else's arrival.
+pub async fn queued_arrival(
+    db: &Database,
+    id: &str,
+    account_id: &str,
+) -> Result<Option<QueuedArrival>> {
+    let sql = db.sql(
+        "SELECT id, account_id, source_key, source_work_key, candidate_json, decision, source_url, created_at
+           FROM import_intake_queue WHERE id = ? AND account_id = ?",
+        "SELECT id::text, account_id::text, source_key, source_work_key, candidate_json, decision, source_url, created_at
+           FROM import_intake_queue WHERE id = $1::uuid AND account_id = $2::uuid",
+    );
+    let row: Option<(String, String, String, String, String, String, String, String)> = match db.backend() {
+        Backend::Sqlite => {
+            sqlx::query_as(&sql)
+                .bind(id)
+                .bind(account_id)
+                .fetch_optional(db.sqlite_pool().expect("sqlite handle"))
+                .await?
+        }
+        Backend::Postgres => {
+            sqlx::query_as(&sql)
+                .bind(id)
+                .bind(account_id)
+                .fetch_optional(db.postgres_pool().expect("postgres handle"))
+                .await?
+        }
+    };
+    Ok(row.map(
+        |(id, account_id, source_key, source_work_key, candidate_json, decision, source_url, created_at)| {
             QueuedArrival {
                 id,
                 account_id,
@@ -1025,10 +1080,41 @@ pub async fn queued_arrivals(db: &Database, account_id: &str, limit: i64) -> Res
                 source_work_key,
                 candidate_json,
                 decision,
+                source_url,
                 created_at,
             }
-        })
-        .collect())
+        },
+    ))
+}
+
+/// Remove a queued arrival, once it has been released.
+///
+/// `false` means the row was already gone, which a release route treats as a 404 rather than as success: two clicks must not produce two
+/// imports.
+pub async fn clear_queued_arrival(db: &Database, id: &str, account_id: &str) -> Result<bool> {
+    let sql = db.sql(
+        "DELETE FROM import_intake_queue WHERE id = ? AND account_id = ?",
+        "DELETE FROM import_intake_queue WHERE id = $1::uuid AND account_id = $2::uuid",
+    );
+    let done = match db.backend() {
+        Backend::Sqlite => {
+            sqlx::query(&sql)
+                .bind(id)
+                .bind(account_id)
+                .execute(db.sqlite_pool().expect("sqlite handle"))
+                .await?
+                .rows_affected()
+        }
+        Backend::Postgres => {
+            sqlx::query(&sql)
+                .bind(id)
+                .bind(account_id)
+                .execute(db.postgres_pool().expect("postgres handle"))
+                .await?
+                .rows_affected()
+        }
+    };
+    Ok(done > 0)
 }
 
 /// The `Option`-returning half of [`find_source`], split out so the two driver

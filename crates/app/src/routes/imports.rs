@@ -48,8 +48,10 @@ use axum::http::StatusCode;
 use axum::routing::{get, post};
 use axum::{Json, Router};
 use serde::{Deserialize, Serialize};
+use serde_json::{json, Value};
 
 use darkhold_db::imports::CredentialEvent;
+use darkhold_db::jobs as job_store;
 use darkhold_db::storage::BlobStore;
 use darkhold_db::{imports, library, revisions, secrets};
 use darkhold_domain::imports::{plan_import, ImportedWork, UnitIdentity};
@@ -82,6 +84,12 @@ pub fn router() -> Router<AppState> {
         .route("/imports/{id}/cancel", post(cancel_import))
         .route("/library/imports/csv", post(import_shelf_csv))
         .route("/imports/{id}/retry-failed-units", post(retry_failed_units))
+        // M69-23: the arrivals a source's policy held, and the door that releases one.
+        .route("/imports/intake-queue", get(list_intake_queue))
+        .route(
+            "/imports/intake-queue/{id}/release",
+            post(release_intake_queue_row),
+        )
         .route(
             "/source-credentials",
             get(list_credentials).post(store_credential),
@@ -2550,4 +2558,124 @@ async fn unconsented_credentials(
         "count": pseuds.len(),
         "pseud_ids": pseuds,
     })))
+}
+
+// ---------------------------------------------------------------------------
+// M69-23 — the intake queue, and its drain
+// ---------------------------------------------------------------------------
+
+/// The arrivals this reader's imports are holding, with the sentence that held each one.
+///
+/// Scoped to the caller: these are the reader's own import attempts, and a queue of other people's arrivals is a disclosure nobody asked for.
+pub async fn list_intake_queue(
+    State(state): State<AppState>,
+    RequireSession(session): RequireSession,
+) -> ApiResult<Json<Value>> {
+    let account = session.account_id.to_string();
+    let queued = imports::queued_arrivals(state.db(), &account, 50)
+        .await
+        .map_err(|error| ApiError(darkhold_domain::AppError::Internal(error)))?;
+    let rows: Vec<Value> = queued
+        .into_iter()
+        .map(|row| {
+            json!({
+                "id": row.id,
+                "source_key": row.source_key,
+                "source_work_key": row.source_work_key,
+                "source_url": row.source_url,
+                "decision": row.decision,
+                "candidate": serde_json::from_str::<Value>(&row.candidate_json).unwrap_or(Value::Null),
+                "held_at": row.created_at,
+            })
+        })
+        .collect();
+    Ok(Json(json!({ "queued": rows })))
+}
+
+/// Release a held arrival by re-running the ordinary import.
+///
+/// **The policy is consulted again, not remembered.** An operator who widens a source's rules has changed the answer for every held arrival
+/// of that source, and a release door that trusted the stored decision would make them release each row by hand — while a door that
+/// ignored the policy altogether would be a way round the gate it belongs to. So: still held means `422` naming the reason, and only an
+/// admitted arrival becomes a job.
+///
+/// The queue row is cleared **after** the import job exists, so a failure between the two leaves the arrival queued rather than losing it.
+pub async fn release_intake_queue_row(
+    State(state): State<AppState>,
+    RequirePseud { user, pseud_id }: RequirePseud,
+    Path(id): Path<String>,
+) -> ApiResult<(StatusCode, Json<Value>)> {
+    let account = user.account_id.to_string();
+    let Some(row) = imports::queued_arrival(state.db(), &id, &account)
+        .await
+        .map_err(|error| ApiError(darkhold_domain::AppError::Internal(error)))?
+    else {
+        // Not "somebody else's row": a stranger learns nothing about what exists.
+        return Err(ApiError(darkhold_domain::AppError::NotFound {
+            resource: "queued arrival",
+        }));
+    };
+
+    let policy_document = imports::intake_policy(state.db(), &row.source_key)
+        .await
+        .map_err(|error| ApiError(darkhold_domain::AppError::Internal(error)))?
+        .unwrap_or_default();
+    let policy: darkhold_domain::intake::IntakePolicy =
+        serde_json::from_str(&policy_document).unwrap_or_default();
+    if policy.is_configured() {
+        let candidate: darkhold_domain::intake::IntakeCandidate =
+            serde_json::from_str(&row.candidate_json).unwrap_or_default();
+        let decision = darkhold_domain::intake::decide(&policy, &candidate);
+        if !decision.brings_in() {
+            return Err(ApiError(darkhold_domain::AppError::field(
+                "intake",
+                format!(
+                    "still held by {}: {} — widen the policy and release again",
+                    row.source_key,
+                    decision.describe()
+                ),
+            )));
+        }
+    }
+
+    // The ordinary import path, in the order `POST /imports` uses: the import's id exists before the queue row that names it, so a worker
+    // can never claim a job pointing at an import that is not there.
+    let import_id = darkhold_domain::ImportJobId::new().to_string();
+    let job_id = job_store::enqueue(
+        state.db(),
+        darkhold_domain::jobs::JobKind::Import,
+        &json!({ "import_job_id": import_id }).to_string(),
+        None,
+        Some(user.account_id),
+        0,
+        &darkhold_domain::jobs::RetryPolicy::default(),
+    )
+    .await
+    .map_err(|error| ApiError(darkhold_domain::AppError::Internal(error.into())))?;
+    let import = imports::create_import_job(
+        state.db(),
+        &import_id,
+        &job_id.to_string(),
+        &account,
+        &pseud_id.to_string(),
+        &row.source_key,
+        &row.source_url,
+        "library",
+        false,
+    )
+    .await
+    .map_err(|error| ApiError(darkhold_domain::AppError::Internal(error)))?;
+
+    imports::clear_queued_arrival(state.db(), &id, &account)
+        .await
+        .map_err(|error| ApiError(darkhold_domain::AppError::Internal(error)))?;
+
+    Ok((
+        StatusCode::ACCEPTED,
+        Json(json!({
+            "released": true,
+            "import_id": import.id,
+            "job_id": job_id.to_string(),
+        })),
+    ))
 }

@@ -359,8 +359,21 @@ check and before `upsert_library_item`, behind `is_configured()`, and a held arr
 
 `milestone_6` **49/49 SQLite**, and both new tests pass on PostgreSQL. Mutant: `is_configured()` forced false → the held test fails.
 
-**Step 3 is the drain surface** and it is not built: nothing lists the queue yet, and a queue nobody can drain is the doorless-surface
-fault. The release path that works today is "widen the policy and retry the import", which the second test proves end to end.
+**Step 3 built (same day) and the row closes.** Migration `0213` adds `import_intake_queue.source_url` — releasing means re-running the ordinary
+import, and that path is addressed by the canonical URL the adapter produced; rebuilding a URL from the stored host would invent one.
+
+* `GET /imports/intake-queue` (Authenticated) — the caller's own arrivals with the candidate and the decision sentence.
+* `POST /imports/intake-queue/{id}/release` (Pseudonymous) — **re-consults the policy** rather than trusting the stored decision. An operator
+  who widens a source's rules has changed the answer for every held arrival of that source; a door that trusted the row would make them release
+  each one by hand, and a door that skipped the policy would be a way round the gate. Still held → `422` naming the reason; admitted → the
+  ordinary import path, and the queue row is cleared **after** the job exists so a failure between the two leaves the arrival queued.
+
+`m69_23_intake_policy` **6/6 SQLite and 6/6 PostgreSQL**. PG again earned its keep: the insert had 7 binds for 8 parameters because the new
+`source_url` bind had been added to the SQLite arm only. Mutant: the release door's policy check forced false → `202` vs `422`.
+
+**Deviation, recorded:** the document is not a *Saved Filter*. A saved view's document is a `LibraryQuery` of per-account shelf facts or a
+catalogue query string, and neither can be a predicate over an arriving work. `darkhold_domain::intake::IntakePolicy` meets the row's actual
+claim — an operator can inspect and test what a source will take, and what it will hold.
 
 ## M69-15 half built — the membership rule and its switches, with no door enforcing it yet — 2026-11-11
 

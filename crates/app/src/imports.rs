@@ -558,6 +558,7 @@ pub async fn run(
                 &work.source_work_key,
                 &candidate_json,
                 &decision.describe(),
+                &work.source_url,
             )
             .await
             .map_err(transient)?;

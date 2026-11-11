@@ -410,3 +410,95 @@ async fn an_unknown_source_is_a_404_not_a_policy_for_nobody() {
         .await;
     assert_eq!(status, StatusCode::NOT_FOUND, "{body}");
 }
+
+#[tokio::test]
+async fn a_held_arrival_is_listed_and_can_be_released_once_the_policy_admits_it() {
+    let harness = Harness::with_operator("drain").await;
+    let mut client = harness.signed_in().await;
+    client
+        .put("/api/v1/admin/sources/ao3/intake-policy", policy())
+        .await;
+
+    // The account behind the operator session, so the queue row belongs to the caller.
+    let (account,): (String,) = {
+        use darkhold_db::Backend;
+        match harness.db().backend() {
+            Backend::Sqlite => {
+                sqlx::query_as("SELECT account_id FROM pseuds WHERE handle = 'operator' LIMIT 1")
+                    .fetch_one(harness.db().sqlite_pool().expect("sqlite"))
+                    .await
+                    .expect("operator account")
+            }
+            Backend::Postgres => {
+                sqlx::query_as("SELECT account_id::text FROM pseuds WHERE handle = 'operator' LIMIT 1")
+                    .fetch_one(harness.db().postgres_pool().expect("postgres"))
+                    .await
+                    .expect("operator account")
+            }
+        }
+    };
+    let candidate = json!({
+        "host": "archiveofourown.org", "language": "en", "words": 40,
+        "tags": [], "title": "Short", "complete": false
+    });
+    darkhold_db::imports::queue_intake(
+        harness.db(),
+        &account,
+        "ao3",
+        "work-1",
+        &candidate.to_string(),
+        "queue: no rule matched, so this arrival needs a person",
+        "https://archiveofourown.org/works/work-1",
+    )
+    .await
+    .expect("queue a row");
+
+    let (status, list) = client.get("/api/v1/imports/intake-queue").await;
+    assert_eq!(status, StatusCode::OK, "{list}");
+    let rows = list["queued"].as_array().expect("queued");
+    assert_eq!(rows.len(), 1, "{list}");
+    assert_eq!(rows[0]["source_work_key"], "work-1");
+    assert!(
+        rows[0]["decision"].as_str().unwrap_or_default().contains("needs a person"),
+        "the list carries the reason, not just the fact: {list}"
+    );
+    let id = rows[0]["id"].as_str().expect("id").to_owned();
+
+    // The policy does not admit a 40-word work, so a release must refuse and say why rather than dropping the row.
+    let (status, refused) = client
+        .post(&format!("/api/v1/imports/intake-queue/{id}/release"), json!({}))
+        .await;
+    assert_eq!(status, StatusCode::UNPROCESSABLE_ENTITY, "{refused}");
+    assert!(
+        refused["error"]["field_errors"]["intake"].is_string(),
+        "{refused}"
+    );
+
+    // Widen the policy, and the same row now releases into an ordinary import job.
+    client
+        .put(
+            "/api/v1/admin/sources/ao3/intake-policy",
+            json!({ "rules": [ { "when": [ { "kind": "words_at_least", "value": 1 } ], "then": "bring_in" } ] }),
+        )
+        .await;
+    let (status, released) = client
+        .post(&format!("/api/v1/imports/intake-queue/{id}/release"), json!({}))
+        .await;
+    assert_eq!(status, StatusCode::ACCEPTED, "{released}");
+    let import_id = released["import_id"].as_str().expect("import id");
+    let row = darkhold_db::imports::get_import_job(harness.db(), import_id)
+        .await
+        .expect("read import")
+        .expect("the import exists");
+    assert_eq!(
+        row.source_url, "https://archiveofourown.org/works/work-1",
+        "the release re-runs the canonical URL the adapter produced, not a rebuilt guess"
+    );
+
+    let (_, after) = client.get("/api/v1/imports/intake-queue").await;
+    assert_eq!(
+        after["queued"].as_array().expect("queued").len(),
+        0,
+        "a released arrival leaves the queue: {after}"
+    );
+}

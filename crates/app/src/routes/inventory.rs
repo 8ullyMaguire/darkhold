@@ -7251,6 +7251,20 @@ pub const ROUTE_TABLE: &[RouteEntry] = &[
         audience: Audience::Public,
     },
     RouteEntry {
+        file: "imports.rs",
+        handler: "list_intake_queue",
+        method: "GET",
+        path: "/imports/intake-queue",
+        audience: Audience::Authenticated,
+    },
+    RouteEntry {
+        file: "imports.rs",
+        handler: "release_intake_queue_row",
+        method: "POST",
+        path: "/imports/intake-queue/{id}/release",
+        audience: Audience::Pseudonymous,
+    },
+    RouteEntry {
         file: "admin.rs",
         handler: "list_source_policies",
         method: "GET",
