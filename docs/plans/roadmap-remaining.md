@@ -240,6 +240,27 @@ they are not what a stranger sees, and their own room rules already apply.
 `m69_15_membership_gate` — **6/6 SQLite and 6/6 PostgreSQL**. Mutants: the works guard removed → two tests fail `201` vs
 `422`; the comment guard removed → the comment is accepted.
 
+## M70-13 ratchet pass — 38 → 37, and three kept on purpose — 2026-11-11
+
+Method (the row's method): regenerate, then count references for every orphan; definition-only is `1`.
+
+Of 38, **four** were definition-only. One is deleted:
+
+* `atproto::published_uris` — it existed so the bridge could ask "what is already published?", and the bridge does not need to ask:
+  `publish_work` derives the record key from the work id (`rkey_for(work.id)`) and PUTs, so republishing overwrites the same record.
+  **Idempotence by key beats a pre-check**, and a pre-check nothing calls is debt.
+
+Three are kept, and the reason is that each is a **surface**, not dead code:
+
+* `recommendation_slots::list_response_slots` returns `SlotExplanation` — the "why was this served to me" evidence. Deleting it deletes
+  the evidence of a feature, not the feature; what it needs is a route, which is a product decision about who reads it.
+* `trust_events::list_all` — the operator trust trail, same shape of decision.
+* `sessions::mark_email_verified` — the odd one: darkhold has **no mailer**, so this is not a half-built feature with a route missing but
+  a column and a setter for a flow that does not exist. The decision is whether darkhold verifies email at all; until that is answered
+  the function stays in the baseline rather than being deleted on a guess.
+
+`cargo check -p darkhold-db` clean, `orphan_queries` 2/2, `gate.sh repo` ok, baseline now **37**.
+
 ## M69-24 censused — the shared taste crate, and the one dependency that blocks the copy — 2026-11-11
 
 **census: REUSE the mechanism, BUILD the crate, and the crate cannot be `darkhold-taste` as it stands.** Measured, no code

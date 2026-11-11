@@ -159,34 +159,6 @@ pub async fn clear_at_uri(db: &Database, work_id: &str) -> Result<(), sqlx::Erro
     Ok(())
 }
 
-/// The `at://` URIs already published, for the purge in `docs/FEDERATION.md` §9 and for the gate that counts them.
-pub async fn published_uris(
-    db: &Database,
-    limit: i64,
-) -> Result<Vec<(String, String)>, sqlx::Error> {
-    let sql = db.sql(
-        "SELECT id, at_uri FROM works WHERE at_uri IS NOT NULL ORDER BY updated_at DESC LIMIT ?",
-        "SELECT id, at_uri FROM works WHERE at_uri IS NOT NULL ORDER BY updated_at DESC LIMIT $1",
-    );
-    let rows = match db.backend() {
-        Backend::Sqlite => sqlx::query(&sql)
-            .bind(limit)
-            .fetch_all(db.sqlite_pool().ok_or_else(pool_err)?)
-            .await?
-            .into_iter()
-            .map(|r| (r.get::<String, _>("id"), r.get::<String, _>("at_uri")))
-            .collect::<Vec<_>>(),
-        Backend::Postgres => sqlx::query(&sql)
-            .bind(limit)
-            .fetch_all(db.postgres_pool().ok_or_else(pool_err)?)
-            .await?
-            .into_iter()
-            .map(|r| (r.get::<String, _>("id"), r.get::<String, _>("at_uri")))
-            .collect::<Vec<_>>(),
-    };
-    Ok(rows)
-}
-
 // ---------------------------------------------------------------------------
 // The feed generators (W6 §7.5, slice B)
 // ---------------------------------------------------------------------------

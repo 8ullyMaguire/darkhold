@@ -9,15 +9,15 @@
 # outside this list, which is why the operator audit route always answered an empty trail. Correcting the
 # measurement moved the baseline from 43 to 57. An intermediate version that ignored `use` imports said 80; the
 # debt was never new, the ruler was wrong in both directions.
-# measured 2026-11-10: 36 orphan(s)
+# measured 2026-11-11: 37 orphan(s)
 
 increment_abuse_counter  # crates/db/src/admin.rs
-published_uris  # crates/db/src/atproto.rs
 session_for  # crates/db/src/concierge_store.rs
 enqueue_job  # crates/db/src/economy.rs
 bump_counter  # crates/db/src/economy.rs
 set_state  # crates/db/src/entity_floor.rs
 issue_token_expiring  # crates/db/src/external.rs
+rebind_bot_token  # crates/db/src/external.rs
 create_follow  # crates/db/src/federation.rs
 accept_follow  # crates/db/src/federation.rs
 regenerate_fingerprint  # crates/db/src/federation.rs
@@ -27,6 +27,7 @@ get_pending_queue  # crates/db/src/federation.rs
 mark_queue_sent  # crates/db/src/federation.rs
 mark_queue_failed  # crates/db/src/federation.rs
 set_generated_content_policy  # crates/db/src/generated_content.rs
+statement_for_task  # crates/db/src/governance.rs
 compute_theme_from_bookmarks  # crates/db/src/instance_theme.rs
 close  # crates/db/src/lib.rs
 apply_to  # crates/db/src/migrate.rs
