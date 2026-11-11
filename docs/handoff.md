@@ -1,3 +1,40 @@
+## M45-52 complete, and a bot that already existed — 2026-11-11
+
+**Two rows moved, and one of them moved by deleting my own work first.**
+
+`M63-05b` was blocked on "another row's unbuilt work": `dh rec --link epub` had no download route to point at. The route
+exists now — `GET /derivatives/{id}/download` serves the **built bytes** with the derivative's own content type and an
+`attachment` filename; a queued derivative is `404 "no such built derivative"` (not `422`: a polling client has not made a
+mistake) and a checksum with no blob is `500`, because an empty 200 would hide a broken instance. Committed `93df92f0`.
+
+`M45-52` (DSA notice-and-action) is **complete**, all six steps, 8/8 on both engines:
+a decision carries a ground from a closed set, the facts, and an instrument when the ground is a claim about law
+(migration `0208`); the statement is written **with** the decision or the decision is refused `422` naming the field; both
+sides are told through the existing `notify` (reporter gets the outcome, author gets their facts and the deadline); the
+appeal window is a stored field and `POST /appeals` refuses after it, naming the deadline; `GET /statements/summary` is a
+public count with `TRANSPARENCY_MIN_COUNT = 5` and no id in the body; and `kind: dsa|dmca` keeps 17 U.S.C. 512(c)(3)'s four
+elements in their own table (migration `0209`) rather than folding two regimes into one form.
+
+**The turn's real lesson is the one that cost nothing because it was measured first.** M45-43 ("Discord bot with rec
+commands, per-fandom feeds, account linking") was planned as an interactions endpoint inside this server — 223 lines, a
+config section, a registry row, a test suite, all written. A census of the estate then found `~/code-local/rust/darkbot`:
+12,489 lines, three adapters, an `Adapter` trait with a conformance suite, and it already calls this instance's
+`public/search`, `public/works/{id}`, `works/{id}/kudos` and `me/tokens`. The endpoint was deleted the same turn. Its one
+real mismatch is the link handshake: darkbot assumes the *bot* holds the code and exchanges it, while §23.2's three doors
+let the **reader** see what is being asked for and confirm it to their own session. darkbot adapts; this server does not
+grow a second handshake. That rule is now §2.2 of the goal document — *census before a surface* — and §3.1b of the per-row
+protocol, so the next row that reads "build a bot" starts by measuring instead of writing.
+
+For the estate record: `polaris-estate-discord-bots-census-2026-11-11.md`.
+
+**State:** planned **49**; `gate.sh ledger` 0 and `repo` 0 at `0f249ff8`; `route_inventory` 5/5; both forges pushed.
+Deploy of steps 1/2/4/5 was in flight when this was written (`/tmp/deploy-m4552.log` on thinkcentre); steps 3 and 6 go out
+with `deploy-m4552b.sh`, which needs no second dump — the only schema change since the named `pre-m45-52` dump is one new
+empty table.
+
+**Next:** M45-55 (compliance tooling: notice forms, SOR templates, DSAR export) — and per §2.2 its first act is a census,
+because "a form" is exactly the kind of surface the estate may already have four of.
+
 # Handoff
 
 ## Two rows closed, a gate that lied twice, and a policy knob — 2026-11-10 (late)
