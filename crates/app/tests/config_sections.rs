@@ -601,3 +601,52 @@ fn collect_rs(dir: &Path) -> Vec<PathBuf> {
     out.sort();
     out
 }
+
+/// M69-15 — the membership switches reach the rule the domain decides with.
+///
+/// A field on `GovernanceConfig` that no `[governance]` key can set is a switch an operator cannot flip, and a switch that
+/// no constructor copies into `MembershipRules` is a switch that reaches nothing. Both halves are asserted here, because
+/// the domain's own tests construct the rules directly and would pass either way.
+#[test]
+fn the_membership_gate_is_off_by_default_and_configurable_from_a_file() {
+    let default = load("membership-default", "\n").expect("an empty config loads");
+    let rules = default.governance.membership_rules();
+    assert!(!rules.enabled, "M69-15 ships off: {rules:?}");
+    assert_eq!(rules.population_threshold, 1_000);
+
+    let configured = load(
+        "membership-on",
+        r#"
+[governance]
+membership_probation = true
+membership_population_threshold = 4000
+membership_probation_days = 21
+membership_grace_days = 7
+membership_floor_base = 5
+membership_floor_per_thousand = 3
+"#,
+    )
+    .expect("the section loads");
+    let rules = configured.governance.membership_rules();
+    assert!(rules.enabled, "{rules:?}");
+    assert_eq!(rules.population_threshold, 4_000);
+    assert_eq!(rules.probation_days, 21);
+    assert_eq!(rules.grace_days, 7);
+    assert_eq!(rules.floor_at(4_000), 5);
+    assert_eq!(rules.floor_per_thousand, 3);
+
+    // And the rule the operator configured is the rule that decides: 4,000 readers is the threshold, so 5,000 is above it.
+    let standing = darkhold_domain::membership::decide(
+        &rules,
+        darkhold_domain::membership::ReaderFacts {
+            age_days: 1,
+            taste_samples: 0,
+            grandfathered: false,
+        },
+        5_000,
+    );
+    assert!(
+        matches!(standing, darkhold_domain::membership::Standing::Probation { .. }),
+        "a configured gate puts a newcomer on probation: {standing:?}"
+    );
+}

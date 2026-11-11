@@ -1349,6 +1349,19 @@ pub struct GovernanceConfig {
     pub admin_emergency_only: bool,
     /// How many days before a ban is reviewed, in days.
     pub ban_review_days: i64,
+    /// `governance.membership_probation` — taste-gated membership for new readers (M69-15). **Off by default**: it
+    /// changes what a stranger sees, so it waits for an operator's decision.
+    pub membership_probation: bool,
+    /// `governance.membership_population_threshold` — the reader count above which the gate applies.
+    pub membership_population_threshold: i64,
+    /// `governance.membership_probation_days` — how long the probation lasts.
+    pub membership_probation_days: i64,
+    /// `governance.membership_grace_days` — how long after probation a reader is still redirected rather than closed.
+    pub membership_grace_days: i64,
+    /// `governance.membership_floor_base` — taste samples a newcomer needs at the threshold population.
+    pub membership_floor_base: i64,
+    /// `governance.membership_floor_per_thousand` — how much the floor rises per thousand readers beyond it.
+    pub membership_floor_per_thousand: i64,
 }
 
 impl Default for GovernanceConfig {
@@ -1361,6 +1374,30 @@ impl Default for GovernanceConfig {
             appeal_fresh_jury: true,
             admin_emergency_only: true,
             ban_review_days: 90,
+            membership_probation: false,
+            membership_population_threshold: 1_000,
+            membership_probation_days: 14,
+            membership_grace_days: 30,
+            membership_floor_base: 3,
+            membership_floor_per_thousand: 2,
+        }
+    }
+}
+
+impl GovernanceConfig {
+    /// The membership rules, as the domain decides with them.
+    ///
+    /// The conversion lives here rather than in the domain because the domain must not know what a `[governance]` table
+    /// is — and because a field this constructor forgets to copy is a switch that reaches nothing.
+    #[must_use]
+    pub fn membership_rules(&self) -> darkhold_domain::membership::MembershipRules {
+        darkhold_domain::membership::MembershipRules {
+            enabled: self.membership_probation,
+            population_threshold: self.membership_population_threshold,
+            probation_days: self.membership_probation_days,
+            grace_days: self.membership_grace_days,
+            floor_base: self.membership_floor_base,
+            floor_per_thousand: self.membership_floor_per_thousand,
         }
     }
 }
@@ -4101,6 +4138,24 @@ impl Config {
                 let base = GovernanceConfig::default();
                 GovernanceConfig {
                     enabled: g.enabled.unwrap_or(base.enabled),
+                    membership_probation: g
+                        .membership_probation
+                        .unwrap_or(base.membership_probation),
+                    membership_population_threshold: g
+                        .membership_population_threshold
+                        .unwrap_or(base.membership_population_threshold),
+                    membership_probation_days: g
+                        .membership_probation_days
+                        .unwrap_or(base.membership_probation_days),
+                    membership_grace_days: g
+                        .membership_grace_days
+                        .unwrap_or(base.membership_grace_days),
+                    membership_floor_base: g
+                        .membership_floor_base
+                        .unwrap_or(base.membership_floor_base),
+                    membership_floor_per_thousand: g
+                        .membership_floor_per_thousand
+                        .unwrap_or(base.membership_floor_per_thousand),
                     jury_size: g.jury_size.unwrap_or(base.jury_size),
                     jury_min_level: g.jury_min_level.unwrap_or(base.jury_min_level),
                     jury_elastic_min: g.jury_elastic_min.unwrap_or(base.jury_elastic_min),
@@ -5001,6 +5056,12 @@ struct TrustSection {
 #[serde(deny_unknown_fields)]
 struct GovernanceSection {
     enabled: Option<bool>,
+    membership_probation: Option<bool>,
+    membership_population_threshold: Option<i64>,
+    membership_probation_days: Option<i64>,
+    membership_grace_days: Option<i64>,
+    membership_floor_base: Option<i64>,
+    membership_floor_per_thousand: Option<i64>,
     jury_size: Option<i64>,
     jury_min_level: Option<i64>,
     jury_elastic_min: Option<i64>,

@@ -189,6 +189,40 @@ signed skew, the API-line comparison, and that a warning is not a failure (`3/3`
 resolve" after the first already said "nothing answered" is two rows for one fact. The row's list is answered by five
 checks, not five modules.
 
+## M69-15 half built — the membership rule and its switches, with no door enforcing it yet — 2026-11-11
+
+**census: REUSE nothing, and the near-hit is a word collision.** `probation` appears four times in `tessera` — and it is a
+*crawler-politeness* rule (`crates/tessera-kernel/src/scout.rs`: a new domain gets a small allowance that grows with
+observed politeness). Its subject is a remote host, its state is a request allowance, and it has no idea what a reader is.
+darkhold has none. BUILD.
+
+`crates/domain/src/membership.rs` is the rule with no clock and no database, because all five of the row's exits are
+boundary claims and a boundary is only testable where the clock and the store are absent:
+
+* **off unless switched on** — a switch that is off cannot put a reader on probation;
+* **below `membership_population_threshold` nobody is gated**;
+* **the floor rises with the instance** (`floor_base + floor_per_thousand` per thousand readers beyond the threshold) and
+  **never falls** — a falling floor would put readers who already graduated back on probation;
+* **early graduation** — a newcomer who meets the floor on day one is a full member, because the gate is about taste and
+  not about waiting out a clock;
+* **time-bounded, then grace, then redirect** — `Probation { days_left, samples_needed }` during the window and the grace
+  that follows it, then `Redirect { samples_short }`. Never deletion: the account keeps its bookmarks, positions and pseud,
+  and the person may come back.
+
+**Config is wired, because the row says "the floor is configurable".** Six fields on `GovernanceConfig` (default off, 1000,
+14, 30, 3, 2), the same six as optional keys in `[governance]` — under `deny_unknown_fields`, so a typo is an error rather
+than a setting that silently does not apply — the merge into the file config, and `GovernanceConfig::membership_rules()`,
+a conversion that exists so a field the mapping forgets is a compile error instead of a switch that reaches nothing.
+
+**Evidence**: 7/7 domain tests, and one in `config_sections` that loads a real `darkhold.toml` through the real `--config`
+door and asserts the *configured* rules are the ones that decide. Mutants: the floor's rise removed → two tests fail (3 vs
+11); `membership_rules()` hardcoding `enabled = false` → the config test fails, which is the switch-reaches-nothing case.
+
+**The row stays `planned` and the missing half is enforcement.** `decide()` is called by nothing: no reader is gated yet. It
+belongs at the read/write doors (the `Audience` extractors and the `Scope::require` path) with the passport redirect target,
+it is a live-surface change, and it has to ship behind the switch and be verified on the deployed instance. The `taste_samples`
+count and the grandfathering date are two store queries that do not exist either.
+
 ## M66 GS-5 half built — the jury rule, and the four things still missing — 2026-11-11
 
 **census (measured, not assumed): REUSE nothing.** The rule is spec'd in `docs/spec/14-governance.md` (random draw, level ≥
