@@ -144,6 +144,20 @@ pub struct IntakePolicy {
     pub rules: Vec<Rule>,
 }
 
+impl IntakePolicy {
+    /// Whether anybody has actually written a policy.
+    ///
+    /// **A different question from [`decide`], and the difference is the whole safety of this feature.** `decide` answers "what does
+    /// this policy do", and for no rules it answers *admit nothing* — correct for a policy, catastrophic for a default: `{}` is what
+    /// every source carries until an operator writes one, so an importer that consulted `decide` unconditionally would hold every
+    /// arrival on the instance. The importer asks this first, and an unconfigured source keeps behaving exactly as it did before the
+    /// policy existed.
+    #[must_use]
+    pub fn is_configured(&self) -> bool {
+        !self.rules.is_empty()
+    }
+}
+
 /// What the policy decided, and why.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub enum IntakeDecision {
@@ -328,6 +342,20 @@ mod tests {
         let excluded = Condition::TitleExcludes(vec!["[podfic]".to_owned()]);
         assert!(!excluded.holds(&candidate("h", "en", 1, &[], "[Podfic] Anything")));
         assert!(excluded.holds(&candidate("h", "en", 1, &[], "Anything Else")));
+    }
+
+    #[test]
+    fn a_policy_with_no_rules_is_not_a_policy() {
+        // The distinction the importer depends on: `decide` says "admit nothing" for an empty policy, which is right for a policy and
+        // wrong for a default — so "is there a policy at all" has to be askable on its own, and the two answers must disagree here.
+        let empty = IntakePolicy::default();
+        assert!(!empty.is_configured(), "no rules is not a configured source");
+        assert_eq!(
+            decide(&empty, &candidate("ao3", "en", 5_000, &[], "T")),
+            IntakeDecision::QueueUnmatched,
+            "and the same policy still admits nothing if someone consults it directly"
+        );
+        assert!(policy().is_configured(), "two rules is a policy");
     }
 
     #[test]

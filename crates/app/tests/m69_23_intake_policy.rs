@@ -346,6 +346,30 @@ async fn the_dry_run_answers_with_a_sentence_not_a_boolean() {
 }
 
 #[tokio::test]
+async fn an_unconfigured_source_says_it_imports_as_before_instead_of_refusing_everything() {
+    let harness = Harness::with_operator("unconfigured").await;
+    let mut client = harness.signed_in().await;
+
+    // Every source ships on the default policy, and a dry run against it must not read as "your importer refuses every arrival".
+    let (status, answer) = client
+        .post(
+            "/api/v1/admin/sources/ao3/intake-policy/test",
+            json!({ "candidate": { "host": "archiveofourown.org", "words": 4000 } }),
+        )
+        .await;
+    assert_eq!(status, StatusCode::OK, "{answer}");
+    assert_eq!(answer["configured"], false, "{answer}");
+    assert_eq!(answer["bring_in"], true, "{answer}");
+    assert!(
+        answer["decision"]
+            .as_str()
+            .unwrap_or_default()
+            .contains("imports as before"),
+        "{answer}"
+    );
+}
+
+#[tokio::test]
 async fn a_policy_that_does_not_parse_is_refused_before_it_is_stored() {
     let harness = Harness::with_operator("parse").await;
     let mut client = harness.signed_in().await;

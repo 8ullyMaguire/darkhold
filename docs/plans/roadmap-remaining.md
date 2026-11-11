@@ -325,9 +325,33 @@ is `UUID`, so reading it into a `String` needs `::text`. Mutant: the parse valid
 refusal test fails `200` vs `422`.
 
 **Still missing, and it is now one thing:** the call at the importer's intake point. M67-03/04 decide by host and rule alone, so
-the policy today is storable, inspectable and testable and **nothing consults it**. The landing half already exists —
-`external.rs`'s quarantined intake ledger, with a door that moves a row to accepted or rejected. The missing piece is the call
-that turns an arrival into Admit/Queue before it reaches that door.
+the policy today is storable, inspectable and testable and **nothing consults it**.
+
+### The wiring census, and why it is three steps rather than one call
+
+Measured 2026-11-11 before touching the import path:
+
+| question | answer |
+|---|---|
+| where an arrival is decided | `crates/app/src/imports.rs`, after the M69-04 tombstone check and immediately before `imports::upsert_library_item` — the only point where title, language, words, status and source URL are all in hand |
+| what a candidate can know there | title, language, word count, host, complete — **not tags** (derived later from the text), so a tag rule is inert at intake and must say so rather than evaluate against an empty list |
+| where a Queue verdict lands | **nowhere today.** `import_jobs.state` has no `held`, there is **no resume route** (`/cancel` and `/retry-failed-units` exist, resume does not), and a paused job strands the work because a second import of the same URL is refused while a live job exists |
+| is there an intake queue table | no. `federation_inbound` is the federation inbox, a different feature; reusing it would put an AO3 arrival in a federation queue |
+
+**Decision, recorded rather than coded**, in three parts:
+
+1. **The policy is inert when its rule list is empty.** `{}` is the default on the 14 live sources, and "configured nothing" must keep
+   behaving exactly as before — otherwise the deploy that ships the wiring pauses every import on the instance. This is a different
+   question from `intake::decide` (which answers "what does this policy do" and says *admit nothing* for no rules); the importer asks
+   "is there a policy at all".
+2. **A Queue verdict writes a row** to a new `import_intake_queue` (id, account_id, source_key, source_work_key, candidate_json,
+   decision, created_at) and marks the job `completed` with a report naming the queue — so the arrival is visible and the same URL can be
+   retried once the policy changes.
+3. **The release door** lists queued arrivals and re-runs one through the normal import path, because a queue nobody can drain is exactly
+   the doorless-surface fault M70-13 exists to name.
+
+Each of the three is a migration-or-route-sized piece with its own test, so the row stays `planned` and the next session starts here
+rather than re-deriving it.
 
 ## M69-15 half built — the membership rule and its switches, with no door enforcing it yet — 2026-11-11
 

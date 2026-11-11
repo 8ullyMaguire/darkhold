@@ -370,9 +370,19 @@ pub async fn test_source_intake_policy(
                     format!("this is not a candidate: {error}"),
                 ))
             })?;
+    // An unconfigured source is not a source that refuses everything: it is a source that behaves as it did before this policy
+    // existed. The dry run has to say that, or the first operator to press the button concludes their importers are broken.
+    if !policy.is_configured() {
+        return Ok(Json(json!({
+            "bring_in": true,
+            "configured": false,
+            "decision": "imports as before: this source carries no policy, so nothing is held",
+        })));
+    }
     let decision = darkhold_domain::intake::decide(&policy, &candidate);
     Ok(Json(json!({
         "bring_in": decision.brings_in(),
+        "configured": true,
         "decision": decision.describe(),
     })))
 }
