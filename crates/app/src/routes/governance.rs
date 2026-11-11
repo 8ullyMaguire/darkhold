@@ -265,6 +265,14 @@ async fn assign_task(
 #[derive(Debug, Deserialize)]
 struct DecideTaskBody {
     outcome: String,
+    /// The reviewer's paragraph. Optional at the *type* level so its absence is refused by name (`422` naming `facts`)
+    /// rather than by serde's generic "missing field", which is the same refusal without the field.
+    #[serde(default)]
+    ground: String,
+    #[serde(default)]
+    facts: String,
+    #[serde(default)]
+    legal_ground: String,
 }
 
 async fn decide_task(
@@ -290,9 +298,64 @@ async fn decide_task(
             required,
         }));
     }
+    // M45-52 step 2: the statement is written WITH the decision, not after it.
+    //
+    // The alternative — decide now, explain later — is how a queue ends up full of decisions nobody can defend: the
+    // reviewer has moved on, the report is closed, and the author is left with a sanction and no reasons. So the reasons
+    // are validated *before* the decision is recorded, and a missing one refuses the decision.
+    let ground = darkhold_domain::governance::StatementGround::parse(&body.ground).ok_or_else(|| {
+        ApiError(AppError::field(
+            "ground",
+            format!(
+                "a decision must name its ground: one of {}",
+                darkhold_domain::governance::StatementGround::ALL
+                    .iter()
+                    .map(|g| g.as_str())
+                    .collect::<Vec<_>>()
+                    .join(", ")
+            ),
+        ))
+    })?;
+    if body.facts.trim().is_empty() {
+        return Err(ApiError(AppError::field(
+            "facts",
+            "a decision must state the facts it rests on, in one paragraph",
+        )));
+    }
+    if ground.requires_legal_ground() && body.legal_ground.trim().is_empty() {
+        return Err(ApiError(AppError::field(
+            "legal_ground",
+            format!(
+                "the ground `{}` is a claim about law, so it must name the instrument",
+                ground.as_str()
+            ),
+        )));
+    }
+
     darkhold_db::governance::decide_task(state.db(), &task_id, &reviewer, &body.outcome)
         .await
         .map_err(|e| ApiError(AppError::Internal(e.into())))?;
+
+    // The deadline is stored, not derived: a window a person is told about must not move when a constant does.
+    let appeal_until = (time::OffsetDateTime::now_utc()
+        + time::Duration::days(darkhold_domain::governance::APPEAL_WINDOW_DAYS))
+    .format(&time::format_description::well_known::Rfc3339)
+    .map_err(|e| ApiError(AppError::Internal(anyhow::anyhow!(e.to_string()))))?;
+
+    let statement_id = darkhold_db::governance::write_statement(
+        state.db(),
+        &darkhold_db::governance::NewStatement {
+            task_id: &task_id,
+            outcome: &body.outcome,
+            ground: ground.as_str(),
+            facts: &body.facts,
+            legal_ground: &body.legal_ground,
+            decided_by: &reviewer,
+            appeal_until: &appeal_until,
+        },
+    )
+    .await
+    .map_err(|e| ApiError(AppError::Internal(e.into())))?;
 
     darkhold_db::governance::audit_append(
         state.db(),
@@ -305,13 +368,23 @@ async fn decide_task(
             action: "review.decided",
             subject_type: "task",
             subject_id: &task_id,
-            document: &json!({ "outcome": body.outcome }).to_string(),
+            document: &json!({
+                "outcome": body.outcome,
+                "ground": ground.as_str(),
+                "statement_id": statement_id,
+            })
+            .to_string(),
         },
     )
     .await
     .map_err(|e| ApiError(AppError::Internal(e.into())))?;
 
-    Ok(Json(json!({ "ok": true })))
+    Ok(Json(json!({
+        "ok": true,
+        "statement_id": statement_id,
+        "ground": ground.as_str(),
+        "appeal_until": appeal_until,
+    })))
 }
 
 // ---------------------------------------------------------------------------

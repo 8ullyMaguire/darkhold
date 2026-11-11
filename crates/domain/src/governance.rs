@@ -157,6 +157,67 @@ pub enum TaskOutcome {
     Recuse,
 }
 
+/// The ground a moderation decision rests on, from a closed set.
+///
+/// **Article 17 of the DSA requires the *category*.** A reviewer's paragraph is not a category, and neither is a free-text
+/// field that happens to contain the word "spam" — a transparency report built from prose cannot be added up, and an
+/// appeal cannot be argued against it. So the ground is an enum, and the reviewer's paragraph (`facts`) sits *beside* it
+/// rather than replacing it.
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+pub enum StatementGround {
+    /// The content is unlawful in the instance's jurisdiction. Names a law in `legal_ground`.
+    IllegalContent,
+    /// Lawful, but the instance's own terms refuse it.
+    IncompatibleWithTerms,
+    /// Unsolicited bulk or machine-generated content.
+    Spam,
+    /// A copyright complaint. Carries the statute, not the terms.
+    Copyright,
+}
+
+impl StatementGround {
+    /// Every ground this build knows, in the order a report should list them.
+    pub const ALL: [StatementGround; 4] = [
+        StatementGround::IllegalContent,
+        StatementGround::IncompatibleWithTerms,
+        StatementGround::Spam,
+        StatementGround::Copyright,
+    ];
+
+    /// The wire and storage spelling.
+    #[must_use]
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Self::IllegalContent => "illegal_content",
+            Self::IncompatibleWithTerms => "incompatible_with_terms",
+            Self::Spam => "spam",
+            Self::Copyright => "copyright",
+        }
+    }
+
+    /// Parse a stored or submitted spelling. `None` for anything this build does not know: a decision recorded under a
+    /// ground nobody can name is a decision nobody can report on.
+    #[must_use]
+    pub fn parse(raw: &str) -> Option<Self> {
+        Self::ALL.into_iter().find(|ground| ground.as_str() == raw)
+    }
+
+    /// Whether this ground requires a named legal instrument. `illegal_content` and `copyright` are claims about law;
+    /// without the instrument they are an opinion, and an appeal cannot test them.
+    #[must_use]
+    pub fn requires_legal_ground(self) -> bool {
+        matches!(self, Self::IllegalContent | Self::Copyright)
+    }
+}
+
+/// How long a decided notice stays appealable, in days.
+///
+/// Thirty is the DSA's *outer* bound for a platform's internal complaint handling, and storing the deadline rather than
+/// computing it at appeal time means changing the constant later cannot retroactively close a window a person was told
+/// about.
+pub const APPEAL_WINDOW_DAYS: i64 = 30;
+
 // ---------------------------------------------------------------------------
 // Tests
 // ---------------------------------------------------------------------------
@@ -195,5 +256,22 @@ mod tests {
         assert!(!is_independent_reviewer("acc_a", "acc_b", Some("acc_a")));
         assert!(is_independent_reviewer("acc_a", "acc_b", Some("acc_c")));
         assert!(is_independent_reviewer("acc_a", "acc_b", None));
+    }
+
+    #[test]
+    fn every_ground_round_trips_and_the_set_is_closed() {
+        for ground in StatementGround::ALL {
+            assert_eq!(StatementGround::parse(ground.as_str()), Some(ground), "{}", ground.as_str());
+        }
+        assert_eq!(StatementGround::parse("because_i_said_so"), None);
+        assert_eq!(StatementGround::ALL.len(), 4, "adding a ground is a reporting change, not a code change");
+    }
+
+    #[test]
+    fn the_lawful_grounds_demand_a_named_instrument() {
+        assert!(StatementGround::IllegalContent.requires_legal_ground());
+        assert!(StatementGround::Copyright.requires_legal_ground());
+        assert!(!StatementGround::Spam.requires_legal_ground());
+        assert!(!StatementGround::IncompatibleWithTerms.requires_legal_ground());
     }
 }

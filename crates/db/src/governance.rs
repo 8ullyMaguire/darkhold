@@ -2228,3 +2228,152 @@ mod timestamp_tests {
         assert_eq!(days_since("not a timestamp"), 0);
     }
 }
+
+/// A statement of reasons, as stored (M45-52).
+#[derive(Debug, Clone, PartialEq)]
+pub struct StatementOfReasons {
+    pub id: String,
+    pub task_id: String,
+    pub report_id: Option<String>,
+    pub outcome: String,
+    pub ground: String,
+    pub facts: String,
+    pub legal_ground: String,
+    pub decided_by: String,
+    pub decided_at: String,
+    pub appeal_until: String,
+}
+
+/// What a reviewer writes when they decide.
+pub struct NewStatement<'a> {
+    pub task_id: &'a str,
+    pub outcome: &'a str,
+    pub ground: &'a str,
+    pub facts: &'a str,
+    pub legal_ground: &'a str,
+    pub decided_by: &'a str,
+    pub appeal_until: &'a str,
+}
+
+/// Write the reasons for a decision.
+///
+/// One statement per task: a second decision on the same task is refused by the caller, because an appeal against "the
+/// reasons" must have exactly one document to point at.
+pub async fn write_statement(
+    db: &Database,
+    statement: &NewStatement<'_>,
+) -> Result<String, sqlx::Error> {
+    use sqlx::Row;
+    let id = uuid::Uuid::new_v4().to_string();
+    let now = crate::identity::now_rfc3339();
+    // The report is read here rather than passed in: a caller that could name a different report than the task's would be
+    // able to file reasons against the wrong notice.
+    match db.backend() {
+        Backend::Sqlite => {
+            let pool = db.sqlite_pool().expect("sqlite");
+            let report_id: Option<String> = sqlx::query("SELECT report_id FROM review_tasks WHERE id = ?")
+                .bind(statement.task_id)
+                .fetch_optional(pool)
+                .await?
+                .map(|row| row.try_get::<Option<String>, _>("report_id"))
+                .transpose()?
+                .flatten();
+            sqlx::query(
+                "INSERT INTO statement_of_reasons \
+                 (id, task_id, report_id, outcome, ground, facts, legal_ground, decided_by, decided_at, appeal_until) \
+                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+            )
+            .bind(&id)
+            .bind(statement.task_id)
+            .bind(&report_id)
+            .bind(statement.outcome)
+            .bind(statement.ground)
+            .bind(statement.facts)
+            .bind(statement.legal_ground)
+            .bind(statement.decided_by)
+            .bind(&now)
+            .bind(statement.appeal_until)
+            .execute(pool)
+            .await?;
+        }
+        Backend::Postgres => {
+            let pool = db.postgres_pool().expect("postgres");
+            let report_id: Option<String> = sqlx::query("SELECT report_id FROM review_tasks WHERE id = $1")
+                .bind(statement.task_id)
+                .fetch_optional(pool)
+                .await?
+                .map(|row| row.try_get::<Option<String>, _>("report_id"))
+                .transpose()?
+                .flatten();
+            sqlx::query(
+                "INSERT INTO statement_of_reasons \
+                 (id, task_id, report_id, outcome, ground, facts, legal_ground, decided_by, decided_at, appeal_until) \
+                 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)",
+            )
+            .bind(&id)
+            .bind(statement.task_id)
+            .bind(&report_id)
+            .bind(statement.outcome)
+            .bind(statement.ground)
+            .bind(statement.facts)
+            .bind(statement.legal_ground)
+            .bind(statement.decided_by)
+            .bind(&now)
+            .bind(statement.appeal_until)
+            .execute(pool)
+            .await?;
+        }
+    }
+    Ok(id)
+}
+
+/// The reasons for a task's decision, if one was written.
+pub async fn statement_for_task(
+    db: &Database,
+    task_id: &str,
+) -> Result<Option<StatementOfReasons>, sqlx::Error> {
+    use sqlx::Row;
+    let columns = "id, task_id, report_id, outcome, ground, facts, legal_ground, decided_by, decided_at, appeal_until";
+    match db.backend() {
+        Backend::Sqlite => {
+            let row = sqlx::query(&format!(
+                "SELECT {columns} FROM statement_of_reasons WHERE task_id = ? ORDER BY decided_at DESC LIMIT 1"
+            ))
+            .bind(task_id)
+            .fetch_optional(db.sqlite_pool().expect("sqlite"))
+            .await?;
+            Ok(row.map(|row| StatementOfReasons {
+                id: row.get("id"),
+                task_id: row.get("task_id"),
+                report_id: row.get("report_id"),
+                outcome: row.get("outcome"),
+                ground: row.get("ground"),
+                facts: row.get("facts"),
+                legal_ground: row.get("legal_ground"),
+                decided_by: row.get("decided_by"),
+                decided_at: row.get("decided_at"),
+                appeal_until: row.get("appeal_until"),
+            }))
+        }
+        Backend::Postgres => {
+            let row = sqlx::query(&format!(
+                "SELECT {columns} FROM statement_of_reasons WHERE task_id = $1 ORDER BY decided_at DESC LIMIT 1"
+            ))
+            .bind(task_id)
+            .fetch_optional(db.postgres_pool().expect("postgres"))
+            .await?;
+            Ok(row.map(|row| StatementOfReasons {
+                id: row.get("id"),
+                task_id: row.get("task_id"),
+                report_id: row.get("report_id"),
+                outcome: row.get("outcome"),
+                ground: row.get("ground"),
+                facts: row.get("facts"),
+                legal_ground: row.get("legal_ground"),
+                decided_by: row.get("decided_by"),
+                decided_at: row.get("decided_at"),
+                appeal_until: row.get("appeal_until"),
+            }))
+        }
+    }
+}

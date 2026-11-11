@@ -379,7 +379,13 @@ async fn confirm_spam_report(reporter: &mut Client, reviewer: &mut Client, targe
     let (status, body) = reviewer
         .post(
             &format!("/api/v1/moderation/tasks/{task_id}/decide"),
-            json!({ "outcome": "uphold" }),
+            // M45-52: a decision now carries its reasons. The outcome names the act; the ground, facts and (for a
+            // lawful ground) the instrument are what an appeal or a transparency report can read.
+            json!({
+                "outcome": "uphold",
+                "ground": "spam",
+                "facts": "Repeated unsolicited promotional posts, reported three times by different readers.",
+            }),
         )
         .await;
     assert_eq!(status, StatusCode::OK, "uphold the report: {status} {body}");

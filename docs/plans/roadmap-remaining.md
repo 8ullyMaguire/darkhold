@@ -130,6 +130,46 @@ work was acted on**: the notifier gets an answer, the author gets a sanction wit
 Steps 1–2 are one sitting and are the spine; 3 uses the notification machinery already in the tree; 6 is the only part
 that touches `submit_report`'s contract. The row is `planned` and this plan is the thing to implement from.
 
+## M45-52 steps 1–2 built and proved — 2026-11-11
+
+The spine of the row, and the half that makes the rest possible: **a decision now carries its reasons, or it is not a
+decision.**
+
+* **Migration `0208_statement_of_reasons`** (both dialects): `task_id`, `report_id`, `outcome`, `ground`, `facts`,
+  `legal_ground`, `decided_by`, `decided_at`, `appeal_until`. `ground` is a closed set in
+  `darkhold_domain::governance::StatementGround` — `illegal_content`, `incompatible_with_terms`, `spam`, `copyright` —
+  because Article 17 asks for the *category*, and a paragraph that contains the word "spam" is not one.
+  `requires_legal_ground()` marks the two grounds that are claims about law, so the instrument cannot be omitted.
+* **`APPEAL_WINDOW_DAYS = 30` lives beside the enum**, and the deadline is **stored** rather than derived: a window a
+  person was told about must not move when a constant does.
+* **`decide_task` refuses without reasons.** `DecideTaskBody` gained three fields that are `Option`-shaped at the type
+  level so the refusal is `422` **naming the field** (`ground`, then `facts`, then `legal_ground`) instead of serde's
+  anonymous "missing field". The reasons are validated *before* the decision is recorded, because decide-now-explain-
+  later is how a queue fills with decisions nobody can defend.
+* **Both the audit entry and the response carry the statement.** The response is
+  `{ok, statement_id, ground, appeal_until}`; the audit document records the ground and the statement id, so the log
+  and the explanation are the same fact.
+
+`crates/app/tests/m45_52_statement_of_reasons.rs` — **3/3 on SQLite and 3/3 on PostgreSQL**:
+
+| test | what it pins |
+|---|---|
+| a decision without a ground is refused naming the field | `422` with `error.field_errors.ground`, and **no statement row left behind** |
+| the statement written with the decision names the reviewer and the deadline | reviewer's own words verbatim, `decided_by` = the deciding account, one deadline reported and stored, and `appeal_until > decided_at` |
+| a lawful ground must name its instrument | `copyright` with no statute → `422` naming `legal_ground` |
+
+Three mutants, each reddening exactly one assertion: `ground` falling back to `spam` (`left: 200 / right: 422`),
+the lawful-ground check disabled (`left: 200 / right: 422`), and the window set to zero days (the deadline assertion).
+All reverted from `/tmp`, never `git checkout`.
+
+**The gate this row deliberately reddened:** `trust_demotion`'s helper called `decide` with `{"outcome":"uphold"}` only.
+It now sends ground and facts — that suite is 5/5 again, and the failure was the row working, not a regression.
+
+**Still planned — the named remainder:** (3) tell both sides through the existing notification machinery, (4) enforce
+`appeal_until` at `POST /appeals`, (5) `GET /statements/summary` as counts per ground and outcome, (6) the `dsa|dmca`
+discriminator with DMCA's four statutory elements. Steps 1–2 are the part the other four read from, which is why they
+came first.
+
 ## M71-13 measured — 2026-11-11 (two of three clauses built and tested)
 
 | clause | state | evidence |
