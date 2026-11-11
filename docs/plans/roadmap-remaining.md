@@ -191,6 +191,11 @@ checks, not five modules.
 
 ## M66 GS-1 built and proved — read before registering, and the gate comes first — 2026-11-11
 
+**Deployed 14:07** — `0.1.0+4ea4fb9a` at schema **0210**. Live: `POST /api/v1/auth/guest` with no body answers `422 VALIDATION_FAILED` — *"accept the current terms (version 1) before reading as a guest"* — with `field_errors.consent`, and `select count(*) from accounts where is_guest = 1` is still **0**, which is the assertion that matters: the refusal created nothing. `consents` exists (1 table), and `/api/v1/meta` publishes `content_policy.consent_required_for_guest = true`, so a frontend can render the interstitial from the instance rather than hard-coding it.
+
+**A merge nobody scheduled, caught before it deployed.** The thinkcentre checkout had one commit the workstation did not (`75319a06`, two new files: a seed-from-reading-list roadmap and its parser), and the workstation had two the checkout did not. The first deploy attempt silently built the *old* HEAD because `git fetch` failed on a transient DNS error and `--ff-only` then reported nothing to do — the log said `== head 75319a06` while I believed I was deploying GS-1. Caught by reading the head line in the log instead of the build finishing. Fixed by fetching, `git merge` (the two sides touched disjoint files), and a fetch-retry loop in the deploy script so a DNS blink cannot gate a release behind a stale HEAD.
+
+
 `census: WIRE` — the hard part was already in the tree and had no door.
 
 | already here | where |
