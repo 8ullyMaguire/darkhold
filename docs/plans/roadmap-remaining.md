@@ -79,16 +79,29 @@ taste lens is a row in that instance, so it inherits with it — no second succe
 So M45-45 has **one** remaining step, not two: the vote path (step 3). The ledger note is corrected to say so; the
 earlier "two halves remaining" was my reading of the note rather than of the code.
 
-### M45-45 doors — mounted, tabled, and answering 404 (measured 2026-11-11)
+### M45-45 doors — fixed and proved through HTTP, 2026-11-11
 
-`crates/app/src/routes/taste_proposals.rs` (open / read / vote) compiles, is merged at `server.rs:1251`, and
-`route_inventory` is 5/5. `GET` on `/api/v1/taste-proposals` answers **405** — the path is in the table with a POST — but
-a **POST answers 404 "page not found"**, and so does a vote. Three edits did not change it (write-class module mount;
-default-class mount beside `import_claims`; a disambiguated `/taste-proposals/open`), so the route is not the problem:
-the chain at 1251 is probably not the one `build_router` nests at `/api/v1` (claims mounts at 549, inside
-`account_routes`, which begins at 389 and is merged at 963). Recorded in `docs/known-gaps.md`; the next step is to read
-`build_router` 381→1494 and move the mount, not to try a fourth variation. The doors are **not** live until that is done.
+The open door was mounted at `/operator/taste-proposals`. `/operator/*` is a **nest**, and a nest owns its whole subtree:
+a route merged beside it at the outer level can never match, and the request falls to the fallback (`404 page not found`).
+That is why POST `/taste-proposals/{id}/vote` answered `401` (not under `/operator`) while POST `/taste-proposals`
+answered `404`. One cause, two symptoms, and the missing door was the one that had a prefix.
 
+All three doors now live at `/taste-proposals`, `/{id}` and `/{id}/vote`; the inventory rows moved with them
+(`route_inventory` 5/5).
+
+`crates/app/tests/m45_45_taste_proposals.rs` **4/4 on SQLite and 4/4 on PostgreSQL**:
+
+* a signed-in reader opening a proposal gets **404, not 403** — `require_estate_hidden` conceals the operator surface
+  (ADR 0003), and asserting 403 would demand that the instance disclose the door's existence;
+* an anonymous vote is `401`;
+* a second vote from one account replaces the first through the door (`(0, 1)`, not `(1, 1)`);
+* a due proposal is applied by the read, and the version's history says `cause = proposal:<id>`.
+
+Mutant: dropping `require_operator` turns the reader's `404` into `200` (red), restored from `/tmp`.
+
+**Lesson kept**: a `404` on a route you believe you mounted is a statement about the *mount level*, not the handler. Probe
+the same path with two methods first — `405` means registered-but-wrong-method, `404` means not registered where you think
+it is — before editing anything.
 ## M45-45 as measured — 2026-11-10 (`planned`, two thirds built, one half designed)
 
 The row is "taste as versioned blendable object with governance mode", and three of its four words are already true in the
