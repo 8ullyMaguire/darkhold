@@ -11,7 +11,44 @@ Two rules that decide the order:
 * **A row that gates other rows is taken as soon as its blocker clears.** Nine of the M64 rows read a snapshot built by
   M64-01..M64-03; taking them first would mean writing the same aggregation three times.
 
-##### M71-13 measured — 2026-11-11 (two of three clauses built and tested)
+##### M45-52 — DSA notice-and-action, measured and planned 2026-11-11
+
+What exists today, read rather than assumed: `routes/governance.rs` serves `POST /reports`, `GET /reports`,
+`GET /reports/{id}`, `GET /moderation/queue`, `POST /moderation/reports/{id}/assign` and
+`POST /moderation/tasks/{id}/decide`. The decision itself is `governance::decide_task(db, task_id, reviewer, outcome)` —
+an outcome string and an audit entry. There is **no ground, no statement of reasons, and no delivery to the person whose
+work was acted on**: the notifier gets an answer, the author gets a sanction with no explanation, and nothing records
+*why* in a form an appeal or a regulator could read.
+
+**What the row needs, in the order it can be checked:**
+
+1. **A decision carries a ground.** `statement_of_reasons(id, task_id, outcome, ground, facts, legal_ground, decided_by,
+   decided_at, appeal_until)` — migration `0208`. `ground` is a closed vocabulary (`illegal_content`,
+   `incompatible_with_terms`, `spam`, `copyright`), because Article 17 requires the *category*, and free text is not a
+   category. `facts` is the reviewer's one paragraph; `legal_ground` names the rule invoked.
+2. **The statement is written with the decision, not after it.** `decide_task` gains a required statement argument; a
+   decision without one is refused `422` naming `ground`. If it is optional, the queue will contain decisions with no
+   reason within a week.
+3. **Both sides are told.** The notifier receives the outcome and the statement id; the author receives the same
+   statement when their work is acted on. The existing notification machinery carries it; no second inbox.
+4. **An appeal window is a field, not a convention.** `appeal_until` is stored (`+30 days` default) and `POST
+   /appeals` refuses a notice after it, naming the deadline — the appeal door exists already (`open_appeal`).
+5. **A transparency log is a count, not a list.** `GET /statements/summary` returns counts per ground and per outcome,
+   the DSA's periodic report in miniature. No statement ids, no accounts: an aggregate that cannot be deanonymised.
+6. **DMCA intake stays separate.** A copyright notice has statutory elements (identification of the work, the
+   infringing material, a good-faith statement, a signature) that DSA notices do not; folding them into one form makes
+   one of the two non-compliant. `POST /reports` gains a `kind: dsa|dmca` discriminator and the DMCA arm validates its
+   own four elements.
+
+**Acceptance, per step:** (1) `a_decision_without_a_ground_is_refused_naming_the_field`; (2)
+`the_statement_written_with_the_decision_names_the_reviewer_and_the_deadline`; (3)
+`the_author_is_told_when_their_work_is_acted_on`; (4) `an_appeal_after_the_window_is_refused_naming_the_deadline`; (5)
+`the_summary_counts_grounds_and_never_names_an_account`; (6) `a_dmca_notice_missing_a_statutory_element_is_refused`.
+
+Steps 1–2 are one sitting and are the spine; 3 uses the notification machinery already in the tree; 6 is the only part
+that touches `submit_report`'s contract. The row is `planned` and this plan is the thing to implement from.
+
+## M71-13 measured — 2026-11-11 (two of three clauses built and tested)
 
 | clause | state | evidence |
 |---|---|---|
