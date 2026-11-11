@@ -260,6 +260,26 @@ instance, because an adapter valid at approval can be invalid after a schema cha
 the adapter is in the registry *and* that an import through it reaches a fixture page. Until that exists, "verified-e2e" was a claim about the
 store.
 
+## M63-25 half — the audit log takes a lower bound, and the row's own claim does not survive contact with the schema — 2026-11-11
+
+Taken while the deploy was blocked on host memory (the goal's "CLI tail when a deploy is blocking bigger rows"). **Shipped:** `since` (RFC 3339)
+and `limit` (1..200) on `GET /me/audit-log`, both echoed back.
+
+Two decisions inside that:
+
+- **The bound is normalised to second precision** (`identity::format_rfc3339`) before SQL sees it. `created_at` is second-precision by design, and
+  `2026-11-05T00:00:00.500Z` compares *before* `2026-11-05T00:00:00Z` as text — a fraction would silently exclude the entry it names.
+- **A non-timestamp bound is `422` naming the format, not ignored.** Ignoring it answers a different question than the one asked, and a reader
+  who typed `--since 7d` at the HTTP layer deserves to learn where the duration belongs.
+
+`my_audit_log_takes_a_lower_bound_and_normalises_a_fraction_to_the_column` **1/1 both engines**; mutant flips the comparison to `<=` and the list
+comes back `[middle, old]`.
+
+**The row stays `planned`, for a measured reason.** Its words are "the account owner sees **every write their tokens made**" — and `audit_log` has
+no token column. The store scopes by `actor`, which is the human. So the surface can honestly say *what your account did*, and cannot say *what
+this token did*. That needs the write path to record which credential was used; until then the attribution half is unbuilt and named here rather
+than papered over with a `dh audit` verb that would imply it.
+
 ## M70-13 ratchet pass 7 — 32 → 31, a duplicate that always answered `{}` — 2026-11-11
 
 `instance_theme::compute_theme_from_bookmarks` computed the instance's own theme vector and nothing called it. Its own doc comment recorded the

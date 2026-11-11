@@ -543,3 +543,117 @@ async fn get_report_requires_authentication() {
     );
     harness.cleanup().await;
 }
+
+// ---------------------------------------------------------------------------
+// M63-25's server half: `since` on the reader's own audit log
+// ---------------------------------------------------------------------------
+
+/// `GET /me/audit-log?since=` — the lower bound `dh audit --since 7d` needs.
+///
+/// **Why a bound and not a bigger page.** "What did my tokens do this week" is not "the newest fifty entries": a quiet account's week falls off
+/// the end of a fixed page, and a busy one's page covers an hour. The bound is compared against `created_at`, which this schema stores at second
+/// precision (`identity::format_rfc3339` truncates on purpose), so a caller passing a fraction must not accidentally exclude the entry they meant —
+/// the route normalises the bound to the shape the column holds, and this test pins that.
+#[tokio::test]
+async fn my_audit_log_takes_a_lower_bound_and_normalises_a_fraction_to_the_column() {
+    let harness = Harness::new("audit-log-since").await;
+    let mut user = harness.client();
+    let (account, _) = register(&mut user, "since@example.com", "SinceUser").await;
+
+    for (action, at) in [
+        ("old.action", "2026-11-01T00:00:00Z"),
+        ("middle.action", "2026-11-05T00:00:00Z"),
+        ("new.action", "2026-11-10T00:00:00Z"),
+    ] {
+        darkhold_db::governance::audit_append(
+            harness.tdb.db(),
+            &darkhold_db::governance::AuditEntry {
+                actor: &account,
+                actor_pseud: None,
+                reason: None,
+                action,
+                subject_type: "work",
+                subject_id: "w-1",
+                document: &serde_json::json!({ "detail": action }).to_string(),
+            },
+        )
+        .await
+        .expect("seed");
+        let sql = match harness.tdb.db().backend() {
+            darkhold_db::Backend::Sqlite => "UPDATE audit_log SET created_at = ?1 WHERE action = ?2",
+            darkhold_db::Backend::Postgres => "UPDATE audit_log SET created_at = $1 WHERE action = $2",
+        };
+        // The query is built inside each arm rather than before the match: a `Query` is parameterised by its database, so one built once
+        // would have to be typed to whichever arm was written first — which is how this failed to compile the first time.
+        match harness.tdb.db().backend() {
+            darkhold_db::Backend::Sqlite => {
+                sqlx::query(sql)
+                    .bind(at)
+                    .bind(action)
+                    .execute(harness.tdb.db().sqlite_pool().expect("sqlite"))
+                    .await
+                    .expect("set time");
+            }
+            darkhold_db::Backend::Postgres => {
+                sqlx::query(sql)
+                    .bind(at)
+                    .bind(action)
+                    .execute(harness.tdb.db().postgres_pool().expect("postgres"))
+                    .await
+                    .expect("set time");
+            }
+        }
+    }
+
+    let (status, body) = user
+        .get("/api/v1/me/audit-log?since=2026-11-05T00:00:00Z")
+        .await;
+    assert_eq!(status, StatusCode::OK, "{body}");
+    let actions: Vec<&str> = body["items"]
+        .as_array()
+        .expect("items")
+        .iter()
+        .filter_map(|item| item["action"].as_str())
+        .collect();
+    assert_eq!(
+        actions,
+        vec!["new.action", "middle.action"],
+        "the bound includes its own instant and excludes everything before it: {body}"
+    );
+
+    // A fraction is normalised rather than compared digit-by-digit against a second-precision column: `00:00:00.500` must not exclude the
+    // entry recorded at `00:00:00`.
+    let (status, fraction) = user
+        .get("/api/v1/me/audit-log?since=2026-11-05T00:00:00.500Z")
+        .await;
+    assert_eq!(status, StatusCode::OK, "{fraction}");
+    assert_eq!(
+        fraction["since"], "2026-11-05T00:00:00Z",
+        "the bound is echoed back in the shape the column holds: {fraction}"
+    );
+    assert_eq!(
+        fraction["items"].as_array().expect("items").len(),
+        2,
+        "an entry at the same second is still inside the bound: {fraction}"
+    );
+
+    // `limit` clamps and pages newest-first, so a caller asking for one gets the newest and not the oldest.
+    let (status, one) = user.get("/api/v1/me/audit-log?limit=1").await;
+    assert_eq!(status, StatusCode::OK, "{one}");
+    assert_eq!(one["items"].as_array().expect("items").len(), 1, "{one}");
+    assert_eq!(one["items"][0]["action"], "new.action", "{one}");
+
+    // A bound that is not a timestamp is refused by name rather than silently ignored — ignoring it would answer a different question than
+    // the one asked, which is the failure mode a query parameter like this has.
+    let (status, bad) = user.get("/api/v1/me/audit-log?since=7d").await;
+    assert_eq!(status, StatusCode::UNPROCESSABLE_ENTITY, "{bad}");
+    assert!(
+        bad["error"]["message"]
+            .as_str()
+            .unwrap_or_default()
+            .contains("RFC 3339"),
+        "the refusal says what shape it wants: {bad}"
+    );
+
+    harness.cleanup().await;
+}

@@ -2228,12 +2228,17 @@ pub async fn list_appeals(db: &Database, account: &str) -> Result<Vec<Value>, sq
 pub async fn list_audit_log(
     db: &Database,
     account_id: &str,
+    since: Option<&str>,
     limit: i64,
 ) -> Result<Vec<Value>, sqlx::Error> {
     match db.backend() {
         Backend::Sqlite => {
-            let rows = sqlx::query("SELECT id, actor, action, subject_type, subject_id, document, created_at FROM audit_log WHERE actor = ? ORDER BY created_at DESC LIMIT ?")
+            let rows = sqlx::query("SELECT id, actor, action, subject_type, subject_id, document, created_at FROM audit_log WHERE actor = ? AND (? IS NULL OR created_at >= ?) ORDER BY created_at DESC LIMIT ?")
                 .bind(account_id)
+                // Bound twice on purpose: `?1 IS NULL OR created_at >= ?1` needs the value in both halves, and SQLite's unnamed
+                // placeholder numbering makes that two binds rather than one.
+                .bind(since)
+                .bind(since)
                 .bind(limit)
                 .fetch_all(db.sqlite_pool().expect("sqlite"))
                 .await?;
@@ -2258,8 +2263,11 @@ pub async fn list_audit_log(
             // the column is cast to text on that side only -- otherwise
             // `r.get::<String>("document")` is a decode error and the whole audit
             // trail 500s. The write side already binds a `Value` into JSONB.
-            let rows = sqlx::query("SELECT id, actor, action, subject_type, subject_id, document::text AS document, created_at FROM audit_log WHERE actor = $1 ORDER BY created_at DESC LIMIT $2")
+            let rows = sqlx::query("SELECT id, actor, action, subject_type, subject_id, document::text AS document, created_at FROM audit_log WHERE actor = $1 AND ($2::text IS NULL OR created_at >= $2::text) ORDER BY created_at DESC LIMIT $3")
                 .bind(account_id)
+                // `$2::text` in both halves: an untyped NULL parameter leaves PostgreSQL unable to infer the type of the comparison, and
+                // the cast is what makes "no lower bound" a legal query rather than a runtime error.
+                .bind(since)
                 .bind(limit)
                 .fetch_all(db.postgres_pool().expect("postgres"))
                 .await?;

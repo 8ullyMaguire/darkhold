@@ -1122,12 +1122,44 @@ async fn my_trust(
 async fn my_audit_log(
     State(state): State<AppState>,
     RequireSession(user): RequireSession,
+    axum::extract::Query(params): axum::extract::Query<AuditQuery>,
 ) -> ApiResult<Json<Value>> {
-    let items =
-        darkhold_db::governance::list_audit_log(state.db(), &user.account_id.to_string(), 50)
-            .await
-            .map_err(|e| ApiError(darkhold_domain::AppError::Internal(e.into())))?;
-    Ok(Json(json!({ "items": items })))
+    // `since` is the half `dh audit --since 7d` needs (M63-25): without it a reader can only ask "the last fifty things", which is not the
+    // question "what did my tokens do this week" — a week of quiet weeks falls off the end of a fixed page.
+    let since = match params.since.as_deref() {
+        None => None,
+        Some(text) => {
+            let at = time::OffsetDateTime::parse(text, &time::format_description::well_known::Rfc3339)
+                .map_err(|_| {
+                    ApiError(darkhold_domain::AppError::Validation {
+                        message: "`since` must be an RFC 3339 timestamp, for example 2026-11-04T00:00:00Z".to_owned(),
+                        field_errors: Default::default(),
+                    })
+                })?;
+            // The column is second precision (`identity::format_rfc3339` truncates deliberately), and a caller's `.123456` fraction would
+            // compare digit-by-digit against it — so the bound is normalised to the shape the column actually holds.
+            Some(darkhold_db::identity::format_rfc3339(at))
+        }
+    };
+    let limit = params.limit.unwrap_or(50).clamp(1, 200);
+    let items = darkhold_db::governance::list_audit_log(
+        state.db(),
+        &user.account_id.to_string(),
+        since.as_deref(),
+        limit,
+    )
+    .await
+    .map_err(|e| ApiError(darkhold_domain::AppError::Internal(e.into())))?;
+    Ok(Json(json!({ "items": items, "since": since, "limit": limit })))
+}
+
+/// Paging and filtering for your own audit log.
+#[derive(Debug, serde::Deserialize)]
+pub struct AuditQuery {
+    /// RFC 3339 lower bound. Absent means the newest `limit` entries whatever their age.
+    since: Option<String>,
+    /// How many, at most. 1..200, default 50.
+    limit: Option<i64>,
 }
 
 #[cfg(test)]
