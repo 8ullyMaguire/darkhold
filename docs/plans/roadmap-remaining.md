@@ -240,6 +240,23 @@ they are not what a stranger sees, and their own room rules already apply.
 `m69_15_membership_gate` — **6/6 SQLite and 6/6 PostgreSQL**. Mutants: the works guard removed → two tests fail `201` vs
 `422`; the comment guard removed → the comment is accepted.
 
+## M70-13 ratchet pass 3 — 36 → 35, and this one was a wire — 2026-11-11
+
+`governance::statement_for_task` had existed since M45-52 step 1 and was reached only by tests. Step 3 notified the author with their facts, the
+ground and the deadline — but a notification is a line in an inbox, and someone who wants to re-read the decision **before appealing** had
+nowhere to go. It is now `GET /api/v1/statements/{task}` (Authenticated): the affected author, the reporter and an operator may read it;
+everyone else gets `404`, not `403`, because whether a statement exists about a particular account is itself the information that door would leak.
+Entitlement resolves the subject exactly as the notifier does (account directly, work via `work_owner_account`), so the door and the notification
+cannot disagree about who the decision concerns.
+
+`m45_52_statement_of_reasons` **9/9 SQLite** and the new case on PostgreSQL. Mutant: the entitlement check forced false → the stranger case
+fails (`200` where `404` was required).
+
+**A suite flake found on the way, and it was not the door:** running the whole file, three cases failed at register/login with `429`. The
+rate-limit buckets are process-global at `127.0.0.1`, and nine parallel cases exhaust the development defaults; the harness now raises the three
+quotas the way `decision_audit_routes` does, with the reason written beside it. Before the raise: 5/9. After: 9/9. A 429 during a test run reads
+exactly like an auth bug you just introduced.
+
 ## M70-13 ratchet pass 2 — 37 → 36, and the test-only category — 2026-11-11
 
 Deleted `recommendation_slots::list_response_slots` (45 lines). Its own doc comment named the mechanism that replaced it — "used by the discovery

@@ -68,6 +68,8 @@ fn routes() -> Router<AppState> {
         // M45-52 step 5: the transparency report in miniature. Counts per ground and outcome, nothing that can be
         // deanonymised — a cell below the threshold is suppressed, not rounded into a lie.
         .route("/statements/summary", get(statements_summary))
+        // M45-52 / M70-13: the statement itself, to the person it is about. The summary is a public count; this is the notice.
+        .route("/statements/{task}", get(statement_for_task_route))
         .route("/sanctions", post(issue_sanction))
         // Two-phase for the IRREVERSIBLE case (capability ledger 3.4): filing creates a pending
         // case and changes nothing, executing applies it. Ported from gravity's
@@ -1179,4 +1181,70 @@ mod submit_report_tests {
             );
         }
     }
+}
+
+/// The statement of reasons for one decision, to the person it concerns.
+///
+/// **Why this door exists at all.** M45-52 step 3 sent the author a notification naming their facts, the ground and the appeal deadline,
+/// which is the minimum the DSA asks for — but a notification is a line in an inbox, and a recipient who wants to re-read the decision before
+/// appealing had nowhere to go. `governance::statement_for_task` has existed since step 1 and was reached by nothing but tests; it was on the
+/// M70-13 baseline, and it is the honest kind of entry there: a reader-facing surface with no reader-facing door.
+///
+/// **Who may read it.** The affected author, the reporter, and an operator. Everyone else gets `404`, not `403`: whether a statement exists
+/// about a particular account is itself information, and this is the door that would leak it.
+pub async fn statement_for_task_route(
+    State(state): State<AppState>,
+    RequireSession(session): RequireSession,
+    Path(task): Path<String>,
+) -> ApiResult<Json<Value>> {
+    let Some(statement) = darkhold_db::governance::statement_for_task(state.db(), &task)
+        .await
+        .map_err(|error| ApiError(AppError::Internal(error.into())))?
+    else {
+        return Err(ApiError(AppError::NotFound {
+            resource: "statement",
+        }));
+    };
+
+    let caller = session.account_id.to_string();
+    let mut entitled = crate::routes::admin_scope::holds_estate_claim(&state, &session);
+    if !entitled {
+        if let Some(report_id) = statement.report_id.as_deref() {
+            if let Some((subject_type, subject_id, reporter)) =
+                darkhold_db::governance::report_subject(state.db(), report_id)
+                    .await
+                    .map_err(|error| ApiError(AppError::Internal(error.into())))?
+            {
+                if reporter == caller {
+                    entitled = true;
+                }
+                let author = if subject_type == "work" {
+                    darkhold_db::governance::work_owner_account(state.db(), &subject_id)
+                        .await
+                        .map_err(|error| ApiError(AppError::Internal(error.into())))?
+                } else {
+                    Some(subject_id)
+                };
+                if author.as_deref() == Some(caller.as_str()) {
+                    entitled = true;
+                }
+            }
+        }
+    }
+    if !entitled {
+        return Err(ApiError(AppError::NotFound {
+            resource: "statement",
+        }));
+    }
+
+    Ok(Json(json!({
+        "id": statement.id,
+        "task_id": statement.task_id,
+        "outcome": statement.outcome,
+        "ground": statement.ground,
+        "facts": statement.facts,
+        "legal_ground": statement.legal_ground,
+        "decided_at": statement.decided_at,
+        "appeal_until": statement.appeal_until,
+    })))
 }

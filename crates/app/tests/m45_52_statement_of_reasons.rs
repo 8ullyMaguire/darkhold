@@ -38,6 +38,20 @@ fn scratch_dir(tag: &str) -> PathBuf {
 
 fn config_for(dir: &Path) -> Config {
     let mut config = Config::development_defaults();
+    // The rate-limit buckets are process-global at 127.0.0.1, so with nine tests registering and signing in at once the development
+    // defaults are exhausted by neighbouring cases and a register answers 429 — which reads as a broken suite rather than a busy one.
+    config.rate_limits.auth = darkhold_app::limiter::Quota {
+        burst: 1000,
+        per_minute: 6000,
+    };
+    config.rate_limits.write = darkhold_app::limiter::Quota {
+        burst: 1000,
+        per_minute: 6000,
+    };
+    config.rate_limits.default = darkhold_app::limiter::Quota {
+        burst: 1000,
+        per_minute: 6000,
+    };
     config.storage.root = dir.to_path_buf();
     config.database = match std::env::var("DARKHOLD_TEST_PG_URL") {
         Ok(url) if !url.is_empty() => DatabaseConfig::new(url),
@@ -669,4 +683,69 @@ async fn a_dmca_notice_missing_a_statutory_element_is_refused() {
         status == StatusCode::OK || status == StatusCode::CREATED,
         "a DSA notice is unchanged by the DMCA arm: {status} {body}"
     );
+}
+
+/// **The door the author was missing.** Step 3 told them about the decision in a notification; this is where they can re-read it before
+/// appealing, and a stranger learns only that no statement exists.
+#[tokio::test]
+async fn the_person_the_decision_is_about_can_read_the_statement() {
+    let harness = Harness::new("readdoor").await;
+    let (mut reviewer, task_id, _reviewer_account, target) =
+        harness.assigned_task_with_target("readdoor").await;
+
+    let (status, body) = reviewer
+        .post(
+            &format!("/api/v1/moderation/tasks/{task_id}/decide"),
+            json!({
+                "outcome": "uphold",
+                "ground": "spam",
+                "facts": "Six identical promotional replies within one hour.",
+            }),
+        )
+        .await;
+    assert_eq!(status, StatusCode::OK, "decide with reasons: {status} {body}");
+    let appeal_until = body["appeal_until"].as_str().expect("deadline").to_owned();
+
+    // The affected account signs in and reads what was decided about them.
+    let mut subject = harness.client();
+    let (status, login) = subject
+        .request(
+            "POST",
+            "/api/v1/auth/login",
+            Some(json!({ "email": "readdoor-target@example.test", "password": PASSWORD })),
+        )
+        .await;
+    assert_eq!(status, StatusCode::OK, "the subject signs in: {login}");
+
+    let (status, statement) = subject.get(&format!("/api/v1/statements/{task_id}")).await;
+    assert_eq!(status, StatusCode::OK, "{statement}");
+    assert_eq!(statement["ground"], "spam", "{statement}");
+    assert_eq!(statement["outcome"], "uphold", "{statement}");
+    assert_eq!(
+        statement["appeal_until"], appeal_until,
+        "the deadline they must act on is in the notice they can re-read: {statement}"
+    );
+    assert!(
+        statement["facts"]
+            .as_str()
+            .unwrap_or_default()
+            .contains("identical promotional replies"),
+        "{statement}"
+    );
+
+    // A stranger gets 404, not 403: whether a statement exists about an account is information.
+    let mut stranger = harness.client();
+    stranger.register("readdoor-stranger@example.test", "Stranger").await;
+    let (status, refused) = stranger.get(&format!("/api/v1/statements/{task_id}")).await;
+    assert_eq!(status, StatusCode::NOT_FOUND, "{refused}");
+    assert!(
+        refused["error"]["message"]
+            .as_str()
+            .or_else(|| refused["error"]["code"].as_str())
+            .unwrap_or_default()
+            .to_lowercase()
+            .contains("not"),
+        "and the refusal is the same shape as a statement that does not exist: {refused}"
+    );
+    let _ = target;
 }

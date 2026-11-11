@@ -3568,6 +3568,13 @@ pub const ROUTE_TABLE: &[RouteEntry] = &[
     },
     RouteEntry {
         file: "governance.rs",
+        handler: "statement_for_task_route",
+        method: "GET",
+        path: "/statements/{task}",
+        audience: Audience::Authenticated,
+    },
+    RouteEntry {
+        file: "governance.rs",
         handler: "statements_summary",
         method: "GET",
         path: "/statements/summary",
