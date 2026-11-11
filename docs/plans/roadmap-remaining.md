@@ -189,6 +189,40 @@ signed skew, the API-line comparison, and that a warning is not a failure (`3/3`
 resolve" after the first already said "nothing answered" is two rows for one fact. The row's list is answered by five
 checks, not five modules.
 
+## M69-15's gate reached a door — publishing, and only publishing — 2026-11-11
+
+The rule had no caller, so nothing was gated. It has one now, and the choice of *which* door is the record:
+
+* **`POST /works` refuses, and rating does not.** A probation on ratings would be a gate nobody can graduate from, because
+  rating is how the floor is reached. Publishing is the act a taste gate is actually about: a newcomer may read and may
+  rate, and may not put work in front of strangers until the floor is met.
+* **The refusal is `422` with `field_errors.membership`.** `AppError` has no variant that pairs a `403` with field detail,
+  and a reader told "access denied" learns nothing. `"rate 3 more work(s) to finish probation; the window closes in 14
+  day(s)"` is the whole point of the row's "so it is written with its exits". If a `403`-with-fields variant appears later,
+  `membership::refusal()` is the one place that changes.
+* **`GET /auth/membership` tells the reader where they stand** — `full`/`probation`/`redirect`, the floor, the population,
+  days left, samples needed, and the passport link for a lapsed account. A gate a person cannot see is a gate they cannot
+  finish.
+* **Off means free.** `evaluate()` returns before any query when `membership_probation` is false: an instance that does not
+  use the feature pays one comparison, not a rating count per publish.
+
+Store: `membership_facts` (age through the existing tenure parser, `taste_samples` = the reader's undeleted ratings,
+`grandfathered` = `created_at < membership_grandfather_before`) and `reader_population` (active, **non-guest** accounts —
+counting guests would let the gate satisfy itself).
+
+`m69_15_membership_gate` — **4/4 SQLite and 4/4 PostgreSQL**: off publishes as before and reports `gate_off`; on probation the
+publish is `422` naming `3 more work(s)` and the standing reports `samples_needed: 3, days_left: 14`; after three ratings the
+publish is `201` and the standing says `graduated`, no restart; an account older than the cutoff publishes and reports
+`grandfathered`. Mutant: the guard removed → both probation tests fail `201` vs `422`.
+
+**Two faults found by running the thing.** `accounts.is_guest` is an **INTEGER** on PostgreSQL — unlike `bookmarks.is_public`,
+which is a boolean — so `is_guest = FALSE` was a `500 operator does not exist: bigint = boolean` on every gated request, and
+SQLite could not see it. And `route_inventory` caught that `/auth/guest` had **never been tabled** since GS-1: adding a
+sibling route is what exposed it. Both rows are in `ROUTE_TABLE`; the suite is 5/5.
+
+Still missing, and the row stays `planned`: the other write doors (comments, forum posts) are ungated, so "new readers get a
+probation" is true of publishing and not yet of the rest.
+
 ## M69-15 half built — the membership rule and its switches, with no door enforcing it yet — 2026-11-11
 
 **census: REUSE nothing, and the near-hit is a word collision.** `probation` appears four times in `tessera` — and it is a

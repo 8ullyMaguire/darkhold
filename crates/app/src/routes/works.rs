@@ -534,6 +534,13 @@ async fn create_work(
 ) -> ApiResult<(StatusCode, Json<AuthorWorkView>)> {
     let pseud = acting_pseud(&user)?;
     require_participation(&user)?;
+    // **M69-15, one door.** Publishing is the act the gate is for: a reader on probation may read and rate — rating is how
+    // the floor is reached — but may not put work in front of strangers until it is met. The other write doors are named as
+    // the remaining half in the ledger rather than silently unguarded.
+    crate::membership::evaluate(&state, &user.account_id.to_string())
+        .await?
+        .refusal()
+        .map_or(Ok(()), Err)?;
 
     let title = validate_title(request.title.as_deref().unwrap_or(""), false)?;
     // **The discussion mode is the instance's**, applied when the work is

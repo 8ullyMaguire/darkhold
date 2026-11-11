@@ -322,6 +322,23 @@ pub const ROUTE_TABLE: &[RouteEntry] = &[
         path: "/auth/me",
         audience: Audience::Authenticated,
     },
+    // M66 GS-1: the guest door. Registered since that row and missing from this table until now — which is exactly the
+    // drift this gate exists to catch, and it was only found because M69-15 added a sibling route.
+    RouteEntry {
+        file: "auth.rs",
+        handler: "guest",
+        method: "POST",
+        path: "/auth/guest",
+        audience: Audience::Public,
+    },
+    // M69-15: the reader's own membership standing, so a probation is visible to the person it applies to.
+    RouteEntry {
+        file: "auth.rs",
+        handler: "membership_standing",
+        method: "GET",
+        path: "/auth/membership",
+        audience: Audience::Authenticated,
+    },
     // ------------------------------------------------------------------
     // Pseudonyms — public reads, session-scoped writes
     // ------------------------------------------------------------------

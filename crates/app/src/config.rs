@@ -1362,6 +1362,10 @@ pub struct GovernanceConfig {
     pub membership_floor_base: i64,
     /// `governance.membership_floor_per_thousand` — how much the floor rises per thousand readers beyond it.
     pub membership_floor_per_thousand: i64,
+    /// `governance.membership_grandfather_before` — accounts created before this instant are full members, whatever the
+    /// gate says. `None` grandfathers nobody, which is the only safe default: the gate is off by default anyway, and a
+    /// gate switched on without a cutoff would put the whole existing membership on probation.
+    pub membership_grandfather_before: Option<String>,
 }
 
 impl Default for GovernanceConfig {
@@ -1380,6 +1384,7 @@ impl Default for GovernanceConfig {
             membership_grace_days: 30,
             membership_floor_base: 3,
             membership_floor_per_thousand: 2,
+            membership_grandfather_before: None,
         }
     }
 }
@@ -4156,6 +4161,10 @@ impl Config {
                     membership_floor_per_thousand: g
                         .membership_floor_per_thousand
                         .unwrap_or(base.membership_floor_per_thousand),
+                    membership_grandfather_before: g
+                        .membership_grandfather_before
+                        .clone()
+                        .or_else(|| base.membership_grandfather_before.clone()),
                     jury_size: g.jury_size.unwrap_or(base.jury_size),
                     jury_min_level: g.jury_min_level.unwrap_or(base.jury_min_level),
                     jury_elastic_min: g.jury_elastic_min.unwrap_or(base.jury_elastic_min),
@@ -5062,6 +5071,7 @@ struct GovernanceSection {
     membership_grace_days: Option<i64>,
     membership_floor_base: Option<i64>,
     membership_floor_per_thousand: Option<i64>,
+    membership_grandfather_before: Option<String>,
     jury_size: Option<i64>,
     jury_min_level: Option<i64>,
     jury_elastic_min: Option<i64>,

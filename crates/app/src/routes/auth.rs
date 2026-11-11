@@ -62,6 +62,9 @@ pub fn router() -> Router<AppState> {
         .route("/auth/sessions/revoke-all", post(revoke_all_sessions))
         .route("/auth/sessions/{id}", delete(revoke_session))
         .route("/auth/me", get(me))
+        // M69-15: the reader's own standing, with the numbers that produced it, so a probation is something a person can
+        // see and finish rather than a door that refuses without explanation.
+        .route("/auth/membership", get(membership_standing))
         // W2: sign in with Polaris. Same module class, so the auth rate limit and the module gate apply.
         .merge(super::oidc::router())
 }
@@ -1399,4 +1402,13 @@ mod tests {
         assert_eq!(describe_device(None), "Unknown device");
         assert_eq!(describe_device(Some("   ")), "Unknown device");
     }
+}
+
+/// `GET /auth/membership` — where this reader stands under the membership gate (M69-15).
+async fn membership_standing(
+    State(state): State<AppState>,
+    RequireSession(user): RequireSession,
+) -> ApiResult<Json<serde_json::Value>> {
+    let membership = crate::membership::evaluate(&state, &user.account_id.to_string()).await?;
+    Ok(Json(membership.view()))
 }

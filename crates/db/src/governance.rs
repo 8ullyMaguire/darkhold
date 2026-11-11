@@ -82,6 +82,100 @@ pub async fn evidence_for(
     })
 }
 
+/// What the membership gate needs to know about one reader (M69-15).
+///
+/// Three facts, one round of queries: the age the probation clock runs on, the taste samples the floor is measured against,
+/// and whether the account predates the gate. `grandfather_before` is an instant (`governance.membership_grandfather_before`):
+/// an account created before it is a full member, whatever its level, because a gate that appears one morning must not put
+/// the current membership on probation.
+pub async fn membership_facts(
+    db: &Database,
+    account: &str,
+    grandfather_before: Option<&str>,
+) -> Result<darkhold_domain::membership::ReaderFacts, sqlx::Error> {
+    let age_days = tenure_days(db, account).await?;
+    let sql = db.sql(
+        "SELECT COUNT(*) FROM rating WHERE account_id = ? AND deleted_at IS NULL",
+        "SELECT COUNT(*) FROM rating WHERE account_id = $1::uuid AND deleted_at IS NULL",
+    );
+    let samples: (i64,) = match db.backend() {
+        Backend::Sqlite => {
+            sqlx::query_as(&sql)
+                .bind(account)
+                .fetch_one(db.sqlite_pool().expect("sqlite handle"))
+                .await?
+        }
+        Backend::Postgres => {
+            sqlx::query_as(&sql)
+                .bind(account)
+                .fetch_one(db.postgres_pool().expect("postgres handle"))
+                .await?
+        }
+    };
+    let grandfathered = match grandfather_before {
+        None => false,
+        Some(cutoff) => {
+            let created = db.sql(
+                "SELECT created_at FROM accounts WHERE id = ?",
+                "SELECT created_at FROM accounts WHERE id = ?::uuid",
+            );
+            let row: Option<(String,)> = match db.backend() {
+                Backend::Sqlite => {
+                    sqlx::query_as(&created)
+                        .bind(account)
+                        .fetch_optional(db.sqlite_pool().expect("sqlite handle"))
+                        .await?
+                }
+                Backend::Postgres => {
+                    sqlx::query_as(&created)
+                        .bind(account)
+                        .fetch_optional(db.postgres_pool().expect("postgres handle"))
+                        .await?
+                }
+            };
+            match row.and_then(|(created,)| parse_timestamp(&created)) {
+                Some(created) => match parse_timestamp(cutoff) {
+                    Some(cutoff) => created < cutoff,
+                    None => false,
+                },
+                None => false,
+            }
+        }
+    };
+    Ok(darkhold_domain::membership::ReaderFacts {
+        age_days,
+        taste_samples: samples.0,
+        grandfathered,
+    })
+}
+
+/// How many readers the instance has, which is what the floor rises with.
+///
+/// Guests are not readers for this purpose: they are placeholders a visitor may abandon, and counting them would let the
+/// gate satisfy itself by minting guests.
+pub async fn reader_population(db: &Database) -> Result<i64, sqlx::Error> {
+    let sql = db.sql(
+        "SELECT COUNT(*) FROM accounts WHERE status = 'active' AND is_guest = 0",
+        // `accounts.is_guest` is an INTEGER on PostgreSQL (unlike `bookmarks.is_public`, which is a BOOLEAN), so this is
+        // `= 0` on both engines: written as `FALSE` first, it fails at runtime with "operator does not exist: bigint =
+        // boolean" — a 500 that the SQLite run cannot see.
+        "SELECT COUNT(*) FROM accounts WHERE status = 'active' AND is_guest = 0",
+    );
+    let count: (i64,) = match db.backend() {
+        Backend::Sqlite => {
+            sqlx::query_as(&sql)
+                .fetch_one(db.sqlite_pool().expect("sqlite handle"))
+                .await?
+        }
+        Backend::Postgres => {
+            sqlx::query_as(&sql)
+                .fetch_one(db.postgres_pool().expect("postgres handle"))
+                .await?
+        }
+    };
+    Ok(count.0)
+}
+
 /// Days since the account was created.
 async fn tenure_days(db: &Database, account: &str) -> Result<i64, sqlx::Error> {
     // `created_at` does not arrive as the RFC 3339 text the store writes elsewhere: on PostgreSQL it comes back in the
