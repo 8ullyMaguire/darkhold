@@ -130,6 +130,41 @@ work was acted on**: the notifier gets an answer, the author gets a sanction wit
 Steps 1–2 are one sitting and are the spine; 3 uses the notification machinery already in the tree; 6 is the only part
 that touches `submit_report`'s contract. The row is `planned` and this plan is the thing to implement from.
 
+## M45-55 built and proved — 2026-11-11
+
+`census: BUILD` — the vocabulary (`dsar`, `subject access`, notice templates) appears in this repo and in
+`darkhold-roadmap`, in **no sibling checkout**; and inside here the assembler already existed: `GET /me/data`
+(M45-51) builds a reader's own copy from `db::erasure::subject_data`. So the row is composition, not construction —
+the operator's half, the forms, and the templates — and it reuses that assembler rather than writing a second one.
+
+Three doors in `crates/app/src/routes/compliance.rs` (module `compliance_tooling`, `default_on`):
+
+* **`GET /notices/forms`** — public, because a complainant needs the form before they have an account, and a form behind a
+  sign-in is a form most complainants never fill in. It serves the two regimes as **data**: the DSA's Article 16 notice,
+  and the DMCA's four statutory elements. A frontend rendering from its own copy is a second declaration of the same
+  contract, and it drifts the first time one side adds a field — with the failure landing on a complainant whose notice is
+  refused for a field the UI never asked for.
+* **`GET /statements/templates`** — operator-only (`ResolveReports`). One template per ground, walked from
+  `StatementGround::ALL`, so **a new ground cannot ship without prose**: the unit test fails if any ground has no template
+  or a template has no `{facts}`, and `placeholders` reports `legal_ground` exactly for the two grounds that are claims
+  about law.
+* **`GET /admin/subjects/{account}/data`** — the operator's read, which `routes/erasure.rs`'s module doc had explicitly
+  deferred here. It **requires `?basis=`** from a closed set (`legal_obligation`, `legal_claim`, `vital_interests`,
+  `consent`), refuses `422` naming `basis` otherwise, and **writes an audit entry on every successful read** — a read that
+  cannot be recorded refuses the disclosure rather than answering it silently. The response is a **document**: the same
+  body shape as the reader's own copy, sent with `Content-Disposition: attachment; filename="dsar-<account>-<date>.json"`,
+  because a subject-access answer is handed over, archived and produced again if asked.
+
+`crates/app/tests/m45_55_compliance_tooling.rs` — **3/3 SQLite and 3/3 PostgreSQL**: the forms are public and name every
+field the validator refuses without; the templates are `401` to an anonymous caller and cover all four grounds with the
+right placeholders; and the operator read refuses without a basis (and with an invented one) **without leaving a receipt**,
+discloses with one, arrives as a named file, and a plain reader is refused before any of that.
+
+Mutants, one assertion each: both basis checks disabled → `left: 200 / right: 422`; the audit append removed →
+`left: 0 / right: 1` receipts. Both reverted from `/tmp`.
+
+`route_inventory` 5/5 — the public form door takes `State` + `MaybeSession`, which is the shape the inventory checks.
+
 ## M45-52 steps 1–2 built and proved — 2026-11-11
 
 The spine of the row, and the half that makes the rest possible: **a decision now carries its reasons, or it is not a

@@ -1117,6 +1117,22 @@ pub const MODULES: &[Module] = &[
         source: "crates/app/src/routes/tasting.rs (opt-in by design)",
     },
     Module {
+        id: "compliance_tooling",
+        name: "Compliance Tooling",
+        summary: "The instance's own compliance surfaces (M45-55): the notice forms as data (DSA Article 16 and DMCA's four \
+                  statutory elements), one statement-of-reasons template per ground, and an operator subject-access read \
+                  whose legal basis is required and whose every successful read is written to the audit log.",
+        default_on: true,
+        stability: Stability::Beta,
+        toggle: Toggle::Operator,
+        requires: &[],
+        milestone: "M45-55",
+        spec: "§19",
+        nav: &[],
+        relevance: 2,
+        source: "crates/app/src/routes/compliance.rs",
+    },
+    Module {
         id: "taste_health",
         name: "Taste Health",
         summary: "The instance's taste model and the reader's probe (spec §0.4.1, §16.19, M17 phase 2). \

@@ -31,6 +31,7 @@ pub mod catalogue;
 pub mod characters;
 pub mod collaborators;
 pub mod claims;
+pub mod compliance;
 pub mod community;
 pub mod coordinates;
 pub mod exclusions;

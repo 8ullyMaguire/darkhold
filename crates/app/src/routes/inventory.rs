@@ -3557,6 +3557,27 @@ pub const ROUTE_TABLE: &[RouteEntry] = &[
         audience: Audience::Public,
     },
     RouteEntry {
+        file: "compliance.rs",
+        handler: "notice_forms",
+        method: "GET",
+        path: "/notices/forms",
+        audience: Audience::Public,
+    },
+    RouteEntry {
+        file: "compliance.rs",
+        handler: "statement_templates",
+        method: "GET",
+        path: "/statements/templates",
+        audience: Audience::Authenticated,
+    },
+    RouteEntry {
+        file: "compliance.rs",
+        handler: "subject_access",
+        method: "GET",
+        path: "/admin/subjects/{account}/data",
+        audience: Audience::Authenticated,
+    },
+    RouteEntry {
         file: "governance.rs",
         handler: "decide_task",
         method: "POST",

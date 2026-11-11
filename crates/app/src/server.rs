@@ -554,6 +554,14 @@ pub fn build_router(state: AppState) -> Router {
             routes::claims::router(),
             RouteClass::Default,
         ))
+        // M45-55: the forms this instance publishes, the reasons templates its reviewers write from, and the operator's
+        // audited subject-access read.
+        .merge(module_mount(
+            &state,
+            "compliance_tooling",
+            routes::compliance::router(),
+            RouteClass::Default,
+        ))
         .merge(module_mount(
             &state,
             "search",
