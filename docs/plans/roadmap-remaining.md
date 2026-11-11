@@ -11,6 +11,27 @@ Two rules that decide the order:
 * **A row that gates other rows is taken as soon as its blocker clears.** Nine of the M64 rows read a snapshot built by
   M64-01..M64-03; taking them first would mean writing the same aggregation three times.
 
+### M45-45 step 3, measured before it is written — 2026-11-11
+
+The `vote` path needs a proposal the instance can vote on, and the tree already has one machinery of that shape:
+`crates/db/src/retention_proposals.rs` — `open_proposal`, `create_proposal`, `cast_vote`, a threshold, and a decided
+state. The question worth answering before copying it is whether it can be *reused*:
+
+- its identity is `source_key` (`open_proposal(db, source_key: Option<&str>)`), i.e. a proposal is about **one import
+  source**'s retention window;
+- a taste-lens change is about a **singleton** row (`instance_taste_settings` has `CHECK (id = 1)`), and the thing being
+  voted on is a set of knobs, not a per-source window.
+
+So the honest modelling is a sibling table with the same shape, not a `kind` column bolted onto `retention_proposals`:
+`taste_lens_proposals(id, proposed_gravity_strength, proposed_signal_weight_mode, proposed_admin_weight,
+proposed_diversity_injection_percent, opened_by, opened_at, closes_at, threshold, state, decided_at)` plus
+`taste_lens_votes(proposal_id, voter_account, vote, cast_at)`. Copy the *shape* — vote counting, threshold, decided_at —
+rather than the table, because two proposals about different subjects sharing one table means every query carries a
+`WHERE kind = …` and one of them will eventually forget it.
+
+`changed_by` on the applied version then records `proposal:<id>`, which is the whole point of the step: the history row
+would say *why* the version changed, not only who pressed the button.
+
 ## M45-45 as measured — 2026-11-10 (`planned`, two thirds built, one half designed)
 
 The row is "taste as versioned blendable object with governance mode", and three of its four words are already true in the
