@@ -1280,7 +1280,7 @@ pub const ROUTE_TABLE: &[RouteEntry] = &[
         file: "taste_proposals.rs",
         handler: "open_proposal",
         method: "POST",
-        path: "/operator/taste-proposals",
+        path: "/taste-proposals",
         audience: Audience::Authenticated,
     },
     RouteEntry {

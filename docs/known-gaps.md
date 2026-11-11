@@ -17,6 +17,18 @@ merged route never matches. Moving it to `/taste-proposals` (and the inventory r
 build also carried a second change and the result was not isolated — the next attempt must be **only** the path move, with
 the probe above re-run in the same command, before any test file is written.
 
+## M45-45 — resolved 2026-11-11: the open door was under a nest that swallows its subtree
+
+The open door was mounted at `/operator/taste-proposals`. `/operator/*` is a **nest**, and a nest owns its whole subtree:
+a route merged beside it at the outer level never matches, and the request falls to the fallback (`404 page not found`).
+Two symptoms that looked like different bugs were one: POST `/taste-proposals/{id}/vote` answered `401` (it is not under
+`/operator`), and POST `/taste-proposals` — the open door — answered `404`.
+
+The route is now `/taste-proposals` for all three doors, the inventory row with it, and the suite
+`crates/app/tests/m45_45_taste_proposals.rs` proves the four behaviours through HTTP on both engines. The lesson is worth
+keeping: **a 404 on a mounted route means the mount level, not the handler** — and the way to tell `405` (registered, wrong
+method) from `404` (not registered *here*) is to probe the same path with two methods before touching any code.
+
 ## M45-45 — the proposal doors answer `404` to a POST (measured 2026-11-11)
 
 `crates/app/src/routes/taste_proposals.rs` is mounted at `server.rs:1251` (`.merge(routes::taste_proposals::router())`,

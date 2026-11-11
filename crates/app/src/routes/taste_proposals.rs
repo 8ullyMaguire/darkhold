@@ -45,7 +45,7 @@ const DEFAULT_THRESHOLD_PERCENT: i64 = 60;
 /// The taste-proposal routes.
 pub fn router() -> Router<AppState> {
     Router::new()
-        .route("/operator/taste-proposals", post(open_proposal))
+        .route("/taste-proposals", post(open_proposal))
         .route("/taste-proposals/{id}", get(read_proposal))
         .route("/taste-proposals/{id}/vote", post(cast_vote))
 }
