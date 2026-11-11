@@ -191,6 +191,9 @@ checks, not five modules.
 
 ## M45-59 built and proved — a link is per reader, not per bot — 2026-11-11
 
+**Deployed 12:48** — `0.1.0+da8fa4f2`, no migration (the linkage was already in `api_tokens`). Live reads: `/api/v1/meta` 200, `/statements/summary` 200, `/notices/forms` 200, `/bots/link/nosuch` 404, and `bot_registrations=0`, `api_tokens(kind=bot)=0` — so the single-reader bug was fixed before the first real link existed, rather than after somebody was logged out by a friend joining the same server.
+
+
 Found while starting M45-43, and it stops that row dead if left alone.
 
 **§23.2's confirmation rotated the registration's credential.** `confirm_link_challenge` issued a token, then called
