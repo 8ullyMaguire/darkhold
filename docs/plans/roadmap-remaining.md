@@ -32,6 +32,21 @@ rather than the table, because two proposals about different subjects sharing on
 `changed_by` on the applied version then records `proposal:<id>`, which is the whole point of the step: the history row
 would say *why* the version changed, not only who pressed the button.
 
+### M45-45 step 4 does not exist as written — corrected 2026-11-11
+
+The plan above lists "succession: if the lens owner is erased or deactivated, the lens reverts to `operator` and the
+history row says so". Checked against the code, there is no *lens owner account* to erase: `lens_owner` is a **mode**
+(`operator` | `vote`), not a person, and the person who pressed the button is already recorded per version as
+`updated_by` / `changed_by`. A rule that reverts a mode when an account disappears would be reverting the instance's
+governance because one operator left, which is the opposite of what succession should do.
+
+The succession the note asks about is the instance's, and it is **already built**: `succession_mirror` (M45-39) names the
+peers who inherit an instance when the operator cannot act, and `PUT/DELETE /admin/succession/mirrors` maintains it. The
+taste lens is a row in that instance, so it inherits with it — no second succession mechanism, and no erasure-path rule.
+
+So M45-45 has **one** remaining step, not two: the vote path (step 3). The ledger note is corrected to say so; the
+earlier "two halves remaining" was my reading of the note rather than of the code.
+
 ## M45-45 as measured — 2026-11-10 (`planned`, two thirds built, one half designed)
 
 The row is "taste as versioned blendable object with governance mode", and three of its four words are already true in the
