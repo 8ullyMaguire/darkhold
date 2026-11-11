@@ -38,6 +38,54 @@ went stale, and only a stale fixture reddens it (`left: 200` when the filter is 
 **Remaining:** `dh rec --link epub` still refuses. The route it needs now exists; wiring the CLI is a second change that
 asks the server for each row's derivatives and prints the download URL where one is ready.
 
+## M45-43 — Discord bot, measured and planned 2026-11-11 (credential now available)
+
+`docs/spec/37-multi-platform-companion-bot.md` reserves a **separate workspace** (`darkhold-bot`) with Poise + Serenity
+adapters and Redis for tokens, pages and rate limits. Measured against this deployment, that shape is wrong here for
+three concrete reasons:
+
+* **Redis is not in this stack.** The spec's token store, pagination cache and rate limiter are all Redis; darkhold has
+  Postgres and nothing else, and adding Redis to serve a bot is a second stateful service to back up.
+* **Serenity needs a gateway websocket**, i.e. a long-running process. The server is a user unit that also runs a worker;
+  a second always-on socket is a new failure mode for a feature whose commands are request/response.
+* **A separate workspace cannot be tested by this repo's gates.** Nothing in `scripts/gate.sh` would see it, which is how
+  surfaces drift.
+
+So M45-43 ships as **an interactions endpoint on the existing server**, which Discord supports natively: Discord POSTs an
+interaction (slash command invoked) to a URL the operator configures, signed with Ed25519. No gateway, no websocket, no
+Redis, and the dispatch is a normal Axum handler the existing tests and gates already cover.
+
+**Steps, in the order they can be checked:**
+
+1. **`[discord]` config** (`enabled`, `application_id`, `public_key`, `token` — the secret, on the host, 0600, never in the
+   tree) with `deny_unknown_fields` respected; module row `discord_bot`, `default_on: false`, `Toggle::Operator`.
+2. **Signature verification first, body parsing second.** `POST /discord/interactions` verifies
+   `X-Signature-Ed25519` over `timestamp + body` with the configured public key and answers `401` before reading a single
+   field of JSON. A bot endpoint that parses first is a remote parser for anyone who can reach the port.
+3. **PING/PONG** (type 1) answers `{"type": 1}` so Discord accepts the endpoint.
+4. **Three commands with no account**: `/search <query>`, `/fandom <slug>`, `/fresh`. Each renders a `PlatformMessage`
+   (title + up to five rows + a footer link) from the same public API a reader uses — the bot is a thin client, exactly
+   as §37 says, and it must call the HTTP API rather than the database so the two cannot disagree.
+5. **Account linking**: `POST /discord/link` (session) mints a one-time code (table `discord_link`, 10-minute expiry, one
+   use); `/link <code>` in Discord redeems it for `(guild, discord_user)` → account. A code is a capability: it is
+   single-use, expires, and is refused by name when used twice.
+6. **Account-scoped commands** (`/recs`, `/bookmark`) refuse with a link instruction when no binding exists — not a 500,
+   and not a silent empty list.
+7. **Per-fandom feeds** (`/feed subscribe <fandom>` per channel) as `discord_feed(channel_id, fandom, created_by)`; a
+   worker pass posts new works, reusing the outbox rather than inventing a poller.
+
+**Acceptance tests, per step:** (2) `a_body_without_a_valid_signature_is_refused_before_it_is_parsed`; (3)
+`a_ping_answers_pong`; (4) `a_search_interaction_answers_an_embed_with_work_links`; (5) `a_link_code_works_once_and_expires`;
+(6) `an_unlinked_recs_interaction_answers_a_link_instruction`; (7) `a_feed_row_survives_and_names_its_fandom`.
+
+**Live proof of the credential, cheap and first:** `GET https://discord.com/api/v10/users/@me` with
+`Authorization: Bot <token>` answers the bot's own identity. That proves the token before any code depends on it, and it is
+the one call that needs the network — the rest of the suite uses a transport trait with a canned answer, the `ProfileFetcher`
+pattern M45-42 established.
+
+**The token is not written into this repository, this ledger, or any doc.** It lives in the host's `darkhold.toml` (0600)
+and every reference to it reads `[REDACTED]`.
+
 ## Deployed 2026-11-11 08:53 — M45-45 step 3 (`0.1.0+4b686729`, schema 0207)
 
 One deploy carried the proposal tables and the three doors. Measured, from `/tmp/deploy-m4545.log` on the host:
