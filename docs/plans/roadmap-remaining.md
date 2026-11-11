@@ -240,6 +240,33 @@ they are not what a stranger sees, and their own room rules already apply.
 `m69_15_membership_gate` — **6/6 SQLite and 6/6 PostgreSQL**. Mutants: the works guard removed → two tests fail `201` vs
 `422`; the comment guard removed → the comment is accepted.
 
+## M69-23 half built — the intake policy, and why the Saved Filter could not be it — 2026-11-11
+
+**The census found the object the row names, and measured that it cannot do the job.** A saved view's document is either a
+`LibraryQuery` (`shelves`, `tags`, `statuses`, `source`, `updated_since`, `sort`) or a catalogue query *string* for
+`GET /catalogue`. The first three fields are per-account facts about a reader's shelf — an arriving work has no shelf, no
+reading status and no "updated since" for this instance — so a policy written in that language would parse, evaluate, and
+mean nothing. The second is a query for a route that reads existing rows, not a predicate over an arrival. BUILD.
+
+`crates/domain/src/intake.rs` is an ordered-rule policy over a flat candidate (host, language, words, tags, title, complete),
+with three properties the tests exist to hold:
+
+* **first match wins** — two overlapping rules must not both fire, and the operator's ordering has to mean something (proved
+  by putting an exclusion above a take rule);
+* **no match queues, never admits** — a policy that admitted by default would make a missing rule indistinguishable from a
+  deliberate one;
+* **every decision is explainable** — `IntakeDecision` carries the rule index and a sentence, which is the row's actual
+  claim: the difference between a policy an operator can inspect and one they have to trust.
+
+7/7 domain tests (matching rule names itself; one failing clause falls through; unmatched queues; **an empty policy admits
+nothing**; first-match-wins; tag-any and title-excludes; every decision renders a sentence). Mutant: the no-match default
+changed to `BringIn` → three tests fail.
+
+**Missing, and named:** the store column an import source carries the policy in, the dry-run route an operator tests it
+through, the wiring at the importer's intake point (M67-03/04 decide by host and rule today), and the landing place for a
+`Queue` verdict — which already exists: `external.rs`'s quarantined intake ledger, with a door that moves a row to
+accepted or rejected. The policy's job is to decide *which* arrivals reach that door.
+
 ## M69-15 half built — the membership rule and its switches, with no door enforcing it yet — 2026-11-11
 
 **census: REUSE nothing, and the near-hit is a word collision.** `probation` appears four times in `tessera` — and it is a

@@ -57,6 +57,7 @@ pub mod generated_content;
 pub mod governance;
 pub mod ids;
 pub mod imports;
+pub mod intake;
 pub mod jobs;
 pub mod jury;
 pub mod membership;
