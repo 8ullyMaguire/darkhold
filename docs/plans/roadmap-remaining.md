@@ -240,6 +240,20 @@ they are not what a stranger sees, and their own room rules already apply.
 `m69_15_membership_gate` — **6/6 SQLite and 6/6 PostgreSQL**. Mutants: the works guard removed → two tests fail `201` vs
 `422`; the comment guard removed → the comment is accepted.
 
+## M70-13 ratchet pass 2 — 37 → 36, and the test-only category — 2026-11-11
+
+Deleted `recommendation_slots::list_response_slots` (45 lines). Its own doc comment named the mechanism that replaced it — "used by the discovery
+response itself so a client can render a 'why?' affordance per card without a second round trip" — and M71-06 did exactly that: the reason and the
+match percentage now travel **with** each row in `/api/v1/discovery`. The function is the orphaned half of a design that shipped inline instead,
+and a second way to ask the same question is the fault this row exists to catch.
+
+**A category the ratchet cannot decide mechanically:** eight of the remaining orphans are reached **only from tests** —
+`meta_actions_on_vote`, `bump_counter`, `increment_abuse_counter`, `statement_for_task`, `count_copies`, `topics_for_work`, `submissions_by`,
+`list_changes`. Their SQL is exercised; the product never calls them. That is not dead code in the same sense: the test is evidence for another
+row's claim, so deleting the function deletes somebody's proof. Each needs a real decision — *which route should read this*, or *this is not a
+product surface and the test goes with it* — taken one module at a time. They stay in the baseline until then, and that is the honest state rather
+than a number that moved.
+
 ## M70-13 ratchet pass — 38 → 37, and three kept on purpose — 2026-11-11
 
 Method (the row's method): regenerate, then count references for every orphan; definition-only is `1`.

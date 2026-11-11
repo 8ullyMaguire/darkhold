@@ -344,51 +344,7 @@ pub async fn explain_slot(
     Ok(row.map(SlotRow::into_explanation))
 }
 
-/// Every slot of one response, in position order.
-///
-/// Used by the discovery response itself so a client can render a "why?" affordance
-/// per card without a second round trip per card.
-pub async fn list_response_slots(
-    db: &Database,
-    pseud_id: Uuid,
-    request_id: Uuid,
-) -> Result<Vec<SlotExplanation>> {
-    let sql = db.sql(
-        "SELECT id, work_id, position, reasons, taste_signal, seeded_by, recipe_stage,
-                instance_curation, blend_score, created_at AS served_at
-           FROM recommendation_slots
-          WHERE pseud_id = ? AND request_id = ?
-          ORDER BY position ASC",
-        // `position` is INT4 on PostgreSQL (a small ordinal) and `SlotRow`
-        // reads it as i64, so it needs the same ::bigint cast as blend_score.
-        // Without it the decode fails and the route returns a redacted 500 --
-        // invisible on SQLite, which has no INT4/INT8 distinction.
-        "SELECT id::text, work_id::text, position::bigint AS position,
-                reasons::text AS reasons, taste_signal,
-                seeded_by, recipe_stage, instance_curation, blend_score::bigint AS blend_score,
-                created_at::text AS served_at
-           FROM recommendation_slots
-          WHERE pseud_id = ?::uuid AND request_id = ?::uuid
-          ORDER BY position ASC",
-    );
-    let rows: Vec<SlotRow> = match db.backend() {
-        Backend::Sqlite => {
-            sqlx::query_as(&sql)
-                .bind(pseud_id.to_string())
-                .bind(request_id.to_string())
-                .fetch_all(db.sqlite_pool().expect("sqlite handle"))
-                .await?
-        }
-        Backend::Postgres => {
-            sqlx::query_as(&sql)
-                .bind(pseud_id.to_string())
-                .bind(request_id.to_string())
-                .fetch_all(db.postgres_pool().expect("postgres handle"))
-                .await?
-        }
-    };
-    Ok(rows.into_iter().map(SlotRow::into_explanation).collect())
-}
+
 
 /// Delete slots older than `cutoff`, returning how many went.
 ///
