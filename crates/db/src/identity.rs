@@ -674,6 +674,99 @@ pub async fn accepted_consent_version(
     Ok(version)
 }
 
+/// Turn a guest into a registered account **in place** (spec §14.1 → §14.2).
+///
+/// Registration from a guest session does not create a second account and does not fold one into the other: the row it
+/// already has stops being a guest. That is the smallest change that satisfies the requirement — a guest's bookmarks and
+/// reading progress are keyed on `account_id`, so leaving the id alone means they never move, never need re-parenting and
+/// cannot be lost by a partial fold. §14.2's fold remains what it is for: merging two *distinct* identities, which
+/// registration is not.
+///
+/// Returns whether a guest was actually upgraded: `false` means the row is not a guest (any more), and the caller must
+/// refuse rather than quietly register over somebody's account.
+pub async fn upgrade_guest(
+    db: &Database,
+    account_id: AccountId,
+    email: &str,
+    age_state: AgeState,
+) -> Result<bool> {
+    let now = now_rfc3339();
+    let sql = db.sql(
+        "UPDATE accounts SET email = ?, age_state = ?, is_guest = 0, updated_at = ?
+          WHERE id = ? AND is_guest = 1",
+        "UPDATE accounts SET email = ?, age_state = ?, is_guest = 0, updated_at = ?
+          WHERE id = ?::uuid AND is_guest = 1",
+    );
+    let age = age_state_string(age_state);
+    let changed = match db.backend() {
+        crate::Backend::Sqlite => {
+            sqlx::query(&sql)
+                .bind(email)
+                .bind(age)
+                .bind(&now)
+                .bind(account_id.to_string())
+                .execute(db.sqlite_pool().expect("sqlite handle"))
+                .await?
+                .rows_affected()
+        }
+        crate::Backend::Postgres => {
+            sqlx::query(&sql)
+                .bind(email)
+                .bind(age)
+                .bind(&now)
+                .bind(account_id.to_string())
+                .execute(db.postgres_pool().expect("postgres handle"))
+                .await?
+                .rows_affected()
+        }
+    };
+    Ok(changed == 1)
+}
+
+/// Give a pseud the handle its owner has now chosen.
+///
+/// `update_pseud` changes names and bios and deliberately not the handle: a handle is how other people reach you, so moving
+/// it is its own operation. This is the one caller that needs it — a guest pseud is `guest-<uuid>`, nobody has seen it, and
+/// the reader is choosing their real name for the first time.
+pub async fn rename_pseud(
+    db: &Database,
+    account_id: AccountId,
+    pseud_id: PseudId,
+    handle: &str,
+    display_name: &str,
+) -> Result<()> {
+    let now = now_rfc3339();
+    let sql = db.sql(
+        "UPDATE pseuds SET handle = ?, display_name = ?, updated_at = ?, version = version + 1
+          WHERE id = ? AND account_id = ?",
+        "UPDATE pseuds SET handle = ?, display_name = ?, updated_at = ?, version = version + 1
+          WHERE id::text = ? AND account_id::text = ?",
+    );
+    match db.backend() {
+        crate::Backend::Sqlite => {
+            sqlx::query(&sql)
+                .bind(handle)
+                .bind(display_name)
+                .bind(&now)
+                .bind(pseud_id.to_string())
+                .bind(account_id.to_string())
+                .execute(db.sqlite_pool().expect("sqlite handle"))
+                .await?;
+        }
+        crate::Backend::Postgres => {
+            sqlx::query(&sql)
+                .bind(handle)
+                .bind(display_name)
+                .bind(&now)
+                .bind(pseud_id.to_string())
+                .bind(account_id.to_string())
+                .execute(db.postgres_pool().expect("postgres handle"))
+                .await?;
+        }
+    }
+    Ok(())
+}
+
 /// Read the identity facts for one account.
 ///
 /// `None` when there is no such account — which is different from an account

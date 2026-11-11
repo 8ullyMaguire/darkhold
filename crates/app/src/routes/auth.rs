@@ -186,8 +186,39 @@ async fn register(
         )));
     }
 
-    let account_id =
-        identity::create_account(state.db(), &email, age_state, AccountStatus::Active).await?;
+    // A guest registering is the *same* account, not a second one: bookmarks and reading progress are keyed on
+    // `account_id`, so leaving the id alone is what keeps them (GS-2). Everything below the id then applies unchanged.
+    let upgrading = match _user {
+        Some(user) => {
+            let facts = identity::account_facts(state.db(), user.account_id)
+                .await?
+                .ok_or(ApiError(AppError::AccessDenied))?;
+            if !facts.is_guest {
+                return Err(ApiError(AppError::field(
+                    "session",
+                    "already signed in as a registered account",
+                )));
+            }
+            Some(user)
+        }
+        None => None,
+    };
+
+    let is_upgrade = upgrading.is_some();
+    let account_id = match upgrading.as_ref() {
+        Some(user) => {
+            let upgraded =
+                identity::upgrade_guest(state.db(), user.account_id, &email, age_state).await?;
+            if !upgraded {
+                return Err(ApiError(AppError::field(
+                    "session",
+                    "this account is no longer a guest",
+                )));
+            }
+            user.account_id
+        }
+        None => identity::create_account(state.db(), &email, age_state, AccountStatus::Active).await?,
+    };
 
     // A failure after this point would leave an account with no way to sign in,
     // so the credential is written immediately after creation and any later
@@ -200,7 +231,25 @@ async fn register(
     })?;
     identity::set_password_hash(state.db(), account_id, &hash).await?;
 
-    let pseud_id = identity::create_pseud(state.db(), account_id, &handle, &display_name).await?;
+    // A guest already has a pseud, and it is renamed rather than replaced: reading progress carries `pseud_id`, so a fresh
+    // pseud would orphan the very rows this row exists to keep.
+    let pseud_id = match upgrading.as_ref() {
+        Some(user) => {
+            let pseuds = identity::pseuds_for_account(state.db(), account_id).await?;
+            let pseud_id = user
+                .pseud_id
+                .filter(|id| pseuds.iter().any(|pseud| pseud.id == *id))
+                .or_else(|| pseuds.first().map(|pseud| pseud.id))
+                .ok_or_else(|| {
+                    ApiError(AppError::Internal(anyhow::anyhow!(
+                        "guest {account_id} has no pseud to rename"
+                    )))
+                })?;
+            identity::rename_pseud(state.db(), account_id, pseud_id, &handle, &display_name).await?;
+            pseud_id
+        }
+        None => identity::create_pseud(state.db(), account_id, &handle, &display_name).await?,
+    };
 
     // Spec §7: privacy defaults are *stored* from onboarding, not computed
     // later. A failure here must not leave a half-configured account.
@@ -251,7 +300,14 @@ async fn register(
         capabilities,
     };
 
-    Ok(session_response(&state, StatusCode::CREATED, body, &issued))
+    // `201` means an account came into existence; an upgrade answers `200`, because the account the caller already had is
+    // the one they now own.
+    let status = if is_upgrade {
+        StatusCode::OK
+    } else {
+        StatusCode::CREATED
+    };
+    Ok(session_response(&state, status, body, &issued))
 }
 
 

@@ -189,6 +189,38 @@ signed skew, the API-line comparison, and that a warning is not a failure (`3/3`
 resolve" after the first already said "nothing answered" is two rows for one fact. The row's list is answered by five
 checks, not five modules.
 
+## M66 GS-2 built and proved — what a guest did stays theirs — 2026-11-11
+
+**The decision, first.** Registration from a guest session **upgrades the account in place**. It does not fold one account
+into another. §14.2's fold is for merging two *distinct* identities — and the re-parenting engine it describes does not exist
+in this tree (`identity.rs` says "the fold itself is M20's"; no re-parenting code ships), so a fold-shaped GS-2 would have
+been a new engine whose first user is the one case that does not need it. In place is also strictly safer for the rows the
+row is about: `bookmarks.account_id` and `reading_progress.account_id` **are** the key, so leaving the id alone means the
+artifacts cannot be lost by a partial fold.
+
+That required two small things and one subtle one:
+
+* `identity::upgrade_guest` — `UPDATE accounts SET email, age_state, is_guest = 0 … WHERE id = ? AND is_guest = 1`,
+  answering `bool`. A non-guest is *refused*, not silently registered over: the predicate is in the statement, so a race
+  cannot turn "register" into "rewrite somebody's address".
+* `identity::rename_pseud` — a handle move, which `update_pseud` deliberately refuses to do.
+* **the pseud is renamed, not replaced.** `reading_progress.pseud_id` names it, so a fresh pseud would orphan exactly the
+  rows this row exists to keep. The test asserts the pseud id is unchanged across the upgrade.
+
+`register()` now branches on an existing guest session: same account id, onboarding defaults stored (the guest never had
+them), age assessment recorded, trust recomputed, and the answer is **200** where a brand-new account answers **201** —
+because no account came into existence.
+
+`crates/app/tests/m66_gs2_guest_upgrade.rs` — **2/2 SQLite and 2/2 PostgreSQL**. The test writes the artifacts as the guest
+(a bookmark and a reading position at 42%), registers, and then reads the rows back: same account id owns both, the pseud id
+is unchanged and its handle is the chosen one, `is_guest` is false, the synthetic `guest+…@guest.invalid` address is gone, and
+the new credential logs in as that same account. A second register is refused with `session` named — the email was fine —
+and nothing about the first one is rewritten.
+
+Mutants: the guest branch removed → **both** tests fail; the pseud rename replaced by a fresh pseud → the pseud-id assertion
+fails. PostgreSQL dialects this test paid for: `bookmarks.id` and `subject_id` are `UUID`, `reading_progress.id` is `UUID`,
+and `bookmarks.is_public` is `BOOLEAN` (so `0` is a type error and `FALSE` is not).
+
 ## M66 GS-1 built and proved — read before registering, and the gate comes first — 2026-11-11
 
 **Deployed 14:07** — `0.1.0+4ea4fb9a` at schema **0210**. Live: `POST /api/v1/auth/guest` with no body answers `422 VALIDATION_FAILED` — *"accept the current terms (version 1) before reading as a guest"* — with `field_errors.consent`, and `select count(*) from accounts where is_guest = 1` is still **0**, which is the assertion that matters: the refusal created nothing. `consents` exists (1 table), and `/api/v1/meta` publishes `content_policy.consent_required_for_guest = true`, so a frontend can render the interstitial from the instance rather than hard-coding it.
