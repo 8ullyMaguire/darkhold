@@ -11,7 +11,19 @@ Two rules that decide the order:
 * **A row that gates other rows is taken as soon as its blocker clears.** Nine of the M64 rows read a snapshot built by
   M64-01..M64-03; taking them first would mean writing the same aggregation three times.
 
-### M45-45 step 3, measured before it is written — 2026-11-11
+##### M71-13 measured — 2026-11-11 (two of three clauses built and tested)
+
+| clause | state | evidence |
+|---|---|---|
+| a page that enumerates a dimension states its share | **built + tested** | `db::taxonomy::dimension_coverage` (one statement, `Coverage{dimension,value,works,catalogue,share,sentence}`), emitted by `/tags/{tag}` (`browse.rs:488`) and the fandom page (`browse.rs:665`); `crates/app/tests/m71_13_coverage.rs` 2/2 covers the API sentence, the document page printing the same sentence, drafts/private/deleted excluded from both numbers, and the zero case |
+| the count names the archive it is a part of | **built + tested** | `tag_page.rs` asserts `2 of N works in this archive are tagged …` on the HTML |
+| fandom and source pages **split hosted from referenced** | **not built** | `Coverage` has no hosted/referenced pair; nothing in the schema row shape tells a hosted work from one this instance only *references*, so the split needs the origin concept first |
+
+So this row is not "add coverage to pages" — it is one clause away, and that clause is blocked on a distinction the
+schema does not yet draw. Widening `Coverage` with two numbers before an origin concept exists would produce a split
+that is really `lifecycle=published` twice under two names.
+
+# M45-45 step 3, measured before it is written — 2026-11-11
 
 The `vote` path needs a proposal the instance can vote on, and the tree already has one machinery of that shape:
 `crates/db/src/retention_proposals.rs` — `open_proposal`, `create_proposal`, `cast_vote`, a threshold, and a decided
