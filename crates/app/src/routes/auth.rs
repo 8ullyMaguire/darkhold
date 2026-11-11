@@ -47,6 +47,7 @@ use crate::{crypto, version};
 pub fn router() -> Router<AppState> {
     Router::new()
         .route("/auth/register", post(register))
+        .route("/auth/guest", post(guest))
         .route("/auth/login", post(login))
         .route("/auth/logout", post(logout))
         .route("/auth/password-reset", post(password_reset))
@@ -120,6 +121,10 @@ struct AccountView {
     /// Whether an address has been confirmed. Not enforced yet; reported
     /// honestly rather than implied.
     email_verified: bool,
+    /// Whether this is a guest: an account with no credential, made by `POST /auth/guest` (spec §14.1, D-6). Reported on
+    /// every account view rather than only on the guest route, because a client that cannot tell cannot offer "keep what you
+    /// did" at the moment the guest registers.
+    is_guest: bool,
     session_expires_at: String,
 }
 
@@ -242,10 +247,140 @@ async fn register(
 
     let capabilities = capabilities_for(&state, age_state, None);
     let body = AccountResponse {
-        account: account_view(&account, &issued.expires_at),
+        account: account_view(&account, &issued.expires_at, false),
         capabilities,
     };
 
+    Ok(session_response(&state, StatusCode::CREATED, body, &issued))
+}
+
+
+// ---------------------------------------------------------------------------
+// Guests (spec §14.1, D-6; M66 GS-1)
+// ---------------------------------------------------------------------------
+
+#[derive(Debug, Deserialize)]
+struct GuestRequest {
+    /// What the reader was shown and accepted. Absent is a refusal, not a default: `consent.required_for_guest` decides
+    /// whether it is required, and a route that invented an acceptance would make the gate decorative.
+    #[serde(default)]
+    consent: Option<GuestConsent>,
+}
+
+#[derive(Debug, Deserialize)]
+struct GuestConsent {
+    version: i64,
+    /// The categories accepted. Optional because `essential` is not a choice, and a frontend that sends nothing is still
+    /// recorded as having accepted the page it rendered.
+    #[serde(default)]
+    categories: Option<Value>,
+}
+
+/// `POST /auth/guest` — read before registering.
+///
+/// The consent gate exists **before** the surface it gates: the request is refused, and nothing is created, unless the
+/// reader sends the version they are accepting. A guest is then an ordinary account with `is_guest` set, so bookmarks and
+/// progress have somewhere to live from the first page view, and registering later upgrades the row rather than
+/// abandoning what the guest did.
+///
+/// Idempotent on an existing guest session: asking twice returns the guest you already are. A signed-in **registered**
+/// reader asking for a guest is refused with `409` — upgrading is one direction, and a guest session shadowing a real one
+/// would be the beginning of an account nobody can find again.
+async fn guest(
+    State(state): State<AppState>,
+    MaybeSession(session): MaybeSession,
+    headers: HeaderMap,
+    Json(request): Json<GuestRequest>,
+) -> ApiResult<Response> {
+    let config = state.config();
+
+    if let Some(user) = session {
+        let facts = identity::account_facts(state.db(), user.account_id)
+            .await?
+            .ok_or(ApiError(AppError::AccessDenied))?;
+        if !facts.is_guest {
+            return Err(ApiError(AppError::field(
+                "session",
+                "already signed in as a registered account",
+            )));
+        }
+        // An existing guest keeps its row and its session: this route creates guests, it does not rotate them. The answer
+        // is the fact and the consent it holds — `GET /auth/me` is where the account view lives, for everybody.
+        return Ok(Json(json!({
+            "is_guest": true,
+            "created": false,
+            "consent_version": identity::accepted_consent_version(state.db(), user.account_id).await?,
+        }))
+        .into_response());
+    }
+
+    // The gate. `required_for_guest = false` is an operator's decision to run without an interstitial, and it is the only
+    // thing that lets this branch be skipped — the reader's silence never does.
+    if config.consent.required_for_guest {
+        match &request.consent {
+            None => {
+                return Err(ApiError(AppError::field(
+                    "consent",
+                    format!(
+                        "accept the current terms (version {}) before reading as a guest",
+                        config.consent.version
+                    ),
+                )));
+            }
+            Some(consent) if consent.version != config.consent.version => {
+                return Err(ApiError(AppError::field(
+                    "consent",
+                    format!(
+                        "the terms are at version {}; this request accepted {}",
+                        config.consent.version, consent.version
+                    ),
+                )));
+            }
+            Some(_) => {}
+        }
+    }
+
+    let account_id = identity::create_guest(state.db(), AgeState::Unknown).await?;
+    if let Some(consent) = &request.consent {
+        let categories = consent
+            .categories
+            .as_ref()
+            .map(|value| value.to_string())
+            .unwrap_or_else(|| "{}".to_owned());
+        identity::record_consent(state.db(), account_id, consent.version, &categories).await?;
+    }
+
+    // A guest gets a pseud like anybody else: it is the thing a bookmark belongs to, and GS-3 upgrades it in place.
+    let handle = format!("guest-{}", PseudId::new().to_canonical_string());
+    let handle: String = handle.chars().take(24).collect();
+    let pseud_id = identity::create_pseud(state.db(), account_id, &handle, "Guest").await?;
+
+    darkhold_db::governance::recompute_trust(
+        state.db(),
+        &account_id.to_string(),
+        &config.trust.trust_settings(),
+    )
+    .await
+    .map_err(|e| ApiError(AppError::Internal(e.into())))?;
+
+    let account = identity::find_account(state.db(), account_id)
+        .await?
+        .ok_or_else(|| ApiError(AppError::Internal(anyhow::anyhow!("guest vanished after creation"))))?;
+    let issued = auth::issue_session(
+        &state,
+        &account,
+        Some(pseud_id),
+        user_agent(&headers).as_deref(),
+        None,
+        &[],
+    )
+    .await?;
+
+    tracing::info!(account = %account_id, "guest created");
+    let body = AccountResponse {
+        account: account_view(&account, &issued.expires_at, true),
+        capabilities: capabilities_for(&state, account.age_state, None),
+    };
     Ok(session_response(&state, StatusCode::CREATED, body, &issued))
 }
 
@@ -337,7 +472,7 @@ async fn login(
     let capabilities = capabilities_for(&state, account.age_state, Some(&settings));
 
     let body = AccountResponse {
-        account: account_view(&account, &issued.expires_at),
+        account: account_view(&account, &issued.expires_at, false),
         capabilities,
     };
     Ok(session_response(&state, StatusCode::OK, body, &issued))
@@ -619,7 +754,10 @@ async fn me(
         .await
         .unwrap_or(0);
 
-    let mut view = account_view(&account, &sessions::now());
+    let facts = identity::account_facts(state.db(), account.id)
+        .await?
+        .ok_or_else(|| ApiError(AppError::AuthRequired))?;
+    let mut view = account_view(&account, &sessions::now(), facts.is_guest);
     // The link cache, not a live call: a profile render must not depend on the provider being reachable.
     if let Ok(Some((picture, name))) =
         darkhold_db::oidc::profile_for_account(state.db(), "polaris-id", account.id).await
@@ -1007,7 +1145,11 @@ fn capability_note(state: &AppState, because: &str) -> String {
     }
 }
 
-fn account_view(account: &darkhold_db::identity::Account, session_expires_at: &str) -> AccountView {
+fn account_view(
+    account: &darkhold_db::identity::Account,
+    session_expires_at: &str,
+    is_guest: bool,
+) -> AccountView {
     AccountView {
         id: account.id,
         email: account.email.clone(),
@@ -1015,6 +1157,7 @@ fn account_view(account: &darkhold_db::identity::Account, session_expires_at: &s
         avatar_url: None,
         age_state: age_state_name(account.age_state),
         email_verified: account.email_verified_at.is_some(),
+        is_guest,
         session_expires_at: session_expires_at.to_owned(),
     }
 }
