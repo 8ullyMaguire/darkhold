@@ -1,5 +1,22 @@
 # Known gaps
 
+## M45-45 — narrowed: the vote door is reachable, the open door is not (2026-11-11, second measurement)
+
+A probe of four POST paths against `build_router` in one process, with no session:
+
+    POST /api/v1/auth/login                -> 401 AUTH_REQUIRED      (reaches the handler)
+    POST /api/v1/claims                    -> 401 AUTH_REQUIRED      (reaches the handler)
+    POST /api/v1/taste-proposals/{id}/vote -> 401 AUTH_REQUIRED      (reaches the handler)
+    POST /api/v1/taste-proposals           -> 404 No such endpoint on this instance
+    POST /api/v1/me/affinity               -> 405 Method Not Allowed
+
+So the complaint is narrower than the first note said: **`/taste-proposals/{id}/vote` and `/taste-proposals/{id}` are
+registered and reachable** — the vote answered `401`, which is the session gate, not the router. Only the open door is
+404, and it is mounted at `/operator/taste-proposals` while `/operator/*` is a nest that swallows the subtree, so the
+merged route never matches. Moving it to `/taste-proposals` (and the inventory row with it) still answered 404, but that
+build also carried a second change and the result was not isolated — the next attempt must be **only** the path move, with
+the probe above re-run in the same command, before any test file is written.
+
 ## M45-45 — the proposal doors answer `404` to a POST (measured 2026-11-11)
 
 `crates/app/src/routes/taste_proposals.rs` is mounted at `server.rs:1251` (`.merge(routes::taste_proposals::router())`,
