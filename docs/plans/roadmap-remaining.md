@@ -311,10 +311,23 @@ with three properties the tests exist to hold:
 nothing**; first-match-wins; tag-any and title-excludes; every decision renders a sentence). Mutant: the no-match default
 changed to `BringIn` → three tests fail.
 
-**Missing, and named:** the store column an import source carries the policy in, the dry-run route an operator tests it
-through, the wiring at the importer's intake point (M67-03/04 decide by host and rule today), and the landing place for a
-`Queue` verdict — which already exists: `external.rs`'s quarantined intake ledger, with a door that moves a row to
-accepted or rejected. The policy's job is to decide *which* arrivals reach that door.
+**Second pass, same day — the store and the operator door.** Migration `0211` adds `sources.intake_policy_json` (both engines,
+default `'{}'`, which the domain reads as *admit nothing, queue everything* so an unconfigured source cannot import on its own).
+`Source` carries the document; `imports::intake_policy` distinguishes *no such source* from *a source with no rules*, because one
+is a 404 and the other is a policy. Three operator routes: `GET /admin/sources`, `PUT /admin/sources/{key}/intake-policy`, and
+`POST /admin/sources/{key}/intake-policy/test`. The `PUT` **refuses a document that does not parse and stores nothing** — the
+stored form is what the importer will run, and `"then": "Bring"` would match nothing while looking configured. The dry run writes
+nothing and answers with `IntakeDecision::describe()`, so the operator reads *why*.
+
+`m69_23_intake_policy` **4/4 SQLite and 4/4 PostgreSQL**. The PostgreSQL run found two engine bugs the SQLite run could not: `LIMIT 1`
+on `accounts` picked whichever test's account came first in the shared scratch DB (now looked up by handle), and `pseuds.account_id`
+is `UUID`, so reading it into a `String` needs `::text`. Mutant: the parse validation replaced with `unwrap_or_default` → the
+refusal test fails `200` vs `422`.
+
+**Still missing, and it is now one thing:** the call at the importer's intake point. M67-03/04 decide by host and rule alone, so
+the policy today is storable, inspectable and testable and **nothing consults it**. The landing half already exists —
+`external.rs`'s quarantined intake ledger, with a door that moves a row to accepted or rejected. The missing piece is the call
+that turns an arrival into Admit/Queue before it reaches that door.
 
 ## M69-15 half built — the membership rule and its switches, with no door enforcing it yet — 2026-11-11
 

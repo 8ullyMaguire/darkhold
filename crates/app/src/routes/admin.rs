@@ -135,6 +135,17 @@ pub fn router() -> axum::Router<AppState> {
         // Which migrations this instance has actually applied. The question a deploy asks, and the one thing a settings
         // file cannot answer (M70-13).
         .route("/admin/migrations", get(applied_migrations))
+        // M69-23: what each import source may bring in, and what it queues — plus the dry run that makes the policy
+        // inspectable rather than trusted.
+        .route("/admin/sources", get(list_source_policies))
+        .route(
+            "/admin/sources/{key}/intake-policy",
+            axum::routing::put(set_source_intake_policy),
+        )
+        .route(
+            "/admin/sources/{key}/intake-policy/test",
+            post(test_source_intake_policy),
+        )
 }
 
 /// Every syndicated pseud, with the source it stands for.
@@ -264,4 +275,104 @@ pub async fn complete_privacy_request(
             }))
         }
     }
+}
+
+// ---------------------------------------------------------------------------
+// M69-23 — an import source's intake policy
+// ---------------------------------------------------------------------------
+
+/// Every source, with the policy it carries.
+///
+/// Operator-only. The list is the whole answer to "what do my importers do with an arrival", which is why the policy is
+/// returned parsed rather than as the stored string: a document an operator cannot read is one they cannot check.
+pub async fn list_source_policies(
+    State(state): State<AppState>,
+    RequireSession(user): RequireSession,
+) -> ApiResult<Json<Value>> {
+    crate::routes::discovery::require_operator(&state, &user)?;
+    let sources = darkhold_db::imports::list_sources(state.db())
+        .await
+        .map_err(|e| ApiError(darkhold_domain::AppError::Internal(e)))?;
+    let rows: Vec<Value> = sources
+        .into_iter()
+        .map(|source| {
+            let policy: darkhold_domain::intake::IntakePolicy =
+                serde_json::from_str(&source.intake_policy_json).unwrap_or_default();
+            json!({
+                "key": source.key,
+                "display_name": source.display_name,
+                "enabled": source.enabled,
+                "health": source.health,
+                "rules": policy.rules.len(),
+                "policy": policy,
+            })
+        })
+        .collect();
+    Ok(Json(json!({ "sources": rows })))
+}
+
+/// Replace a source's policy.
+///
+/// A policy that does not parse is refused with a field error instead of being stored, because the stored form is what the
+/// importer will run: `<"bring_in">` with a capital B is a rule that would match nothing and look configured.
+pub async fn set_source_intake_policy(
+    State(state): State<AppState>,
+    RequireSession(user): RequireSession,
+    Path(key): Path<String>,
+    Json(body): Json<Value>,
+) -> ApiResult<Json<Value>> {
+    crate::routes::discovery::require_operator(&state, &user)?;
+    let policy: darkhold_domain::intake::IntakePolicy = serde_json::from_value(body).map_err(|error| {
+        ApiError(darkhold_domain::AppError::field(
+            "rules",
+            format!("this is not an intake policy: {error}"),
+        ))
+    })?;
+    let document = serde_json::to_string(&policy)
+        .map_err(|e| ApiError(darkhold_domain::AppError::Internal(e.into())))?;
+    let saved = darkhold_db::imports::set_intake_policy(state.db(), &key, &document)
+        .await
+        .map_err(|e| ApiError(darkhold_domain::AppError::Internal(e)))?;
+    if !saved {
+        return Err(ApiError(darkhold_domain::AppError::NotFound {
+            resource: "source",
+        }));
+    }
+    Ok(Json(json!({ "key": key, "rules": policy.rules.len(), "policy": policy })))
+}
+
+/// Run the source's policy against one candidate and answer what it *would* do.
+///
+/// Nothing is written: this is the door the row means by "a policy an operator can inspect", and the answer carries the
+/// sentence from `IntakeDecision::describe` so the operator reads a reason rather than a boolean.
+pub async fn test_source_intake_policy(
+    State(state): State<AppState>,
+    RequireSession(user): RequireSession,
+    Path(key): Path<String>,
+    Json(body): Json<Value>,
+) -> ApiResult<Json<Value>> {
+    crate::routes::discovery::require_operator(&state, &user)?;
+    let stored = darkhold_db::imports::intake_policy(state.db(), &key)
+        .await
+        .map_err(|e| ApiError(darkhold_domain::AppError::Internal(e)))?;
+    let Some(document) = stored else {
+        return Err(ApiError(darkhold_domain::AppError::NotFound {
+            resource: "source",
+        }));
+    };
+    let policy: darkhold_domain::intake::IntakePolicy =
+        serde_json::from_str(&document).unwrap_or_default();
+    let candidate: darkhold_domain::intake::IntakeCandidate =
+        serde_json::from_value(body.get("candidate").cloned().unwrap_or_else(|| json!({})))
+            .map_err(|error| {
+                ApiError(darkhold_domain::AppError::field(
+                    "candidate",
+                    format!("this is not a candidate: {error}"),
+                ))
+            })?;
+    let decision = darkhold_domain::intake::decide(&policy, &candidate);
+    Ok(Json(json!({
+        "bring_in": decision.brings_in(),
+        "decision": decision.describe(),
+    })))
 }

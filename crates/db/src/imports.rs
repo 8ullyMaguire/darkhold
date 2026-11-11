@@ -96,6 +96,13 @@ pub struct Source {
     /// Why, in an operator's words. Empty is not an option: a `blocked-here` an
     /// operator cannot act on is a claim nobody can check.
     pub verification_note: Option<String>,
+    /// What this source may bring in, and what it queues (M69-23).
+    ///
+    /// The document is the ordered rule list in `darkhold_domain::intake`, stored verbatim: `{}` means no rules, which the
+    /// domain reads as "admit nothing, queue everything" — a source nobody has configured must not import on its own. Kept as
+    /// a string here rather than a typed field because the packaging rule is that `darkhold-db` stores documents and
+    /// `darkhold-domain` interprets them, and a column that could not hold a future rule kind would be a schema change per rule.
+    pub intake_policy_json: String,
 }
 
 impl Source {
@@ -860,6 +867,52 @@ pub async fn find_source(db: &Database, key: &str) -> Result<Option<Source>> {
     let postgres_sql = format!("SELECT {SOURCE_COLUMNS_PG} FROM sources WHERE key = ?");
     let sql = db.sql(&sqlite_sql, &postgres_sql);
     fetch_optional_source(db, &sql, key).await
+}
+
+/// What this source may bring in, and what it queues (M69-23), as stored.
+///
+/// `None` means there is no such source, which is a different answer from `Some("{}")` ("this source has no rules"). The route
+/// needs to tell those apart: one is a 404 and the other is a policy that admits nothing.
+pub async fn intake_policy(db: &Database, key: &str) -> Result<Option<String>> {
+    let sql = db.sql(
+        "SELECT intake_policy_json FROM sources WHERE key = ?",
+        "SELECT intake_policy_json FROM sources WHERE key = ?",
+    );
+    let row: Option<(String,)> = match db.backend() {
+        Backend::Sqlite => sqlx::query_as(&sql)
+            .bind(key)
+            .fetch_optional(db.sqlite_pool().expect("sqlite handle"))
+            .await?,
+        Backend::Postgres => sqlx::query_as(&sql)
+            .bind(key)
+            .fetch_optional(db.postgres_pool().expect("postgres handle"))
+            .await?,
+    };
+    Ok(row.map(|(policy,)| policy))
+}
+
+/// Replace a source's intake policy. `false` means there is no such source, so the caller can answer 404 rather than inventing
+/// a row: a policy for a source the registry does not know is a document nobody will ever read.
+pub async fn set_intake_policy(db: &Database, key: &str, policy_json: &str) -> Result<bool> {
+    let sql = db.sql(
+        "UPDATE sources SET intake_policy_json = ? WHERE key = ?",
+        "UPDATE sources SET intake_policy_json = $1 WHERE key = $2",
+    );
+    let done = match db.backend() {
+        Backend::Sqlite => sqlx::query(&sql)
+            .bind(policy_json)
+            .bind(key)
+            .execute(db.sqlite_pool().expect("sqlite handle"))
+            .await?
+            .rows_affected(),
+        Backend::Postgres => sqlx::query(&sql)
+            .bind(policy_json)
+            .bind(key)
+            .execute(db.postgres_pool().expect("postgres handle"))
+            .await?
+            .rows_affected(),
+    };
+    Ok(done > 0)
 }
 
 /// The `Option`-returning half of [`find_source`], split out so the two driver
@@ -2162,12 +2215,12 @@ const IMPORT_UNIT_COLUMNS_PG: &str = "id::text AS id, import_job_id::text AS imp
 /// `blocked-here` source that a query does not select looks exactly like one
 /// nobody has classified.
 const SOURCE_COLUMNS: &str = "key, display_name, adapter_version, enabled, disabled_reason, \
-    capability_json, health, last_checked_at, verification_status, verification_note";
+    capability_json, health, last_checked_at, verification_status, verification_note, intake_policy_json";
 
 /// The PostgreSQL twin of [`SOURCE_COLUMNS`]: `enabled` is a smallint there and
 /// an integer here, so only that column differs in spelling.
 const SOURCE_COLUMNS_PG: &str = "key, display_name, adapter_version, enabled, disabled_reason, \
-    capability_json, health, last_checked_at, verification_status, verification_note";
+    capability_json, health, last_checked_at, verification_status, verification_note, intake_policy_json";
 
 const CREDENTIAL_COLUMNS: &str = "id, pseud_id, source_key, secret_id, label, status, expires_at, \
     last_checked_at, created_at, updated_at, version, kind, origin_host, consent_at";
@@ -2188,6 +2241,7 @@ struct SourceRow {
     last_checked_at: Option<String>,
     verification_status: Option<String>,
     verification_note: Option<String>,
+    intake_policy_json: String,
 }
 
 #[derive(FromRow)]
@@ -2277,6 +2331,7 @@ fn decode_source(row: SourceRow) -> Result<Source> {
         last_checked_at: row.last_checked_at,
         verification_status: row.verification_status,
         verification_note: row.verification_note,
+        intake_policy_json: row.intake_policy_json,
     })
 }
 

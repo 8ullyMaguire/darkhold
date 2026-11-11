@@ -1,0 +1,12 @@
+-- M69-23 — an import source carries its intake policy.
+--
+-- The policy is a document, not columns: it is an *ordered list of rules* (`crates/domain/src/intake.rs`), and one column per
+-- rule would cap the number of rules at the schema version. `'{}'` is the default and means "no rules", which the domain
+-- reads as "admit nothing, queue everything" — deliberately not `'{"rules":[{"then":"bring_in"}]}'`, because a source that has
+-- never been configured must not import on its own.
+--
+-- Why the `sources` table and not a new one: the policy belongs to the source in exactly the way `capability_json` does — one
+-- row per source, read when an arrival is classified — and a second table keyed by source id would be a second answer to
+-- "what does this source do with an arrival". The row also carries `enabled` and `disabled_reason`, so an operator's whole
+-- answer about a source is already here.
+ALTER TABLE sources ADD COLUMN intake_policy_json TEXT NOT NULL DEFAULT '{}';

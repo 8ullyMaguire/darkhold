@@ -7252,6 +7252,27 @@ pub const ROUTE_TABLE: &[RouteEntry] = &[
     },
     RouteEntry {
         file: "admin.rs",
+        handler: "list_source_policies",
+        method: "GET",
+        path: "/admin/sources",
+        audience: Audience::Operator,
+    },
+    RouteEntry {
+        file: "admin.rs",
+        handler: "set_source_intake_policy",
+        method: "PUT",
+        path: "/admin/sources/{key}/intake-policy",
+        audience: Audience::Operator,
+    },
+    RouteEntry {
+        file: "admin.rs",
+        handler: "test_source_intake_policy",
+        method: "POST",
+        path: "/admin/sources/{key}/intake-policy/test",
+        audience: Audience::Operator,
+    },
+    RouteEntry {
+        file: "admin.rs",
         handler: "applied_migrations",
         method: "GET",
         path: "/admin/migrations",
