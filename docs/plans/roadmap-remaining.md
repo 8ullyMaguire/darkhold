@@ -280,6 +280,22 @@ no token column. The store scopes by `actor`, which is the human. So the surface
 this token did*. That needs the write path to record which credential was used; until then the attribution half is unbuilt and named here rather
 than papered over with a `dh audit` verb that would imply it.
 
+## The `/admin/` prefix ratchet — an inventory cannot see a gate that was never written — 2026-11-11
+
+`GET /admin/abuse-status/{key}` shipped with `RequireSession` alone and its `ROUTE_TABLE` row said `Audience::Authenticated`: the inventory describes
+the code as written, so the missing gate was invisible to it, and the row told the truth about a route that lied about its intent.
+
+The prefix is what can catch it. `no_new_admin_path_is_below_operator_standing` now asserts every `/admin/` row is `Operator` or `AdminOf` **against
+a baseline of 26 rows that currently are not**, and fails in both directions:
+
+- a new below-operator `/admin/` row fails — that is the abuse bug's exact shape;
+- a baseline entry that is no longer below operator fails as **stale**, so fixing a gate forces deleting its line, or the list stops meaning
+  anything.
+
+The 26 are debt, not permission. Each needs its handler read to tell an internal role gate that works from one that does not, and rewriting 26 gates
+in one commit would be the same guess in the other direction — the retention and abuse routes were converted properly, one at a time, with tests.
+Proof the ratchet bites: deleting `/admin/stats` from the baseline makes the test name `GET /admin/stats -> get_stats` and fail.
+
 ## §24.4's operator view, and a route that answered any session — 2026-11-11
 
 **There is no `abuse` requirement row in the ledger at all.** The spec names `/admin/abuse` in its route list and no row declares it, so nothing would

@@ -1037,3 +1037,92 @@ fn the_reverse_check_catches_an_unmounted_router() {
     );
     assert_eq!(checked, 1, "the merged router was still examined");
 }
+
+/// Every `/admin/` door is closed to a plain session — as a ratchet, because 26 of them are not.
+///
+/// The abuse lookup shipped as `Audience::Authenticated` and the table recorded exactly that: an inventory describes the code, so it cannot catch a
+/// gate that was never written. The prefix is the invariant that can — but the current tree has **26** `/admin/` rows below operator standing, and
+/// each needs its handler read before anybody claims which are internal gates that work and which are the abuse bug again. Changing 26 gates in one
+/// commit would be the same guess in the other direction.
+///
+/// So the list below is a **baseline, not permission**: it may only shrink. A new `/admin/` row that is not on it fails, which is what would have
+/// caught the abuse lookup the day it was written. Removing a gate fix without removing its line here fails too, because a stale entry hides the next
+/// real one.
+///
+/// Auditing these is the debt this records. The pattern to look for in each handler is a `require_admin_of` / internal role check in the body — the
+/// retention routes were converted from that shape to `AdminOf` in the signature, and the abuse routes in the same commit.
+const KNOWN_BELOW_OPERATOR: &[(&str, &str)] = &[
+    ("GET", "/admin/jobs"),
+    ("GET", "/admin/jobs/summary"),
+    ("POST", "/admin/jobs/{id}/retry"),
+    ("GET", "/admin/subjects/{account}/data"),
+    ("GET", "/admin/stats"),
+    ("POST", "/admin/actions"),
+    ("GET", "/admin/monetization"),
+    ("POST", "/admin/taste-notifications/drain"),
+    ("POST", "/admin/notes/links/sweep"),
+    ("GET", "/admin/media/references/at-risk"),
+    ("POST", "/admin/local-mirrors"),
+    ("DELETE", "/admin/local-mirrors/{mirror_id}"),
+    ("POST", "/admin/dmca-takedowns"),
+    ("GET", "/admin/dmca-takedowns"),
+    ("PUT", "/admin/dmca-takedowns/{takedown_id}"),
+    ("GET", "/admin/media-health/overview"),
+    ("GET", "/admin/media-health/link-rot"),
+    ("GET", "/admin/media-health/curator-leaderboard"),
+    ("GET", "/admin/media-health/bounty-status"),
+    ("GET", "/admin/media-health/storage"),
+    ("GET", "/admin/media-health/providers"),
+    ("POST", "/admin/tag-wrangling/proposals"),
+    ("POST", "/admin/tag-wrangling/proposals/{id}/approve"),
+    ("POST", "/admin/tag-wrangling/proposals/{id}/reject"),
+    ("POST", "/admin/tag-wrangling/proposals/{id}/revert"),
+    ("POST", "/admin/monetization/settle"),
+];
+
+#[test]
+fn no_new_admin_path_is_below_operator_standing() {
+    let offenders: Vec<(&str, &str, &str)> = ROUTE_TABLE
+        .iter()
+        .filter(|entry| entry.path.starts_with("/admin/"))
+        .filter(|entry| !matches!(entry.audience, Audience::Operator | Audience::AdminOf { .. }))
+        .map(|entry| (entry.method, entry.path, entry.handler))
+        .collect();
+
+    let new_violations: Vec<&(&str, &str, &str)> = offenders
+        .iter()
+        .filter(|(method, path, _)| {
+            !KNOWN_BELOW_OPERATOR
+                .iter()
+                .any(|(known_method, known_path)| known_method == method && known_path == path)
+        })
+        .collect();
+
+    assert!(
+        new_violations.is_empty(),
+        "a /admin/ route was added below operator standing — either gate it or add it to the baseline with the reason it is safe:\n{}",
+        new_violations
+            .iter()
+            .map(|(method, path, handler)| format!("  {method} {path} -> {handler}"))
+            .collect::<Vec<_>>()
+            .join("\n")
+    );
+
+    let stale: Vec<&(&str, &str)> = KNOWN_BELOW_OPERATOR
+        .iter()
+        .filter(|(method, path)| {
+            !offenders
+                .iter()
+                .any(|(offender_method, offender_path, _)| offender_method == method && offender_path == path)
+        })
+        .collect();
+    assert!(
+        stale.is_empty(),
+        "these baseline entries are no longer below operator standing — delete them, or the list stops meaning anything:\n{}",
+        stale
+            .iter()
+            .map(|(method, path)| format!("  {method} {path}"))
+            .collect::<Vec<_>>()
+            .join("\n")
+    );
+}
