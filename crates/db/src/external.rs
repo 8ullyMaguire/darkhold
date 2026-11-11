@@ -282,6 +282,40 @@ pub async fn touch_token(db: &Database, token_id: &str) -> Result<(), sqlx::Erro
 /// ever stopped doing so again.
 ///
 /// A caller must not be able to forget the predicate, so it is a parameter of
+/// The link credentials one pseud currently holds for one bot.
+///
+/// A guild bot serves many readers, so "the bot's token" was never one row: each link is a credential labelled
+/// `kind = 'bot'`, `name = <bot id>`, acting as the pseud that granted it. Re-linking the *same* person replaces only
+/// theirs — revoking the bot's every credential when one person re-links would log the rest of the server out.
+pub async fn bot_link_token_ids(
+    db: &Database,
+    bot_id: &str,
+    pseud_id: &str,
+) -> Result<Vec<String>, sqlx::Error> {
+    let sql = db.sql(
+        "SELECT id FROM api_tokens
+          WHERE kind = 'bot' AND name = ?1 AND acting_pseud_id = ?2 AND revoked_at IS NULL",
+        "SELECT id::text FROM api_tokens
+          WHERE kind = 'bot' AND name = $1::text AND acting_pseud_id = $2::text AND revoked_at IS NULL",
+    );
+    match db.backend() {
+        Backend::Sqlite => {
+            sqlx::query_scalar(&sql)
+                .bind(bot_id)
+                .bind(pseud_id)
+                .fetch_all(db.sqlite_pool().expect("sqlite handle"))
+                .await
+        }
+        Backend::Postgres => {
+            sqlx::query_scalar(&sql)
+                .bind(bot_id)
+                .bind(pseud_id)
+                .fetch_all(db.postgres_pool().expect("postgres handle"))
+                .await
+        }
+    }
+}
+
 /// the query rather than a check a future caller may omit. The `bool` is what
 /// lets the handler answer 404 for someone else's token without a second
 /// existence query, which would itself be a disclosure.
@@ -680,9 +714,17 @@ pub async fn bot_for_token(
     db: &Database,
     token_id: &str,
 ) -> Result<Option<(String, String)>, sqlx::Error> {
+    // Two ways a token can be a bot's: it is the credential the registration was created with, or it is a reader's link
+    // credential, which `issue_token_acting` labels with `kind = 'bot'` and `name = <bot id>`. The second arm is what makes
+    // suspension cover linked readers — without it a suspended bot's readers would keep working, because `bot_for_token`
+    // only ever looked at the registration row.
     let sql = db.sql(
-        "SELECT id, state FROM bot_registrations WHERE token_id = ?",
-        "SELECT id, state FROM bot_registrations WHERE token_id = $1::text",
+        "SELECT r.id, r.state FROM bot_registrations r
+          WHERE r.token_id = ?1
+             OR EXISTS (SELECT 1 FROM api_tokens t WHERE t.id = ?1 AND t.kind = 'bot' AND t.name = r.id)",
+        "SELECT r.id, r.state FROM bot_registrations r
+          WHERE r.token_id = $1::text
+             OR EXISTS (SELECT 1 FROM api_tokens t WHERE t.id = $1::uuid AND t.kind = 'bot' AND t.name = r.id)",
     );
     let row = match db.backend() {
         Backend::Sqlite => {

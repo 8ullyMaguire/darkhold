@@ -189,6 +189,57 @@ signed skew, the API-line comparison, and that a warning is not a failure (`3/3`
 resolve" after the first already said "nothing answered" is two rows for one fact. The row's list is answered by five
 checks, not five modules.
 
+## M45-59 built and proved — a link is per reader, not per bot — 2026-11-11
+
+Found while starting M45-43, and it stops that row dead if left alone.
+
+**§23.2's confirmation rotated the registration's credential.** `confirm_link_challenge` issued a token, then called
+`rebind_bot_token` to point `bot_registrations.token_id` at it and revoked the credential it replaced. Two consequences, both
+silent:
+
+1. **The bot could only ever have one reader.** The second person to link revoked the first person's token. In a guild, one
+   member linking logs another member out.
+2. **`bot_for_token` could not see links at all.** It matched `bot_registrations.token_id` only, so once a link had been
+   rotated the suspension check stopped resolving the linked credential — an operator suspending a bot would leave every
+   linked reader's token working.
+
+Neither is a property of the calls; it is **cardinality**, which is why "darkbot adapts, not the server" (the census
+finding) was true about the *shape* of the flow and wrong about this.
+
+**The fix, two places.** The label was already on the row: `issue_token_acting` stores `kind = 'bot'`, `name = <bot id>` and
+`acting_pseud_id`. So:
+
+* `confirm_link_challenge` no longer touches the registration. It revokes **that (bot, pseud)'s** previous credential —
+  `bot_link_token_ids(db, bot_id, pseud_id)` — and nothing else. Re-linking replaces your own token; it is no longer a
+  revocation of the bot's.
+* `bot_for_token` gains a second arm: a token resolves to its registration through `api_tokens` when it carries
+  `kind = 'bot'` and `name = <bot id>`. Suspension therefore reaches every linked reader, because the state is read from the
+  registration on each use rather than baked into the credential.
+
+**No migration**: the linkage is already in `api_tokens`, which is where the token model lives.
+
+`crates/app/tests/m45_59_multi_link.rs` — **3/3 SQLite and 3/3 PostgreSQL**, plus `m54_bot_link` **25/25** and
+`m70_13_bot_link_doors` **2/2** on both engines:
+
+* `two_readers_link_to_one_bot_and_both_credentials_work` — two people link; both credentials work; each acts as its own
+  pseud; and `bot_registrations.token_id` is identical before and after (the regression the row exists for).
+* `a_relink_replaces_one_person_and_leaves_the_other_readers_alone` — the newest credential works, that person's previous one
+  answers 401, **the other reader's still answers 200**. The boundary is (bot, pseud), not (bot).
+* `suspending_the_bot_stops_every_linked_reader` — one operator action 401s both a linked credential and the registration's.
+
+Mutants: the link arm of `bot_for_token` removed → suspension test `left: 200 / right: 401`; the per-pseud revoke disabled →
+re-link test `left: 200 / right: 401`. Both reverted from `/tmp`.
+
+**PostgreSQL type note**: `api_tokens.id` is `UUID`, so the EXISTS arm binds `$1::uuid` and the link lookup selects
+`id::text` — the SQLite-only run passed while all three tests 500'd on PG, which is why both engines run before a row is
+called done.
+
+**What this does not do**: darkbot still calls `bot/link/start` and `bot/link/exchange`, which this server does not have.
+Under §23.2 the reader confirms on the site and the token is issued to *their* session, so darkbot's `/link` cannot hand the
+bot a per-user credential — the bot's personalized commands have to become "open the site" links, and its public commands
+(search, work, kudos) keep working with the registration credential. That is a UX decision for M45-43, which is otherwise
+blocked on a Discord application for darkhold (the host holds only ascend's).
+
 ## M45-55 built and proved — 2026-11-11
 
 `census: BUILD` — the vocabulary (`dsar`, `subject access`, notice templates) appears in this repo and in

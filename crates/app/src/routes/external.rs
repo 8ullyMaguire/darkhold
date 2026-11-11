@@ -612,31 +612,34 @@ async fn confirm_link_challenge(
         )));
     }
 
-    // Rotate the registration's credential and revoke the one it replaces. Without this the registration names the token it
-    // was registered with, `bot_for_token` cannot see the linked one, and suspending the bot would leave the token the reader
-    // just granted still working.
-    let previous =
-        darkhold_db::external::rebind_bot_token(state.db(), &challenge.bot_id, &token_id)
+    // A guild bot serves a whole server, so a link is **per reader**, not per bot: the credential this confirmation issued
+    // is labelled with the bot (`kind = 'bot'`, `name = <bot id>`) and acts as the pseud that granted it. What gets replaced
+    // is that person's previous link and nothing else — the earlier version rotated the *registration's* credential, which
+    // made the bot single-reader: the second person to link silently revoked the first one's token, and `bot_for_token`
+    // stopped being able to see either link.
+    let pseud_canonical = pseud.to_canonical_string();
+    let previous_links =
+        darkhold_db::external::bot_link_token_ids(state.db(), &challenge.bot_id, &pseud_canonical)
             .await
             .map_err(|e| ApiError(darkhold_domain::AppError::Internal(e.into())))?;
-    if let Some(previous) = previous.filter(|previous| previous != &token_id) {
+    for previous in previous_links.iter().filter(|previous| **previous != token_id) {
         if let Err(error) = darkhold_db::external::revoke_token_for_account(
             state.db(),
-            &previous,
+            previous,
             &session.0.account_id.to_string(),
         )
         .await
         {
-            // Logged rather than fatal: the link is confirmed and the new credential works. An old credential left alive is
-            // worth a warning, not a 500 that makes the reader think nothing happened.
-            tracing::warn!(%error, %token_id, "the bot's previous token could not be revoked");
+            // Logged rather than fatal: the link is confirmed and the new credential works. A re-link that leaves the old
+            // credential alive is a warning, not a 500 that makes the reader think the grant failed.
+            tracing::warn!(%error, %token_id, "the previous link credential could not be revoked");
         }
     }
 
     Ok(Json(json!({
         "linked": true,
         "bot_id": challenge.bot_id,
-        "pseud_id": pseud.to_canonical_string(),
+        "pseud_id": pseud_canonical,
         "scopes": wanted,
         "token": secret,
         "token_id": token_id,
