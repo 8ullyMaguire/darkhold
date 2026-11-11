@@ -11581,3 +11581,17 @@ them** — the same defect gravity's scheduler handoff describes: a moderation c
 - Replace the cron install doc with `--jobs` plus `[[site.jobs]]` declarations; the document becomes generated, not maintained.
 - Give kinds to the work that currently waits for a request: moderation case sweep, retention/expiry, media hashing, anomaly detection.
 - **Gate (A3)**: a job runs with no HTTP request made, and a failed handler leaves `last_error` plus a non-zero exit so the timer turns red.
+
+## Shared capability adoption (rows 410–413, 2026-11-11 audit)
+
+Audit: `secondbrain/10-Projects/polaris-extraction-candidates.md`. Ledger rows: 410 activity counts, 411 trust ladder, 412 typed votes + filter
+expressions, 413 user lists beyond gravity. Every row is adoption-and-deletion: the donor already ships the mechanism, so the work here is to delete this
+member's own copy and import the shared one — never to write a second implementation beside it.
+- **410 activity counts** — adopt as the estate's liveness number: `d1/d7/d30/d180` over `accounts.last_seen` minus suspended accounts. This is
+  also the number ledger 390's census could never answer.
+- **411 trust ladder** — this member is the **donor**: `accounts/{id}/trust` and the admin overrides become the shared arithmetic, with the rungs kept
+  here as data.
+- **412 typed votes** — the natural home. Ratings today are one scalar; vote kinds (`like`, `off-topic`, `low-quality`, `spoiler`, `nsfw`) give the
+  reader a feed filter and give the taste graph a vocabulary better than a star rating. Gate: excluding `spoiler`-voted works drops the listing count by
+  exactly the number voting so.
+- **413 user lists** — reading lists are the obvious consumer of gravity's §13.2 implementation; import it, do not write a `reading_lists` table.
