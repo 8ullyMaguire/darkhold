@@ -189,6 +189,41 @@ signed skew, the API-line comparison, and that a warning is not a failure (`3/3`
 resolve" after the first already said "nothing answered" is two rows for one fact. The row's list is answered by five
 checks, not five modules.
 
+## M66 GS-5 half built — the jury rule, and the four things still missing — 2026-11-11
+
+**census (measured, not assumed): REUSE nothing.** The rule is spec'd in `docs/spec/14-governance.md` (random draw, level ≥
+`jury_min_level` default 3, size `jury_size` default 5, excluding the reporter and the reported, a fresh panel on appeal, an
+elastic fallback of `jury_elastic_min` default 3). The config exists — 29 references in `app/src/config.rs`. The privilege
+exists — `Privilege::JuryService` on level 5. And a grep for `jury` over `crates/db/src` and `crates/app/src/routes` finds
+**two comments and no code**. BUILD.
+
+`crates/domain/src/jury.rs` is the rule with no database and no clock — that split is the point, because it makes the two
+properties that matter testable:
+
+* **random but reproducible.** The seed is a parameter, not `thread_rng()`, so an audited decision can be re-drawn months
+  later. Candidates are sorted by id before the shuffle, so the database's row order is not part of the draw.
+* **exclusions are structural.** The reporter, the reported and (on appeal) the original panel are removed *inside* the
+  draw. A caller that forgets is a jury containing the person who filed the report, and nobody notices until the decision
+  looks strange.
+
+**The elastic fallback was a decision, not a transcription.** §14 says "drawn from the top of the actual ladder with
+`jury_elastic_min` (default 3) members". Two alternatives were rejected: pad *down* from the next rung (a panel with
+members the rules did not choose) and quietly return a short panel (a two-person jury on a twenty-person instance can be
+stacked). Below `elastic_min` the draw refuses with `PoolTooSmall { available, required }` — the honest answer to "there is
+no pool" is an operator, not a panel of whoever is left.
+
+**7/7 domain tests**: the panel comes from the eligible rung; the same seed draws the same panel and a different seed does
+not; candidate order does not change the draw; the reporter and the reported never sit across 40 seeds; the elastic fallback
+is 3 members, not 5; a two-person pool is refused; an appeal's exclusions produce a disjoint panel. **Mutants**: the
+exclusion filter disabled → both exclusion tests fail (the panel literally contained `reported`); the elastic size set to
+`jury_size` → the fallback test fails 5 vs 3.
+
+**The row stays `planned`,** and this is the missing half rather than a formality: (1) the store read of the pool and the
+persistence of a drawn panel — a panel that is not recorded gives the appeal rule nothing to exclude; (2) the route that
+draws when a report needs a jury, behind `JuryService`; (3) the appeal path honouring `appeal_fresh_jury`; (4) a decision
+surface that records each juror's verdict and closes the report. A false `implemented` on a governance surface is worse
+than an open row.
+
 ## M66 GS-4 built and proved — trust reads the acts, and the karma ledger is refused — 2026-11-11
 
 The row said "elastic trust from karma, not a parallel score", naming 99 karma references and 52 trust references as
