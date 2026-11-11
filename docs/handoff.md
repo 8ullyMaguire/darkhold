@@ -1,3 +1,37 @@
+## 2026-11-11 (night) — the `/admin/` baseline audited: five gates corrected, one fabrication removed
+
+**Shipped, all tested on both engines, none live yet (see the deploy block below).** Four commits, each a gate the inventory could not see because the
+`ROUTE_TABLE` recorded the *extractor* while the permission lived, or failed to live, in the handler body.
+
+- `GET /admin/subjects/{account}/data` — the DSAR read — was gated by `Privilege::ResolveReports`, i.e. **by trust level alone**: a trust-6 moderator
+  could read anybody's assembled personal data, with a legal basis they typed themselves. Now `require_admin_of`. `b…`/`a2f` (see
+  `docs/plans/roadmap-remaining.md`, "The DSAR read was gated by trust level").
+- `POST /admin/monetization/settle` carried `RequireSession(_user)` and nothing else, and **the test beside it said so**: *"in production, this should
+  require admin TL. For now, any session works."* Any signed-in reader could settle an arbitrary period, and settlement writes payouts.
+- `POST /admin/actions` — a reader could author an entry in the admin action log, so the operators' record could say things no operator said.
+- `GET /admin/monetization` answered `trust >= 5` with platform revenue, pending payouts and payer counts.
+- `GET /admin/stats` returned **hard-coded `100/50/25/10`** to any session. Invented figures on a console surface, where a rendered number reads as a
+  measurement. Operator-only now, zeros, `honest_gap: true`, and a sentence saying nothing is counted.
+
+**The ratchet did the rest.** `known_below_operator` went 26 → 5, and every removal was forced: the stale check fails when a baseline entry is no longer
+below operator, so each fix had to delete its own line. The remaining five are documented exceptions, not debt: the four tag-wrangling routes (§14.4
+makes a tag proposal a *member's* privilege, level 2 — the path is a namespace mistake and moving it is a URL break) and `POST /admin/dmca-takedowns`
+(a notice is filed by a *claimant* who may hold no account; the review is operator-only at `PUT`).
+
+**17 rows were correctly gated in their bodies but tabled `Authenticated`/`Public`** — relabelled `AdminOf`, so the inventory now describes intent.
+
+**Tests.** `milestone_15` 13/13, `milestone_19` 7/7, `milestone_21` 24/24, `retention_routes` 10/10, `route_inventory` 6/6; every new assertion also on
+PostgreSQL. Mutants: each gate removed → `200` where `404` was required (four for four).
+
+**Blocked — and it is the host, not the code.** Five release builds died tonight: `rustc … (signal: 15, SIGTERM)`. `systemd-oomd` is **inactive**;
+**earlyoom** is the killer, logging `VmRSS 3428 MiB` and killing `search`, `polaris-media`, `omniroute`, `ascend-worker`, `ascend-og` in the same
+minutes. The cause is a `suki originals --concurrency 4 --limit 21713` crawl (13h+) plus another product's `cargo build --release`. Load average is
+23–40, one core free, 3 GB available. `-j 1`, a `avail >= 3G` gate and a 6 GB head start changed nothing. **Nothing of this session's work is live**;
+live stays `0.1.0+00790ea4`. There are no migrations among the five gates, so one later deploy carries all of it.
+
+**Next.** (1) Deploy when the host clears — the probe list is `/api/v1/meta` = this HEAD, `/admin/stats` anonymous `401`, `/admin/monetization`
+plain-session `404`. (2) Then back to the queue: 41 planned, and the largest cluster is M63 (12 rows).
+
 ## 2026-11-11 (late) — M69-23's store, M70-13's first ratchet turn, live `0.1.0+f0ffbaae`
 
 **Shipped.** `crates/domain/src/intake.rs` (7/7) is an ordered-rule intake policy: first match wins, no match queues and
