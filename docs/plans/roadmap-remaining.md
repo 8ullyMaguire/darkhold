@@ -130,6 +130,38 @@ work was acted on**: the notifier gets an answer, the author gets a sanction wit
 Steps 1–2 are one sitting and are the spine; 3 uses the notification machinery already in the tree; 6 is the only part
 that touches `submit_report`'s contract. The row is `planned` and this plan is the thing to implement from.
 
+## Deployed 2026-11-11 11:53 — `0.1.0+ab718f39`, schema 0209
+
+One pass shipped M45-52 steps 3 and 6, M45-55 and M63-15. Measured on thinkcentre, verbatim from
+`/tmp/deploy-m4552c.log`:
+
+```
+applied 1 migration(s) to the postgres database:  0209_dmca_notices
+== active=active
+== version=0.1.0+ab718f39
+== summary-status=200   == summary-body={"grounds":[],"min_count":5}
+== forms-status=200     == forms-dmca-fields=1
+== templates-anon=401   == dsar-anon=401
+== dmca-partial={"error":{"code":"VALIDATION_FAILED","message":"a copyright notice must contain this element (17 U.S.C. 512(c)(3))","field_errors":{"infringing_material":…
+== schema=0209          == tables=dmca_notices,statement_of_reasons
+== doctor-live:
+ok    instance   http://127.0.0.1:8081 version 0.1.0
+ok    clock      local time is 0s from the server
+ok    version    dh 0.1.0 matches the server's API line
+ok    tls        plain HTTP to localhost: nothing leaves the machine
+warn  token      no token configured: public verbs work, session verbs will answer 401
+```
+
+The `401`s are the pass: both operator doors are reached and the session gate answers. The `422` is step 6 working on a
+live instance — a DMCA notice with one element missing is refused **naming that element**, not with a generic message.
+
+**Two failed attempts, and what they cost.** The first pass (`112909a6`) shipped steps 1/2/4/5 at 11:00. The second
+(`b8811a2b`) died at 11:07 **mid-compile** when the ssh that launched it timed out and took the parent shell with it — the
+log simply stops, with no build error and no OOM line. That is the recorded lesson re-learned: a deploy launched as a
+foreground ssh dies with its caller. The third pass ran under `nohup` and was polled by reading its log for `== done`,
+**not** by `pgrep -f deploy-m4552c.sh` — which matches the polling command's own command line and reports "finished"
+while the build is still running. Two ways to lie to yourself about a build, both of them mechanical.
+
 ## M63-15 `dh doctor` built and proved — 2026-11-11
 
 The row: "diagnoses token scope, clock skew, TLS, DNS and API version drift, one suggested fix per problem". Five checks,
