@@ -11,6 +11,41 @@ Two rules that decide the order:
 * **A row that gates other rows is taken as soon as its blocker clears.** Nine of the M64 rows read a snapshot built by
   M64-01..M64-03; taking them first would mean writing the same aggregation three times.
 
+## M45-45 as measured — 2026-11-10 (`planned`, two thirds built, one half designed)
+
+The row is "taste as versioned blendable object with governance mode", and three of its four words are already true in the
+tree. Measured, not assumed:
+
+| part | state | evidence |
+|---|---|---|
+| **versioned** | built | `instance_taste_settings` (0077) carries `version` + `updated_by`, `instance_taste_settings_history` (0078) stores the row *before* each write with `changed_by`/`changed_at`/`rolled_back_from`, `GET` history route at `routes/discovery.rs:1772` |
+| **object** | built | `domain::taste_vector::{TasteProfile, TasteVector}` with `euclidean_distance`, `normalized_distance`, `compute_user_vector`, `update_vector_incremental` |
+| **blendable** | built as a primitive | `blend_vectors(a, b, t)` in `crates/domain/src/taste_vector.rs:181` — a weighted merge of two vectors, but nothing composes *instance* taste with anything else |
+| **governance mode** | **not built** | no `council` anywhere in `crates/`, no lens-owner concept, no succession contract for the operator who owns the lens |
+
+So the row is not "build a versioned taste object": it is **who may change the lens, and what happens when they cannot**. The
+plan, in the order the pieces can be checked:
+
+1. **`[taste] lens_owner = operator | council | vote`** in `ContentPolicyConfig`'s neighbour — a new `TasteGovernanceConfig`,
+   default `operator` (today's behaviour, so the knob changes nothing until an operator sets it).
+2. **The write door asks the owner, not the role.** `PUT /admin/taste/settings` currently gates on `Audience::Operator`.
+   Under `council` it must accept a *council member*; under `vote` it must accept nothing and require a proposal. The refusal
+   names which mode is in force (`422` naming `lens_owner`), the way the RPF knob does.
+3. **`vote` reuses the existing proposal machinery** rather than inventing a second vote: a taste change becomes a proposal
+   the governance module already knows how to open, count and close. The knob write happens on the proposal's outcome, and
+   `changed_by` records the proposal id so history shows *why* the version changed, not only who pressed the button.
+4. **Succession**: `succession_mirror` (M45-39) names the peers who inherit an *instance*; this row needs the smaller
+   contract — if the lens owner's account is erased or deactivated, the lens reverts to `operator` and the history row says
+   so. That is a rule in the erasure path, not a new table.
+
+**Acceptance tests, per step:** (2) `refuses_a_lens_write_when_the_owner_is_a_vote_and_names_the_mode` — 422 naming
+`lens_owner`, plus `a_council_member_may_write_the_lens_under_council`; (3)
+`a_vote_backed_lens_change_records_the_proposal_id_in_history`; (4)
+`erasing_the_lens_owner_reverts_the_lens_to_operator_and_says_so_in_the_history_row`.
+
+Steps 1 and 2 are one sitting; 3 depends on the governance module's proposal API and should be read before it is written;
+4 is a small erasure-path rule. The row stays `planned` until all four are green.
+
 ## Deployed 2026-11-11 01:07 — M45-65 and M45-54 (`0.1.0+d4b718f6`)
 
 Build-only for the last pass (no DDL, so no second dump; the named backup for the batch is
