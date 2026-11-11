@@ -337,3 +337,39 @@ async fn a_comment_is_a_public_act_and_the_gate_covers_it() {
         "and the refusal says what finishes it: {refused}"
     );
 }
+
+#[tokio::test]
+async fn the_forum_is_gated_too_and_the_room_still_works_for_a_member() {
+    let harness = Harness::new("forum", true).await;
+
+    let (mut probation, _, _) = harness.reader("newcomer@example.test", "Newcomer").await;
+    let (status, refused) = probation
+        .post(
+            "/api/v1/forums/general/topics",
+            json!({ "title": "Hello", "body": "First post" }),
+        )
+        .await;
+    assert_eq!(
+        status,
+        StatusCode::UNPROCESSABLE_ENTITY,
+        "a topic is visible to strangers, so it is gated like a comment: {refused}"
+    );
+    assert!(
+        refused["error"]["field_errors"]["membership"].is_string(),
+        "{refused}"
+    );
+
+    // A member who met the floor posts in the same room, so the refusal above is the gate and not the category.
+    let (mut member, account, pseud) = harness.reader("member@example.test", "Member").await;
+    harness.rate(&account, &pseud, 3).await;
+    let (status, posted) = member
+        .post(
+            "/api/v1/forums/general/topics",
+            json!({ "title": "Hello", "body": "First post" }),
+        )
+        .await;
+    assert!(
+        status == StatusCode::CREATED || status == StatusCode::OK,
+        "a graduated reader may open a topic in a category with min_trust 0: {posted}"
+    );
+}

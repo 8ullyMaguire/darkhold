@@ -226,8 +226,19 @@ their words were the problem. `m69_15_membership_gate` is **5/5 on both engines*
 three ratings, publishes a work, and a probation reader's comment on it is `422` naming `membership`. Mutant: the comment
 guard removed → the comment is accepted and the test fails.
 
-Still missing, and the row stays `planned`: **forum topics and posts** are ungated, so "a new reader gets a probation" is true
-of publishing and commenting and not yet of the forum.
+**Third and fourth doors, and the row closes.** `POST /forums/{category}/topics` and `POST /topics/{id}/replies` are gated
+the same way; the forum guard sits *above* the category's `min_trust`, because "how much standing this room asks for" and
+"this reader is on probation" are different questions and a room with `min_trust = 0` must not be a way around the gate.
+The test proves both directions in one room: the probation reader is refused `422` naming `membership`, and a reader who met
+the floor opens a topic in that same category — so the refusal cannot be the category.
+
+**What is gated, and what is deliberately not** (the boundary is the row, so it is written down): publishing, comments,
+topics and replies — every public write act a stranger can see. **Ratings are not gated**, because rating is how the floor is
+earned and a gate on ratings is a gate nobody can graduate from. **Private acts are not gated** (messages, group posts):
+they are not what a stranger sees, and their own room rules already apply.
+
+`m69_15_membership_gate` — **6/6 SQLite and 6/6 PostgreSQL**. Mutants: the works guard removed → two tests fail `201` vs
+`422`; the comment guard removed → the comment is accepted.
 
 ## M69-15 half built — the membership rule and its switches, with no door enforcing it yet — 2026-11-11
 

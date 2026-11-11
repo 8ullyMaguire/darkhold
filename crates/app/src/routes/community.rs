@@ -407,6 +407,13 @@ async fn post_topic(
     Path(category): Path<String>,
     Json(body): Json<CreateTopicBody>,
 ) -> ApiResult<Json<serde_json::Value>> {
+    // **M69-15: the forum is a public act too.** A topic and a reply are both visible to strangers; the category's
+    // `min_trust` is a different question (how much standing this room asks for), and a reader on probation is refused
+    // here regardless of the room.
+    crate::membership::evaluate(&state, &user.account_id.to_string())
+        .await?
+        .refusal()
+        .map_or(Ok(()), Err)?;
     // The schema carries no foreign key on category_id, so the write path
     // refuses a dangling topic itself.
     let min_trust = darkhold_db::community::category_min_trust(state.db(), &category)
@@ -481,6 +488,13 @@ async fn post_reply(
     Path(id): Path<String>,
     Json(body): Json<CreateReplyBody>,
 ) -> ApiResult<Json<serde_json::Value>> {
+    // **M69-15: the forum is a public act too.** A topic and a reply are both visible to strangers; the category's
+    // `min_trust` is a different question (how much standing this room asks for), and a reader on probation is refused
+    // here regardless of the room.
+    crate::membership::evaluate(&state, &user.account_id.to_string())
+        .await?
+        .refusal()
+        .map_or(Ok(()), Err)?;
     if body.body.trim().is_empty() {
         return Err(ApiError(darkhold_domain::AppError::field(
             "body",
