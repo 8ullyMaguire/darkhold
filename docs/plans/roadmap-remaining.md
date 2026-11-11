@@ -260,6 +260,17 @@ instance, because an adapter valid at approval can be invalid after a schema cha
 the adapter is in the registry *and* that an import through it reaches a fixture page. Until that exists, "verified-e2e" was a claim about the
 store.
 
+## M70-13 ratchet pass 7 — 32 → 31, a duplicate that always answered `{}` — 2026-11-11
+
+`instance_theme::compute_theme_from_bookmarks` computed the instance's own theme vector and nothing called it. Its own doc comment recorded the
+reason it was suspect: its tag query joined `tags` and `work_tags.tag_id`, neither of which exists, so it had **always** returned `{}` on both
+engines with the error swallowed by `unwrap_or_default()`. The theme peers read is computed by `routes/federation.rs::compute_theme_from_engagement`
+behind `POST /federation/theme/recompute`.
+
+Deleted, with the reason where the code lived. `cargo check -p darkhold-db` clean; baseline 32 → 31. **A second spelling that answers `{}` on a
+surface other instances read is worse than no spelling** — this is the deletion category, not the wire category, and the distinction is whether the
+mechanism has a real second implementation or merely a stale one.
+
 ## M70-13 ratchet pass 6 — 33 → 32, the retention setting's history — 2026-11-11
 
 `retention_proposals::list_changes` existed since `retention_policy_changes` did and only tests called it: `GET /admin/retention/sources` said

@@ -19,63 +19,6 @@ pub struct InstanceTheme {
     pub updated_at: String,
 }
 
-/// Compute theme vector from user bookmarks and tags.
-/// Reads works a user has bookmarked/liked and aggregates their tags.
-pub async fn compute_theme_from_bookmarks(db: &Database, _instance_id: &str) -> Result<JsonValue> {
-    // The tag taxonomy is `canonical_entities` joined through `work_tags.node_id` --
-    // there is no `tags` table and no `work_tags.tag_id`, so the previous
-    // statement referenced two things that do not exist and failed on both
-    // engines. `.unwrap_or_default()` then turned that failure into an empty
-    // vector, which is why this function has always returned `{}`.
-    //
-    // `is_public` is BOOLEAN on PostgreSQL and INTEGER on SQLite, hence one
-    // predicate per dialect. Only *private* bookmarks feed the instance's own
-    // theme; a public bookmark is a reader's signal, not the instance's.
-    let rows: Vec<(String,)> = match db.backend() {
-        Backend::Sqlite => sqlx::query_as(
-            "SELECT tn.canonical
-             FROM bookmarks b
-             JOIN work_tags wt ON wt.work_id = b.subject_id
-             JOIN canonical_entities tn ON tn.id = wt.node_id
-             WHERE b.is_public = FALSE
-             GROUP BY tn.canonical
-             ORDER BY COUNT(*) DESC
-             LIMIT 100",
-        )
-        .fetch_all(db.sqlite_pool().expect("sqlite"))
-        .await
-        .unwrap_or_else(|e| {
-            tracing::warn!(error = %e, "theme: bookmark tag query failed; theme will be empty");
-            Vec::new()
-        }),
-        Backend::Postgres => sqlx::query_as(
-            "SELECT tn.canonical
-             FROM bookmarks b
-             JOIN work_tags wt ON wt.work_id = b.subject_id
-             JOIN canonical_entities tn ON tn.id = wt.node_id
-             WHERE b.is_public = FALSE
-             GROUP BY tn.canonical
-             ORDER BY COUNT(*) DESC
-             LIMIT 100",
-        )
-        .fetch_all(db.postgres_pool().expect("postgres"))
-        .await
-        .unwrap_or_else(|e| {
-            tracing::warn!(error = %e, "theme: bookmark tag query failed; theme will be empty");
-            Vec::new()
-        }),
-    };
-
-    let mut map = serde_json::Map::new();
-    let total = rows.len().max(1) as f64;
-    for (i, (name,)) in rows.into_iter().enumerate() {
-        // Exponential decay weight: higher-ranked tags get more weight
-        let weight = (total - i as f64) / total;
-        map.insert(name, serde_json::json!(weight));
-    }
-    Ok(JsonValue::Object(map))
-}
-
 /// Upsert the instance theme vector.
 pub async fn upsert_theme(
     db: &Database,
@@ -126,6 +69,11 @@ pub async fn upsert_theme(
 }
 
 /// Read the theme vector for a local instance (owner only).
+// `compute_theme_from_bookmarks` lived here until 2026-11-11 (M70-13 pass 7): a second computation of the instance's theme, reached by
+// nothing but tests, whose own doc recorded that it had always returned `{}` because its tag query referenced `tags`/`work_tags.tag_id`,
+// neither of which exists. The instance's real theme is computed by `routes/federation.rs::compute_theme_from_engagement` behind
+// `POST /federation/theme/recompute`, which is what `get_local_theme`'s callers read. A second spelling that answers `{}` on a surface
+// other instances read is worse than no spelling.
 pub async fn get_local_theme(db: &Database, instance_id: &str) -> Result<Option<InstanceTheme>> {
     let row: Option<(String, String, bool, String, String)> = match db.backend() {
         Backend::Sqlite => {
