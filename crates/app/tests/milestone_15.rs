@@ -161,6 +161,40 @@ impl Harness {
             self.tdb.db().clone(),
         )))
     }
+
+    /// The account id behind a handle, read from the store.
+    async fn account_of(&self, handle: &str) -> String {
+        use darkhold_db::Backend;
+        match self.tdb.db().backend() {
+            Backend::Sqlite => sqlx::query_scalar(
+                "SELECT account_id FROM pseuds WHERE lower(handle) = lower(?1) LIMIT 1",
+            )
+            .bind(handle)
+            .fetch_one(self.tdb.db().sqlite_pool().expect("sqlite"))
+            .await
+            .expect("account id"),
+            Backend::Postgres => sqlx::query_scalar(
+                "SELECT account_id::text FROM pseuds WHERE lower(handle) = lower($1) LIMIT 1",
+            )
+            .bind(handle)
+            .fetch_one(self.tdb.db().postgres_pool().expect("postgres"))
+            .await
+            .expect("account id"),
+        }
+    }
+
+    /// A client whose session carries operator standing, by naming the account in the break-glass config.
+    ///
+    /// Needed because settlement is the operator's: `config_for` builds a config before any account exists, so the id is set after registering and the
+    /// router is rebuilt. The cookies are carried across so this is the same session, not a second one.
+    fn operator_client(&self, account: &str) -> Client {
+        let mut config = config_for(&self.dir);
+        config.administration.operator_account_id = Some(account.parse().expect("account uuid"));
+        Client::new(server::build_router(AppState::new(
+            config,
+            self.tdb.db().clone(),
+        )))
+    }
     async fn cleanup(self) {
         self.tdb.cleanup().await;
         let _ = std::fs::remove_dir_all(self.dir);
@@ -459,17 +493,24 @@ async fn settle_period_computes_pool_split() {
 
     // Create two authors with reading sessions
     register_with_pseud(&mut client, "author_a@e.com", "author_a").await;
+    let account = harness.account_of("author_a").await;
     // Author A creates a work and reader reads it
     // (In a real test, we'd create works + sessions; for now, settle should
     //  succeed even with zero earnings — it just returns empty pools)
 
-    // Call settle endpoint (requires session = any authenticated user)
-    // Note: in production, this should require admin TL. For now, any session works.
-    let (status, body) = client.request(
-        "POST",
-        "/api/v1/admin/monetization/settle?period_start=2026-01-01T00:00:00Z&period_end=2026-02-01T00:00:00Z",
-        None,
-    ).await;
+    // Settlement is the operator's, and it used to be open to any session — this test's own comment said so ("in production, this should require
+    // admin TL. For now, any session works") and the TODO outlived the feature. A plain session is refused first, then the operator settles.
+    let path = "/api/v1/admin/monetization/settle?period_start=2026-01-01T00:00:00Z&period_end=2026-02-01T00:00:00Z";
+    let (status, refused) = client.request("POST", path, None).await;
+    assert_eq!(
+        status,
+        StatusCode::NOT_FOUND,
+        "a reader must not settle a period: {refused}"
+    );
+
+    let mut ops = harness.operator_client(&account);
+    ops.cookies = client.cookies.clone();
+    let (status, body) = ops.request("POST", path, None).await;
 
     assert_eq!(status, StatusCode::OK, "settle ok: {body}");
     let body_str = serde_json::to_string(&body).unwrap_or_default();
@@ -598,4 +639,34 @@ async fn payment_events_record_processor_fees() {
     };
 
     harness.cleanup().await;
+}
+
+/// The admin action log is the operators' record, and a reader cannot write into it.
+///
+/// `POST /admin/actions` accepted any session: not an escalation, but a way to make the audit trail say things no operator said — "why is this in the
+/// admin log?" is a question with no answer once a reader can author entries. Operator-only now, like every other writing door under `/admin/`.
+#[tokio::test]
+async fn a_reader_cannot_write_the_admin_action_log() {
+    let harness = Harness::new("admin-action-gate").await;
+    let mut reader = harness.client();
+    register_with_pseud(&mut reader, "not-an-operator@e.com", "not_an_operator").await;
+    let account = harness.account_of("not_an_operator").await;
+
+    let body = serde_json::json!({
+        "action": "forged.by.reader",
+        "subject_type": "work",
+        "subject_id": "w-1",
+        "document": "{}",
+    });
+    let (status, refused) = reader.request("POST", "/api/v1/admin/actions", Some(body.clone())).await;
+    assert_eq!(
+        status,
+        StatusCode::NOT_FOUND,
+        "a reader must not author an admin action: {refused}"
+    );
+
+    let mut ops = harness.operator_client(&account);
+    ops.cookies = reader.cookies.clone();
+    let (status, accepted) = ops.request("POST", "/api/v1/admin/actions", Some(body)).await;
+    assert_eq!(status, StatusCode::OK, "the operator may: {accepted}");
 }

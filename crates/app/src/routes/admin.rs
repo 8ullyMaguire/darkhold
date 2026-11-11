@@ -45,6 +45,10 @@ pub async fn record_admin_action(
     RequireSession(user): RequireSession,
     Json(body): Json<AdminActionBody>,
 ) -> ApiResult<Json<Value>> {
+    // The admin action log is the instance's record of what its operators did. A route any session can call writes a reader's self-authored entry
+    // into that record — not a privilege escalation, but a way to make the audit trail say things no operator said. Operator-only, like every other
+    // door under /admin/ that writes.
+    crate::routes::admin_scope::require_admin_of(&state, &user, None).await?;
     let actor = user.account_id.to_string();
 
     let id = darkhold_db::admin::record_admin_action(

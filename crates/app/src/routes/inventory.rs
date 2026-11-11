@@ -4584,7 +4584,7 @@ pub const ROUTE_TABLE: &[RouteEntry] = &[
         handler: "record_admin_action",
         method: "POST",
         path: "/admin/actions",
-        audience: Audience::Authenticated,
+        audience: Audience::AdminOf { site: None },
     },
     RouteEntry {
         file: "admin.rs",
@@ -6444,7 +6444,7 @@ pub const ROUTE_TABLE: &[RouteEntry] = &[
         handler: "settle_period",
         method: "POST",
         path: "/admin/monetization/settle",
-        audience: Audience::Authenticated,
+        audience: Audience::AdminOf { site: None },
     },
     // ------------------------------------------------------------------
     // Taxonomy export

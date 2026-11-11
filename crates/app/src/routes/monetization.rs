@@ -878,9 +878,13 @@ pub struct SettleRequest {
 /// Requires TL >= 5 (admin).
 pub async fn settle_period(
     State(state): State<AppState>,
-    RequireSession(_user): RequireSession,
+    RequireSession(user): RequireSession,
     Query(req): Query<SettleRequest>,
 ) -> ApiResult<Json<Value>> {
+    // **Settlement is money, and it was open to any session.** The handler carried `RequireSession(_user)` with a comment in the test saying "in
+    // production, this should require admin TL. For now, any session works" — a TODO that outlived the feature. Any signed-in reader could settle an
+    // arbitrary period, and settlement writes payouts. Operator-only now, ADR 0030's 404 for a caller with no standing.
+    crate::routes::admin_scope::require_admin_of(&state, &user, None).await?;
     use darkhold_domain::monetization::{distribute_pool_b, GraduatedCap};
 
     // 1. Pool A per author (trailing 3-month window)

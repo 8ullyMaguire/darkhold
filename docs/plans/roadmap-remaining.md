@@ -280,6 +280,24 @@ no token column. The store scopes by `actor`, which is the human. So the surface
 this token did*. That needs the write path to record which credential was used; until then the attribution half is unbuilt and named here rather
 than papered over with a `dh audit` verb that would imply it.
 
+## Settlement was open to any session, and so was the admin action log — 2026-11-11
+
+Two more items off the `/admin/` baseline, both found by reading rather than by a failing test:
+
+- **`POST /admin/monetization/settle` carried `RequireSession(_user)` and nothing else.** The test beside it said, in a comment, *"in production, this
+  should require admin TL. For now, any session works"* — a TODO that outlived the feature by months. Any signed-in reader could settle an arbitrary
+  period, and **settlement writes payouts**. Now `require_admin_of`.
+- **`POST /admin/actions` had the same shape.** A reader could author an entry in the admin action log: not a privilege escalation, but a way to make
+  the operators' record say things no operator said, and "why is this in the admin log?" then has no answer. Now `require_admin_of`.
+
+Both audiences moved to `AdminOf` and both rows left the baseline (**23 left**); the ratchet's stale check failed until they did, which is the
+mechanism working. `milestone_15` **13/13**, including a rewritten `settle_period_computes_pool_split` (a plain session is refused *before* the operator
+settles, so the test proves the gate and the feature in one act) and `a_reader_cannot_write_the_admin_action_log`. Both new assertions on PostgreSQL
+too; mutant (both gates removed) → `200` where `404` was required.
+
+**The pattern in this file:** a comment that says "for now, any session works" is a gate that was never written, and it survives because no test asks
+the other question.
+
 ## The DSAR read was gated by trust level, not by standing — first item off the `/admin/` baseline — 2026-11-11
 
 `GET /admin/subjects/{account}/data` — the operator's subject-access read — was gated by `Privilege::ResolveReports`, i.e. **by trust level alone**.
