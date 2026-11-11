@@ -147,7 +147,9 @@ impl Harness {
                 darkhold_domain::api_scopes::Scope::from_str(s).expect("a known scope")
             })
             .collect();
-        let id = darkhold_db::external::issue_token_expiring(
+        // `issue_token_acting`, not the deleted shim: it is the one entry point that carries both an expiry and an acting pseud, and a personal
+        // token simply passes `None` for the pseud. Two writers for one row is how the retired one ended up reached only by this test.
+        let id = darkhold_db::external::issue_token_acting(
             self.tdb.db(),
             account,
             "personal",
@@ -155,6 +157,7 @@ impl Harness {
             &hash,
             &parsed,
             expires_at.as_deref(),
+            None,
         )
         .await
         .expect("issue a token");

@@ -27,31 +27,6 @@ pub async fn issue_token(
     issue_token_acting(db, account, kind, name, token_hash, scopes, None, None).await
 }
 
-/// Issue a token, optionally with an expiry.
-///
-/// `expires_at` is what makes a token *limited* in spec §23.2's sense. A token
-/// with no expiry is a permanent bearer credential, and "revocable" is then the
-/// only thing standing between a leaked secret and a long-lived compromise —
-/// which is a manual operation, on an instance whose operator may not be
-/// watching. The column has existed since migration 0001 and was read by
-/// `list_tokens` the whole time; nothing wrote it, so every token ever issued on
-/// every instance was permanent while the token list reported `null` as though
-/// that were a fact about the tokens rather than about the code.
-#[allow(clippy::too_many_arguments)]
-pub async fn issue_token_expiring(
-    db: &Database,
-    account: &str,
-    kind: &str,
-    name: &str,
-    token_hash: &str,
-    scopes: &[Scope],
-    expires_at: Option<&str>,
-) -> Result<String, sqlx::Error> {
-    issue_token_acting(
-        db, account, kind, name, token_hash, scopes, expires_at, None,
-    )
-    .await
-}
 
 /// Issue a token bound to a specific acting pseud.
 ///
