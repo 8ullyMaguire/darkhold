@@ -189,6 +189,32 @@ signed skew, the API-line comparison, and that a warning is not a failure (`3/3`
 resolve" after the first already said "nothing answered" is two rows for one fact. The row's list is answered by five
 checks, not five modules.
 
+## M66 GS-4 built and proved — trust reads the acts, and the karma ledger is refused — 2026-11-11
+
+The row said "elastic trust from karma, not a parallel score", naming 99 karma references and 52 trust references as
+evidence that both numbers were already here. They are — and the tree had already decided, in the header of
+`crates/db/src/typed_votes.rs`, that **nothing outside that module and its display route reads `forum_karma`** (spec §35.2:
+karma never gates trust, moderation, ranking or credits).
+
+**So the row's work was the opposite of fusing them.** Wiring the ledger into trust would make standing farmable by a vote
+ring — and *demotable by silence*, because karma decays and trust deliberately does not (the velocity work floors a level
+rather than take one away). The reconciliation the row is about already exists and is the right one: both numbers are
+derived from **the same acts**, and only one of them is ever read as standing. Trust's `vote_score` axis counts public
+ratings on published work; karma is a weighted, decaying display of a subset of the same votes; the ledger stays closed.
+
+That is cheap to lose, so `m66_gs4_trust_from_karma` (**2/2 SQLite and 2/2 PostgreSQL**) pins it from both ends:
+
+- **the derivation is real**: twelve published works carrying public five-star ratings raise the `vote_score` axis above an
+  identical account with none, so the axis is not a constant dressed up as a ladder;
+- **the ledger buys nothing**: an account holding five million basis points of `forum_karma` and no acts whatsoever has
+  exactly the level of an identical account with no ledger, and a karma-holding *newcomer* does not outrank an account that
+  simply stayed for forty days.
+
+**The mutant is the fake the row warned about, inverted so that it kills itself**: summing `forum_karma` into `vote_score`
+takes the second test from `(2, 0)` to `(4, 50000)` and fails. A test that "trust rises when karma rises" would have passed
+on that mutant and proved nothing. PostgreSQL note: every id column there is `uuid`, so the test derives its ids from names
+with two FNV-1a passes rather than adding the `uuid` v5 feature for a helper.
+
 ## M66 GS-3 built and proved — and the CSRF layer was mounted on one router of two — 2026-11-11
 
 **What the row actually was.** GS-1 created the guest and issued the cookies; GS-2 proved the in-place upgrade. The row's

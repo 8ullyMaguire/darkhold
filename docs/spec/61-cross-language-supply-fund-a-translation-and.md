@@ -80,3 +80,13 @@ review assumed.
   that as the stated reason instead of silently creating an unanswerable request.
 - **Language detection.** `works.language` is declared by the importer; a detector is a different
   feature with its own false-positive story.
+
+
+## Jobs (shared service — ADR 0048)
+
+Today darkhold's scheduled work is a documented cron install (`docs/plans/m63-13-cron-install.md`) plus queues that only advance **when a request opens
+them** — the same defect gravity's scheduler handoff describes: a moderation case closes when somebody looks at the queue.
+
+- Replace the cron install doc with `--jobs` plus `[[site.jobs]]` declarations; the document becomes generated, not maintained.
+- Give kinds to the work that currently waits for a request: moderation case sweep, retention/expiry, media hashing, anomaly detection.
+- **Gate (A3)**: a job runs with no HTTP request made, and a failed handler leaves `last_error` plus a non-zero exit so the timer turns red.
