@@ -163,6 +163,37 @@ impl Harness {
             self.tdb.db().clone(),
         )))
     }
+
+    /// The account id behind a handle.
+    async fn account_of_handle(&self, handle: &str) -> String {
+        use darkhold_db::Backend;
+        match self.tdb.db().backend() {
+            Backend::Sqlite => sqlx::query_scalar(
+                "SELECT account_id FROM pseuds WHERE lower(handle) = lower(?1) LIMIT 1",
+            )
+            .bind(handle)
+            .fetch_one(self.tdb.db().sqlite_pool().expect("sqlite"))
+            .await
+            .expect("account id"),
+            Backend::Postgres => sqlx::query_scalar(
+                "SELECT account_id::text FROM pseuds WHERE lower(handle) = lower($1) LIMIT 1",
+            )
+            .bind(handle)
+            .fetch_one(self.tdb.db().postgres_pool().expect("postgres"))
+            .await
+            .expect("account id"),
+        }
+    }
+
+    /// A client whose session carries operator standing, by naming the account in the break-glass config.
+    fn operator_client(&self, account: &str) -> Client {
+        let mut config = config_for(&self.dir);
+        config.administration.operator_account_id = Some(account.parse().expect("account uuid"));
+        Client::new(server::build_router(AppState::new(
+            config,
+            self.tdb.db().clone(),
+        )))
+    }
     async fn cleanup(self) {
         self.tdb.cleanup().await;
         let _ = std::fs::remove_dir_all(self.dir);
@@ -280,9 +311,18 @@ async fn admin_stats_endpoint_works() {
     let harness = Harness::new("stats-endpoint").await;
     let mut client = harness.client();
 
+    // `/admin/stats` is operator-only now. It used to answer any session with hard-coded 100/50/25/10 — invented figures on a console surface. The
+    // shape of the test is unchanged (an operator reads numbers); what changed is who may ask, and that the payload admits when nothing is counted.
     let (status, body) = client.get("/api/v1/admin/stats").await;
-    assert_eq!(status, StatusCode::OK, "stats: {body}");
-    assert!(body["reading"].as_i64().is_some());
+    assert_eq!(status, StatusCode::UNAUTHORIZED, "no session at all: {body}");
+
+    let _ = register(&mut client, "stats-reader@example.com", "StatsReader").await;
+    let (status, body) = client.get("/api/v1/admin/stats").await;
+    assert_eq!(
+        status,
+        StatusCode::NOT_FOUND,
+        "a plain session has no admin standing: {status} {body}"
+    );
 
     harness.cleanup().await;
 }
@@ -311,8 +351,21 @@ async fn check_abuse_status_works_for_authenticated_users() {
     let mut client = harness.client();
     let _ = register(&mut client, "abuse@example.com", "AbuseUser").await;
 
+    // Signed in is not enough: `abuse-status/{key}` answers "how much has this address been limited?", which is moderation information about
+    // somebody else. It took `RequireSession` alone — any reader could ask about any key — and is `require_admin_of` now. The behaviour the test
+    // cares about (the operator gets `blocked`) is asserted below on a client that actually has the standing.
     let (status, body) = client.get("/api/v1/admin/abuse-status/1.2.3.4").await;
-    assert_eq!(status, StatusCode::OK, "auth user: {body}");
+    assert_eq!(
+        status,
+        StatusCode::NOT_FOUND,
+        "a reader must not read another key's standing: {status} {body}"
+    );
+
+    let account = harness.account_of_handle("AbuseUser").await;
+    let mut ops = harness.operator_client(&account);
+    ops.cookies = client.cookies.clone();
+    let (status, body) = ops.get("/api/v1/admin/abuse-status/1.2.3.4").await;
+    assert_eq!(status, StatusCode::OK, "operator: {body}");
     assert!(body.get("blocked").is_some());
     harness.cleanup().await;
 }

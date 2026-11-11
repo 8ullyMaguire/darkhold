@@ -647,15 +647,17 @@ async fn works_past_saving_is_not_reachable_by_a_non_operator() {
         "a non-operator must not learn the count: {body}"
     );
 
-    // And it is not on `/admin/stats`, which answers an anonymous caller.
+    // And `/admin/stats` does not carry it either — the route used to answer an anonymous caller, and still must not leak the count now that it
+    // answers none. The stronger assertion is the one that survives the gate change: an anonymous caller cannot read it at all.
     let mut anonymous = harness.client();
     let (status, body) = anonymous.get("/api/v1/admin/stats").await;
-    assert!(
-        status.is_success(),
-        "the public stats route exists, which is the point: {status}"
+    assert_eq!(
+        status,
+        StatusCode::UNAUTHORIZED,
+        "the stats surface is not public: {body}"
     );
     assert!(
         body.get("works_past_saving").is_none(),
-        "the count must not appear on the public stats surface: {body}"
+        "the count must not appear on the stats surface: {body}"
     );
 }
