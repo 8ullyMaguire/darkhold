@@ -1,3 +1,35 @@
+## 2026-11-11 (late) — M69-23's store, M70-13's first ratchet turn, live `0.1.0+f0ffbaae`
+
+**Shipped.** `crates/domain/src/intake.rs` (7/7) is an ordered-rule intake policy: first match wins, no match queues and
+never admits (an empty policy admits *nothing*), every decision carries its rule index and a sentence. Migration `0211` gives
+`sources` an `intake_policy_json` column on both engines, default `'{}'` = admit nothing; `Source` carries it; three operator
+routes — `GET /admin/sources`, `PUT /admin/sources/{key}/intake-policy`, `POST /admin/sources/{key}/intake-policy/test` — all
+tabled as `Audience::Operator`. The `PUT` refuses a document that does not parse **and stores nothing**; the dry run writes
+nothing and answers with the decision sentence. `m69_23_intake_policy` 4/4 SQLite and 4/4 PostgreSQL; mutant (validation
+replaced by `unwrap_or_default`) kills the refusal test.
+
+**The PG run earned its keep again** — two engine bugs the SQLite run could not see: `LIMIT 1` on `accounts` picked another
+test's account in the shared scratch database (now looked up by handle on `pseuds`), and `pseuds.account_id` is `UUID`, so
+reading it into a `String` needs `::text`.
+
+**M70-13 ratchet, 38 → 37.** Deleted `atproto::published_uris` — `publish_work` derives the rkey from the work id and PUTs, so
+republishing overwrites the same record and a pre-check nobody calls is debt. Kept three orphans *on purpose*, each recorded as
+a surface rather than dead code: `list_response_slots` (why-was-this-served), `trust_events::list_all` (operator trust trail),
+and `mark_email_verified` (darkhold has no mailer, so the decision is whether it verifies email at all).
+
+**Deployed** `0.1.0+f0ffbaae`: migrate applied `0211_source_intake_policy` to the postgres database, `intake_policy_json` present,
+14 sources on the default policy, `/admin/sources` anonymous 401, `/api/v1/meta` 200.
+
+**The deploy aborted twice before it worked, both correctly.** (1) A transient DNS failure on `git.polarisocial.xyz` made the
+fetch fail; the script aborted instead of building the stale HEAD. (2) The checkout held a docs commit authored on the host
+(`2feac56e`), cherry-picked forward as `f0ffbaae`, which left the same content under two hashes — now a *safe* divergence, so
+the script resets when `git cherry forgejo/master` is empty and aborts only when it is not. Both rules are in the
+`darkhold-thinkcentre-deploy` skill, together with "source the unit's env file before `migrate`" and "verify the column, not the
+log line".
+
+**Next.** M69-23's one remaining piece: the importer must consult the policy before an arrival reaches `external.rs`'s intake
+ledger. Then M69-24's domain split, or M63's twelve rows.
+
 ## GS-2, GS-3, GS-4 closed and GS-5 half built — and a CSRF layer that ran on one router of four — 2026-11-11
 
 **Answer to GS-3: `verify_csrf` was layered on `account_routes` only.** Every write merged into the `api` router —
