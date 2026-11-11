@@ -27,10 +27,18 @@ protocol, so the next row that reads "build a bot" starts by measuring instead o
 
 For the estate record: `polaris-estate-discord-bots-census-2026-11-11.md`.
 
-**State:** planned **49**; `gate.sh ledger` 0 and `repo` 0 at `0f249ff8`; `route_inventory` 5/5; both forges pushed.
-Deploy of steps 1/2/4/5 was in flight when this was written (`/tmp/deploy-m4552.log` on thinkcentre); steps 3 and 6 go out
-with `deploy-m4552b.sh`, which needs no second dump — the only schema change since the named `pre-m45-52` dump is one new
-empty table.
+**State:** planned **47**; `gate.sh ledger` 0 and `repo` 0 at `bf52bd92`; `route_inventory` 5/5; both forges pushed.
+
+**Deployed and measured, not assumed:** thinkcentre runs `0.1.0+ab718f39` at schema **0209**. `/statements/summary` answers
+200 `{"grounds":[],"min_count":5}`; `/notices/forms` 200 with the DMCA fields; `/statements/templates` and
+`/admin/subjects/x/data` answer **401** anonymously (both doors reached, the session gate answering); and a partial DMCA
+notice is refused live with `422 VALIDATION_FAILED` naming `infringing_material` and citing 17 U.S.C. 512(c)(3). `dh
+doctor` runs against the live instance: instance/clock/version/tls ok, token warn with its fix.
+
+Two deploy attempts died before this one and both are worth remembering: the second stopped **mid-compile** when the ssh
+that launched it timed out (a foreground deploy dies with its caller — `nohup` or a tracked background process), and
+polling with `pgrep -f deploy-m4552c.sh` **matches the polling command's own line**, so the waiter reports "finished"
+while rustc is still running. Read the log for `== done` instead.
 
 **Next:** M45-55 (compliance tooling: notice forms, SOR templates, DSAR export) — and per §2.2 its first act is a census,
 because "a form" is exactly the kind of surface the estate may already have four of.
