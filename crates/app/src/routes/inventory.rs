@@ -4581,6 +4581,13 @@ pub const ROUTE_TABLE: &[RouteEntry] = &[
     },
     RouteEntry {
         file: "admin.rs",
+        handler: "verify_account_email",
+        method: "POST",
+        path: "/admin/subjects/{account}/email-verified",
+        audience: Audience::AdminOf { site: None },
+    },
+    RouteEntry {
+        file: "admin.rs",
         handler: "record_admin_action",
         method: "POST",
         path: "/admin/actions",

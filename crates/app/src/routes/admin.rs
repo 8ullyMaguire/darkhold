@@ -30,6 +30,58 @@ pub async fn get_stats(
     })))
 }
 
+/// **Mark an account's email verified, because nothing else can.**
+///
+/// `accounts.email_verified_at` is exposed in the session payload (`email_verified`) and **was never written**: `sessions::mark_email_verified`
+/// existed since the accounts table did with no caller, so every account reported "unverified" and no workflow could change it. There is also no
+/// mailer in the tree — no SMTP client, no provider — so self-service verification cannot ship, and pretending the field is pending a mailer would
+/// leave a promised state unreachable.
+///
+/// What ships instead is the capability the instance can actually honour: the operator verifies out of band (a reply to the registration address, a
+/// known correspondent) and records it, with the instance saying so in the response rather than implying a check it did not make. `already` is
+/// answered rather than swallowed, because "verify" is idempotent and an operator who repeats it should learn nothing changed.
+pub async fn verify_account_email(
+    State(state): State<AppState>,
+    RequireSession(user): RequireSession,
+    axum::extract::Path(account): axum::extract::Path<String>,
+) -> ApiResult<Json<Value>> {
+    crate::routes::admin_scope::require_admin_of(&state, &user, None).await?;
+
+    let id: darkhold_domain::AccountId = account
+        .parse()
+        .map_err(|_| ApiError(darkhold_domain::AppError::NotFound { resource: "account" }))?;
+    let account_row = darkhold_db::identity::find_account(state.db(), id)
+        .await
+        .map_err(|e| ApiError(darkhold_domain::AppError::Internal(e)))?
+        .ok_or(ApiError(darkhold_domain::AppError::NotFound { resource: "account" }))?;
+
+    let already = account_row.email_verified_at.is_some();
+    let at = darkhold_db::identity::now_rfc3339();
+    if !already {
+        darkhold_db::sessions::mark_email_verified(state.db(), id, &at)
+            .await
+            .map_err(|e| ApiError(darkhold_domain::AppError::Internal(e)))?;
+        // Recorded as an admin action so the audit trail says who asserted it. A verification nobody signed is a claim with no author.
+        let _ = darkhold_db::admin::record_admin_action(
+            state.db(),
+            &user.account_id.to_string(),
+            "account.email_verified",
+            "account",
+            &account,
+            &serde_json::json!({ "how": "out of band by the operator", "at": at }).to_string(),
+        )
+        .await;
+    }
+
+    Ok(Json(serde_json::json!({
+        "account": account,
+        "verified": true,
+        "already": already,
+        "email_verified_at": if already { account_row.email_verified_at.clone() } else { Some(at) },
+        "how": "out of band by the operator: this instance has no mailer, so it does not claim to have sent a link",
+    })))
+}
+
 /// Record an admin action.
 #[derive(Debug, Deserialize)]
 pub struct AdminActionBody {
@@ -126,6 +178,10 @@ pub fn router() -> axum::Router<AppState> {
     axum::Router::new()
         .route("/admin/stats", get(get_stats))
         .route("/admin/actions", post(record_admin_action))
+        .route(
+            "/admin/subjects/{account}/email-verified",
+            post(verify_account_email),
+        )
         .route(
             "/me/privacy-requests",
             get(list_privacy_requests).post(create_privacy_request),

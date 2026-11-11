@@ -329,6 +329,21 @@ receipts). Mutant (gate removed) → the moderator reads the subject with `200`.
 
 **For the operator:** compliance staff who are not instance operators lose this door. That is the change, not a side effect.
 
+## The ratchet: an operator can now record an email verification, and the federation queue is inert by design — 2026-11-12
+
+`sessions::mark_email_verified` existed since the accounts table did with **no caller**. That column is exposed to the client as `email_verified` in
+the session payload, so every account was permanently told "unverified" with no route able to change it — and there is **no mailer in the tree**, so
+self-service verification cannot ship. Wired: `POST /admin/subjects/{account}/email-verified` (Operator), which records an out-of-band check, answers
+`already` on a repeat, 404s an unknown account, writes an admin action so the claim has an author, and says in the response that it does not claim to
+have sent a link. `milestone_19` 1/1 both engines; mutant (the write made a no-op) → *"the column the session payload reads must now say yes"*.
+Baseline **29 → 28**.
+
+**Classified, not wired:** the `federation_queue` group (`enqueue_activity`, `get_pending_queue`, `mark_queue_sent`, `mark_queue_failed`) is inert by
+construction — nothing enqueues and nothing drains, so the instance is **receive-only** for AP activities: the inbox stores the activity and its intake
+row and dispatches nothing, and a remote `Follow` is stored and never accepted. The queue's semantics are covered by `milestone_43_federation`, so
+deleting the functions would delete another row's proof; a delivery worker is a new surface (outbound network, retries, signing) that **no requirement
+row asks for**. It needs its own row before it is built, not a ratchet pass.
+
 ## The `/admin/` prefix ratchet — an inventory cannot see a gate that was never written — 2026-11-11
 
 `GET /admin/abuse-status/{key}` shipped with `RequireSession` alone and its `ROUTE_TABLE` row said `Audience::Authenticated`: the inventory describes

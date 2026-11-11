@@ -369,3 +369,78 @@ async fn check_abuse_status_works_for_authenticated_users() {
     assert!(body.get("blocked").is_some());
     harness.cleanup().await;
 }
+
+/// The operator can record a verification the instance could not perform itself.
+///
+/// `accounts.email_verified_at` was exposed as `email_verified` in the session payload and never written by anything: an account that asked how it
+/// was doing was always told "unverified", with no route able to change the answer and no mailer in the tree to do it automatically. The operator now
+/// marks it after checking out of band, and the route says so instead of implying a link was sent. A reader cannot mark themselves, or anybody.
+#[tokio::test]
+async fn an_operator_can_record_an_out_of_band_email_verification() {
+    let harness = Harness::new("email-verified").await;
+    let mut subject = harness.client();
+    let _ = register(&mut subject, "unverified@example.com", "Unverified").await;
+    let target = harness.account_of_handle("Unverified").await;
+
+    // The state before: the field exists and says no.
+    let before = darkhold_db::identity::find_account(
+        harness.tdb.db(),
+        target.parse().expect("account uuid"),
+    )
+    .await
+    .expect("account")
+    .expect("account row");
+    assert!(
+        before.email_verified_at.is_none(),
+        "nothing has verified this account"
+    );
+
+    // A reader cannot do it, for themselves or for anybody else.
+    let path = format!("/api/v1/admin/subjects/{target}/email-verified");
+    let (status, refused) = subject.post(&path, serde_json::json!({})).await;
+    assert_eq!(
+        status,
+        StatusCode::NOT_FOUND,
+        "self-verification must not be a route: {refused}"
+    );
+
+    // The operator can, and the write is real.
+    let mut ops = harness.operator_client(&target);
+    ops.cookies = subject.cookies.clone();
+    let (status, body) = ops.post(&path, serde_json::json!({})).await;
+    assert_eq!(status, StatusCode::OK, "operator verify: {body}");
+    assert_eq!(body["verified"], serde_json::json!(true));
+    assert_eq!(body["already"], serde_json::json!(false), "{body}");
+
+    let after = darkhold_db::identity::find_account(
+        harness.tdb.db(),
+        target.parse().expect("account uuid"),
+    )
+    .await
+    .expect("account")
+    .expect("account row");
+    assert!(
+        after.email_verified_at.is_some(),
+        "the column the session payload reads must now say yes"
+    );
+
+    // Idempotent, and honest about it.
+    let (status, again) = ops.post(&path, serde_json::json!({})).await;
+    assert_eq!(status, StatusCode::OK, "{again}");
+    assert_eq!(
+        again["already"],
+        serde_json::json!(true),
+        "a second verification reports that nothing changed: {again}"
+    );
+
+    // An account that does not exist is a 404, not a silent success.
+    let (status, body) = ops
+        .post(
+            "/api/v1/admin/subjects/00000000-0000-4000-8000-0000000000ff/email-verified",
+            serde_json::json!({}),
+        )
+        .await;
+    assert_eq!(status, StatusCode::NOT_FOUND, "unknown account: {body}");
+
+    harness.cleanup().await;
+}
