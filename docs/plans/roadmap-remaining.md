@@ -280,6 +280,28 @@ no token column. The store scopes by `actor`, which is the human. So the surface
 this token did*. That needs the write path to record which credential was used; until then the attribution half is unbuilt and named here rather
 than papered over with a `dh audit` verb that would imply it.
 
+## §24.4's operator view, and a route that answered any session — 2026-11-11
+
+**There is no `abuse` requirement row in the ledger at all.** The spec names `/admin/abuse` in its route list and no row declares it, so nothing would
+ever have been measured against it — which is why the work below was found by reading, not by the queue.
+
+Three changes:
+
+1. `admin::list_abuse_counters` — the busiest keys summed across their hourly windows, ordered by count, with `last_window` carrying the recency
+   that summing discards. There was **no listing function** in the store, only `check_abuse_status` for a key you already suspect — the wrong shape
+   for the middle of a burst, when nobody knows the key.
+2. `GET /api/v1/admin/abuse` (Operator) serves it with `collects` and `does_not_collect` **in the payload**. §24.4 lists eight signals; this
+   instance records one. A door answering `{"counters": []}` with no statement of coverage reads as "no abuse" rather than "one of eight signals is
+   collected", and an operator choosing a mitigation needs to know which they are looking at.
+3. **A security fix.** `GET /admin/abuse-status/{key}` shipped with `RequireSession` alone — any signed-in reader could ask about any key and learn
+   the count for `ip:<class>:<address>`. Both doors now take `require_admin_of`.
+
+**Why the gap survived:** the `ROUTE_TABLE` row said `Audience::Authenticated`. The inventory describes the code as it is, so it cannot catch a gate
+that was never written. A `/admin/` prefix check over `ROUTE_TABLE` would have caught it; it is not written yet and is named here as the next
+invariant.
+
+`the_abuse_view_lists_the_busy_keys_and_no_reader_can_read_it` **1/1 both engines**; mutant (gate removed) → `200` where `404` was required.
+
 ## M70-13 ratchet pass 9 — 30 → 29, and the abuse counters had a reader and no writer — 2026-11-11
 
 `admin::increment_abuse_counter` has existed since the abuse table did and **nothing called it**, while `check_abuse_status` had a route

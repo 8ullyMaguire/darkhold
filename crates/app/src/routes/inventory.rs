@@ -4619,7 +4619,14 @@ pub const ROUTE_TABLE: &[RouteEntry] = &[
         handler: "check_abuse_status",
         method: "GET",
         path: "/admin/abuse-status/{key}",
-        audience: Audience::Authenticated,
+        audience: Audience::Operator,
+    },
+    RouteEntry {
+        file: "admin.rs",
+        handler: "list_abuse",
+        method: "GET",
+        path: "/admin/abuse",
+        audience: Audience::Operator,
     },
     // ------------------------------------------------------------------
     // Collaborators — session-scoped

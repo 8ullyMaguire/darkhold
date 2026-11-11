@@ -317,6 +317,73 @@ pub async fn list_privacy_requests(
 // Abuse status
 // ---------------------------------------------------------------------------
 
+/// One key's abuse signal, summed across the hourly windows it was recorded in.
+#[derive(Debug, Clone)]
+pub struct AbuseCounter {
+    /// The key the limiter counted: `ip:<class>:<address>` or `user:<class>:<account>`.
+    pub key: String,
+    /// Every refusal recorded against this key, across every window.
+    pub count: i64,
+    /// Whether somebody has put a temporary mitigation on the key. A count never sets this.
+    pub blocked: bool,
+    /// The most recent window with a refusal, so an operator can tell a live pattern from an old one.
+    pub last_window: String,
+}
+
+/// The busiest keys, summed across windows.
+///
+/// **Why a listing and not just a lookup.** §24.4's operator view is "repeated limit violations, temporary mitigations and expiry" — plural, and in
+/// order of what is happening now. `check_abuse_status` answers about a key you already suspect, which is the wrong shape for an operator who does
+/// not yet know which key to ask about: the middle of a burst is exactly when nobody knows the key.
+///
+/// Summed rather than per-window, for the same reason the lookup sums: the counters age out hourly, and a report that showed one row per hour
+/// would bury a sustained flood under a list of forty quiet ones. `last_window` carries the recency that summing discards.
+pub async fn list_abuse_counters(
+    db: &Database,
+    limit: i64,
+) -> Result<Vec<AbuseCounter>, sqlx::Error> {
+    let sql = db.sql(
+        "SELECT key, SUM(count) AS count, MAX(blocked_until) AS blocked_until, MAX(\"window\") AS last_window
+           FROM abuse_counters GROUP BY key ORDER BY SUM(count) DESC, key ASC LIMIT ?",
+        "SELECT key, SUM(count)::bigint AS count, MAX(blocked_until) AS blocked_until, MAX(\"window\") AS last_window
+           FROM abuse_counters GROUP BY key ORDER BY SUM(count) DESC, key ASC LIMIT $1",
+    );
+    // Mapped inside each arm: a row type is parameterised by its database, so a shared `Vec` of rows across the two arms cannot be typed —
+    // the same shape of mistake that makes `Query` un-shareable between dialects.
+    match db.backend() {
+        Backend::Sqlite => {
+            let rows = sqlx::query(&sql)
+                .bind(limit)
+                .fetch_all(db.sqlite_pool().expect("sqlite"))
+                .await?;
+            Ok(rows
+                .iter()
+                .map(|row| AbuseCounter {
+                    key: row.get::<String, _>("key"),
+                    count: row.get::<i64, _>("count"),
+                    blocked: row.get::<Option<String>, _>("blocked_until").is_some(),
+                    last_window: row.get::<Option<String>, _>("last_window").unwrap_or_default(),
+                })
+                .collect())
+        }
+        Backend::Postgres => {
+            let rows = sqlx::query(&sql)
+                .bind(limit)
+                .fetch_all(db.postgres_pool().expect("postgres"))
+                .await?;
+            Ok(rows
+                .iter()
+                .map(|row| AbuseCounter {
+                    key: row.get::<String, _>("key"),
+                    count: row.get::<i64, _>("count"),
+                    blocked: row.get::<Option<String>, _>("blocked_until").is_some(),
+                    last_window: row.get::<Option<String>, _>("last_window").unwrap_or_default(),
+                })
+                .collect())
+        }
+    }
+}
+
 pub async fn check_abuse_status(db: &Database, key: &str) -> Result<(bool, i64), sqlx::Error> {
     match db.backend() {
         Backend::Sqlite => {

@@ -1714,3 +1714,125 @@ async fn a_rate_limit_refusal_is_recorded_in_the_abuse_counters() {
 
     harness.cleanup().await;
 }
+
+// §24.4's view: what is being refused right now, without knowing the key to ask about — and closed to readers.
+//
+// `GET /admin/abuse-status/{key}` shipped with `RequireSession` alone: any signed-in reader could ask about any key and learn the count for
+// `ip:<class>:<address>`, i.e. moderation information about somebody else. Both doors now take `require_admin_of`, and this test holds both.
+#[allow(clippy::await_holding_lock)]
+#[tokio::test]
+async fn the_abuse_view_lists_the_busy_keys_and_no_reader_can_read_it() {
+    let _budget = private_rate_limit_budget();
+    let harness = Harness::new("abuse-view").await;
+    let config = tight_config_for(&harness.dir);
+
+    // Register the future operator first: the config cannot name an account that does not exist yet.
+    let app = server::build_router(AppState::new(config.clone(), harness.tdb.db().clone()));
+    let mut reader = Client::new(app);
+    let (status, body) = reader
+        .post(
+            "/api/v1/auth/register",
+            json!({
+                "email": "ops@example.com",
+                "password": "a-long-enough-passphrase",
+                "handle": "ops",
+                "display_name": "Ops",
+                "age_band": "adult",
+            }),
+        )
+        .await;
+    assert!(status.is_success(), "register: {status} {body}");
+    let operator: String = {
+        use darkhold_db::Backend;
+        let sql = match harness.tdb.db().backend() {
+            Backend::Sqlite => "SELECT account_id FROM pseuds WHERE handle = 'ops' LIMIT 1",
+            Backend::Postgres => "SELECT account_id::text FROM pseuds WHERE handle = 'ops' LIMIT 1",
+        };
+        match harness.tdb.db().backend() {
+            Backend::Sqlite => {
+                sqlx::query_scalar(sql)
+                    .fetch_one(harness.tdb.db().sqlite_pool().expect("sqlite"))
+                    .await
+                    .expect("operator id")
+            }
+            Backend::Postgres => {
+                sqlx::query_scalar(sql)
+                    .fetch_one(harness.tdb.db().postgres_pool().expect("postgres"))
+                    .await
+                    .expect("operator id")
+            }
+        }
+    };
+
+    // Trip the limiter from one address, so there is something to list.
+    let mut noisy = Client::new(server::build_router(AppState::new(
+        config.clone(),
+        harness.tdb.db().clone(),
+    )))
+    .with_address("203.0.113.11");
+    let mut refused = false;
+    for _ in 0..200 {
+        let (status, _) = noisy
+            .post(
+                "/api/v1/auth/login",
+                json!({ "email": "nobody@example.com", "password": "guessing-away-3" }),
+            )
+            .await;
+        if status == StatusCode::TOO_MANY_REQUESTS {
+            refused = true;
+            break;
+        }
+    }
+    assert!(refused, "the tight limits must refuse eventually");
+
+    // A signed-in reader is told neither door exists.
+    let (status, refused_body) = reader.get("/api/v1/admin/abuse").await;
+    assert_eq!(status, StatusCode::NOT_FOUND, "{refused_body}");
+    let (status, refused_body) = reader
+        .get("/api/v1/admin/abuse-status/ip:auth:203.0.113.11")
+        .await;
+    assert_eq!(
+        status,
+        StatusCode::NOT_FOUND,
+        "the per-key lookup was readable by any session before this: {refused_body}"
+    );
+
+    // The operator sees the key at the top, with the count, the recency, and what this build does not collect.
+    darkhold_app::limiter::clear_buckets();
+    let mut config = config;
+    config.administration.operator_account_id = Some(operator.parse().expect("uuid"));
+    let mut ops = Client::new(server::build_router(AppState::new(
+        config,
+        harness.tdb.db().clone(),
+    )));
+    let (status, body) = ops
+        .post(
+            "/api/v1/auth/login",
+            json!({ "email": "ops@example.com", "password": "a-long-enough-passphrase" }),
+        )
+        .await;
+    assert!(status.is_success(), "operator login: {status} {body}");
+
+    let (status, view) = ops.get("/api/v1/admin/abuse").await;
+    assert_eq!(status, StatusCode::OK, "{view}");
+    let counters = view["counters"].as_array().expect("counters");
+    assert!(!counters.is_empty(), "{view}");
+    assert_eq!(
+        counters[0]["key"], "ip:auth:203.0.113.11",
+        "the busiest key leads: {view}"
+    );
+    assert!(
+        counters[0]["count"].as_i64().unwrap_or(0) >= 1,
+        "and carries the count: {view}"
+    );
+    assert_eq!(counters[0]["blocked"], false, "a count never blocks: {view}");
+    assert!(
+        view["does_not_collect"]
+            .as_array()
+            .map(|a| !a.is_empty())
+            .unwrap_or(false),
+        "an operator must be told which of 24.4's signals are missing, or an empty field reads as 'no abuse': {view}"
+    );
+
+    harness.cleanup().await;
+}

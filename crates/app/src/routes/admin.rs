@@ -100,11 +100,17 @@ pub async fn create_privacy_request(
 }
 
 /// Abuse defence: check if IP/account is blocked.
+///
+/// **Operator-only, and it was not.** This route shipped with `RequireSession` alone, so any signed-in reader could ask for any key and learn
+/// `count` for `ip:<class>:<address>` — a stranger's IP-shaped bucket, or another account's. A refusal count is not personal data, but the
+/// *existence and shape* of a mitigation against somebody else is moderation information, and §24.4's view is the operator's. The gate is the
+/// repository's standard `require_admin_of` (ADR 0030: 404 rather than 403, because confirming the surface exists is itself a small disclosure).
 pub async fn check_abuse_status(
     State(state): State<AppState>,
     Path(key): Path<String>,
-    RequireSession(_user): RequireSession,
+    RequireSession(user): RequireSession,
 ) -> ApiResult<Json<Value>> {
+    crate::routes::admin_scope::require_admin_of(&state, &user, None).await?;
     let (blocked, count) = darkhold_db::admin::check_abuse_status(state.db(), &key)
         .await
         .map_err(|e| ApiError(darkhold_domain::AppError::Internal(e.into())))?;
@@ -129,6 +135,9 @@ pub fn router() -> axum::Router<AppState> {
             post(complete_privacy_request),
         )
         .route("/admin/abuse-status/{key}", get(check_abuse_status))
+        // §24.4's view: what is being refused right now, in order, without knowing the key to ask about. The per-key lookup above answers
+        // "this one?"; nobody knows which one to ask about in the middle of a burst.
+        .route("/admin/abuse", get(list_abuse))
         // What have we imported, and from where. The question an operator asks after a sync run, and the answer is the
         // `src-` prefixed pseuds — the prefix is the only record that a pseud is syndicated (M70-13).
         .route("/admin/syndication/pseuds", get(syndicated_pseuds))
@@ -447,4 +456,50 @@ pub struct TrustEventQuery {
     after: Option<String>,
     /// The cursor's id half, from the previous page's `next`.
     after_id: Option<String>,
+}
+
+/// `GET /api/v1/admin/abuse` — the busiest refusal keys, summed across their hourly windows.
+///
+/// **What this build actually collects, said in the payload.** §24.4 lists eight signals (request bursts, failed-authentication bursts,
+/// expensive-operation rates, export-to-request ratios, source-domain pressure, repeated limit violations, held-comment authors, shadowbans). This
+/// instance records **one** of them: refusals by the rate limiter, keyed by the limiter's own bucket. A door that answered `{"counters": []}` with no
+/// statement of coverage would read as "no abuse" rather than "one of the eight signals is collected", and an operator deciding on a mitigation needs
+/// to know which of the two they are looking at.
+pub async fn list_abuse(
+    State(state): State<AppState>,
+    RequireSession(user): RequireSession,
+    axum::extract::Query(params): axum::extract::Query<AbuseQuery>,
+) -> ApiResult<Json<Value>> {
+    crate::routes::admin_scope::require_admin_of(&state, &user, None).await?;
+    let limit = params.limit.unwrap_or(50).clamp(1, 200);
+    let counters = darkhold_db::admin::list_abuse_counters(state.db(), limit)
+        .await
+        .map_err(|e| ApiError(darkhold_domain::AppError::Internal(e.into())))?;
+    Ok(Json(json!({
+        "counters": counters
+            .iter()
+            .map(|counter| json!({
+                "key": counter.key,
+                "count": counter.count,
+                "blocked": counter.blocked,
+                "last_window": counter.last_window,
+            }))
+            .collect::<Vec<_>>(),
+        "collects": "rate-limit refusals (repeated limit violations), keyed by the limiter's bucket",
+        "does_not_collect": [
+            "request bursts by rate (the limiter refuses, it does not profile)",
+            "export-to-request ratios",
+            "source-domain pressure",
+            "held-comment authors",
+            "shadowbans",
+        ],
+        "rule": "a count is a signal and never a verdict: nothing here blocks anybody (spec 24.5)",
+    })))
+}
+
+/// How many keys to list.
+#[derive(Debug, serde::Deserialize)]
+pub struct AbuseQuery {
+    /// 1..200, default 50, ordered by count.
+    limit: Option<i64>,
 }
