@@ -2554,3 +2554,46 @@ pub async fn work_owner_account(
         }
     }
 }
+
+/// File the statutory record of a copyright notice (M45-52 step 6).
+pub async fn write_dmca_notice(
+    db: &Database,
+    report_id: &str,
+    copyrighted_work: &str,
+    infringing_material: &str,
+    good_faith_statement: &str,
+    signature: &str,
+) -> Result<(), sqlx::Error> {
+    let now = crate::identity::now_rfc3339();
+    match db.backend() {
+        Backend::Sqlite => {
+            sqlx::query(
+                "INSERT INTO dmca_notices (report_id, copyrighted_work, infringing_material, good_faith_statement, signature, created_at) \
+                 VALUES (?, ?, ?, ?, ?, ?)",
+            )
+            .bind(report_id)
+            .bind(copyrighted_work)
+            .bind(infringing_material)
+            .bind(good_faith_statement)
+            .bind(signature)
+            .bind(&now)
+            .execute(db.sqlite_pool().expect("sqlite"))
+            .await?;
+        }
+        Backend::Postgres => {
+            sqlx::query(
+                "INSERT INTO dmca_notices (report_id, copyrighted_work, infringing_material, good_faith_statement, signature, created_at) \
+                 VALUES ($1, $2, $3, $4, $5, $6)",
+            )
+            .bind(report_id)
+            .bind(copyrighted_work)
+            .bind(infringing_material)
+            .bind(good_faith_statement)
+            .bind(signature)
+            .bind(&now)
+            .execute(db.postgres_pool().expect("postgres"))
+            .await?;
+        }
+    }
+    Ok(())
+}

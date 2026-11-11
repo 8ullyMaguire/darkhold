@@ -97,6 +97,20 @@ struct SubmitReportBody {
     subject_id: String,
     reason: String,
     detail: Option<String>,
+    /// `dsa` (the default) or `dmca`. Two regimes, two forms: the DSA's Article 16 notice and 17 U.S.C. 512(c)(3)'s
+    /// statutory elements are not the same list, and folding them together makes one of the two non-compliant.
+    #[serde(default)]
+    kind: String,
+    // The four statutory elements of a copyright notice. Optional at the type level so a missing one is refused **by
+    // name** (`422` naming the field) rather than by serde's anonymous "missing field".
+    #[serde(default)]
+    copyrighted_work: String,
+    #[serde(default)]
+    infringing_material: String,
+    #[serde(default)]
+    good_faith_statement: String,
+    #[serde(default)]
+    signature: String,
 }
 
 async fn submit_report(
@@ -115,6 +129,38 @@ async fn submit_report(
         .as_ref()
         .map(|u| u.account_id.to_string())
         .unwrap_or_else(|| "anonymous".to_owned());
+    // Step 6: **the two regimes are two forms.**
+    //
+    // `dsa` is the default and is what every existing caller already sends. `dmca` carries the four elements a copyright
+    // notice must contain under 17 U.S.C. 512(c)(3): identification of the copyrighted work, identification of the material
+    // claimed to infringe, a good-faith statement, and the complainant's signature. Each one missing is a `422` naming that
+    // field, because a notice that fails one element is not a weak notice, it is not a notice.
+    let kind = if body.kind.trim().is_empty() { "dsa" } else { body.kind.trim() };
+    match kind {
+        "dsa" => {}
+        "dmca" => {
+            for (field, value) in [
+                ("copyrighted_work", body.copyrighted_work.trim()),
+                ("infringing_material", body.infringing_material.trim()),
+                ("good_faith_statement", body.good_faith_statement.trim()),
+                ("signature", body.signature.trim()),
+            ] {
+                if value.is_empty() {
+                    return Err(ApiError(AppError::field(
+                        field,
+                        "a copyright notice must contain this element (17 U.S.C. 512(c)(3))",
+                    )));
+                }
+            }
+        }
+        other => {
+            return Err(ApiError(AppError::field(
+                "kind",
+                format!("unknown notice kind `{other}`: expected `dsa` or `dmca`"),
+            )));
+        }
+    }
+
     let id = darkhold_db::governance::open_report(
         state.db(),
         &body.subject_type,
@@ -124,6 +170,19 @@ async fn submit_report(
     )
     .await
     .map_err(|e| ApiError(AppError::Internal(e.into())))?;
+
+    if kind == "dmca" {
+        darkhold_db::governance::write_dmca_notice(
+            state.db(),
+            &id,
+            body.copyrighted_work.trim(),
+            body.infringing_material.trim(),
+            body.good_faith_statement.trim(),
+            body.signature.trim(),
+        )
+        .await
+        .map_err(|e| ApiError(AppError::Internal(e.into())))?;
+    }
 
     darkhold_db::governance::audit_append(
         state.db(),

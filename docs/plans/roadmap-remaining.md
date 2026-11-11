@@ -187,7 +187,19 @@ both, so an account that muted this event kind is honoured without a second inbo
 notification with the reasons, the ground and the exact deadline; mutant filtering the author out makes the inbox empty
 (`items: []`). Suite 7/7 SQLite and 7/7 PostgreSQL.
 
-**Still planned — the named remainder:** (3) tell both sides through the existing notification machinery, (4) enforce
+**Step 6 built (same turn) — DMCA is its own form, not a flag on the DSA one.** `POST /reports` gained `kind: dsa|dmca`
+(default `dsa`, so every existing caller is unchanged). The DMCA arm requires 17 U.S.C. 512(c)(3)'s four elements —
+`copyrighted_work`, `infringing_material`, `good_faith_statement`, `signature` — each refused **`422` naming its own
+field**, and stores them in `dmca_notices` (migration `0209`) beside the report. A DSA notice needs none of them, and the
+test asserts that too: folding the two together makes one of the two non-compliant. Mutant: the element check disabled →
+`left: 200 / right: 422`. Suite **8/8 SQLite and 8/8 PostgreSQL**.
+
+**All six steps are built.** The row moves to `implemented-fully-tested`: every acceptance clause from the plan is a test
+in `crates/app/tests/m45_52_statement_of_reasons.rs`, both engines, with a mutant per refusal.
+
+**Superseded note — the plan above is now the record of how it was built, not a remainder.**
+
+ (3) tell both sides through the existing notification machinery, (4) enforce
 `appeal_until` at `POST /appeals`, (5) `GET /statements/summary` as counts per ground and outcome, (6) the `dsa|dmca`
 discriminator with DMCA's four statutory elements. Steps 1–2 are the part the other four read from, which is why they
 came first.

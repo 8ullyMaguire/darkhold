@@ -577,3 +577,96 @@ async fn the_author_is_told_when_their_account_is_acted_on() {
     );
     let _ = target;
 }
+
+/// A copyright notice missing a statutory element is not a weak notice — it is not a notice.
+#[tokio::test]
+async fn a_dmca_notice_missing_a_statutory_element_is_refused() {
+    let harness = Harness::new("dmca").await;
+    let mut reporter = harness.client();
+    reporter.register("dmca-reporter@example.test", "Complainant").await;
+
+    // 17 U.S.C. 512(c)(3) lists four; each one missing is refused by the field's own name.
+    for field in [
+        "copyrighted_work",
+        "infringing_material",
+        "good_faith_statement",
+        "signature",
+    ] {
+        let mut payload = json!({
+            "subject_type": "work",
+            "subject_id": "w-1",
+            "reason": "copyright",
+            "kind": "dmca",
+            "copyrighted_work": "The Long Winter, chapter 3",
+            "infringing_material": "Every paragraph of chapter 3, copied verbatim",
+            "good_faith_statement": "I have a good faith belief that this use is not authorised.",
+            "signature": "A. Complainant",
+        });
+        payload[field] = json!("");
+        let (status, body) = reporter.post("/api/v1/reports", payload).await;
+        assert_eq!(
+            status,
+            StatusCode::UNPROCESSABLE_ENTITY,
+            "a notice without `{field}` is refused: {status} {body}"
+        );
+        assert!(
+            body["error"]["field_errors"].get(field).is_some(),
+            "the refusal names `{field}`: {body}"
+        );
+    }
+
+    // With all four, the notice is accepted and the statutory record is stored beside the report.
+    let (status, body) = reporter
+        .post(
+            "/api/v1/reports",
+            json!({
+                "subject_type": "work",
+                "subject_id": "w-1",
+                "reason": "copyright",
+                "kind": "dmca",
+                "copyrighted_work": "The Long Winter, chapter 3",
+                "infringing_material": "Every paragraph of chapter 3, copied verbatim",
+                "good_faith_statement": "I have a good faith belief that this use is not authorised.",
+                "signature": "A. Complainant",
+            }),
+        )
+        .await;
+    assert!(
+        status == StatusCode::OK || status == StatusCode::CREATED,
+        "a complete notice is filed: {status} {body}"
+    );
+    let report_id = body["id"].as_str().expect("report id").to_owned();
+    use sqlx::Row;
+    // The two engines have two row types, so the read happens inside each arm — a `match` over them cannot unify.
+    let signature = match harness.db().backend() {
+        darkhold_db::Backend::Sqlite => sqlx::query("SELECT signature FROM dmca_notices WHERE report_id = ?")
+            .bind(&report_id)
+            .fetch_optional(harness.db().sqlite_pool().expect("sqlite"))
+            .await
+            .expect("query the notice")
+            .map(|row| row.get::<String, _>("signature")),
+        darkhold_db::Backend::Postgres => sqlx::query("SELECT signature FROM dmca_notices WHERE report_id = $1")
+            .bind(&report_id)
+            .fetch_optional(harness.db().postgres_pool().expect("postgres"))
+            .await
+            .expect("query the notice")
+            .map(|row| row.get::<String, _>("signature")),
+    };
+    assert_eq!(
+        signature.as_deref(),
+        Some("A. Complainant"),
+        "the statutory record exists beside the report"
+    );
+
+    // And a DSA notice still needs none of those fields: the two regimes stayed two forms.
+    let (status, body) = reporter
+        .post(
+            "/api/v1/reports",
+            json!({ "subject_type": "work", "subject_id": "w-2", "reason": "spam" }),
+        )
+        .await;
+    assert!(
+        status == StatusCode::OK || status == StatusCode::CREATED,
+        "a DSA notice is unchanged by the DMCA arm: {status} {body}"
+    );
+}
