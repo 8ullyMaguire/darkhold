@@ -280,6 +280,21 @@ no token column. The store scopes by `actor`, which is the human. So the surface
 this token did*. That needs the write path to record which credential was used; until then the attribution half is unbuilt and named here rather
 than papered over with a `dh audit` verb that would imply it.
 
+## The DSAR read was gated by trust level, not by standing — first item off the `/admin/` baseline — 2026-11-11
+
+`GET /admin/subjects/{account}/data` — the operator's subject-access read — was gated by `Privilege::ResolveReports`, i.e. **by trust level alone**.
+Any trust-6 moderator could read a stranger's assembled personal data, with a legal basis they typed themselves. The audit receipt and the basis
+check were the right shape attached to the wrong gate: resolving reports and disclosing a DSAR are different acts, and only the first is moderation.
+
+It now takes `require_admin_of` (ADR 0030: `404` to a caller with no admin standing — confirming that a subject-access surface exists is itself a
+disclosure). `ROUTE_TABLE` moved from `Authenticated` to `AdminOf { site: None }`, and the row left the `/admin/` baseline — **which is the ratchet's
+stale check doing its job**: it failed until the line was deleted.
+
+`m45_55_compliance_tooling` **4/4 both engines**, including `a_high_trust_moderator_cannot_read_a_subject` (trust 9, no operator role → `404`, zero
+receipts). Mutant (gate removed) → the moderator reads the subject with `200`.
+
+**For the operator:** compliance staff who are not instance operators lose this door. That is the change, not a side effect.
+
 ## The `/admin/` prefix ratchet — an inventory cannot see a gate that was never written — 2026-11-11
 
 `GET /admin/abuse-status/{key}` shipped with `RequireSession` alone and its `ROUTE_TABLE` row said `Audience::Authenticated`: the inventory describes

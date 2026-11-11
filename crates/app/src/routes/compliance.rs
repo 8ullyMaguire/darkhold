@@ -194,17 +194,13 @@ async fn subject_access(
     Path(account): Path<String>,
     Query(query): Query<SubjectAccessQuery>,
 ) -> ApiResult<Response> {
+    // **The operator's, not a moderator's.** This route returns a subject's assembled personal data — a full DSAR dump — and it used to be gated
+    // by `Privilege::ResolveReports`, i.e. by trust level alone: a trust-6 moderator could read anybody's account. Resolving reports and
+    // disclosing a DSAR are different acts, and the second is one the instance can be answerable for, so it takes `require_admin_of` (ADR 0030:
+    // `404` to a caller with no standing, because confirming the surface exists is itself a disclosure). The legal-basis requirement and the audit
+    // receipt below are unchanged — they were the right shape, attached to the wrong gate.
+    crate::routes::admin_scope::require_admin_of(&state, &session.0, None).await?;
     let actor = session.0.account_id.to_string();
-    let (level, required) =
-        crate::auth::privilege_check(&state, &actor, Privilege::ResolveReports)
-            .await
-            .map_err(|e| ApiError(darkhold_domain::AppError::Internal(e.into())))?;
-    if level < required {
-        return Err(ApiError(darkhold_domain::AppError::TrustLevelInsufficient {
-            level,
-            required,
-        }));
-    }
 
     let basis = query.basis.trim();
     if basis.is_empty() {

@@ -170,14 +170,28 @@ impl Harness {
         )))
     }
 
-    /// An account with the standing a senior reviewer has.
+    /// An account with the standing a senior reviewer has, **and the operator role**.
+    ///
+    /// The role is new, and it is the point of M45-55's DSAR door: `subject_access` used to be gated by trust level alone, so this helper's
+    /// trust-6 account could read anybody's personal data. It is now `require_admin_of`, so the helper grants what the door asks for. The role comes
+    /// from `config.administration.operator_account_id` rather than a session role because roles are baked into the session row at login and this
+    /// client registers rather than signs in — the config path is the break-glass identity ADR 0030 defines for exactly this.
     async fn operator(&self, tag: &str) -> (Client, String) {
         let mut client = self.client();
-        let account = client.register(&format!("{tag}-operator@example.test"), "Operator").await;
+        let account = client
+            .register(&format!("{tag}-operator@example.test"), "Operator")
+            .await;
         darkhold_db::governance::set_trust(self.db(), &account, 6, "test")
             .await
             .expect("grant standing");
-        (client, account)
+        let mut config = self.config.clone();
+        config.administration.operator_account_id = Some(account.parse().expect("account uuid"));
+        let mut operator = Client::new(server::build_router(AppState::new(
+            config,
+            self.db().clone(),
+        )));
+        operator.cookies = client.cookies.clone();
+        (operator, account)
     }
 
     async fn subject(&self, tag: &str) -> String {
@@ -355,13 +369,51 @@ async fn an_operator_read_needs_a_basis_and_is_recorded() {
     let (status, _body) = reader
         .get(&format!("/api/v1/admin/subjects/{subject}/data?basis=legal_obligation"))
         .await;
+    // `404`, not `403`: the door is operator-only now, and ADR 0030 answers a caller with no admin standing at all with 404 — confirming that a
+    // subject-access surface exists is itself a disclosure. `403`/`422` were what a trust-level refusal looked like when the gate was a level.
     assert!(
-        status == StatusCode::FORBIDDEN || status == StatusCode::UNPROCESSABLE_ENTITY,
+        status == StatusCode::NOT_FOUND
+            || status == StatusCode::FORBIDDEN
+            || status == StatusCode::UNPROCESSABLE_ENTITY,
         "a plain reader cannot read another account's data: {status}"
     );
     assert_eq!(
         harness.count_audit(&subject).await,
         2,
         "and the refusal wrote nothing — the two receipts are the two successful reads"
+    );
+}
+
+/// A senior moderator is not an operator, and a DSAR read is the operator's.
+///
+/// The door used to be gated by `Privilege::ResolveReports`, so trust level alone opened it: a trust-6 account could read a stranger's assembled
+/// personal data with a legal basis it typed itself. This test holds the separation — trust 9, no operator role, `404` — because that is the
+/// distinction a trust-level gate cannot express and the audit receipt cannot repair after the fact.
+#[tokio::test]
+async fn a_high_trust_moderator_cannot_read_a_subject() {
+    let harness = Harness::new("dsar-moderator").await;
+    let subject = harness.subject("target").await;
+    let mut moderator = harness.client();
+    let moderator_account = moderator
+        .register("senior-moderator@example.test", "SeniorModerator")
+        .await;
+    darkhold_db::governance::set_trust(harness.db(), &moderator_account, 9, "test")
+        .await
+        .expect("grant trust");
+
+    let (status, body) = moderator
+        .get(&format!(
+            "/api/v1/admin/subjects/{subject}/data?basis=legal_obligation"
+        ))
+        .await;
+    assert_eq!(
+        status,
+        StatusCode::NOT_FOUND,
+        "trust is not standing: {status} {body}"
+    );
+    assert_eq!(
+        harness.count_audit(&subject).await,
+        0,
+        "a refused read leaves no receipt because nothing was read: {body}"
     );
 }

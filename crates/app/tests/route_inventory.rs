@@ -1041,7 +1041,7 @@ fn the_reverse_check_catches_an_unmounted_router() {
 /// Every `/admin/` door is closed to a plain session — as a ratchet, because 26 of them are not.
 ///
 /// The abuse lookup shipped as `Audience::Authenticated` and the table recorded exactly that: an inventory describes the code, so it cannot catch a
-/// gate that was never written. The prefix is the invariant that can — but the current tree has **26** `/admin/` rows below operator standing, and
+/// gate that was never written. The prefix is the invariant that can — but the current tree has **25** `/admin/` rows below operator standing, and
 /// each needs its handler read before anybody claims which are internal gates that work and which are the abuse bug again. Changing 26 gates in one
 /// commit would be the same guess in the other direction.
 ///
@@ -1055,7 +1055,6 @@ const KNOWN_BELOW_OPERATOR: &[(&str, &str)] = &[
     ("GET", "/admin/jobs"),
     ("GET", "/admin/jobs/summary"),
     ("POST", "/admin/jobs/{id}/retry"),
-    ("GET", "/admin/subjects/{account}/data"),
     ("GET", "/admin/stats"),
     ("POST", "/admin/actions"),
     ("GET", "/admin/monetization"),

@@ -3613,7 +3613,7 @@ pub const ROUTE_TABLE: &[RouteEntry] = &[
         handler: "subject_access",
         method: "GET",
         path: "/admin/subjects/{account}/data",
-        audience: Audience::Authenticated,
+        audience: Audience::AdminOf { site: None },
     },
     RouteEntry {
         file: "governance.rs",
