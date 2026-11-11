@@ -1470,16 +1470,16 @@ pub async fn active_pseud_id(client: &mut TestClient, account_id: &str) -> Optio
 /// only ever be called once per account, and it is called at least twice in the
 /// cross-account revoke test (as the intruder, then back as the owner).
 pub async fn sign_in_as(client: &mut TestClient, db: &TestDb, email: &str, handle: &str) -> String {
+    // Drop the previous identity's cookies **first**: a stale CSRF token left behind fails the login *after* it
+    // succeeded, or worse passes it against the wrong session — and since M66 GS-1 a registration attempted with a
+    // registered session still attached is refused (422, `session`), so a second account could never be created.
+    client.clear_cookies();
     let exists = db
         .count_by("SELECT COUNT(*) FROM accounts WHERE email = ?", email)
         .await;
     if exists == 0 {
         register(client, email, handle).await;
     }
-    // Drop the previous identity's cookies: a stale CSRF token left behind
-    // fails the login *after* it succeeded, or worse passes it against the
-    // wrong session.
-    client.clear_cookies();
     let (status, body) = client
         .post(
             "/api/v1/auth/login",

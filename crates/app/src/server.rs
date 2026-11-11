@@ -1393,6 +1393,19 @@ pub fn build_router(state: AppState) -> Router {
             routes::notifications::router(),
             RouteClass::Write,
         ))
+        // **CSRF for everything in `api`, not just `account_routes`.** This layer used to sit only on
+        // `account_routes` (the auth/pseud subtree), so every write merged into `api` — a bookmark, a kudos, a
+        // comment, a reading position — accepted the session cookie alone. `verify_csrf` skips a request with no
+        // `SessionUser` in the extensions, which is exactly what a missing mount looks like, so the hole was
+        // silent: the guard ran nowhere and refused nothing. Measured by `m66_gs3_guest_pseudonym`'s
+        // `a_cookie_alone_cannot_write`, which created a bookmark from a bare cookie jar (201) before this.
+        //
+        // Order: `load_session` is added LAST, so it is the outermost layer and the extension exists by the time
+        // this one runs. Reversing them would restore the silent skip with the layer apparently in place.
+        .layer(middleware::from_fn_with_state(
+            state.clone(),
+            auth::verify_csrf,
+        ))
         // Session loading wraps everything under /api/v1 so that the CSRF layer
         // and the limiter installed per subtree can both see who is asking.
         .layer(middleware::from_fn_with_state(

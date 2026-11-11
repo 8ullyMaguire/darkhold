@@ -90,6 +90,10 @@ impl Harness {
     }
 
     async fn signed_in(&mut self, email: &str, handle: &str) -> String {
+        // "Become this account" means arriving as a different browser. A registered session cannot open a second
+        // account (M66 GS-1: registration from a registered session is refused, 422 naming `session`), so a
+        // cross-account test that kept the first jar was measuring the first account acting on itself.
+        self.client.clear_cookies();
         test_support::register(&mut self.client, email, handle).await
     }
 

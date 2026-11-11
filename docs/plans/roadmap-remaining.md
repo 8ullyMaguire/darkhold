@@ -189,6 +189,44 @@ signed skew, the API-line comparison, and that a warning is not a failure (`3/3`
 resolve" after the first already said "nothing answered" is two rows for one fact. The row's list is answered by five
 checks, not five modules.
 
+## M66 GS-3 built and proved — and the CSRF layer was mounted on one router of two — 2026-11-11
+
+**What the row actually was.** GS-1 created the guest and issued the cookies; GS-2 proved the in-place upgrade. The row's
+claim — *a cookie-backed pseudonym that owns what it writes* — had never been measured through a door, because GS-2's test
+inserted its bookmark with SQL. Written as a door test, it failed on the first run, and not for the reason expected:
+
+```
+a_cookie_alone_cannot_write ... left: 201, right: 403
+```
+
+`verify_csrf` was layered on **`account_routes`** (the auth/pseud subtree) and nowhere else. Everything merged into the
+`api` router — bookmarks, kudos, comments, reading positions, the roadmap — accepted the session cookie alone. And the
+guard is written to skip a request with no `SessionUser` in the extensions, which is exactly what a *missing mount* looks
+like: it was in the file, running on one subtree of four, refusing nothing and logging nothing.
+
+**The fix is three lines and an ordering argument.** `verify_csrf` is now a layer on `api`, added *before*
+`load_session` in source order so that `load_session` remains the outermost layer — the extension has to exist when the
+guard runs. Reversing them would restore the silent skip while the layer looked present, which is the failure this row
+was about.
+
+**Proof** — `m66_gs3_guest_pseudonym`, **3/3 SQLite and 3/3 PostgreSQL**:
+
+1. the session cookie is the whole identity: a second client built from nothing but the `Set-Cookie` values is the same
+   account and the same pseud, and the bookmark the guest wrote is on that shelf;
+2. a cookie alone cannot write: the same POST without the CSRF header is 403 and leaves no row, the same POST with the
+   token is 201 — so the refusal is the token, not a blanket denial of guests;
+3. what the guest wrote through the door is what registration keeps: the reader logs in the next day with the new
+   password and their bookmark is there.
+
+Mutant: the api-level layer removed → `a_cookie_alone_cannot_write` fails (201 vs 403). Tests 1 and 3 assert wiring that
+already existed; test 2's mutant is the one that proves the change.
+
+**Repaired alongside:** `m54_bot_link` had 3/25 failing for a reason the CSRF fix surfaced — `sign_in_as` registered the
+second account before clearing the first session's cookies, and GS-1 refuses registration from a registered session (422
+`saying session`). The clear now precedes the register; the suite is 25/25. Blast radius of enforcing CSRF on `api`,
+measured rather than guessed: `milestone_45_roadmap` 55/55, `reader_page` 7/7, `m45_59_multi_link` 3/3,
+`m45_55_compliance_tooling` 3/3 — the clients already send the header, which is why the hole survived.
+
 ## M66 GS-2 built and proved — what a guest did stays theirs — 2026-11-11
 
 **The decision, first.** Registration from a guest session **upgrades the account in place**. It does not fold one account
