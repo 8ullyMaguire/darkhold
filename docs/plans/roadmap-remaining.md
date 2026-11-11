@@ -280,6 +280,27 @@ no token column. The store scopes by `actor`, which is the human. So the surface
 this token did*. That needs the write path to record which credential was used; until then the attribution half is unbuilt and named here rather
 than papered over with a `dh audit` verb that would imply it.
 
+## M70-13 ratchet pass 9 — 30 → 29, and the abuse counters had a reader and no writer — 2026-11-11
+
+`admin::increment_abuse_counter` has existed since the abuse table did and **nothing called it**, while `check_abuse_status` had a route
+(`GET /admin/abuse-status/{key}`). The surface §24.4 lists as "repeated limit violations" could only ever answer zero, whatever the traffic did —
+the third inert mechanism found today, after the declarative adapters and the theme computation.
+
+Wired where repeated limit violations actually happen: `limiter::enforce`'s two refusal points call a `refuse` helper that records before
+answering.
+
+- **The key is the limiter's own bucket key** (`ip:<class>:<address>`, `user:<class>:<account>`) — an operator looks up exactly what the limiter
+  counted, not a second naming scheme that would drift from it.
+- **The window is the hour**, so a burst reads as a spike rather than a lifetime total.
+- **Counting cannot change the answer**: the 429 is built either way, and a failed write is logged and dropped — an observability row must never
+  turn a correct refusal into a 500.
+- **Nothing is blocked by this.** §24.5 says these signals alone must not establish abuse; `blocked_until` stays a decision.
+
+Found on the way: `check_abuse_status` read one row with no ordering — a lifetime question answered with whichever hour came back first. It now
+sums across windows, and the test proves a second window adds rather than hiding behind the first.
+
+`a_rate_limit_refusal_is_recorded_in_the_abuse_counters` **1/1 both engines**; mutant (increment wrapped in `if false`) → count 0, red.
+
 ## GS-3's CSRF layer reddened 19 tests in 8 suites, and the blast-radius check missed all of them — 2026-11-11
 
 Found while adding a route beside `reader_body_copies`: `cargo test -p darkhold-app --test reader_body_copies` was **0/8**, every write answering

@@ -1655,3 +1655,62 @@ async fn no_response_contains_a_credential() {
 
     harness.cleanup().await;
 }
+
+// A refusal must leave a trace the operator can read.
+//
+// `admin::increment_abuse_counter` has existed since the abuse table did and **nothing called it**, so `GET /admin/abuse-status/{key}` — the surface
+// §24.4 lists as "repeated limit violations" — could only ever answer zero. This test pins the writer: trip the limiter, then read the counter.
+//
+// Same reasoning as `repeated_login_attempts_are_rate_limited` for the guard: the shared process-wide bucket is under test.
+#[allow(clippy::await_holding_lock)]
+#[tokio::test]
+async fn a_rate_limit_refusal_is_recorded_in_the_abuse_counters() {
+    let _budget = private_rate_limit_budget();
+    let harness = Harness::new("abuse-counter").await;
+    let config = tight_config_for(&harness.dir);
+    let app = server::build_router(AppState::new(config, harness.tdb.db().clone()));
+    let mut client = Client::new(app).with_address("203.0.113.9");
+
+    let mut refused = false;
+    for _ in 0..200 {
+        let (status, _) = client
+            .post(
+                "/api/v1/auth/login",
+                json!({ "email": "nobody@example.com", "password": "guessing-away-2" }),
+            )
+            .await;
+        if status == StatusCode::TOO_MANY_REQUESTS {
+            refused = true;
+            break;
+        }
+    }
+    assert!(refused, "the tight limits must refuse eventually");
+
+    // The key is the limiter's own bucket key, so the operator looks up exactly what the limiter counted rather than a second naming scheme.
+    let key = "ip:auth:203.0.113.9";
+    let (blocked, count) = darkhold_db::admin::check_abuse_status(harness.tdb.db(), key)
+        .await
+        .expect("abuse status");
+    assert!(
+        count >= 1,
+        "the refusal must be recorded under the limiter's key ({key}): count {count}"
+    );
+    assert!(
+        !blocked,
+        "§24.5: a counter is a signal, and this signal alone must not block anybody"
+    );
+
+    // And the count is a sum across windows rather than whichever hourly row the database happened to return first.
+    darkhold_db::admin::increment_abuse_counter(harness.tdb.db(), key, "1999-01-01T00:00:00Z")
+        .await
+        .expect("an older window");
+    let (_, summed) = darkhold_db::admin::check_abuse_status(harness.tdb.db(), key)
+        .await
+        .expect("abuse status");
+    assert!(
+        summed >= count + 1,
+        "a second window adds to the total rather than hiding behind the first row: {summed} vs {count}"
+    );
+
+    harness.cleanup().await;
+}

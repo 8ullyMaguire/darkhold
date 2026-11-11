@@ -320,7 +320,9 @@ pub async fn list_privacy_requests(
 pub async fn check_abuse_status(db: &Database, key: &str) -> Result<(bool, i64), sqlx::Error> {
     match db.backend() {
         Backend::Sqlite => {
-            let row = sqlx::query("SELECT count, blocked_until FROM abuse_counters WHERE key = ?")
+            let row = // Summed across windows: the counters are written per hour, so reading a single row answered a lifetime question with an
+            // hourly number — and which row came back was the database's choice.
+            sqlx::query("SELECT COALESCE(SUM(count), 0) AS count, MAX(blocked_until) AS blocked_until FROM abuse_counters WHERE key = ?")
                 .bind(key)
                 .fetch_optional(db.sqlite_pool().expect("sqlite"))
                 .await?;
@@ -334,7 +336,7 @@ pub async fn check_abuse_status(db: &Database, key: &str) -> Result<(bool, i64),
             }
         }
         Backend::Postgres => {
-            let row = sqlx::query("SELECT count, blocked_until FROM abuse_counters WHERE key = $1")
+            let row = sqlx::query("SELECT COALESCE(SUM(count), 0)::bigint AS count, MAX(blocked_until) AS blocked_until FROM abuse_counters WHERE key = $1")
                 .bind(key)
                 .fetch_optional(db.postgres_pool().expect("postgres"))
                 .await?;

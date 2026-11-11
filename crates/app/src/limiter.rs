@@ -381,16 +381,14 @@ pub async fn enforce(State(state): State<AppState>, request: Request, next: Next
         }
     };
     if let Err(retry_after) = limiter.check(&address_key, address_quota) {
-        return too_many(retry_after);
+        return refuse(&state, &address_key, retry_after).await;
     }
 
     // Account bucket, when the request carries an authenticated session.
     if let Some(user) = request.extensions().get::<crate::auth::SessionUser>() {
-        if let Err(retry_after) = limiter.check(
-            &format!("user:{}:{}", class.as_str(), user.account_id),
-            quota,
-        ) {
-            return too_many(retry_after);
+        let user_key = format!("user:{}:{}", class.as_str(), user.account_id);
+        if let Err(retry_after) = limiter.check(&user_key, quota) {
+            return refuse(&state, &user_key, retry_after).await;
         }
     }
 
@@ -459,6 +457,38 @@ fn warn_missing_address(state: &AppState) {
         hint,
         "no client address available for rate limiting; all such requests now share one bucket"
     );
+}
+
+/// Answer a refusal, and record it in the abuse counters under the key the limiter itself used.
+///
+/// **The counters had a reader and no writer.** `admin::increment_abuse_counter` has existed since the abuse table did and nothing called it, so
+/// `GET /admin/abuse-status/{key}` — the surface §24.4 lists as "repeated limit violations" — could only ever answer zero. Wiring the limiter's
+/// own refusal into it is the smallest honest fix: this is where repeated limit violations actually happen.
+///
+/// Four decisions, each of which is a way this could have been built wrong:
+///
+/// - **The key is the limiter's bucket key**, `ip:<class>:<address>` or `user:<class>:<account>`, so an operator looks up exactly what the limiter
+///   counted instead of a second naming scheme that would drift from it.
+/// - **The window is the hour**, so a burst reads as a spike in one row rather than as a lifetime total that never ages out. `check_abuse_status`
+///   sums across windows for the same reason.
+/// - **Counting cannot change the answer.** The 429 is built either way; a failure to write the counter is logged and dropped, because an
+///   observability row must never turn a correct refusal into a 500.
+/// - **Nothing is blocked by this.** §24.5 is explicit that these signals must not alone establish abuse: the counter feeds the operator's view,
+///   and `blocked_until` is somebody's decision, not a consequence of arithmetic.
+async fn refuse(state: &AppState, key: &str, retry_after: Duration) -> Response {
+    let window = hour_window();
+    if let Err(error) = darkhold_db::admin::increment_abuse_counter(state.db(), key, &window).await {
+        tracing::warn!(%key, %error, "could not record a rate-limit refusal in the abuse counters");
+    }
+    too_many(retry_after)
+}
+
+/// The current hour, in the shape `abuse_counters.window` holds.
+fn hour_window() -> String {
+    darkhold_db::identity::format_rfc3339(time::OffsetDateTime::now_utc())
+        .get(..13)
+        .map(|prefix| format!("{prefix}:00:00Z"))
+        .unwrap_or_else(|| "1970-01-01T00:00:00Z".to_owned())
 }
 
 /// Build the 429 response, always with a `Retry-After`.
