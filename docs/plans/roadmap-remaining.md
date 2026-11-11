@@ -179,6 +179,14 @@ their omission. Mutant: suppression disabled → `left: Number(2) / right: Null`
 `route_inventory` 5/5 (the public door takes `MaybeSession`, which is how this tree records that a door is offered to an
 anonymous caller).
 
+**Step 3 also built (same turn) — both sides are told.** The decision notifies the **reporter** (`report_decided`, carrying
+the outcome, the ground and the statement id) and the **author** (`moderation_decision`, carrying their own `facts`
+verbatim, the ground and the deadline they may appeal by). The author is resolved from the report's subject — an account
+directly, a work through `work_owner_account` (works → pseuds → account) — and the existing `notifications::notify` carries
+both, so an account that muted this event kind is honoured without a second inbox. Test: the author signs in and finds the
+notification with the reasons, the ground and the exact deadline; mutant filtering the author out makes the inbox empty
+(`items: []`). Suite 7/7 SQLite and 7/7 PostgreSQL.
+
 **Still planned — the named remainder:** (3) tell both sides through the existing notification machinery, (4) enforce
 `appeal_until` at `POST /appeals`, (5) `GET /statements/summary` as counts per ground and outcome, (6) the `dsa|dmca`
 discriminator with DMCA's four statutory elements. Steps 1–2 are the part the other four read from, which is why they

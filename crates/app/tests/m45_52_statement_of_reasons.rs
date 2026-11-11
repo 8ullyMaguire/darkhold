@@ -522,3 +522,58 @@ async fn the_summary_counts_grounds_and_never_names_an_account() {
     assert!(!text.contains("task_id"), "no task id appears");
     assert!(!text.contains("statement_id"), "no statement id appears");
 }
+
+/// The person whose account was acted on is told, with the reasons and the deadline.
+///
+/// Before this, the reporter got an answer and the author got a sanction with no explanation. The notification is the
+/// half of the row that makes the statement reach anybody.
+#[tokio::test]
+async fn the_author_is_told_when_their_account_is_acted_on() {
+    let harness = Harness::new("told").await;
+    let (mut reviewer, task_id, _account, target) =
+        harness.assigned_task_with_target("told").await;
+
+    let facts = "Six identical promotional replies within one hour, from a new account.";
+    let (status, body) = reviewer
+        .post(
+            &format!("/api/v1/moderation/tasks/{task_id}/decide"),
+            json!({ "outcome": "uphold", "ground": "spam", "facts": facts }),
+        )
+        .await;
+    assert_eq!(status, StatusCode::OK, "{status} {body}");
+    let appeal_until = body["appeal_until"].as_str().expect("deadline").to_owned();
+
+    // The author signs in and reads their own inbox.
+    let mut author = harness.client();
+    let (status, body) = author
+        .post(
+            "/api/v1/auth/login",
+            json!({ "email": "told-target@example.test", "password": PASSWORD }),
+        )
+        .await;
+    assert!(status == StatusCode::OK, "sign in: {status} {body}");
+
+    let (status, body) = author.get("/api/v1/notifications").await;
+    assert_eq!(status, StatusCode::OK, "{status} {body}");
+    let items = body["items"]
+        .as_array()
+        .or_else(|| body["notifications"].as_array())
+        .or_else(|| body.as_array())
+        .unwrap_or_else(|| panic!("a list of notifications: {body}"));
+    let decision = items
+        .iter()
+        .find(|n| n["kind"] == "moderation_decision")
+        .unwrap_or_else(|| panic!("the author is told: {body}"));
+    let text = decision["body"].as_str().unwrap_or_default();
+    assert!(text.contains(facts), "the reasons are carried verbatim: {text}");
+    assert!(text.contains("spam"), "the ground is named: {text}");
+    assert!(
+        text.contains(&appeal_until),
+        "and the deadline they can appeal by: {text}"
+    );
+    assert!(
+        decision["work_id"].is_null(),
+        "an account sanction links to no work: {decision}"
+    );
+    let _ = target;
+}

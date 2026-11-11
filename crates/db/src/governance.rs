@@ -2493,3 +2493,64 @@ pub async fn statement_summary(db: &Database) -> Result<Vec<(String, String, i64
             .collect()),
     }
 }
+
+/// Who a report is about, and who filed it (M45-52 step 3).
+pub async fn report_subject(
+    db: &Database,
+    report_id: &str,
+) -> Result<Option<(String, String, String)>, sqlx::Error> {
+    use sqlx::Row;
+    match db.backend() {
+        Backend::Sqlite => {
+            let row = sqlx::query("SELECT subject_type, subject_id, reporter FROM reports WHERE id = ?")
+                .bind(report_id)
+                .fetch_optional(db.sqlite_pool().expect("sqlite"))
+                .await?;
+            Ok(row.map(|row| {
+                (
+                    row.get::<String, _>("subject_type"),
+                    row.get::<String, _>("subject_id"),
+                    row.get::<String, _>("reporter"),
+                )
+            }))
+        }
+        Backend::Postgres => {
+            let row = sqlx::query("SELECT subject_type, subject_id, reporter FROM reports WHERE id = $1")
+                .bind(report_id)
+                .fetch_optional(db.postgres_pool().expect("postgres"))
+                .await?;
+            Ok(row.map(|row| {
+                (
+                    row.get::<String, _>("subject_type"),
+                    row.get::<String, _>("subject_id"),
+                    row.get::<String, _>("reporter"),
+                )
+            }))
+        }
+    }
+}
+
+/// The account behind a work, so a decision about a work can reach the person who wrote it.
+pub async fn work_owner_account(
+    db: &Database,
+    work_id: &str,
+) -> Result<Option<String>, sqlx::Error> {
+    use sqlx::Row;
+    const SQL: &str = "SELECT p.account_id AS account FROM works w JOIN pseuds p ON p.id = w.owner_pseud_id WHERE w.id = ";
+    match db.backend() {
+        Backend::Sqlite => {
+            let row = sqlx::query(&format!("{SQL}?"))
+                .bind(work_id)
+                .fetch_optional(db.sqlite_pool().expect("sqlite"))
+                .await?;
+            Ok(row.map(|row| row.get::<String, _>("account")))
+        }
+        Backend::Postgres => {
+            let row = sqlx::query(&format!("{SQL}$1"))
+                .bind(work_id)
+                .fetch_optional(db.postgres_pool().expect("postgres"))
+                .await?;
+            Ok(row.map(|row| row.get::<String, _>("account")))
+        }
+    }
+}

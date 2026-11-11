@@ -360,6 +360,67 @@ async fn decide_task(
     .await
     .map_err(|e| ApiError(AppError::Internal(e.into())))?;
 
+    // M45-52 step 3: **both sides are told.**
+    //
+    // The notifier gets the outcome and the statement id; the person whose work or account was acted on gets the reasons and
+    // the deadline they can appeal by. Until this existed the reporter got an answer and the author got a sanction with no
+    // explanation, which is the asymmetry the row was filed for. The existing notification machinery carries both — no
+    // second inbox — and an account that muted this event kind is honoured by `notify` itself.
+    if let Some(statement) =
+        darkhold_db::governance::statement_by_id(state.db(), &statement_id)
+            .await
+            .map_err(|e| ApiError(AppError::Internal(e.into())))?
+    {
+        if let Some(report_id) = statement.report_id.clone() {
+            if let Some((subject_type, subject_id, reporter)) =
+                darkhold_db::governance::report_subject(state.db(), &report_id)
+                    .await
+                    .map_err(|e| ApiError(AppError::Internal(e.into())))?
+            {
+                let _ = darkhold_db::notifications::notify(
+                    state.db(),
+                    &reporter,
+                    "report_decided",
+                    "Your report was decided",
+                    &format!(
+                        "Outcome: {}. Ground: {}. Statement of reasons: {statement_id}.",
+                        body.outcome,
+                        ground.as_str()
+                    ),
+                    None,
+                )
+                .await;
+
+                let author = if subject_type == "work" {
+                    darkhold_db::governance::work_owner_account(state.db(), &subject_id)
+                        .await
+                        .map_err(|e| ApiError(AppError::Internal(e.into())))?
+                } else {
+                    Some(subject_id.clone())
+                };
+                if let Some(author) = author {
+                    let _ = darkhold_db::notifications::notify(
+                        state.db(),
+                        &author,
+                        "moderation_decision",
+                        "A moderation decision concerns you",
+                        &format!(
+                            "{}. Ground: {}. You may appeal until {appeal_until}.",
+                            body.facts,
+                            ground.as_str()
+                        ),
+                        if subject_type == "work" {
+                            Some(subject_id.as_str())
+                        } else {
+                            None
+                        },
+                    )
+                    .await;
+                }
+            }
+        }
+    }
+
     darkhold_db::governance::audit_append(
         state.db(),
         &darkhold_db::governance::AuditEntry {
