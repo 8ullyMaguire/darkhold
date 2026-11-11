@@ -11,7 +11,27 @@ Two rules that decide the order:
 * **A row that gates other rows is taken as soon as its blocker clears.** Nine of the M64 rows read a snapshot built by
   M64-01..M64-03; taking them first would mean writing the same aggregation three times.
 
-##### M45-52 — DSA notice-and-action, measured and planned 2026-11-11
+##### Deployed 2026-11-11 08:53 — M45-45 step 3 (`0.1.0+4b686729`, schema 0207)
+
+One deploy carried the proposal tables and the three doors. Measured, from `/tmp/deploy-m4545.log` on the host:
+
+| check | value |
+|---|---|
+| tree | fast-forwarded to `4b686729` before the build |
+| dump | `darkhold-20261111-082250-pre-m45-45.dump`, **3,740,163,448** bytes, **399** `TABLE DATA`, verified with `pg_restore -l` |
+| build | `== built 08:52:59`, 16 min from the dump's finish |
+| artifact | `taste-proposal-strings=2` — the path is inside the binary, not only in the tree |
+| migrate | schema **0207** (0206 `taste_lens_proposals`, 0207 `taste_lens_cause`) |
+| tables | 2 of 2 present (`taste_lens_proposals`, `taste_lens_votes`) |
+| service | `active` |
+| meta | `0.1.0+4b686729` |
+| doors, anonymous | `open-anon=401`, `read-anon=401`, `vote-anon=401` — all three exist and answer the session gate |
+
+**401 is the pass condition here**, and it is the only cheap one available unauthenticated: a 404 would mean the mount is
+still wrong, and 405 would mean the method is. That is the check this deploy exists to make, because the same three
+routes answered 404 for two sessions' worth of theories about handlers before the nest was found.
+
+## M45-52 — DSA notice-and-action, measured and planned 2026-11-11
 
 What exists today, read rather than assumed: `routes/governance.rs` serves `POST /reports`, `GET /reports`,
 `GET /reports/{id}`, `GET /moderation/queue`, `POST /moderation/reports/{id}/assign` and
