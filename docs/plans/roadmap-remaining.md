@@ -240,6 +240,34 @@ they are not what a stranger sees, and their own room rules already apply.
 `m69_15_membership_gate` — **6/6 SQLite and 6/6 PostgreSQL**. Mutants: the works guard removed → two tests fail `201` vs
 `422`; the comment guard removed → the comment is accepted.
 
+## M69-24 censused — the shared taste crate, and the one dependency that blocks the copy — 2026-11-11
+
+**census: REUSE the mechanism, BUILD the crate, and the crate cannot be `darkhold-taste` as it stands.** Measured, no code
+written:
+
+| fact | measurement |
+|---|---|
+| a shared taste crate exists | **no** — `~/code-local/rust` has `polaris-candidates`, `polaris-eval`; no `polaris-taste` |
+| the duplication is real | `rg -l -i 'fn blend|affinity'` over the estate: darkhold **55** files, suki **38**, ascend 7, whitebois 4, tessera 4, orbital 4, commons 1 |
+| darkhold already has a taste crate | `crates/taste` — "the catalogue, the graph, the ranker and the budgets", lib + binary |
+| can it be the shared one | **not as it stands**: it depends on `darkhold-domain` |
+| the sharing mechanism | already in use — `crates/taste` depends on `polaris-eval` by relative path, commented *"path dependency until the Forgejo registry answers"* |
+
+That last line is the row's shape: the estate already publishes a shared crate by path and intends the registry later, so the
+mechanism is REUSE. What is not reusable is the *contents*: `darkhold-taste` speaks in `darkhold-domain` types, so extracting
+it means deciding which types move first — a design decision, and the actual work of this row.
+
+**Decision recorded.** The shared crate is `polaris-taste`, holding the pure parts that speak only in domain primitives
+(`budget`, `diversify`, `ladder`, `embed`) plus the affinity/blend math; the product-shaped parts (`catalogue`, `graph`,
+`collab`, `health` — each reads a table or a product's own rows) stay in each product, behind a trait the shared crate
+defines. The JSON schema set ships versioned with the crate, and the **passport** schema is the one that must be byte-identical
+on both sides, because a passport whose semantics differ between sender and receiver is worse than none.
+
+**Not started, deliberately.** No crate was created: a crate nothing depends on is the "component nobody calls" failure this
+repo pays for repeatedly, and an adoption row's first commit must be a dependency, not a `pub mod`. The next step is the
+domain split, then the four pure modules, then darkhold depends and **deletes its copies** (adoption proved by deletion), then
+suki.
+
 ## M69-23 half built — the intake policy, and why the Saved Filter could not be it — 2026-11-11
 
 **The census found the object the row names, and measured that it cannot do the job.** A saved view's document is either a
