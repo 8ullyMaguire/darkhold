@@ -260,6 +260,23 @@ instance, because an adapter valid at approval can be invalid after a schema cha
 the adapter is in the registry *and* that an import through it reaches a fixture page. Until that exists, "verified-e2e" was a claim about the
 store.
 
+## M70-13 ratchet pass 6 — 33 → 32, the retention setting's history — 2026-11-11
+
+`retention_proposals::list_changes` existed since `retention_policy_changes` did and only tests called it: `GET /admin/retention/sources` said
+where retention **stands** and nothing said how it got there. On this setting that is not a nicety — the body mode decides whether the instance
+keeps the text of every work, and the change row carries an `actor` (`NOT NULL`, FK to accounts) and a `reason` that were readable only through
+psql.
+
+`GET /api/v1/admin/retention/changes` (Operator, the same `require_admin_of` gate as the setting, ADR 0003): `?source=<key>` narrows to one
+source's overrides; **absent means the instance-wide changes**, which is exactly what the store's `None` means. "Everything" is a third question
+nobody asked, and answering it would make a source's history and the instance's indistinguishable.
+
+`the_operator_reads_who_changed_retention_and_why` **1/1 both engines**. Mutant: `require_admin_of` removed → `200` vs `404`.
+
+**A dialect bug in my own test, worth recording:** I hand-rolled `SELECT account_id FROM pseuds WHERE handle = ?1`; SQLite accepts it and
+PostgreSQL rejects the syntax. The file had already solved this with `account_of` (case-insensitive, per-dialect). The lesson is not "remember
+`$1`" — it is that **a second spelling of an existing helper is how a dialect bug gets reintroduced**, and the fix was to call the helper.
+
 ## M70-13 ratchet pass 5 — 34 → 33, the submitter's missing half — 2026-11-11
 
 `source_adapters::submissions_by` was reached only by tests, and the gap was visible from outside: `POST /extensions/source-adapters` exists,

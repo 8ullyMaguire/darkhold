@@ -2239,6 +2239,13 @@ pub const ROUTE_TABLE: &[RouteEntry] = &[
     },
     RouteEntry {
         file: "retention.rs",
+        handler: "get_changes",
+        method: "GET",
+        path: "/admin/retention/changes",
+        audience: Audience::Operator,
+    },
+    RouteEntry {
+        file: "retention.rs",
         handler: "get_sources",
         method: "GET",
         path: "/admin/retention/sources",

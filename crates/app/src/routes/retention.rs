@@ -52,6 +52,10 @@ pub fn router() -> Router<AppState> {
             get(get_policy).patch(patch_policy),
         )
         .route("/admin/retention/sources", get(get_sources))
+        // The history of the setting. `list_changes` has existed since §11.15's table did and only tests called it,
+        // so the operator could read where retention stands and never why it moved — and a widened body mode is the
+        // one setting on this instance that nobody can be allowed to widen without a recorded reason.
+        .route("/admin/retention/changes", get(get_changes))
         // §11.15 / amendment §4.2: the operator's preservation-debt number.
         // Operator-only by construction — `require_operator` 404s anybody else,
         // and the amendment says explicitly that this is not public and not
@@ -430,4 +434,49 @@ fn parse_mode(value: &str) -> Result<BodyMode, String> {
             [BodyMode::Cache.as_str(), BodyMode::Aggregate.as_str()].join(" or ")
         )
     })
+}
+
+/// `GET /api/v1/admin/retention/changes[?source=<key>]` — who changed the retention setting, from what to what, and why.
+///
+/// **The missing half of the setting.** `GET /admin/retention/sources` states where retention *stands*; this states how it got there.
+/// `retention_proposals::list_changes` has existed since the change table did and was reached only by tests. Without it a widened body
+/// mode — the one change on this instance that decides whether the text of every work is kept — has an `actor` and a `reason` recorded in
+/// `retention_policy_changes` that no operator can read without psql.
+///
+/// `source` narrows to one source's overrides. Absent, it answers the instance-wide changes (`source_key IS NULL`), which is what the
+/// store's `None` means: the two questions are "what has been changed about the instance" and "what has been changed about this source",
+/// and neither is "everything".
+pub async fn get_changes(
+    State(state): State<AppState>,
+    RequireSession(user): RequireSession,
+    axum::extract::Query(params): axum::extract::Query<ChangeQuery>,
+) -> ApiResult<Json<serde_json::Value>> {
+    // Same gate as the setting itself: retention decides what is destroyed (ADR 0003).
+    crate::routes::admin_scope::require_admin_of(&state, &user, None).await?;
+
+    let changes = darkhold_db::retention_proposals::list_changes(state.db(), params.source.as_deref())
+        .await
+        .map_err(|error| ApiError(AppError::Internal(error)))?;
+
+    Ok(Json(serde_json::json!({
+        "changes": changes
+            .iter()
+            .map(|change| serde_json::json!({
+                "id": change.id,
+                "from_mode": change.from_mode.map(|mode| mode.as_str()),
+                "to_mode": change.to_mode.as_str(),
+                "source_key": change.source_key,
+                "actor": change.actor,
+                "reason": change.reason,
+                "decided_at": change.decided_at,
+            }))
+            .collect::<Vec<_>>(),
+    })))
+}
+
+/// Which changes: one source's, or the instance's own.
+#[derive(Debug, Deserialize)]
+pub struct ChangeQuery {
+    /// A source key. Absent means the instance-wide changes, not every change.
+    source: Option<String>,
 }

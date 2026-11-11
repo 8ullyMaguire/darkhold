@@ -1365,3 +1365,72 @@ async fn no_reader_can_read_another_readers_retention_ballot() {
         "the operator surface does not confirm itself to a reader: {status}"
     );
 }
+
+// ========================= E.5 the setting's history =========================
+
+/// The history of the setting, which is the half `GET /admin/retention/sources` cannot answer.
+///
+/// `retention_proposals::list_changes` has existed since `retention_policy_changes` did and was reached only by tests. The operator could read
+/// where retention **stands** and never why it moved — and a widened body mode is the one change on this instance that decides whether the text
+/// of every work is kept. The row records an `actor` and a `reason`; before this door they were readable only through psql.
+#[tokio::test]
+async fn the_operator_reads_who_changed_retention_and_why() {
+    let harness = Harness::with_operator("changes-door").await;
+    let mut client = harness.operator().await;
+
+    // `account_of` is the file's own helper, case-insensitive and per-dialect; a hand-rolled query here would be a second spelling of it
+    // (and the first attempt at one bound `?1` against PostgreSQL, which is a syntax the PG driver rejects).
+    let actor = account_of(&harness.db, "operator").await;
+
+    darkhold_db::retention_proposals::record_change(
+        &harness.db,
+        Some(darkhold_domain::retention::BodyMode::Cache),
+        darkhold_domain::retention::BodyMode::Aggregate,
+        None,
+        actor,
+        "storage pressure: stop keeping bodies for archived imports",
+    )
+    .await
+    .expect("record a change");
+
+    let (status, body) = client.get("/api/v1/admin/retention/changes").await;
+    assert_eq!(status, StatusCode::OK, "{body}");
+    let changes = body["changes"].as_array().expect("changes");
+    assert_eq!(changes.len(), 1, "{body}");
+    assert_eq!(changes[0]["from_mode"], "cache");
+    assert_eq!(changes[0]["to_mode"], "aggregate");
+    assert_eq!(
+        changes[0]["reason"], "storage pressure: stop keeping bodies for archived imports",
+        "a change with no reason is a change nobody can review: {body}"
+    );
+    assert_eq!(changes[0]["actor"], actor.to_string(), "{body}");
+
+    // A source's own history is a different question, and answering the instance's when asked for a source's would be a wrong answer that
+    // looks like an empty one.
+    let (status, scoped) = client
+        .get("/api/v1/admin/retention/changes?source=alpha")
+        .await;
+    assert_eq!(status, StatusCode::OK, "{scoped}");
+    assert_eq!(
+        scoped["changes"].as_array().expect("changes").len(),
+        0,
+        "the instance-wide change must not be reported as alpha's: {scoped}"
+    );
+
+    // And a reader with no operator standing is told the surface does not exist.
+    let mut reader = harness.client();
+    reader
+        .post(
+            "/api/v1/auth/register",
+            json!({
+                "email": "curious@example.com",
+                "password": GOOD_PASSWORD,
+                "handle": "curious",
+                "display_name": "Curious",
+                "age_band": "adult",
+            }),
+        )
+        .await;
+    let (status, refused) = reader.get("/api/v1/admin/retention/changes").await;
+    assert_eq!(status, StatusCode::NOT_FOUND, "{refused}");
+}
