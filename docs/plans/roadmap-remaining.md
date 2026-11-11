@@ -189,6 +189,49 @@ signed skew, the API-line comparison, and that a warning is not a failure (`3/3`
 resolve" after the first already said "nothing answered" is two rows for one fact. The row's list is answered by five
 checks, not five modules.
 
+## M66 GS-1 built and proved — read before registering, and the gate comes first — 2026-11-11
+
+`census: WIRE` — the hard part was already in the tree and had no door.
+
+| already here | where |
+|---|---|
+| `accounts.is_guest` (spec §14.1, D-6) read by trust, the experiment snapshots and `/admin/accounts/{id}/facts` | `migrations/*/0116` |
+| the ladder's guest rung | `db::governance` (`guest_level`) |
+| `consent.required_for_guest`, already **published** by `/meta` | `app::config`, `routes::meta` |
+
+What did not exist: anything that *creates* a guest, and any consent record at all. So the row is wiring, and the wiring is
+the part that has to be right.
+
+**The gate comes first.** `POST /auth/guest` refuses with `422` naming `consent` — and the version it expects — **before** it
+creates an account or issues a session. Silence is not consent, and the refusal test asserts the guest count is still zero,
+not just the status code.
+
+**A guest is an account, not an island.** The row is written by `create_guest` with `is_guest = 1`, a synthetic
+`guest+<uuid>@guest.invalid` address (`accounts.email` is `NOT NULL` under a unique index on `lower(email)`, so a shared empty
+string would have allowed exactly one guest in the whole instance), a pseud — the thing a bookmark belongs to, and what GS-3
+upgrades in place — and a trust level from `recompute_trust`, so the ladder's guest rung is a level the pools can count.
+
+**The record is a row.** `consents(account_id, version, categories, accepted_at)`, one per account: a re-ask is an
+`UPDATE`, and "has this reader accepted the current terms" is one comparison rather than a `MAX` over a history nobody
+queries. `accepted_consent_version` returns the number; `None` means "asked and did not answer".
+
+**`is_guest` is on every account view** (register, login, `/auth/me`), not only on the guest route: a client that cannot tell
+cannot offer "keep what you did" at the moment the guest registers. And a registered reader asking for a guest gets `422`
+naming `session` — upgrading is one direction.
+
+`crates/app/tests/m66_gs1_guest_consent.rs` — **5/5 SQLite and 5/5 PostgreSQL**: silence creates nothing (status *and* row
+count); a guest reads with a session, `is_guest` true on `/auth/me`, one consent row, one pseud; asking twice returns
+`created: false` and leaves one guest; `required_for_guest = false` skips the interstitial and records **no** row (the record
+means "they agreed", not "they passed through"); a registered reader is refused and stays `is_guest: false`.
+
+Mutants: the gate disabled → `left: 201 / right: 422`; `record_consent` skipped → `left: 0 / right: 1` rows; the
+already-registered guard disabled → `left: 200 / right: 422`.
+
+**Two PostgreSQL-only decode faults, both found by running both engines.** `consents.version` is `INT4` and decoding it into
+`i64` needs `version::bigint` — and it only fails **when a row exists**, so the empty-table probe answered `Ok(None)` while
+the second guest request answered 500. (The first fix attempt went the other way: casting `resonance::bigint` broke a column
+that is `DOUBLE PRECISION` and decoded as `f64`. Both engines, every time.)
+
 ## M45-59 built and proved — a link is per reader, not per bot — 2026-11-11
 
 **Deployed 12:48** — `0.1.0+da8fa4f2`, no migration (the linkage was already in `api_tokens`). Live reads: `/api/v1/meta` 200, `/statements/summary` 200, `/notices/forms` 200, `/bots/link/nosuch` 404, and `bot_registrations=0`, `api_tokens(kind=bot)=0` — so the single-reader bug was fixed before the first real link existed, rather than after somebody was logged out by a friend joining the same server.

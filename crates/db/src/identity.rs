@@ -556,6 +556,124 @@ pub async fn fold_account(
     Ok(())
 }
 
+/// Create a guest: an `accounts` row with **no credential** (spec §14.1, D-6).
+///
+/// A guest is not a second kind of identity — it is the same row with `is_guest` set, so bookmarks, progress, karma and the
+/// fold all have an id to point at from the first page view, and registering upgrades this row instead of replacing it.
+///
+/// The address is synthetic and unique per guest because `accounts.email` is `NOT NULL` under a unique index on
+/// `lower(email)`: sharing one empty string would let exactly one guest exist, and the failure would look like a duplicate
+/// registration for a person with no address at all. `.invalid` is reserved by RFC 2606, so nothing can ever be delivered
+/// to it and nobody can register it by accident.
+pub async fn create_guest(db: &Database, age_state: AgeState) -> Result<AccountId> {
+    let id = AccountId::new();
+    let now = now_rfc3339();
+    let email = format!("guest+{}@guest.invalid", id);
+    let sql = db.sql(
+        "INSERT INTO accounts (id, status, email, age_state, is_guest, created_at, updated_at, version)
+         VALUES (?, 'active', ?, ?, 1, ?, ?, 1)",
+        "INSERT INTO accounts (id, status, email, age_state, is_guest, created_at, updated_at, version)
+         VALUES (?::uuid, 'active', ?, ?, 1, ?, ?, 1)",
+    );
+    let age = age_state_string(age_state);
+    match db.backend() {
+        crate::Backend::Sqlite => {
+            sqlx::query(&sql)
+                .bind(id.to_string())
+                .bind(&email)
+                .bind(age)
+                .bind(&now)
+                .bind(&now)
+                .execute(db.sqlite_pool().expect("sqlite handle"))
+                .await?;
+        }
+        crate::Backend::Postgres => {
+            sqlx::query(&sql)
+                .bind(id.to_string())
+                .bind(&email)
+                .bind(age)
+                .bind(&now)
+                .bind(&now)
+                .execute(db.postgres_pool().expect("postgres handle"))
+                .await?;
+        }
+    }
+    Ok(id)
+}
+
+/// Write what the reader was shown when they accepted, **before** the session that depends on it exists.
+///
+/// One row per account keyed on the version being accepted, so a re-ask is an UPDATE and "has this reader accepted the
+/// current terms" is a single comparison rather than a `MAX` over a history nobody reads.
+pub async fn record_consent(
+    db: &Database,
+    account_id: AccountId,
+    version: i64,
+    categories: &str,
+) -> Result<()> {
+    let now = now_rfc3339();
+    let sql = db.sql(
+        "INSERT INTO consents (account_id, version, categories, accepted_at) VALUES (?, ?, ?, ?)
+         ON CONFLICT (account_id) DO UPDATE SET version = excluded.version,
+                                                categories = excluded.categories,
+                                                accepted_at = excluded.accepted_at",
+        "INSERT INTO consents (account_id, version, categories, accepted_at) VALUES (?::uuid, ?, ?, ?)
+         ON CONFLICT (account_id) DO UPDATE SET version = excluded.version,
+                                                categories = excluded.categories,
+                                                accepted_at = excluded.accepted_at",
+    );
+    match db.backend() {
+        crate::Backend::Sqlite => {
+            sqlx::query(&sql)
+                .bind(account_id.to_string())
+                .bind(version)
+                .bind(categories)
+                .bind(&now)
+                .execute(db.sqlite_pool().expect("sqlite handle"))
+                .await?;
+        }
+        crate::Backend::Postgres => {
+            sqlx::query(&sql)
+                .bind(account_id.to_string())
+                .bind(version)
+                .bind(categories)
+                .bind(&now)
+                .execute(db.postgres_pool().expect("postgres handle"))
+                .await?;
+        }
+    }
+    Ok(())
+}
+
+/// The version this account accepted, if any. `None` means "asked and did not answer", which is not the same as "accepted an
+/// older one" — the caller decides which of those is a refusal.
+pub async fn accepted_consent_version(
+    db: &Database,
+    account_id: AccountId,
+) -> Result<Option<i64>> {
+    let sql = db.sql(
+        "SELECT version FROM consents WHERE account_id = ?",
+        // `version` is INTEGER on PostgreSQL and decodes into i64 only with the cast; it also only fails when a row exists,
+        // which is why the empty-table probe said OK and the second guest request said 500.
+        "SELECT version::bigint FROM consents WHERE account_id = ?::uuid",
+    );
+    let version: Option<i64> = match db.backend() {
+        crate::Backend::Sqlite => {
+            sqlx::query_scalar(&sql)
+                .bind(account_id.to_string())
+                .fetch_optional(db.sqlite_pool().expect("sqlite handle"))
+                .await?
+        }
+        crate::Backend::Postgres => {
+            sqlx::query_scalar(&sql)
+                .bind(account_id.to_string())
+                .fetch_optional(db.postgres_pool().expect("postgres handle"))
+                .await?
+        }
+    };
+    Ok(version)
+}
+
 /// Read the identity facts for one account.
 ///
 /// `None` when there is no such account — which is different from an account
