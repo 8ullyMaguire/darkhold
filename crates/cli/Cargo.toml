@@ -11,6 +11,7 @@ name = "dh"
 path = "src/main.rs"
 
 [dependencies]
+time = { workspace = true, features = ["parsing", "formatting"] }
 # M63-03: one definition of the metric vocabulary, shared with the server.
 darkhold-domain = { path = "../domain" }
 anyhow.workspace = true

@@ -17,6 +17,7 @@
 //! `docs/cli-exit-codes.md`, because a wrapper script decides what to do from that number alone.
 
 mod cron;
+mod doctor;
 mod exit;
 mod gen;
 mod http;
@@ -166,6 +167,16 @@ pub enum Command {
     /// dh completions zsh  > ~/.zfunc/_dh
     /// dh completions fish > ~/.config/fish/completions/dh.fish
     /// ```
+    /// Diagnose the connection before filing a bug: profile, token scope, clock skew, TLS and API version,
+    /// with one suggested fix per problem.
+    ///
+    /// Never changes anything — a diagnostic that repairs what it diagnoses cannot be run to find out what is
+    /// wrong. Exit code is `1` when a check fails and `0` when everything only warns.
+    Doctor {
+        /// Print the report as one JSON object, for pasting into an issue.
+        #[arg(long)]
+        json: bool,
+    },
     Completions {
         /// Which shell: `bash`, `zsh`, `fish`, `elvish` or `powershell`.
         shell: clap_complete::Shell,
@@ -281,6 +292,7 @@ async fn main() -> std::process::ExitCode {
             print!("{}", redact::redact(&input));
             std::process::ExitCode::SUCCESS
         }
+        Command::Doctor { json } => std::process::ExitCode::from(doctor::run(&cli, *json).await),
         Command::Completions { shell } => {
             gen::completions(*shell);
             std::process::ExitCode::SUCCESS

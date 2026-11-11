@@ -130,6 +130,33 @@ work was acted on**: the notifier gets an answer, the author gets a sanction wit
 Steps 1–2 are one sitting and are the spine; 3 uses the notification machinery already in the tree; 6 is the only part
 that touches `submit_report`'s contract. The row is `planned` and this plan is the thing to implement from.
 
+## M63-15 `dh doctor` built and proved — 2026-11-11
+
+The row: "diagnoses token scope, clock skew, TLS, DNS and API version drift, one suggested fix per problem". Five checks,
+one request each where possible, and **nothing is repaired** — a diagnostic that fixes what it diagnoses cannot be run to
+find out what is wrong.
+
+| check | measured from | fails or warns |
+|---|---|---|
+| `instance` | `GET /api/v1/meta` | **fail** when nothing answers (the fix names the tunnel, the service, `--base-url`) |
+| `clock` | the server's own `Date` header, signed skew in whole seconds | **warn** past `SKEW_TOLERANCE_SECONDS = 60`, fix `timedatectl set-ntp true`; a missing header is a warn, because "cannot rule skew out" is not "clean" |
+| `version` | `major.minor` of the server's version against this binary's | **warn** on an API-line change; a patch or a `+sha` suffix is not drift |
+| `tls` | the base URL's scheme | **fail** on plain HTTP to anything but localhost — a token in clear text is a token in every log on the path |
+| `token` | `GET /api/v1/me/credential` with the resolved token | **warn** when absent (public verbs still work), **fail** on `401`/`403` |
+
+`--json` prints the same report as one object. **Only `fail` changes the exit code** (`1`); a warning leaves it `0`, because
+scripts run `dh doctor` as a preflight and a preflight that fails on a warning is a preflight nobody keeps.
+
+`crates/cli/tests/doctor.rs` — **2/2**, against a one-shot stub that serves `meta` with a `Date` header: a matching
+instance reports `instance`/`version`/`clock` ok, `token` warn and exits **0**; a server two hours behind reports
+`clock: warn` with `7200` in the detail and `NTP` in the fix, and still exits **0**. The unit tests in `doctor.rs` cover the
+signed skew, the API-line comparison, and that a warning is not a failure (`3/3`). Mutant: the skew comparison disabled →
+`left: "ok" / right: "warn"`.
+
+**DNS is deliberately not a separate check**: it is what `instance` fails on, and a second check that says "could not
+resolve" after the first already said "nothing answered" is two rows for one fact. The row's list is answered by five
+checks, not five modules.
+
 ## M45-55 built and proved — 2026-11-11
 
 `census: BUILD` — the vocabulary (`dsar`, `subject access`, notice templates) appears in this repo and in
