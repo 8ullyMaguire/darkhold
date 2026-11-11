@@ -123,6 +123,12 @@ async fn post_comment(
     Path(id): Path<String>,
     Json(body): Json<CreateCommentBody>,
 ) -> ApiResult<Json<serde_json::Value>> {
+    // **M69-15: a comment is a public act.** The gate is on publishing and on commenting — the two things a stranger can
+    // see — and deliberately not on rating, which is how a reader earns the floor in the first place.
+    crate::membership::evaluate(&state, &user.account_id.to_string())
+        .await?
+        .refusal()
+        .map_or(Ok(()), Err)?;
     if body.body.trim().is_empty() {
         return Err(ApiError(darkhold_domain::AppError::field(
             "body",

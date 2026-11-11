@@ -220,8 +220,14 @@ which is a boolean — so `is_guest = FALSE` was a `500 operator does not exist:
 SQLite could not see it. And `route_inventory` caught that `/auth/guest` had **never been tabled** since GS-1: adding a
 sibling route is what exposed it. Both rows are in `ROUTE_TABLE`; the suite is 5/5.
 
-Still missing, and the row stays `planned`: the other write doors (comments, forum posts) are ungated, so "new readers get a
-probation" is true of publishing and not yet of the rest.
+**Second door, same rule (same day).** `POST /api/v1/works/{id}/comments` is gated too: a comment is visible to strangers,
+which is exactly why publishing is gated, and the guard sits *before* the body validation so a refused reader is not told
+their words were the problem. `m69_15_membership_gate` is **5/5 on both engines**; the new case builds a full member with
+three ratings, publishes a work, and a probation reader's comment on it is `422` naming `membership`. Mutant: the comment
+guard removed → the comment is accepted and the test fails.
+
+Still missing, and the row stays `planned`: **forum topics and posts** are ungated, so "a new reader gets a probation" is true
+of publishing and commenting and not yet of the forum.
 
 ## M69-15 half built — the membership rule and its switches, with no door enforcing it yet — 2026-11-11
 

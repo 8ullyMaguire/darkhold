@@ -306,3 +306,34 @@ async fn an_account_older_than_the_cutoff_is_grandfathered() {
     let (_, standing) = reader.get("/api/v1/auth/membership").await;
     assert_eq!(standing["because"], json!("grandfathered"), "{standing}");
 }
+
+#[tokio::test]
+async fn a_comment_is_a_public_act_and_the_gate_covers_it() {
+    let harness = Harness::new("comment", true).await;
+    // The author is a full member because they met the floor, so their work is what the reader below comments on.
+    let (mut author, author_account, author_pseud) =
+        harness.reader("author@example.test", "Author").await;
+    harness.rate(&author_account, &author_pseud, 3).await;
+    let (status, work) = author
+        .post("/api/v1/works", json!({ "title": "Something to discuss" }))
+        .await;
+    assert_eq!(status, StatusCode::CREATED, "{work}");
+    let work_id = work["id"].as_str().expect("work id").to_owned();
+
+    let (mut reader, _, _) = harness.reader("commenter@example.test", "Commenter").await;
+    let (status, refused) = reader
+        .post(
+            &format!("/api/v1/works/{work_id}/comments"),
+            json!({ "body": "too soon" }),
+        )
+        .await;
+    assert_eq!(
+        status,
+        StatusCode::UNPROCESSABLE_ENTITY,
+        "a comment is visible to strangers, so it is gated like publishing: {refused}"
+    );
+    assert!(
+        refused["error"]["field_errors"]["membership"].is_string(),
+        "and the refusal says what finishes it: {refused}"
+    );
+}
