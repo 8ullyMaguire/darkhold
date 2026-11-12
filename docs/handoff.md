@@ -23,6 +23,14 @@ message, restoring from `/tmp`. Measured: **58 → 50 unlinked, 8 linked by revi
 registering them takes `planned` from 41 to ~91 — a scope decision the roadmap now writes down with its three options
 rather than taking.
 
+**Two latent flakes surfaced only because a full run finally reached them, and both were fixed by measurement.**
+`blind_date`'s "cannot flake" comment was the flake: 20 draws into 25 bins is a birthday count, and `P(distinct <= 10)`
+is **0.88%** (computed exactly, not guessed), so ~1 in 113 runs failed — 72 reader-days puts the same bound at 7e-23, and
+the mutant that drops the account from the seed still collapses it to 3. `m71_11_facet_cache` had three tests sharing one
+process-global cache key: a neighbour's `clear()` between the two requests is exactly the `known: 2` where `1` was
+measured, so a `tokio::sync::Mutex` now makes the whole test the unit that is alone. Both are green on SQLite and
+PostgreSQL.
+
 **Where §1 stands:** `planned` **40** (was 41), `backlog.py` **50 unlinked** and honestly explained, the two domain tests
 green, `gate.sh ledger` and `gate.sh repo` green, and a full `gate.sh all` running on `59c7bb61` — the previous attempt
 was killed twice because it had compiled a tree that no longer existed, which is not evidence whatever it prints.
