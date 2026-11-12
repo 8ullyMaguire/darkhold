@@ -281,7 +281,7 @@ async fn main() -> std::process::ExitCode {
                 std::process::ExitCode::from(error.code)
             }
         },
-        Command::Bench(args) => match bench::run(&cli, &args).await {
+        Command::Bench(args) => match bench::run(&cli, args).await {
             Ok(()) => std::process::ExitCode::SUCCESS,
             Err(error) => {
                 eprintln!("{error}");
