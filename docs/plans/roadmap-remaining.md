@@ -397,6 +397,12 @@ RSS, not by job count.
 **What clears it:** that crawl finishing (or an operator pausing it), or a decision to build this crate with a lower `codegen-units` — which changes
 the shipped artifact, so it is the user's call, not a deploy script's convenience.
 
+**Retries, 2026-11-12 00:46 → 01:20 — six builds, six `signal: 15`.** `deploy-gates.sh` fast-forwarded the checkout to `4fa959cc` and then waited, by three different gates, none of which was the right one: `avail >= 3G` (the original), `avail >= 6G && load1 <= 12` (never opened — the load is a long-lived suki crawl whose four workers hold it at 20-40 for hours and are not the killer), and finally `avail >= 5G && no other rustc` (opened at 01:11). The third gate had a shell bug worth recording because it looked like a wait: `pgrep -c -x rustc` prints `0` **and** exits 1 when it finds nobody, so `others=$(pgrep -c -x rustc || echo 0)` produced `"0\n0"` and `[ "$others" -eq 0 ]` errored with *integer expression expected* — a gate that errors is a gate that waits forever. Sanitised with a `case` guard.
+
+The build then started with 5 GB available and was SIGTERM'd at `darkhold-app`'s lib step with **2 GB available**: `-C linker-plugin-lto` and `-C codegen-units=1` mean one `rustc` doing the whole crate at once, ~3.4 GB RSS, and earlyoom kills it. Six builds, six kills, every one of them after the dependency graph was already warm — the work is not wasted, only the final link step is killed.
+
+**What clears it:** 8+ GB available during the link (the suki crawl releasing memory, or the crawl finishing), or a decision to change the release profile — `codegen-units` above 1 and/or `lto = off` — which changes the shipped artifact and is the user's call, not a deploy script's convenience. The deploy script now refuses to start a build that has not got the room; it does not attempt to make the room.
+
 **State while blocked:** live is `0.1.0+00790ea4`, which carries the three ratchet doors (`/admin/trust-events`, `/admin/retention/changes`,
 `/extensions/source-adapters/mine`). Committed and tested but **not live**: `/admin/works/{id}/copies`, `since` on `/me/audit-log`, `/admin/abuse`
 and the stricter gate on `/admin/abuse-status/{key}`. None of them is a migration, so a single later deploy carries all of it.
