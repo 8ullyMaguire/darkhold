@@ -4741,3 +4741,29 @@ list an appeal panel is built from; `taste_lens_votes.voter_account` is `Delete`
 **One stale claim removed while there:** `docs/known-gaps.md` M43-D01 described `compute_theme_from_bookmarks` as
 "never worked, no caller" — M70-13 deleted the function and its suite, so the entry now records the resolution and
 keeps the two defects as the reason deletion was the repair.
+
+## Deployed 2026-11-12 12:46 — M45-43's code half (`0.1.0+97830cd7`, schema 0215)
+
+One deploy carried the bearer mint, the links read-back and migration 0215. Measured, `target/gate` and the host's own
+logs rather than the deploy's report:
+
+| check | value |
+|---|---|
+| backup | `/personal/backups/darkhold-20261112-120119-pre-m45-43.dump`, **3,740,189,552** bytes, **407** `TABLE DATA`, verified with `pg_restore -l` before the restart |
+| pre-deploy schema | 0214 |
+| deploy | `./tools/estate.py deploy darkhold --yes` → `deploy: darkhold verified in 1352s` (build 1327 s), exit 0 |
+| migrate | **212 applied, 0 pending**; live `max(version)` = `0215` |
+| binary | contains `link-challenge` and the `/links` pattern (`strings`), i.e. the routes are in the artifact and not only in the tree |
+| meta | `0.1.0+97830cd7` — the tree's HEAD, which is this work plus one docs commit another session made on the deploy host |
+| doors, anonymous | `POST /me/bots/{id}/link-challenge` **401**, `GET /me/bots/{id}/links` **401**, `GET …/link-challenge` **405** |
+
+**401 and 405 are the pass conditions available without a bot credential**: 401 means the mount is right and the
+principal gate answers, 404 would mean the nest is wrong, and 405 on the GET means only the POST is mounted — the same
+cheap discriminator the M45-45 deploy used. The bearer half itself is proved by `m45_43_bot_link_bearer` on both engines,
+not by this probe; a live end-to-end needs the Discord credential the row is still blocked on.
+
+**Another session's commit came back with the deploy.** The build host's tree was one docs commit ahead
+(`97830cd7`, *"docs: the rating route exists; Phase 0 step 1 was a false negative"*, on the seed roadmap). It was
+cherry-picked into this tree (`14c7ba83`) and pushed, so nothing of theirs is lost and both trees answer the same
+history; the deploy tree was then reset to `forgejo/master` because `git cherry` showed its only commit now exists
+upstream under a new hash.

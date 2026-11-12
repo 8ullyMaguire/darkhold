@@ -1,3 +1,52 @@
+## 2026-11-12 — M45-43's code half, and the red three sessions left behind
+
+**Shipped, four commits, none live yet.** `ff6eba8a` is the slice this turn opened with (0/3 at `e759941e`), and the
+three before it are the tree not agreeing with its own gates — repaired first, so the feature commit is the only thing
+in its own diff.
+
+**The slice.** `POST /me/bots/{id}/link-challenge` was behind `RequireActor`, which demands an `acting_pseud_id` a bot
+registration's token does not have (0083 issues it NULL), so every bot credential got `403`; `resolve_bearer` answered
+`401` for a suspended bot before the handler could answer `404`. Both are the extractor refusing on the caller's behalf.
+`auth::BotCaller::{Session, Bot}` + `RequireBotOrOwner` now name the two callers instead of flattening them into an
+`Actor` with an `Option<pseud>`; `external::bot_registration_for_token` matches the registration's **own** `token_id`
+(not a linked reader's) and returns its state, so suspension is a `404` from the handler. Migration `0215` (both
+dialects) carries `platform` + `platform_user_id` on `link_challenges`, `GET /me/bots/{id}/links` reads the outcome back
+per pseud, and the reader still confirms on the site — a bot that could confirm its own challenge would make "what am I
+granting" a page nobody reads.
+
+**Proof.** `m45_43_bot_link_bearer` **3/3 SQLite and 3/3 PostgreSQL** (the `lh-pg-test` container on thinkcentre, reached
+through `ssh -L 55433` — the workstation has no docker daemon), `m54_bot_link` **25/25** both engines,
+`m45_59_multi_link` **3/3**, `route_inventory` **6/6**. Mutants, each reverted from `/tmp`: the own-id guard widened to
+`!own.is_empty()` → another bot's links answer `200`, red at that assertion; the suspension refusal made unfireable →
+a suspended bot mints, `200` where `404` was required. **The first mutant attempt was a no-op** (flipping `!=` to `==`
+against a string matching neither state) and that is recorded in the roadmap, because a mutant that cannot be wrong is
+not evidence.
+
+**The red that was not mine, and why it mattered.** `e759941e`'s tree failed `gate.sh fmt` (**64 files**, formatted by
+1.99.0 under a `rust-toolchain.toml` pinning 1.98.1), `gate.sh lint` (**11 warnings**), and `cargo check --all-targets`
+(**E0063**: a lib unit test missing the `cause` field M45-45 added). Eight suites were red: four registered a second
+account in one cookie jar (M66 GS-1's door refuses that with `422 session` — the tests were written before the rule),
+`module_registry` pinned 84/1 rows against a registry holding 86/2, `milestone_32`'s karma walk counted a *test* as a
+surface, `reachability` found `share_visit` unlisted, and `ideas_match_requirements` found GS-1/GS-3/GS-4 catalogued as
+ideas after being built — whose generator then refused to run because two roadmaps' adopted labels had no home (the
+label regex could not even match `M45-74`).
+
+**One row added deliberately:** `M45-74` — `docs/ROADMAP-seed-from-reading-list.md` is a dated, live proposal that the
+ledger had no row for. Registering it is what the coverage gate asks for; the alternative was an exemption, which is the
+silence that gate exists to prevent. `planned` is **41**, not 40, and that is the honest number.
+
+**Deployed, 2026-11-12 12:46 — `0.1.0+97830cd7`, schema 0215.** Named backup first
+(`/personal/backups/darkhold-20261112-120119-pre-m45-43.dump`, 3.74 GB, 407 `TABLE DATA`, verified with `pg_restore -l`),
+then `./tools/estate.py deploy darkhold --yes` → `deployed in 1352s` (build 1327 s), `migrate --status` **212 applied, 0
+pending**, live schema `0215`. `strings` finds both paths in the artifact, and the anonymous probes are the cheap pass
+condition: `POST /me/bots/{id}/link-challenge` **401**, `GET /me/bots/{id}/links` **401**, `GET …/link-challenge` **405** —
+401 is the principal gate answering on a correct mount, 404 would be a wrong nest. The build host's tree was one docs
+commit ahead of this one; it was cherry-picked here (`14c7ba83`), pushed, and the host reset to `forgejo/master`.
+
+**Next.** (1) M45-43's credential half (Discord application for darkhold itself, `~/.config/darkbot-bot.env` `0600`,
+guild invite, darkbot's two calls replaced) — a demotion, not a stop, and the ledger names all four steps. (2) The queue:
+41 planned, biggest cluster M63 (12 rows), then M71 (10), M64 (8), M73 (4).
+
 ## 2026-11-11 (night) — the `/admin/` baseline audited: five gates corrected, one fabrication removed
 
 **Shipped, all tested on both engines, none live yet (see the deploy block below).** Four commits, each a gate the inventory could not see because the
