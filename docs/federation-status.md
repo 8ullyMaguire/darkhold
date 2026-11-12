@@ -12,7 +12,7 @@
 - `federation_peers_v2` — similarity scores + state machine (unknown/pending/friendly/muted)
 
 ### DB layer: `crates/db/src/instance_theme.rs`
-- `compute_theme_from_bookmarks()` — aggregates tags from bookmarks + private_tags + reading_status
+- ~~`compute_theme_from_bookmarks()`~~ — **deleted in M70-13** (no caller; the join named tables no migration creates). The peers read is `compute_theme_from_engagement`.
 - `upsert_theme()` / `get_local_theme()` / `list_public_themes()` / `tag_weights()`
 - **Private by default** — only appears in `list_public_themes()` if `public = TRUE`
 

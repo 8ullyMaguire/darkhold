@@ -69,12 +69,16 @@ const MIN_MOUNT_SITES: usize = 100;
 //
 // 2026-11-08: 82 → 83 for `taste_import` (M45-20, §49.6–§49.8), a shipped module whose store existed with no route;
 // 83 → 84 for `taste_health` (§0.4.1, §16.19), whose vector had no producer and whose probe had no door.
-const STABLE_ROWS: usize = 84;
+// 2026-11-12: 84 → 86 for `content_policy` (M45-52's notice-and-action) and `import_claims`, and 1 → 2 beta for
+// `compliance_tooling` and `taste_notifications`. Both pairs landed with their routes and this constant was not moved
+// with them, so this test had been failing since they arrived — the count is asserted precisely so that a row arriving
+// without a deliberate bump is caught, and here it was caught late because the whole gate had not been run.
+const STABLE_ROWS: usize = 86;
 const PLANNED_ROWS: usize = 23;
 /// Shipped but still moving. Counted separately for the same reason as the other two: a row that arrives without a deliberate count
 /// update is a decision nobody made, and `MODULES.len() == stable + planned` only noticed that while `Beta` and `Experimental` were
 /// unused — the first experimental row (W7's `admin_actions`) went red on the arithmetic instead of on the decision.
-const BETA_ROWS: usize = 1;
+const BETA_ROWS: usize = 2;
 const EXPERIMENTAL_ROWS: usize = 1;
 
 fn server_source() -> String {

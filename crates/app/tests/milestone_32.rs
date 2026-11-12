@@ -1006,7 +1006,11 @@ fn karma_is_read_by_nothing_but_its_display_surface() {
         let name = path.file_name().unwrap_or_default().to_string_lossy();
         if content.contains("forum_karma") {
             karma_readers.push(path.to_string_lossy().into_owned());
-            if name != "typed_votes.rs" && name != "milestone_32.rs" {
+            // A file under `tests/` ships in no binary, and `crates/db/tests/m66_gs4_trust_from_karma.rs` inserts karma
+            // rows to prove the *negative* this test stands for — an account with a huge balance and no acts is not
+            // trusted. Counting it as a surface would make the invariant forbid the test that guards it.
+            let in_a_test_directory = path.to_string_lossy().contains("/tests/");
+            if name != "typed_votes.rs" && name != "milestone_32.rs" && !in_a_test_directory {
                 offenders.push(format!(
                     "{path:?} reads the karma table but is not the typed-votes surface"
                 ));

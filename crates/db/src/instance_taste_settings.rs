@@ -95,7 +95,12 @@ pub async fn write(db: &Database, update: &TasteSettingsUpdate, updated_by: Uuid
 /// M45-45: a lens change that arrived through a vote is recorded as `proposal:<id>` rather than as the operator who
 /// applied it, because the history row's job is to say *why* a version changed. An account id cannot hold that, and a
 /// second "cause" column would leave two things to keep in step.
-pub async fn write_as(db: &Database, update: &TasteSettingsUpdate, updated_by: &str, cause: &str) -> Result<i64> {
+pub async fn write_as(
+    db: &Database,
+    update: &TasteSettingsUpdate,
+    updated_by: &str,
+    cause: &str,
+) -> Result<i64> {
     let now = crate::identity::now_rfc3339();
 
     // Read the current state first, so the history row can record it. Done
@@ -472,10 +477,14 @@ mod tests {
             diversity_injection_percent: 10,
             changed_by: Some("11111111-1111-1111-1111-111111111111".to_string()),
             changed_at: "2026-09-26T00:00:00Z".to_string(),
+            // M45-45 widened this table to say *why* a setting changed; an entry written before that migration
+            // read the config file, which is what `into_entry` is asked to report here.
+            cause: "operator".to_string(),
         };
         let entry = row.into_entry();
         assert_eq!(entry.replaced_version, None, "the config is not version 0");
         assert_eq!(entry.admin_weight, 1);
+        assert_eq!(entry.cause, "operator", "a direct write says so");
     }
 
     #[test]

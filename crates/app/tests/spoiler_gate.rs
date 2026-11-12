@@ -412,8 +412,12 @@ async fn a_reader_cannot_gate_somebody_elses_text() {
     let (work_id, unit_id) = published_work_with_secret(&mut client).await;
 
     // **Another reader** tries to gate it. The author's door.
-    client.register("stranger@example.test", "stranger").await;
-    let (status, body) = client
+    //
+    // A different person is a different session: `POST /auth/register` refuses a jar that already belongs to a
+    // registered account (M66 GS-1).
+    let mut stranger = harness.client();
+    stranger.register("stranger@example.test", "stranger").await;
+    let (status, body) = stranger
         .post(
             &format!("/api/v1/works/{work_id}/units/{unit_id}/gate"),
             json!({ "gated": true }),

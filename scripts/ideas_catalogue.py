@@ -324,6 +324,7 @@ ROADMAP_ITEM_TITLES = {
     "GS-3": "guest identity as a first-class pseudonym",
     "GS-4": "elastic trust from karma, not a parallel score",
     "GS-5": "a jury drawn from the eligible pool",
+    "M45-74": "seed the instance from the rated reading list",
 }
 
 GATE_IGNORE = {
@@ -366,20 +367,13 @@ def candidate_documents() -> list[Path]:
     return sorted(set(out))
 
 
-def roadmap_items(path: Path) -> list[str]:
-    """A roadmap's adopted items, as idea titles.
+def roadmap_pairs(path: Path) -> list[tuple[str, str]]:
+    """A roadmap's adopted items as `(label, title)` pairs, in document order.
 
-    Every roadmap has a section saying what the site adopts, and the items in it
-    carry a label ("GS-1", "AR-3"). A bare label is a pointer, not a proposal, so
-    each is expanded: the labels this repository has already named are expanded
-    with their roadmap's own words from `ROADMAP_ITEM_TITLES`, and a label
-    nobody has expanded yet becomes `"<LABEL>: adopted with no registered
-    title"` — which is homeless by construction, so the gate fails on it and
-    names it. That is the difference between a catalogue that reads a new
-    roadmap and one that only reads the roadmap it was written for.
-
-    The expansion table is written here rather than scraped: guessing "what GS-3
-    is about" from prose is how a catalogue invents ideas nobody proposed.
+    The label matters because a roadmap's own labels ARE requirement ids: `GS-1` through `GS-5` are rows in
+    `docs/requirements.csv`, so a roadmap that adopts `GS-1` has registered it there. A title-only view of the same
+    document cannot see that, and the coverage gate then demanded a home for five ideas that already had one —
+    the ids it was looking at.
     """
     text = path.read_text(encoding="utf-8", errors="replace")
     # The adopts section: from a heading mentioning "adopt" to the next heading of
@@ -398,19 +392,37 @@ def roadmap_items(path: Path) -> list[str]:
     labels: list[str] = []
     for line in body.splitlines():
         # "- GS-1 … GS-5, all of them" — expand the range, then any loose label.
-        for rng in re.finditer(r"\b([A-Z]{2,4})-(\d+)\s*(?:…|\.\.\.|-{1,2})\s*([A-Z]{2,4})-(\d+)\b", line):
+        for rng in re.finditer(r"\b([A-Z]{1,4}\d*)-(\d+)\s*(?:…|\.\.\.|-{1,2})\s*([A-Z]{1,4}\d*)-(\d+)\b", line):
             if rng.group(1) != rng.group(3):
                 continue
             for n in range(int(rng.group(2)), int(rng.group(4)) + 1):
                 labels.append(f"{rng.group(1)}-{n}")
-        for lab in re.findall(r"\b([A-Z]{2,4}-\d+)\b", line):
+        for lab in re.findall(r"\b([A-Z]{1,4}\d*-\d+)\b", line):
             labels.append(lab)
-    out: list[str] = []
+    out: list[tuple[str, str]] = []
     for lab in dict.fromkeys(labels):  # ordered, deduped
         title = ROADMAP_ITEM_TITLES.get(lab, f"{lab}: adopted item with no registered title")
-        if title not in out:
-            out.append(title)
+        if (lab, title) not in out:
+            out.append((lab, title))
     return out
+
+
+def roadmap_items(path: Path) -> list[str]:
+    """A roadmap's adopted items, as idea titles.
+
+    Every roadmap has a section saying what the site adopts, and the items in it
+    carry a label ("GS-1", "AR-3"). A bare label is a pointer, not a proposal, so
+    each is expanded: the labels this repository has already named are expanded
+    with their roadmap's own words from `ROADMAP_ITEM_TITLES`, and a label
+    nobody has expanded yet becomes `"<LABEL>: adopted with no registered
+    title"` — which is homeless by construction, so the gate fails on it and
+    names it. That is the difference between a catalogue that reads a new
+    roadmap and one that only reads the roadmap it was written for.
+
+    The expansion table is written here rather than scraped: guessing "what GS-3
+    is about" from prose is how a catalogue invents ideas nobody proposed.
+    """
+    return [title for _, title in roadmap_pairs(path)]
 
 
 def document_titles(path: Path) -> list[str] | None:
@@ -469,7 +481,7 @@ def document_titles(path: Path) -> list[str] | None:
 
 
 def coverage_gate(catalogue_slugs: set[str], retired_slugs: set[str],
-                  registry_titles: set[str]) -> list[str]:
+                  registry_titles: set[str], requirement_ids: set[str]) -> list[str]:
     """Titles with no home anywhere. Empty means the catalogue reads everything."""
     homeless: list[str] = []
     for path in candidate_documents():
@@ -479,7 +491,20 @@ def coverage_gate(catalogue_slugs: set[str], retired_slugs: set[str],
         titles = document_titles(path)
         if titles is None:
             continue  # narration by kind; the gate does not demand rows from it
+        # A roadmap's adopted labels are requirement ids, so a label that is a row in this repository's ledger is
+        # already registered: `GS-1` has a row with status `implemented-fully-tested`, which is why it is not in the
+        # idea catalogue either — it was built. Demanding a *title* match for it was the gate asking a document to
+        # spell its row the way the CSV happened to.
+        homed_labels = {
+            title
+            for label, title in (
+                roadmap_pairs(path) if ("roadmap" in path.stem.lower() or path.parent.name == "roadmaps") else []
+            )
+            if label in requirement_ids
+        }
         for title in titles:
+            if title in homed_labels:
+                continue
             if not words(title, 2):
                 continue  # a label, not a proposal; the catalogue's own rule
             key = slug(title)
@@ -743,7 +768,7 @@ def main() -> int:
     cat_slugs = {slug(r["title"]) for r in rows}
     ret_slugs = {slug(t) for _, t in retired}
     reg_titles = {h["name"].lower() for h in host}
-    homeless = coverage_gate(cat_slugs, ret_slugs, reg_titles)
+    homeless = coverage_gate(cat_slugs, ret_slugs, reg_titles, {r["id"] for r in csv_rows})
     if homeless:
         print(f"coverage gate: {len(homeless)} idea title(s) with no home:", file=sys.stderr)
         for line in homeless[:40]:

@@ -5,7 +5,7 @@
 ### New Files Created
 1. **`crates/db/src/instance_theme.rs`** — DB layer for theme vectors
    - `upsert_theme()`, `get_local_theme()`, `list_public_themes()`
-   - `compute_theme_from_bookmarks()` — aggregates tag weights from engagement
+   - `compute_theme_from_bookmarks()` — **deleted in M70-13**: no caller, and its query joined tables that do not exist
    - Private by default (`public = FALSE`)
 
 2. **`crates/db/src/federation.rs`** — Full federation DB layer

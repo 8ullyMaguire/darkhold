@@ -205,8 +205,12 @@ async fn graduated_response_ladder_roundtrip() {
     let mut client = harness.client();
     let (alice_account, _) = register(&mut client, "alice@example.com", "alice").await;
 
+    // The target is somebody else, so it is a second session: `POST /auth/register` refuses a jar that already
+    // belongs to a registered account (M66 GS-1), and one client registering two people was relying on it not
+    // having that rule.
+    let mut target_client = harness.client();
     let target_email = "target@example.com";
-    let (target_account, _) = register(&mut client, target_email, "target").await;
+    let (target_account, _) = register(&mut target_client, target_email, "target").await;
 
     darkhold_db::moderation::apply_sanction(
         harness.tdb.db(),

@@ -25,6 +25,12 @@ prior and not a population.
 - Not an import of work *text*. Titles, authors, ids and ratings only. No files, no downloads, no scraping.
 - Not the 1,000-user goal. 218 parsed entries (of 268 lines) from one account moves the count from 0 to 1 rater; the census must be re-run after and the number recorded as it is.
 
+## Adopts
+
+- M45-74 — seed the instance from the rated reading list. This document is the plan for that row: the phases below are
+  the steps, and the row is where its state lives. (Registered 2026-11-12: the roadmap existed and the ledger did not
+  have a row for it, so the idea catalogue's coverage gate could not tell a live proposal from a forgotten one.)
+
 ## What the source actually looks like
 
     $ head -4 /personal/literature/fanfiction/read.txt

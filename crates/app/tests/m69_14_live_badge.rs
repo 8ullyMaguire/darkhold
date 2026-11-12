@@ -258,17 +258,21 @@ async fn off_by_default_the_door_answers_404_and_the_sweep_decides_nothing() {
     let tdb = TestDb::connect_with_dir("m69-14-badge-off", &dir).await;
 
     // The default config: `[discovery] live_badges` is absent, so the feature is off.
-    let mut client = Client::new(router(&tdb, &dir));
-    let id = client.register("off-by-default").await;
+    let mut reader = Client::new(router(&tdb, &dir));
+    let id = reader.register("off-by-default").await;
     assert!(!id.is_empty());
 
-    let (status, body) = client.send("GET", "/api/v1/me/badges", None).await;
+    let (status, body) = reader.send("GET", "/api/v1/me/badges", None).await;
     assert_eq!(
         status,
         StatusCode::NOT_FOUND,
         "a reader must not learn that this instance measures them and chose not to show it: {body}"
     );
 
+    // The operator is a different person, so it is a different session: `POST /auth/register` refuses a jar that
+    // already belongs to a registered account (M66 GS-1), and one client registering both was relying on it not
+    // having that rule.
+    let mut client = Client::new(router(&tdb, &dir));
     let operator_id = client.register("the-operator-off").await;
     client.swap(router_with_operator_off(&tdb, &dir, &operator_id));
     seed_work(&tdb, "Valued", &["angst"]).await;

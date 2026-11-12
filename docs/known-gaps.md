@@ -317,10 +317,16 @@ date function, and the failure mode is always silent on SQLite.
 feeds discovery ranking, so the eligibility filter was deciding which works
 could be scored at all in production.
 
-### M43-D01 · `compute_theme_from_bookmarks` has never worked, and has no caller
+### M43-D01 · `compute_theme_from_bookmarks` never worked, had no caller, and is now deleted
 
-The function that derives an instance's theme vector from what its members have
-bookmarked has two defects, and the second hid the first.
+**Resolved 2026-11-12 (M70-13, commits `4379f56f` and this one).** The function is gone, together with the
+suite section that guarded it: a test suite for a function nobody can call is how a broken statement sits in
+a tree for months. What instances actually read is `compute_theme_from_engagement` behind
+`POST /federation/theme/recompute`, which is the surface peers use. The two defects the entry described are
+kept below because they are the reason the deletion was the right repair rather than a fix.
+
+The function that derived an instance's theme vector from what its members have
+bookmarked had two defects, and the second hid the first.
 
 **The query referenced two things that do not exist.** Both arms joined
 
@@ -771,7 +777,8 @@ and a fix turns it red rather than passing silently.
 
 ## Unreachable tables
 
-**Seventy-five tables have one side and not the other.** A table that is written
+**Sixty-seven tables have one side and not the other** (25 written-never-read, 7 read-never-written, 35 neither — counted
+from the table below on 2026-11-12, which is the only count here that can be checked). A table that is written
 and never read is a write amplification with no reader: the instance pays for
 the row on every write and nobody ever looks at it. A table that is read and
 never written is usually the sign of a feature that was half-built and shipped
@@ -779,7 +786,7 @@ without its other half. **A table that is neither is a table nothing uses** — 
 migration with a table.
 
 These are the inherited estate's tables, and they are listed here rather than
-fixed because fixing seventy-five tables is not one milestone's work and half of
+fixed because fixing sixty-seven tables is not one milestone's work and half of
 them are features that are still owed. **What matters is that they are named,
 so the count can only go down and every fix is visible.**
 
@@ -839,6 +846,7 @@ so the count can only go down and every fix is visible.**
 | `moods` | neither | a migration with a table: nothing in the instance uses it |
 | `preservation_batches` | neither | a migration with a table: nothing in the instance uses it |
 | `prompt_posts` | neither | a migration with a table: nothing in the instance uses it |
+| `share_visit` | written, never read | the row is the *idempotency* of the crediting, not a record anybody reads: `share.rs` inserts it `ON CONFLICT DO NOTHING` so one visitor credits a code once. Its own existence is the only read, and a "read it back" would be a second source of truth for the same fact |
 | `signup_controls` | neither | a migration with a table: nothing in the instance uses it |
 | `snapshot_rekey_notes` | neither | a migration with a table: nothing in the instance uses it |
 | `space_works` | neither | a migration with a table: nothing in the instance uses it |

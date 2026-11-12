@@ -1,11 +1,16 @@
 //! M43 — Instance themes (`crates/db/src/instance_theme.rs`, spec §43), the
 //! federation-discovery side of a Darkhold instance.
 //!
-//! Four `pub async fn` plus `tag_weights`, with no tests. Three are live on
-//! `routes/federation.rs`: read the local theme, upsert it, and list the public
-//! ones for peer discovery. `compute_theme_from_bookmarks` has **no caller** —
-//! the route accepts a theme vector from the operator instead — so a defect in
-//! it is latent rather than live, which the suite records rather than assumes.
+//! Three `pub async fn` plus `tag_weights`, and all four are live on
+//! `routes/federation.rs`: read the local theme, upsert it, list the public ones
+//! for peer discovery, and read the weights back out of a vector.
+//!
+//! A fourth function, `compute_theme_from_bookmarks`, was deleted in M70-13. Its
+//! tag query joined tables that do not exist in any migration and it answered
+//! `{}` on both engines with the error swallowed, and it had no caller: the
+//! federation route takes the vector from the operator. The section of tests
+//! that kept it "covered" went with it — a suite guarding a function nobody can
+//! call is the reason the defect sat here for months.
 //!
 //! The schema is friendly here: `theme_vector` and the timestamps are TEXT on
 //! both engines (ADR 0004) and `public` is BOOLEAN on both, so there is no
@@ -25,9 +30,7 @@
 
 use std::path::PathBuf;
 
-use darkhold_db::instance_theme::{
-    compute_theme_from_bookmarks, get_local_theme, list_public_themes, tag_weights, upsert_theme,
-};
+use darkhold_db::instance_theme::{get_local_theme, list_public_themes, tag_weights, upsert_theme};
 use serde_json::json;
 use test_support::TestDb;
 use uuid::Uuid;
@@ -60,10 +63,16 @@ impl Harness {
         self.tdb.db()
     }
 
+    #[allow(dead_code)]
     fn is_pg(&self) -> bool {
         self.db().backend() == darkhold_db::Backend::Postgres
     }
 
+    /// Kept even though this suite no longer calls it: `is_pg`/`exec` are how the
+    /// suites in this directory seed rows the API cannot produce, and the next
+    /// test added here will need them. A `#[allow(dead_code)]` says that on
+    /// purpose, where a deletion would make the next author re-derive it.
+    #[allow(dead_code)]
     async fn exec(&self, query: &str) {
         let q = self.tdb.sql(query);
         match self.db().backend() {
@@ -430,282 +439,4 @@ fn an_integer_weight_is_a_number() {
 #[test]
 fn an_empty_vector_yields_no_weights() {
     assert!(tag_weights(&json!({})).is_empty());
-}
-
-// ---------------------------------------------------------------------------
-// compute_theme_from_bookmarks
-// ---------------------------------------------------------------------------
-
-/// With no bookmarks the computed theme is empty.
-///
-/// This is the shape `compute_theme_from_bookmarks` returns in practice, because
-/// it has no production caller: `routes/federation.rs` takes the vector from the
-/// operator's POST body instead.
-#[tokio::test]
-async fn computing_with_no_bookmarks_yields_an_empty_vector() {
-    let h = Harness::new("theme-compute-empty").await;
-    let theme = compute_theme_from_bookmarks(h.db(), &Harness::instance())
-        .await
-        .expect("compute");
-    assert_eq!(
-        theme,
-        json!({}),
-        "an instance with no bookmarks has no theme"
-    );
-}
-
-/// A computed vector is always an object of `tag -> number in (0, 1]`.
-#[tokio::test]
-async fn a_computed_vector_maps_tags_to_unit_weights() {
-    let h = Harness::new("theme-compute-shape").await;
-    let theme = compute_theme_from_bookmarks(h.db(), &Harness::instance())
-        .await
-        .expect("compute");
-    let weights = tag_weights(&theme);
-    for (tag, weight) in &weights {
-        assert!(
-            (0.0..=1.0).contains(weight),
-            "{tag} has weight {weight}, outside (0, 1]"
-        );
-    }
-}
-
-/// The function is total: it never errors on a fresh instance, which is what
-/// makes it safe to call from a maintenance job.
-#[tokio::test]
-async fn computing_is_total_on_a_fresh_instance() {
-    let h = Harness::new("theme-compute-total").await;
-    for _ in 0..3 {
-        compute_theme_from_bookmarks(h.db(), &Harness::instance())
-            .await
-            .expect("compute never fails");
-    }
-}
-
-/// **The computed theme is built from the taxonomy the schema actually has.
-///
-/// This is the test that found the module's worst defect. Both backend arms of
-/// `compute_theme_from_bookmarks` join
-///
-///     work_tags wt ON wt.work_id = ...
-///     JOIN tags t ON t.id = wt.tag_id
-///
-/// but **there is no `tags` table in any migration, and `work_tags` has no
-/// `tag_id` column** — it is `(work_id UUID, node_id TEXT, weight BIGINT,
-/// added_at TEXT)` keyed on `canonical_entities(id)`. So the statement fails on
-/// both engines, and `.unwrap_or_default()` turns the error into an empty
-/// vector. The function has always returned `{}`.
-///
-/// It is latent only because the function has no production caller:
-/// `routes/federation.rs` takes the theme vector from the operator's POST body
-/// and calls `upsert_theme` directly.
-///
-/// The query is fixed to join `work_tags.node_id` to `canonical_entities.id` and
-/// read `canonical_entities.canonical` as the tag name, and the missing
-/// `is_public = FALSE` on the PostgreSQL arm is restored. Both changes are
-/// verified by this test failing before the fix.
-#[tokio::test]
-async fn compute_reads_the_real_taxonomy() {
-    let h = Harness::new("theme-compute-taxonomy").await;
-
-    let account = darkhold_db::identity::create_account(
-        h.db(),
-        &format!("theme-{}@example.test", Uuid::new_v4()),
-        darkhold_domain::policy::AgeState::DeclaredAdult,
-        darkhold_db::identity::AccountStatus::Active,
-    )
-    .await
-    .expect("account");
-    let pseud = darkhold_db::identity::create_pseud(
-        h.db(),
-        account,
-        &format!("t-{}", Uuid::new_v4()),
-        "Reader",
-    )
-    .await
-    .expect("pseud");
-    let work = darkhold_db::content::create_work(h.db(), pseud, "Tagged Work", None)
-        .await
-        .expect("work")
-        .id;
-
-    // A taxonomy node named "slowburn", applied to the work.
-    let node = format!("node-{}", Uuid::new_v4());
-    h.exec(&format!(
-        "INSERT INTO canonical_entities (id, kind, canonical, norm, created_at) \
-         VALUES ('{node}', 'tag', 'slowburn', 'slowburn', '2026-01-01T00:00:00Z')"
-    ))
-    .await;
-    h.exec(&format!(
-        "INSERT INTO work_tags (work_id, node_id, prominence, added_at) \
-         VALUES ('{work}', '{node}', 100, '2026-01-01T00:00:00Z')"
-    ))
-    .await;
-    assert_eq!(h.count("work_tags").await, 1, "the tag is really applied");
-
-    // A private bookmark on that work.
-    let bm = Uuid::new_v4().to_string();
-    let flag = if h.is_pg() { "FALSE" } else { "0" };
-    h.exec(&format!(
-        "INSERT INTO bookmarks (id, account_id, subject_type, subject_id, note, \
-         is_public, created_at, updated_at, version) \
-         VALUES ('{bm}', '{account}', 'work', '{work}', '', {flag}, \
-         '2026-01-01T00:00:00Z', '2026-01-01T00:00:00Z', 1)"
-    ))
-    .await;
-    assert_eq!(h.count("bookmarks").await, 1);
-
-    let theme = compute_theme_from_bookmarks(h.db(), &Harness::instance())
-        .await
-        .expect("compute");
-    let weights = tag_weights(&theme);
-
-    assert_eq!(
-        weights.len(),
-        1,
-        "the bookmarked work's tag reaches the theme"
-    );
-    assert!(
-        weights.contains_key("slowburn"),
-        "and it is named by canonical_entities.canonical, got {weights:?}"
-    );
-    assert!(
-        (weights["slowburn"] - 1.0).abs() < f64::EPSILON,
-        "a single tag of several gets the top weight, got {}",
-        weights["slowburn"]
-    );
-}
-
-/// **A public bookmark does not reach the theme.** The privacy filter is
-/// load-bearing: a theme published to federation peers is built from what
-/// somebody bookmarked privately, and the tag set is what peers match on.
-///
-/// `bookmarks.is_public` is `BOOLEAN` on PostgreSQL and `INTEGER` on SQLite, so
-/// the predicate is written for each dialect. The PostgreSQL arm had no
-/// predicate at all, which inverted the population.
-#[tokio::test]
-async fn compute_ignores_public_bookmarks() {
-    let h = Harness::new("theme-compute-private").await;
-
-    let account = darkhold_db::identity::create_account(
-        h.db(),
-        &format!("theme-{}@example.test", Uuid::new_v4()),
-        darkhold_domain::policy::AgeState::DeclaredAdult,
-        darkhold_db::identity::AccountStatus::Active,
-    )
-    .await
-    .expect("account");
-    let pseud = darkhold_db::identity::create_pseud(
-        h.db(),
-        account,
-        &format!("t-{}", Uuid::new_v4()),
-        "Reader",
-    )
-    .await
-    .expect("pseud");
-
-    // Two works: one bookmarked publicly, one privately, each with its own tag.
-    let mut setups = Vec::new();
-    for (canonical, public) in [("public-tag", true), ("private-tag", false)] {
-        let work = darkhold_db::content::create_work(h.db(), pseud, "W", None)
-            .await
-            .expect("work")
-            .id;
-        let node = format!("node-{}", Uuid::new_v4());
-        h.exec(&format!(
-            "INSERT INTO canonical_entities (id, kind, canonical, norm, created_at) \
-             VALUES ('{node}', 'tag', '{canonical}', '{canonical}', '2026-01-01T00:00:00Z')"
-        ))
-        .await;
-        h.exec(&format!(
-            "INSERT INTO work_tags (work_id, node_id, prominence, added_at) \
-             VALUES ('{work}', '{node}', 100, '2026-01-01T00:00:00Z')"
-        ))
-        .await;
-        let flag = match (h.is_pg(), public) {
-            (true, true) => "TRUE",
-            (true, false) => "FALSE",
-            (false, true) => "1",
-            (false, false) => "0",
-        };
-        h.exec(&format!(
-            "INSERT INTO bookmarks (id, account_id, subject_type, subject_id, note, \
-             is_public, created_at, updated_at, version) \
-             VALUES ('{id}', '{account}', 'work', '{work}', '', {flag}, \
-             '2026-01-01T00:00:00Z', '2026-01-01T00:00:00Z', 1)",
-            id = Uuid::new_v4()
-        ))
-        .await;
-        setups.push(canonical);
-    }
-    assert_eq!(h.count("bookmarks").await, 2, "one of each privacy");
-    assert_eq!(h.count("work_tags").await, 2);
-
-    let theme = compute_theme_from_bookmarks(h.db(), &Harness::instance())
-        .await
-        .expect("compute");
-    let weights = tag_weights(&theme);
-
-    assert_eq!(
-        weights.len(),
-        1,
-        "only the private bookmark counts, got {weights:?}"
-    );
-    assert!(
-        weights.contains_key("private-tag"),
-        "the privately-bookmarked work's tag is the one that counts, got {weights:?}"
-    );
-    assert!(
-        !weights.contains_key("public-tag"),
-        "a public bookmark is somebody else's signal, not the instance's"
-    );
-    let _ = setups;
-}
-
-/// **A tag applied to a work nobody bookmarked does not reach the theme** — the
-/// join is through `bookmarks`, not over all of `work_tags`.
-#[tokio::test]
-async fn compute_ignores_tags_on_unbookmarked_works() {
-    let h = Harness::new("theme-compute-unbookmarked").await;
-
-    let account = darkhold_db::identity::create_account(
-        h.db(),
-        &format!("theme-{}@example.test", Uuid::new_v4()),
-        darkhold_domain::policy::AgeState::DeclaredAdult,
-        darkhold_db::identity::AccountStatus::Active,
-    )
-    .await
-    .expect("account");
-    let pseud = darkhold_db::identity::create_pseud(
-        h.db(),
-        account,
-        &format!("t-{}", Uuid::new_v4()),
-        "Reader",
-    )
-    .await
-    .expect("pseud");
-    let work = darkhold_db::content::create_work(h.db(), pseud, "Unread", None)
-        .await
-        .expect("work")
-        .id;
-    let node = format!("node-{}", Uuid::new_v4());
-    h.exec(&format!(
-        "INSERT INTO canonical_entities (id, kind, canonical, norm, created_at) \
-         VALUES ('{node}', 'tag', 'never-bookmarked', 'never-bookmarked', '2026-01-01T00:00:00Z')"
-    ))
-    .await;
-    h.exec(&format!(
-        "INSERT INTO work_tags (work_id, node_id, prominence, added_at) \
-         VALUES ('{work}', '{node}', 100, '2026-01-01T00:00:00Z')"
-    ))
-    .await;
-    assert_eq!(h.count("bookmarks").await, 0, "nobody bookmarked it");
-
-    let theme = compute_theme_from_bookmarks(h.db(), &Harness::instance())
-        .await
-        .expect("compute");
-    assert!(
-        tag_weights(&theme).is_empty(),
-        "a tag nothing points at is not a theme, got {theme}"
-    );
 }

@@ -201,15 +201,20 @@ impl Harness {
 #[tokio::test]
 async fn a_site_with_no_moderators_still_has_one() {
     let harness = Harness::new("small-site").await;
-    let mut client = harness.client();
 
     // Three users, none of them a moderator. **Nobody** holds the moderation
     // queue, so the pool is empty and the requirement falls.
     let mut reader = harness.client();
     let reader_account = reader.register("reader@example.test", "Reader").await;
     harness.set_level(&reader_account, 2).await;
-    client.register("second@example.test", "Second").await;
-    client.register("third@example.test", "Third").await;
+    // Each account gets its own cookie jar. `POST /auth/register` refuses a request whose session already belongs
+    // to a registered account (M66 GS-1 made reading possible before registering, so the door has to refuse a
+    // second registration rather than silently switching the account), and one client registering three people
+    // was relying on the door not having that rule.
+    let mut second = harness.client();
+    second.register("second@example.test", "Second").await;
+    let mut third = harness.client();
+    third.register("third@example.test", "Third").await;
 
     harness.evaluate().await;
 
