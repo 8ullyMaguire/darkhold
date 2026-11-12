@@ -130,8 +130,20 @@ fn length_known(body: &Value) -> i64 {
         .expect("a length facet")
 }
 
+/// The facet cache is one process-global map keyed by the query, and the three tests below all ask the same empty
+/// query — so they are not independent even though they look it. A `clear()` in one of them is another's "the answer
+/// changed between my two requests", and under the parallel runner of a full `gate.sh all` that is exactly how
+/// `a_second_request_inside_the_window_is_served_from_the_cache_and_says_so` failed: it saw `known: 2` where it had
+/// measured `known: 1`, because a neighbour had cleared and refilled the entry mid-test.
+///
+/// Serialising is the isolation the cache cannot offer from outside, and it is taken before the first request in
+/// every test here rather than only around the assertions: the whole test, from `clear()` to the last read, is the
+/// unit that has to be alone.
+static CACHE_LOCK: tokio::sync::Mutex<()> = tokio::sync::Mutex::const_new(());
+
 #[tokio::test]
 async fn a_second_request_inside_the_window_is_served_from_the_cache_and_says_so() {
+    let _only_one = CACHE_LOCK.lock().await;
     let h = Harness::new("served").await;
     darkhold_app::facets_cache::clear();
     h.exec(&format!(
@@ -178,6 +190,7 @@ async fn a_second_request_inside_the_window_is_served_from_the_cache_and_says_so
 
 #[tokio::test]
 async fn clearing_the_cache_makes_the_next_request_reflect_the_change() {
+    let _only_one = CACHE_LOCK.lock().await;
     let h = Harness::new("cleared").await;
     darkhold_app::facets_cache::clear();
     h.exec(&format!(
@@ -222,6 +235,7 @@ async fn clearing_the_cache_makes_the_next_request_reflect_the_change() {
 
 #[tokio::test]
 async fn a_different_filter_is_a_different_entry() {
+    let _only_one = CACHE_LOCK.lock().await;
     let h = Harness::new("filters").await;
     darkhold_app::facets_cache::clear();
     h.exec(&format!(
