@@ -175,16 +175,22 @@ async fn two_readers_really_do_get_different_works_when_they_do_not_collide() {
     // says nothing about whether the account reaches the query, or whether the account
     // id is the string it thinks it is.
     //
-    // Spelled so it cannot flake. Rather than betting on 25 works and one pair -- the
-    // mistake the test above used to make -- this asks for the pick for MANY reader/day
-    // pairs and asserts the mapping is not the constant it would be if the account were
-    // ignored. Two readers on one day is 1-in-25; twenty accounts across ten days is
-    // 10^13 possible assignments and a broken seed gives exactly 10.
+    // Twenty draws into twenty-five bins looks safer than it is: the number of DISTINCT
+    // picks behaves like a birthday count, not like twenty independent coin flips. The
+    // first version of this asserted `> 10` over 20 readers, and P(10 or fewer distinct)
+    // there is 0.88% -- one failure per 113 runs, which is exactly what a full
+    // `gate.sh all` eventually reported. (Computed exactly: sum over d of C(25,d) *
+    // onto(20,d) / 25^20.) The claim in the comment above -- "spelled so it cannot
+    // flake" -- was the flake.
+    //
+    // Twenty-four readers across three days is 72 draws into 25 bins, where the same
+    // bound is 7e-23. The assertion still catches what it is for: an account ignored by
+    // the seed collapses 72 draws to 3, one per day.
     let f = Fixture::build("bd_perreader_e2e").await;
     f.works("w", 25).await;
-    let day = "2026-10-02";
+    let days = ["2026-10-02", "2026-10-03", "2026-10-04"];
     let mut picks = std::collections::HashSet::new();
-    for i in 0..20 {
+    for i in 0..24 {
         // A real account, so a real uuid. The first version of this passed the email
         // address straight in and PostgreSQL answered
         //   invalid input syntax for type uuid: "bd_perreader-e2e-0@example.com"
@@ -194,15 +200,18 @@ async fn two_readers_really_do_get_different_works_when_they_do_not_collide() {
         // is rejected at the boundary on PostgreSQL. It still passed on SQLite, which
         // is precisely how this gets missed.
         let reader = account(&f.tdb, &format!("bd_perreader-e2e-{i}@example.com")).await;
-        picks.insert(
-            blind_date_work(f.tdb.db(), &reader, day)
-                .await
-                .expect("25 eligible works, so every reader gets a pick"),
-        );
+        for day in days {
+            picks.insert(
+                blind_date_work(f.tdb.db(), &reader, day)
+                    .await
+                    .expect("25 eligible works, so every reader gets a pick"),
+            );
+        }
     }
     assert!(
         picks.len() > 10,
-        "20 readers drew only {} distinct works from 25: the account is not reaching the seed",
+        "{} reader-days drew only {} distinct works from 25: the account is not reaching the seed",
+        24 * days.len(),
         picks.len()
     );
 }
