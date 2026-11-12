@@ -418,16 +418,22 @@ const LINK_CHALLENGE_TTL_SECONDS: i64 = 600;
 
 #[derive(Debug, Deserialize)]
 pub struct LinkChallengeBody {
+    /// Which platform the reader the code is for is on (`discord`, `matrix`, …). Optional: the browser flow names nobody.
+    #[serde(default)]
+    pub platform: Option<String>,
+    /// The reader's id on that platform. With `platform`, this is what lets the bot ask "which of my links is this person?" afterwards.
+    #[serde(default)]
+    pub platform_user_id: Option<String>,
     /// What the bot is asking for. Stored as the *request*, never as the grant — the reader decides, and the confirmation
     /// re-checks against this list so a challenge cannot be widened afterwards.
     #[serde(default)]
     pub scopes: Vec<String>,
 }
 
-/// Mint a challenge code for a bot this account owns.
+/// Mint a challenge code for a bot this account owns — or for itself, when a bot asks.
 async fn create_link_challenge(
     State(state): State<AppState>,
-    session: RequireSession,
+    caller: crate::auth::RequireBotOrOwner,
     Path(bot_id): Path<String>,
     Json(body): Json<LinkChallengeBody>,
 ) -> ApiResult<Json<Value>> {
@@ -439,20 +445,38 @@ async fn create_link_challenge(
             format!("unrecognised scope(s): {unknown}"),
         )));
     }
-    let account = session.0.account_id.to_string();
-    let owned = darkhold_db::external::bot_owned_by(state.db(), &bot_id, &account)
-        .await
-        .map_err(|e| ApiError(darkhold_domain::AppError::Internal(e.into())))?;
-    if !owned {
-        return Err(ApiError(darkhold_domain::AppError::NotFound {
-            resource: "bot",
-        }));
+    // **Two callers, one door.** A session must OWN the bot (the browser flow: the owner mints a code for a reader). The bot's
+    // own credential must BE the bot — `RequireBotOrOwner` has already resolved which registration that credential belongs to,
+    // so this is a comparison against the path and not a second lookup, and a bot naming another bot's id is refused as though
+    // that bot did not exist. The second arm is what a guild bot needed: the flow was owner-initiated only, so a bot inside
+    // Discord could not start it for the reader in front of it and grew two invented endpoints instead.
+    match &caller.0 {
+        crate::auth::BotCaller::Bot { bot_id: own, .. } if own == &bot_id => {}
+        // 404 rather than 403: a bot learning that another bot exists changes nothing it can act on (ADR 0030).
+        crate::auth::BotCaller::Bot { .. } => {
+            return Err(ApiError(darkhold_domain::AppError::NotFound {
+                resource: "bot",
+            }))
+        }
+        crate::auth::BotCaller::Session(account_id) => {
+            let owned =
+                darkhold_db::external::bot_owned_by(state.db(), &bot_id, &account_id.to_string())
+                    .await
+                    .map_err(|e| ApiError(darkhold_domain::AppError::Internal(e.into())))?;
+            if !owned {
+                return Err(ApiError(darkhold_domain::AppError::NotFound {
+                    resource: "bot",
+                }));
+            }
+        }
     }
     let code = darkhold_db::external::create_link_challenge(
         state.db(),
         &bot_id,
         &body.scopes,
         LINK_CHALLENGE_TTL_SECONDS,
+        body.platform.as_deref().unwrap_or(""),
+        body.platform_user_id.as_deref().unwrap_or(""),
     )
     .await
     .map_err(|e| ApiError(darkhold_domain::AppError::Internal(e.into())))?;
@@ -461,6 +485,56 @@ async fn create_link_challenge(
         "expires_in_seconds": LINK_CHALLENGE_TTL_SECONDS,
         "requested_scopes": body.scopes,
     })))
+}
+
+/// `GET /me/bots/{id}/links` — who has linked to this bot, and as whom.
+///
+/// The other half of the bot-initiated challenge: a bot minted a code for a platform user, the reader confirmed on the site, and now the bot asks
+/// which of its links is that person. Without this door the code would be a one-way note — the bot could ask for a link and never learn the answer,
+/// which is why its invented `bot/link/exchange` existed and why it returned a token it had no business minting.
+///
+/// Bearer only for a bot's own credential, or a session for the owner. A bot reads its own links and nobody else's; the id in the path is checked
+/// against the credential rather than trusted.
+async fn list_bot_links(
+    State(state): State<AppState>,
+    caller: crate::auth::RequireBotOrOwner,
+    Path(bot_id): Path<String>,
+) -> ApiResult<Json<Value>> {
+    match &caller.0 {
+        crate::auth::BotCaller::Bot { bot_id: own, .. } if own == &bot_id => {}
+        crate::auth::BotCaller::Bot { .. } => {
+            return Err(ApiError(darkhold_domain::AppError::NotFound {
+                resource: "bot",
+            }))
+        }
+        crate::auth::BotCaller::Session(account_id) => {
+            let owned =
+                darkhold_db::external::bot_owned_by(state.db(), &bot_id, &account_id.to_string())
+                    .await
+                    .map_err(|e| ApiError(darkhold_domain::AppError::Internal(e.into())))?;
+            if !owned {
+                return Err(ApiError(darkhold_domain::AppError::NotFound {
+                    resource: "bot",
+                }));
+            }
+        }
+    }
+
+    let links = darkhold_db::external::bot_links(state.db(), &bot_id)
+        .await
+        .map_err(|e| ApiError(darkhold_domain::AppError::Internal(e.into())))?;
+    let rows: Vec<Value> = links
+        .into_iter()
+        .map(|(handle, platform, platform_user, linked_at)| {
+            json!({
+                "pseud": handle,
+                "platform": platform,
+                "platform_user": platform_user,
+                "linked_at": linked_at,
+            })
+        })
+        .collect();
+    Ok(Json(json!({ "bot": bot_id, "links": rows })))
 }
 
 /// What a code is for, in the words the reader needs before granting anything.
@@ -483,6 +557,9 @@ async fn read_link_challenge(
         })?;
     Ok(Json(json!({
         "code": challenge.code,
+        // The name the bot was registered under, and the id beside it: the reader is deciding whether to hand a *stranger*
+        // access to their library, and a page that answers only an opaque uuid asks them to trust it.
+        "bot": challenge.bot_name,
         "bot_id": challenge.bot_id,
         "state": challenge.state,
         "requested_scopes": challenge.requested_scopes,
@@ -622,7 +699,10 @@ async fn confirm_link_challenge(
         darkhold_db::external::bot_link_token_ids(state.db(), &challenge.bot_id, &pseud_canonical)
             .await
             .map_err(|e| ApiError(darkhold_domain::AppError::Internal(e.into())))?;
-    for previous in previous_links.iter().filter(|previous| **previous != token_id) {
+    for previous in previous_links
+        .iter()
+        .filter(|previous| **previous != token_id)
+    {
         if let Err(error) = darkhold_db::external::revoke_token_for_account(
             state.db(),
             previous,
@@ -844,6 +924,8 @@ pub fn router() -> axum::Router<AppState> {
         // §23.2's link flow: the bot asks, the reader is shown what it asked for, and the answer is a token the reader can
         // revoke. Three doors and no shortcut — the challenge is what makes "what am I granting" a page rather than a promise.
         .route("/me/bots/{id}/link-challenge", post(create_link_challenge))
+        // The answer to the question the challenge asks: which of my links is this person?
+        .route("/me/bots/{id}/links", get(list_bot_links))
         .route(
             "/bots/link/{code}",
             get(read_link_challenge).post(confirm_link_challenge),

@@ -51,6 +51,14 @@ pub enum Audience {
     /// never reveals the credential exists. Both are needed, and which one a
     /// route uses is a claim about what it discloses, so it is enumerated.
     Actor,
+    /// A bot's own credential, or a session acting on that bot — `RequireBotOrOwner`.
+    ///
+    /// A distinct audience from `Actor`, not a flavour of it, because the principal is different: an actor acts as a *pseud*,
+    /// and a bot registration has none, so `RequireActor` refuses every bot with `403` and the whole §23.2 bot-initiated flow
+    /// (mint a code inside a chat client, learn which of my links is that person) was unreachable. The handler still decides
+    /// whether a session may act on the bot in the path; what this audience records is that the door answers two kinds of
+    /// principal and that one of them is not an account.
+    BotOrOwner,
     /// Token-or-session door — `RequireActorScoped`.
     ///
     /// A distinct kind, not a flavour of `Authenticated`, because the two are
@@ -93,6 +101,7 @@ impl Audience {
             Audience::AdminOf { site: None } => "admin:estate",
             Audience::AdminOf { site: Some(name) } => name,
             Audience::Actor => "actor",
+            Audience::BotOrOwner => "bot-or-owner",
             Audience::Scoped => "scoped",
             // Not a reader door: the body is the same for every caller, which is the whole contract of a machine
             // surface. Publishing it as `public` would promise personalisation it must never have.
@@ -111,6 +120,7 @@ impl Audience {
             // route's site is known. Keeping them the same extractor is what lets `require_admin_of` audit a refusal.
             Audience::AdminOf { .. } => "RequireSession",
             Audience::Actor => "RequireActor",
+            Audience::BotOrOwner => "RequireBotOrOwner",
             Audience::Scoped => "RequireActorScoped",
             // No extractor: the inventory test accepts `None` only for this audience.
             Audience::Anonymous => "",
@@ -7702,7 +7712,9 @@ pub const ROUTE_TABLE: &[RouteEntry] = &[
         handler: "create_link_challenge",
         method: "POST",
         path: "/me/bots/{id}/link-challenge",
-        audience: Audience::Authenticated,
+        // A session must own the bot; the bot's own credential must BE the bot. Two principals, one door — hence `BotOrOwner`
+        // rather than `Actor`, which refuses a bot's credential outright (it has no acting pseud).
+        audience: Audience::BotOrOwner,
     },
     RouteEntry {
         file: "external.rs",
@@ -7782,5 +7794,12 @@ pub const ROUTE_TABLE: &[RouteEntry] = &[
         method: "GET",
         path: "/me/jury",
         audience: Audience::Authenticated,
+    },
+    RouteEntry {
+        file: "external.rs",
+        handler: "list_bot_links",
+        method: "GET",
+        path: "/me/bots/{id}/links",
+        audience: Audience::BotOrOwner,
     },
 ];

@@ -27,7 +27,6 @@ pub async fn issue_token(
     issue_token_acting(db, account, kind, name, token_hash, scopes, None, None).await
 }
 
-
 /// Issue a token bound to a specific acting pseud.
 ///
 /// The full form, and the only INSERT that creates an `api_tokens` row. The two
@@ -441,6 +440,13 @@ pub struct LinkChallenge {
     pub code: String,
     pub state: String,
     pub bot_id: String,
+    /// The name the bot was registered under, resolved through its registration.
+    ///
+    /// A reader deciding whether to grant a bot their library is being asked by a *name*: the confirmation page that showed
+    /// `908012d5-…` was asking them to trust a UUID. It comes from `api_tokens.name`, which is where `POST /me/bots` recorded
+    /// the name the operator typed — `bot_registrations` never had a name column. `None` when the join finds no row, which is
+    /// how a client learns to fall back to the id rather than print an empty string as if it were a name.
+    pub bot_name: Option<String>,
     pub requested_scopes: Vec<String>,
     pub pseud_id: Option<String>,
     pub token_id: Option<String>,
@@ -484,11 +490,16 @@ fn challenge_code() -> String {
 /// confirmation page display "Archivist Bot is asking for: read your library,
 /// send kudos" rather than an opaque set of identifiers — the disclosure
 /// §23.2's security note requires a bot to make before it is granted anything.
+/// `platform`/`platform_user` name who the code is FOR. An owner-minted code passes empty strings: it is for whoever holds it, which is the browser
+/// flow and still correct. A bot-minted code (bearer credential) names the Discord/Slack/Matrix person it was created inside, because that is the only
+/// way the bot can later tell which of its links is that person.
 pub async fn create_link_challenge(
     db: &Database,
     bot_id: &str,
     requested_scopes: &[String],
     ttl_seconds: i64,
+    platform: &str,
+    platform_user: &str,
 ) -> Result<String, sqlx::Error> {
     let code = challenge_code();
     let now = crate::identity::now_rfc3339();
@@ -498,10 +509,10 @@ pub async fn create_link_challenge(
     // The PostgreSQL arm needs its own placeholders. It had `?` for all of this function's life, which is a 500 on every
     // insert on the deployed engine and invisible on SQLite — the class of defect that only a two-engine test finds.
     let sql = db.sql(
-        "INSERT INTO link_challenges (code, state, bot_id, requested_scopes, created_at, expires_at)
-         VALUES (?1, 'pending', ?2, ?3, ?4, ?5)",
-        "INSERT INTO link_challenges (code, state, bot_id, requested_scopes, created_at, expires_at)
-         VALUES ($1, 'pending', $2, $3, $4, $5)",
+        "INSERT INTO link_challenges (code, state, bot_id, requested_scopes, created_at, expires_at, platform, platform_user)
+         VALUES (?1, 'pending', ?2, ?3, ?4, ?5, ?6, ?7)",
+        "INSERT INTO link_challenges (code, state, bot_id, requested_scopes, created_at, expires_at, platform, platform_user)
+         VALUES ($1, 'pending', $2, $3, $4, $5, $6, $7)",
     );
     match db.backend() {
         Backend::Sqlite => {
@@ -511,6 +522,8 @@ pub async fn create_link_challenge(
                 .bind(&scopes_json)
                 .bind(&now)
                 .bind(&expires_at)
+                .bind(platform)
+                .bind(platform_user)
                 .execute(db.sqlite_pool().expect("sqlite"))
                 .await?;
         }
@@ -521,6 +534,8 @@ pub async fn create_link_challenge(
                 .bind(&scopes_json)
                 .bind(&now)
                 .bind(&expires_at)
+                .bind(platform)
+                .bind(platform_user)
                 .execute(db.postgres_pool().expect("postgres"))
                 .await?;
         }
@@ -534,6 +549,7 @@ fn parse_challenge(row: &sqlx::sqlite::SqliteRow) -> LinkChallenge {
         code: row.get("code"),
         state: row.get("state"),
         bot_id: row.get("bot_id"),
+        bot_name: row.get::<Option<String>, _>("bot_name"),
         requested_scopes: serde_json::from_str(&scopes_json).unwrap_or_default(),
         pseud_id: row.get::<Option<String>, _>("pseud_id"),
         token_id: row.get::<Option<String>, _>("token_id"),
@@ -557,8 +573,11 @@ pub async fn find_link_challenge(
     match db.backend() {
         Backend::Sqlite => {
             let row = sqlx::query(
-                "SELECT code, state, bot_id, requested_scopes, pseud_id, token_id, created_at, expires_at
-                 FROM link_challenges WHERE code = ?",
+                "SELECT c.code, c.state, c.bot_id, c.requested_scopes, c.pseud_id, c.token_id, c.created_at, c.expires_at, t.name AS bot_name
+                 FROM link_challenges c
+                 LEFT JOIN bot_registrations r ON r.id = c.bot_id
+                 LEFT JOIN api_tokens t ON t.id = r.token_id
+                 WHERE c.code = ?",
             )
             .bind(code)
             .fetch_optional(db.sqlite_pool().expect("sqlite"))
@@ -567,8 +586,13 @@ pub async fn find_link_challenge(
         }
         Backend::Postgres => {
             let row = sqlx::query(
-                "SELECT code, state, bot_id, requested_scopes, pseud_id::text, token_id::text, created_at, expires_at
-                 FROM link_challenges WHERE code = $1",
+                // `api_tokens.id` is UUID and `bot_registrations.token_id` is TEXT (0020), so the join casts the uuid column
+                // to text — the reverse would fail on every row rather than on the tagged column.
+                "SELECT c.code, c.state, c.bot_id, c.requested_scopes, c.pseud_id::text, c.token_id::text, c.created_at, c.expires_at, t.name AS bot_name
+                 FROM link_challenges c
+                 LEFT JOIN bot_registrations r ON r.id = c.bot_id
+                 LEFT JOIN api_tokens t ON t.id::text = r.token_id
+                 WHERE c.code = $1",
             )
             .bind(code)
             .fetch_optional(db.postgres_pool().expect("postgres"))
@@ -584,6 +608,7 @@ fn parse_challenge_pg(row: &sqlx::postgres::PgRow) -> LinkChallenge {
         code: row.get("code"),
         state: row.get("state"),
         bot_id: row.get("bot_id"),
+        bot_name: row.get::<Option<String>, _>("bot_name"),
         requested_scopes: serde_json::from_str(&scopes_json).unwrap_or_default(),
         pseud_id: row.get::<Option<String>, _>("pseud_id"),
         token_id: row.get::<Option<String>, _>("token_id"),
@@ -700,6 +725,41 @@ pub async fn bot_for_token(
         "SELECT r.id, r.state FROM bot_registrations r
           WHERE r.token_id = $1::text
              OR EXISTS (SELECT 1 FROM api_tokens t WHERE t.id = $1::uuid AND t.kind = 'bot' AND t.name = r.id)",
+    );
+    let row = match db.backend() {
+        Backend::Sqlite => {
+            sqlx::query_as::<_, (String, String)>(&sql)
+                .bind(token_id)
+                .fetch_optional(db.sqlite_pool().expect("sqlite"))
+                .await?
+        }
+        Backend::Postgres => {
+            sqlx::query_as::<_, (String, String)>(&sql)
+                .bind(token_id)
+                .fetch_optional(db.postgres_pool().expect("postgres"))
+                .await?
+        }
+    };
+    Ok(row)
+}
+
+/// The bot registration whose own credential this token is, and its state.
+///
+/// Deliberately narrower than [`bot_for_token`], which also matches a *linked reader's* credential (`kind = 'bot'`,
+/// `name = <bot id>`) so that suspending a bot reaches everyone who linked to it. This one matches the registration's own
+/// `token_id` alone, because "this credential proves the bot" and "this credential belongs to a reader the bot links" are
+/// different answers, and only the first may mint a challenge for a stranger.
+///
+/// `None` for any token that is not a bot's, which is the ordinary case rather than a refusal.
+pub async fn bot_registration_for_token(
+    db: &Database,
+    token_id: &str,
+) -> Result<Option<(String, String)>, sqlx::Error> {
+    let sql = db.sql(
+        "SELECT id, state FROM bot_registrations WHERE token_id = ?1",
+        // `bot_registrations` predates the uuid columns (0020), so its `token_id` is TEXT and the bind is cast to text, not the
+        // column to uuid — the reverse is a type error on the deployed engine that SQLite accepts.
+        "SELECT id, state FROM bot_registrations WHERE token_id = $1::text",
     );
     let row = match db.backend() {
         Backend::Sqlite => {
@@ -1154,4 +1214,48 @@ pub async fn record_ai_request(
         }
     }
     Ok(id)
+}
+
+/// The links one bot currently holds, with the platform identity each was minted for.
+///
+/// This is the question a guild bot actually asks: *is discord user 1234 linked, and as whom?* The answer is derived, not stored twice — a link is a
+/// credential (`api_tokens` row, `kind = 'bot'`, `name = <bot id>`), and the platform identity rides on the challenge that produced it (`token_id`).
+/// One source of truth: revoking the token removes the link here in the same breath.
+///
+/// A link with empty platform columns is an owner-minted code — the reader who held the code — and is reported with `platform: null` rather than an
+/// empty string, because "no platform was named" and "the platform is empty" are the same thing only to a program that has stopped caring.
+pub async fn bot_links(
+    db: &Database,
+    bot_id: &str,
+) -> Result<Vec<(String, Option<String>, Option<String>, String)>, sqlx::Error> {
+    let sql = db.sql(
+        "SELECT p.handle, NULLIF(c.platform, ''), NULLIF(c.platform_user, ''), t.created_at
+           FROM api_tokens t
+           JOIN link_challenges c ON c.token_id = t.id
+           JOIN pseuds p ON p.id = t.acting_pseud_id
+          WHERE t.kind = 'bot' AND t.name = ?1 AND t.revoked_at IS NULL
+          ORDER BY t.created_at DESC",
+        "SELECT p.handle, NULLIF(c.platform, ''), NULLIF(c.platform_user, ''), t.created_at
+           FROM api_tokens t
+           JOIN link_challenges c ON c.token_id::text = t.id::text
+           -- `pseuds.id` is UUID and `api_tokens.acting_pseud_id` is TEXT (0083), so the join casts the uuid column; without
+           -- it PostgreSQL answers `operator does not exist: uuid = text` and this door is a 500 on the deployed engine only.
+           JOIN pseuds p ON p.id::text = t.acting_pseud_id
+          WHERE t.kind = 'bot' AND t.name = $1 AND t.revoked_at IS NULL
+          ORDER BY t.created_at DESC",
+    );
+    match db.backend() {
+        Backend::Sqlite => {
+            sqlx::query_as(&sql)
+                .bind(bot_id)
+                .fetch_all(db.sqlite_pool().expect("sqlite handle"))
+                .await
+        }
+        Backend::Postgres => {
+            sqlx::query_as(&sql)
+                .bind(bot_id)
+                .fetch_all(db.postgres_pool().expect("postgres handle"))
+                .await
+        }
+    }
 }

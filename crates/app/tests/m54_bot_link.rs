@@ -583,6 +583,8 @@ async fn a_challenge_is_short_lived_and_records_what_the_bot_asked_for() {
         &bot_id,
         &["library.read".into()],
         600,
+        "",
+        "",
     )
     .await
     .expect("create a challenge");
@@ -610,7 +612,7 @@ async fn a_challenge_is_confirmed_at_most_once() {
     let account = h.signed_in("owner@example.test", "owner").await;
     let pseud = h.current_pseud_id().await;
     let (bot_id, _raw) = h.register_bot("Archivist").await;
-    let code = darkhold_db::external::create_link_challenge(h.tdb.db(), &bot_id, &[], 600)
+    let code = darkhold_db::external::create_link_challenge(h.tdb.db(), &bot_id, &[], 600, "", "")
         .await
         .expect("create a challenge");
 
@@ -638,7 +640,7 @@ async fn an_expired_challenge_is_refused_and_swept() {
     let account = h.signed_in("owner@example.test", "owner").await;
     let pseud = h.current_pseud_id().await;
     let (bot_id, _raw) = h.register_bot("Archivist").await;
-    let code = darkhold_db::external::create_link_challenge(h.tdb.db(), &bot_id, &[], -1)
+    let code = darkhold_db::external::create_link_challenge(h.tdb.db(), &bot_id, &[], -1, "", "")
         .await
         .expect("create a challenge already past its expiry");
 
@@ -679,7 +681,7 @@ async fn a_challenge_code_is_high_entropy_and_not_a_uuid() {
     let mut h = Harness::new("challenge-entropy").await;
     h.signed_in("owner@example.test", "owner").await;
     let (bot_id, _raw) = h.register_bot("Archivist").await;
-    let code = darkhold_db::external::create_link_challenge(h.tdb.db(), &bot_id, &[], 600)
+    let code = darkhold_db::external::create_link_challenge(h.tdb.db(), &bot_id, &[], 600, "", "")
         .await
         .expect("create");
     assert_eq!(
@@ -721,7 +723,7 @@ async fn no_link_door_accepts_a_password() {
     let mut h = Harness::new("no-password").await;
     h.signed_in("owner@example.test", "owner").await;
     let (bot_id, raw) = h.register_bot("Archivist").await;
-    let code = darkhold_db::external::create_link_challenge(h.tdb.db(), &bot_id, &[], 600)
+    let code = darkhold_db::external::create_link_challenge(h.tdb.db(), &bot_id, &[], 600, "", "")
         .await
         .expect("create");
 

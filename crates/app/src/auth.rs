@@ -585,6 +585,103 @@ impl axum::extract::FromRequestParts<AppState> for RequireActorScoped {
     }
 }
 
+/// Who is asking a door that a bot reaches with its own credential.
+///
+/// A bot's registration credential is deliberately **not** an [`Actor`]: an actor acts as a *pseud*, and a bot has none — the
+/// registration is issued through `issue_token` with `acting_pseud_id` NULL, which is why [`RequireActor`] refuses it and why
+/// the first version of the bot-initiated link door answered every bot with `403 ACCESS_DENIED`. The two callers are different
+/// kinds of principal, so this enum names them instead of flattening one into the other: a session asks *may I act on this
+/// bot*, and the handler answers from the registration's owner; the bot asks *am I this bot*, and the answer is its own id.
+#[derive(Debug, Clone)]
+pub enum BotCaller {
+    /// A signed-in account. Whether it may act on the bot named in the path is the handler's question, answered from the row.
+    Session(AccountId),
+    /// The bot itself, proven by the credential its registration was created with.
+    Bot {
+        /// The registration's id — the bot the credential IS.
+        bot_id: String,
+        /// The account that registered it. Carried so a handler never has to guess whose bot this is.
+        account_id: AccountId,
+    },
+}
+
+/// An extractor for doors a bot must reach with its own credential (§23.2, M45-43).
+///
+/// Accepts a session **or** the bot's own registration credential, and refuses everything else. It exists because the link
+/// flow was owner-initiated only: the browser flow has an owner mint a code for a reader, and a guild bot has no session, so
+/// it could not start the flow for the reader in front of it and grew two invented endpoints (`bot/link/start`,
+/// `bot/link/exchange` — one of which minted a token the server never agreed to) to fill the gap.
+///
+/// **A reader's link credential is refused.** `bot_for_token` matches two things on purpose — the registration's own token and
+/// a linked reader's `kind = 'bot'` token — because suspension has to reach readers who linked. Minting a code for somebody
+/// else is a different act, so this door resolves through `bot_registration_for_token`, which matches the registration alone.
+///
+/// **A suspended bot is told nothing, and it is not a 401.** A 401 would say "your credential was not recognised as a bot's,
+/// try again", when in fact the instance knows exactly what it is and has stopped it; the honest answer is the same `404` an
+/// unknown bot gets, because a suspended bot can act on neither fact.
+pub struct RequireBotOrOwner(pub BotCaller);
+
+impl axum::extract::FromRequestParts<AppState> for RequireBotOrOwner {
+    type Rejection = ApiError;
+
+    async fn from_request_parts(
+        parts: &mut axum::http::request::Parts,
+        state: &AppState,
+    ) -> Result<Self, Self::Rejection> {
+        // A session first, for the same reason `RequireActor` prefers it: the browser never sends a bearer token, so a request
+        // carrying both is a client that meant the session, and the session is the more specific credential.
+        if let Some(session) = parts.extensions.get::<SessionUser>().cloned() {
+            return Ok(Self(BotCaller::Session(session.account_id)));
+        }
+
+        // The bearer arm is written out rather than reusing `resolve_bearer`, and the difference is the point: `MaybeToken`
+        // refuses a suspended bot's token by answering `None`, which reaches the caller as `401 AUTH_REQUIRED` — the one answer
+        // this door must not give. Everything else `MaybeToken` does (the hash, the expiry/revocation predicate, the scope and
+        // suspended-bot checks, recording the use) has to happen here in the same order, so the two paths cannot disagree about
+        // what a token is.
+        let Some(raw) = parts
+            .headers
+            .get(axum::http::header::AUTHORIZATION)
+            .and_then(|value| value.to_str().ok())
+            .and_then(|value| value.strip_prefix("Bearer "))
+        else {
+            return Err(ApiError(AppError::AuthRequired));
+        };
+        let identity =
+            darkhold_db::external::resolve_token(state.db(), &crate::crypto::hash_token(raw))
+                .await
+                .map_err(|e| ApiError(AppError::internal("resolving a bearer token", e)))?
+                // Unknown, revoked and expired all answer the same thing: this credential does not authenticate anything.
+                .ok_or_else(|| ApiError(AppError::AuthRequired))?;
+        if let Err(err) = darkhold_db::external::touch_token(state.db(), &identity.token_id).await {
+            // Bookkeeping, not authorization: refusing a valid call because the audit write failed would turn a reporting
+            // fault into an outage. Same trade `MaybeToken` makes, for the same reason.
+            tracing::error!(error = %err, "recording a token's last use failed");
+        }
+
+        let (bot_id, bot_state) =
+            darkhold_db::external::bot_registration_for_token(state.db(), &identity.token_id)
+                .await
+                .map_err(|e| {
+                    ApiError(AppError::internal(
+                        "resolving a token's bot registration",
+                        e,
+                    ))
+                })?
+                // A personal token, a reader's link credential, or a credential minted before bots existed: authenticated, and not
+                // a bot. `403` rather than `401` because the credential *is* good and the caller can be told which question failed,
+                // and no scope is named because no scope would have granted it.
+                .ok_or_else(|| ApiError(AppError::AccessDenied))?;
+        if bot_state != "active" {
+            tracing::warn!(%bot_id, %bot_state, "a suspended bot presented its credential at a bot door; answering as unknown");
+            return Err(ApiError(AppError::NotFound { resource: "bot" }));
+        }
+        let account_id = AccountId::from_str(&identity.account_id)
+            .map_err(|_| ApiError(AppError::AuthRequired))?;
+        Ok(Self(BotCaller::Bot { bot_id, account_id }))
+    }
+}
+
 /// The 403 for a token that lacks `required`.
 ///
 /// Names the scope on purpose: §23.1's contract is that a token's scope set is

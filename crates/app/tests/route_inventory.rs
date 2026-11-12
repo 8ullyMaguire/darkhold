@@ -56,7 +56,12 @@ fn find_audience_extractor(sig: &str) -> Option<&'static str> {
     // point is that it is *not* a session door. Ordering it ahead of the
     // session checks keeps the reported audience the one the handler actually
     // authenticates with.
-    if args.contains("RequireActorScoped") {
+    if args.contains("RequireBotOrOwner") {
+        // A door two kinds of principal reach — a session or a bot's own registration credential. Checked before the others
+        // because it is the only one whose name carries no other extractor's prefix, and because a door that quietly fell back
+        // to `RequireActor` would answer every bot `403`, which is exactly the defect this variant exists to end.
+        Some("RequireBotOrOwner")
+    } else if args.contains("RequireActorScoped") {
         Some("RequireActorScoped")
     } else if args.contains("RequireActor") {
         // Checked after `RequireActorScoped` and never before it. `RequireActor`
@@ -1070,7 +1075,12 @@ fn no_new_admin_path_is_below_operator_standing() {
     let offenders: Vec<(&str, &str, &str)> = ROUTE_TABLE
         .iter()
         .filter(|entry| entry.path.starts_with("/admin/"))
-        .filter(|entry| !matches!(entry.audience, Audience::Operator | Audience::AdminOf { .. }))
+        .filter(|entry| {
+            !matches!(
+                entry.audience,
+                Audience::Operator | Audience::AdminOf { .. }
+            )
+        })
         .map(|entry| (entry.method, entry.path, entry.handler))
         .collect();
 
@@ -1096,9 +1106,9 @@ fn no_new_admin_path_is_below_operator_standing() {
     let stale: Vec<&(&str, &str)> = KNOWN_BELOW_OPERATOR
         .iter()
         .filter(|(method, path)| {
-            !offenders
-                .iter()
-                .any(|(offender_method, offender_path, _)| offender_method == method && offender_path == path)
+            !offenders.iter().any(|(offender_method, offender_path, _)| {
+                offender_method == method && offender_path == path
+            })
         })
         .collect();
     assert!(

@@ -4557,7 +4557,7 @@ this table. The rule and the three legal kinds of block are in `~/secondbrain/10
 
 | row | kind | what would clear it | taken instead |
 |---|---|---|---|
-| M45-43 — Discord bot (rec commands, per-fandom feeds, account linking) | **credential** | a Discord application's bot token plus an account to link for the live proof. Its offline half is *not* blocked: the command surface and the rec formatting can ship behind a transport trait, exactly as `M45-42` did with `ProfileFetcher` — do that first, then leave the token-dependent half named in the ledger | M45-46 |
+| M45-43 — Discord bot (rec commands, per-fandom feeds, account linking) | **credential** | a Discord application's bot token plus an account to link for the live proof. Its offline half is *not* blocked: the command surface and the rec formatting can ship behind a transport trait, exactly as `M45-42` did with `ProfileFetcher` — do that first, then leave the token-dependent half named in the ledger | **the server-side code half shipped 2026-11-12** (bearer mint + links read-back, see "M45-43 step 4" below); what remains is the Discord application, the guild invite, and darkbot's two calls |
 | M63-05b — `dh rec --link epub` | **cleared 2026-11-11** | the download route now exists (`GET /derivatives/{id}/download`, see the section below); the CLI wiring is the only work left, so the row is unblocked and back in the queue. `output.rs` already fixes the link shape; what is missing is the endpoint, so the flag refuses with its reason rather than printing a 404 with a file extension | M63-15 |
 | M63-33 — reconcile the live database with the workspace migrations (11 tables absent, 12 legacy-named present) | **reserved decision** | the operator's per-table call: the live database was migrated by the other lineage, whose numbers collide with this tree's, so this is a DDL decision over live data with data-loss options. Not a session's call | M63-15 |
 
@@ -4651,3 +4651,93 @@ row it previews → the public feed reads `0.2` afterwards and the panel's `sour
 **Not done, named:** `concierge` (`home.curated`) and `gravity_dial` still read `state.config().taste` directly and should
 adopt `taste_knobs::effective` in the same pass; the preview is anonymous only, because showing a named reader's feed to
 an operator would put that reader's history on the operator's screen (§0.3).
+
+
+## M45-43 step 4 — a bot may start the flow and read back who linked (code half) — 2026-11-12
+
+**Census first, as §2.2 asks: `ADAPT`.** The server already has the three doors (§23.2: mint a code, the reader
+describes it, the reader confirms); what it does not have is a principal for them that is not a browser session.
+No new service, no second handler family, no new storage: `link_challenges` gains two columns and the mint door
+learns a second kind of caller.
+
+**Why the row was 0/3 red, measured rather than guessed.** `POST /me/bots/{id}/link-challenge` sat behind
+`RequireActor`, which demands an `acting_pseud_id`. A bot registration's token is issued with
+`acting_pseud_id = NULL` (migration `0083`) — a bot is not an account and cannot act *as* a pseud — so every bot
+credential got `403 ACCESS_DENIED`, and `resolve_bearer` answered `401` for a suspended bot before the handler
+could answer `404`. Both are the extractor refusing on the caller's behalf, which is the one place a handler
+cannot correct it.
+
+**The shape it took: two principals, named as two types.** `auth::BotCaller::{Session, Bot}` and
+`RequireBotOrOwner` alongside `RequireActor`. A `Session` carries the account and may act on any bot it owns; a
+`Bot` carries the registration's own `token_id` and nothing else. They are not a flavour of each other, because
+the whole question at this door is "which of the two are you", and flattening them into one `Actor` would have
+meant an `Option<pseud>` that every later reader has to re-derive.
+
+**The four things that make the flow usable by a guild bot**, each pinned by a test in
+`crates/app/tests/m45_43_bot_link_bearer.rs`:
+
+| what | how |
+|---|---|
+| a bot mints a code **for a named platform user** | `platform` + `platform_user_id` on the challenge row (migration `0215`, both dialects), so the code is bound to the person it was minted for |
+| the code does not become the reader's credential | the reader still confirms on the site (`POST /bots/link/{code}`, session only); the bot is refused there — a bot that could confirm its own challenge would make "what am I granting" a page nobody reads |
+| the bot learns who linked | `GET /me/bots/{id}/links` (bearer), per-pseud with `platform`, `platform_user`, `linked_at` |
+| a suspended bot mints nothing | `bot_registration_for_token` returns the row **and its state**, and the handler answers `404` — not `401`, because a suspended bot's credential is valid and its absence from the flow is the answer |
+
+**`bot_name` comes from `api_tokens.name`**, not from a column on `bot_registrations` (there is none): the
+registration's name is set when the token is created, and the reader's confirmation page needs it. That join is
+`bot_registrations.token_id = api_tokens.id`, and `::text` casts are required on both sides because `api_tokens.id`
+is a `UUID` while `token_id` is `TEXT` — the PostgreSQL arm failed with `operator does not exist: uuid = text`
+until the casts went in, which is the dialect gate's lesson learned the hard way rather than by gate.
+
+**Proof, and what each number is worth.** `crates/app/tests/m45_43_bot_link_bearer.rs` — **3/3 on SQLite and 3/3
+on PostgreSQL** (`DARKHOLD_TEST_PG_URL=postgres://darkhold:darkhold@127.0.0.1:55433/postgres`; the cluster is the
+`lh-pg-test` container on thinkcentre, reached through an `ssh -L 55433` tunnel from the workstation):
+
+| test | what it pins | mutant that reddens it |
+|---|---|---|
+| `a_bot_mints_a_code_for_a_platform_user_and_learns_who_linked` | mint 200 with a bearer, the reader describes the code, confirms, and the bot reads the link back with its platform user | — |
+| `a_bot_cannot_read_another_bots_links_or_mint_its_challenges` | another bot's id is `404` at both doors | `if !own.is_empty()` instead of `own == &bot_id` → the other bot's links answer `200`, test red at the "another bot's links" assertion |
+| `a_suspended_bot_mints_nothing` | `404`, not `401` | `if bot_state == "activeXX"` (refusal never fires) → `200` where `404` was required |
+
+Both mutants were installed with a `sed`-free Python rewrite, run, and restored from `/tmp`; `grep -c` on the
+mutant string in the tree afterwards is the evidence that the restore happened. The first mutant attempt was
+useless and is recorded as such: flipping `!=` to `==` against `"activeXX"` changes nothing for a *suspended* bot,
+because `"suspended" != "activeXX"` is still true. A mutant that cannot be wrong is not a test of the assertion.
+
+**Regression neighbours, all green:** `m54_bot_link` **25/25**, `m45_59_multi_link` **3/3** (the per-reader
+cardinality fix from 2026-11-11), `route_inventory` **6/6** (the new `Audience::BotOrOwner` is resolved by the
+inventory gate, which is what stops a door shipping that no extractor can answer).
+
+**Remaining — the credential half only, and it is the same four steps as before this slice:** (1) a Discord
+application for darkhold itself (the host holds only `~/.config/ascend-bot.env`, which is ascend's identity —
+reusing it would post darkbot's replies as ascend), its token in `~/.config/darkbot-bot.env` mode `0600` and never
+in the tree; (2) `DARKBOT_DARKHOLD_URL=http://127.0.0.1:8081/api/v1` plus `DARKBOT_STORE_KEY` (32 bytes hex);
+(3) the bot invited to a guild and one command proved live; (4) darkbot's two invented calls (`bot/link/start`,
+`bot/link/exchange`) replaced by the bearer mint plus the reader-confirms model. The row stays `planned` — the
+code half is money in the bank, not a shipped command.
+
+## The red the previous session left behind, repaired — 2026-11-12
+
+`e759941e` was a docs-only commit whose tree did not pass `gate.sh fmt` or `gate.sh lint`, and it did not build
+`--all-targets`. None of that was visible from the commits, which is the interesting part.
+
+| what was red | how much | cause |
+|---|---|---|
+| `gate.sh fmt` | **64 files** | two stable toolchains formatted this repo differently: `rust-toolchain.toml` pins `1.98.1` after the last episode, but the sessions that wrote the code ran under `1.99.0` |
+| `gate.sh lint` | **11 warnings**, all denied by `build.warnings` | `--all-targets` was rarely run: a seven-arg `impl` clippy can derive, `format!` with no arguments, `uuid = text`-free but borrow-free `.into()`s, `items after a test module` in `routes/governance.rs` |
+| `cargo check --all-targets` | 1 error | a lib unit test constructing `TasteHistoryRow` without the `cause` field M45-45 added — the test target was compiled by nothing the previous session ran |
+| `check-snapshot-pii.py` | 3 undecided columns | `consents.account_id`, `import_intake_queue.account_id`, `jury_panel_members.account` — added by 0210/0212/0214 and never decided |
+| `erasure_covers_fk_free_accounts` | 2 untreated columns | `jury_panel_members.account`, `taste_lens_votes.voter_account` — the same two migrations |
+
+**The decisions taken, since a gate decision with no reason is a checkbox:** `consents.account_id` and
+`import_intake_queue.account_id` are `rekey_account` (the audit answer is a count of people per version, which
+survives de-identification and does not survive deletion; live erasure cascades them). `jury_panel_members.account`
+is `rekey_text` in the snapshot — it is a `TEXT` column, and `rekey_text` is the treatment 11.16.3b reserves for
+that shape — while **live erasure re-keys it per seat** (`panel_id || ':' || account`) rather than deleting it,
+because a seat is part of a draw that 0214 requires to stay re-readable ("show me the draw") and of the exclusion
+list an appeal panel is built from; `taste_lens_votes.voter_account` is `Delete`, the same call as
+`category_votes` and `work_tag_votes`: a vote is a personal act and the tally it fed is derived, not stored.
+
+**One stale claim removed while there:** `docs/known-gaps.md` M43-D01 described `compute_theme_from_bookmarks` as
+"never worked, no caller" — M70-13 deleted the function and its suite, so the entry now records the resolution and
+keeps the two defects as the reason deletion was the repair.
