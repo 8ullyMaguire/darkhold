@@ -31,6 +31,17 @@ process-global cache key: a neighbour's `clear()` between the two requests is ex
 measured, so a `tokio::sync::Mutex` now makes the whole test the unit that is alone. Both are green on SQLite and
 PostgreSQL.
 
+**`gate.sh all` on `f921c7fe` — four of five phases green, and the fifth is a phantom worth naming exactly.**
+`fmt`, `lint`, `build`, `ledger` and `repo` all exited 0. The `test` phase ran the whole workspace, every one of its
+~500 test binaries printed `test result: ok`, **no test failed** — and cargo still exited 1 with
+`error: 2 targets failed: -p darkhold-app --test m71_11_facet_cache, -p darkhold-app --test milestone_19`. Both of those
+binaries' own blocks in `target/gate/test.log` say `3 passed` and `8 passed`. Re-running exactly those two targets:
+3/3 and 8/8. Running the whole crate alone (`cargo test -p darkhold-app --no-fail-fast`): **347 binaries, 0 failures,
+`APP_EXIT=0`**. So the failure exists only when cargo schedules the workspace's binaries together, and it is not a test
+that failed — it is a target whose process cargo thinks died badly. Next step is per-target exit codes under
+`--workspace` (cargo's summary names the targets but not the status), and if it is binary-level resource contention the
+fix belongs in `run_tests` as a scheduling change, not in the tests.
+
 **Where §1 stands:** `planned` **40** (was 41), `backlog.py` **50 unlinked** and honestly explained, the two domain tests
 green, `gate.sh ledger` and `gate.sh repo` green, and a full `gate.sh all` running on `59c7bb61` — the previous attempt
 was killed twice because it had compiled a tree that no longer existed, which is not evidence whatever it prints.
