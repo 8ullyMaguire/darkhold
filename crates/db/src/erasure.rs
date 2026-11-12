@@ -377,6 +377,13 @@ pub const FK_FREE_ACCOUNT_COLUMNS: &[UnlinkedColumn] = &[
         treatment: Treatment::Delete, why: "a rota slot is a claim on a shift; it goes with the person who took it" },
     UnlinkedColumn { table: "work_tag_votes", column: "voter_pseud_id", kind: ColumnKind::Text,
         treatment: Treatment::Delete, why: "a tag vote is a personal act; keeping it keeps a preference of an erased person" },
+    // GS-5's jury and M45-45's lens votes — the two account columns the pragma scanner found after the snapshot gate was
+    // satisfied. They are decided differently on purpose, and the difference is whether the row is a record others rely on.
+    UnlinkedColumn { table: "jury_panel_members", column: "account", kind: ColumnKind::Text,
+        treatment: Treatment::Rekey("panel_id || ':' || account"),
+        why: "the seat is part of a draw that must stay re-readable ('show me the draw', 0214) and of the exclusion an appeal panel is built from, so the row survives; `account` is NOT NULL and the key is the pair, so the juror is severed per seat rather than nulled, and the reported tally keeps its arithmetic without keeping the juror" },
+    UnlinkedColumn { table: "taste_lens_votes", column: "voter_account", kind: ColumnKind::Text,
+        treatment: Treatment::Delete, why: "a vote is a personal act and the tally it fed is derived, not stored — the same decision as category_votes and work_tag_votes, and the one row here where a leftover link would be a preference of an erased person" },
 ];
 
 // ─────────────────────────────────────────────────────────────────────────────

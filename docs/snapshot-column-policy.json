@@ -652,6 +652,11 @@
       "why": "A UUID foreign key to accounts.id, so it must be re-keyed with snapshot_account -- the SAME derivation accounts.id uses, on the account salt, so the join survives. 11.16.3b, and this is the failure the requirement is 'most likely to be implemented backwards': rekey_text emits a `snp_` TEXT hash, which cannot be compared with a uuid, so the relationship to accounts is destroyed while every behavioural column still reads as pseudonymous. The snapshot LOOKS de-identified and is not.",
       "reviewed_by": "alvaro, 2026-09-29, against spec 11.16.3b"
     },
+    "import_intake_queue.account_id": {
+      "treatment": "rekey_account",
+      "why": "a UUID foreign key to accounts.id and part of the queue's uniqueness key (account_id, source_key, source_work_key). Re-keyed with the same derivation so the queue stays analysable -- what was queued, what the policy refused, and for which source -- without naming the submitter. Nothing else in the row is about the person: candidate_json describes a work and decision is the policy's own sentence. Live erasure cascades; the snapshot keeps the arithmetic.",
+      "reviewed_by": "alvaro, 2026-11-12, against spec 11.16 (migrations 0210/0212/0214)"
+    },
     "import_jobs.account_id": {
       "treatment": "rekey_account",
       "why": "A UUID foreign key to accounts.id, so it must be re-keyed with snapshot_account -- the SAME derivation accounts.id uses, on the account salt, so the join survives. 11.16.3b, and this is the failure the requirement is 'most likely to be implemented backwards': rekey_text emits a `snp_` TEXT hash, which cannot be compared with a uuid, so the relationship to accounts is destroyed while every behavioural column still reads as pseudonymous. The snapshot LOOKS de-identified and is not.",
@@ -676,6 +681,11 @@
       "treatment": "drop_table",
       "why": "Holds address material and rate-limit decisions. No research value.",
       "reviewed_by": "alvaro, 2026-09-29, against spec 11.16"
+    },
+    "jury_panel_members.account": {
+      "treatment": "rekey_text",
+      "why": "TEXT, not UUID, and it names the juror's account. rekey_text is the treatment 11.16.3b reserves for exactly this shape: it emits the snp_ text hash rather than a uuid, which is what a text column can hold. The verdict carries no identity of its own -- it is one of two words plus a timestamp -- so the panel's arithmetic (draw size, agreement, whether quorum was reached) survives while the juror does not.",
+      "reviewed_by": "alvaro, 2026-11-12, against spec 11.16 (migrations 0210/0212/0214)"
     },
     "library_items.account_id": {
       "treatment": "rekey_account",
@@ -1991,6 +2001,11 @@
       "treatment": "rekey_pseud",
       "why": "A pseud id carries the pen name that is being erased. Re-keyed with the pseud derivation, not dropped: rows that reference the same pen keep joining to each other, and no leftover dial, vote or history row can be walked back to the account behind the name. Measured before choosing it: every populated `*pseud_id` text column in this schema holds a uuid string (live check: 0 rows outside the uuid shape), so the builder's `::uuid` cast is safe even where the column type is text.",
       "reviewed_by": "2026-11-10, measured against the live database"
+    },
+    "consents.account_id": {
+      "treatment": "rekey_account",
+      "why": "a UUID and the table's primary key: a consent row exists to say *this account* accepted version N of the notice at time T. Re-keyed with the snapshot_account derivation, not dropped, because the question a snapshot is asked is how many people accepted which version -- a count that survives de-identification and does not survive deletion. The live table cascades on the account, so erasure removes the row outright; this decision is about the de-identified copy only.",
+      "reviewed_by": "alvaro, 2026-11-12, against spec 11.16 (migrations 0210/0212/0214)"
     },
     "content_filters.pseud_id": {
       "treatment": "rekey_pseud",
