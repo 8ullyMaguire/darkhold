@@ -114,10 +114,9 @@ async fn statement_templates(
             .await
             .map_err(|e| ApiError(darkhold_domain::AppError::Internal(e.into())))?;
     if level < required {
-        return Err(ApiError(darkhold_domain::AppError::TrustLevelInsufficient {
-            level,
-            required,
-        }));
+        return Err(ApiError(
+            darkhold_domain::AppError::TrustLevelInsufficient { level, required },
+        ));
     }
 
     let templates: Vec<Value> = StatementGround::ALL
@@ -226,7 +225,7 @@ async fn subject_access(
     // drift, and the one the operator read would be the one nobody tested.
     let data = darkhold_db::erasure::subject_data(state.db(), &account)
         .await
-        .map_err(|e| ApiError(darkhold_domain::AppError::Internal(e.into())))?;
+        .map_err(|e| ApiError(darkhold_domain::AppError::Internal(e)))?;
 
     // **The audit entry is not optional and not best-effort**: a read that cannot be recorded is a read that must not
     // happen, so a failed append refuses the disclosure rather than answering it silently.
@@ -249,19 +248,17 @@ async fn subject_access(
     // again if the regulator asks, so it carries a filename and a date. The reader's own copy (`GET /me/data`) keeps the
     // same body without the attachment header — same assembler, two audiences, one shape.
     let body = json!({ "basis": basis, "subject": data }).to_string();
-    let filename = format!("dsar-{account}-{}.json", &chrono_stamp());
+    let filename = format!("dsar-{account}-{}.json", chrono_stamp());
     let mut response = (StatusCode::OK, body).into_response();
     response.headers_mut().insert(
         header::CONTENT_TYPE,
         HeaderValue::from_static("application/json"),
     );
-    response
-        .headers_mut()
-        .insert(
-            header::CONTENT_DISPOSITION,
-            HeaderValue::from_str(&format!("attachment; filename=\"{filename}\""))
-                .unwrap_or_else(|_| HeaderValue::from_static("attachment")),
-        );
+    response.headers_mut().insert(
+        header::CONTENT_DISPOSITION,
+        HeaderValue::from_str(&format!("attachment; filename=\"{filename}\""))
+            .unwrap_or_else(|_| HeaderValue::from_static("attachment")),
+    );
     Ok(response)
 }
 

@@ -24,7 +24,6 @@ use darkhold_db::erasure::{erase_account, FK_FREE_ACCOUNT_COLUMNS};
 use darkhold_db::Backend;
 use test_support::TestDb;
 
-
 /// `(table, column)` for every account-keyed column that no `REFERENCES accounts` clause covers.
 /// What the migrated schema says, not what the migration text mentions.
 ///
@@ -38,7 +37,9 @@ use test_support::TestDb;
 /// `pragma_foreign_key_list` for the edges. A column is *measured* when its name is one of the account spellings and its
 /// table cannot reach `accounts` by following foreign keys — because a table that can reach `accounts` is deleted or
 /// severed by the database itself, and a treatment there would be a second opinion about a job already done.
-async fn measured_account_columns(tdb: &TestDb) -> (BTreeSet<(String, String)>, BTreeSet<(String, String)>) {
+async fn measured_account_columns(
+    tdb: &TestDb,
+) -> (BTreeSet<(String, String)>, BTreeSet<(String, String)>) {
     let pool = tdb
         .db()
         .sqlite_pool()
@@ -51,7 +52,8 @@ async fn measured_account_columns(tdb: &TestDb) -> (BTreeSet<(String, String)>, 
     .expect("list tables");
 
     let mut columns: BTreeSet<(String, String)> = BTreeSet::new();
-    let mut edges: std::collections::BTreeMap<String, Vec<String>> = std::collections::BTreeMap::new();
+    let mut edges: std::collections::BTreeMap<String, Vec<String>> =
+        std::collections::BTreeMap::new();
 
     for table in &tables {
         let names: Vec<String> = sqlx::query_scalar("SELECT name FROM pragma_table_info(?)")

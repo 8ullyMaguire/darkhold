@@ -76,7 +76,10 @@ pub enum JuryError {
 impl std::fmt::Display for JuryError {
     fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            Self::PoolTooSmall { available, required } => write!(
+            Self::PoolTooSmall {
+                available,
+                required,
+            } => write!(
                 formatter,
                 "a jury needs at least {required} eligible people and this pool has {available}"
             ),
@@ -94,7 +97,6 @@ impl std::error::Error for JuryError {}
 /// sit: the reporter, the reported, and on an appeal the members of the original panel (`governance.appeal_fresh_jury`).
 ///
 /// The order of the returned accounts is the draw's order, and it is stable for a given `seed`.
-#[must_use]
 pub fn draw(
     candidates: &[Juror],
     exclude: &[&str],
@@ -204,7 +206,11 @@ mod tests {
             "level 3 is the floor and `member-*` holds 2: {panel:?}"
         );
         let unique: BTreeSet<&String> = panel.iter().collect();
-        assert_eq!(unique.len(), panel.len(), "a panel is people, not seats: {panel:?}");
+        assert_eq!(
+            unique.len(),
+            panel.len(),
+            "a panel is people, not seats: {panel:?}"
+        );
     }
 
     #[test]
@@ -241,15 +247,23 @@ mod tests {
                 seed,
             )
             .expect("panel");
-            assert!(!panel.iter().any(|account| account == "reporter"), "{panel:?}");
-            assert!(!panel.iter().any(|account| account == "reported"), "{panel:?}");
+            assert!(
+                !panel.iter().any(|account| account == "reporter"),
+                "{panel:?}"
+            );
+            assert!(
+                !panel.iter().any(|account| account == "reported"),
+                "{panel:?}"
+            );
         }
     }
 
     #[test]
     fn nobody_at_the_minimum_falls_back_to_the_top_of_the_ladder() {
         // The instance nobody has earned their way up yet: the highest level is 2, and the rules want 3.
-        let candidates: Vec<Juror> = (0..7).map(|index| juror(&format!("new-{index}"), 2)).collect();
+        let candidates: Vec<Juror> = (0..7)
+            .map(|index| juror(&format!("new-{index}"), 2))
+            .collect();
         let panel = draw(&candidates, &[], JuryRules::default(), 5).expect("the elastic panel");
         assert_eq!(panel.len(), 3, "elastic_min, not jury_size: {panel:?}");
     }
@@ -269,7 +283,9 @@ mod tests {
 
     #[test]
     fn an_appeal_can_exclude_the_original_panel() {
-        let candidates: Vec<Juror> = (0..10).map(|index| juror(&format!("s-{index}"), 5)).collect();
+        let candidates: Vec<Juror> = (0..10)
+            .map(|index| juror(&format!("s-{index}"), 5))
+            .collect();
         let original = draw(&candidates, &[], JuryRules::default(), 21).expect("first panel");
         let appeal = draw(
             &candidates,

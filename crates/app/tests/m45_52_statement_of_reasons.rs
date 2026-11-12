@@ -55,7 +55,10 @@ fn config_for(dir: &Path) -> Config {
     config.storage.root = dir.to_path_buf();
     config.database = match std::env::var("DARKHOLD_TEST_PG_URL") {
         Ok(url) if !url.is_empty() => DatabaseConfig::new(url),
-        _ => DatabaseConfig::new(format!("sqlite://{}/darkhold.sqlite?mode=rwc", dir.display())),
+        _ => DatabaseConfig::new(format!(
+            "sqlite://{}/darkhold.sqlite?mode=rwc",
+            dir.display()
+        )),
     };
     config
 }
@@ -69,14 +72,21 @@ struct Client {
 
 impl Client {
     fn new(app: axum::Router) -> Self {
-        Self { app, cookies: Vec::new() }
+        Self {
+            app,
+            cookies: Vec::new(),
+        }
     }
 
     fn capture(&mut self, response: &axum::response::Response) {
         for value in response.headers().get_all(header::SET_COOKIE) {
             let Ok(text) = value.to_str() else { continue };
-            let Some((pair, _)) = text.split_once(';') else { continue };
-            let Some((name, value)) = pair.split_once('=') else { continue };
+            let Some((pair, _)) = text.split_once(';') else {
+                continue;
+            };
+            let Some((name, value)) = pair.split_once('=') else {
+                continue;
+            };
             let name = name.trim().to_owned();
             let value = value.trim().to_owned();
             self.cookies.retain(|(k, _)| k != &name);
@@ -86,7 +96,12 @@ impl Client {
         }
     }
 
-    async fn request(&mut self, method: &str, uri: &str, body: Option<Value>) -> (StatusCode, Value) {
+    async fn request(
+        &mut self,
+        method: &str,
+        uri: &str,
+        body: Option<Value>,
+    ) -> (StatusCode, Value) {
         let mut builder = Request::builder()
             .method(method)
             .uri(uri)
@@ -106,10 +121,17 @@ impl Client {
             Some(v) => Body::from(v.to_string()),
             None => Body::empty(),
         };
-        let response = self.app.clone().oneshot(builder.body(body).unwrap()).await.unwrap();
+        let response = self
+            .app
+            .clone()
+            .oneshot(builder.body(body).unwrap())
+            .await
+            .unwrap();
         let status = response.status();
         self.capture(&response);
-        let bytes = axum::body::to_bytes(response.into_body(), usize::MAX).await.unwrap();
+        let bytes = axum::body::to_bytes(response.into_body(), usize::MAX)
+            .await
+            .unwrap();
         let json: Value = serde_json::from_slice(&bytes)
             .unwrap_or_else(|_| Value::String(String::from_utf8_lossy(&bytes).into_owned()));
         (status, json)
@@ -155,7 +177,11 @@ impl Harness {
         let dir = scratch_dir(tag);
         let tdb = test_support::TestDb::connect_with_dir(tag, &dir).await;
         let config = config_for(&dir);
-        Self { _dir: dir, tdb, config }
+        Self {
+            _dir: dir,
+            tdb,
+            config,
+        }
     }
 
     fn db(&self) -> &darkhold_db::Database {
@@ -168,7 +194,6 @@ impl Harness {
             self.tdb.db().clone(),
         )))
     }
-
 
     /// Run one statement against whichever engine the harness is on.
     async fn exec(&self, statement: &str) {
@@ -203,11 +228,15 @@ impl Harness {
 
         let target = {
             let mut target = self.client();
-            target.register(&format!("{tag}-target@example.test"), "Target").await
+            target
+                .register(&format!("{tag}-target@example.test"), "Target")
+                .await
         };
 
         let mut reporter = self.client();
-        reporter.register(&format!("{tag}-reporter@example.test"), "Reporter").await;
+        reporter
+            .register(&format!("{tag}-reporter@example.test"), "Reporter")
+            .await;
         let (status, body) = reporter
             .post(
                 "/api/v1/reports",
@@ -226,7 +255,11 @@ impl Harness {
                 json!({}),
             )
             .await;
-        assert_eq!(status, StatusCode::OK, "assign the review task: {status} {body}");
+        assert_eq!(
+            status,
+            StatusCode::OK,
+            "assign the review task: {status} {body}"
+        );
         let task_id = body["task_id"].as_str().expect("task id").to_owned();
         (reviewer, task_id, reviewer_account, target)
     }
@@ -286,10 +319,16 @@ async fn the_statement_written_with_the_decision_names_the_reviewer_and_the_dead
             }),
         )
         .await;
-    assert_eq!(status, StatusCode::OK, "uphold with reasons: {status} {body}");
+    assert_eq!(
+        status,
+        StatusCode::OK,
+        "uphold with reasons: {status} {body}"
+    );
     let appeal_until = body["appeal_until"].as_str().expect("deadline").to_owned();
     assert_eq!(body["ground"], "spam");
-    assert!(body["statement_id"].as_str().is_some_and(|id| !id.is_empty()));
+    assert!(body["statement_id"]
+        .as_str()
+        .is_some_and(|id| !id.is_empty()));
 
     let statement = darkhold_db::governance::statement_for_task(harness.db(), &task_id)
         .await
@@ -307,7 +346,10 @@ async fn the_statement_written_with_the_decision_names_the_reviewer_and_the_dead
         statement.decided_by, reviewer_account,
         "a reason with no author is an opinion"
     );
-    assert_eq!(statement.appeal_until, appeal_until, "one deadline, reported and stored");
+    assert_eq!(
+        statement.appeal_until, appeal_until,
+        "one deadline, reported and stored"
+    );
     assert!(
         statement.appeal_until > statement.decided_at,
         "the window opens at the decision: {} vs {}",
@@ -384,7 +426,10 @@ async fn an_appeal_inside_the_window_is_accepted() {
         )
         .await;
     assert_eq!(status, StatusCode::OK, "{status} {body}");
-    let statement_id = body["statement_id"].as_str().expect("statement id").to_owned();
+    let statement_id = body["statement_id"]
+        .as_str()
+        .expect("statement id")
+        .to_owned();
     let sanction = sanction_from_statement(&mut reviewer, &target, &statement_id).await;
 
     // The sanction is against `target`, so the appeal must come from that account. Sign in as it.
@@ -395,7 +440,10 @@ async fn an_appeal_inside_the_window_is_accepted() {
             json!({ "email": "inside-target@example.test", "password": PASSWORD }),
         )
         .await;
-    assert!(status == StatusCode::OK || status == StatusCode::CREATED, "sign in: {status} {body}");
+    assert!(
+        status == StatusCode::OK || status == StatusCode::CREATED,
+        "sign in: {status} {body}"
+    );
 
     let (status, body) = owner
         .post("/api/v1/appeals", json!({ "sanction_id": sanction, "statement": "The replies were answers to direct questions." }))
@@ -425,7 +473,10 @@ async fn an_appeal_after_the_window_is_refused_naming_the_deadline() {
         )
         .await;
     assert_eq!(status, StatusCode::OK, "{status} {body}");
-    let statement_id = body["statement_id"].as_str().expect("statement id").to_owned();
+    let statement_id = body["statement_id"]
+        .as_str()
+        .expect("statement id")
+        .to_owned();
     let sanction = sanction_from_statement(&mut reviewer, &target, &statement_id).await;
 
     // The window closed yesterday — set on the stored row, because that is the only way it can close: the deadline was
@@ -443,7 +494,10 @@ async fn an_appeal_after_the_window_is_refused_naming_the_deadline() {
             json!({ "email": "after-target@example.test", "password": PASSWORD }),
         )
         .await;
-    assert!(status == StatusCode::OK || status == StatusCode::CREATED, "sign in: {status} {body}");
+    assert!(
+        status == StatusCode::OK || status == StatusCode::CREATED,
+        "sign in: {status} {body}"
+    );
 
     let (status, body) = owner
         .post(
@@ -492,7 +546,11 @@ async fn the_summary_counts_grounds_and_never_names_an_account() {
 
     let mut anonymous = harness.client();
     let (status, body) = anonymous.get("/api/v1/statements/summary").await;
-    assert_eq!(status, StatusCode::OK, "a transparency report is public: {status} {body}");
+    assert_eq!(
+        status,
+        StatusCode::OK,
+        "a transparency report is public: {status} {body}"
+    );
     assert_eq!(body["min_count"], 5);
 
     let grounds = body["grounds"].as_array().expect("grounds");
@@ -532,7 +590,10 @@ async fn the_summary_counts_grounds_and_never_names_an_account() {
 
     // The report contains no statement, no account and no report id — the reason it is a report at all.
     let text = body.to_string();
-    assert!(!text.contains("reviewer-account"), "no account appears: {text}");
+    assert!(
+        !text.contains("reviewer-account"),
+        "no account appears: {text}"
+    );
     assert!(!text.contains("task_id"), "no task id appears");
     assert!(!text.contains("statement_id"), "no statement id appears");
 }
@@ -544,8 +605,7 @@ async fn the_summary_counts_grounds_and_never_names_an_account() {
 #[tokio::test]
 async fn the_author_is_told_when_their_account_is_acted_on() {
     let harness = Harness::new("told").await;
-    let (mut reviewer, task_id, _account, target) =
-        harness.assigned_task_with_target("told").await;
+    let (mut reviewer, task_id, _account, target) = harness.assigned_task_with_target("told").await;
 
     let facts = "Six identical promotional replies within one hour, from a new account.";
     let (status, body) = reviewer
@@ -579,7 +639,10 @@ async fn the_author_is_told_when_their_account_is_acted_on() {
         .find(|n| n["kind"] == "moderation_decision")
         .unwrap_or_else(|| panic!("the author is told: {body}"));
     let text = decision["body"].as_str().unwrap_or_default();
-    assert!(text.contains(facts), "the reasons are carried verbatim: {text}");
+    assert!(
+        text.contains(facts),
+        "the reasons are carried verbatim: {text}"
+    );
     assert!(text.contains("spam"), "the ground is named: {text}");
     assert!(
         text.contains(&appeal_until),
@@ -597,7 +660,9 @@ async fn the_author_is_told_when_their_account_is_acted_on() {
 async fn a_dmca_notice_missing_a_statutory_element_is_refused() {
     let harness = Harness::new("dmca").await;
     let mut reporter = harness.client();
-    reporter.register("dmca-reporter@example.test", "Complainant").await;
+    reporter
+        .register("dmca-reporter@example.test", "Complainant")
+        .await;
 
     // 17 U.S.C. 512(c)(3) lists four; each one missing is refused by the field's own name.
     for field in [
@@ -653,18 +718,22 @@ async fn a_dmca_notice_missing_a_statutory_element_is_refused() {
     use sqlx::Row;
     // The two engines have two row types, so the read happens inside each arm — a `match` over them cannot unify.
     let signature = match harness.db().backend() {
-        darkhold_db::Backend::Sqlite => sqlx::query("SELECT signature FROM dmca_notices WHERE report_id = ?")
-            .bind(&report_id)
-            .fetch_optional(harness.db().sqlite_pool().expect("sqlite"))
-            .await
-            .expect("query the notice")
-            .map(|row| row.get::<String, _>("signature")),
-        darkhold_db::Backend::Postgres => sqlx::query("SELECT signature FROM dmca_notices WHERE report_id = $1")
-            .bind(&report_id)
-            .fetch_optional(harness.db().postgres_pool().expect("postgres"))
-            .await
-            .expect("query the notice")
-            .map(|row| row.get::<String, _>("signature")),
+        darkhold_db::Backend::Sqlite => {
+            sqlx::query("SELECT signature FROM dmca_notices WHERE report_id = ?")
+                .bind(&report_id)
+                .fetch_optional(harness.db().sqlite_pool().expect("sqlite"))
+                .await
+                .expect("query the notice")
+                .map(|row| row.get::<String, _>("signature"))
+        }
+        darkhold_db::Backend::Postgres => {
+            sqlx::query("SELECT signature FROM dmca_notices WHERE report_id = $1")
+                .bind(&report_id)
+                .fetch_optional(harness.db().postgres_pool().expect("postgres"))
+                .await
+                .expect("query the notice")
+                .map(|row| row.get::<String, _>("signature"))
+        }
     };
     assert_eq!(
         signature.as_deref(),
@@ -703,7 +772,11 @@ async fn the_person_the_decision_is_about_can_read_the_statement() {
             }),
         )
         .await;
-    assert_eq!(status, StatusCode::OK, "decide with reasons: {status} {body}");
+    assert_eq!(
+        status,
+        StatusCode::OK,
+        "decide with reasons: {status} {body}"
+    );
     let appeal_until = body["appeal_until"].as_str().expect("deadline").to_owned();
 
     // The affected account signs in and reads what was decided about them.
@@ -735,7 +808,9 @@ async fn the_person_the_decision_is_about_can_read_the_statement() {
 
     // A stranger gets 404, not 403: whether a statement exists about an account is information.
     let mut stranger = harness.client();
-    stranger.register("readdoor-stranger@example.test", "Stranger").await;
+    stranger
+        .register("readdoor-stranger@example.test", "Stranger")
+        .await;
     let (status, refused) = stranger.get(&format!("/api/v1/statements/{task_id}")).await;
     assert_eq!(status, StatusCode::NOT_FOUND, "{refused}");
     assert!(

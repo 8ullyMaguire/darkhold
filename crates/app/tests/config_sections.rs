@@ -646,7 +646,10 @@ membership_floor_per_thousand = 3
         5_000,
     );
     assert!(
-        matches!(standing, darkhold_domain::membership::Standing::Probation { .. }),
+        matches!(
+            standing,
+            darkhold_domain::membership::Standing::Probation { .. }
+        ),
         "a configured gate puts a newcomer on probation: {standing:?}"
     );
 }

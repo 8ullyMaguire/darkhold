@@ -47,13 +47,17 @@ pub async fn verify_account_email(
 ) -> ApiResult<Json<Value>> {
     crate::routes::admin_scope::require_admin_of(&state, &user, None).await?;
 
-    let id: darkhold_domain::AccountId = account
-        .parse()
-        .map_err(|_| ApiError(darkhold_domain::AppError::NotFound { resource: "account" }))?;
+    let id: darkhold_domain::AccountId = account.parse().map_err(|_| {
+        ApiError(darkhold_domain::AppError::NotFound {
+            resource: "account",
+        })
+    })?;
     let account_row = darkhold_db::identity::find_account(state.db(), id)
         .await
         .map_err(|e| ApiError(darkhold_domain::AppError::Internal(e)))?
-        .ok_or(ApiError(darkhold_domain::AppError::NotFound { resource: "account" }))?;
+        .ok_or(ApiError(darkhold_domain::AppError::NotFound {
+            resource: "account",
+        }))?;
 
     let already = account_row.email_verified_at.is_some();
     let at = darkhold_db::identity::now_rfc3339();
@@ -391,12 +395,13 @@ pub async fn set_source_intake_policy(
     Json(body): Json<Value>,
 ) -> ApiResult<Json<Value>> {
     crate::routes::discovery::require_operator(&state, &user)?;
-    let policy: darkhold_domain::intake::IntakePolicy = serde_json::from_value(body).map_err(|error| {
-        ApiError(darkhold_domain::AppError::field(
-            "rules",
-            format!("this is not an intake policy: {error}"),
-        ))
-    })?;
+    let policy: darkhold_domain::intake::IntakePolicy =
+        serde_json::from_value(body).map_err(|error| {
+            ApiError(darkhold_domain::AppError::field(
+                "rules",
+                format!("this is not an intake policy: {error}"),
+            ))
+        })?;
     let document = serde_json::to_string(&policy)
         .map_err(|e| ApiError(darkhold_domain::AppError::Internal(e.into())))?;
     let saved = darkhold_db::imports::set_intake_policy(state.db(), &key, &document)
@@ -407,7 +412,9 @@ pub async fn set_source_intake_policy(
             resource: "source",
         }));
     }
-    Ok(Json(json!({ "key": key, "rules": policy.rules.len(), "policy": policy })))
+    Ok(Json(
+        json!({ "key": key, "rules": policy.rules.len(), "policy": policy }),
+    ))
 }
 
 /// Run the source's policy against one candidate and answer what it *would* do.

@@ -21,9 +21,9 @@ use darkhold_app::state::AppState;
 use darkhold_db::derivative::{
     create_derivative, mark_derivative_built, mark_derivative_stale, NewDerivative,
 };
-use darkhold_domain::derivative::DerivativeKind;
 use darkhold_db::storage::BlobStore;
 use darkhold_db::{Database, DatabaseConfig};
+use darkhold_domain::derivative::DerivativeKind;
 use test_support::TestDb;
 use tower::ServiceExt;
 
@@ -43,7 +43,10 @@ fn config_for(dir: &Path) -> Config {
     config.storage.root = dir.to_path_buf();
     config.database = match std::env::var("DARKHOLD_TEST_PG_URL") {
         Ok(url) if !url.is_empty() => DatabaseConfig::new(url),
-        _ => DatabaseConfig::new(format!("sqlite://{}/darkhold.sqlite?mode=rwc", dir.display())),
+        _ => DatabaseConfig::new(format!(
+            "sqlite://{}/darkhold.sqlite?mode=rwc",
+            dir.display()
+        )),
     };
     config
 }
@@ -60,7 +63,11 @@ impl Harness {
         let dir = scratch_dir(tag);
         let config = config_for(&dir);
         let tdb = TestDb::connect_with_dir(tag, &dir).await;
-        Self { _dir: dir, tdb, config }
+        Self {
+            _dir: dir,
+            tdb,
+            config,
+        }
     }
 
     fn db(&self) -> &Database {
@@ -121,7 +128,8 @@ impl Harness {
                 work_id: work,
                 edition_kind: "draft",
                 derivative_kind: DerivativeKind::Epub,
-                parent_checksum: "parent0000000000000000000000000000000000000000000000000000000000000",
+                parent_checksum:
+                    "parent0000000000000000000000000000000000000000000000000000000000000",
             },
         )
         .await
@@ -171,11 +179,17 @@ async fn a_built_rendition_is_served_as_the_file_it_is() {
     .await
     .expect("mark built");
 
-    let (status, headers, body) = get(harness.router(), &format!("/api/v1/derivatives/{id}/download")).await;
+    let (status, headers, body) = get(
+        harness.router(),
+        &format!("/api/v1/derivatives/{id}/download"),
+    )
+    .await;
 
     assert_eq!(status, StatusCode::OK, "a built rendition downloads");
     assert_eq!(
-        headers.get(header::CONTENT_TYPE).and_then(|v| v.to_str().ok()),
+        headers
+            .get(header::CONTENT_TYPE)
+            .and_then(|v| v.to_str().ok()),
         Some("application/epub+zip"),
         "the recorded content type is what a client saves by"
     );
@@ -197,7 +211,11 @@ async fn a_queued_rendition_has_no_file_to_serve() {
     let work = harness.work().await;
     let id = harness.queued(&work).await;
 
-    let (status, _headers, body) = get(harness.router(), &format!("/api/v1/derivatives/{id}/download")).await;
+    let (status, _headers, body) = get(
+        harness.router(),
+        &format!("/api/v1/derivatives/{id}/download"),
+    )
+    .await;
 
     assert_eq!(
         status,
@@ -235,7 +253,11 @@ async fn a_stale_rendition_is_not_served_even_though_its_bytes_are_still_there()
         .await
         .expect("mark stale");
 
-    let (status, _headers, body) = get(harness.router(), &format!("/api/v1/derivatives/{id}/download")).await;
+    let (status, _headers, body) = get(
+        harness.router(),
+        &format!("/api/v1/derivatives/{id}/download"),
+    )
+    .await;
 
     assert_eq!(
         status,

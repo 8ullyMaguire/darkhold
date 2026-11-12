@@ -2373,13 +2373,14 @@ pub async fn write_statement(
     match db.backend() {
         Backend::Sqlite => {
             let pool = db.sqlite_pool().expect("sqlite");
-            let report_id: Option<String> = sqlx::query("SELECT report_id FROM review_tasks WHERE id = ?")
-                .bind(statement.task_id)
-                .fetch_optional(pool)
-                .await?
-                .map(|row| row.try_get::<Option<String>, _>("report_id"))
-                .transpose()?
-                .flatten();
+            let report_id: Option<String> =
+                sqlx::query("SELECT report_id FROM review_tasks WHERE id = ?")
+                    .bind(statement.task_id)
+                    .fetch_optional(pool)
+                    .await?
+                    .map(|row| row.try_get::<Option<String>, _>("report_id"))
+                    .transpose()?
+                    .flatten();
             sqlx::query(
                 "INSERT INTO statement_of_reasons \
                  (id, task_id, report_id, outcome, ground, facts, legal_ground, decided_by, decided_at, appeal_until) \
@@ -2400,13 +2401,14 @@ pub async fn write_statement(
         }
         Backend::Postgres => {
             let pool = db.postgres_pool().expect("postgres");
-            let report_id: Option<String> = sqlx::query("SELECT report_id FROM review_tasks WHERE id = $1")
-                .bind(statement.task_id)
-                .fetch_optional(pool)
-                .await?
-                .map(|row| row.try_get::<Option<String>, _>("report_id"))
-                .transpose()?
-                .flatten();
+            let report_id: Option<String> =
+                sqlx::query("SELECT report_id FROM review_tasks WHERE id = $1")
+                    .bind(statement.task_id)
+                    .fetch_optional(pool)
+                    .await?
+                    .map(|row| row.try_get::<Option<String>, _>("report_id"))
+                    .transpose()?
+                    .flatten();
             sqlx::query(
                 "INSERT INTO statement_of_reasons \
                  (id, task_id, report_id, outcome, ground, facts, legal_ground, decided_by, decided_at, appeal_until) \
@@ -2523,10 +2525,12 @@ pub async fn statement_by_id(
     let columns = "id, task_id, report_id, outcome, ground, facts, legal_ground, decided_by, decided_at, appeal_until";
     match db.backend() {
         Backend::Sqlite => {
-            let row = sqlx::query(&format!("SELECT {columns} FROM statement_of_reasons WHERE id = ?"))
-                .bind(statement_id)
-                .fetch_optional(db.sqlite_pool().expect("sqlite"))
-                .await?;
+            let row = sqlx::query(&format!(
+                "SELECT {columns} FROM statement_of_reasons WHERE id = ?"
+            ))
+            .bind(statement_id)
+            .fetch_optional(db.sqlite_pool().expect("sqlite"))
+            .await?;
             Ok(row.map(|row| StatementOfReasons {
                 id: row.get("id"),
                 task_id: row.get("task_id"),
@@ -2541,10 +2545,12 @@ pub async fn statement_by_id(
             }))
         }
         Backend::Postgres => {
-            let row = sqlx::query(&format!("SELECT {columns} FROM statement_of_reasons WHERE id = $1"))
-                .bind(statement_id)
-                .fetch_optional(db.postgres_pool().expect("postgres"))
-                .await?;
+            let row = sqlx::query(&format!(
+                "SELECT {columns} FROM statement_of_reasons WHERE id = $1"
+            ))
+            .bind(statement_id)
+            .fetch_optional(db.postgres_pool().expect("postgres"))
+            .await?;
             Ok(row.map(|row| StatementOfReasons {
                 id: row.get("id"),
                 task_id: row.get("task_id"),
@@ -2604,10 +2610,11 @@ pub async fn report_subject(
     use sqlx::Row;
     match db.backend() {
         Backend::Sqlite => {
-            let row = sqlx::query("SELECT subject_type, subject_id, reporter FROM reports WHERE id = ?")
-                .bind(report_id)
-                .fetch_optional(db.sqlite_pool().expect("sqlite"))
-                .await?;
+            let row =
+                sqlx::query("SELECT subject_type, subject_id, reporter FROM reports WHERE id = ?")
+                    .bind(report_id)
+                    .fetch_optional(db.sqlite_pool().expect("sqlite"))
+                    .await?;
             Ok(row.map(|row| {
                 (
                     row.get::<String, _>("subject_type"),
@@ -2617,10 +2624,11 @@ pub async fn report_subject(
             }))
         }
         Backend::Postgres => {
-            let row = sqlx::query("SELECT subject_type, subject_id, reporter FROM reports WHERE id = $1")
-                .bind(report_id)
-                .fetch_optional(db.postgres_pool().expect("postgres"))
-                .await?;
+            let row =
+                sqlx::query("SELECT subject_type, subject_id, reporter FROM reports WHERE id = $1")
+                    .bind(report_id)
+                    .fetch_optional(db.postgres_pool().expect("postgres"))
+                    .await?;
             Ok(row.map(|row| {
                 (
                     row.get::<String, _>("subject_type"),

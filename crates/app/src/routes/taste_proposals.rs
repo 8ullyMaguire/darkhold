@@ -142,7 +142,11 @@ async fn read_proposal(
     let proposal = darkhold_db::taste_lens_proposals::decide_if_due(state.db(), &id, &now)
         .await
         .map_err(|e| ApiError(AppError::Internal(e)))?
-        .ok_or_else(|| ApiError(AppError::NotFound { resource: "proposal" }))?;
+        .ok_or_else(|| {
+            ApiError(AppError::NotFound {
+                resource: "proposal",
+            })
+        })?;
     let tally = darkhold_db::taste_lens_proposals::tally(state.db(), &id)
         .await
         .map_err(|e| ApiError(AppError::Internal(e)))?;
@@ -166,7 +170,7 @@ async fn cast_vote(
         other => {
             return Err(ApiError(AppError::field(
                 "vote",
-                &format!("`{other}` is not a vote: say `yes` or `no`"),
+                format!("`{other}` is not a vote: say `yes` or `no`"),
             )))
         }
     };
@@ -174,13 +178,20 @@ async fn cast_vote(
     let proposal = darkhold_db::taste_lens_proposals::get(state.db(), &id)
         .await
         .map_err(|e| ApiError(AppError::Internal(e)))?
-        .ok_or_else(|| ApiError(AppError::NotFound { resource: "proposal" }))?;
+        .ok_or_else(|| {
+            ApiError(AppError::NotFound {
+                resource: "proposal",
+            })
+        })?;
     if proposal.state != "open" {
         // A vote on a decided proposal would be recorded against a decision it cannot change; refusing by name is what
         // makes the client's mistake fixable.
         return Err(ApiError(AppError::field(
             "proposal",
-            &format!("this proposal is `{}` and no longer takes votes", proposal.state),
+            format!(
+                "this proposal is `{}` and no longer takes votes",
+                proposal.state
+            ),
         )));
     }
 

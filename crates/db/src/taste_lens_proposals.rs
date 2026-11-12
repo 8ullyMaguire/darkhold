@@ -92,7 +92,6 @@ fn proposal_from(row: ProposalRow) -> Proposal {
     }
 }
 
-
 const SELECT: &str = "SELECT id, gravity_strength, signal_weight_mode, admin_weight, \
      diversity_injection_percent, opened_by, opened_at, closes_at, threshold_percent, state, decided_at \
      FROM taste_lens_proposals";
@@ -165,10 +164,8 @@ pub async fn get(db: &Database, id: &str) -> Result<Option<Proposal>> {
     // The three integer columns are INTEGER on SQLite and INT4 on PostgreSQL, so the PostgreSQL statement widens them
     // to BIGINT: a `Proposal` decoded as `i64` cannot read an INT4 column, and casting here keeps the struct honest
     // instead of making every caller handle two integer widths.
-    let postgres_sql = format!(
-        "SELECT id, gravity_strength::bigint AS gravity_strength, signal_weight_mode,          admin_weight::bigint AS admin_weight,          diversity_injection_percent::bigint AS diversity_injection_percent, opened_by, opened_at, closes_at,          threshold_percent::bigint AS threshold_percent, state, decided_at          FROM taste_lens_proposals WHERE id = $1"
-    );
-    let sql = db.sql(&sqlite_sql, &postgres_sql);
+    let postgres_sql = "SELECT id, gravity_strength::bigint AS gravity_strength, signal_weight_mode,          admin_weight::bigint AS admin_weight,          diversity_injection_percent::bigint AS diversity_injection_percent, opened_by, opened_at, closes_at,          threshold_percent::bigint AS threshold_percent, state, decided_at          FROM taste_lens_proposals WHERE id = $1";
+    let sql = db.sql(&sqlite_sql, postgres_sql);
     let row: Option<ProposalRow> = match db.backend() {
         Backend::Sqlite => {
             sqlx::query_as(&sql)
@@ -235,14 +232,20 @@ pub async fn tally(db: &Database, id: &str) -> Result<Tally> {
                 .bind(id)
                 .fetch_one(db.sqlite_pool().expect("sqlite handle"))
                 .await?;
-            Tally { yes: row.try_get("yes")?, no: row.try_get("no")? }
+            Tally {
+                yes: row.try_get("yes")?,
+                no: row.try_get("no")?,
+            }
         }
         Backend::Postgres => {
             let row = sqlx::query(&sql)
                 .bind(id)
                 .fetch_one(db.postgres_pool().expect("postgres handle"))
                 .await?;
-            Tally { yes: row.try_get("yes")?, no: row.try_get("no")? }
+            Tally {
+                yes: row.try_get("yes")?,
+                no: row.try_get("no")?,
+            }
         }
     })
 }

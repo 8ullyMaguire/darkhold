@@ -454,9 +454,10 @@ pub async fn get_changes(
     // Same gate as the setting itself: retention decides what is destroyed (ADR 0003).
     crate::routes::admin_scope::require_admin_of(&state, &user, None).await?;
 
-    let changes = darkhold_db::retention_proposals::list_changes(state.db(), params.source.as_deref())
-        .await
-        .map_err(|error| ApiError(AppError::Internal(error)))?;
+    let changes =
+        darkhold_db::retention_proposals::list_changes(state.db(), params.source.as_deref())
+            .await
+            .map_err(|error| ApiError(AppError::Internal(error)))?;
 
     Ok(Json(serde_json::json!({
         "changes": changes

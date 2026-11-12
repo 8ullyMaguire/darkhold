@@ -362,7 +362,9 @@ pub async fn list_abuse_counters(
                     key: row.get::<String, _>("key"),
                     count: row.get::<i64, _>("count"),
                     blocked: row.get::<Option<String>, _>("blocked_until").is_some(),
-                    last_window: row.get::<Option<String>, _>("last_window").unwrap_or_default(),
+                    last_window: row
+                        .get::<Option<String>, _>("last_window")
+                        .unwrap_or_default(),
                 })
                 .collect())
         }
@@ -377,7 +379,9 @@ pub async fn list_abuse_counters(
                     key: row.get::<String, _>("key"),
                     count: row.get::<i64, _>("count"),
                     blocked: row.get::<Option<String>, _>("blocked_until").is_some(),
-                    last_window: row.get::<Option<String>, _>("last_window").unwrap_or_default(),
+                    last_window: row
+                        .get::<Option<String>, _>("last_window")
+                        .unwrap_or_default(),
                 })
                 .collect())
         }

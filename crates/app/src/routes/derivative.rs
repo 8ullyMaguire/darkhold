@@ -245,7 +245,7 @@ pub async fn download_derivative(
     let bytes = store
         .get(db, &checksum)
         .await
-        .map_err(|e| ApiError(AppError::Internal(e.into())))?
+        .map_err(|e| ApiError(AppError::Internal(e)))?
         .ok_or_else(|| {
             ApiError::from(AppError::Internal(anyhow::anyhow!(
                 "derivative {id} records output {checksum} but the blob store has no such object"

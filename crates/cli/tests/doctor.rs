@@ -119,11 +119,13 @@ fn a_matching_instance_reports_clean_and_exits_zero() {
     };
 
     assert_eq!(
-        find("instance")["status"], "ok",
+        find("instance")["status"],
+        "ok",
         "the version is read from the instance, not assumed: {output}"
     );
     assert_eq!(
-        find("version")["status"], "ok",
+        find("version")["status"],
+        "ok",
         "0.1.0+abc123 is this binary's API line: {output}"
     );
     assert_eq!(
@@ -131,7 +133,8 @@ fn a_matching_instance_reports_clean_and_exits_zero() {
         "a server whose clock agrees reads clean, and the measurement comes from its own Date header: {output}"
     );
     assert_eq!(
-        find("token")["status"], "warn",
+        find("token")["status"],
+        "warn",
         "no token is a warning, never a failure: {output}"
     );
     assert_eq!(report["failed"], 0);
@@ -153,7 +156,10 @@ fn a_server_two_hours_behind_is_reported_with_a_fix() {
         .expect("the clock was measured");
     assert_eq!(clock["status"], "warn", "{output}");
     assert!(
-        clock["detail"].as_str().unwrap_or_default().contains("7200"),
+        clock["detail"]
+            .as_str()
+            .unwrap_or_default()
+            .contains("7200"),
         "the skew is a number, signed and in seconds: {output}"
     );
     assert!(

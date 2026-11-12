@@ -88,7 +88,11 @@ impl Client {
             builder = builder.header(header::COOKIE, self.cookie_header());
         }
         if !matches!(method, "GET" | "HEAD" | "OPTIONS") {
-            if let Some((_, token)) = self.cookies.iter().find(|(name, _)| name == "darkhold_csrf") {
+            if let Some((_, token)) = self
+                .cookies
+                .iter()
+                .find(|(name, _)| name == "darkhold_csrf")
+            {
                 let token = token.clone();
                 builder = builder.header("x-csrf-token", token);
             }
@@ -119,8 +123,6 @@ impl Client {
     async fn get(&mut self, path: &str) -> (StatusCode, Value) {
         self.send("GET", path, None).await
     }
-
-
 }
 
 struct Harness {
@@ -206,21 +208,20 @@ impl Harness {
 /// exists to catch, and it caught this one on the first run.
 async fn sqlx_enough(db: &Database) -> (String,) {
     match db.backend() {
-        darkhold_db::Backend::Sqlite => sqlx::query_as(
-            "SELECT account_id FROM pseuds WHERE handle = 'operator' LIMIT 1",
-        )
-            .fetch_one(db.sqlite_pool().expect("sqlite handle"))
-            .await
-            .expect("one account"),
-        darkhold_db::Backend::Postgres => sqlx::query_as(
-            "SELECT account_id::text FROM pseuds WHERE handle = 'operator' LIMIT 1",
-        )
-            .fetch_one(db.postgres_pool().expect("postgres handle"))
-            .await
-            .expect("one account"),
+        darkhold_db::Backend::Sqlite => {
+            sqlx::query_as("SELECT account_id FROM pseuds WHERE handle = 'operator' LIMIT 1")
+                .fetch_one(db.sqlite_pool().expect("sqlite handle"))
+                .await
+                .expect("one account")
+        }
+        darkhold_db::Backend::Postgres => {
+            sqlx::query_as("SELECT account_id::text FROM pseuds WHERE handle = 'operator' LIMIT 1")
+                .fetch_one(db.postgres_pool().expect("postgres handle"))
+                .await
+                .expect("one account")
+        }
     }
 }
-
 
 #[tokio::test]
 async fn an_operator_reads_every_trust_change_with_its_reason() {
@@ -236,12 +237,12 @@ async fn an_operator_reads_every_trust_change_with_its_reason() {
                     .await
                     .expect("operator account")
             }
-            Backend::Postgres => {
-                sqlx::query_as("SELECT account_id::text FROM pseuds WHERE handle = 'operator' LIMIT 1")
-                    .fetch_one(harness.db().postgres_pool().expect("postgres"))
-                    .await
-                    .expect("operator account")
-            }
+            Backend::Postgres => sqlx::query_as(
+                "SELECT account_id::text FROM pseuds WHERE handle = 'operator' LIMIT 1",
+            )
+            .fetch_one(harness.db().postgres_pool().expect("postgres"))
+            .await
+            .expect("operator account"),
         }
     };
     darkhold_db::trust_events::record(
@@ -298,7 +299,9 @@ async fn an_operator_reads_every_trust_change_with_its_reason() {
 async fn half_a_cursor_is_refused_rather_than_silently_ignored() {
     let harness = Harness::with_operator("cursor").await;
     let mut client = harness.signed_in().await;
-    let (status, body) = client.get("/api/v1/admin/trust-events?after=2026-01-01T00:00:00Z").await;
+    let (status, body) = client
+        .get("/api/v1/admin/trust-events?after=2026-01-01T00:00:00Z")
+        .await;
     assert_eq!(
         status,
         StatusCode::UNPROCESSABLE_ENTITY,

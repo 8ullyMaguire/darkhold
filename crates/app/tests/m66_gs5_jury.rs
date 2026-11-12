@@ -43,7 +43,10 @@ fn config_for(dir: &Path) -> Config {
     config.storage.root = dir.to_path_buf();
     config.database = match std::env::var("DARKHOLD_TEST_PG_URL") {
         Ok(url) if !url.is_empty() => DatabaseConfig::new(url),
-        _ => DatabaseConfig::new(format!("sqlite://{}/darkhold.sqlite?mode=rwc", dir.display())),
+        _ => DatabaseConfig::new(format!(
+            "sqlite://{}/darkhold.sqlite?mode=rwc",
+            dir.display()
+        )),
     };
     // This suite registers a dozen-plus accounts per case, which is the point — a jury needs a pool — and the dev defaults' auth burst is built for a
     // person, not a fixture. Raised here rather than in the shipped default, because a real instance's sign-up burst should stay small.
@@ -251,20 +254,20 @@ impl Harness {
 
     async fn panel_rows(&self, task: &str) -> i64 {
         match self.tdb.db().backend() {
-            Backend::Sqlite => sqlx::query_scalar::<_, i64>(
-                "SELECT COUNT(*) FROM jury_panels WHERE task_id = ?1",
-            )
-            .bind(task)
-            .fetch_one(self.tdb.db().sqlite_pool().expect("sqlite"))
-            .await
-            .expect("count"),
-            Backend::Postgres => sqlx::query_scalar::<_, i64>(
-                "SELECT COUNT(*) FROM jury_panels WHERE task_id = $1",
-            )
-            .bind(task)
-            .fetch_one(self.tdb.db().postgres_pool().expect("postgres"))
-            .await
-            .expect("count"),
+            Backend::Sqlite => {
+                sqlx::query_scalar::<_, i64>("SELECT COUNT(*) FROM jury_panels WHERE task_id = ?1")
+                    .bind(task)
+                    .fetch_one(self.tdb.db().sqlite_pool().expect("sqlite"))
+                    .await
+                    .expect("count")
+            }
+            Backend::Postgres => {
+                sqlx::query_scalar::<_, i64>("SELECT COUNT(*) FROM jury_panels WHERE task_id = $1")
+                    .bind(task)
+                    .fetch_one(self.tdb.db().postgres_pool().expect("postgres"))
+                    .await
+                    .expect("count")
+            }
         }
     }
 }

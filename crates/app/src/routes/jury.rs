@@ -69,7 +69,10 @@ pub async fn draw_panel(
         .await
         .map_err(|error| ApiError(AppError::internal("reading the caller's standing", error)))?;
     if level < required {
-        return Err(ApiError(AppError::TrustLevelInsufficient { level, required }));
+        return Err(ApiError(AppError::TrustLevelInsufficient {
+            level,
+            required,
+        }));
     }
 
     let body = body.map(|Json(body)| body).unwrap_or_default();
@@ -77,7 +80,12 @@ pub async fn draw_panel(
     // The report behind the task, so the exclusions are the people actually involved rather than whoever the caller names.
     let Some((reporter, reported)) = darkhold_db::jury::task_parties(state.db(), &task)
         .await
-        .map_err(|error| ApiError(AppError::internal("reading the report behind this task", error)))?
+        .map_err(|error| {
+            ApiError(AppError::internal(
+                "reading the report behind this task",
+                error,
+            ))
+        })?
     else {
         return Err(ApiError(AppError::NotFound { resource: "task" }));
     };
@@ -117,7 +125,9 @@ pub async fn draw_panel(
         None
     };
 
-    let seed = body.seed.unwrap_or_else(|| uuid::Uuid::new_v4().to_string());
+    let seed = body
+        .seed
+        .unwrap_or_else(|| uuid::Uuid::new_v4().to_string());
     let panel_id = uuid::Uuid::new_v4().to_string();
 
     let drawn = darkhold_db::jury::draw_and_save(
@@ -220,7 +230,8 @@ pub async fn cast_verdict(
         // naming the field. What matters is that it is refused: a juror who may revise after seeing the tally is a juror whose vote is a function of
         // the tally.
         return Err(ApiError(AppError::Validation {
-            message: "you have already given a verdict on this panel; a jury is not a poll".to_owned(),
+            message: "you have already given a verdict on this panel; a jury is not a poll"
+                .to_owned(),
             field_errors: std::collections::BTreeMap::from([(
                 "verdict".to_owned(),
                 "already recorded".to_owned(),
@@ -240,7 +251,9 @@ pub async fn cast_verdict(
     if panel.closed() {
         let decided = darkhold_db::jury::apply_panel_outcome(state.db(), &panel)
             .await
-            .map_err(|error| ApiError(AppError::internal("recording the panel's decision", error)))?;
+            .map_err(|error| {
+                ApiError(AppError::internal("recording the panel's decision", error))
+            })?;
         outcome = decided.map(Value::String).unwrap_or(Value::Null);
     }
 

@@ -647,10 +647,7 @@ pub async fn record_consent(
 
 /// The version this account accepted, if any. `None` means "asked and did not answer", which is not the same as "accepted an
 /// older one" — the caller decides which of those is a refusal.
-pub async fn accepted_consent_version(
-    db: &Database,
-    account_id: AccountId,
-) -> Result<Option<i64>> {
+pub async fn accepted_consent_version(db: &Database, account_id: AccountId) -> Result<Option<i64>> {
     let sql = db.sql(
         "SELECT version FROM consents WHERE account_id = ?",
         // `version` is INTEGER on PostgreSQL and decodes into i64 only with the cast; it also only fails when a row exists,
@@ -699,26 +696,22 @@ pub async fn upgrade_guest(
     );
     let age = age_state_string(age_state);
     let changed = match db.backend() {
-        crate::Backend::Sqlite => {
-            sqlx::query(&sql)
-                .bind(email)
-                .bind(age)
-                .bind(&now)
-                .bind(account_id.to_string())
-                .execute(db.sqlite_pool().expect("sqlite handle"))
-                .await?
-                .rows_affected()
-        }
-        crate::Backend::Postgres => {
-            sqlx::query(&sql)
-                .bind(email)
-                .bind(age)
-                .bind(&now)
-                .bind(account_id.to_string())
-                .execute(db.postgres_pool().expect("postgres handle"))
-                .await?
-                .rows_affected()
-        }
+        crate::Backend::Sqlite => sqlx::query(&sql)
+            .bind(email)
+            .bind(age)
+            .bind(&now)
+            .bind(account_id.to_string())
+            .execute(db.sqlite_pool().expect("sqlite handle"))
+            .await?
+            .rows_affected(),
+        crate::Backend::Postgres => sqlx::query(&sql)
+            .bind(email)
+            .bind(age)
+            .bind(&now)
+            .bind(account_id.to_string())
+            .execute(db.postgres_pool().expect("postgres handle"))
+            .await?
+            .rows_affected(),
     };
     Ok(changed == 1)
 }

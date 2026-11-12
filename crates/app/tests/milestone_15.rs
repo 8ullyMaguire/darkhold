@@ -658,7 +658,9 @@ async fn a_reader_cannot_write_the_admin_action_log() {
         "subject_id": "w-1",
         "document": "{}",
     });
-    let (status, refused) = reader.request("POST", "/api/v1/admin/actions", Some(body.clone())).await;
+    let (status, refused) = reader
+        .request("POST", "/api/v1/admin/actions", Some(body.clone()))
+        .await;
     assert_eq!(
         status,
         StatusCode::NOT_FOUND,
@@ -667,6 +669,8 @@ async fn a_reader_cannot_write_the_admin_action_log() {
 
     let mut ops = harness.operator_client(&account);
     ops.cookies = reader.cookies.clone();
-    let (status, accepted) = ops.request("POST", "/api/v1/admin/actions", Some(body)).await;
+    let (status, accepted) = ops
+        .request("POST", "/api/v1/admin/actions", Some(body))
+        .await;
     assert_eq!(status, StatusCode::OK, "the operator may: {accepted}");
 }

@@ -126,9 +126,15 @@ mod tests {
     async fn an_empty_query_is_refused_by_both_routes_without_touching_the_index() {
         // Both handlers refuse before a client is used, so this test passes with the index stopped — which is the
         // point: a 500 here would mean darkhold blamed the index for a caller's empty box.
-        for response in [rows("   ", None, None).await, suggestions("", None, None).await] {
+        for response in [
+            rows("   ", None, None).await,
+            suggestions("", None, None).await,
+        ] {
             assert_eq!(response.status(), StatusCode::BAD_REQUEST);
-            assert_eq!(body_json(response).await["error"]["code"], "invalid_request");
+            assert_eq!(
+                body_json(response).await["error"]["code"],
+                "invalid_request"
+            );
         }
     }
 }

@@ -39,7 +39,10 @@ fn config_for(dir: &Path) -> Config {
     config.storage.root = dir.to_path_buf();
     config.database = match std::env::var("DARKHOLD_TEST_PG_URL") {
         Ok(url) if !url.is_empty() => DatabaseConfig::new(url),
-        _ => DatabaseConfig::new(format!("sqlite://{}/darkhold.sqlite?mode=rwc", dir.display())),
+        _ => DatabaseConfig::new(format!(
+            "sqlite://{}/darkhold.sqlite?mode=rwc",
+            dir.display()
+        )),
     };
     config
 }
@@ -53,7 +56,10 @@ struct Client {
 
 impl Client {
     fn new(app: axum::Router) -> Self {
-        Self { app, cookies: Vec::new() }
+        Self {
+            app,
+            cookies: Vec::new(),
+        }
     }
 
     /// Take another client's cookies: the operator door is the *same* session opened on a router that names this account
@@ -65,8 +71,12 @@ impl Client {
     fn capture(&mut self, response: &axum::response::Response) {
         for value in response.headers().get_all(header::SET_COOKIE) {
             let Ok(text) = value.to_str() else { continue };
-            let Some((pair, _)) = text.split_once(';') else { continue };
-            let Some((name, value)) = pair.split_once('=') else { continue };
+            let Some((pair, _)) = text.split_once(';') else {
+                continue;
+            };
+            let Some((name, value)) = pair.split_once('=') else {
+                continue;
+            };
             let name = name.trim().to_owned();
             let value = value.trim().to_owned();
             self.cookies.retain(|(k, _)| k != &name);
@@ -96,11 +106,21 @@ impl Client {
             Some(v) => Body::from(v.to_string()),
             None => Body::empty(),
         };
-        let response = self.app.clone().oneshot(builder.body(body).unwrap()).await.unwrap();
+        let response = self
+            .app
+            .clone()
+            .oneshot(builder.body(body).unwrap())
+            .await
+            .unwrap();
         let status = response.status();
         self.capture(&response);
-        let bytes = axum::body::to_bytes(response.into_body(), usize::MAX).await.unwrap();
-        (status, serde_json::from_slice(&bytes).unwrap_or(Value::Null))
+        let bytes = axum::body::to_bytes(response.into_body(), usize::MAX)
+            .await
+            .unwrap();
+        (
+            status,
+            serde_json::from_slice(&bytes).unwrap_or(Value::Null),
+        )
     }
 
     /// A request carrying a bearer token instead of the session cookie — the credential a bot actually uses.
@@ -113,8 +133,13 @@ impl Client {
             .expect("request");
         let response = self.app.clone().oneshot(request).await.expect("response");
         let status = response.status();
-        let bytes = axum::body::to_bytes(response.into_body(), usize::MAX).await.expect("body");
-        (status, serde_json::from_slice(&bytes).unwrap_or(Value::Null))
+        let bytes = axum::body::to_bytes(response.into_body(), usize::MAX)
+            .await
+            .expect("body");
+        (
+            status,
+            serde_json::from_slice(&bytes).unwrap_or(Value::Null),
+        )
     }
 
     async fn register(&mut self, tag: &str, handle: &str) -> String {
@@ -154,7 +179,10 @@ impl Client {
         assert_eq!(status, StatusCode::OK, "register bot: {body}");
         (
             body["bot_id"].as_str().expect("a bot id").to_owned(),
-            body["token"].as_str().expect("the registration token").to_owned(),
+            body["token"]
+                .as_str()
+                .expect("the registration token")
+                .to_owned(),
         )
     }
 
@@ -194,7 +222,11 @@ impl Harness {
         let dir = scratch_dir(tag);
         let tdb = test_support::TestDb::connect_with_dir(tag, &dir).await;
         let config = config_for(&dir);
-        Self { _dir: dir, tdb, config }
+        Self {
+            _dir: dir,
+            tdb,
+            config,
+        }
     }
 
     fn client(&self) -> Client {
@@ -211,8 +243,7 @@ impl Harness {
     /// The same instance with one account as the operator — the door `set_bot_state` guards.
     fn config_as_operator(&self, account: &str) -> Config {
         let mut config = self.config.clone();
-        config.administration.operator_account_id =
-            Some(account.parse().expect("account id"));
+        config.administration.operator_account_id = Some(account.parse().expect("account id"));
         config
     }
 
@@ -220,24 +251,22 @@ impl Harness {
     async fn registration_token_id(&self, bot: &str) -> Option<String> {
         use sqlx::Row;
         match self.db().backend() {
-            darkhold_db::Backend::Sqlite => sqlx::query(
-                "SELECT token_id FROM bot_registrations WHERE id = ?1",
-            )
-            .bind(bot)
-            .fetch_optional(self.db().sqlite_pool().expect("sqlite"))
-            .await
-            .expect("read the registration")
-            .map(|row| row.get::<Option<String>, _>("token_id"))
-            .flatten(),
-            darkhold_db::Backend::Postgres => sqlx::query(
-                "SELECT token_id FROM bot_registrations WHERE id = $1::text",
-            )
-            .bind(bot)
-            .fetch_optional(self.db().postgres_pool().expect("postgres"))
-            .await
-            .expect("read the registration")
-            .map(|row| row.get::<Option<String>, _>("token_id"))
-            .flatten(),
+            darkhold_db::Backend::Sqlite => {
+                sqlx::query("SELECT token_id FROM bot_registrations WHERE id = ?1")
+                    .bind(bot)
+                    .fetch_optional(self.db().sqlite_pool().expect("sqlite"))
+                    .await
+                    .expect("read the registration")
+                    .and_then(|row| row.get::<Option<String>, _>("token_id"))
+            }
+            darkhold_db::Backend::Postgres => {
+                sqlx::query("SELECT token_id FROM bot_registrations WHERE id = $1::text")
+                    .bind(bot)
+                    .fetch_optional(self.db().postgres_pool().expect("postgres"))
+                    .await
+                    .expect("read the registration")
+                    .and_then(|row| row.get::<Option<String>, _>("token_id"))
+            }
         }
     }
 }
@@ -281,7 +310,10 @@ async fn two_readers_link_to_one_bot_and_both_credentials_work() {
     // Then the owner links itself.
     let owner_token = owner.link(&bot).await;
 
-    for (who, token) in [("the first reader", &second_token), ("the owner", &owner_token)] {
+    for (who, token) in [
+        ("the first reader", &second_token),
+        ("the owner", &owner_token),
+    ] {
         let (status, body) = owner.send_with_token("/api/v1/me/credential", token).await;
         assert_eq!(
             status,
@@ -301,14 +333,18 @@ async fn two_readers_link_to_one_bot_and_both_credentials_work() {
     let _ = &registration_token;
 
     // And each link acts as the person who granted it, not as the bot's owner.
-    let (status, body) = owner.send_with_token("/api/v1/me/credential", &second_token).await;
+    let (status, body) = owner
+        .send_with_token("/api/v1/me/credential", &second_token)
+        .await;
     assert_eq!(status, StatusCode::OK, "{body}");
     let acting = body["pseud_id"]
         .as_str()
         .or_else(|| body["credential"]["acting_pseud_id"].as_str())
         .unwrap_or_default()
         .to_owned();
-    let (_, mine) = owner.send_with_token("/api/v1/me/credential", &owner_token).await;
+    let (_, mine) = owner
+        .send_with_token("/api/v1/me/credential", &owner_token)
+        .await;
     let owner_acting = mine["pseud_id"]
         .as_str()
         .or_else(|| mine["credential"]["acting_pseud_id"].as_str())
@@ -356,17 +392,23 @@ async fn a_relink_replaces_one_person_and_leaves_the_other_readers_alone() {
     let owner_first = owner.link(&bot).await;
     let owner_second = owner.link(&bot).await;
 
-    let (status, body) = owner.send_with_token("/api/v1/me/credential", &owner_second).await;
-    assert_eq!(status, StatusCode::OK, "the newest credential works: {body}");
-    let (status, body) = owner.send_with_token("/api/v1/me/credential", &owner_first).await;
+    let (status, body) = owner
+        .send_with_token("/api/v1/me/credential", &owner_second)
+        .await;
+    assert_eq!(
+        status,
+        StatusCode::OK,
+        "the newest credential works: {body}"
+    );
+    let (status, body) = owner
+        .send_with_token("/api/v1/me/credential", &owner_first)
+        .await;
     assert_eq!(
         status,
         StatusCode::UNAUTHORIZED,
         "re-linking replaces that person's previous credential: {body}"
     );
-    let (status, body) = owner
-        .send_with_token("/api/v1/me/credential", &first)
-        .await;
+    let (status, body) = owner.send_with_token("/api/v1/me/credential", &first).await;
     assert_eq!(
         status,
         StatusCode::OK,
@@ -418,7 +460,10 @@ async fn suspending_the_bot_stops_every_linked_reader() {
         .await;
     assert_eq!(status, StatusCode::OK, "{body}");
 
-    for (who, token) in [("a linked reader", &reader_token), ("the bot itself", &registration_token)] {
+    for (who, token) in [
+        ("a linked reader", &reader_token),
+        ("the bot itself", &registration_token),
+    ] {
         let (status, body) = owner.send_with_token("/api/v1/me/credential", token).await;
         assert_eq!(
             status,

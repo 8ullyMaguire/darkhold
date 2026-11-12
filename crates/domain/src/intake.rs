@@ -78,9 +78,9 @@ impl Condition {
         match self {
             Self::HostIn(hosts) => hosts.iter().any(|host| host == &candidate.host),
             Self::HostNotIn(hosts) => !hosts.iter().any(|host| host == &candidate.host),
-            Self::LanguageIn(languages) => {
-                languages.iter().any(|language| language == &candidate.language)
-            }
+            Self::LanguageIn(languages) => languages
+                .iter()
+                .any(|language| language == &candidate.language),
             Self::WordsAtLeast(least) => candidate.words >= *least,
             Self::WordsAtMost(most) => candidate.words <= *most,
             Self::TagAny(wanted) => wanted
@@ -111,7 +111,9 @@ impl Condition {
             Self::TagAny(tags) => format!("any of the tags {}", tags.join(", ")),
             Self::TagAll(tags) => format!("all of the tags {}", tags.join(", ")),
             Self::TitleContains(needles) => format!("title contains {}", needles.join(", ")),
-            Self::TitleExcludes(needles) => format!("title contains none of {}", needles.join(", ")),
+            Self::TitleExcludes(needles) => {
+                format!("title contains none of {}", needles.join(", "))
+            }
             Self::Complete => "the source marks it complete".to_owned(),
         }
     }
@@ -256,7 +258,13 @@ mod tests {
         }
     }
 
-    fn candidate(host: &str, language: &str, words: i64, tags: &[&str], title: &str) -> IntakeCandidate {
+    fn candidate(
+        host: &str,
+        language: &str,
+        words: i64,
+        tags: &[&str],
+        title: &str,
+    ) -> IntakeCandidate {
         IntakeCandidate {
             host: host.to_owned(),
             language: language.to_owned(),
@@ -295,14 +303,23 @@ mod tests {
 
     #[test]
     fn an_unmatched_arrival_is_queued_not_admitted() {
-        let decision = decide(&policy(), &candidate("example.invalid", "fr", 9_000, &[], "X"));
-        assert!(!decision.brings_in(), "the cautious default is a person: {decision:?}");
+        let decision = decide(
+            &policy(),
+            &candidate("example.invalid", "fr", 9_000, &[], "X"),
+        );
+        assert!(
+            !decision.brings_in(),
+            "the cautious default is a person: {decision:?}"
+        );
         assert_eq!(decision, IntakeDecision::QueueUnmatched);
     }
 
     #[test]
     fn an_empty_policy_admits_nothing() {
-        let decision = decide(&IntakePolicy::default(), &candidate("ao3", "en", 1, &[], "Any"));
+        let decision = decide(
+            &IntakePolicy::default(),
+            &candidate("ao3", "en", 1, &[], "Any"),
+        );
         assert!(!decision.brings_in(), "no rules is not 'everything goes'");
     }
 
@@ -320,7 +337,10 @@ mod tests {
                 },
             ],
         };
-        let tagged = decide(&policy, &candidate("ao3", "en", 5_000, &["dead dove"], "Dark"));
+        let tagged = decide(
+            &policy,
+            &candidate("ao3", "en", 5_000, &["dead dove"], "Dark"),
+        );
         assert_eq!(
             tagged,
             IntakeDecision::Queue {
@@ -349,7 +369,10 @@ mod tests {
         // The distinction the importer depends on: `decide` says "admit nothing" for an empty policy, which is right for a policy and
         // wrong for a default — so "is there a policy at all" has to be askable on its own, and the two answers must disagree here.
         let empty = IntakePolicy::default();
-        assert!(!empty.is_configured(), "no rules is not a configured source");
+        assert!(
+            !empty.is_configured(),
+            "no rules is not a configured source"
+        );
         assert_eq!(
             decide(&empty, &candidate("ao3", "en", 5_000, &[], "T")),
             IntakeDecision::QueueUnmatched,
@@ -369,6 +392,8 @@ mod tests {
             "{}",
             decision.describe()
         );
-        assert!(IntakeDecision::QueueUnmatched.describe().contains("needs a person"));
+        assert!(IntakeDecision::QueueUnmatched
+            .describe()
+            .contains("needs a person"));
     }
 }

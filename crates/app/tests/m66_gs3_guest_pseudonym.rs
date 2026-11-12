@@ -46,7 +46,10 @@ fn config_for(dir: &Path) -> Config {
     config.storage.root = dir.to_path_buf();
     config.database = match std::env::var("DARKHOLD_TEST_PG_URL") {
         Ok(url) if !url.is_empty() => DatabaseConfig::new(url),
-        _ => DatabaseConfig::new(format!("sqlite://{}/darkhold.sqlite?mode=rwc", dir.display())),
+        _ => DatabaseConfig::new(format!(
+            "sqlite://{}/darkhold.sqlite?mode=rwc",
+            dir.display()
+        )),
     };
     config
 }
@@ -58,8 +61,12 @@ impl Jar {
     fn capture(&mut self, response: &axum::response::Response) {
         for value in response.headers().get_all(header::SET_COOKIE) {
             let Ok(text) = value.to_str() else { continue };
-            let Some((pair, _)) = text.split_once(';') else { continue };
-            let Some((name, value)) = pair.split_once('=') else { continue };
+            let Some((pair, _)) = text.split_once(';') else {
+                continue;
+            };
+            let Some((name, value)) = pair.split_once('=') else {
+                continue;
+            };
             let name = name.trim().to_owned();
             let value = value.trim().to_owned();
             self.0.retain(|(k, _)| k != &name);
@@ -93,7 +100,10 @@ struct Browser {
 
 impl Browser {
     fn new(app: axum::Router) -> Self {
-        Self { app, jar: Jar::default() }
+        Self {
+            app,
+            jar: Jar::default(),
+        }
     }
 
     fn from_jar(app: axum::Router, jar: Jar) -> Self {
@@ -123,11 +133,21 @@ impl Browser {
             Some(v) => Body::from(v.to_string()),
             None => Body::empty(),
         };
-        let response = self.app.clone().oneshot(builder.body(body).unwrap()).await.unwrap();
+        let response = self
+            .app
+            .clone()
+            .oneshot(builder.body(body).unwrap())
+            .await
+            .unwrap();
         let status = response.status();
         self.jar.capture(&response);
-        let bytes = axum::body::to_bytes(response.into_body(), usize::MAX).await.unwrap();
-        (status, serde_json::from_slice(&bytes).unwrap_or(Value::Null))
+        let bytes = axum::body::to_bytes(response.into_body(), usize::MAX)
+            .await
+            .unwrap();
+        (
+            status,
+            serde_json::from_slice(&bytes).unwrap_or(Value::Null),
+        )
     }
 
     async fn post(&mut self, uri: &str, body: Value) -> (StatusCode, Value) {
@@ -141,7 +161,10 @@ impl Browser {
     /// What a visitor's browser does: create the guest, then keep only the jar.
     async fn become_guest(&mut self, version: i64) -> Value {
         let (status, body) = self
-            .post("/api/v1/auth/guest", json!({ "consent": { "version": version } }))
+            .post(
+                "/api/v1/auth/guest",
+                json!({ "consent": { "version": version } }),
+            )
             .await;
         assert_eq!(status, StatusCode::CREATED, "{body}");
         body
@@ -170,7 +193,11 @@ impl Harness {
         let dir = scratch_dir(tag);
         let tdb = test_support::TestDb::connect_with_dir(tag, &dir).await;
         let config = config_for(&dir);
-        Self { _dir: dir, tdb, config }
+        Self {
+            _dir: dir,
+            tdb,
+            config,
+        }
     }
 
     fn app(&self) -> axum::Router {
@@ -198,7 +225,11 @@ async fn the_cookie_is_the_guest_and_it_owns_what_it_wrote() {
     let mut returning = Browser::from_jar(harness.app(), visitor.jar.clone());
     let (status, me) = returning.get("/api/v1/auth/me").await;
     assert_eq!(status, StatusCode::OK, "{me}");
-    assert_eq!(me["account"]["id"], json!(account_id), "the cookie is the identity: {me}");
+    assert_eq!(
+        me["account"]["id"],
+        json!(account_id),
+        "the cookie is the identity: {me}"
+    );
     assert_eq!(me["account"]["is_guest"], json!(true), "{me}");
 
     let (status, shelf) = returning.get("/api/v1/bookmarks").await;
@@ -265,7 +296,11 @@ async fn what_the_guest_wrote_is_what_registration_keeps() {
         )
         .await;
     assert_eq!(status, StatusCode::OK, "{registered}");
-    assert_eq!(registered["account"]["id"], json!(account_id), "{registered}");
+    assert_eq!(
+        registered["account"]["id"],
+        json!(account_id),
+        "{registered}"
+    );
 
     // Not "the account still owns a row": the reader logs in tomorrow and finds it.
     let mut tomorrow = harness.browser();

@@ -720,7 +720,9 @@ async fn the_operator_counts_the_copies_of_a_work_and_nobody_else_does() {
     let work = harness
         .imported_work("archive:example.org", "A Replicated Work")
         .await;
-    harness.set_source_mode("archive:example.org", "cache").await;
+    harness
+        .set_source_mode("archive:example.org", "cache")
+        .await;
     for reader in [&mut alice, &mut bob] {
         let (status, body) = reader
             .post(&format!("/api/v1/works/{work}/body-request"), json!({}))
@@ -741,9 +743,7 @@ async fn the_operator_counts_the_copies_of_a_work_and_nobody_else_does() {
         .await;
     assert!(status.is_success(), "operator login: {status} {body}");
 
-    let (status, counted) = ops
-        .get(&format!("/api/v1/admin/works/{work}/copies"))
-        .await;
+    let (status, counted) = ops.get(&format!("/api/v1/admin/works/{work}/copies")).await;
     assert_eq!(status, StatusCode::OK, "{counted}");
     assert_eq!(
         counted["copies"], 2,
@@ -754,15 +754,13 @@ async fn the_operator_counts_the_copies_of_a_work_and_nobody_else_does() {
     let rendered = counted.to_string();
     for field in ["account_id", "alice", "bob", &alice_account.to_string()] {
         assert!(
-            !rendered.contains(&*field),
+            !rendered.contains(field),
             "the count must not name anybody ({field}): {rendered}"
         );
     }
 
     // A reader without operator standing is told the surface does not exist.
-    let (status, refused) = bob
-        .get(&format!("/api/v1/admin/works/{work}/copies"))
-        .await;
+    let (status, refused) = bob.get(&format!("/api/v1/admin/works/{work}/copies")).await;
     assert_eq!(status, StatusCode::NOT_FOUND, "{refused}");
 
     // And an anonymous caller does not reach it either.

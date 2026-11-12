@@ -88,7 +88,11 @@ impl Client {
             builder = builder.header(header::COOKIE, self.cookie_header());
         }
         if !matches!(method, "GET" | "HEAD" | "OPTIONS") {
-            if let Some((_, token)) = self.cookies.iter().find(|(name, _)| name == "darkhold_csrf") {
+            if let Some((_, token)) = self
+                .cookies
+                .iter()
+                .find(|(name, _)| name == "darkhold_csrf")
+            {
                 let token = token.clone();
                 builder = builder.header("x-csrf-token", token);
             }
@@ -119,8 +123,6 @@ impl Client {
     async fn get(&mut self, path: &str) -> (StatusCode, Value) {
         self.send("GET", path, None).await
     }
-
-
 }
 
 struct Harness {
@@ -183,7 +185,6 @@ impl Harness {
     fn db(&self) -> &Database {
         &self.db
     }
-
 }
 
 /// The operator's account id.
@@ -193,21 +194,20 @@ impl Harness {
 /// exists to catch, and it caught this one on the first run.
 async fn sqlx_enough(db: &Database) -> (String,) {
     match db.backend() {
-        darkhold_db::Backend::Sqlite => sqlx::query_as(
-            "SELECT account_id FROM pseuds WHERE handle = 'operator' LIMIT 1",
-        )
-            .fetch_one(db.sqlite_pool().expect("sqlite handle"))
-            .await
-            .expect("one account"),
-        darkhold_db::Backend::Postgres => sqlx::query_as(
-            "SELECT account_id::text FROM pseuds WHERE handle = 'operator' LIMIT 1",
-        )
-            .fetch_one(db.postgres_pool().expect("postgres handle"))
-            .await
-            .expect("one account"),
+        darkhold_db::Backend::Sqlite => {
+            sqlx::query_as("SELECT account_id FROM pseuds WHERE handle = 'operator' LIMIT 1")
+                .fetch_one(db.sqlite_pool().expect("sqlite handle"))
+                .await
+                .expect("one account")
+        }
+        darkhold_db::Backend::Postgres => {
+            sqlx::query_as("SELECT account_id::text FROM pseuds WHERE handle = 'operator' LIMIT 1")
+                .fetch_one(db.postgres_pool().expect("postgres handle"))
+                .await
+                .expect("one account")
+        }
     }
 }
-
 
 #[tokio::test]
 async fn a_submitter_reads_their_own_submission_and_nobody_else_does() {
@@ -252,7 +252,11 @@ async fn a_submitter_reads_their_own_submission_and_nobody_else_does() {
     let (status, list) = mine.get("/api/v1/extensions/source-adapters/mine").await;
     assert_eq!(status, StatusCode::OK, "{list}");
     let rows = list["mine"].as_array().expect("mine");
-    assert_eq!(rows.len(), 1, "the submitter's one submission, and only theirs: {list}");
+    assert_eq!(
+        rows.len(),
+        1,
+        "the submitter's one submission, and only theirs: {list}"
+    );
     assert_eq!(rows[0]["state"], "pending", "{list}");
     assert_eq!(rows[0]["kind"], "extension", "{list}");
 

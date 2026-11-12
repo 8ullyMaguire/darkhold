@@ -580,8 +580,12 @@ async fn my_audit_log_takes_a_lower_bound_and_normalises_a_fraction_to_the_colum
         .await
         .expect("seed");
         let sql = match harness.tdb.db().backend() {
-            darkhold_db::Backend::Sqlite => "UPDATE audit_log SET created_at = ?1 WHERE action = ?2",
-            darkhold_db::Backend::Postgres => "UPDATE audit_log SET created_at = $1 WHERE action = $2",
+            darkhold_db::Backend::Sqlite => {
+                "UPDATE audit_log SET created_at = ?1 WHERE action = ?2"
+            }
+            darkhold_db::Backend::Postgres => {
+                "UPDATE audit_log SET created_at = $1 WHERE action = $2"
+            }
         };
         // The query is built inside each arm rather than before the match: a `Query` is parameterised by its database, so one built once
         // would have to be typed to whichever arm was written first — which is how this failed to compile the first time.

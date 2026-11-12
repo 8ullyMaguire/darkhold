@@ -37,7 +37,10 @@ fn config_for(dir: &Path) -> Config {
     config.storage.root = dir.to_path_buf();
     config.database = match std::env::var("DARKHOLD_TEST_PG_URL") {
         Ok(url) if !url.is_empty() => DatabaseConfig::new(url),
-        _ => DatabaseConfig::new(format!("sqlite://{}/darkhold.sqlite?mode=rwc", dir.display())),
+        _ => DatabaseConfig::new(format!(
+            "sqlite://{}/darkhold.sqlite?mode=rwc",
+            dir.display()
+        )),
     };
     // The mode this suite is about: a direct write is refused under it, so this door is the only way in.
     config.taste.lens_owner = LensOwner::Vote;
@@ -51,14 +54,21 @@ struct Client {
 
 impl Client {
     fn new(app: axum::Router) -> Self {
-        Self { app, cookies: Vec::new() }
+        Self {
+            app,
+            cookies: Vec::new(),
+        }
     }
 
     fn capture(&mut self, response: &axum::response::Response) {
         for value in response.headers().get_all(header::SET_COOKIE) {
             let Ok(text) = value.to_str() else { continue };
-            let Some((pair, _)) = text.split_once(';') else { continue };
-            let Some((name, value)) = pair.split_once('=') else { continue };
+            let Some((pair, _)) = text.split_once(';') else {
+                continue;
+            };
+            let Some((name, value)) = pair.split_once('=') else {
+                continue;
+            };
             let name = name.trim().to_owned();
             let value = value.trim().to_owned();
             self.cookies.retain(|(k, _)| k != &name);
@@ -68,7 +78,12 @@ impl Client {
         }
     }
 
-    async fn request(&mut self, method: &str, uri: &str, body: Option<Value>) -> (StatusCode, Value) {
+    async fn request(
+        &mut self,
+        method: &str,
+        uri: &str,
+        body: Option<Value>,
+    ) -> (StatusCode, Value) {
         let mut builder = Request::builder()
             .method(method)
             .uri(uri)
@@ -105,7 +120,10 @@ impl Client {
         let bytes = axum::body::to_bytes(response.into_body(), usize::MAX)
             .await
             .unwrap();
-        (status, serde_json::from_slice(&bytes).unwrap_or(Value::Null))
+        (
+            status,
+            serde_json::from_slice(&bytes).unwrap_or(Value::Null),
+        )
     }
 
     async fn get(&mut self, uri: &str) -> (StatusCode, Value) {
@@ -149,12 +167,19 @@ impl Harness {
         let tdb = TestDb::connect_with_dir(tag, &dir).await;
         let db = tdb.db().clone();
 
-        let mut bootstrap = Client::new(server::build_router(AppState::new(config.clone(), db.clone())));
+        let mut bootstrap = Client::new(server::build_router(AppState::new(
+            config.clone(),
+            db.clone(),
+        )));
         bootstrap.register("operator").await;
         let account = account_of(&db, "operator").await;
         config.administration.operator_account_id = Some(account.into());
 
-        Self { _dir: dir, tdb, config }
+        Self {
+            _dir: dir,
+            tdb,
+            config,
+        }
     }
 
     fn client(&self) -> Client {
@@ -203,8 +228,15 @@ async fn opened(operator: &mut Client) -> String {
     let (status, body) = operator
         .send("POST", "/api/v1/taste-proposals", proposal_body())
         .await;
-    assert_eq!(status, StatusCode::OK, "the operator opens a proposal: {body}");
-    body["proposal"]["id"].as_str().expect("a proposal id").to_owned()
+    assert_eq!(
+        status,
+        StatusCode::OK,
+        "the operator opens a proposal: {body}"
+    );
+    body["proposal"]["id"]
+        .as_str()
+        .expect("a proposal id")
+        .to_owned()
 }
 
 #[tokio::test]
@@ -218,7 +250,11 @@ async fn a_reader_cannot_open_a_proposal() {
 
     // `404`, not `403`: the operator surface is concealed (ADR 0003, `require_estate_hidden`), so a reader does not learn
     // that this door exists. The refusal is a feature, and asserting `403` here would demand that the instance disclose it.
-    assert_eq!(status, StatusCode::NOT_FOUND, "opening decides what the instance is asked: {body}");
+    assert_eq!(
+        status,
+        StatusCode::NOT_FOUND,
+        "opening decides what the instance is asked: {body}"
+    );
 }
 
 #[tokio::test]
@@ -229,10 +265,18 @@ async fn an_anonymous_vote_is_refused() {
 
     let mut anonymous = harness.client();
     let (status, body) = anonymous
-        .send("POST", &format!("/api/v1/taste-proposals/{id}/vote"), json!({ "vote": "yes" }))
+        .send(
+            "POST",
+            &format!("/api/v1/taste-proposals/{id}/vote"),
+            json!({ "vote": "yes" }),
+        )
         .await;
 
-    assert_eq!(status, StatusCode::UNAUTHORIZED, "one vote per account needs an account: {body}");
+    assert_eq!(
+        status,
+        StatusCode::UNAUTHORIZED,
+        "one vote per account needs an account: {body}"
+    );
 }
 
 #[tokio::test]
@@ -243,16 +287,27 @@ async fn a_second_vote_replaces_the_first_through_the_door() {
     let mut reader = harness.signed_in("reader2").await;
 
     let (status, body) = reader
-        .send("POST", &format!("/api/v1/taste-proposals/{id}/vote"), json!({ "vote": "yes" }))
+        .send(
+            "POST",
+            &format!("/api/v1/taste-proposals/{id}/vote"),
+            json!({ "vote": "yes" }),
+        )
         .await;
     assert_eq!(status, StatusCode::OK, "first vote: {body}");
     assert_eq!(body["tally"]["yes"], 1, "one yes: {body}");
 
     let (status, body) = reader
-        .send("POST", &format!("/api/v1/taste-proposals/{id}/vote"), json!({ "vote": "no" }))
+        .send(
+            "POST",
+            &format!("/api/v1/taste-proposals/{id}/vote"),
+            json!({ "vote": "no" }),
+        )
         .await;
     assert_eq!(status, StatusCode::OK, "changed mind: {body}");
-    assert_eq!(body["tally"]["yes"], 0, "the yes was replaced, not added: {body}");
+    assert_eq!(
+        body["tally"]["yes"], 0,
+        "the yes was replaced, not added: {body}"
+    );
     assert_eq!(body["tally"]["no"], 1, "and the no counts once: {body}");
 }
 
@@ -263,7 +318,11 @@ async fn a_due_proposal_is_applied_by_the_read_and_says_the_proposal_did_it() {
     let id = opened(&mut operator).await;
     let mut reader = harness.signed_in("reader3").await;
     reader
-        .send("POST", &format!("/api/v1/taste-proposals/{id}/vote"), json!({ "vote": "yes" }))
+        .send(
+            "POST",
+            &format!("/api/v1/taste-proposals/{id}/vote"),
+            json!({ "vote": "yes" }),
+        )
         .await;
 
     // Close it in the past: the window is policy, the decision is the clock's, and a test that waited seven days would not
@@ -296,7 +355,10 @@ async fn a_due_proposal_is_applied_by_the_read_and_says_the_proposal_did_it() {
 
     let (status, body) = reader.get(&format!("/api/v1/taste-proposals/{id}")).await;
     assert_eq!(status, StatusCode::OK, "read: {body}");
-    assert_eq!(body["proposal"]["state"], "passed", "unanimous, past its close: {body}");
+    assert_eq!(
+        body["proposal"]["state"], "passed",
+        "unanimous, past its close: {body}"
+    );
 
     let history = darkhold_db::instance_taste_settings::history(harness.db(), 1)
         .await

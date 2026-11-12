@@ -65,15 +65,30 @@ pub struct Check {
 
 impl Check {
     fn ok(name: &'static str, detail: impl Into<String>) -> Self {
-        Self { name, status: Status::Ok, detail: detail.into(), fix: None }
+        Self {
+            name,
+            status: Status::Ok,
+            detail: detail.into(),
+            fix: None,
+        }
     }
 
     fn warn(name: &'static str, detail: impl Into<String>, fix: impl Into<String>) -> Self {
-        Self { name, status: Status::Warn, detail: detail.into(), fix: Some(fix.into()) }
+        Self {
+            name,
+            status: Status::Warn,
+            detail: detail.into(),
+            fix: Some(fix.into()),
+        }
     }
 
     fn fail(name: &'static str, detail: impl Into<String>, fix: impl Into<String>) -> Self {
-        Self { name, status: Status::Fail, detail: detail.into(), fix: Some(fix.into()) }
+        Self {
+            name,
+            status: Status::Fail,
+            detail: detail.into(),
+            fix: Some(fix.into()),
+        }
     }
 }
 
@@ -210,7 +225,10 @@ async fn collect(cli: &Cli) -> Vec<Check> {
                             "enable NTP (timedatectl set-ntp true); signed requests and codes expire by the clock",
                         ));
                     } else {
-                        checks.push(Check::ok("clock", format!("local time is {skew}s from the server")));
+                        checks.push(Check::ok(
+                            "clock",
+                            format!("local time is {skew}s from the server"),
+                        ));
                     }
                 }
                 None => checks.push(Check::warn(
@@ -239,8 +257,16 @@ async fn collect(cli: &Cli) -> Vec<Check> {
                 format!("{base}/api/v1/meta answered {}", response.status()),
                 "the base URL is reachable but not this instance's API: check --base-url and the profile",
             ));
-            checks.push(Check::warn("clock", "not measured: the instance did not answer", "fix `instance` first"));
-            checks.push(Check::warn("version", "not measured: the instance did not answer", "fix `instance` first"));
+            checks.push(Check::warn(
+                "clock",
+                "not measured: the instance did not answer",
+                "fix `instance` first",
+            ));
+            checks.push(Check::warn(
+                "version",
+                "not measured: the instance did not answer",
+                "fix `instance` first",
+            ));
         }
         Err(error) => {
             checks.push(Check::fail(
@@ -248,8 +274,16 @@ async fn collect(cli: &Cli) -> Vec<Check> {
                 format!("nothing answered at {base}/api/v1/meta: {error}"),
                 "is the service running? is the tunnel up? check --base-url",
             ));
-            checks.push(Check::warn("clock", "not measured: the instance did not answer", "fix `instance` first"));
-            checks.push(Check::warn("version", "not measured: the instance did not answer", "fix `instance` first"));
+            checks.push(Check::warn(
+                "clock",
+                "not measured: the instance did not answer",
+                "fix `instance` first",
+            ));
+            checks.push(Check::warn(
+                "version",
+                "not measured: the instance did not answer",
+                "fix `instance` first",
+            ));
         }
     }
 
@@ -260,7 +294,10 @@ async fn collect(cli: &Cli) -> Vec<Check> {
             || host.starts_with("localhost")
             || host.starts_with("[::1]");
         if local {
-            checks.push(Check::ok("tls", "plain HTTP to localhost: nothing leaves the machine"));
+            checks.push(Check::ok(
+                "tls",
+                "plain HTTP to localhost: nothing leaves the machine",
+            ));
         } else {
             checks.push(Check::fail(
                 "tls",
@@ -273,11 +310,15 @@ async fn collect(cli: &Cli) -> Vec<Check> {
     }
 
     // 5. The token: present, and what it can do. `me/credential` describes the caller without disclosing the secret.
-    match cli.token.as_deref().filter(|token| !token.trim().is_empty()) {
+    match cli
+        .token
+        .as_deref()
+        .filter(|token| !token.trim().is_empty())
+    {
         None => checks.push(Check::warn(
             "token",
             "no token configured: public verbs work, session verbs will answer 401",
-            "dh config --profile <name> set token <token>", 
+            "dh config --profile <name> set token <token>",
         )),
         Some(token) => {
             let request = client
@@ -287,7 +328,10 @@ async fn collect(cli: &Cli) -> Vec<Check> {
                 .await;
             match request {
                 Ok(response) if response.status().is_success() => {
-                    let body = response.json::<serde_json::Value>().await.unwrap_or_default();
+                    let body = response
+                        .json::<serde_json::Value>()
+                        .await
+                        .unwrap_or_default();
                     let scopes = body
                         .get("scopes")
                         .map(|scopes| match scopes {
@@ -302,7 +346,9 @@ async fn collect(cli: &Cli) -> Vec<Check> {
                         .unwrap_or_else(|| "unknown".to_owned());
                     checks.push(Check::ok("token", format!("accepted; scopes: {scopes}")));
                 }
-                Ok(response) if response.status().as_u16() == 401 || response.status().as_u16() == 403 => {
+                Ok(response)
+                    if response.status().as_u16() == 401 || response.status().as_u16() == 403 =>
+                {
                     checks.push(Check::fail(
                         "token",
                         format!("rejected by the server: {}", response.status()),
@@ -336,8 +382,16 @@ mod tests {
 
     #[test]
     fn skew_is_signed_and_measured_in_whole_seconds() {
-        assert_eq!(clock_skew_seconds(at(0), at(90)), 90, "local ahead reads positive");
-        assert_eq!(clock_skew_seconds(at(90), at(0)), -90, "local behind reads negative");
+        assert_eq!(
+            clock_skew_seconds(at(0), at(90)),
+            90,
+            "local ahead reads positive"
+        );
+        assert_eq!(
+            clock_skew_seconds(at(90), at(0)),
+            -90,
+            "local behind reads negative"
+        );
         assert_eq!(clock_skew_seconds(at(0), at(0)), 0);
         assert!(clock_skew_seconds(at(0), at(SKEW_TOLERANCE_SECONDS + 1)) > SKEW_TOLERANCE_SECONDS);
     }
@@ -345,7 +399,11 @@ mod tests {
     #[test]
     fn a_patch_release_is_not_api_drift_and_a_minor_is() {
         assert_eq!(api_line("0.1.0+112909a6"), Some((0, 1)));
-        assert_eq!(version_drift("0.1.0+aaa", "0.1.0+bbb"), None, "same API line");
+        assert_eq!(
+            version_drift("0.1.0+aaa", "0.1.0+bbb"),
+            None,
+            "same API line"
+        );
         let drift = version_drift("0.2.0", "0.1.9").expect("a minor bump is drift");
         assert!(drift.contains("0.2"), "{drift}");
         assert!(version_drift("not-a-version", "0.1.0").is_some());

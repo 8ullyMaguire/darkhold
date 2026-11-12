@@ -64,7 +64,9 @@ fn source_from(rule: &TasteSourceRule) -> Result<Source, String> {
         rule.everyone,
     ) {
         (Some(role), None, None, None, true, false) => Selector::Role { role: role.clone() },
-        (None, Some(badge), None, None, true, false) => Selector::Badge { badge: badge.clone() },
+        (None, Some(badge), None, None, true, false) => Selector::Badge {
+            badge: badge.clone(),
+        },
         (None, None, Some(at_least), None, true, false) => Selector::TrustLevel { at_least },
         // The evidence floor is the instance's minimum here: a source that needed its own floor would be a second
         // declaration of the same idea, and the fold already refuses a thin corpus.
@@ -72,7 +74,9 @@ fn source_from(rule: &TasteSourceRule) -> Result<Source, String> {
             at_least,
             min_evidence: rule.ids.len() as u32,
         },
-        (None, None, None, None, false, false) => Selector::Explicit { ids: rule.ids.clone() },
+        (None, None, None, None, false, false) => Selector::Explicit {
+            ids: rule.ids.clone(),
+        },
         (None, None, None, None, true, true) => Selector::Everyone,
         _ => {
             return Err(format!(
@@ -93,7 +97,12 @@ fn source_from(rule: &TasteSourceRule) -> Result<Source, String> {
         })?;
         kinds.push(kind);
     }
-    Ok(Source { name: rule.name.clone(), selector, weight: rule.weight, kinds })
+    Ok(Source {
+        name: rule.name.clone(),
+        selector,
+        weight: rule.weight,
+        kinds,
+    })
 }
 
 /// The rows, as the fold sees them.
@@ -193,21 +202,36 @@ mod tests {
     }
 
     fn config_with(rules: Vec<TasteSourceRule>) -> TasteConfig {
-        TasteConfig { taste_source: rules, ..TasteConfig::default() }
+        TasteConfig {
+            taste_source: rules,
+            ..TasteConfig::default()
+        }
     }
 
     #[test]
     fn a_declared_source_becomes_a_selector_rule() {
-        let declaration = declaration(&config_with(vec![rule("curators", &["seed", "collection_add"])]))
-            .expect("a well-formed declaration");
+        let declaration = declaration(&config_with(vec![rule(
+            "curators",
+            &["seed", "collection_add"],
+        )]))
+        .expect("a well-formed declaration");
         assert_eq!(declaration.sources.len(), 1);
-        assert_eq!(declaration.sources[0].selector, Selector::Role { role: "curator".to_string() });
-        assert_eq!(declaration.sources[0].kinds, vec![Kind::Seed, Kind::CollectionAdd]);
+        assert_eq!(
+            declaration.sources[0].selector,
+            Selector::Role {
+                role: "curator".to_string()
+            }
+        );
+        assert_eq!(
+            declaration.sources[0].kinds,
+            vec![Kind::Seed, Kind::CollectionAdd]
+        );
     }
 
     #[test]
     fn no_declared_source_is_a_refusal_not_an_empty_fold() {
-        let error = declaration(&config_with(vec![])).expect_err("an instance with no sources must say so");
+        let error =
+            declaration(&config_with(vec![])).expect_err("an instance with no sources must say so");
         assert!(error.contains("no [taste.source] entries"), "{error}");
     }
 
@@ -215,14 +239,18 @@ mod tests {
     fn an_unknown_kind_names_the_vocabulary_in_the_error() {
         let error = declaration(&config_with(vec![rule("curators", &["bookmark"])]))
             .expect_err("an undeclared kind is refused");
-        assert!(error.contains("bookmark") && error.contains("seed"), "{error}");
+        assert!(
+            error.contains("bookmark") && error.contains("seed"),
+            "{error}"
+        );
     }
 
     #[test]
     fn a_source_naming_two_selectors_is_refused() {
         let mut two = rule("both", &["seed"]);
         two.badge = Some("attuned".to_string());
-        let error = declaration(&config_with(vec![two])).expect_err("two selectors is an ambiguous rule");
+        let error =
+            declaration(&config_with(vec![two])).expect_err("two selectors is an ambiguous rule");
         assert!(error.contains("exactly one of"), "{error}");
     }
 

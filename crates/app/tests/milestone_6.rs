@@ -3105,9 +3105,13 @@ async fn a_held_arrival_queues_itself_and_writes_no_library_item() {
     let harness = Harness::new("import-intake-hold").await;
     let (_client, account, pseud) = signed_in(&harness, "held@example.org", "held").await;
     harness.seed_source(true, None).await;
-    darkhold_db::imports::set_intake_policy(harness.tdb.db(), SOURCE, &a_policy_that_holds_everything())
-        .await
-        .expect("set policy");
+    darkhold_db::imports::set_intake_policy(
+        harness.tdb.db(),
+        SOURCE,
+        &a_policy_that_holds_everything(),
+    )
+    .await
+    .expect("set policy");
 
     let state = harness.state_with(FixtureArchive::new());
     let import_id = queue_import(&harness, account, &pseud, false).await;
@@ -3119,8 +3123,12 @@ async fn a_held_arrival_queues_itself_and_writes_no_library_item() {
         "held is not failed: the same URL must be retryable after the policy changes — report {:?}",
         row.report_json
     );
-    let report: Value = serde_json::from_str(row.report_json.as_deref().unwrap_or("{}")).unwrap_or_default();
-    assert_eq!(report["intake"]["queued"], true, "the report names the queue: {report}");
+    let report: Value =
+        serde_json::from_str(row.report_json.as_deref().unwrap_or("{}")).unwrap_or_default();
+    assert_eq!(
+        report["intake"]["queued"], true,
+        "the report names the queue: {report}"
+    );
     assert!(
         report["intake"]["decision"]
             .as_str()
@@ -3162,9 +3170,13 @@ async fn the_same_arrival_imports_once_the_policy_admits_it() {
     let harness = Harness::new("import-intake-release").await;
     let (_client, account, pseud) = signed_in(&harness, "released@example.org", "released").await;
     harness.seed_source(true, None).await;
-    darkhold_db::imports::set_intake_policy(harness.tdb.db(), SOURCE, &a_policy_that_holds_everything())
-        .await
-        .expect("set holding policy");
+    darkhold_db::imports::set_intake_policy(
+        harness.tdb.db(),
+        SOURCE,
+        &a_policy_that_holds_everything(),
+    )
+    .await
+    .expect("set holding policy");
 
     let state = harness.state_with(FixtureArchive::new());
     let first = queue_import(&harness, account, &pseud, false).await;

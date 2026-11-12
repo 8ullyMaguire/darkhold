@@ -2233,9 +2233,16 @@ mod lens_owner_tests {
 
     #[test]
     fn a_vote_owned_lens_refuses_and_names_the_field() {
-        let refusal = lens_write_allowed(LensOwner::Vote).expect_err("a vote-owned lens refuses a direct write");
+        let refusal = lens_write_allowed(LensOwner::Vote)
+            .expect_err("a vote-owned lens refuses a direct write");
         let rendered = format!("{refusal:?}");
-        assert!(rendered.contains("lens_owner"), "the refusal must name the field a client can act on: {rendered}");
-        assert!(rendered.contains("votes on"), "and say what would work instead: {rendered}");
+        assert!(
+            rendered.contains("lens_owner"),
+            "the refusal must name the field a client can act on: {rendered}"
+        );
+        assert!(
+            rendered.contains("votes on"),
+            "and say what would work instead: {rendered}"
+        );
     }
 }

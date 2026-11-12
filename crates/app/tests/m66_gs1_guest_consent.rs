@@ -39,7 +39,10 @@ fn config_for(dir: &Path) -> Config {
     config.storage.root = dir.to_path_buf();
     config.database = match std::env::var("DARKHOLD_TEST_PG_URL") {
         Ok(url) if !url.is_empty() => DatabaseConfig::new(url),
-        _ => DatabaseConfig::new(format!("sqlite://{}/darkhold.sqlite?mode=rwc", dir.display())),
+        _ => DatabaseConfig::new(format!(
+            "sqlite://{}/darkhold.sqlite?mode=rwc",
+            dir.display()
+        )),
     };
     config
 }
@@ -53,14 +56,21 @@ struct Client {
 
 impl Client {
     fn new(app: axum::Router) -> Self {
-        Self { app, cookies: Vec::new() }
+        Self {
+            app,
+            cookies: Vec::new(),
+        }
     }
 
     fn capture(&mut self, response: &axum::response::Response) {
         for value in response.headers().get_all(header::SET_COOKIE) {
             let Ok(text) = value.to_str() else { continue };
-            let Some((pair, _)) = text.split_once(';') else { continue };
-            let Some((name, value)) = pair.split_once('=') else { continue };
+            let Some((pair, _)) = text.split_once(';') else {
+                continue;
+            };
+            let Some((name, value)) = pair.split_once('=') else {
+                continue;
+            };
             let name = name.trim().to_owned();
             let value = value.trim().to_owned();
             self.cookies.retain(|(k, _)| k != &name);
@@ -94,11 +104,21 @@ impl Client {
             Some(v) => Body::from(v.to_string()),
             None => Body::empty(),
         };
-        let response = self.app.clone().oneshot(builder.body(body).unwrap()).await.unwrap();
+        let response = self
+            .app
+            .clone()
+            .oneshot(builder.body(body).unwrap())
+            .await
+            .unwrap();
         let status = response.status();
         self.capture(&response);
-        let bytes = axum::body::to_bytes(response.into_body(), usize::MAX).await.unwrap();
-        (status, serde_json::from_slice(&bytes).unwrap_or(Value::Null))
+        let bytes = axum::body::to_bytes(response.into_body(), usize::MAX)
+            .await
+            .unwrap();
+        (
+            status,
+            serde_json::from_slice(&bytes).unwrap_or(Value::Null),
+        )
     }
 
     async fn post(&mut self, uri: &str, body: Value) -> (StatusCode, Value) {
@@ -123,7 +143,10 @@ impl Client {
             )
             .await;
         assert_eq!(status, StatusCode::CREATED, "register {handle}: {body}");
-        body["account"]["id"].as_str().expect("account id").to_owned()
+        body["account"]["id"]
+            .as_str()
+            .expect("account id")
+            .to_owned()
     }
 }
 
@@ -143,7 +166,11 @@ impl Harness {
         let dir = config.storage.root.clone();
         std::fs::create_dir_all(&dir).expect("create scratch dir");
         let tdb = test_support::TestDb::connect_with_dir(tag, &dir).await;
-        Self { _dir: dir, tdb, config }
+        Self {
+            _dir: dir,
+            tdb,
+            config,
+        }
     }
 
     fn client(&self) -> Client {
@@ -161,11 +188,13 @@ impl Harness {
     async fn guests(&self) -> i64 {
         use sqlx::Row;
         match self.db().backend() {
-            darkhold_db::Backend::Sqlite => sqlx::query("SELECT COUNT(*) AS n FROM accounts WHERE is_guest = 1")
-                .fetch_one(self.db().sqlite_pool().expect("sqlite"))
-                .await
-                .expect("count guests")
-                .get::<i64, _>("n"),
+            darkhold_db::Backend::Sqlite => {
+                sqlx::query("SELECT COUNT(*) AS n FROM accounts WHERE is_guest = 1")
+                    .fetch_one(self.db().sqlite_pool().expect("sqlite"))
+                    .await
+                    .expect("count guests")
+                    .get::<i64, _>("n")
+            }
             darkhold_db::Backend::Postgres => {
                 sqlx::query("SELECT COUNT(*) AS n FROM accounts WHERE is_guest = 1")
                     .fetch_one(self.db().postgres_pool().expect("postgres"))
@@ -240,7 +269,11 @@ async fn a_guest_reads_before_registering_and_the_consent_is_recorded() {
         )
         .await;
     assert_eq!(status, StatusCode::CREATED, "{status} {body}");
-    assert_eq!(body["account"]["is_guest"], json!(true), "the account view says what it is: {body}");
+    assert_eq!(
+        body["account"]["is_guest"],
+        json!(true),
+        "the account view says what it is: {body}"
+    );
     assert!(
         reader.has_session(),
         "a guest reads with a session, not as an anonymous stranger"
@@ -258,11 +291,19 @@ async fn a_guest_reads_before_registering_and_the_consent_is_recorded() {
     // And the guest is a real account with a pseud: something a bookmark can belong to.
     let pseuds = darkhold_db::identity::pseuds_for_account(
         harness.db(),
-        me["account"]["id"].as_str().expect("id").parse().expect("an account id"),
+        me["account"]["id"]
+            .as_str()
+            .expect("id")
+            .parse()
+            .expect("an account id"),
     )
     .await
     .expect("pseuds");
-    assert_eq!(pseuds.len(), 1, "a guest has a pseud, which is what GS-3 upgrades in place");
+    assert_eq!(
+        pseuds.len(),
+        1,
+        "a guest has a pseud, which is what GS-3 upgrades in place"
+    );
 }
 
 #[tokio::test]
@@ -272,16 +313,26 @@ async fn asking_twice_keeps_the_same_guest() {
     let mut reader = harness.client();
 
     let (status, first) = reader
-        .post("/api/v1/auth/guest", json!({ "consent": { "version": version } }))
+        .post(
+            "/api/v1/auth/guest",
+            json!({ "consent": { "version": version } }),
+        )
         .await;
     assert_eq!(status, StatusCode::CREATED, "{first}");
     let account = first["account"]["id"].as_str().expect("id").to_owned();
 
     let (status, second) = reader
-        .post("/api/v1/auth/guest", json!({ "consent": { "version": version } }))
+        .post(
+            "/api/v1/auth/guest",
+            json!({ "consent": { "version": version } }),
+        )
         .await;
     assert_eq!(status, StatusCode::OK, "{second}");
-    assert_eq!(second["created"], json!(false), "the same guest, not a second one: {second}");
+    assert_eq!(
+        second["created"],
+        json!(false),
+        "the same guest, not a second one: {second}"
+    );
     assert_eq!(
         harness.guests().await,
         1,
@@ -316,7 +367,10 @@ async fn a_registered_reader_cannot_step_back_into_being_a_guest() {
     reader.register("reverse@example.test", "Reverse").await;
 
     let (status, body) = reader
-        .post("/api/v1/auth/guest", json!({ "consent": { "version": version } }))
+        .post(
+            "/api/v1/auth/guest",
+            json!({ "consent": { "version": version } }),
+        )
         .await;
     assert_eq!(status, StatusCode::UNPROCESSABLE_ENTITY, "{status} {body}");
     assert!(

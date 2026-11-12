@@ -61,8 +61,12 @@ async fn profile(
         .map_err(|e| ApiError(AppError::Internal(e)))?;
 
     let contributors = crate::taste_source::contributors(&contributor_rows, operator.as_deref());
-    let (owned, unmapped) = crate::taste_source::evidence(&evidence_rows, &crate::taste_source::kind_map());
-    let borrowed: Vec<Evidence<'_>> = owned.iter().map(crate::taste_source::OwnedEvidence::as_row).collect();
+    let (owned, unmapped) =
+        crate::taste_source::evidence(&evidence_rows, &crate::taste_source::kind_map());
+    let borrowed: Vec<Evidence<'_>> = owned
+        .iter()
+        .map(crate::taste_source::OwnedEvidence::as_row)
+        .collect();
 
     let (profile, reports) = polaris_taste_source::fold(&declaration, &contributors, &borrowed);
 

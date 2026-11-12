@@ -879,14 +879,18 @@ pub async fn intake_policy(db: &Database, key: &str) -> Result<Option<String>> {
         "SELECT intake_policy_json FROM sources WHERE key = ?",
     );
     let row: Option<(String,)> = match db.backend() {
-        Backend::Sqlite => sqlx::query_as(&sql)
-            .bind(key)
-            .fetch_optional(db.sqlite_pool().expect("sqlite handle"))
-            .await?,
-        Backend::Postgres => sqlx::query_as(&sql)
-            .bind(key)
-            .fetch_optional(db.postgres_pool().expect("postgres handle"))
-            .await?,
+        Backend::Sqlite => {
+            sqlx::query_as(&sql)
+                .bind(key)
+                .fetch_optional(db.sqlite_pool().expect("sqlite handle"))
+                .await?
+        }
+        Backend::Postgres => {
+            sqlx::query_as(&sql)
+                .bind(key)
+                .fetch_optional(db.postgres_pool().expect("postgres handle"))
+                .await?
+        }
     };
     Ok(row.map(|(policy,)| policy))
 }
@@ -997,15 +1001,34 @@ pub async fn queue_intake(
     Ok(())
 }
 
+/// The eight columns every statement in this section selects, in order.
+///
+/// A type alias rather than the same inline eight-tuple written twice: clippy calls that "very complex type", and the alias
+/// also names what the tuple is, which a flat run of `String`s does not.
+type ArrivalRow = (
+    String,
+    String,
+    String,
+    String,
+    String,
+    String,
+    String,
+    String,
+);
+
 /// The arrivals an account's sources are holding, newest first.
-pub async fn queued_arrivals(db: &Database, account_id: &str, limit: i64) -> Result<Vec<QueuedArrival>> {
+pub async fn queued_arrivals(
+    db: &Database,
+    account_id: &str,
+    limit: i64,
+) -> Result<Vec<QueuedArrival>> {
     let sql = db.sql(
         "SELECT id, account_id, source_key, source_work_key, candidate_json, decision, source_url, created_at
            FROM import_intake_queue WHERE account_id = ? ORDER BY created_at DESC LIMIT ?",
         "SELECT id::text, account_id::text, source_key, source_work_key, candidate_json, decision, source_url, created_at
            FROM import_intake_queue WHERE account_id = $1::uuid ORDER BY created_at DESC LIMIT $2",
     );
-    let rows: Vec<(String, String, String, String, String, String, String, String)> = match db.backend() {
+    let rows: Vec<ArrivalRow> = match db.backend() {
         Backend::Sqlite => {
             sqlx::query_as(&sql)
                 .bind(account_id)
@@ -1024,7 +1047,16 @@ pub async fn queued_arrivals(db: &Database, account_id: &str, limit: i64) -> Res
     Ok(rows
         .into_iter()
         .map(
-            |(id, account_id, source_key, source_work_key, candidate_json, decision, source_url, created_at)| {
+            |(
+                id,
+                account_id,
+                source_key,
+                source_work_key,
+                candidate_json,
+                decision,
+                source_url,
+                created_at,
+            )| {
                 QueuedArrival {
                     id,
                     account_id,
@@ -1055,7 +1087,7 @@ pub async fn queued_arrival(
         "SELECT id::text, account_id::text, source_key, source_work_key, candidate_json, decision, source_url, created_at
            FROM import_intake_queue WHERE id = $1::uuid AND account_id = $2::uuid",
     );
-    let row: Option<(String, String, String, String, String, String, String, String)> = match db.backend() {
+    let row: Option<ArrivalRow> = match db.backend() {
         Backend::Sqlite => {
             sqlx::query_as(&sql)
                 .bind(id)
@@ -1072,7 +1104,16 @@ pub async fn queued_arrival(
         }
     };
     Ok(row.map(
-        |(id, account_id, source_key, source_work_key, candidate_json, decision, source_url, created_at)| {
+        |(
+            id,
+            account_id,
+            source_key,
+            source_work_key,
+            candidate_json,
+            decision,
+            source_url,
+            created_at,
+        )| {
             QueuedArrival {
                 id,
                 account_id,
@@ -1097,22 +1138,18 @@ pub async fn clear_queued_arrival(db: &Database, id: &str, account_id: &str) -> 
         "DELETE FROM import_intake_queue WHERE id = $1::uuid AND account_id = $2::uuid",
     );
     let done = match db.backend() {
-        Backend::Sqlite => {
-            sqlx::query(&sql)
-                .bind(id)
-                .bind(account_id)
-                .execute(db.sqlite_pool().expect("sqlite handle"))
-                .await?
-                .rows_affected()
-        }
-        Backend::Postgres => {
-            sqlx::query(&sql)
-                .bind(id)
-                .bind(account_id)
-                .execute(db.postgres_pool().expect("postgres handle"))
-                .await?
-                .rows_affected()
-        }
+        Backend::Sqlite => sqlx::query(&sql)
+            .bind(id)
+            .bind(account_id)
+            .execute(db.sqlite_pool().expect("sqlite handle"))
+            .await?
+            .rows_affected(),
+        Backend::Postgres => sqlx::query(&sql)
+            .bind(id)
+            .bind(account_id)
+            .execute(db.postgres_pool().expect("postgres handle"))
+            .await?
+            .rows_affected(),
     };
     Ok(done > 0)
 }

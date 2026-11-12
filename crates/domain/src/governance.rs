@@ -268,10 +268,19 @@ mod tests {
     #[test]
     fn every_ground_round_trips_and_the_set_is_closed() {
         for ground in StatementGround::ALL {
-            assert_eq!(StatementGround::parse(ground.as_str()), Some(ground), "{}", ground.as_str());
+            assert_eq!(
+                StatementGround::parse(ground.as_str()),
+                Some(ground),
+                "{}",
+                ground.as_str()
+            );
         }
         assert_eq!(StatementGround::parse("because_i_said_so"), None);
-        assert_eq!(StatementGround::ALL.len(), 4, "adding a ground is a reporting change, not a code change");
+        assert_eq!(
+            StatementGround::ALL.len(),
+            4,
+            "adding a ground is a reporting change, not a code change"
+        );
     }
 
     #[test]

@@ -217,7 +217,10 @@ pub fn plan_shelf_import(shelf: &ImportShelf) -> ImportPlan {
                 "title:{}",
                 // The estate's one slug rule. `Policy::NONE` because this is a dedupe KEY, not a URL: an empty result is
                 // a fact about a title made only of punctuation, and inventing a word for it would merge unrelated works.
-                polaris_slug::slug(&format!("{title} {}", row.author), polaris_slug::Policy::NONE)
+                polaris_slug::slug(
+                    &format!("{title} {}", row.author),
+                    polaris_slug::Policy::NONE
+                )
             ),
         };
 
@@ -281,7 +284,6 @@ fn normalise_date(raw: &str) -> Option<String> {
     }
     None
 }
-
 
 /// The row's own metadata as a JSON document.
 fn provenance(row: &ShelfRow) -> String {

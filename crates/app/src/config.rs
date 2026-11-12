@@ -467,19 +467,15 @@ impl Default for ContentPolicyConfig {
 /// How this instance treats real-person fiction.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize)]
 #[serde(rename_all = "snake_case")]
+#[derive(Default)]
 pub enum RpfMode {
     /// Hosted without further condition.
     Allow,
     /// Hosted, and the work must carry the RPF tag so a reader can filter it. The default.
+    #[default]
     TagRequired,
     /// Not hosted: the work door refuses it and names the policy.
     Blocked,
-}
-
-impl Default for RpfMode {
-    fn default() -> Self {
-        Self::TagRequired
-    }
 }
 
 #[derive(Debug, Clone, Default)]
@@ -1557,17 +1553,13 @@ impl Default for VanguardConfig {
 /// removing.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize)]
 #[serde(rename_all = "snake_case")]
+#[derive(Default)]
 pub enum LensOwner {
     /// The operator writes the lens directly. The default, and today's behaviour.
+    #[default]
     Operator,
     /// A direct write is refused: a lens change has to arrive through a proposal the instance votes on.
     Vote,
-}
-
-impl Default for LensOwner {
-    fn default() -> Self {
-        Self::Operator
-    }
 }
 
 /// Taste gravity settings (spec §0.4, §16.17).
@@ -3855,7 +3847,8 @@ impl Config {
                     taste_source: t.source.unwrap_or_default(),
                     taste_half_life_days: t.half_life_days.unwrap_or(120.0),
                     // A negative minimum is not "no minimum", it is a typo: clamp to 0 here so the fold's u32 is honest.
-                    taste_min_evidence: u32::try_from(t.min_evidence.unwrap_or(3).max(0)).unwrap_or(3),
+                    taste_min_evidence: u32::try_from(t.min_evidence.unwrap_or(3).max(0))
+                        .unwrap_or(3),
                 }
             },
             signals: {

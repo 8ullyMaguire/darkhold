@@ -102,9 +102,13 @@ async fn assert_tag(
     // The content policy refuses here rather than at work creation, because this is the door where a work *declares*
     // that it is about real people: `CreateWorkRequest` carries a title and nothing else. An instance set to `blocked`
     // therefore stops at the first assertion instead of discovering the problem after the body is written.
-    if let Some(entity) = darkhold_db::taxonomy::node_by_id(state.db(), node).await.map_err(internal)? {
+    if let Some(entity) = darkhold_db::taxonomy::node_by_id(state.db(), node)
+        .await
+        .map_err(internal)?
+    {
         if crate::routes::policy::is_rpf_tag(&state.config().policy, &entity.norm) {
-            if let Some(refusal) = crate::routes::policy::rpf_refusal(&state.config().policy, &entity.canonical)
+            if let Some(refusal) =
+                crate::routes::policy::rpf_refusal(&state.config().policy, &entity.canonical)
             {
                 return Err(invalid(refusal));
             }

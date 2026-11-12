@@ -35,7 +35,10 @@ fn config_for(dir: &Path) -> Config {
     config.storage.root = dir.to_path_buf();
     config.database = match std::env::var("DARKHOLD_TEST_PG_URL") {
         Ok(url) if !url.is_empty() => DatabaseConfig::new(url),
-        _ => DatabaseConfig::new(format!("sqlite://{}/darkhold.sqlite?mode=rwc", dir.display())),
+        _ => DatabaseConfig::new(format!(
+            "sqlite://{}/darkhold.sqlite?mode=rwc",
+            dir.display()
+        )),
     };
     config
 }
@@ -49,14 +52,21 @@ struct Client {
 
 impl Client {
     fn new(app: axum::Router) -> Self {
-        Self { app, cookies: Vec::new() }
+        Self {
+            app,
+            cookies: Vec::new(),
+        }
     }
 
     fn capture(&mut self, response: &axum::response::Response) {
         for value in response.headers().get_all(header::SET_COOKIE) {
             let Ok(text) = value.to_str() else { continue };
-            let Some((pair, _)) = text.split_once(';') else { continue };
-            let Some((name, value)) = pair.split_once('=') else { continue };
+            let Some((pair, _)) = text.split_once(';') else {
+                continue;
+            };
+            let Some((name, value)) = pair.split_once('=') else {
+                continue;
+            };
             let name = name.trim().to_owned();
             let value = value.trim().to_owned();
             self.cookies.retain(|(k, _)| k != &name);
@@ -66,7 +76,12 @@ impl Client {
         }
     }
 
-    async fn request(&mut self, method: &str, uri: &str, body: Option<Value>) -> (StatusCode, Value) {
+    async fn request(
+        &mut self,
+        method: &str,
+        uri: &str,
+        body: Option<Value>,
+    ) -> (StatusCode, Value) {
         let mut builder = Request::builder()
             .method(method)
             .uri(uri)
@@ -86,10 +101,17 @@ impl Client {
             Some(v) => Body::from(v.to_string()),
             None => Body::empty(),
         };
-        let response = self.app.clone().oneshot(builder.body(body).unwrap()).await.unwrap();
+        let response = self
+            .app
+            .clone()
+            .oneshot(builder.body(body).unwrap())
+            .await
+            .unwrap();
         let status = response.status();
         self.capture(&response);
-        let bytes = axum::body::to_bytes(response.into_body(), usize::MAX).await.unwrap();
+        let bytes = axum::body::to_bytes(response.into_body(), usize::MAX)
+            .await
+            .unwrap();
         let json: Value = serde_json::from_slice(&bytes)
             .unwrap_or_else(|_| Value::String(String::from_utf8_lossy(&bytes).into_owned()));
         (status, json)
@@ -100,10 +122,7 @@ impl Client {
     }
 
     /// The same GET, keeping the headers — a download is a body *and* a filename.
-    async fn get_with_headers(
-        &mut self,
-        uri: &str,
-    ) -> (StatusCode, axum::http::HeaderMap, Value) {
+    async fn get_with_headers(&mut self, uri: &str) -> (StatusCode, axum::http::HeaderMap, Value) {
         let mut builder = Request::builder().method("GET").uri(uri);
         for (name, value) in &self.cookies {
             builder = builder.header(header::COOKIE, format!("{name}={value}"));
@@ -116,8 +135,14 @@ impl Client {
             .unwrap();
         let status = response.status();
         let headers = response.headers().clone();
-        let bytes = axum::body::to_bytes(response.into_body(), usize::MAX).await.unwrap();
-        (status, headers, serde_json::from_slice(&bytes).unwrap_or(Value::Null))
+        let bytes = axum::body::to_bytes(response.into_body(), usize::MAX)
+            .await
+            .unwrap();
+        (
+            status,
+            headers,
+            serde_json::from_slice(&bytes).unwrap_or(Value::Null),
+        )
     }
 
     async fn post(&mut self, uri: &str, body: Value) -> (StatusCode, Value) {
@@ -156,7 +181,11 @@ impl Harness {
         let dir = scratch_dir(tag);
         let tdb = test_support::TestDb::connect_with_dir(tag, &dir).await;
         let config = config_for(&dir);
-        Self { _dir: dir, tdb, config }
+        Self {
+            _dir: dir,
+            tdb,
+            config,
+        }
     }
 
     fn db(&self) -> &darkhold_db::Database {
@@ -196,7 +225,9 @@ impl Harness {
 
     async fn subject(&self, tag: &str) -> String {
         let mut client = self.client();
-        client.register(&format!("{tag}-subject@example.test"), "Subject").await
+        client
+            .register(&format!("{tag}-subject@example.test"), "Subject")
+            .await
     }
 
     async fn count_audit(&self, account: &str) -> i64 {
@@ -228,18 +259,31 @@ async fn the_notice_forms_are_public_and_name_what_the_validator_requires() {
     let mut anonymous = harness.client();
 
     let (status, body) = anonymous.get("/api/v1/notices/forms").await;
-    assert_eq!(status, StatusCode::OK, "a complainant needs the form before an account: {status} {body}");
+    assert_eq!(
+        status,
+        StatusCode::OK,
+        "a complainant needs the form before an account: {status} {body}"
+    );
 
     let forms = body["forms"].as_array().expect("forms");
     assert_eq!(forms.len(), 2, "two regimes, two forms");
 
-    let dsa = forms.iter().find(|f| f["kind"] == "dsa").expect("the DSA form");
+    let dsa = forms
+        .iter()
+        .find(|f| f["kind"] == "dsa")
+        .expect("the DSA form");
     assert!(
-        dsa["legal_basis"].as_str().unwrap_or_default().contains("Article 16"),
+        dsa["legal_basis"]
+            .as_str()
+            .unwrap_or_default()
+            .contains("Article 16"),
         "the DSA form names its article: {dsa}"
     );
 
-    let dmca = forms.iter().find(|f| f["kind"] == "dmca").expect("the DMCA form");
+    let dmca = forms
+        .iter()
+        .find(|f| f["kind"] == "dmca")
+        .expect("the DMCA form");
     let names: Vec<&str> = dmca["fields"]
         .as_array()
         .expect("fields")
@@ -266,7 +310,11 @@ async fn the_templates_are_operator_only_and_cover_every_ground() {
 
     let mut anonymous = harness.client();
     let (status, _body) = anonymous.get("/api/v1/statements/templates").await;
-    assert_eq!(status, StatusCode::UNAUTHORIZED, "the instance's voice is not public");
+    assert_eq!(
+        status,
+        StatusCode::UNAUTHORIZED,
+        "the instance's voice is not public"
+    );
 
     let (mut operator, _account) = harness.operator("templates").await;
     let (status, body) = operator.get("/api/v1/statements/templates").await;
@@ -284,7 +332,10 @@ async fn the_templates_are_operator_only_and_cover_every_ground() {
             .find(|t| t["ground"] == ground.as_str())
             .unwrap_or_else(|| panic!("{} has no template", ground.as_str()));
         assert!(
-            entry["template"].as_str().unwrap_or_default().contains("{facts}"),
+            entry["template"]
+                .as_str()
+                .unwrap_or_default()
+                .contains("{facts}"),
             "{} template carries the reviewer's facts: {entry}",
             ground.as_str()
         );
@@ -318,18 +369,29 @@ async fn an_operator_read_needs_a_basis_and_is_recorded() {
         body["error"]["field_errors"].get("basis").is_some(),
         "the refusal names `basis`: {body}"
     );
-    assert_eq!(harness.count_audit(&subject).await, 0, "a refused read leaves no receipt");
+    assert_eq!(
+        harness.count_audit(&subject).await,
+        0,
+        "a refused read leaves no receipt"
+    );
 
     // An invented basis is refused for the same reason.
     let (status, body) = operator
-        .get(&format!("/api/v1/admin/subjects/{subject}/data?basis=curiosity"))
+        .get(&format!(
+            "/api/v1/admin/subjects/{subject}/data?basis=curiosity"
+        ))
         .await;
     assert_eq!(status, StatusCode::UNPROCESSABLE_ENTITY, "{status} {body}");
-    assert!(body["error"]["field_errors"].get("basis").is_some(), "{body}");
+    assert!(
+        body["error"]["field_errors"].get("basis").is_some(),
+        "{body}"
+    );
 
     // A real basis discloses, and the receipt is written.
     let (status, body) = operator
-        .get(&format!("/api/v1/admin/subjects/{subject}/data?basis=legal_obligation"))
+        .get(&format!(
+            "/api/v1/admin/subjects/{subject}/data?basis=legal_obligation"
+        ))
         .await;
     assert_eq!(status, StatusCode::OK, "{status} {body}");
     assert_eq!(body["basis"], "legal_obligation");
@@ -345,7 +407,9 @@ async fn an_operator_read_needs_a_basis_and_is_recorded() {
 
     // A subject-access answer is a document: handed over, archived, produced again on request.
     let (status, headers, _body) = operator
-        .get_with_headers(&format!("/api/v1/admin/subjects/{subject}/data?basis=legal_obligation"))
+        .get_with_headers(&format!(
+            "/api/v1/admin/subjects/{subject}/data?basis=legal_obligation"
+        ))
         .await;
     assert_eq!(status, StatusCode::OK);
     let disposition = headers
@@ -367,7 +431,9 @@ async fn an_operator_read_needs_a_basis_and_is_recorded() {
     let mut reader = harness.client();
     reader.register("dsar-reader@example.test", "Reader").await;
     let (status, _body) = reader
-        .get(&format!("/api/v1/admin/subjects/{subject}/data?basis=legal_obligation"))
+        .get(&format!(
+            "/api/v1/admin/subjects/{subject}/data?basis=legal_obligation"
+        ))
         .await;
     // `404`, not `403`: the door is operator-only now, and ADR 0030 answers a caller with no admin standing at all with 404 — confirming that a
     // subject-access surface exists is itself a disclosure. `403`/`422` were what a trust-level refusal looked like when the gate was a level.

@@ -137,7 +137,11 @@ async fn submit_report(
     // notice must contain under 17 U.S.C. 512(c)(3): identification of the copyrighted work, identification of the material
     // claimed to infringe, a good-faith statement, and the complainant's signature. Each one missing is a `422` naming that
     // field, because a notice that fails one element is not a weak notice, it is not a notice.
-    let kind = if body.kind.trim().is_empty() { "dsa" } else { body.kind.trim() };
+    let kind = if body.kind.trim().is_empty() {
+        "dsa"
+    } else {
+        body.kind.trim()
+    };
     match kind {
         "dsa" => {}
         "dmca" => {
@@ -367,19 +371,20 @@ async fn decide_task(
     // The alternative — decide now, explain later — is how a queue ends up full of decisions nobody can defend: the
     // reviewer has moved on, the report is closed, and the author is left with a sanction and no reasons. So the reasons
     // are validated *before* the decision is recorded, and a missing one refuses the decision.
-    let ground = darkhold_domain::governance::StatementGround::parse(&body.ground).ok_or_else(|| {
-        ApiError(AppError::field(
-            "ground",
-            format!(
-                "a decision must name its ground: one of {}",
-                darkhold_domain::governance::StatementGround::ALL
-                    .iter()
-                    .map(|g| g.as_str())
-                    .collect::<Vec<_>>()
-                    .join(", ")
-            ),
-        ))
-    })?;
+    let ground =
+        darkhold_domain::governance::StatementGround::parse(&body.ground).ok_or_else(|| {
+            ApiError(AppError::field(
+                "ground",
+                format!(
+                    "a decision must name its ground: one of {}",
+                    darkhold_domain::governance::StatementGround::ALL
+                        .iter()
+                        .map(|g| g.as_str())
+                        .collect::<Vec<_>>()
+                        .join(", ")
+                ),
+            ))
+        })?;
     if body.facts.trim().is_empty() {
         return Err(ApiError(AppError::field(
             "facts",
@@ -427,10 +432,9 @@ async fn decide_task(
     // the deadline they can appeal by. Until this existed the reporter got an answer and the author got a sanction with no
     // explanation, which is the asymmetry the row was filed for. The existing notification machinery carries both — no
     // second inbox — and an account that muted this event kind is honoured by `notify` itself.
-    if let Some(statement) =
-        darkhold_db::governance::statement_by_id(state.db(), &statement_id)
-            .await
-            .map_err(|e| ApiError(AppError::Internal(e.into())))?
+    if let Some(statement) = darkhold_db::governance::statement_by_id(state.db(), &statement_id)
+        .await
+        .map_err(|e| ApiError(AppError::Internal(e.into())))?
     {
         if let Some(report_id) = statement.report_id.clone() {
             if let Some((subject_type, subject_id, reporter)) =
@@ -854,19 +858,25 @@ async fn open_appeal(
     // The deadline was stored when the decision was written, so it cannot move afterwards. A sanction whose reasons were
     // filed as `statement:<id>` inherits that deadline; one issued without reasons has no window to check, which is itself
     // the honest state (and the row that fixes it is step 3's notification, not a guessed default here).
-    let (owner, reason_ref) = darkhold_db::governance::sanction_subject(state.db(), &body.sanction_id)
-        .await
-        .map_err(|e| ApiError(AppError::Internal(e.into())))?
-        .ok_or_else(|| ApiError(AppError::NotFound { resource: "sanction" }))?;
+    let (owner, reason_ref) =
+        darkhold_db::governance::sanction_subject(state.db(), &body.sanction_id)
+            .await
+            .map_err(|e| ApiError(AppError::Internal(e.into())))?
+            .ok_or_else(|| {
+                ApiError(AppError::NotFound {
+                    resource: "sanction",
+                })
+            })?;
     // A stranger learns nothing about a sanction that is not theirs — not even that it exists.
     if owner != appellant {
-        return Err(ApiError(AppError::NotFound { resource: "sanction" }));
+        return Err(ApiError(AppError::NotFound {
+            resource: "sanction",
+        }));
     }
     if let Some(statement_id) = reason_ref.strip_prefix("statement:") {
-        if let Some(statement) =
-            darkhold_db::governance::statement_by_id(state.db(), statement_id)
-                .await
-                .map_err(|e| ApiError(AppError::Internal(e.into())))?
+        if let Some(statement) = darkhold_db::governance::statement_by_id(state.db(), statement_id)
+            .await
+            .map_err(|e| ApiError(AppError::Internal(e.into())))?
         {
             let deadline = time::OffsetDateTime::parse(
                 &statement.appeal_until,
@@ -1129,12 +1139,15 @@ async fn my_audit_log(
     let since = match params.since.as_deref() {
         None => None,
         Some(text) => {
-            let at = time::OffsetDateTime::parse(text, &time::format_description::well_known::Rfc3339)
-                .map_err(|_| {
+            let at =
+                time::OffsetDateTime::parse(text, &time::format_description::well_known::Rfc3339)
+                    .map_err(|_| {
                     ApiError(darkhold_domain::AppError::Validation {
-                        message: "`since` must be an RFC 3339 timestamp, for example 2026-11-04T00:00:00Z".to_owned(),
-                        field_errors: Default::default(),
-                    })
+                    message:
+                        "`since` must be an RFC 3339 timestamp, for example 2026-11-04T00:00:00Z"
+                            .to_owned(),
+                    field_errors: Default::default(),
+                })
                 })?;
             // The column is second precision (`identity::format_rfc3339` truncates deliberately), and a caller's `.123456` fraction would
             // compare digit-by-digit against it — so the bound is normalised to the shape the column actually holds.
@@ -1150,7 +1163,9 @@ async fn my_audit_log(
     )
     .await
     .map_err(|e| ApiError(darkhold_domain::AppError::Internal(e.into())))?;
-    Ok(Json(json!({ "items": items, "since": since, "limit": limit })))
+    Ok(Json(
+        json!({ "items": items, "since": since, "limit": limit }),
+    ))
 }
 
 /// Paging and filtering for your own audit log.
@@ -1160,59 +1175,6 @@ pub struct AuditQuery {
     since: Option<String>,
     /// How many, at most. 1..200, default 50.
     limit: Option<i64>,
-}
-
-#[cfg(test)]
-mod submit_report_tests {
-    use super::*;
-
-    #[test]
-    fn every_contract_code_is_accepted() {
-        for code in REPORT_REASONS {
-            assert!(validate_reason(code).is_ok(), "{code} must be accepted");
-        }
-    }
-
-    #[test]
-    fn an_invented_reason_is_rejected_and_the_error_names_the_alternatives() {
-        let err = validate_reason("vexatious").expect_err("an invented code must not be accepted");
-        match err {
-            AppError::Validation {
-                message,
-                field_errors,
-            } => {
-                assert!(
-                    message.contains("vexatious"),
-                    "message names the rejected code: {message}"
-                );
-                let hint = field_errors
-                    .get("reason")
-                    .expect("the reason field carries the alternatives");
-                for code in REPORT_REASONS {
-                    assert!(hint.contains(code), "the field error lists {code}: {hint}");
-                }
-            }
-            other => panic!("expected a Validation error, got {other:?}"),
-        }
-    }
-
-    #[test]
-    fn rejection_is_case_sensitive_because_the_contract_is_lowercase() {
-        // A client sending "Spam" is not sending the contract's code; accepting it would put a second spelling of the
-        // same reason in the queue, which is the drift this check exists to stop.
-        assert!(validate_reason("Spam").is_err());
-        assert!(validate_reason("").is_err());
-    }
-
-    #[test]
-    fn the_operator_only_set_is_a_subset_of_the_contract() {
-        for code in OPERATOR_ONLY_REASONS {
-            assert!(
-                REPORT_REASONS.contains(&code),
-                "{code} must also be a report reason"
-            );
-        }
-    }
 }
 
 /// The statement of reasons for one decision, to the person it concerns.
@@ -1279,4 +1241,57 @@ pub async fn statement_for_task_route(
         "decided_at": statement.decided_at,
         "appeal_until": statement.appeal_until,
     })))
+}
+
+#[cfg(test)]
+mod submit_report_tests {
+    use super::*;
+
+    #[test]
+    fn every_contract_code_is_accepted() {
+        for code in REPORT_REASONS {
+            assert!(validate_reason(code).is_ok(), "{code} must be accepted");
+        }
+    }
+
+    #[test]
+    fn an_invented_reason_is_rejected_and_the_error_names_the_alternatives() {
+        let err = validate_reason("vexatious").expect_err("an invented code must not be accepted");
+        match err {
+            AppError::Validation {
+                message,
+                field_errors,
+            } => {
+                assert!(
+                    message.contains("vexatious"),
+                    "message names the rejected code: {message}"
+                );
+                let hint = field_errors
+                    .get("reason")
+                    .expect("the reason field carries the alternatives");
+                for code in REPORT_REASONS {
+                    assert!(hint.contains(code), "the field error lists {code}: {hint}");
+                }
+            }
+            other => panic!("expected a Validation error, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn rejection_is_case_sensitive_because_the_contract_is_lowercase() {
+        // A client sending "Spam" is not sending the contract's code; accepting it would put a second spelling of the
+        // same reason in the queue, which is the drift this check exists to stop.
+        assert!(validate_reason("Spam").is_err());
+        assert!(validate_reason("").is_err());
+    }
+
+    #[test]
+    fn the_operator_only_set_is_a_subset_of_the_contract() {
+        for code in OPERATOR_ONLY_REASONS {
+            assert!(
+                REPORT_REASONS.contains(&code),
+                "{code} must also be a report reason"
+            );
+        }
+    }
 }

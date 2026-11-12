@@ -16,8 +16,8 @@
 
 use crate::http::{ApiError, ApiResult};
 use crate::state::AppState;
-use darkhold_domain::membership::{self, Standing};
 use darkhold_domain::error::AppError;
+use darkhold_domain::membership::{self, Standing};
 use serde_json::{json, Value};
 
 /// What the gate decided about one account, with the numbers that produced it.

@@ -35,8 +35,7 @@ fn uid(name: &str) -> String {
         }
         hash
     };
-    uuid::Uuid::from_u128((u128::from(fold(0x9e37)) << 64) | u128::from(fold(0x51ed)))
-        .to_string()
+    uuid::Uuid::from_u128((u128::from(fold(0x9e37)) << 64) | u128::from(fold(0x51ed))).to_string()
 }
 
 fn make_config(url: String) -> darkhold_db::DatabaseConfig {
@@ -182,7 +181,13 @@ async fn seed_work(db: &Database, work: &str, owner_pseud: &str, title: &str) {
     }
 }
 
-async fn seed_rating(db: &Database, work: &str, rater_account: &str, rater_pseud: &str, stars: i32) {
+async fn seed_rating(
+    db: &Database,
+    work: &str,
+    rater_account: &str,
+    rater_pseud: &str,
+    stars: i32,
+) {
     let at = "2026-01-01T00:00:00Z";
     let id = uuid::Uuid::new_v4().to_string();
     match db.backend() {
@@ -268,10 +273,13 @@ async fn level_of(
     axes: &darkhold_domain::trust::TrustAxes,
     requirements: &darkhold_domain::trust::TrustRequirements,
 ) -> (i64, i64) {
-    let evidence = governance::evidence_for(db, account, None).await.expect("evidence");
-    let assessment = governance::recompute_trust(db, account, &settings(ladder, axes, requirements))
+    let evidence = governance::evidence_for(db, account, None)
         .await
-        .expect("recompute");
+        .expect("evidence");
+    let assessment =
+        governance::recompute_trust(db, account, &settings(ladder, axes, requirements))
+            .await
+            .expect("recompute");
     (assessment.level, evidence.vote_score)
 }
 
@@ -335,7 +343,13 @@ async fn the_karma_ledger_cannot_buy_a_level() {
     seed_account(&db, &uid("nobody"), 40).await;
     seed_pseud(&db, &uid("nobody"), &uid("nobody-p"), "nobody").await;
     seed_account(&db, &uid("karmamonger"), 40).await;
-    seed_pseud(&db, &uid("karmamonger"), &uid("karmamonger-p"), "karmamonger").await;
+    seed_pseud(
+        &db,
+        &uid("karmamonger"),
+        &uid("karmamonger-p"),
+        "karmamonger",
+    )
+    .await;
     seed_karma(&db, &uid("karmamonger-p"), 5_000_000).await;
 
     // And a newcomer holding the same ledger, so the comparison is about the ledger and not about the forty days.

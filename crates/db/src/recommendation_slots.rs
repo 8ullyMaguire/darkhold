@@ -344,8 +344,6 @@ pub async fn explain_slot(
     Ok(row.map(SlotRow::into_explanation))
 }
 
-
-
 /// Delete slots older than `cutoff`, returning how many went.
 ///
 /// Retention is not optional here: a slot is a record of what a reader was

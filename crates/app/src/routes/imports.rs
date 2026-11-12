@@ -2651,7 +2651,7 @@ pub async fn release_intake_queue_row(
         &darkhold_domain::jobs::RetryPolicy::default(),
     )
     .await
-    .map_err(|error| ApiError(darkhold_domain::AppError::Internal(error.into())))?;
+    .map_err(|error| ApiError(darkhold_domain::AppError::Internal(error)))?;
     let import = imports::create_import_job(
         state.db(),
         &import_id,

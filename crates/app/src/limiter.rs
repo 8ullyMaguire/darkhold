@@ -477,7 +477,8 @@ fn warn_missing_address(state: &AppState) {
 ///   and `blocked_until` is somebody's decision, not a consequence of arithmetic.
 async fn refuse(state: &AppState, key: &str, retry_after: Duration) -> Response {
     let window = hour_window();
-    if let Err(error) = darkhold_db::admin::increment_abuse_counter(state.db(), key, &window).await {
+    if let Err(error) = darkhold_db::admin::increment_abuse_counter(state.db(), key, &window).await
+    {
         tracing::warn!(%key, %error, "could not record a rate-limit refusal in the abuse counters");
     }
     too_many(retry_after)

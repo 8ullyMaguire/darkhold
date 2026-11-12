@@ -256,17 +256,15 @@ pub async fn panel_for_task(db: &Database, task_id: &str) -> Result<Option<Panel
             .bind(task_id)
             .fetch_optional(db.sqlite_pool().expect("sqlite handle"))
             .await?
-            .map(|row| {
-                Panel {
-                    id: row.get(0),
-                    task_id: row.get(1),
-                    seed: row.get(2),
-                    size: row.get(3),
-                    level_floor: row.get(4),
-                    drawn_at: row.get(5),
-                    appeal_of: row.get(6),
-                    members: Vec::new(),
-                }
+            .map(|row| Panel {
+                id: row.get(0),
+                task_id: row.get(1),
+                seed: row.get(2),
+                size: row.get(3),
+                level_floor: row.get(4),
+                drawn_at: row.get(5),
+                appeal_of: row.get(6),
+                members: Vec::new(),
             }),
         Backend::Postgres => sqlx::query(&sql)
             .bind(task_id)
@@ -283,7 +281,9 @@ pub async fn panel_for_task(db: &Database, task_id: &str) -> Result<Option<Panel
                 members: Vec::new(),
             }),
     };
-    let Some(mut panel) = found else { return Ok(None) };
+    let Some(mut panel) = found else {
+        return Ok(None);
+    };
     panel.members = members(db, &panel.id).await?;
     Ok(Some(panel))
 }
@@ -323,7 +323,12 @@ pub async fn members(db: &Database, panel_id: &str) -> Result<Vec<PanelMember>> 
 
 /// Record one juror's verdict. Returns `false` when the account is not seated on the panel **or** has already spoken: both are "this vote was not
 /// counted", and the caller answers 404 for the first (it does not confirm the panel to a stranger) and 409 for the second.
-pub async fn record_verdict(db: &Database, panel_id: &str, account: &str, verdict: &str) -> Result<bool> {
+pub async fn record_verdict(
+    db: &Database,
+    panel_id: &str,
+    account: &str,
+    verdict: &str,
+) -> Result<bool> {
     if !matches!(verdict, "uphold" | "overturn") {
         return Ok(false);
     }
@@ -358,7 +363,10 @@ pub async fn record_verdict(db: &Database, panel_id: &str, account: &str, verdic
 
 /// The panels an account sits on, newest first, with the task they belong to. A juror has to be able to find their assignment; nothing else tells
 /// them a decision is waiting on them.
-pub async fn panels_for_account(db: &Database, account: &str) -> Result<Vec<(String, String, String, Option<String>)>> {
+pub async fn panels_for_account(
+    db: &Database,
+    account: &str,
+) -> Result<Vec<(String, String, String, Option<String>)>> {
     let sql = db.sql(
         "SELECT p.id, p.task_id, m.verdict, p.drawn_at FROM jury_panel_members m
            JOIN jury_panels p ON p.id = m.panel_id

@@ -220,7 +220,9 @@ async fn register(
             }
             user.account_id
         }
-        None => identity::create_account(state.db(), &email, age_state, AccountStatus::Active).await?,
+        None => {
+            identity::create_account(state.db(), &email, age_state, AccountStatus::Active).await?
+        }
     };
 
     // A failure after this point would leave an account with no way to sign in,
@@ -248,7 +250,8 @@ async fn register(
                         "guest {account_id} has no pseud to rename"
                     )))
                 })?;
-            identity::rename_pseud(state.db(), account_id, pseud_id, &handle, &display_name).await?;
+            identity::rename_pseud(state.db(), account_id, pseud_id, &handle, &display_name)
+                .await?;
             pseud_id
         }
         None => identity::create_pseud(state.db(), account_id, &handle, &display_name).await?,
@@ -312,7 +315,6 @@ async fn register(
     };
     Ok(session_response(&state, status, body, &issued))
 }
-
 
 // ---------------------------------------------------------------------------
 // Guests (spec §14.1, D-6; M66 GS-1)
@@ -424,7 +426,11 @@ async fn guest(
 
     let account = identity::find_account(state.db(), account_id)
         .await?
-        .ok_or_else(|| ApiError(AppError::Internal(anyhow::anyhow!("guest vanished after creation"))))?;
+        .ok_or_else(|| {
+            ApiError(AppError::Internal(anyhow::anyhow!(
+                "guest vanished after creation"
+            )))
+        })?;
     let issued = auth::issue_session(
         &state,
         &account,
@@ -1328,6 +1334,15 @@ async fn my_guardian_authorization(
     })))
 }
 
+/// `GET /auth/membership` — where this reader stands under the membership gate (M69-15).
+async fn membership_standing(
+    State(state): State<AppState>,
+    RequireSession(user): RequireSession,
+) -> ApiResult<Json<serde_json::Value>> {
+    let membership = crate::membership::evaluate(&state, &user.account_id.to_string()).await?;
+    Ok(Json(membership.view()))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -1402,13 +1417,4 @@ mod tests {
         assert_eq!(describe_device(None), "Unknown device");
         assert_eq!(describe_device(Some("   ")), "Unknown device");
     }
-}
-
-/// `GET /auth/membership` — where this reader stands under the membership gate (M69-15).
-async fn membership_standing(
-    State(state): State<AppState>,
-    RequireSession(user): RequireSession,
-) -> ApiResult<Json<serde_json::Value>> {
-    let membership = crate::membership::evaluate(&state, &user.account_id.to_string()).await?;
-    Ok(Json(membership.view()))
 }

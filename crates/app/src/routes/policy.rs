@@ -68,7 +68,10 @@ pub fn router() -> Router<crate::state::AppState> {
 /// a second door that has to enforce the same policy has one place to ask.
 pub fn is_rpf_tag(policy: &ContentPolicyConfig, norm: &str) -> bool {
     let norm = norm.trim().to_lowercase();
-    policy.rpf_tag_norms.iter().any(|tag| tag.trim().to_lowercase() == norm)
+    policy
+        .rpf_tag_norms
+        .iter()
+        .any(|tag| tag.trim().to_lowercase() == norm)
 }
 
 /// The refusal a blocked instance gives when somebody tries to tag a work as real-person fiction.
@@ -94,12 +97,18 @@ mod tests {
     #[test]
     fn the_document_reports_the_mode_that_is_in_force() {
         let mut policy = ContentPolicyConfig::default();
-        assert_eq!(content_policy_document(&policy)["rpf"]["mode"], "tag_required");
+        assert_eq!(
+            content_policy_document(&policy)["rpf"]["mode"],
+            "tag_required"
+        );
 
         policy.rpf = RpfMode::Blocked;
         let blocked = content_policy_document(&policy);
         assert_eq!(blocked["rpf"]["mode"], "blocked");
-        assert!(blocked["rpf"]["guidance"].as_str().unwrap().contains("does not host"));
+        assert!(blocked["rpf"]["guidance"]
+            .as_str()
+            .unwrap()
+            .contains("does not host"));
     }
 
     #[test]
@@ -113,21 +122,34 @@ mod tests {
     #[test]
     fn only_a_blocked_instance_refuses_the_tag() {
         let mut policy = ContentPolicyConfig::default();
-        assert!(rpf_refusal(&policy, "real person fiction").is_none(), "tag_required must accept the tag: it is the \
-            thing the mode asks for");
+        assert!(
+            rpf_refusal(&policy, "real person fiction").is_none(),
+            "tag_required must accept the tag: it is the \
+            thing the mode asks for"
+        );
         policy.rpf = RpfMode::Blocked;
-        let refusal = rpf_refusal(&policy, "real person fiction").expect("blocked names the policy");
+        let refusal =
+            rpf_refusal(&policy, "real person fiction").expect("blocked names the policy");
         assert!(refusal.contains("does not host real-person fiction"));
-        assert!(refusal.contains("/api/v1/policy/content"), "a refusal that does not say where the policy is leaves \
-            the author with a dead end");
+        assert!(
+            refusal.contains("/api/v1/policy/content"),
+            "a refusal that does not say where the policy is leaves \
+            the author with a dead end"
+        );
     }
 
     #[test]
     fn the_document_names_the_law_it_is_talking_about() {
         let doc = content_policy_document(&ContentPolicyConfig::default());
         assert_eq!(doc["honor_rights"]["jurisdictions"][0], "ES");
-        assert_eq!(doc["honor_rights"]["laws"][0]["instrument"], "Ley Orgánica 1/1982");
+        assert_eq!(
+            doc["honor_rights"]["laws"][0]["instrument"],
+            "Ley Orgánica 1/1982"
+        );
         // A document that names honour rights without the instrument is an assurance, not an answer.
-        assert!(doc["honor_rights"]["notice"].as_str().unwrap().contains("1/1982"));
+        assert!(doc["honor_rights"]["notice"]
+            .as_str()
+            .unwrap()
+            .contains("1/1982"));
     }
 }

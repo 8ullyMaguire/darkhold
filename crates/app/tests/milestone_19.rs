@@ -314,7 +314,11 @@ async fn admin_stats_endpoint_works() {
     // `/admin/stats` is operator-only now. It used to answer any session with hard-coded 100/50/25/10 — invented figures on a console surface. The
     // shape of the test is unchanged (an operator reads numbers); what changed is who may ask, and that the payload admits when nothing is counted.
     let (status, body) = client.get("/api/v1/admin/stats").await;
-    assert_eq!(status, StatusCode::UNAUTHORIZED, "no session at all: {body}");
+    assert_eq!(
+        status,
+        StatusCode::UNAUTHORIZED,
+        "no session at all: {body}"
+    );
 
     let _ = register(&mut client, "stats-reader@example.com", "StatsReader").await;
     let (status, body) = client.get("/api/v1/admin/stats").await;

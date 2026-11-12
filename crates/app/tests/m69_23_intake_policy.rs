@@ -96,7 +96,11 @@ impl Client {
             builder = builder.header(header::COOKIE, self.cookie_header());
         }
         if !matches!(method, "GET" | "HEAD" | "OPTIONS") {
-            if let Some((_, token)) = self.cookies.iter().find(|(name, _)| name == "darkhold_csrf") {
+            if let Some((_, token)) = self
+                .cookies
+                .iter()
+                .find(|(name, _)| name == "darkhold_csrf")
+            {
                 let token = token.clone();
                 builder = builder.header("x-csrf-token", token);
             }
@@ -220,18 +224,18 @@ impl Harness {
 /// exists to catch, and it caught this one on the first run.
 async fn sqlx_enough(db: &Database) -> (String,) {
     match db.backend() {
-        darkhold_db::Backend::Sqlite => sqlx::query_as(
-            "SELECT account_id FROM pseuds WHERE handle = 'operator' LIMIT 1",
-        )
-            .fetch_one(db.sqlite_pool().expect("sqlite handle"))
-            .await
-            .expect("one account"),
-        darkhold_db::Backend::Postgres => sqlx::query_as(
-            "SELECT account_id::text FROM pseuds WHERE handle = 'operator' LIMIT 1",
-        )
-            .fetch_one(db.postgres_pool().expect("postgres handle"))
-            .await
-            .expect("one account"),
+        darkhold_db::Backend::Sqlite => {
+            sqlx::query_as("SELECT account_id FROM pseuds WHERE handle = 'operator' LIMIT 1")
+                .fetch_one(db.sqlite_pool().expect("sqlite handle"))
+                .await
+                .expect("one account")
+        }
+        darkhold_db::Backend::Postgres => {
+            sqlx::query_as("SELECT account_id::text FROM pseuds WHERE handle = 'operator' LIMIT 1")
+                .fetch_one(db.postgres_pool().expect("postgres handle"))
+                .await
+                .expect("one account")
+        }
     }
 }
 
@@ -429,12 +433,12 @@ async fn a_held_arrival_is_listed_and_can_be_released_once_the_policy_admits_it(
                     .await
                     .expect("operator account")
             }
-            Backend::Postgres => {
-                sqlx::query_as("SELECT account_id::text FROM pseuds WHERE handle = 'operator' LIMIT 1")
-                    .fetch_one(harness.db().postgres_pool().expect("postgres"))
-                    .await
-                    .expect("operator account")
-            }
+            Backend::Postgres => sqlx::query_as(
+                "SELECT account_id::text FROM pseuds WHERE handle = 'operator' LIMIT 1",
+            )
+            .fetch_one(harness.db().postgres_pool().expect("postgres"))
+            .await
+            .expect("operator account"),
         }
     };
     let candidate = json!({
@@ -459,14 +463,20 @@ async fn a_held_arrival_is_listed_and_can_be_released_once_the_policy_admits_it(
     assert_eq!(rows.len(), 1, "{list}");
     assert_eq!(rows[0]["source_work_key"], "work-1");
     assert!(
-        rows[0]["decision"].as_str().unwrap_or_default().contains("needs a person"),
+        rows[0]["decision"]
+            .as_str()
+            .unwrap_or_default()
+            .contains("needs a person"),
         "the list carries the reason, not just the fact: {list}"
     );
     let id = rows[0]["id"].as_str().expect("id").to_owned();
 
     // The policy does not admit a 40-word work, so a release must refuse and say why rather than dropping the row.
     let (status, refused) = client
-        .post(&format!("/api/v1/imports/intake-queue/{id}/release"), json!({}))
+        .post(
+            &format!("/api/v1/imports/intake-queue/{id}/release"),
+            json!({}),
+        )
         .await;
     assert_eq!(status, StatusCode::UNPROCESSABLE_ENTITY, "{refused}");
     assert!(
@@ -482,7 +492,10 @@ async fn a_held_arrival_is_listed_and_can_be_released_once_the_policy_admits_it(
         )
         .await;
     let (status, released) = client
-        .post(&format!("/api/v1/imports/intake-queue/{id}/release"), json!({}))
+        .post(
+            &format!("/api/v1/imports/intake-queue/{id}/release"),
+            json!({}),
+        )
         .await;
     assert_eq!(status, StatusCode::ACCEPTED, "{released}");
     let import_id = released["import_id"].as_str().expect("import id");

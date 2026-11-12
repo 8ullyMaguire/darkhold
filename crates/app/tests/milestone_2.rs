@@ -1708,7 +1708,7 @@ async fn a_rate_limit_refusal_is_recorded_in_the_abuse_counters() {
         .await
         .expect("abuse status");
     assert!(
-        summed >= count + 1,
+        summed > count,
         "a second window adds to the total rather than hiding behind the first row: {summed} vs {count}"
     );
 
@@ -1749,18 +1749,14 @@ async fn the_abuse_view_lists_the_busy_keys_and_no_reader_can_read_it() {
             Backend::Postgres => "SELECT account_id::text FROM pseuds WHERE handle = 'ops' LIMIT 1",
         };
         match harness.tdb.db().backend() {
-            Backend::Sqlite => {
-                sqlx::query_scalar(sql)
-                    .fetch_one(harness.tdb.db().sqlite_pool().expect("sqlite"))
-                    .await
-                    .expect("operator id")
-            }
-            Backend::Postgres => {
-                sqlx::query_scalar(sql)
-                    .fetch_one(harness.tdb.db().postgres_pool().expect("postgres"))
-                    .await
-                    .expect("operator id")
-            }
+            Backend::Sqlite => sqlx::query_scalar(sql)
+                .fetch_one(harness.tdb.db().sqlite_pool().expect("sqlite"))
+                .await
+                .expect("operator id"),
+            Backend::Postgres => sqlx::query_scalar(sql)
+                .fetch_one(harness.tdb.db().postgres_pool().expect("postgres"))
+                .await
+                .expect("operator id"),
         }
     };
 
@@ -1825,7 +1821,10 @@ async fn the_abuse_view_lists_the_busy_keys_and_no_reader_can_read_it() {
         counters[0]["count"].as_i64().unwrap_or(0) >= 1,
         "and carries the count: {view}"
     );
-    assert_eq!(counters[0]["blocked"], false, "a count never blocks: {view}");
+    assert_eq!(
+        counters[0]["blocked"], false,
+        "a count never blocks: {view}"
+    );
     assert!(
         view["does_not_collect"]
             .as_array()

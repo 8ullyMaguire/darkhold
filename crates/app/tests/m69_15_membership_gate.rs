@@ -39,7 +39,10 @@ fn config_for(dir: &Path, gate: bool) -> Config {
     config.storage.root = dir.to_path_buf();
     config.database = match std::env::var("DARKHOLD_TEST_PG_URL") {
         Ok(url) if !url.is_empty() => DatabaseConfig::new(url),
-        _ => DatabaseConfig::new(format!("sqlite://{}/darkhold.sqlite?mode=rwc", dir.display())),
+        _ => DatabaseConfig::new(format!(
+            "sqlite://{}/darkhold.sqlite?mode=rwc",
+            dir.display()
+        )),
     };
     config.governance.membership_probation = gate;
     // Every account in a test database is above a threshold of one, so the gate applies to the population the test built
@@ -61,14 +64,21 @@ struct Client {
 
 impl Client {
     fn new(app: axum::Router) -> Self {
-        Self { app, cookies: Vec::new() }
+        Self {
+            app,
+            cookies: Vec::new(),
+        }
     }
 
     fn capture(&mut self, response: &axum::response::Response) {
         for value in response.headers().get_all(header::SET_COOKIE) {
             let Ok(text) = value.to_str() else { continue };
-            let Some((pair, _)) = text.split_once(';') else { continue };
-            let Some((name, value)) = pair.split_once('=') else { continue };
+            let Some((pair, _)) = text.split_once(';') else {
+                continue;
+            };
+            let Some((name, value)) = pair.split_once('=') else {
+                continue;
+            };
             let name = name.trim().to_owned();
             let value = value.trim().to_owned();
             self.cookies.retain(|(k, _)| k != &name);
@@ -104,11 +114,21 @@ impl Client {
             Some(value) => Body::from(value.to_string()),
             None => Body::empty(),
         };
-        let response = self.app.clone().oneshot(builder.body(body).unwrap()).await.unwrap();
+        let response = self
+            .app
+            .clone()
+            .oneshot(builder.body(body).unwrap())
+            .await
+            .unwrap();
         let status = response.status();
         self.capture(&response);
-        let bytes = axum::body::to_bytes(response.into_body(), usize::MAX).await.unwrap();
-        (status, serde_json::from_slice(&bytes).unwrap_or(Value::Null))
+        let bytes = axum::body::to_bytes(response.into_body(), usize::MAX)
+            .await
+            .unwrap();
+        (
+            status,
+            serde_json::from_slice(&bytes).unwrap_or(Value::Null),
+        )
     }
 
     async fn post(&mut self, uri: &str, body: Value) -> (StatusCode, Value) {
@@ -132,7 +152,11 @@ impl Harness {
         let dir = scratch_dir(tag);
         let tdb = test_support::TestDb::connect_with_dir(tag, &dir).await;
         let config = config_for(&dir, gate);
-        Self { _dir: dir, tdb, config }
+        Self {
+            _dir: dir,
+            tdb,
+            config,
+        }
     }
 
     fn client(&self) -> Client {
@@ -231,7 +255,9 @@ async fn with_the_gate_off_a_reader_publishes_as_before() {
     let harness = Harness::new("off", false).await;
     let (mut reader, _, _) = harness.reader("off@example.test", "Off").await;
 
-    let (status, body) = reader.post("/api/v1/works", json!({ "title": "First" })).await;
+    let (status, body) = reader
+        .post("/api/v1/works", json!({ "title": "First" }))
+        .await;
     assert_eq!(status, StatusCode::CREATED, "{body}");
 
     let (status, standing) = reader.get("/api/v1/auth/membership").await;
@@ -249,7 +275,9 @@ async fn on_probation_a_reader_is_refused_with_the_numbers_that_finish_it() {
     let harness = Harness::new("probation", true).await;
     let (mut reader, _, _) = harness.reader("probation@example.test", "Probation").await;
 
-    let (status, refused) = reader.post("/api/v1/works", json!({ "title": "Too soon" })).await;
+    let (status, refused) = reader
+        .post("/api/v1/works", json!({ "title": "Too soon" }))
+        .await;
     assert_eq!(status, StatusCode::UNPROCESSABLE_ENTITY, "{refused}");
     let detail = refused["error"]["field_errors"]["membership"]
         .as_str()
@@ -271,12 +299,16 @@ async fn meeting_the_floor_opens_the_door_without_a_restart() {
     let harness = Harness::new("graduate", true).await;
     let (mut reader, account, pseud) = harness.reader("graduate@example.test", "Graduate").await;
 
-    let (status, _) = reader.post("/api/v1/works", json!({ "title": "Too soon" })).await;
+    let (status, _) = reader
+        .post("/api/v1/works", json!({ "title": "Too soon" }))
+        .await;
     assert_eq!(status, StatusCode::UNPROCESSABLE_ENTITY);
 
     harness.rate(&account, &pseud, 3).await;
 
-    let (status, published) = reader.post("/api/v1/works", json!({ "title": "Earned" })).await;
+    let (status, published) = reader
+        .post("/api/v1/works", json!({ "title": "Earned" }))
+        .await;
     assert_eq!(
         status,
         StatusCode::CREATED,
@@ -297,7 +329,9 @@ async fn an_account_older_than_the_cutoff_is_grandfathered() {
     harness.config.governance.membership_grandfather_before = Some(tomorrow);
     let (mut reader, _, _) = harness.reader("old@example.test", "Old").await;
 
-    let (status, body) = reader.post("/api/v1/works", json!({ "title": "Arrived first" })).await;
+    let (status, body) = reader
+        .post("/api/v1/works", json!({ "title": "Arrived first" }))
+        .await;
     assert_eq!(
         status,
         StatusCode::CREATED,
