@@ -1,0 +1,9 @@
+card	requirement	why
+2523	GS-5	the card's title is the row's requirement word for word: "a jury drawn from the eligible pool"
+2522	M45-45g2	"category change proposals with quorum voting, veto by operator, and expiry at closes_at" — the card asks for the threshold to be per category, which is the same mechanism
+2601	M69-04	"a takedown is a tombstone that survives re-import, and the importer refuses the work citing it" — the card's tombstone, already built
+2750	M16-14	"§21.8's operational half: rotating secrets, a per-subscription rate limit, and auto-disable" — the moderation webhook the card asks to make scriptable
+2760	DM4-07	"the author's AI statement is a statement and never a protection" — the card's flag-at-import is the same statement read at a different moment
+2773	M71-20	the document-class migration whose first item is `/works/{id}`; "carries everything attached to it" is the page's own definition
+2734	M63-30	`dh lib --calibre <path>` reads the same `metadata.db`; the card asks for the contract that row's implementation already assumes
+2698	M59-18	retention proposals decide what is kept; the card adds the collection mechanism that would act on them

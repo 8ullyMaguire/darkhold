@@ -33,6 +33,7 @@ ROOT = pathlib.Path(__file__).resolve().parent.parent
 REQUIREMENTS = ROOT / "docs/requirements.csv"
 ROADMAP = ROOT / "docs/plans/REMAINING-2026-10-03.md"
 CONCORD = ROOT / "docs/backlog/concord-features.tsv"
+MAP = ROOT / "docs/backlog/concord-map.tsv"
 OUT_JSON = ROOT / "docs/backlog/backlog.json"
 OUT_MD = ROOT / "docs/backlog/INVENTORY.md"
 
@@ -53,6 +54,41 @@ def read_concord() -> list[dict]:
             fid, title, status = line.split("\t")
             rows.append({"id": fid, "title": title, "status": status})
     return rows
+
+
+def read_map(requirements: list[dict]) -> dict[str, tuple[str, str]]:
+    """The reviewed card -> requirement mapping, and it refuses to be stale.
+
+    **Why this exists beside the token matcher.** Measured 2026-11-12: 58 of 87 work cards were unlinked, and every
+    top token match for them was false — M59-19's quorum is about storage-widening, M69-23's filter is import intake —
+    while eight cards named a row that already exists in words the matcher cannot weigh ("jury duty from the eligible
+    pool" is GS-5's requirement verbatim). A judgement made by reading the two sentences belongs in a committed file a
+    reviewer can check, not in a heuristic tuned until the number goes down.
+
+    Two refusals, because a mapping table that lies is worse than no table: a card id that is not in the snapshot, and
+    a requirement id that is not in the ledger. Both mean the file has drifted, and the right answer is a message.
+    """
+    if not MAP.exists():
+        return {}
+    known_cards = {c["id"] for c in read_concord()}
+    known_rows = {r["id"] for r in requirements}
+    out: dict[str, tuple[str, str]] = {}
+    lines = MAP.read_text(encoding="utf-8").splitlines()
+    for lineno, line in enumerate(lines[1:], start=2):
+        if not line.strip():
+            continue
+        cells = line.split("\t")
+        if len(cells) < 3:
+            raise SystemExit(f"{MAP.name}:{lineno}: expected card<TAB>requirement<TAB>why, got {len(cells)} column(s)")
+        card, requirement, why = (c.strip() for c in cells[:3])
+        if card not in known_cards:
+            raise SystemExit(f"{MAP.name}:{lineno}: card {card} is not in concord-features.tsv")
+        if requirement not in known_rows:
+            raise SystemExit(f"{MAP.name}:{lineno}: requirement {requirement} is not in docs/requirements.csv")
+        if not why:
+            raise SystemExit(f"{MAP.name}:{lineno}: card {card} -> {requirement} has no reason")
+        out[card] = (requirement, why)
+    return out
 
 
 def read_roadmap() -> list[str]:
@@ -118,11 +154,18 @@ def build() -> dict:
 
     rollups = [c for c in concord if ROLLUP.match(c["title"])]
     cards = [c for c in concord if not ROLLUP.match(c["title"])]
+    mapping = read_map(requirements)
     linked_cards, unlinked = [], []
     for card in cards:
+        # The reviewed mapping wins over the heuristic, and it is reported separately so the two kinds of link stay
+        # distinguishable: "a person read both sentences" and "the words overlapped enough".
+        if card["id"] in mapping:
+            owner, why = mapping[card["id"]]
+            linked_cards.append({**card, "requirement": owner, "link": "reviewed", "why": why})
+            continue
         owner = linked(card["title"], requirements)
         if owner:
-            linked_cards.append({**card, "requirement": owner})
+            linked_cards.append({**card, "requirement": owner, "link": "token overlap"})
         else:
             unlinked.append(card)
 
@@ -139,6 +182,7 @@ def build() -> dict:
                 "rollups": len(rollups),
                 "work_cards": len(cards),
                 "linked_to_a_requirement": len(linked_cards),
+                "linked_by_review": sum(1 for c in linked_cards if c["link"] == "reviewed"),
                 "unlinked": len(unlinked),
             },
             "roadmap": {"items": len(roadmap)},

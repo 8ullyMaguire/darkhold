@@ -4814,3 +4814,9 @@ pull against each other. Three honest readings, and they are the user's to pick:
 Whichever is chosen, the eight above can be mapped today without inventing anything: they are the same sentence in two
 places, and a `docs/backlog/concord-map.tsv` consulted before the token matcher is the mechanism that makes the mapping
 reviewable instead of implicit.
+
+**Done for the eight (2026-11-12):** `docs/backlog/concord-map.tsv` holds `card<TAB>requirement<TAB>why`, `backlog.py`
+reads it before the matcher and reports the two kinds of link separately (`linked_by_review`, and the rest as token
+overlap), and it **refuses** a card id absent from the snapshot or a requirement id absent from the ledger — both
+proved by appending a bad row and reading the message, then restoring. Measured: **58 → 50 unlinked, 8 by review**. The
+remaining 50 are the decision above.

@@ -17,8 +17,9 @@
       "cards_in_snapshot": 93,
       "rollups": 6,
       "work_cards": 87,
-      "linked_to_a_requirement": 29,
-      "unlinked": 58
+      "linked_to_a_requirement": 37,
+      "linked_by_review": 8,
+      "unlinked": 50
     },
     "roadmap": {
       "items": 17
@@ -346,16 +347,6 @@
       "status": "unknown"
     },
     {
-      "id": "2522",
-      "title": "Per-category quorum thresholds",
-      "status": "discussion"
-    },
-    {
-      "id": "2523",
-      "title": "Jury duty from the eligible pool",
-      "status": "unknown"
-    },
-    {
       "id": "2525",
       "title": "One appeal, differently sampled",
       "status": "discussion"
@@ -426,11 +417,6 @@
       "status": "unknown"
     },
     {
-      "id": "2601",
-      "title": "Tombstones for deletions",
-      "status": "discussion"
-    },
-    {
       "id": "2604",
       "title": "Content-addressed bodies",
       "status": "unknown"
@@ -496,19 +482,9 @@
       "status": "discussion"
     },
     {
-      "id": "2698",
-      "title": "Content-addressed garbage collection with retention",
-      "status": "unknown"
-    },
-    {
       "id": "2704",
       "title": "Self-hosted mirror in a box",
       "status": "unknown"
-    },
-    {
-      "id": "2734",
-      "title": "Calibre interop contract",
-      "status": "discussion"
     },
     {
       "id": "2736",
@@ -526,28 +502,13 @@
       "status": "discussion"
     },
     {
-      "id": "2750",
-      "title": "Scriptable moderation webhooks",
-      "status": "unknown"
-    },
-    {
       "id": "2755",
       "title": "Content-hash dedupe across archives",
       "status": "discussion"
     },
     {
-      "id": "2760",
-      "title": "AI-generated content flagged at import and filtered everywhere",
-      "status": "discussion"
-    },
-    {
       "id": "2772",
       "title": "Cursor-paged server-rendered catalogue grid",
-      "status": "discussion"
-    },
-    {
-      "id": "2773",
-      "title": "Work page carries everything attached to it",
       "status": "discussion"
     },
     {
