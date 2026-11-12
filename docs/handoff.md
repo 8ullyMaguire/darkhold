@@ -1,3 +1,32 @@
+## 2026-11-12 (later) — `dh bench`, and the Concord board's 58 cards measured instead of guessed
+
+**Shipped: `dh bench` (M63-24), three commits, nothing live moved.** `451f2860` is the verb, `59c7bb61` is the borrow
+clippy found after the fact, `92eca2e9` is the Concord map below.
+
+**M63-24.** Twenty canonical search shapes timed client-side, warm-up pass before the recorded rounds, nearest-rank
+percentiles, and a footer naming the target and the load — no threshold and no verdict, because a bench that contains a
+judgement gets quoted as one. It reuses `q::url` and `http::send`, so there is no new route and no `ROUTE_TABLE` row; the
+live run is `20 queries x 3 rounds = 60 requests` against `0.1.0+97830cd7` (`*` 1033/1112/1179 ms, `tag:naruto`
+59/63/83, `words:>=50000` 1299/1347/1781). Evidence: 105 tests in the bin suite (4 `bench::`), a mutant that replaced
+`div_ceil` with truncating division and reddened the percentile test, `cargo clippy -p darkhold-cli --all-targets` exit 0
+with zero warnings, and the live table. **The live run failed first** — `tag:harry potter AND …` answered `422` because a
+space in a tag needs the quotes the grammar documents; the non-2xx-is-refused-not-reported rule turned that into a
+message instead of a plausible table.
+
+**The Concord board is not a restatement of the ledger, and now we know by how much.** §1 check 2 wants `unlinked: 0`;
+the number was **58 of 87**. Each card was compared to the ledger by keyword and the top hit was read beside it — almost
+every one is false (`M59-19`'s quorum is about storage-widening, not the front page; `M69-23`'s filter is import intake,
+not reading sessions). **Eight are provably the same row** and are now mapped in `docs/backlog/concord-map.tsv`
+(`card<TAB>requirement<TAB>why`), which `backlog.py` consults before its matcher and which **refuses** a card id absent
+from the snapshot or a requirement id absent from the ledger — both refusals proved by appending a bad row, reading the
+message, restoring from `/tmp`. Measured: **58 → 50 unlinked, 8 linked by review**. The other 50 are new proposals, and
+registering them takes `planned` from 41 to ~91 — a scope decision the roadmap now writes down with its three options
+rather than taking.
+
+**Where §1 stands:** `planned` **40** (was 41), `backlog.py` **50 unlinked** and honestly explained, the two domain tests
+green, `gate.sh ledger` and `gate.sh repo` green, and a full `gate.sh all` running on `59c7bb61` — the previous attempt
+was killed twice because it had compiled a tree that no longer existed, which is not evidence whatever it prints.
+
 ## 2026-11-12 — M45-43's code half, and the red three sessions left behind
 
 **Shipped, four commits, none live yet.** `ff6eba8a` is the slice this turn opened with (0/3 at `e759941e`), and the
