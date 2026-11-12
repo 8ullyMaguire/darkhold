@@ -4557,6 +4557,7 @@ this table. The rule and the three legal kinds of block are in `~/secondbrain/10
 
 | row | kind | what would clear it | taken instead |
 |---|---|---|---|
+| **M63-23** `dh admin backup --to -` + `dh admin health` | reserved decision (a privileged dump route) | a decision that an operator token may stream the entire database, or a local-only form that reads the DB instead of the API | **M63-24** `dh bench` — finished, record below |
 | M45-43 — Discord bot (rec commands, per-fandom feeds, account linking) | **credential** | a Discord application's bot token plus an account to link for the live proof. Its offline half is *not* blocked: the command surface and the rec formatting can ship behind a transport trait, exactly as `M45-42` did with `ProfileFetcher` — do that first, then leave the token-dependent half named in the ledger | **the server-side code half shipped 2026-11-12** (bearer mint + links read-back, see "M45-43 step 4" below); what remains is the Discord application, the guild invite, and darkbot's two calls |
 | M63-05b — `dh rec --link epub` | **cleared 2026-11-11** | the download route now exists (`GET /derivatives/{id}/download`, see the section below); the CLI wiring is the only work left, so the row is unblocked and back in the queue. `output.rs` already fixes the link shape; what is missing is the endpoint, so the flag refuses with its reason rather than printing a 404 with a file extension | M63-15 |
 | M63-33 — reconcile the live database with the workspace migrations (11 tables absent, 12 legacy-named present) | **reserved decision** | the operator's per-table call: the live database was migrated by the other lineage, whose numbers collide with this tree's, so this is a DDL decision over live data with data-loss options. Not a session's call | M63-15 |
@@ -4838,3 +4839,37 @@ remaining 50 are the decision above.
 **The live run failed first, and that is the row's best moment.** The 20th expression `tag:harry potter AND tag:angst AND tag:complete AND kudos:>=500` answered **422** — a space in a tag needs the quotes the grammar documents. Because a non-2xx is refused as a timing rather than reported as one, the bench said so instead of printing a beautiful table built on an error. Both multi-word phrases are now quoted, and the comment says they were tried against a live instance rather than reasoned about.
 
 `--rounds` is bounded 1..=200 for the same reason: zero rounds measures nothing, ten thousand is a load test of the instance wearing a benchmark's name.
+
+## Census for M63-23, and why one half of it is a demotion (2026-11-12)
+
+§2.2 asks for a REUSE|ADAPT|BUILD line before a new endpoint, bot or client component. Here it is, and it splits the row.
+
+**`dh admin health` — REUSE, and not by me: the verb already exists under another name.** `dh doctor --json` prints
+`{base_url, checks[{name,status,detail,fix}], failed}` and exits non-zero when any check fails
+(`crates/cli/src/doctor.rs:132-160`), against a server that already answers `/health/live`, `/health/ready`, `/healthz`
+and `/meta`. A second health verb with the same object shape would be a second definition of "healthy" in the same
+binary — the duplication this repository refuses everywhere else. **The evidence for the row's health half is
+`dh doctor --json`, and building `dh admin health` would be the defect, not the fix.**
+
+**`dh admin backup --to - streams a consistent dump` — BUILD, and it needs a decision first.** Nothing in the tree
+streams a dump over HTTP: `scripts/take-snapshot.sh` and `scripts/build-snapshot-sql.py` are host-side operator scripts,
+and the CLI is an HTTP client with no database connection (its config carries a URL, a token and a cookie). So the honest
+implementations are:
+
+1. **A privileged route that streams the database.** The only version that keeps the CLI's design, and the one that hands
+   any operator token a copy of every user's data — the deletion guarantees in `docs/known-gaps.md` included. That is a
+   security decision, not a coding one.
+2. **A `--db` connection mode** where the CLI shells out to `pg_dump` / `VACUUM INTO`. Removes the HTTP-only property the
+   whole binary is built on, and puts the database credential in a tool that also talks to remote instances.
+3. **A `--to -` that reuses the existing snapshot scripts** and stays a host-side operation — which is what operators do
+   today, and therefore not a new capability at all.
+
+**Disposition: M63-23 is demoted to the Blocked table** under "reserved decision (a privileged dump route)". Its health
+half is already satisfied and is recorded as such; its dump half waits for an answer to (1). The row was left `planned`
+rather than split into `a`/`b`: the ledger's job is to say what a user cannot yet do, and "back up over the API" is still
+something they cannot do.
+
+**Next unblocked row: M63-22 `dh admin explain-rec <work>`.** Its census is partly done already and is more encouraging
+than the row looks: `RecRegistry::generate_traced(db, ctx) -> RecRunReport` (`crates/db/src/rec_strategy.rs:187`) already
+produces per-strategy output for a run, so the "every strategy's score" half is **REUSE**, not BUILD — what is missing is
+a way to ask for one *work* rather than a feed, and the feature vector beside it.

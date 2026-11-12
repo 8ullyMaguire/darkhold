@@ -60,7 +60,7 @@
       "id": "M63-23",
       "milestone": "M63",
       "requirement": "dh admin backup --to - streams a consistent dump to stdout; dh admin health emits machine-readable checks with per-check exit codes",
-      "notes": "Power-user sweep P23. `ssh host dh admin backup | zstd > backup.zst`, and monitoring is a cron job rather than a dashboard."
+      "notes": "Power-user sweep P22. Split by census 2026-11-12: the health half is already met by `dh doctor --json` (crates/cli/src/doctor.rs:132-160 prints {base_url, checks[], failed} and exits non-zero on a failed check, against /health/live, /health/ready, /healthz and /meta) \u2014 a second health verb would be a second definition of healthy. The `--to -` half needs a privileged route streaming the database, which hands any operator token a copy of every user's data; that is a reserved security decision, so the row is demoted to roadmap-remaining.md's Blocked table rather than built or split."
     },
     {
       "id": "M63-25",
