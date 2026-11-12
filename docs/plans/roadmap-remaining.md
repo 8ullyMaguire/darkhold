@@ -4820,3 +4820,21 @@ reads it before the matcher and reports the two kinds of link separately (`linke
 overlap), and it **refuses** a card id absent from the snapshot or a requirement id absent from the ledger — both
 proved by appending a bad row and reading the message, then restoring. Measured: **58 → 50 unlinked, 8 by review**. The
 remaining 50 are the decision above.
+
+## Row M63-24 finished — `dh bench`, the twenty canonical shapes (2026-11-12)
+
+**Census (§2.2): REUSE `q::url` and `http::send`; ADAPT the client construction `q::run` uses; BUILD the canonical list, the warm-up pass and the percentile/table code.** No new endpoint, so no `ROUTE_TABLE` row: `dh bench` is a caller of `GET /api/v1/search`, and a second bench-only route would have measured a code path nobody else takes.
+
+**The design decision worth recording is what the command refuses to claim.** It prints client-side milliseconds and nothing else — no threshold, no verdict, no "the site is fast". A benchmark whose output contains a judgement is a benchmark that will be quoted as one; the footer names the target URL and the load (`20 queries x 3 rounds = 60 requests, limit 20`) precisely so a screenshot cannot be detached from what produced it. Percentiles are **nearest-rank**: with three or five rounds an interpolated p95 prints a number that was never observed, which is the same failure as reporting a diff without an interval.
+
+**Three kinds of evidence:**
+
+| evidence | result |
+|---|---|
+| `cargo test -p darkhold-cli --bins` | **105 passed**, 4 of them `bench::` (the list is 20 distinct non-empty queries; nearest-rank over 1 and 5 rounds; the table carries subject and load; `--rounds 0` and `--limit 500` both refused) |
+| mutant | `.div_ceil(100)` → truncating division → `percentiles_are_nearest_rank_over_the_rounds_actually_taken` goes red (`sorted[3]` = 40, asserted 50), restored from `/tmp/bench.rs.orig` |
+| live | against `0.1.0+97830cd7` over a tunnel: `*` 1033/1112/1179 ms, `tag:naruto` 59/63/83, `words:>=50000` 1299/1347/1781, `tag:naruto AND kudos:>=100` 16/16/16 — a real table with the shape a reader can check |
+
+**The live run failed first, and that is the row's best moment.** The 20th expression `tag:harry potter AND tag:angst AND tag:complete AND kudos:>=500` answered **422** — a space in a tag needs the quotes the grammar documents. Because a non-2xx is refused as a timing rather than reported as one, the bench said so instead of printing a beautiful table built on an error. Both multi-word phrases are now quoted, and the comment says they were tried against a live instance rather than reasoned about.
+
+`--rounds` is bounded 1..=200 for the same reason: zero rounds measures nothing, ten thousand is a load test of the instance wearing a benchmark's name.

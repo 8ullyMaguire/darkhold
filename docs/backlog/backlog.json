@@ -4,11 +4,11 @@
       "rows": 958,
       "by_status": {
         "implemented-verified-e2e": 138,
-        "implemented-locally-tested": 269,
+        "implemented-locally-tested": 270,
         "unsupported": 4,
         "implemented-fully-tested": 455,
         "implemented": 41,
-        "planned": 41,
+        "planned": 40,
         "evaluated-and-rejected": 7,
         "done": 3
       }
@@ -61,12 +61,6 @@
       "milestone": "M63",
       "requirement": "dh admin backup --to - streams a consistent dump to stdout; dh admin health emits machine-readable checks with per-check exit codes",
       "notes": "Power-user sweep P23. `ssh host dh admin backup | zstd > backup.zst`, and monitoring is a cron job rather than a dashboard."
-    },
-    {
-      "id": "M63-24",
-      "milestone": "M63",
-      "requirement": "dh bench: times the 20 canonical queries against a local or remote instance and prints a table",
-      "notes": "Power-user sweep P24. A performance regression visible from a user's machine, not only in CI, and a shared language for 'the instance got slow'."
     },
     {
       "id": "M63-25",
@@ -274,7 +268,7 @@
     }
   ],
   "open_by_milestone": {
-    "M63": 12,
+    "M63": 11,
     "M71": 10,
     "M64": 8,
     "M73": 4,

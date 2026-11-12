@@ -16,6 +16,7 @@
 //! found, `4` auth, `5` rate-limited — defined once in [`exit`] and documented in
 //! `docs/cli-exit-codes.md`, because a wrapper script decides what to do from that number alone.
 
+mod bench;
 mod cron;
 mod doctor;
 mod exit;
@@ -124,6 +125,13 @@ pub enum Command {
     ///   2026-01-01..2026-10-15    between two days
     /// ```
     Rec(Box<rec::RecArgs>),
+    /// Time the twenty canonical queries against an instance (M63-24).
+    ///
+    /// The shapes are fixed and public (`bench::CANONICAL`): one tag, a numeric floor, a conjunction, a negation, two
+    /// recency windows, a phrase. What the command prints is a table of client-side milliseconds with a warm-up pass
+    /// before the measurements, and the footer names the target and the load, because the same twenty queries against
+    /// a quiet laptop and a busy box are different facts.
+    Bench(bench::BenchArgs),
     /// Search with the shared query language: `tag:naruto AND kudos:>=100`.
     ///
     /// The same parser the site's search box uses, at `/api/v1/search`: one expression, the same
@@ -267,6 +275,13 @@ async fn main() -> std::process::ExitCode {
 
     match &cli.command {
         Command::Rec(args) => match rec::run(&cli, args).await {
+            Ok(()) => std::process::ExitCode::SUCCESS,
+            Err(error) => {
+                eprintln!("{error}");
+                std::process::ExitCode::from(error.code)
+            }
+        },
+        Command::Bench(args) => match bench::run(&cli, &args).await {
             Ok(()) => std::process::ExitCode::SUCCESS,
             Err(error) => {
                 eprintln!("{error}");
