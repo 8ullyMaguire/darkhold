@@ -1150,7 +1150,10 @@ pub fn build_router(state: AppState) -> Router {
         .merge(module_mount(
             &state,
             "governance",
-            routes::governance::router().merge(routes::identity_admin::router()),
+            routes::governance::router()
+                .merge(routes::identity_admin::router())
+                // GS-5 — the jury's doors. Merged beside governance because every path hangs off a report's review task.
+                .merge(routes::jury::router()),
             RouteClass::Write,
         ))
         // Economy (credits, fair queues, bounties, billing) — M15.

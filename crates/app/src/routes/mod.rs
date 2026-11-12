@@ -81,6 +81,7 @@ pub mod imports;
 pub mod inbox_proxy;
 pub mod inventory;
 pub mod jobs;
+pub mod jury;
 pub mod landing_page;
 pub mod lending;
 pub mod library;

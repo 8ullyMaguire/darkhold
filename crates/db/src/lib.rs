@@ -80,6 +80,7 @@ pub mod identity;
 pub mod imports;
 pub mod instance_taste_settings;
 pub mod instance_theme;
+pub mod jury;
 pub mod jobs;
 pub mod ladder;
 pub mod lending;

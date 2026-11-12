@@ -329,6 +329,31 @@ receipts). Mutant (gate removed) → the moderator reads the subject with `200`.
 
 **For the operator:** compliance staff who are not instance operators lose this door. That is the change, not a side effect.
 
+## GS-5 closed: a jury is drawn, seated, votes once, and its decision reaches the report — 2026-11-12
+
+The rule shipped on 2026-11-11 (`crates/domain/src/jury.rs`, 7/7, two mutants). This is the other half:
+
+- **Store** — `pool` reads every active non-guest account with its stored level, **without a level filter**: the rule filters and then falls back to the
+  top of the *actual* ladder, and a pre-filtered pool made the elasticity unreachable (measured on PostgreSQL: `available: 0` where the honest answer was
+  three at the top). Migration `0214` (both engines) adds `jury_panels` — seed, size, level_floor, drawn_at, appeal_of — and `jury_panel_members`.
+- **Doors** — `POST /reports/{task}/jury` (behind `Privilege::JuryService`) draws, refuses below `elastic_min` with the numbers and **writes nothing**,
+  answers a second draw with the panel that exists (the stored seed would otherwise be a lie), and takes `appeal: true` to draw from the pool minus the
+  original members. `GET` is 401 anonymous, 404 to a signed-in bystander. A seated juror votes **once**; the second vote is refused. `GET /me/jury` is
+  how a juror learns a decision is waiting.
+- **The decision** — when the last seat votes, the majority is written onto `review_tasks.outcome` and the report resolves with the same word; a tie is
+  `undecided` and leaves the report **open** for a human. A verdict surface that records votes without moving the queue is the half-row trap, and this
+  row was caught in it once already.
+
+`m66_gs5_jury` **6/6 on both engines**, `route_inventory` 6/6, domain 7/7. Four mutants, four kills: exclusions emptied, `appeal_fresh_jury` forced
+false, the single-vote guard dropped (the second vote overwrote the first), the decision write disabled (`decided: null`, report still open).
+
+**Two PostgreSQL-only bugs, again:** `trust_levels.level` and `jury_panels.size/level_floor` are INT4 there and `i64` here (now `CAST(… AS BIGINT)`);
+and `drawn_at` is second-precision, so an appeal drawn in the same second as the panel it replaced sorted *below* it and the appeal looked like it never
+happened — the ordering now ranks an appeal above the panel it replaced explicitly.
+
+**Decided, and written beside the code:** the drawing caller is excluded along with the reporter and the reported. §14 names only the last two; a triager
+who can seat themselves on the panel that decides their own case holds both halves of the decision.
+
 ## The ratchet: an operator can now record an email verification, and the federation queue is inert by design — 2026-11-12
 
 `sessions::mark_email_verified` existed since the accounts table did with **no caller**. That column is exposed to the client as `email_verified` in

@@ -7753,4 +7753,34 @@ pub const ROUTE_TABLE: &[RouteEntry] = &[
         path: "/works/{id}/tags/{node}",
         audience: Audience::Authenticated,
     },
+    // GS-5 — the jury. Authenticated by extractor: who may draw is decided by `Privilege::JuryService` in the body, and who may vote is decided by
+    // being seated, so `Authenticated` names the extractor and the handler names the standing.
+    RouteEntry {
+        file: "jury.rs",
+        handler: "draw_panel",
+        method: "POST",
+        path: "/reports/{task}/jury",
+        audience: Audience::Authenticated,
+    },
+    RouteEntry {
+        file: "jury.rs",
+        handler: "read_panel",
+        method: "GET",
+        path: "/reports/{task}/jury",
+        audience: Audience::Authenticated,
+    },
+    RouteEntry {
+        file: "jury.rs",
+        handler: "cast_verdict",
+        method: "POST",
+        path: "/reports/{task}/jury/verdict",
+        audience: Audience::Authenticated,
+    },
+    RouteEntry {
+        file: "jury.rs",
+        handler: "my_assignments",
+        method: "GET",
+        path: "/me/jury",
+        audience: Audience::Authenticated,
+    },
 ];
