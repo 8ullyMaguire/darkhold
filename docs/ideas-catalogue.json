@@ -1,6 +1,6 @@
 {
  "generated_by": "scripts/ideas_catalogue.py",
- "count": 114,
+ "count": 113,
  "ideas": [
   {
    "why_summary": "",
@@ -97,19 +97,6 @@
    "why_summary": "docs/ideas/2026-11-01-idea-sweep-power-users.md Power-user sweep P23. `ssh host dh admin backup | zstd > backup.zst`, and monitoring is a cron job rather than a dashboard.",
    "id": "M63-23",
    "title": "dh admin backup --to - streams a consistent dump to stdout; dh admin health emits machine-readable checks with per-check exit codes",
-   "sources": [
-    "docs/requirements.csv"
-   ],
-   "milestone": "M63",
-   "relevance": 4,
-   "because": "a requirements row exists (+4)",
-   "default_on": false,
-   "built": false
-  },
-  {
-   "why_summary": "docs/ideas/2026-11-01-idea-sweep-power-users.md Power-user sweep P24. A performance regression visible from a user's machine, not only in CI, and a shared language for 'the instanc",
-   "id": "M63-24",
-   "title": "dh bench",
    "sources": [
     "docs/requirements.csv"
    ],
