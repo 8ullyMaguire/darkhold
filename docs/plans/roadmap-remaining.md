@@ -4767,3 +4767,50 @@ not by this probe; a live end-to-end needs the Discord credential the row is sti
 cherry-picked into this tree (`14c7ba83`) and pushed, so nothing of theirs is lost and both trees answer the same
 history; the deploy tree was then reset to `forgejo/master` because `git cherry` showed its only commit now exists
 upstream under a new hash.
+
+## The Concord board is not a restatement of the ledger — audited 2026-11-12
+
+§1's check 2 asks for `python3 scripts/backlog.py` → `unlinked: 0`. Measured today: **87 work cards, 29 linked, 58
+unlinked**. So the check is not a formatting complaint; it is 58 decisions nobody has taken, and this section is the
+measurement that has to come before any of them.
+
+**The matcher is not the problem, and neither is the ledger.** Each of the 58 was compared against the ledger by
+keyword, then the top candidate was read beside the card. Almost every top hit is a *false* match, and the failures are
+instructive rather than embarrassing:
+
+| card | the matcher's top hit | what the row actually says |
+|---|---|---|
+| 2473 *Quorum-gated front page* | M59-19 (12 hits) | "in binding mode a **storage-widening** change needs a higher quorum" — a different object with the same noun |
+| 2516 *Multi-work reading sessions* | M69-23 (43 hits) | "an import source can carry a Saved Filter as intake policy" — `filter`/`queue` overlap, no relation |
+| 2526 *Decision receipts* | M69-07 (6) | the evacuation protocol on instance shutdown |
+| 2640 *Air-gapped sync via signed bundles* | DM0-02 (5) | a pre-rename history bundle on the old tree |
+| 2785 *Taste-ordered front page* | M65-04 (2) | per-user module overrides |
+
+**Eight are real restatements of a row that already exists** (evidence is the requirement text itself):
+
+| card | row | why it is the same thing |
+|---|---|---|
+| 2523 *Jury duty from the eligible pool* | **GS-5** | "a jury drawn from the eligible pool" — word for word |
+| 2522 *Per-category quorum thresholds* | **M45-45g2** | "category change proposals with quorum voting, veto by operator" |
+| 2601 *Tombstones for deletions* | **M69-04** | "a takedown is a tombstone that survives re-import" |
+| 2750 *Scriptable moderation webhooks* | **M16-14** | "§21.8's operational half: rotating secrets, a per-subscription rate limit, auto-disable" |
+| 2760 *AI content flagged at import* | **DM4-07** | "the author's AI statement is a statement and never a protection" |
+| 2773 *Work page carries everything attached* | **M71-20** | the document-class migration whose first item is `/works/{id}` |
+| 2734 *Calibre interop contract* | **M63-30** | `dh lib --calibre <path>` — the same source; the card asks for the *contract* around it |
+| 2698 *Content-addressed GC with retention* | **M59-18** | retention proposals; the card adds the collection mechanism |
+
+**The other ~50 are genuinely new proposals.** Registering them is a real decision with a number attached: `planned`
+would go from 41 to ~91, and the two halves of §1 (check 1 wants zero `planned`; check 2 wants zero `unlinked`) then
+pull against each other. Three honest readings, and they are the user's to pick:
+
+1. **Register all of them** as `planned` — the board becomes the queue's front door. Cost: the queue doubles, and
+   every one needs a milestone, a census and a plan before it can be built.
+2. **Register them as `proposed`** — a status meaning "on the board, not scheduled". Requires adding a status to the
+   vocabulary that every gate and the CLI already read, and check 1 is then `planned == 0` with a real `proposed`
+   count beside it.
+3. **Map only the eight proven restatements, and record the remaining 50 as `unlinked` with this section as the
+   reason** — check 2 stays red, but honestly red, and the number (50) stops being an anonymous count.
+
+Whichever is chosen, the eight above can be mapped today without inventing anything: they are the same sentence in two
+places, and a `docs/backlog/concord-map.tsv` consulted before the token matcher is the mechanism that makes the mapping
+reviewable instead of implicit.
