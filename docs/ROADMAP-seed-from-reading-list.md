@@ -89,11 +89,20 @@ Run these and paste the output into the PR body:
     # 4. Who owns the seed account, and what is its pseud?
     psql -d darkhold -Atc "select id, name from accounts order by id limit 5"
 
-Measured 2026-11-11 for step 1: no rating write route exists in `crates/app/src` (the only hit is a comment in `inventory.rs` about the M16-08 gallery,
-where install/uninstall/update/rate are `Authenticated`). **Phase 1 therefore depends on ledger 406**: build the write path first, or the seeder has nothing
-honest to call.
+**Corrected 2026-11-12 — the measurement above was a false negative.** The route exists and always did:
+`crates/app/src/routes/reading.rs:59` registers `.route("/works/{id}/rating", get(get_rating).put(upsert_rating).delete(delete_rating))`, the client
+has `upsertRating` (`frontend/src/lib/api.ts:1113`), `Rating.svelte` drives it, `routes/WorkPage.svelte:647` mounts it, and
+`crates/app/tests/milestone_4.rs:435` PUTs it over HTTP. The scan missed it because the pattern `.route(.*rate` cannot match a router that puts the
+path on the line after `.route(`, and because the handler is named `upsert_rating` in a file named `reading.rs`, so the noun search missed it too.
 
-## Phase 1 — the write path (ledger 406, prerequisite)
+Three things about that route shape the seeder: it is **`RequirePseud`** (a rating belongs to a pseud, so `--account` alone is not enough), it refuses
+`stars` outside **1..=5** (`Calibre *rating` is 0–10, and a Calibre 0 means never rated — skip it, do not store 1), and it supports optimistic
+concurrency via `expected_version` (a seeder should not send it).
+
+**Ledger 406 is therefore closed, not a prerequisite**: the write path exists and the zero ratings were a population fact. Phase 2 below is the whole
+job; the estate brief for it is `~/secondbrain/10-Projects/briefs/darkhold-seed-reading-list.md`.
+
+## Phase 1 — the write path (ledger 406 — ALREADY EXISTS, see the correction above; do not build it)
 
 Deliverable: `POST /works/{id}/rate` (form field `value`), authenticated, which
 
