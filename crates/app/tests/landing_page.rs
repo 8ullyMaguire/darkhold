@@ -295,3 +295,39 @@ async fn a_signed_in_reader_is_sent_to_discovery() {
         Some("/discover"),
     );
 }
+
+/// A work the visitor cannot read is offered as a title, not as a dead link.
+///
+/// Found by a browser crawl of the live estate on 2026-11-13: every "Start reading" link on darkhold's landing page
+/// returned `404 work not found` to an anonymous visitor, because 27 464 works carry `body_audience = 'accounts_only'`
+/// and the reader answers `MetadataOnly` with a 404. The page listed them because it asked only whether a unit had a
+/// revision — a question about the record, not about the reader.
+#[tokio::test]
+async fn a_work_the_stranger_cannot_read_is_text_not_a_dead_link() {
+    let harness = Harness::new("accounts-only").await;
+    harness.seed().await;
+    harness
+        .exec("UPDATE works SET body_audience = 'accounts_only'")
+        .await;
+    let mut client = harness.client();
+
+    // The reader refuses the body to a stranger: this is the fact the landing page has to respect.
+    let (reader_status, _) = client.get(&format!("/works/{WORK}/units/{UNIT}")).await;
+    assert_eq!(
+        reader_status,
+        StatusCode::NOT_FOUND,
+        "an accounts-only body is not readable by an anonymous visitor"
+    );
+
+    let (status, body) = client.get("/").await;
+    assert_eq!(status, StatusCode::OK, "{body}");
+    assert!(
+        body.contains("The Long Way Round"),
+        "the work is still listed by title: {body}"
+    );
+    assert!(
+        !body.contains(&format!("/works/{WORK}/units/{UNIT}")),
+        "a work the visitor cannot open must not be a link: {body}"
+    );
+    test_support::assert_no_empty_section(&body, "landing");
+}

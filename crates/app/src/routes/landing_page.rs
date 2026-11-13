@@ -111,6 +111,14 @@ async fn starters(state: &AppState) -> Vec<Starter> {
             .await
             .unwrap_or_default();
         let first_readable = units.iter().find(|unit| unit.current_revision_id.is_some());
+        // A unit with a revision is not a unit *this visitor* may read. A work whose body audience is narrower than the
+        // instance's (27 464 rows on the live estate are `accounts_only`) is answered 404 by the reader for a stranger, so
+        // linking it from the front page publishes a dead link — which is what a browser crawl of the live site found on
+        // 2026-11-13. The decision is asked of the reader's own policy rather than re-derived here, so the two cannot drift.
+        let readable_by_stranger = matches!(
+            super::works::reading_decision(state, None, &work, &[]).await,
+            super::works::Reading::Public | super::works::Reading::Contributor
+        );
         let words: i64 = units
             .iter()
             .filter(|unit| unit.current_revision_id.is_some())
@@ -128,7 +136,9 @@ async fn starters(state: &AppState) -> Vec<Starter> {
             // The reader's URL is a document; the work page is still the application. Link the document.
             // The reader's URL takes the unit's id, not its order key: the route is
             // `/works/{work_id}/units/{unit_id}` and `parse_unit_id` refuses anything that is not a unit id.
-            href: first_readable.map(|unit| format!("/works/{}/units/{}", work.id, unit.id)),
+            href: readable_by_stranger
+                .then(|| first_readable.map(|unit| format!("/works/{}/units/{}", work.id, unit.id)))
+                .flatten(),
             author,
             words,
             completion: work.completion,
