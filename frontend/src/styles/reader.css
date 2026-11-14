@@ -124,6 +124,10 @@
   font-family: var(--font-reader);
   font-size: calc(1rem * var(--reader-font-scale, 1));
   line-height: var(--reader-line-height, 1.6);
+  /* Imported prose arrives with URLs in it, and a URL has no spaces to wrap at. A Patreon image URL kept as text by the
+     sanitiser measured 713 px at a 390 px viewport and made the whole reading page scroll sideways (measured 2026-11-14
+     on a unit page no sweep had reached before). Prose breaks its long words; a link inside prose breaks them too. */
+  overflow-wrap: anywhere;
 }
 
 .reader-surface__body p {
