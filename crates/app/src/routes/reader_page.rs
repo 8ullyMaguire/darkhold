@@ -371,12 +371,21 @@ async fn read_unit_page(
     let gated = unit.spoiler_gated && !reveals.covers(&unit_id.to_string());
 
     let stylesheet = crate::assets::app_stylesheet(&state).await;
+    // SANITISE AGAIN AT THE EDGE, because the stored field is a promise and the promise is not always kept. A body
+    // imported before the allow-list lost `link` still carries `<link href="style/main.css">`: the unit page rendered it
+    // verbatim, so the browser asked this origin for a stylesheet that is not there (404, served as HTML, refused for
+    // MIME), and a body that DID have one could restyle the reading page -- a work skin is a source's chrome, not the
+    // reader's (spec 32.7.9 keeps prose and links, and `link` is not on the list). Measured 2026-11-14 by the first
+    // crawl deep enough to reach a unit page. Re-running the sanitiser over an already-sanitised body is idempotent and
+    // costs one pass over the text; it repairs every row written by any import path, including ones this build has not
+    // seen.
+    let sanitized: Option<String> = revision.as_ref().map(|revision| {
+        darkhold_scrapers::sanitize::sanitize_fragment(&revision.sanitized_html, None)
+    });
     let body = render_page(
         &work,
         &unit,
-        revision
-            .as_ref()
-            .map(|revision| revision.sanitized_html.as_str()),
+        sanitized.as_deref(),
         &units,
         previous,
         next,
