@@ -194,9 +194,20 @@ fn render(
     );
     page.void("meta", &[("name", "description"), ("content", tagline)]);
     page.open("title", &[]).text(name).close("title");
+    page.void(
+        "link",
+        &[
+            ("rel", "icon"),
+            ("href", "/icon.svg"),
+            ("type", "image/svg+xml"),
+        ],
+    );
     if let Some(href) = stylesheet {
         page.void("link", &[("rel", "stylesheet"), ("href", href)]);
     }
+    // Every SPA route gets this from the shell; `/` is server-rendered, so it did not, and the browser fell back to
+    // requesting /favicon.ico -- which this build answers 404, so the console carried an error on the front page of the
+    // site (measured 2026-11-14 by the mobile pass, which is the only pass that visits `/` first).
     // The page's own spacing and rhythm, in the site's tokens. Scoped to `.landing` so nothing here can reach the
     // application's components, and written inline because the server writes this document (§8.5).
     page.open("style", &[])
