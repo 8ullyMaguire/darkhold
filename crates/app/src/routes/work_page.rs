@@ -108,10 +108,11 @@ async fn document(state: &AppState, work: &darkhold_db::content::Work) -> Respon
     let stylesheet = assets::app_stylesheet(state).await;
     let site = state.config().site.name.clone();
 
-    let mut page = docs::shell(
+    let mut page = docs::shell_described(
         &site,
         &format!("{} — {site}", work.title),
         stylesheet.as_deref(),
+        Some(work.summary.as_str()),
     );
 
     page.open("article", &[("class", "work")]);
@@ -299,10 +300,11 @@ async fn document(state: &AppState, work: &darkhold_db::content::Work) -> Respon
 async fn withheld(state: &AppState, work: &darkhold_db::content::Work) -> Response {
     let site = state.config().site.name.clone();
     let stylesheet = assets::app_stylesheet(state).await;
-    let mut page = docs::shell(
+    let mut page = docs::shell_described(
         &site,
         &format!("{} — {site}", work.title),
         stylesheet.as_deref(),
+        Some(work.summary.as_str()),
     );
     page.open("article", &[("class", "work")]);
     page.open("h1", &[]).text(&work.title).close("h1");
