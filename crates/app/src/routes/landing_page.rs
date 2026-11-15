@@ -311,10 +311,16 @@ fn render(
         .close("h2");
     page.open("p", &[])
         .text("Reading is free and needs no account. ")
-        .open("a", &[("href", "/browse")])
+        // THE FRONT DOOR ONLY OFFERS DOORS THAT OPEN. These four links pointed at `/browse`, `/forum`, `/auth/sign-in` and
+        // `/about`, and **none of them is a route**: the client answers each with its not-found view inside a 200, so a
+        // reader who followed the landing page's own promises landed on "No such page" four times (measured by polaris-qa
+        // 2026-11-15; the row was invisible until the crawler learned the phrase). The targets below are the routes the SPA
+        // and the server actually serve -- `/search` is the catalogue by fandom, tag and rating, `/community` is the forum
+        // hub, `/sign-in` is the SPA's own sign-in page, and `/docs` is help.
+        .open("a", &[("href", "/search")])
         .text("Browse the catalogue")
         .close("a")
-        .text(" by fandom, tag or length.");
+        .text(" by fandom, tag or rating.");
     page.close("p");
     page.open("p", &[])
         .text("Writing: publish serially, keep every revision, and choose what kind of feedback reaches you. ")
@@ -325,7 +331,7 @@ fn render(
     page.close("p");
     page.open("p", &[])
         .text("Community: discuss what you read, recommend what deserves it, and govern this instance with the people in it. ")
-        .open("a", &[("href", "/forum")])
+        .open("a", &[("href", "/community")])
         .text("Browse the forum")
         .close("a")
         .text(".");
@@ -333,12 +339,12 @@ fn render(
     page.close("section");
 
     page.open("footer", &[]);
-    page.open("a", &[("href", "/auth/sign-in")])
+    page.open("a", &[("href", "/sign-in")])
         .text("Sign in")
         .close("a");
     page.text(" · ");
-    page.open("a", &[("href", "/about")])
-        .text("About")
+    page.open("a", &[("href", "/docs")])
+        .text("Help")
         .close("a");
     page.close("footer");
 

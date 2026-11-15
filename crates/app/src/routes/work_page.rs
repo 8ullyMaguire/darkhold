@@ -319,7 +319,9 @@ async fn withheld(state: &AppState, work: &darkhold_db::content::Work) -> Respon
             .close("section");
     }
     page.open("p", &[])
-        .open("a", &[("href", "/auth/sign-in")])
+        // The SPA's sign-in page is `/sign-in`; `/auth/sign-in` is the API's prefix and has no page behind it, so this
+        // link answered 200 with the not-found view (measured 2026-11-15, same class as the landing page's dead links).
+        .open("a", &[("href", "/sign-in")])
         .text("Sign in")
         .close("a")
         .close("p");
