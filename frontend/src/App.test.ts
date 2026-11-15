@@ -421,4 +421,25 @@ describe('application shell', () => {
 
     expect(await screen.findByText('Sign in to see this page')).toBeInTheDocument();
   });
+
+  /**
+   * Nine addresses answered with one `<title>`: nothing in the SPA ever assigned
+   * `document.title`, so every route shipped the shell's sentence and eight tabs were one tab.
+   *
+   * The pure rule is proved in `lib/title.test.ts`. What can only be proved here is the WIRING: the
+   * shell sets the title on first paint, and sets it AGAIN when the reader navigates client-side --
+   * which is the half an effect that read nothing would silently fail.
+   */
+  it('retitles the tab on a client-side navigation', async () => {
+    mockShell(false);
+    window.history.pushState({}, '', '/register');
+    render(App);
+
+    expect(document.title).toBe('Create an account — Darkhold');
+
+    window.history.pushState({}, '', '/password-reset');
+    window.dispatchEvent(new PopStateEvent('popstate'));
+
+    await waitFor(() => expect(document.title).toBe('Reset a password — Darkhold'));
+  });
 });

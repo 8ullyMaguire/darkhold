@@ -66,6 +66,7 @@ import { Button } from '@polaris/ui';
   import RoadmapCard from './routes/RoadmapCard.svelte';
   import Directory from './routes/Directory.svelte';
   import { handleLinkClick, matchRoute } from './lib/router';
+  import { titleFor } from './lib/title';
   import {
     fetchModules,
     moduleNavEntries,
@@ -227,6 +228,15 @@ import { Button } from '@polaris/ui';
   let moreOpen = $state(false);
   let docsSearchOpen = $state(false);
   let route = $derived(matchRoute(path));
+
+  // WHAT THE TAB SAYS IS A PROPERTY OF THE ROUTE. Nothing set `document.title` before this, so every
+  // route shipped the shell's sentence and eight tabs were one tab (measured: nine addresses, one
+  // title). Reading `route` inside the effect tracks it, so a client-side navigation retitles the tab
+  // exactly as a full load would -- and the rule lives in one place (`lib/title.ts`) rather than in
+  // forty pages that would each have to remember.
+  $effect(() => {
+    document.title = titleFor(route);
+  });
 
   let preference = $state<ThemePreference>(readPreference(window.localStorage));
 
