@@ -49,6 +49,18 @@ pub(crate) fn shell_described(
         page.void("meta", &[("name", "description"), ("content", description.as_str())]);
         page.void("meta", &[("property", "og:description"), ("content", description.as_str())]);
     }
+    // DECLARE THE ICON, OR THE BROWSER INVENTS ONE TO ASK FOR. Without a <link rel=icon> a browser requests
+    // /favicon.ico, which this build answers 404, so every server-rendered page (work, docs, not-found) carried a console
+    // error about a file the page never asked for (measured by polaris-qa 2026-11-15, on /works/<id>). The landing page
+    // already declares it; this is the frame the other documents share, so the fix is here and covers all of them.
+    page.void(
+        "link",
+        &[
+            ("rel", "icon"),
+            ("href", "/icon.svg"),
+            ("type", "image/svg+xml"),
+        ],
+    );
     if let Some(href) = stylesheet {
         page.void("link", &[("rel", "stylesheet"), ("href", href)]);
     }
