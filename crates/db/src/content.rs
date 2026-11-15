@@ -985,16 +985,30 @@ pub async fn work_freshness(db: &Database, id: WorkId) -> Result<WorkFreshness> 
 /// unlisted work is deliberately absent: it is reachable by link, which is what "unlisted" promises, and a sitemap is
 /// the one surface that would turn that promise into an index entry.
 ///
+/// **And readable by the reader the sitemap is written for.** The predicate above is the browse door's, and it is not
+/// enough: `body_audience` decides whether an anonymous reader may open the *text*, and a work held for accounts only
+/// answers an anonymous crawler with the same 404 as a work that does not exist (`reading_decision_publishing_metadata`
+/// returning `Denied`, by design, so existence is not disclosed). Measured on the live catalogue 2026-11-15: 58,042
+/// works are published and public, 27,464 of them are `accounts_only`, and because the file is ordered newest-first and
+/// capped at 5,000, **every work URL it listed answered 404** to an anonymous request while the tag pages beside them
+/// answered 200 -- eight of ten sampled, and twelve hand-picked in sixes. A sitemap whose entries a crawler is refused
+/// is worse than no sitemap: it is a claim of 5,000 pages and a demonstration that none of them open.
+///
+/// A NULL or empty `body_audience` is the imported-and-never-set case, and the instance default (`Anyone`) is what it
+/// inherits; a narrower instance default denies the whole site, and the page route above answers 404 for every work.
+///
 /// Returns `(work id, updated_at)`; the caller builds the URL from the id because the route is `/works/{id}` and
 /// nothing about that path belongs in the database layer.
 pub async fn sitemap_works(db: &Database, limit: i64) -> Result<Vec<(String, String)>> {
     let sqlite = "SELECT w.id, w.updated_at FROM works w \
                    WHERE w.lifecycle = 'published' AND w.visibility = 'public' \
                      AND w.deleted_at IS NULL \
+                   AND (w.body_audience IS NULL OR TRIM(w.body_audience) = '' OR TRIM(w.body_audience) = 'anyone') \
                    ORDER BY w.updated_at DESC, w.id DESC LIMIT ?";
     let postgres = "SELECT w.id::text, w.updated_at FROM works w \
                      WHERE w.lifecycle = 'published' AND w.visibility = 'public' \
                        AND w.deleted_at IS NULL \
+                     AND (w.body_audience IS NULL OR TRIM(w.body_audience) = '' OR TRIM(w.body_audience) = 'anyone') \
                      ORDER BY w.updated_at DESC, w.id::text DESC LIMIT $1";
     match db.backend() {
         Backend::Sqlite => Ok(sqlx::query_as(sqlite)
@@ -1017,13 +1031,15 @@ pub async fn sitemap_tags(db: &Database, limit: i64) -> Result<Vec<String>> {
                    WHERE tn.kind = 'tag' AND EXISTS ( \
                        SELECT 1 FROM work_tags wt JOIN works w ON w.id = wt.work_id \
                         WHERE wt.node_id = tn.id AND w.lifecycle = 'published' \
-                          AND w.visibility = 'public' AND w.deleted_at IS NULL) \
+                          AND w.visibility = 'public' AND w.deleted_at IS NULL \
+                          AND (w.body_audience IS NULL OR TRIM(w.body_audience) = '' OR TRIM(w.body_audience) = 'anyone') ) \
                    ORDER BY tn.canonical LIMIT ?";
     let postgres = "SELECT tn.canonical FROM canonical_entities tn \
                      WHERE tn.kind = 'tag' AND EXISTS ( \
                          SELECT 1 FROM work_tags wt JOIN works w ON w.id = wt.work_id \
                           WHERE wt.node_id = tn.id AND w.lifecycle = 'published' \
-                            AND w.visibility = 'public' AND w.deleted_at IS NULL) \
+                            AND w.visibility = 'public' AND w.deleted_at IS NULL \
+                            AND (w.body_audience IS NULL OR TRIM(w.body_audience) = '' OR TRIM(w.body_audience) = 'anyone') ) \
                      ORDER BY tn.canonical LIMIT $1";
     match db.backend() {
         Backend::Sqlite => Ok(sqlx::query_scalar(sqlite)

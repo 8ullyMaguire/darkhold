@@ -16,6 +16,21 @@ use crate::html::Html;
 
 /// The document frame. Callers open their content, then close `body` and `html` themselves.
 pub(crate) fn shell(site: &str, title: &str, stylesheet: Option<&str>) -> Html {
+    shell_described(site, title, stylesheet, None)
+}
+
+/// The same frame, with a `<meta name="description">`.
+///
+/// A work page is the page people link to, and it had no description at all: the crawler asked for
+/// `meta[name=description]` on `/works/<id>` and found nothing (polaris-qa, 2026-11-14). Search results and link previews
+/// then write their own sentence about a page whose own text was right there. The description is the work's summary --
+/// the field the page already renders -- not a second thing to maintain.
+pub(crate) fn shell_described(
+    site: &str,
+    title: &str,
+    stylesheet: Option<&str>,
+    description: Option<&str>,
+) -> Html {
     let mut page = Html::new();
     page.raw("<!DOCTYPE html>");
     page.open("html", &[("lang", "en")]);
@@ -29,6 +44,23 @@ pub(crate) fn shell(site: &str, title: &str, stylesheet: Option<&str>) -> Html {
         ],
     );
     page.open("title", &[]).text(title).close("title");
+    if let Some(text) = description.map(str::trim).filter(|text| !text.is_empty()) {
+        let description = clip(&darkhold_scrapers::strip_tags(text), 160);
+        page.void("meta", &[("name", "description"), ("content", description.as_str())]);
+        page.void("meta", &[("property", "og:description"), ("content", description.as_str())]);
+    }
+    // DECLARE THE ICON, OR THE BROWSER INVENTS ONE TO ASK FOR. Without a <link rel=icon> a browser requests
+    // /favicon.ico, which this build answers 404, so every server-rendered page (work, docs, not-found) carried a console
+    // error about a file the page never asked for (measured by polaris-qa 2026-11-15, on /works/<id>). The landing page
+    // already declares it; this is the frame the other documents share, so the fix is here and covers all of them.
+    page.void(
+        "link",
+        &[
+            ("rel", "icon"),
+            ("href", "/icon.svg"),
+            ("type", "image/svg+xml"),
+        ],
+    );
     if let Some(href) = stylesheet {
         page.void("link", &[("rel", "stylesheet"), ("href", href)]);
     }
@@ -95,4 +127,29 @@ pub(crate) fn not_found(site: &str, message: &str, stylesheet: Option<&str>) -> 
         header::HeaderValue::from_static("text/html; charset=utf-8"),
     );
     response
+}
+
+/// A summary imported from a source is HTML (`<p>An Ancient Britannia Story…</p>`), and a `meta` description carrying
+/// escaped tags is worse than no description: it is what a search engine quotes. `strip_tags` is the crate that already
+/// does this for imported bodies — a description is a body with nowhere to put markup.
+///
+/// A description is one line of at most `max` characters. Summaries arrive with newlines, runs of spaces and, on this
+/// site, entities left over from an import; cutting mid-word reads worse than stopping one word early.
+fn clip(text: &str, max: usize) -> String {
+    let flat = text.split_whitespace().collect::<Vec<_>>().join(" ");
+    if flat.chars().count() <= max {
+        return flat;
+    }
+    let mut cut = String::new();
+    for word in flat.split(' ') {
+        if cut.chars().count() + word.chars().count() + 1 > max.saturating_sub(1) {
+            break;
+        }
+        if !cut.is_empty() {
+            cut.push(' ');
+        }
+        cut.push_str(word);
+    }
+    cut.push('\u{2026}');
+    cut
 }

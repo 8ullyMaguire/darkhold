@@ -43,16 +43,19 @@
 <div class="field">
 	<label for={label}>{label}</label>
 	<div class="combobox">
+		<!-- A native <input list> + <datalist> needs no ARIA to be accessible, and the ARIA it had was wrong three
+		     ways: aria-expanded is not allowed on a textbox (axe: aria-allowed-attr, /search, 2026-11-14),
+		     aria-controls pointed at the input's own id, and `list={label}` named a datalist id that does not
+		     exist -- the datalist below is `{label}-list`, so the suggestions never bound at all. Native wins. -->
 		<input
 			type="text"
-			list={label}
+			list={`${label}-list`}
 			bind:value
 			oninput={handleInput}
 			placeholder={placeholder}
 			aria-invalid={error ? 'true' : undefined}
 			aria-describedby={getDescribedBy()}
-			aria-expanded="false"
-			aria-controls={label}
+			aria-controls={`${label}-list`}
 			aria-autocomplete="list"
 			tabindex="0"
 			id={label}

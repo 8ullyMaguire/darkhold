@@ -108,10 +108,11 @@ async fn document(state: &AppState, work: &darkhold_db::content::Work) -> Respon
     let stylesheet = assets::app_stylesheet(state).await;
     let site = state.config().site.name.clone();
 
-    let mut page = docs::shell(
+    let mut page = docs::shell_described(
         &site,
         &format!("{} — {site}", work.title),
         stylesheet.as_deref(),
+        Some(work.summary.as_str()),
     );
 
     page.open("article", &[("class", "work")]);
@@ -299,10 +300,11 @@ async fn document(state: &AppState, work: &darkhold_db::content::Work) -> Respon
 async fn withheld(state: &AppState, work: &darkhold_db::content::Work) -> Response {
     let site = state.config().site.name.clone();
     let stylesheet = assets::app_stylesheet(state).await;
-    let mut page = docs::shell(
+    let mut page = docs::shell_described(
         &site,
         &format!("{} — {site}", work.title),
         stylesheet.as_deref(),
+        Some(work.summary.as_str()),
     );
     page.open("article", &[("class", "work")]);
     page.open("h1", &[]).text(&work.title).close("h1");
@@ -317,7 +319,9 @@ async fn withheld(state: &AppState, work: &darkhold_db::content::Work) -> Respon
             .close("section");
     }
     page.open("p", &[])
-        .open("a", &[("href", "/auth/sign-in")])
+        // The SPA's sign-in page is `/sign-in`; `/auth/sign-in` is the API's prefix and has no page behind it, so this
+        // link answered 200 with the not-found view (measured 2026-11-15, same class as the landing page's dead links).
+        .open("a", &[("href", "/sign-in")])
         .text("Sign in")
         .close("a")
         .close("p");
