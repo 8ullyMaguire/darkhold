@@ -1,3 +1,9 @@
+## 2026-11-16 — series document; all ADR 0006 doors now exist
+
+`/series/{slug}` is a script-free document in the author's `series_entries.position` order, with series title/description and work links. `series_recs::page_by_slug` reads both engines and filters to published public undeleted works in the same statement; the older `media_collections` kind=series model is deliberately not used, and the decision is recorded in the roadmap. Evidence: `series_page` 2/2 SQLite and 2/2 PostgreSQL, `route_inventory` 6/6 with the new public route row, clippy -D warnings green for db+app; the reverse-order mutant reddened the author's-order assertion. All eight ADR 0006 document doors now exist; M71-20 stays `planned` only for deleting Svelte routes that documents fully replace.
+
+The full gate `proc_9a224a968586` was stopped by PID while in its test stage: it started at `7a7e013b`, and the later docs commits `e8237182` / `0472f8e3` superseded it. Its log is `/tmp/gate-all-collection-20261116.log`.
+
 ## 2026-11-16 — memory fell again
 
 A later probe on the same host reports `MemAvailable 3289 kB`-equivalent `3.2 GB` (`free -m`: total 15858, used 12568, free 618, buff/cache 3980, available 3289) with load average ~36. The deploy tree remains current at `7a7e013b`; memory is again the only deploy gate. No dump or build started. Clearing condition unchanged: `MemAvailable >= 8 GB` through the link, or explicit owner approval for a lower-memory release profile.

@@ -6843,6 +6843,14 @@ pub const ROUTE_TABLE: &[RouteEntry] = &[
         path: "/collections/{id}",
         audience: Audience::Public,
     },
+    // ADR 0006 / M71-20: a shared series is a document; unknown slugs 404 in the handler.
+    RouteEntry {
+        file: "series_page.rs",
+        handler: "series_page",
+        method: "GET",
+        path: "/series/{slug}",
+        audience: Audience::Public,
+    },
     // W6 §7.5a, merged from the thinkcentre line: the ATProto feed skeleton an AppView asks for by feed URI. The
     // handler takes no session extractor, so the door is public — a skeleton is a list of post references, and the
     // records behind them are public by the nature of ATProto.

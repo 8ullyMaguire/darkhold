@@ -716,3 +716,87 @@ pub async fn put_in_series(
 
     Ok(existing)
 }
+
+/// One series as a document: its own facts and the works a reader can actually open, in the author's order.
+///
+/// This is a read model for ADR 0006's series document, not a second series writer. Membership is filtered in the same
+/// statement as the read so a private or deleted work can never leak into a public page, and the order is
+/// `series_entries.position` — the author's, the only one (see the module docs).
+#[derive(Debug, Clone)]
+pub struct SeriesPage {
+    pub slug: String,
+    pub title: String,
+    pub description: String,
+    pub entries: Vec<SeriesPageEntry>,
+}
+
+#[derive(Debug, Clone)]
+pub struct SeriesPageEntry {
+    pub work_id: String,
+    pub title: String,
+    pub position: i64,
+}
+
+#[derive(Debug, sqlx::FromRow)]
+struct SeriesPageRow {
+    series_title: String,
+    series_description: String,
+    work_id: String,
+    work_title: String,
+    position: i64,
+}
+
+/// Read one series by slug with at most 50 reachable entries. `None` means the slug is unknown *or* every entry is
+/// private, deleted or unpublished — both are the same honest 404 to a reader.
+pub async fn page_by_slug(db: &Database, slug: &str) -> Result<Option<SeriesPage>> {
+    let sql = db.sql(
+        "SELECT s.title AS series_title, s.description AS series_description,
+                w.id AS work_id, w.title AS work_title, se.position AS position
+           FROM series s
+           JOIN series_entries se ON se.series_id = s.id
+           JOIN works w ON w.id = se.work_id
+          WHERE s.slug = ? AND w.lifecycle = 'published' AND w.visibility = 'public'
+                AND w.deleted_at IS NULL
+          ORDER BY se.position ASC, w.id ASC
+          LIMIT 50",
+        "SELECT s.title AS series_title, s.description AS series_description,
+                w.id::text AS work_id, w.title AS work_title, se.position::bigint AS position
+           FROM series s
+           JOIN series_entries se ON se.series_id = s.id
+           JOIN works w ON w.id = se.work_id
+          WHERE s.slug = ? AND w.lifecycle = 'published' AND w.visibility = 'public'
+                AND w.deleted_at IS NULL
+          ORDER BY se.position ASC, w.id ASC
+          LIMIT 50",
+    );
+    let rows: Vec<SeriesPageRow> = match db.backend() {
+        Backend::Sqlite => {
+            sqlx::query_as(&sql)
+                .bind(slug)
+                .fetch_all(db.sqlite_pool().expect("sqlite handle"))
+                .await?
+        }
+        Backend::Postgres => {
+            sqlx::query_as(&sql)
+                .bind(slug)
+                .fetch_all(db.postgres_pool().expect("postgres handle"))
+                .await?
+        }
+    };
+    let Some(first) = rows.first() else {
+        return Ok(None);
+    };
+    Ok(Some(SeriesPage {
+        slug: slug.to_string(),
+        title: first.series_title.clone(),
+        description: first.series_description.clone(),
+        entries: rows
+            .into_iter()
+            .map(|r| SeriesPageEntry {
+                work_id: r.work_id,
+                title: r.work_title,
+                position: r.position,
+            })
+            .collect(),
+    }))
+}

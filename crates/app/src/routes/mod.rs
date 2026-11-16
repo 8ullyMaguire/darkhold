@@ -124,6 +124,7 @@ pub mod roadmap;
 pub mod sandbox;
 pub mod search;
 pub mod search_page;
+pub mod series_page;
 pub mod settings;
 pub mod sitemap;
 pub mod source_adapters;

@@ -1500,6 +1500,14 @@ pub fn build_router(state: AppState) -> Router {
                 auth::load_session,
             )),
         )
+        // A series' page (ADR 0006, M71-20): a shared series URL is a document in the author's order, read from the
+        // content-family series tables before the SPA fallback.
+        .merge(
+            routes::series_page::router().layer(middleware::from_fn_with_state(
+                state.clone(),
+                auth::load_session,
+            )),
+        )
         // A collection's page (ADR 0006, M71-20): a shared shelf is a document, using the events collection model and
         // the same work gate as the work page. Registered before the fallback so a link preview gets content.
         .merge(

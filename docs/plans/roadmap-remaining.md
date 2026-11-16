@@ -30,6 +30,14 @@ Source: `.hermes/plans/2026-11-16_203519-fanfiction-quality-import-and-seed.md`.
 
 **Collection slice shipped.** `/collections/{id}` serves a script-free document for public events collections, using `get_collection`/`list_collection_items`/`collection_coverage` and `find_work` with the same published/public/undeleted gate as the work page. Private and empty collections 404. Evidence: `collection_page` 2/2 SQLite and 2/2 PostgreSQL; `route_inventory` 6/6 after the new public route row; `milestone_13 + milestone_18_events` 19/19; clippy -D warnings green. Mutant dropping the visibility filter leaked the private title. Row stays `planned` for series pages and the Svelte-route deletions.
 
+## M71-20 series document — census, 2026-11-16
+
+**Census:** REUSE the document shell, `series_recs::put_in_series` as the writer, `content::find_work`'s visibility gate and the Archive row order from search/author/collection; ADAPT `series_recs.rs` with one both-engine read and `server.rs`/`inventory.rs` with one public route; BUILD only `routes/series_page.rs`. Non-goals: no new slug grammar, no use of the older `media_collections` kind=`series` model, no author-order rewrite, no SPA removal.
+
+**Decision:** the canonical path is `/series/{slug}`, keyed by the `series.slug` that already exists. Entries are read from `series_entries.position` — the author's order, the only order — and filtered to published/public/undeleted works before they reach the page. A series with no reachable work is a 404, not an empty promise. The two-engine read lives in `series_recs.rs`, not in the app route.
+
+**Series slice shipped.** `/series/{slug}` renders a script-free document in the author's `series_entries.position` order. `series_recs::page_by_slug` is a both-engine read that filters to published public undeleted works in the same statement; the older `media_collections` kind=series model is deliberately not used. Evidence: `series_page` 2/2 SQLite and 2/2 PostgreSQL, `route_inventory` 6/6 after the new public route row, clippy -D warnings green for db+app; the reverse-order mutant reddened the author's-order assertion. This completes all ADR 0006 document doors; the row stays `planned` only for deleting fully replaced Svelte routes.
+
 ## M71-08 reader bar — no-JS slice shipped, 2026-11-16
 
 **Census:** REUSE the server-rendered reader, its TOC, `position`/`stale_position` and the existing typography form; ADAPT `render_page` with a `nav[aria-label="Reading controls"]`; BUILD nothing. Non-goals: no scroll-hiding script, no bookmark or in-work search yet, no client-side percentage.
