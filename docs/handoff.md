@@ -1,3 +1,7 @@
+## 2026-11-16 — memory fell again
+
+A later probe on the same host reports `MemAvailable 3289 kB`-equivalent `3.2 GB` (`free -m`: total 15858, used 12568, free 618, buff/cache 3980, available 3289) with load average ~36. The deploy tree remains current at `7a7e013b`; memory is again the only deploy gate. No dump or build started. Clearing condition unchanged: `MemAvailable >= 8 GB` through the link, or explicit owner approval for a lower-memory release profile.
+
 ## 2026-11-16 — host tree current, memory nearly open
 
 `ssh thinkcentre` succeeded (70 s) and the deploy tree fast-forwarded to `7a7e013b` with 0 dirty files, matching the forges and the mirror. `free -m` now reports `MemAvailable 7232256 kB` (~6.9 GB) with load average ~28 and `darkhold` active. That is above the old 4 GB stall but still below the 8 GB link-window gate from the deploy record, so no dump or build was started. Clearing condition unchanged: `MemAvailable >= 8 GB` through the link, or explicit owner approval for a lower-memory release profile. Live is still `0.1.0+00edcf34`.
