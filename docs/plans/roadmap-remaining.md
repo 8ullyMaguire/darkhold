@@ -4,6 +4,14 @@
 reason for that order, so a later session does not have to re-derive it. The ledger stays the source of truth: a row
 moves when `scripts/ledger.py upsert` says so, not when this file says so.
 
+## M71-03 Archive rows — search slice shipped, 2026-11-16
+
+**Census:** REUSE `SearchResult`, the AST query's one grouped SELECT, the server's existing `provenance` attachment and `WorkBlurb`'s title→byline→metrics order; ADAPT `SearchResult` with a lifecycle-derived `status`, the search response and `Search.svelte`'s hit list; BUILD `WorkRow.svelte` only — no component in the estate carries provenance *and* status beside a title. Non-goals: no new route, no new table, no change to the query grammar, no cover-card grid (ADR 0033).
+
+**Decision:** status comes from `works.lifecycle`/`works.visibility` in the same grouped query as the rest of the hit, not from a second per-row request and not from provenance: a referenced work can be live just as a hosted one can be held. Status words are `live`, `held`, `private`.
+
+**Shipped (search slice).** `SearchResult.status` is filled by `status_word()` inside the AST query on both engines; `/api/v1/search` already attaches `provenance` in one grouped query. `WorkRow.svelte` replaces `WorkBlurb` on `/search`, rendering one title link, byline, words, points, a provenance word and a status word. Evidence: db 1/1 SQLite + 1/1 PostgreSQL, `WorkRow 3/3 + Search 25/25`, `svelte-check 0 errors`, `gate.sh frontend ok`, app suites 42/42; mutant always-held reddened the live assertion. Ledger stays `planned`: browse, library and rail surfaces still use `WorkCard`, and the row's unit/date/cursor clauses are not drawn yet.
+
 ## M71-09 UI half — built and closed, 2026-11-16
 
 The API half is shipped: `GET /reading/progress` publishes `resume{state, percent, display, sentence, needs_a_choice}`; `percent` is null and `display` is an em dash except in the `current` state. The reader's bar and the choice UI are still missing: `ResumePrompt.svelte` derives a percentage from raw permille, so an unmeasured or stale place can still look measured on screen.

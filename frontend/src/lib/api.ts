@@ -1789,6 +1789,10 @@ export interface SearchResult {
   author_handle: string;
   word_count: number;
   score: number;
+  /** Where the text lives — from the server's one grouped provenance query. */
+  provenance?: 'hosted' | 'hosted_locked' | 'referenced' | 'known';
+  /** Lifecycle status — from the same grouped SELECT as the hit. */
+  status?: 'live' | 'held' | 'private';
 }
 
 /** One named value under the current filter set (M71-11). */

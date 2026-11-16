@@ -15,7 +15,7 @@
   import WordHistogram from '../lib/components/WordHistogram.svelte';
   import ErrorSummary from '../lib/components/ErrorSummary.svelte';
   import Skeleton from '../lib/components/Skeleton.svelte';
-  import { WorkBlurb } from '@polaris/ui';
+  import WorkRow from '../lib/components/WorkRow.svelte';
 
   type FilterField = 'fandom' | 'tag' | 'mood' | 'rating' | 'language' | 'status';
 
@@ -465,19 +465,15 @@
     <ul class="results">
       {#each results.items as item (item.work_id)}
         <li>
-          <!--
-            A result is a work, so it is listed the family way (M72-06): title, byline, meta, in `WorkBlurb`'s order.
-            The old markup was an <a> wrapping the title — a link inside the heading's own link once the blurb renders
-            it, which is two tab stops for one destination.
-          -->
-          <WorkBlurb
-            work={{
-              title: item.title,
-              authors: [item.author_handle],
-              meta: [`${item.word_count.toLocaleString('en-US')} words`],
-              href: `/works/${item.work_id}`,
-            }}
-            size="inline"
+          <!-- M71-03: a dense Archive row. Provenance and status are server facts, not decoration. -->
+          <WorkRow
+            title={item.title}
+            author={item.author_handle}
+            words={item.word_count}
+            score={item.score}
+            href={`/works/${item.work_id}`}
+            provenance={item.provenance ?? 'known'}
+            status={item.status ?? 'held'}
           />
         </li>
       {/each}

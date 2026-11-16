@@ -35,6 +35,9 @@ pub struct SearchResult {
     pub author_handle: String,
     pub word_count: i64,
     pub score: i64,
+    /// Lifecycle status from `works.lifecycle`/`works.visibility`, in the same grouped query as the hit.
+    /// One of `live`, `held`, `private`. Not derived from provenance: a referenced work can be live.
+    pub status: String,
 }
 
 /// A paragraph anchor for in-work search.
@@ -244,6 +247,7 @@ pub async fn search_works(db: &Database, needle: &str, limit: i64) -> Result<Vec
                         author_handle,
                         word_count,
                         score,
+                        status: "live".to_string(),
                     },
                 )
                 .collect())
@@ -291,6 +295,7 @@ pub async fn search_works(db: &Database, needle: &str, limit: i64) -> Result<Vec
                         author_handle,
                         word_count,
                         score,
+                        status: "live".to_string(),
                     },
                 )
                 .collect())

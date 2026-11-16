@@ -64,9 +64,32 @@ async fn search_works_ast_impl(
     scope: &SearchFilters,
 ) -> Result<Vec<SearchResult>> {
     let (sql, texts, numbers) = prepared(db, query, viewer_id, rules, scope)?;
-    let rows: Vec<(String, String, String, i64, i64, String)> = match db.backend() {
+    let rows: Vec<(
+        String,
+        String,
+        String,
+        i64,
+        i64,
+        String,
+        String,
+        String,
+        String,
+    )> = match db.backend() {
         Backend::Sqlite => {
-            let mut q = sqlx::query_as::<_, (String, String, String, i64, i64, String)>(&sql);
+            let mut q = sqlx::query_as::<
+                _,
+                (
+                    String,
+                    String,
+                    String,
+                    i64,
+                    i64,
+                    String,
+                    String,
+                    String,
+                    String,
+                ),
+            >(&sql);
             for b in &texts {
                 q = q.bind(b.as_str());
             }
@@ -78,7 +101,20 @@ async fn search_works_ast_impl(
                 .await?
         }
         Backend::Postgres => {
-            let mut q = sqlx::query_as::<_, (String, String, String, i64, i64, String)>(&sql);
+            let mut q = sqlx::query_as::<
+                _,
+                (
+                    String,
+                    String,
+                    String,
+                    i64,
+                    i64,
+                    String,
+                    String,
+                    String,
+                    String,
+                ),
+            >(&sql);
             for b in &texts {
                 q = q.bind(b.as_str());
             }
@@ -94,15 +130,46 @@ async fn search_works_ast_impl(
     Ok(rows
         .into_iter()
         .map(
-            |(id, title, author_handle, word_count, score, _updated_at)| SearchResult {
-                work_id: id,
+            |(
+                id,
                 title,
                 author_handle,
                 word_count,
                 score,
+                _rating,
+                _updated_at,
+                lifecycle,
+                visibility,
+            )| {
+                SearchResult {
+                    work_id: id,
+                    title,
+                    author_handle,
+                    word_count,
+                    score,
+                    status: status_word(&lifecycle, &visibility),
+                }
             },
         )
         .collect())
+}
+
+/// Lifecycle + visibility → the single status word a row carries.
+///
+/// A public published work is live; anything else the reader can see is held; a non-public
+/// published work is private. The AST filter has already decided which rows the reader may see,
+/// so this is naming a state, not re-checking access.
+fn status_word(lifecycle: &str, visibility: &str) -> String {
+    if lifecycle == "published" {
+        if visibility == "public" {
+            "live"
+        } else {
+            "private"
+        }
+    } else {
+        "held"
+    }
+    .to_string()
 }
 
 /// The statement a search would run, and the string binds it would bind, in bind order.
@@ -327,7 +394,8 @@ fn render_statement(
          (SELECT COALESCE({sum_expr}, 0) FROM units c \
           JOIN revisions cr ON cr.id = c.current_revision_id \
           WHERE c.work_id = works.id AND c.deleted_at IS NULL) AS word_count, \
-         COUNT(works_index_terms.term) AS score, works.rating, works.updated_at \
+         COUNT(works_index_terms.term) AS score, works.rating, works.updated_at, \
+         works.lifecycle, works.visibility \
          FROM works \
          LEFT JOIN works_index_terms ON works_index_terms.work_id = works.id \
          LEFT JOIN works_index ON works_index.work_id = works.id \
@@ -402,7 +470,7 @@ fn render_statement(
     // SQLite tolerates the wider list and is given the same one rather than a special case.
     format!(
         "SELECT * FROM ({select}{visibility}{exclusion} \
-         GROUP BY works.id, works.updated_at, works.rating, pseuds.handle) AS s \
+         GROUP BY works.id, works.updated_at, works.rating, works.lifecycle, works.visibility, pseuds.handle) AS s \
          WHERE 1=1{where_clause} \
          ORDER BY {order} \
          LIMIT ?",

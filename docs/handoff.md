@@ -1,3 +1,15 @@
+## 2026-11-16 — redesign started: ADR 0033, tokens, measured shell, Archive rows, 35 planned
+
+The redesign's first four phases are in the tree. ADR 0033 settles the contradiction the old documents carried: the site chrome is **The Archive** (dense, dark, measured), the reader is **The Reading Room** (paper, Literata), and the Novellunar card grid is not the site language. `DIRECTIONS.md`, `THEME.md`, spec §21 and the vault master were rewritten to say so; `docs/spec/21` and `26` are regenerated through `scripts/split-spec.py`, so the vault stays the single source.
+
+`frontend/scripts/feature-inventory.mjs` freezes 817 routes, 22 nav links, 38 client paths and 958 requirement ids; `scripts/gate.sh repo` now refuses a redesign that drops one. `token-contract.test.mjs` refuses a missing density/provenance/status token or a literal hex colour in a component; `contrast-check.mjs` refuses a failing shared contrast pair or an imported palette the shell cannot select. The Archive preset is imported and is the system-dark default; the reader keeps its own paper scale.
+
+Shell: a Playwright contract at 320/390/768/1440 proves no horizontal scroll, a visible skip link, one-row desktop nav and a 24 px minimum control target. The 3 px overflow at 320 px was the search form's flex input; fixed with `min-width: 0`.
+
+M71-03's search slice shipped: `SearchResult.status` is derived from `works.lifecycle`/`works.visibility` inside the AST query on both engines, `/api/v1/search` already carried `provenance`, and `WorkRow.svelte` replaces `WorkBlurb` on `/search` with one title link, byline, words, points, a provenance word and a status word. Evidence: db 1/1 SQLite + 1/1 PostgreSQL; `WorkRow 3/3 + Search 25/25`; `svelte-check 0 errors`; `gate.sh frontend ok`; app suites 42/42; mutant always-held reddened the live assertion. The ledger row stays `planned` because browse, library and rail surfaces still use `WorkCard` and the unit/date/cursor clauses are not drawn.
+
+Full gate not yet rerun after these changes. Live site remains `0.1.0+00edcf34`; the host-memory deploy block still stands, and no backup was taken because no deploy opened.
+
 ## 2026-11-16 — M71-09 closed: the resume bar says what it knows, 35 planned
 
 `ResumePrompt.svelte` now prints the server's resume sentence and display string; it never formats `position_permille` into a percentage. The conflict state offers both devices as links, stale offers the saved place plus a top-of-text link, and the unmeasured sentence is shown even when there is no position row — silence about an unmeasured place was one of the bugs in the row. Evidence: vitest 17/17 across component and work-page suites, `svelte-check 0 errors`, mutant on `percent ?? 0` restored from `/tmp`. Backlog regenerated: 35 planned, 0 unlinked, 50 deferred. Not redeployed — host memory block.

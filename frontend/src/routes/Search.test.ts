@@ -181,6 +181,28 @@ describe('Search page presets', () => {
     expect(last.match(/completion:/g)?.length).toBe(1);
     expect(last.match(/words:/g)?.length).toBe(1);
   });
+
+  it('renders provenance and status from the server on each hit (M71-03)', async () => {
+    searchWorks.mockResolvedValue({
+      items: [{
+        work_id: 'probe-1',
+        title: 'The Quiet Archive',
+        author_handle: 'archivist',
+        word_count: 42_300,
+        score: 7,
+        provenance: 'referenced',
+        status: 'live',
+      }],
+    });
+    render(Search);
+    await fireEvent.input(screen.getByPlaceholderText(/fandom:/), { target: { value: 'quiet' } });
+    await fireEvent.click(screen.getByText('Search'));
+    expect(await screen.findByText('The Quiet Archive')).toBeInTheDocument();
+    expect(screen.getByText('Points elsewhere')).toBeInTheDocument();
+    expect(screen.getByText('Live')).toBeInTheDocument();
+    expect(screen.getByText(/42,300 words/)).toBeInTheDocument();
+    expect(screen.getByText(/7 points/)).toBeInTheDocument();
+  });
 });
 
 describe('Search page history', () => {

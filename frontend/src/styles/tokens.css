@@ -358,6 +358,7 @@
   --surface-muted: var(--surface-2);
   --text-muted: var(--text-3);
   --text-primary: var(--text-1);
+  --text-link: var(--accent-text);
   --text-secondary: var(--text-2);
   --border-subtle: var(--border-1);
   --surface-raised: var(--surface-2);
