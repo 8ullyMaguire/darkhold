@@ -1,3 +1,9 @@
+## 2026-11-16 — reader controls; full gate stopped at fmt, now rerunning
+
+**M71-08 no-JS bar** (`e62780b7`): the server-rendered reader now opens with `nav[aria-label="Reading controls"]` carrying Work, Contents (when a TOC exists), the server-worded position ("No saved place" / "Saved place: 42%" / "from an older revision") and real Previous/Next links. Evidence: `reader_page` 7/7; the nav test asserts the label, the honest no-place sentence and no `<script`; mutant "Saved place: 0%" reddened the honest-position assertion. Row stays `planned` for auto-hide, bookmark, in-work search and typography provenance/reset levels.
+
+The first full `gate.sh all` after these changes stopped at **fmt** on `crates/app/src/routes/reader_page.rs` (exit 1, log `/tmp/gate_all_redesign_20261116.log`); `cargo fmt -p darkhold-app` fixed it before `e62780b7`. A rerun is in flight at `/tmp/gate_all_redesign_20261116b.log`; it has not reported yet, so the full gate is not proven green.
+
 ## 2026-11-16 — PWA, settings provenance, admin status: three more slices, 35 planned
 
 **PWA** (`e1861963`): real 192/512/maskable icons and a manifest with shortcuts and `/import` share target; `manifest.test.mjs` checks the files exist and the destinations are routes. `registerPwa()` owns install/update: no install affordance until `beforeinstallprompt`, no update affordance until a controller exists, and no reload until the reader accepts. The worker handles `skip-waiting`. Evidence: manifest test green, `pwa 3/3`, `node --check service-worker.js`, `gate.sh frontend ok`; mutant unconditional reload reddened the first-install test.
