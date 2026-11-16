@@ -6,6 +6,8 @@ The first full `gate.sh all` after these changes stopped at **fmt** on `crates/a
 
 Accessibility contract extended in `82d8b379`: the Playwright suite is now 7/7, including a forced-colors focus-ring check at 390 px.
 
+Search now draws its hits as Archive rows (`48fa603e`), and the reader bar's first CSS used two undefined custom properties; `tokens.test.ts` caught them and `2df5f454` renamed them to `--reader-rule`/`--reader-muted`. `gate.sh frontend` is green again after the fix.
+
 ## 2026-11-16 — PWA, settings provenance, admin status: three more slices, 35 planned
 
 **PWA** (`e1861963`): real 192/512/maskable icons and a manifest with shortcuts and `/import` share target; `manifest.test.mjs` checks the files exist and the destinations are routes. `registerPwa()` owns install/update: no install affordance until `beforeinstallprompt`, no update affordance until a controller exists, and no reload until the reader accepts. The worker handles `skip-waiting`. Evidence: manifest test green, `pwa 3/3`, `node --check service-worker.js`, `gate.sh frontend ok`; mutant unconditional reload reddened the first-install test.
