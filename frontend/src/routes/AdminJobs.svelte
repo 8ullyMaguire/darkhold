@@ -18,6 +18,7 @@
   import ErrorSummary from '../lib/components/ErrorSummary.svelte';
   import Skeleton from '../lib/components/Skeleton.svelte';
   import StatusMark from '../lib/components/StatusMark.svelte';
+  import AlertBar from '../lib/components/AlertBar.svelte';
 
   /*
    * The states are the server's vocabulary, listed so the filter cannot offer
@@ -45,6 +46,11 @@
   let busy = $state<string | null>(null);
 
   const hasActive = $derived(jobs.some((job) => ACTIVE.has(job.state)));
+  const redAlerts = $derived(
+    jobs
+      .filter((job) => job.state === 'failed')
+      .map((job) => ({ label: `${job.kind} job ${job.id} failed`, href: `#job-${job.id}` })),
+  );
 
   function levelFor(state: string): 'red' | 'amber' | 'green' {
     if (state === 'failed') return 'red';
@@ -130,6 +136,8 @@
     <ErrorSummary error={error} />
   {/if}
 
+  <AlertBar alerts={redAlerts} />
+
   <div class="filters">
     <label for="state-filter">State</label>
     <select id="state-filter" bind:value={stateFilter}>
@@ -161,7 +169,7 @@
       </thead>
       <tbody>
         {#each jobs as job (job.id)}
-          <tr>
+          <tr id={`job-${job.id}`}>
             <td>{job.kind}</td>
             <td>
               <StatusMark level={levelFor(job.state)} label={job.state} />

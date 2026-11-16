@@ -73,6 +73,17 @@ describe('AdminJobs page', () => {
     await waitFor(() => expect(screen.getAllByText(/failed/).length).toBeGreaterThan(0));
   });
 
+  it('puts a failed job in the alert bar with a fix link to its row', async () => {
+    render(AdminJobs);
+    await waitFor(() => expect(screen.getByText('Queue')).toBeInTheDocument());
+    const alert = screen.getByRole('alert');
+    expect(alert).toHaveTextContent('import job job-1 failed');
+    expect(screen.getByRole('link', { name: /fix.*import job job-1 failed/i })).toHaveAttribute(
+      'href',
+      '#job-job-1',
+    );
+  });
+
   it('names a failed job state as a red status, not only a coloured badge', async () => {
     render(AdminJobs);
     await waitFor(() => expect(screen.getByText('Queue')).toBeInTheDocument());

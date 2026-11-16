@@ -2,6 +2,10 @@
 
 No `/admin` route or `AdminOverview.svelte` exists; the router has only jobs, economy/flows, media-health and mirror. Decision: build a new `/admin` operator overview document with a ROUTE_TABLE row, server-side 404 for non-operators, live counts from existing admin summaries, and an AlertBar naming every red state with a fix link. No new admin API. Recorded in roadmap and ledger before code.
 
+## 2026-11-16 — M71-07 alert bar shipped on AdminJobs
+
+`AlertBar.svelte` is the console's one red-state list: `role=alert`, "Needs attention", one labelled Fix link per state, silent when empty. AdminJobs feeds it failed jobs with `#job-<id>` anchors to the existing retry buttons. Evidence: `AlertBar 2/2 + AdminJobs 5/5 + StatusMark 3/3` (10/10); mutant flattening the fix aria-label reddened the assertion and was restored from `/tmp`; `gate.sh frontend ok`. The future `/admin` overview reuses this component.
+
 ## 2026-11-16 — deploy verified and document doors probed live
 
 `estate deploy darkhold` completed: `ESTATE_DEPLOY_EXIT=0`, `deploy: darkhold verified in 1132s`, unit `active`. Origin and edge `/api/v1/meta` both report `0.1.0+a494f8dd` (the build was taken before the later docs-only commits `f9501585`/`1b4c120d`; no code changed in them). Named backup: `/personal/backups/darkhold-20261116-220834-pre-b61acbdc.dump` (3,740,192,247 bytes, 407 `TABLE DATA`). The host tree was fast-forwarded to `1b4c120d dirty=0` after the build.
