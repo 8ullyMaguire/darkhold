@@ -2,6 +2,12 @@
 
 No `/admin` route or `AdminOverview.svelte` exists; the router has only jobs, economy/flows, media-health and mirror. Decision: build a new `/admin` operator overview document with a ROUTE_TABLE row, server-side 404 for non-operators, live counts from existing admin summaries, and an AlertBar naming every red state with a fix link. No new admin API. Recorded in roadmap and ledger before code.
 
+## 2026-11-16 — deploy verified and document doors probed live
+
+`estate deploy darkhold` completed: `ESTATE_DEPLOY_EXIT=0`, `deploy: darkhold verified in 1132s`, unit `active`. Origin and edge `/api/v1/meta` both report `0.1.0+a494f8dd` (the build was taken before the later docs-only commits `f9501585`/`1b4c120d`; no code changed in them). Named backup: `/personal/backups/darkhold-20261116-220834-pre-b61acbdc.dump` (3,740,192,247 bytes, 407 `TABLE DATA`). The host tree was fast-forwarded to `1b4c120d dirty=0` after the build.
+
+Live probe `/tmp/probe-darkhold-documents.sh` on 127.0.0.1:8081: `landing / 200 script=no`, `search /search?q=archive 200 script=no`, `work /works/11111111-2222-3333-4444-555555555555 200 script=no`, `tag /tags/100days 200 script=no`, `author /people/devwriter 200 script=no`. `collection SKIP no row` and `series SKIP no row`: the production DB has 0 collections and 0 series, so those two doors are covered by their two-engine server tests but not by a live row. A previous `work 404` was the probe selecting an `accounts_only` work; the query now selects a body-audience-anyone work, which answers 200. Row M71-20 stays `planned` until collection/series can be probed with real live rows.
+
 ## 2026-11-16 — deploy build killed by earlyoom, mitigated and retried
 
 `estate deploy darkhold` from `b61acbdc`/`5339b7f2` reached `build` and died with exit 101 after 330,944 ms: `rustc --crate-name darkhold_app ... (signal: 15, SIGTERM)`. Diagnosis on the host: `earlyoom -r 3600` active, `available` was ~2.5 GB, and peer builds (suki, concord-cli) plus a 1.8 GB suki import and a 1.6 GB idle ollama model held the host. Per the rustc-SIGTERM procedure I stopped idle `ollama` and dropped caches; `available` rose to 6,967 MB. The named backup `/personal/backups/darkhold-20261116-220834-pre-b61acbdc.dump` was verified independently (`pg_restore -l` → 407 `TABLE DATA`), and a fresh deploy attempt is running as `proc_aa21bd48bb9e`. Owner's removal of the 8 GB gate stays in force: this was mitigation, not a reinstated blocker.
