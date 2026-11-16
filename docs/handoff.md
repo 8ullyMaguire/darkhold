@@ -1,3 +1,7 @@
+## 2026-11-16 — host tree current, memory nearly open
+
+`ssh thinkcentre` succeeded (70 s) and the deploy tree fast-forwarded to `7a7e013b` with 0 dirty files, matching the forges and the mirror. `free -m` now reports `MemAvailable 7232256 kB` (~6.9 GB) with load average ~28 and `darkhold` active. That is above the old 4 GB stall but still below the 8 GB link-window gate from the deploy record, so no dump or build was started. Clearing condition unchanged: `MemAvailable >= 8 GB` through the link, or explicit owner approval for a lower-memory release profile. Live is still `0.1.0+00edcf34`.
+
 ## 2026-11-16 — collection document; gate superseded again
 
 `/collections/{id}` is now a script-free document for public events collections. It reuses `events::get_collection` / `list_collection_items` / `collection_coverage` and `content::find_work` with the same published/public/undeleted gate as the work page; private and empty collections 404, and no `media_collections` second model was introduced. Evidence: `collection_page` 2/2 SQLite and 2/2 PostgreSQL, `route_inventory` 6/6 with the new public route row, `milestone_13 + milestone_18_events` 19/19, clippy -D warnings green; the mutant dropping the visibility filter leaked the private work title into a public shelf.
