@@ -4,6 +4,19 @@
 reason for that order, so a later session does not have to re-derive it. The ledger stays the source of truth: a row
 moves when `scripts/ledger.py upsert` says so, not when this file says so.
 
+## M71-09 UI half — built and closed, 2026-11-16
+
+The API half is shipped: `GET /reading/progress` publishes `resume{state, percent, display, sentence, needs_a_choice}`; `percent` is null and `display` is an em dash except in the `current` state. The reader's bar and the choice UI are still missing: `ResumePrompt.svelte` derives a percentage from raw permille, so an unmeasured or stale place can still look measured on screen.
+
+**Census:** REUSE the existing `ResumePrompt` slot on `WorkPage.svelte` and the server's sentence/display strings — the client must not re-derive an honesty decision the domain already made; REUSE the `resolution.mine/other` rows as the raw choices; ADAPT `ResumePrompt` to print `resume` when the server sends it; BUILD nothing new. Non-goal: no change to `ResumeState`, the anchor system, or the raw positions that travel beside the decision.
+
+**Decision:** the visible percentage is the server's `display` only. A choice links name their device when there is one and never invent a percent; the server's sentence carries the state. `percent` is never read by the template — a template that formats the number cannot tell `None` from zero, but a template that prints a string can.
+
+**Shipped.** `ResumePrompt.svelte` prints `resume.sentence` and `resume.display` and never formats a permille into a percentage. Conflict renders both devices as links; stale renders the saved place plus "Start from the top". `WorkPage` shows the unmeasured sentence even when no position row exists, because silence was one of the bugs named in the row. The legacy branch is kept only for an API response without `resume`.
+
+**Evidence:** vitest `ResumePrompt 4/4 + WorkPage 13/13` — current, unmeasured, conflict and stale each assert the sentence and that no percentage is fabricated; `svelte-check 0 errors`. Mutant: render `percent ?? 0` instead of `display` → the unmeasured em-dash assertion reddened; restored from `/tmp`. Live SPA not redeployed — host memory block.
+
+
 ## M71-15 UI half — built and closed, 2026-11-16
 
 The API half is shipped: `/api/v1/search` returns `state{query, chips, unexpressed_note}` from the single `FilterState` grammar model. Each chip carries `kind`, `value`, `label`, `editable_in_query`, `removable` and an optional `reason`; pinned content filters are non-removable with a reason, and `sort` is removable but explicitly not editable in the query. The missing clause is the panel that renders those chips.

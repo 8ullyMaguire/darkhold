@@ -539,8 +539,13 @@
     server-rendered reader page would refuse the unit. The rule on this page is
     that it does not offer what the server will refuse.
   -->
-  {#if !work.content_withheld && progress && progress.resolution.kind !== 'no_position'}
-    <ResumePrompt workId={workId} resolution={progress.resolution} firstUnitId={firstUnitId} />
+  {#if !work.content_withheld && progress && (progress.resolution.kind !== 'no_position' || (progress.resume && progress.resume.state === 'unmeasured'))}
+    <ResumePrompt
+      workId={workId}
+      resolution={progress.resolution}
+      firstUnitId={firstUnitId}
+      resume={progress.resume}
+    />
   {/if}
 
   <h2>Units</h2>

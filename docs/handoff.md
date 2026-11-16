@@ -1,3 +1,7 @@
+## 2026-11-16 — M71-09 closed: the resume bar says what it knows, 35 planned
+
+`ResumePrompt.svelte` now prints the server's resume sentence and display string; it never formats `position_permille` into a percentage. The conflict state offers both devices as links, stale offers the saved place plus a top-of-text link, and the unmeasured sentence is shown even when there is no position row — silence about an unmeasured place was one of the bugs in the row. Evidence: vitest 17/17 across component and work-page suites, `svelte-check 0 errors`, mutant on `percent ?? 0` restored from `/tmp`. Backlog regenerated: 35 planned, 0 unlinked, 50 deferred. Not redeployed — host memory block.
+
 ## 2026-11-16 — M71-15 closed: query string and chips are one visible state, 36 planned
 
 `QueryStatePanel.svelte` renders the server's canonical query with an explicit "Use this query" action, every chip with its reason, and the unexpressed-note sentence. Pinned chips have no remove control; this page has no ordering control, so the server's removable sort chip is mapped to non-removable with that reason instead of a dead button. Evidence: vitest 28/28 across the component and page suites, `svelte-check 0 errors`, mutant on the remove-button gate restored from `/tmp`. Backlog regenerated: 36 planned, 0 unlinked, 50 deferred. Not redeployed — host memory block.

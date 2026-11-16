@@ -933,10 +933,23 @@ export interface ProgressResolution {
   other?: ServerPosition | null;
 }
 
+/**
+ * The resume decision as the server made it (M71-09). `percent` is null and `display` is an em dash unless the
+ * place is current; a client that formats a number cannot tell null from zero, so templates print `display`.
+ */
+export interface ResumeView {
+  state: 'nothing' | 'unmeasured' | 'current' | 'stale' | 'conflict';
+  percent: number | null;
+  display: string;
+  sentence: string;
+  needs_a_choice: boolean;
+}
+
 /** The full progress view returned by GET /reading/progress. */
 export interface ProgressView {
   positions: ServerPosition[];
   resolution: ProgressResolution;
+  resume?: ResumeView;
 }
 
 /** A history entry, joined with the work's own metadata. */

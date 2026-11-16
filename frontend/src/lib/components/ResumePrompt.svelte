@@ -1,22 +1,26 @@
 <script lang="ts">
   /**
-   * "Resume where you left off", shown on a work page to a signed-in reader.
+   * "Resume where you left off", shown on a work page to a signed-in reader (M71-09).
    *
-   * Spec §9.3: when two devices disagree the reader is offered a *choice*,
-   * never a silently-chosen position. So this component renders one link when
-   * the positions agree and two when they do not, and it says where each one
-   * is rather than asking the reader to trust a percentile.
+   * The domain makes the honesty decision: `resume.sentence` names the state and `resume.display` is either a real
+   * percentage or an em dash. This component prints both. It never formats `position_permille` into a percentage,
+   * because a template that computes a number cannot tell an unmeasured place from a measured zero.
+   *
+   * §9.3: when two places disagree the reader gets a choice, never a silent winner. The raw positions still travel
+   * beside the decision, so they are the links; the choice is not a second ranking of them.
    */
-  import type { ProgressResolution, ServerPosition } from '../api';
+  import type { ProgressResolution, ResumeView, ServerPosition } from '../api';
 
   interface Props {
     workId: string;
     resolution: ProgressResolution;
     /** The first unit, used when a position names no unit. */
     firstUnitId: string | null;
+    /** Sent by the current server; absent only when talking to an older one. */
+    resume?: ResumeView;
   }
 
-  let { workId, resolution, firstUnitId }: Props = $props();
+  let { workId, resolution, firstUnitId, resume }: Props = $props();
 
   function href(unitId: string | null, position: ServerPosition): string {
     const target = unitId ?? firstUnitId;
@@ -24,58 +28,74 @@
     return `/works/${workId}/units/${target}#p-${position.position_permille}`;
   }
 
-  function describe(position: ServerPosition): string {
+  function choices(): ServerPosition[] {
+    if (resolution.kind === 'ask_the_reader') {
+      return [resolution.mine, resolution.other].filter((p): p is ServerPosition => Boolean(p));
+    }
+    return resolution.position ? [resolution.position] : [];
+  }
+
+  function device(position: ServerPosition): string {
+    return position.device ?? 'this device';
+  }
+
+  /** Only for a server that predates `resume`; never used to re-derive an honesty decision. */
+  function legacyDescribe(position: ServerPosition): string {
     const percent = Math.round(position.position_permille / 10);
     return position.device ? `${percent}% — on ${position.device}` : `${percent}% in`;
   }
 </script>
 
-{#if resolution.kind === 'use_stored' && resolution.position}
-  <!--
-    `{@const}`, not `!`. A `let` binding is not narrowed inside an `onclick`
-    closure, and the two branches below already worked around that with non-null
-    assertions. A `const` binding keeps the narrowing from the `{#if}` above it,
-    which is the same guarantee without the assertion.
-  -->
-  {@const stored = resolution.position}
-  <aside class="resume" aria-label="Resume reading">
-    <p>
-      You were <strong>{describe(stored)}</strong> last time you read this.
-    </p>
-    <!--
-      A **real link**. The reading surface is server-rendered HTML (spec
-      §8.5), so the browser must ask the server for it -- a client-side
-      navigation would ask the SPA to render the reader instead, and the SPA
-      fetches its content, which is the thing the server-rendered page exists
-      to avoid.
-    -->
-    <a class="resume-link" href={href(null, stored)}>
-      Resume reading
-    </a>
+{#if resume}
+  <aside class="resume" aria-label="Resume reading" data-resume-state={resume.state}>
+    <p>{resume.sentence}</p>
+    {#if resume.needs_a_choice}
+      <ul>
+        {#each choices() as position}
+          <li>
+            <a href={href(null, position)}><span>{device(position)}</span></a>
+          </li>
+        {/each}
+        {#if resolution.kind !== 'ask_the_reader'}
+          <li>
+            <a href={firstUnitId ? `/works/${workId}/units/${firstUnitId}` : `/works/${workId}`}>
+              Start from the top
+            </a>
+          </li>
+        {/if}
+      </ul>
+    {:else if resume.state === 'current' && resolution.position}
+      {@const stored = resolution.position}
+      <a class="resume-link" href={href(null, stored)}>
+        Resume reading <span class="display">{resume.display}</span>
+      </a>
+    {:else}
+      <span class="display">{resume.display}</span>
+    {/if}
   </aside>
-{:else if resolution.kind === 'ask_the_reader'}
-  <!-- Two devices disagree. Both are offered; neither is chosen for the reader. -->
-  <aside class="resume" aria-label="Resume reading">
-    <p>You stopped in two places. Which one would you like?</p>
-    <ul>
-      {#if resolution.mine}
-        {@const mine = resolution.mine}
-        <li>
-          <a href={href(null, mine)}>
-            {describe(mine)}
-          </a>
-        </li>
-      {/if}
-      {#if resolution.other}
-        {@const other = resolution.other}
-        <li>
-          <a href={href(null, other)}>
-            {describe(other)}
-          </a>
-        </li>
-      {/if}
-    </ul>
-  </aside>
+{:else}
+  <!-- Legacy shape, kept for an older API response. -->
+  {#if resolution.kind === 'use_stored' && resolution.position}
+    {@const stored = resolution.position}
+    <aside class="resume" aria-label="Resume reading">
+      <p>You were <strong>{legacyDescribe(stored)}</strong> last time you read this.</p>
+      <a class="resume-link" href={href(null, stored)}>Resume reading</a>
+    </aside>
+  {:else if resolution.kind === 'ask_the_reader'}
+    <aside class="resume" aria-label="Resume reading">
+      <p>You stopped in two places. Which one would you like?</p>
+      <ul>
+        {#if resolution.mine}
+          {@const mine = resolution.mine}
+          <li><a href={href(null, mine)}>{legacyDescribe(mine)}</a></li>
+        {/if}
+        {#if resolution.other}
+          {@const other = resolution.other}
+          <li><a href={href(null, other)}>{legacyDescribe(other)}</a></li>
+        {/if}
+      </ul>
+    </aside>
+  {/if}
 {/if}
 
 <style>
@@ -99,5 +119,9 @@
 
   .resume-link {
     font-weight: 600;
+  }
+
+  .display {
+    font-family: var(--font-mono, monospace);
   }
 </style>
