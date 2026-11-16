@@ -2,6 +2,19 @@
 
 No `/admin` route or `AdminOverview.svelte` exists; the router has only jobs, economy/flows, media-health and mirror. Decision: build a new `/admin` operator overview document with a ROUTE_TABLE row, server-side 404 for non-operators, live counts from existing admin summaries, and an AlertBar naming every red state with a fix link. No new admin API. Recorded in roadmap and ledger before code.
 
+## 2026-11-16 — full gate green; §1 check 1 still open
+
+`proc_821964d1764a` finished with `GATE_ALL_EXIT=0`: `fmt`, `lint`, `build`, `test`, `doc`, `frontend`, `dialects`, `repo` all `ok`. `bash scripts/gate.sh ledger` also `ok`.
+
+§1 numbers at commit `1476f34a`:
+- check 1 — `planned 35 / 958` (CSV parser; not zero, so the goal is NOT complete);
+- check 2 — `concord: 93 cards, 6 rollups, 0 unlinked, 50 deliberately deferred`;
+- check 3 — `ideas_match_requirements 3/3`;
+- check 4 — `modules 22/22`;
+- check 5 — `gate.sh all` exit 0 plus `ledger` and `repo` ok.
+
+The gate started before the last few frontend/docs commits but its `frontend`, `dialects` and `repo` stages ran after them; no Rust source changed after its `test` stage, so the single exit-0 result is the current tree's evidence.
+
 ## 2026-11-16 — M71-07 alert bar shipped on AdminJobs
 
 `AlertBar.svelte` is the console's one red-state list: `role=alert`, "Needs attention", one labelled Fix link per state, silent when empty. AdminJobs feeds it failed jobs with `#job-<id>` anchors to the existing retry buttons. Evidence: `AlertBar 2/2 + AdminJobs 5/5 + StatusMark 3/3` (10/10); mutant flattening the fix aria-label reddened the assertion and was restored from `/tmp`; `gate.sh frontend ok`. The future `/admin` overview reuses this component.
