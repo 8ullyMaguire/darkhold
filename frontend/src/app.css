@@ -94,8 +94,10 @@ a:hover {
  * the surface it sits on; a filled control still overrides it with its own
  * contrast token.
  */
-button {
+button, a[role='button'], summary {
   color: inherit;
+  min-height: var(--tap-min);
+  min-width: var(--tap-min);
 }
 
 /*

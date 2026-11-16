@@ -703,6 +703,13 @@ import { Button } from '@polaris/ui';
     top: var(--space-3);
   }
 
+  .site-header .bar {
+    min-height: 4.5rem;
+    display: flex;
+    align-items: center;
+    gap: var(--space-3);
+  }
+
   .site-header {
     background: var(--color-surface);
     border-bottom: var(--border-width) solid var(--color-border);

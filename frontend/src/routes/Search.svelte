@@ -519,6 +519,7 @@
 
   .search-form input {
     flex: 1;
+    min-width: 0;
     padding: var(--space-2);
     border: 1px solid var(--color-border);
     border-radius: 4px;
