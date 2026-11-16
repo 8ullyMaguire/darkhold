@@ -4,6 +4,30 @@
 reason for that order, so a later session does not have to re-derive it. The ledger stays the source of truth: a row
 moves when `scripts/ledger.py upsert` says so, not when this file says so.
 
+## M71-08 reader bar — no-JS slice shipped, 2026-11-16
+
+**Census:** REUSE the server-rendered reader, its TOC, `position`/`stale_position` and the existing typography form; ADAPT `render_page` with a `nav[aria-label="Reading controls"]`; BUILD nothing. Non-goals: no scroll-hiding script, no bookmark or in-work search yet, no client-side percentage.
+
+**Shipped.** The reader opens with Work, Contents (when a TOC exists), the server-worded position ("No saved place" / "Saved place: 42%" / "from an older revision") and real Previous/Next links; every item is HTML before script. Evidence: reader_page nav test 1/1 asserting the label, the honest no-place sentence and no `<script`; mutant "Saved place: 0%" reddened the assertion; restored from `/tmp`. Row stays `planned` for auto-hide, bookmark, in-work search and typography provenance/reset levels.
+
+## PWA — install/update and real icons, 2026-11-16
+
+**Census:** REUSE the existing service worker, manifest link and offline.ts; ADAPT the manifest with 192/512/maskable icons and a share target; BUILD `pwa.ts` only, because no module owned the install/update conversation. Non-goals: no new cache strategy, no change to which reads are cached, no silent reload.
+
+**Shipped.** `manifest.webmanifest` carries real icons, shortcuts and `/import` as share target; `manifest.test.mjs` checks each icon exists and each destination is a route. `registerPwa()` offers install only on `beforeinstallprompt`, offers update only when a controller already exists, and reloads only after the reader accepts. The worker handles `skip-waiting` beside `clear-reads`. Evidence: `manifest: icons, maskable icon, shortcuts, share target all present`; `pwa 3/3`; `node --check service-worker.js`; mutant unconditional reload reddened the first-install test; `gate.sh frontend ok`.
+
+## M71-14 settings provenance — account/pseud slice shipped, 2026-11-16
+
+**Census:** REUSE the server's `provenance`/`pseud_provenance` from b799f828 and the existing Account/Pseuds privacy panels; ADAPT `PrivacySettings` with a provenance map; BUILD `SettingProvenance.svelte` only. Non-goals: no new settings endpoint, no per-work level yet, no typography/gravity provenance.
+
+**Shipped.** Each effective value names its source and offers a reset only when the server supplied one; onboarding rows carry their note and no dead control. Row stays `planned` for the per-work level, the deep link to the exact control, and typography/gravity provenance. Evidence: `SettingProvenance 2/2 + PrivacySettings 2/2 + Account 2/2 + Pseuds 4/4`; mutant always-rendering reset reddened the onboarding no-reset assertion; `gate.sh frontend ok`.
+
+## M71-07 operator console — StatusMark slice shipped, 2026-11-16
+
+**Census:** REUSE the existing admin route data; ADAPT AdminMirror's status spans; BUILD `StatusMark.svelte` only. Non-goals: no new admin API, no alert-bar aggregation yet, no rewrite of the other console surfaces.
+
+**Shipped.** `StatusMark` renders the level word, a dot and the label with `role=status`; AdminMirror's mirrors and pins use it, and a fix link appears only for red. Row stays `planned` for the other console surfaces and the overview alert bar. Evidence: `StatusMark 3/3 + AdminMirror 6/6`; mutant removing the word span reddened the text-not-only-colour assertion; `gate.sh frontend ok`.
+
 ## M71-03 Archive rows — search slice shipped, 2026-11-16
 
 **Census:** REUSE `SearchResult`, the AST query's one grouped SELECT, the server's existing `provenance` attachment and `WorkBlurb`'s title→byline→metrics order; ADAPT `SearchResult` with a lifecycle-derived `status`, the search response and `Search.svelte`'s hit list; BUILD `WorkRow.svelte` only — no component in the estate carries provenance *and* status beside a title. Non-goals: no new route, no new table, no change to the query grammar, no cover-card grid (ADR 0033).

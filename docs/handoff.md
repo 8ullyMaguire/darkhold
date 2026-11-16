@@ -1,3 +1,13 @@
+## 2026-11-16 — PWA, settings provenance, admin status: three more slices, 35 planned
+
+**PWA** (`e1861963`): real 192/512/maskable icons and a manifest with shortcuts and `/import` share target; `manifest.test.mjs` checks the files exist and the destinations are routes. `registerPwa()` owns install/update: no install affordance until `beforeinstallprompt`, no update affordance until a controller exists, and no reload until the reader accepts. The worker handles `skip-waiting`. Evidence: manifest test green, `pwa 3/3`, `node --check service-worker.js`, `gate.sh frontend ok`; mutant unconditional reload reddened the first-install test.
+
+**M71-14 settings provenance** (`2983c89b`): `SettingProvenance.svelte` names each effective value's source and renders a reset only when the server supplied one; Account and Pseuds pass the server's `provenance`/`pseud_provenance` and refetch after reset. Evidence: 10/10 across the four targeted suites, mutant always-render-reset reddened the onboarding assertion, `gate.sh frontend ok`. Row stays `planned` for per-work level, deep links and typography/gravity provenance.
+
+**M71-07 operator console** (`5f8ec170`): `StatusMark.svelte` renders level word + dot + label with `role=status`; AdminMirror mirrors and pins use it with a fix link only for red. Evidence: `StatusMark 3/3 + AdminMirror 6/6`, mutant removing the word reddened the assertion, `gate.sh frontend ok`. Row stays `planned` for the other console surfaces and the overview alert bar.
+
+Backlog regenerated at `09f761b9`: 35 open requirements, 0 unlinked, 17 roadmap items. A full `gate.sh all` is running in the background; its log is `/tmp/gate_all_redesign_20261116.log`. Propagation to `~/code/rust/darkhold` and `thinkcentre` is BLOCKED: both remained at `70705029` after a fetch/merge exceeded four minutes on the sshfs/SSH path; clearing condition is a responsive mount and a rerun of `git fetch origin master && git merge --ff-only origin/master` in each. Live site remains `0.1.0+00edcf34`; deploy still blocked on host memory.
+
 ## 2026-11-16 — redesign started: ADR 0033, tokens, measured shell, Archive rows, 35 planned
 
 The redesign's first four phases are in the tree. ADR 0033 settles the contradiction the old documents carried: the site chrome is **The Archive** (dense, dark, measured), the reader is **The Reading Room** (paper, Literata), and the Novellunar card grid is not the site language. `DIRECTIONS.md`, `THEME.md`, spec §21 and the vault master were rewritten to say so; `docs/spec/21` and `26` are regenerated through `scripts/split-spec.py`, so the vault stays the single source.

@@ -771,6 +771,21 @@ async fn delete_note(
     Ok(Redirect::to(&back).into_response())
 }
 
+/// The one place the reading bar states where the reader is (M71-08).
+///
+/// The server owns the position, so the server owns the sentence. A stale position says so
+/// rather than printing a percentage for a revision the reader is no longer reading.
+fn position_label(
+    position: Option<&darkhold_domain::reading::ReadingPosition>,
+    stale: bool,
+) -> String {
+    match (position, stale) {
+        (None, _) => "No saved place".to_string(),
+        (Some(_), true) => "Saved place is from an older revision".to_string(),
+        (Some(position), false) => format!("Saved place: {}%", position.fraction / 10),
+    }
+}
+
 /// Render the reading page.
 #[allow(clippy::too_many_arguments)]
 fn render_page(
@@ -919,6 +934,44 @@ fn render_page(
 
     // ── the unit ──────────────────────────────────────────────────────────
     page.open("main", &[("class", "reader-surface__main")]);
+    // ── the reading controls ──────────────────────────────────────────────
+    //
+    // M71-08: real HTML before any script. Every item is a link or a statement, so the reader
+    // can move without JavaScript; an auto-hiding enhancement may later hide it visually, but it
+    // may not remove it from the document.
+    page.open(
+        "nav",
+        &[
+            ("class", "reader-surface__controls"),
+            ("aria-label", "Reading controls"),
+        ],
+    );
+    page.open("a", &[("href", &work_href(work))])
+        .text("Work")
+        .close("a");
+    if units.len() > 1 {
+        page.open("a", &[("href", "#contents")])
+            .text("Contents")
+            .close("a");
+    }
+    page.open("span", &[("class", "position")])
+        .text(&position_label(position, stale_position))
+        .close("span");
+    if let Some(previous) = previous {
+        page.open(
+            "a",
+            &[("rel", "prev"), ("href", &unit_href(work, previous))],
+        )
+        .text("Previous")
+        .close("a");
+    }
+    if let Some(next) = next {
+        page.open("a", &[("rel", "next"), ("href", &unit_href(work, next))])
+            .text("Next")
+            .close("a");
+    }
+    page.close("nav");
+
     page.open("article", &[("class", "reader-surface__unit")]);
     if !unit.title.trim().is_empty() {
         page.open("h1", &[("class", "reader-surface__title")]);

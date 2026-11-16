@@ -383,6 +383,21 @@ async fn the_navigation_is_a_real_link_and_following_it_returns_the_next_unit() 
         .await;
     assert_eq!(status, StatusCode::OK, "{body}");
 
+    // M71-08: the reading controls exist before any script runs. The bar is
+    // navigation, not decoration: every item is a real link or a real summary.
+    assert!(
+        body.contains("aria-label=\"Reading controls\""),
+        "the reader bar is present without script: {body}"
+    );
+    assert!(
+        body.contains("No saved place"),
+        "the bar states the position honestly instead of inventing one: {body}"
+    );
+    assert!(
+        !body.contains("<script"),
+        "the reading surface does not need script: {body}"
+    );
+
     // The next unit is a LINK. A fetch would be a script, and a script is
     // what the reader does without.
     let next_href = format!("/works/{work_id}/units/{second_unit}");
