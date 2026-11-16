@@ -6,9 +6,9 @@
         "implemented-verified-e2e": 138,
         "implemented-locally-tested": 270,
         "unsupported": 4,
-        "implemented-fully-tested": 456,
+        "implemented-fully-tested": 458,
         "implemented": 41,
-        "planned": 39,
+        "planned": 37,
         "evaluated-and-rejected": 7,
         "done": 3
       }
@@ -198,18 +198,6 @@
       "notes": "Priority 3. The anchor system exists; the honesty layer does not. \u00a78.14 and \u00a78.17 make silence and silent overwrite both bugs; \u00a711 forbids fake precision. Acceptance: three tests, one per state, each asserting the choice text and that no percentage is fabricated. f3aca3fc: domain::reading::ResumeState has four states \u2014 current / stale / unmeasured / conflict \u2014 each with its own sentence, and percent() is Option<u16> so only `current` carries a number; display() renders '\u2014' otherwise, which is what makes 'no measurement' unable to become '0%' in a template. AGREEMENT_PERMILLE = 50: a slider moved a pixel is not a second opinion. A recorded revision whose unit is gone is stale with current: None (an anchor cannot be honoured), not current. db::reading::positions_with_current_revision joins each stored row to the revision its unit points at NOW in one statement, so the answer is about one moment; GET /api/v1/reading/progress publishes `resume: {state, percent, display, sentence, needs_a_choice}` beside the existing positions/resolution, and the raw rows still travel so a page can offer the stale place as a choice. The deeper bug fixed on the way: save_progress recorded the revision ONLY when the client sent content_revision, so a browser that omits it owned a position that could never be detected as stale \u2014 it now resolves the unit's current revision server-side when the client is silent, while still recording an older client-sent revision as the real stale case. STILL MISSING: the reader's bar and the choice UI; the API states all three cases."
     },
     {
-      "id": "M71-11",
-      "milestone": "M71",
-      "requirement": "Facet counts are a server capability with a latency budget: one endpoint returns counts per facet value under the current filter set, the UI renders them per group and shows '\u2014' while they update, and the p95 stays inside the budget on the 141k-row catalogue.",
-      "notes": "Priority 3, and the most underpriced item in the external design: no route in the 720 returned a facet count \u2014 STALE: /api/v1/facets has returned counts per facet value since M64-10 (one scan, four facets, when_unknown), and /api/v1/facets/words since M71-12 (grep '\"facets\"' crates/app/src is empty). This is an aggregate query plan \u2014 indexes, a cache, a budget \u2014 not a component. Acceptance: a load measurement with the decision rule fixed before the run, documented in the row. Remaining work is therefore the UI half (per-group counts, the '\u2014' pending state) and the p95 measurement on the 141k catalogue with the decision rule fixed before the run; the aggregate endpoint itself is not the gap. DECISION RULE, fixed 2026-11-07 before any run (recorded in advance so it cannot be chosen after the numbers): target GET /api/v1/facets with no filters \u2014 the four-facet aggregate \u2014 against the live darkhold catalogue on thinkcentre (58,042 works, 141,317 library_items, 30,982 work_tags), requested 50 times sequentially from the host over 127.0.0.1:8081 after 5 warm requests, one token cookie, no other load. PASS iff p50 <= 100 ms AND p95 <= 200 ms AND every response is 200 with four facet groups; FAIL otherwise, in which case the measured numbers go in this row and the next step is indexes/caching, not a re-run with a looser bar. 41e847e4 MEASURED, rule pre-registered at 82db6c0e before any run: 50 sequential requests after 5 warmups on the live catalogue (58,042 works / 141,317 library_items) -> 50/50 200 but p50 297 ms, p95 372 ms against a budget of p50<=100 / p95<=200 = FAIL. EXPLAIN (ANALYZE) ruled out the index answer: three sequential scans (works 58,042; units 127,474; revisions 127,474) + a 12.5 MB external-merge sort for one group aggregate, 235 ms before the sort and 398 ms total \u2014 facets are O(catalogue) by construction. Fix: crates/app/src/facets_cache.rs memoises the answer per (database, filter set) for 60 s, bounded at 256 entries with TTL eviction; both facet-bearing endpoints publish computed_at_ms_ago and the facet door publishes cache_ttl_seconds, so the staleness bound is part of the contract rather than a hidden property. The database is part of the key because a filter string alone does not say whose catalogue it counts \u2014 a test process opening one database per test served one test's counts to another and went red on exactly that. clear() exists for an operator action that must see its own write. RE-MEASURED after deploy: warm p50 2.83 ms / p95 6.05 ms / max 7.36 ms over the same 50-request sequence; the pre-registered rule as written PASSES on that sequence, and the honest reading is that the sequence is warm \u2014 the cold path is stated separately (1,174 ms first request after restart, ~300 ms steady-state scan), not averaged in. ALONG THE WAY, two production-breaking defects in the same scan, invisible to the SQLite-only tests: (1) SUM(bigint) is NUMERIC on PostgreSQL so `GET /api/v1/facets` answered every live request 500 with `mismatched types ... SQL type NUMERIC` \u2014 fixed with a per-backend ::BIGINT cast, guarded by crates/db/tests/facets_two_engines.rs; (2) the scan built `?1`,`?2` placeholders and handed the raw text to sqlx on both engines, so EVERY FILTERED facet request failed with `operator does not exist: ? integer` on PostgreSQL \u2014 the statement now goes through Database::sql and uses bare `?` (with `?1` the rewrite produced `$11`), with CAST(? AS BIGINT) so the window bound has a type. STILL MISSING: the UI half \u2014 per-group rendering and the '\u2014' pending state while counts update."
-    },
-    {
-      "id": "M71-12",
-      "milestone": "M71",
-      "requirement": "The word-count filter is a real histogram: a distribution endpoint returns ten buckets for the current filter set, the control draws them and lets a range be selected over the bars, and the selected bounds are stated as numbers.",
-      "notes": "Priority 4, depends on M71-11's aggregate surface \u2014 same query shape, different grouping. Decorative bars fed by invented data are forbidden (the proposal is right that the histogram must be real). 9fd5955a: the distribution endpoint exists \u2014 GET /api/v1/facets/words?tag=&q=&buckets=&min_words=&max_words=&max_rating= returns 10 population-equal buckets (quantile edges, not equal width: equal width puts 8 of 10 skewed works in one bar) with low/high/count/share, plus measured/unknown/total/when_unknown over the same filtered set the facet route describes. Unmeasured rows (a unit with no current revision \u2014 this schema has revisions.word_count NOT NULL, so that IS the unmeasured state) are excluded from every bucket and counted in unknown; buckets partition the measured set exactly once, ties included; empty buckets are dropped and the rest renumbered so a chart has no gaps. STILL MISSING for the row: the control that draws the bars and lets a range be selected over them, and M71-11's latency measurement."
-    },
-    {
       "id": "M71-13",
       "milestone": "M71",
       "requirement": "Every surface that enumerates a partially covered dimension states its coverage: the fandom facet leads with 'N of M works are tagged (P%)', fandom and source pages split hosted from referenced, and the numbers come from one aggregate view rather than being typed into copy.",
@@ -266,8 +254,8 @@
   ],
   "open_by_milestone": {
     "M63": 10,
-    "M71": 10,
     "M64": 8,
+    "M71": 8,
     "M73": 4,
     "M45": 2,
     "M66": 1,
