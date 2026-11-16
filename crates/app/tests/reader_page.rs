@@ -662,3 +662,62 @@ async fn the_reader_needs_no_javascript_at_all() {
         headers
     );
 }
+
+#[tokio::test]
+async fn typography_names_its_provenance_and_can_reset_to_the_site_default() {
+    let harness = Harness::new("typography").await;
+    let mut client = harness.client();
+    let (work_id, unit_id, _) = published_work_with_two_units(&mut client, "typographer").await;
+    let url = format!("/works/{work_id}/units/{unit_id}");
+
+    let (status, body, _) = client.get(&url).await;
+    assert_eq!(status, StatusCode::OK, "{body}");
+    assert!(
+        body.contains("Site defaults"),
+        "with no saved row the page names the site default: {body}"
+    );
+    assert!(
+        !body.contains("Reset to site defaults"),
+        "there is nothing to reset yet: {body}"
+    );
+
+    let (status, _, _) = client
+        .post_form(
+            &format!("/works/{work_id}/units/{unit_id}/typography"),
+            "font_scale=1.40&line_height=1.80&measure=72&reader_theme=dark",
+        )
+        .await;
+    assert_eq!(status, StatusCode::SEE_OTHER, "the typography form posts");
+
+    let (_, body, _) = client.get(&url).await;
+    assert!(
+        body.contains("From your account settings"),
+        "a saved row names its source: {body}"
+    );
+    assert!(
+        body.contains("Reset to site defaults"),
+        "a saved row can be reset: {body}"
+    );
+    assert!(
+        body.contains("value=\"1.40\""),
+        "the saved scale is rendered: {body}"
+    );
+
+    let (status, _, _) = client
+        .post_form(
+            &format!("/works/{work_id}/units/{unit_id}/typography"),
+            "reset=1",
+        )
+        .await;
+    assert_eq!(status, StatusCode::SEE_OTHER, "the reset posts too");
+
+    let (_, body, _) = client.get(&url).await;
+    assert!(
+        body.contains("value=\"1.00\""),
+        "reset restores the site default scale: {body}"
+    );
+    assert!(
+        body.contains("Site defaults"),
+        "and the page says where that value came from: {body}"
+    );
+}

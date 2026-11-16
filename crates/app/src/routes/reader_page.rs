@@ -201,6 +201,9 @@ pub struct PositionForm {
 /// to change how the page looks, exactly as they must be able to read it.
 #[derive(Debug, Default, Deserialize)]
 pub struct TypographyForm {
+    /// Present when the reader asked for the site defaults rather than a custom set.
+    #[serde(default)]
+    pub reset: String,
     #[serde(default)]
     pub font_scale: String,
     #[serde(default)]
@@ -523,6 +526,15 @@ async fn save_typography(
         return Ok(Redirect::to(&back).into_response());
     };
 
+    let current = reading::typography_for(state.db(), user.account_id).await?;
+    if form.reset.trim() == "1" {
+        // Reset is an explicit request for the site defaults, not a parse
+        // failure pretending to be one. Remove the row: writing default values
+        // would keep the provenance "your account" and lie about its source.
+        reading::reset_typography(state.db(), user.account_id).await?;
+        return Ok(Redirect::to(&back).into_response());
+    }
+
     // The numbers are parsed and **clamped**, not trusted: a form post is
     // whatever the client sent, and a font scale of 900 is not a font scale.
     let font_scale = form
@@ -554,7 +566,6 @@ async fn save_typography(
         _ => "sepia".to_owned(),
     };
 
-    let current = reading::typography_for(state.db(), user.account_id).await?;
     let _ = reading::save_typography(
         state.db(),
         reading::TypographyInput {
@@ -1278,6 +1289,13 @@ fn render_page(
     if signed_in {
         page.open("section", &[("class", "reader-surface__typography")]);
         page.open("h2", &[]).text("How this page looks").close("h2");
+        page.open("p", &[("class", "reader-surface__typography-source")]);
+        if typography.version > 0 {
+            page.text("From your account settings");
+        } else {
+            page.text("Site defaults");
+        }
+        page.close("p");
         page.open(
             "form",
             &[
@@ -1358,6 +1376,19 @@ fn render_page(
         page.open("button", &[("type", "submit")]);
         page.text("Save");
         page.close("button");
+        if typography.version > 0 {
+            page.open(
+                "button",
+                &[
+                    ("type", "submit"),
+                    ("name", "reset"),
+                    ("value", "1"),
+                    ("class", "reader-surface__typography-reset"),
+                ],
+            );
+            page.text("Reset to site defaults");
+            page.close("button");
+        }
         page.close("form");
         page.close("section");
     }

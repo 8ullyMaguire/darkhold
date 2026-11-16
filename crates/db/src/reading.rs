@@ -1488,6 +1488,33 @@ pub async fn save_typography(db: &Database, input: TypographyInput<'_>) -> Resul
     Ok(affected > 0)
 }
 
+/// Remove a reader's saved appearance so the next render is the site default.
+///
+/// M71-08: a "reset to site defaults" button is only honest if the saved row
+/// is gone. Writing default values into the row would keep the provenance
+/// "your account" and leave an account-level preference where none was meant.
+pub async fn reset_typography(db: &Database, account: AccountId) -> Result<()> {
+    let sql = db.sql(
+        "DELETE FROM typography_preference WHERE account_id = ?",
+        "DELETE FROM typography_preference WHERE account_id::text = ?",
+    );
+    match db.backend() {
+        Backend::Sqlite => {
+            sqlx::query(&sql)
+                .bind(account.to_string())
+                .execute(db.sqlite_pool().expect("sqlite handle"))
+                .await?;
+        }
+        Backend::Postgres => {
+            sqlx::query(&sql)
+                .bind(account.to_string())
+                .execute(db.postgres_pool().expect("postgres handle"))
+                .await?;
+        }
+    }
+    Ok(())
+}
+
 // ---------------------------------------------------------------------------
 // M71-09: the facts a resume decision needs
 // ---------------------------------------------------------------------------

@@ -42,7 +42,7 @@
    "built": false
   },
   {
-   "why_summary": "docs/ROADMAP-seed-from-reading-list.md (proposed 2026-11-11, six phases; source /personal/literature/fanfiction/read.txt on thinkcentre, 268 lines) Registered 2026-11-12 because th",
+   "why_summary": "docs/ROADMAP-seed-from-reading-list.md (proposed 2026-11-11, six phases; source /personal/literature/fanfiction/read.txt on thinkcentre, 268 lines) PLAN 2026-11-16: `.hermes/plans/",
    "id": "M45-74",
    "title": "Seed the instance from the operator's rated reading list, through the product's own write path",
    "sources": [
@@ -289,19 +289,6 @@
    "built": false
   },
   {
-   "why_summary": "Opened by M71-01 (8a51f9de), which shipped the landing page. Order and reasons are in docs/adr/0006-one-binary-two-renderers.md. The work page is next and is the one that matters f",
-   "id": "M71-20",
-   "title": "The remaining document-class pages migrate in ADR 0006's order - work page /works/{id}, fandom and tag pages, search results, author and collection/series pages - each shipped as server-rendered HTML whose content, links and primary action work with no script, with its Svelte route deleted in the same commit and a server test asserting the no-JS content.",
-   "sources": [
-    "docs/requirements.csv"
-   ],
-   "milestone": "M71",
-   "relevance": 4,
-   "because": "a requirements row exists (+4)",
-   "default_on": false,
-   "built": false
-  },
-  {
    "why_summary": "",
    "id": "M73-01",
    "title": "`polaris-affinity` 0.1",
@@ -389,6 +376,19 @@
    "milestone": "M71",
    "relevance": 3,
    "because": "a requirements row exists (+4); the source hedges (-1)",
+   "default_on": false,
+   "built": false
+  },
+  {
+   "why_summary": "Search-document slice 2026-11-16: `cargo test -p darkhold-app --test search_page` 3/3 (SQLite) and 3/3 (PostgreSQL); `route_inventory` 6/6 with the new public /search row; `m47_05_",
+   "id": "M71-20",
+   "title": "The remaining document-class pages migrate in ADR 0006's order - work page /works/{id}, fandom and tag pages, search results, author and collection/series pages - each shipped as server-rendered HTML whose content, links and primary action work with no script, with its Svelte route deleted in the same commit and a server test asserting the no-JS content.",
+   "sources": [
+    "docs/requirements.csv"
+   ],
+   "milestone": "M71",
+   "relevance": 3,
+   "because": "a requirements row exists (+4); needs a model or heavy compute (-1)",
    "default_on": false,
    "built": false
   },

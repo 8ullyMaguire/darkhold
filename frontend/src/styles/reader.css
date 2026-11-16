@@ -421,3 +421,18 @@
   color: var(--reader-muted);
   font-family: var(--font-mono);
 }
+
+.reader-surface__typography-source {
+  font-family: var(--font-mono);
+  font-size: var(--text-sm);
+  color: var(--reader-muted);
+  margin: 0 0 var(--space-2);
+}
+
+.reader-surface__typography-reset {
+  background: none;
+  border: 1px solid var(--reader-rule);
+  color: var(--reader-text);
+  min-height: 24px;
+  padding: var(--space-1) var(--space-2);
+}

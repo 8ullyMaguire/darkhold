@@ -15,6 +15,10 @@ No `/admin` route or `AdminOverview.svelte` exists; the router has only jobs, ec
 
 The gate started before the last few frontend/docs commits but its `frontend`, `dialects` and `repo` stages ran after them; no Rust source changed after its `test` stage, so the single exit-0 result is the current tree's evidence.
 
+## 2026-11-16 — reader typography provenance and reset shipped (deploy pending)
+
+The reader now states whether its appearance comes from "Site defaults" or "From your account settings". A saved row offers a form-post "Reset to site defaults" backed by a new both-engine `reset_typography` DELETE; with no row there is no reset control. Evidence: `reader_page 8/8`, `typography_reset_two_engines 1/1` SQLite + 1/1 PostgreSQL, mutant `WHERE 1 = 0` reddened the test and was restored from `/tmp`; token, frontend and repo gates ok. This changes the server-rendered reader, so the pending deploy must start from this commit, not `5d4a62c8`.
+
 ## 2026-11-16 — AdminMirror alert bar shipped (deploy pending)
 
 `AdminMirror.svelte` now derives red alerts from failed local mirrors and failed IPFS pins and renders them through the reused `AlertBar.svelte`, with `#mirror-<id>` and `#pin-<id>` fix anchors. Evidence: `AdminMirror 7/7 + AlertBar 2/2` in the final two-file run, `gate.sh frontend ok`, `gate.sh repo ok`; mutant changing the mirror status filter to `active` reddened the assertion and was restored from `/tmp`. This changed a live frontend surface after deploy `1361c937` began its dump, so the deploy must be restarted from `a7acbfb2` once the current backup finishes.
