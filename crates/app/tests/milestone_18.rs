@@ -302,7 +302,13 @@ async fn feed_building_produces_valid_xml() {
     );
 
     let atom = commons_feed::atom(&meta, &entries);
-    assert!(atom.contains(r#"<feed xmlns="http://www.w3.org/2005/Atom">"#));
+    // The sibling crate may add attributes to the root (it now emits `xml:lang`): assert the namespace that makes this
+    // an Atom document, not one exact spelling of the opening tag. Pinning the whole tag makes an upstream improvement
+    // look like a darkhold regression.
+    assert!(
+        atom.contains("<feed ") && atom.contains(r#"xmlns="http://www.w3.org/2005/Atom""#),
+        "the Atom root carries the Atom namespace: {atom}"
+    );
     assert!(atom.contains("<entry>"));
 
     let json = commons_feed::json_feed(&meta, &entries);

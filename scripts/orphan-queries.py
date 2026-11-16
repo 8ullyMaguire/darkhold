@@ -19,7 +19,6 @@ Usage:
 """
 from __future__ import annotations
 
-import datetime
 import re
 import sys
 from pathlib import Path
@@ -197,7 +196,9 @@ def main() -> int:
         "# outside this list, which is why the operator audit route always answered an empty trail. Correcting the",
         "# measurement moved the baseline from 43 to 57. An intermediate version that ignored `use` imports said 80; the",
         "# debt was never new, the ruler was wrong in both directions.",
-        f"# measured {datetime.date.today().isoformat()}: {len(orphans)} orphan(s)",
+        # No date stamp: a generated baseline that changes every day fails `gate.sh repo` and the orphan test for
+        # reasons that have nothing to do with code. The count is the measurement; the git history dates the change.
+        f"# {len(orphans)} orphan(s)",
         "",
     ]
     text = "\n".join(header + [f"{name}  # {file}" for name, file in orphans]) + "\n"
