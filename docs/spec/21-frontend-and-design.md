@@ -28,21 +28,12 @@ website look like https://novellunar.com/"*. Simplicity is the requirement; the 
 is the subject matter. A dark, ornate interface is not simpler, and a simpler one is not
 therefore plain.
 
-**What "like novellunar" means, concretely** — measured from the site itself, not from a mood:
+**What the reference contributes** — see ADR 0033 for the decision of record:
 
-- **A flat, seven-item top nav** — Home · Browse · Latest · New · Completed · Ranking · Genres.
-  One row. No mega-menu, no nested taxonomy in the header.
-- **A single sidebar** — "Browse by Genre", 74 entries, with a *View all* link. The taxonomy is
-  one column beside the content, not a drawer and not a tree widget.
-- **A ranked list at the top** — "Weekly Trending", numbered, with the chapter count, the view
-  count and a star rating on each row. A leaderboard, not a carousel.
-- **A cover-card grid** — `aspect-[3/4]` covers with a gradient scrim, the metadata overlaid on
-  the scrim, and a zoom on hover. The card is the unit of browsing.
-- **A layered dark scale, not black** — `#1a1a1a` / `#1e1e1e` / `#252525` with
-  `border-gray-700` / `border-gray-800`. Three greys, stepped. **This is the answer to the
-  "the reader becomes unreadable in a dark theme" risk (R-15)**, and it is why the Dark preset's
-  reading surface is a dark surface and not a paper one.
-- **One sans family**, one scale, and icons used sparingly.
+The Novellunar dark cover-card grid is **not** this site's chrome. Its useful properties — one nav row, one taxonomy
+column, one ranked list, a measured dark scale, one type family — are kept as constraints and expressed through The
+Archive's dense row contract (ADR 0007/0033). The reader keeps The Reading Room's paper and Literata. A dark interface
+with a warm-paper reader is the intended combination; the reader is never made dark just because the chrome is.
 
 **And what the design must express** is the register the instance actually holds: **power,
 dominance, corruption, progression, the dark side of fanfiction** — without becoming a screencap

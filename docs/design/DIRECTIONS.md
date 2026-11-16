@@ -1,5 +1,7 @@
 # Three visual directions
 
+**Decision of record (ADR 0033):** The Archive is site chrome; Reading Room is the reader; Forbidden Section is stamps only.
+
 Decided in ADR 0007. Each direction is described by the same eight dimensions so they can be compared rather than
 admired. The winner is *The Archive* for site chrome, with *The Reading Room* retained for the reader surface and one
 signature accent from *The Forbidden Section*. The losing directions are kept because a direction that is not written

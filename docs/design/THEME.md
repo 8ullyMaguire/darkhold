@@ -8,6 +8,8 @@ doesn’t need parchment textures, ornate borders, or medieval lettering.
 
 **Theme name: “The Reading Room.”**
 
+This theme is authoritative for the reader surface only; site chrome follows ADR 0007/0033.
+
 ### 1. Visual identity
 
 - Warm paper backgrounds.
