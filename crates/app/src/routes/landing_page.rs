@@ -343,9 +343,7 @@ fn render(
         .text("Sign in")
         .close("a");
     page.text(" · ");
-    page.open("a", &[("href", "/docs")])
-        .text("Help")
-        .close("a");
+    page.open("a", &[("href", "/docs")]).text("Help").close("a");
     page.close("footer");
 
     page.close("main");

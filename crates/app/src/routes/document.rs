@@ -46,8 +46,17 @@ pub(crate) fn shell_described(
     page.open("title", &[]).text(title).close("title");
     if let Some(text) = description.map(str::trim).filter(|text| !text.is_empty()) {
         let description = clip(&darkhold_scrapers::strip_tags(text), 160);
-        page.void("meta", &[("name", "description"), ("content", description.as_str())]);
-        page.void("meta", &[("property", "og:description"), ("content", description.as_str())]);
+        page.void(
+            "meta",
+            &[("name", "description"), ("content", description.as_str())],
+        );
+        page.void(
+            "meta",
+            &[
+                ("property", "og:description"),
+                ("content", description.as_str()),
+            ],
+        );
     }
     // DECLARE THE ICON, OR THE BROWSER INVENTS ONE TO ASK FOR. Without a <link rel=icon> a browser requests
     // /favicon.ico, which this build answers 404, so every server-rendered page (work, docs, not-found) carried a console

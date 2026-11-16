@@ -1,3 +1,21 @@
+## 2026-11-16 — §1 checks 2 and 3 closed; 39 planned, 0 unlinked, 50 deferred
+
+**Decision recorded in `docs/backlog/concord-deferred.tsv`:** the 50 unlinked Concord cards are not requirements
+for this build. They are external suggestions in five named groups (federated transport, governance expansion,
+ranking/taste experiments, reader UI, operator visibility) and each has a card id, a decision and a reason. The
+join now partitions 87 work cards into linked + deferred + unlinked, refuses a stale card id, a duplicate or a blank
+reason, and prints `unlinked: 0, deferred: 50`. `scripts/backlog_test.py` (3/3) guards it, and both the checker and
+the test now run inside `gate.sh repo`, so a stale generated inventory fails the same gate. Mutant: deleting one
+deferral line reddened `test_every_card_is_linked_or_deferred` with the missing card id; restored from `/tmp`.
+
+**Check 3:** closing M63-22 made its idea row stale; `scripts/ideas_catalogue.py` regenerated
+`crates/domain/src/modules/ideas.rs` and `docs/ideas-catalogue.json`, and `ideas_match_requirements` is 3/3 again.
+`cargo test -p darkhold-domain --lib modules` is 22/22. Full `gate.sh all` is running in the background; its result
+will be appended here by whichever session reads it.
+
+**Deploy:** blocked on host memory, not code — see the 2026-11-16 section in `docs/plans/roadmap-remaining.md`.
+Live is `0.1.0+00edcf34`; the new route is committed at `425b3ae7` but not live.
+
 ## 2026-11-16 — M63-22 closed: the operator's microscope, 39 planned
 
 **Shipped.** One route, one projection, one CLI verb, no migration. `GET /admin/discovery/explain-rec?account=…&work=…` returns every strategy's rank/RRF for one work plus its feature vector; a strategy that never returned it reports `null` rather than `0.0`. `dh admin explain-rec <work> --account <id>` prints the same body as a table or verbatim with `--json`.

@@ -415,6 +415,18 @@ invariant.
 
 `the_abuse_view_lists_the_busy_keys_and_no_reader_can_read_it` **1/1 both engines**; mutant (gate removed) → `200` where `404` was required.
 
+## Blocked (environmental): M63-22 deploy — 2026-11-16, host still starved
+
+The 2026-11-16 deploy script `/tmp/deploy-m63-22.sh` started with `avail=4G rustc=1`, waited ten 30-second samples
+(one foreign compiler appeared and left twice), and was stopped by PID because the `avail >= 6G && no foreign rustc`
+gate never opened. No backup was taken and no build was started — a build at 4 GB available is what earlyoom kills
+at the link step, per the 2026-11-11 record below. Live is still `0.1.0+00edcf34`, which does not carry the new
+`GET /admin/discovery/explain-rec` route; the committed tree is `425b3ae7`.
+
+**What clears it:** 8+ GB available through the whole link (the suki crawl releasing memory), or the user's decision
+to change the release profile (`codegen-units` above 1 and/or `lto = off`), which changes the shipped artifact.
+The route is mounted and proved by suites on both engines; the live probe must wait for a deploy window.
+
 ## Blocked (environmental, not a §2.1 row block): deploying while thinkcentre is starved — 2026-11-11 23:05–00:11
 
 Four release builds of `darkhold-app` were killed on thinkcentre tonight, each with `rustc … (signal: 15, SIGTERM)` or `(signal: 9, SIGKILL)`:
