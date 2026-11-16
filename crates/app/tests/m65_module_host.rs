@@ -184,7 +184,9 @@ async fn the_catalogue_is_core_and_lists_every_registered_surface() {
     // `GS-1` was the requirements-source sample until 2026-11-12, when the catalogue correctly *retired* it: GS-1..GS-4
     // are `implemented-fully-tested` now, and a built row in the idea queue is the second backlog §59.8 ends. The sample
     // has to be an id that is still open, or it pins the catalogue to its pre-implementation shape.
-    for id in ["M63-22", "M29-08", "M44-02", "M63-23"] {
+    // `M63-22` was the M63 sample until 2026-11-16, when the row was implemented and the generator correctly retired its
+    // idea entry. Use a row that is still `planned`; pinning a closed one makes every future catalogue regen red.
+    for id in ["M63-25", "M29-08", "M44-02", "M63-23"] {
         assert!(
             ideas.iter().any(|row| row["id"] == id),
             "`{id}` is missing from the idea catalogue"
