@@ -98,6 +98,11 @@ pub enum Discovery {
         /// A path template, substituted with nothing.
         template: String,
     },
+    /// Walk similar creators from one or more author seeds, breadth-first, to a bounded depth.
+    AuthorFrontier {
+        /// A path template with `{id}` for the recommended-creators page.
+        recommended_template: String,
+    },
     /// No unattended discovery. A reader may paste a URL; nothing walks the site.
     None,
 }
@@ -144,6 +149,21 @@ impl Entry {
         self.adapter.is_some()
             && self.bodies.may_fetch_metadata()
             && !matches!(self.discovery, Discovery::None)
+    }
+
+    /// The similar-creators URL for one author id.
+    #[must_use]
+    pub fn recommended_page_url(&self, author_id: &str) -> Option<String> {
+        match &self.discovery {
+            Discovery::AuthorFrontier {
+                recommended_template,
+            } => Some(format!(
+                "https://{}{}",
+                self.host,
+                recommended_template.replace("{id}", author_id)
+            )),
+            _ => None,
+        }
     }
 
     /// The one listing URL, for a source whose discovery needs no tag.
@@ -400,6 +420,15 @@ mod tests {
                     assert!(
                         !url.contains("{tag}"),
                         "a tagless listing carries no placeholder: {url}"
+                    );
+                }
+                Discovery::AuthorFrontier { .. } => {
+                    let url = entry
+                        .recommended_page_url("26677387")
+                        .expect("a frontier source resolves its recommended page");
+                    assert!(
+                        url.ends_with("/patreon/user/26677387/recommended"),
+                        "the frontier template substitutes the author id: {url}"
                     );
                 }
                 Discovery::None => panic!("`{}` is syncable with nothing to walk", entry.id),

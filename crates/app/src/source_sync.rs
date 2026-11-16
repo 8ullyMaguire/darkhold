@@ -45,6 +45,85 @@ pub fn work_key(source_id: &str, work_id: &str) -> String {
     format!("syndication:{source_id}:{work_id}")
 }
 
+/// One author reached by the frontier, with the depth that found it.
+///
+/// Depth is a safety bound, not a quality signal: the seed is depth 0 and three further hops are allowed.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct FrontierNode {
+    pub author_id: String,
+    pub depth: u8,
+    pub url: String,
+}
+
+fn author_id_from_url(url: &str) -> String {
+    url.trim_end_matches('/')
+        .rsplit('/')
+        .next()
+        .unwrap_or_default()
+        .to_owned()
+}
+
+/// Breadth-first author walk from the configured seeds.
+///
+/// `fetch` is injected so the traversal is testable without a network: it receives one author id and
+/// returns the ids that author recommends. A failed fetch is an empty neighbourhood for that node —
+/// one dead author must not kill the pass. The visit cap includes the seeds.
+pub async fn author_frontier<F, Fut>(
+    seeds: &[crate::config::AuthorSeed],
+    max_depth: u8,
+    max_authors: usize,
+    mut fetch: F,
+) -> Vec<FrontierNode>
+where
+    F: FnMut(String) -> Fut,
+    Fut: std::future::Future<Output = anyhow::Result<Vec<String>>>,
+{
+    use std::collections::VecDeque;
+
+    let mut queue: VecDeque<FrontierNode> = VecDeque::new();
+    let mut seen = std::collections::HashSet::new();
+    for seed in seeds {
+        let author_id = author_id_from_url(&seed.author_url);
+        if author_id.is_empty() || !seen.insert(author_id.clone()) {
+            continue;
+        }
+        queue.push_back(FrontierNode {
+            author_id,
+            depth: 0,
+            url: seed.author_url.clone(),
+        });
+    }
+
+    let mut visited = Vec::new();
+    while let Some(node) = queue.pop_front() {
+        if visited.len() >= max_authors {
+            break;
+        }
+        visited.push(node.clone());
+        if node.depth >= max_depth {
+            continue;
+        }
+        let neighbours = match fetch(node.author_id.clone()).await {
+            Ok(ids) => ids,
+            Err(error) => {
+                tracing::warn!(author = %node.author_id, %error, "the recommendation page could not be read");
+                Vec::new()
+            }
+        };
+        for neighbour in neighbours {
+            if neighbour.is_empty() || !seen.insert(neighbour.clone()) {
+                continue;
+            }
+            queue.push_back(FrontierNode {
+                url: format!("https://pawchive.pw/patreon/user/{neighbour}"),
+                author_id: neighbour,
+                depth: node.depth + 1,
+            });
+        }
+    }
+    visited
+}
+
 /// What one pass did, per source.
 #[derive(Debug, Default, Clone, PartialEq, Eq)]
 pub struct SourceReport {
@@ -110,10 +189,10 @@ pub async fn run(state: &AppState) -> anyhow::Result<Summary> {
         // than fail and retry for ever.
         return Ok(summary);
     }
-    if config.tags.is_empty() {
+    if config.tags.is_empty() && config.author_seeds.is_empty() {
         tracing::info!(
             target: "darkhold::syndication",
-            "syndication is on but names no tags; nothing to walk"
+            "syndication is on but names no tags and no author seeds; nothing to walk"
         );
         return Ok(summary);
     }
@@ -155,6 +234,7 @@ pub async fn run(state: &AppState) -> anyhow::Result<Summary> {
                 .map(|url| (String::new(), url))
                 .into_iter()
                 .collect(),
+            Discovery::AuthorFrontier { .. } => Vec::new(),
             Discovery::None => Vec::new(),
         };
         if listings.is_empty() {
@@ -165,6 +245,97 @@ pub async fn run(state: &AppState) -> anyhow::Result<Summary> {
 
         let policy = crate::imports::policy_for(adapter, state.config());
         let fetcher = SafeFetcher::new(vec![entry.host.clone()], policy);
+
+        if matches!(entry.discovery, Discovery::AuthorFrontier { .. }) {
+            let seeds: Vec<crate::config::AuthorSeed> = config
+                .author_seeds
+                .iter()
+                .filter(|seed| seed.source_id == entry.id)
+                .cloned()
+                .collect();
+            let frontier_fetcher = &fetcher;
+            let nodes = author_frontier(
+                &seeds,
+                3,
+                config.max_works_per_listing.max(1),
+                |url| async move {
+                    let fetched = frontier_fetcher
+                        .get_declared(&url, FetchClass::Metadata)
+                        .await
+                        .map_err(|error| anyhow::anyhow!(error.to_string()))?;
+                    Ok(darkhold_scrapers::sites::pawchive::similar_creator_urls(
+                        &fetched.body,
+                    ))
+                },
+            )
+            .await;
+            report.discovered += nodes.len();
+
+            for node in nodes {
+                let Ok(author_url) = url::Url::parse(&node.url) else {
+                    continue;
+                };
+                let story_urls = match adapter.list_author_works(&fetcher, &author_url, None).await
+                {
+                    Ok(urls) => urls,
+                    Err(error) => {
+                        tracing::warn!(
+                            target: "darkhold::syndication",
+                            author = %node.author_id,
+                            %error,
+                            "the author's story list could not be read"
+                        );
+                        continue;
+                    }
+                };
+                for url in story_urls.into_iter().take(config.max_works_per_listing) {
+                    let slug = url::Url::parse(&url)
+                        .ok()
+                        .and_then(|parsed| {
+                            parsed
+                                .query_pairs()
+                                .find(|(key, _)| key == "story")
+                                .map(|(_, value)| value.into_owned())
+                        })
+                        .unwrap_or_default();
+                    if slug.is_empty() {
+                        continue;
+                    }
+                    let work_id = format!("{}:{}", node.author_id, slug);
+                    let key = work_key(&entry.id, &work_id);
+                    if jobs::exists_by_idempotency_key(state.db(), &key).await? {
+                        report.known += 1;
+                        continue;
+                    }
+                    let import_id = darkhold_domain::ImportJobId::new().to_string();
+                    let job_id = jobs::enqueue(
+                        state.db(),
+                        JobKind::Import,
+                        &serde_json::json!({ "import_job_id": import_id }).to_string(),
+                        Some(&key),
+                        Some(account),
+                        0,
+                        &RetryPolicy::default(),
+                    )
+                    .await?;
+                    imports::create_import_job(
+                        state.db(),
+                        &import_id,
+                        &job_id.to_string(),
+                        &account.to_string(),
+                        &pseud.to_string(),
+                        &entry.id,
+                        &url,
+                        "library",
+                        false,
+                    )
+                    .await?;
+                    report.queued += 1;
+                }
+            }
+            summary.sources.push(report);
+            continue;
+        }
 
         for (tag, url) in listings {
             let fetched = match fetcher.get_declared(&url, FetchClass::Metadata).await {
@@ -247,7 +418,7 @@ pub async fn run(state: &AppState) -> anyhow::Result<Summary> {
 /// try to enqueue and exactly one row lands, which is the whole reason the key is not `now`.
 pub async fn enqueue_if_due(state: &AppState) -> anyhow::Result<bool> {
     let config = &state.config().syndication;
-    if !config.enabled || config.tags.is_empty() {
+    if !config.enabled || (config.tags.is_empty() && config.author_seeds.is_empty()) {
         return Ok(false);
     }
 

@@ -582,7 +582,15 @@ pub async fn run(
         &row.account_id,
         &row.source_key,
         &work.source_work_key,
-        &library_input(&work, &row),
+        &library_input(
+            &work,
+            &row,
+            &state
+                .config()
+                .syndication
+                .rule_for(&row.source_key)
+                .body_audience,
+        ),
     )
     .await
     .map_err(transient)?;
@@ -1028,7 +1036,11 @@ fn intake_candidate(work: &SourceWork) -> darkhold_domain::intake::IntakeCandida
 }
 
 /// The library row for a previewed work.
-fn library_input(work: &SourceWork, row: &imports::ImportJob) -> imports::LibraryItemInput {
+fn library_input(
+    work: &SourceWork,
+    row: &imports::ImportJob,
+    body_audience: &str,
+) -> imports::LibraryItemInput {
     imports::LibraryItemInput {
         title: work.title.clone(),
         author_text: work.author_text.clone(),
@@ -1045,6 +1057,7 @@ fn library_input(work: &SourceWork, row: &imports::ImportJob) -> imports::Librar
             "source": row.source_key,
             "source_url": row.source_url,
             "import_job_id": row.id,
+            "body_audience": body_audience,
         })
         .to_string(),
     }

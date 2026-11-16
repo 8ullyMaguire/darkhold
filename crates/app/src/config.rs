@@ -2269,6 +2269,86 @@ impl Default for ExportsConfig {
 /// instance is willing to run; the adapter supplies the need. Neither can grant
 /// the other's half, which is why the two are merged in
 /// [`ImportsConfig::unblock_for`] rather than either being the whole answer.
+/// Parse an age window used by source sync: `Nh`, `Nd`, `Nw` = 7d, `Nm` = 30d.
+///
+/// Zero and negative are refused. A config file is a string, and a window of zero would turn a
+/// periodic sweep into an unbounded crawl rather than a quiet no-op.
+pub fn parse_age_window(text: &str) -> Result<std::time::Duration, String> {
+    let text = text.trim();
+    if text.is_empty() {
+        return Err("an age window must not be empty".to_owned());
+    }
+    let (number, unit) = text.split_at(
+        text.find(|c: char| !c.is_ascii_digit())
+            .ok_or_else(|| format!("age window `{text}` has no unit"))?,
+    );
+    let count: u64 = number
+        .parse()
+        .map_err(|_| format!("age window `{text}` has no positive count"))?;
+    if count == 0 {
+        return Err(format!("age window `{text}` is zero"));
+    }
+    let seconds = match unit {
+        "h" => 3600,
+        "d" => 86_400,
+        "w" => 7 * 86_400,
+        "mo" => 30 * 86_400,
+        other => return Err(format!("unknown age window unit `{other}`")),
+    };
+    Ok(std::time::Duration::from_secs(
+        count.saturating_mul(seconds),
+    ))
+}
+
+/// One per-source freshness rule. A source not named here uses `older_than = 7d`.
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct SourceSyncRule {
+    pub source_id: String,
+    #[serde(default = "default_sync_rule_enabled")]
+    pub enabled: bool,
+    #[serde(default)]
+    pub newer_than: Option<String>,
+    #[serde(default = "default_sync_old_window")]
+    pub older_than: String,
+    /// Who may read the stored body once this source is materialised into a work.
+    #[serde(default = "default_sourced_body_audience")]
+    pub body_audience: String,
+}
+
+fn default_sync_rule_enabled() -> bool {
+    true
+}
+fn default_sync_old_window() -> String {
+    "7d".to_owned()
+}
+fn default_sourced_body_audience() -> String {
+    "trust_at_least:2".to_owned()
+}
+
+impl SourceSyncRule {
+    /// Parse both sides of the window. The tuple is `(newer_than, older_than)`.
+    pub fn parse(&self) -> Result<(Option<std::time::Duration>, std::time::Duration), String> {
+        let newer = self
+            .newer_than
+            .as_deref()
+            .map(parse_age_window)
+            .transpose()
+            .map_err(|error| format!("syndication.sources.{}: {error}", self.source_id))?;
+        let older = parse_age_window(&self.older_than)
+            .map_err(|error| format!("syndication.sources.{}: {error}", self.source_id))?;
+        Ok((newer, older))
+    }
+}
+
+/// A canonical author URL from which a `Discovery::AuthorFrontier` walk begins.
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct AuthorSeed {
+    pub source_id: String,
+    pub author_url: String,
+}
+
 /// M67-03: the periodic sync over external sources.
 ///
 /// **Off by default.** A fresh instance that starts fetching eight archives on boot is a surprise, and
@@ -2290,6 +2370,12 @@ pub struct SyndicationConfig {
     /// Tag names to walk, one listing page each, per source.
     #[serde(default)]
     pub tags: Vec<String>,
+    /// Per-source freshness rules; a source with no rule uses `older_than = 7d`.
+    #[serde(default)]
+    pub sources: Vec<SourceSyncRule>,
+    /// Author URLs whose recommendations seed a bounded frontier walk.
+    #[serde(default)]
+    pub author_seeds: Vec<AuthorSeed>,
     /// The ceiling on works queued per (source, tag, run).
     #[serde(default = "SyndicationConfig::default_max_works")]
     pub max_works_per_listing: usize,
@@ -2325,6 +2411,30 @@ impl SyndicationConfig {
     pub fn interval(&self) -> std::time::Duration {
         std::time::Duration::from_secs(self.interval_hours.max(1) * 60 * 60)
     }
+
+    /// The effective "older than" window for a source, including the seven-day default.
+    pub fn older_than_for(&self, source_id: &str) -> Result<std::time::Duration, String> {
+        match self.sources.iter().find(|rule| rule.source_id == source_id) {
+            Some(rule) => Ok(parse_age_window(&rule.older_than)?),
+            None => parse_age_window("7d"),
+        }
+    }
+
+    /// The effective rule for a source, or the seven-day default.
+    #[must_use]
+    pub fn rule_for(&self, source_id: &str) -> SourceSyncRule {
+        self.sources
+            .iter()
+            .find(|rule| rule.source_id == source_id)
+            .cloned()
+            .unwrap_or_else(|| SourceSyncRule {
+                source_id: source_id.to_owned(),
+                enabled: true,
+                newer_than: None,
+                older_than: "7d".to_owned(),
+                body_audience: "trust_at_least:2".to_owned(),
+            })
+    }
 }
 
 impl Default for SyndicationConfig {
@@ -2333,6 +2443,17 @@ impl Default for SyndicationConfig {
             enabled: false,
             interval_hours: Self::default_interval_hours(),
             tags: Vec::new(),
+            sources: vec![SourceSyncRule {
+                source_id: "pawchive".to_owned(),
+                enabled: true,
+                newer_than: None,
+                older_than: "6mo".to_owned(),
+                body_audience: "trust_at_least:2".to_owned(),
+            }],
+            author_seeds: vec![AuthorSeed {
+                source_id: "pawchive".to_owned(),
+                author_url: "https://pawchive.pw/patreon/user/26677387".to_owned(),
+            }],
             max_works_per_listing: Self::default_max_works(),
             account_handle: Self::default_account_handle(),
             account_email: Self::default_account_email(),
@@ -3217,6 +3338,8 @@ impl Config {
                 enabled: raw.enabled.unwrap_or(defaults.enabled),
                 interval_hours: raw.interval_hours.unwrap_or(defaults.interval_hours),
                 tags: raw.tags.unwrap_or(defaults.tags),
+                sources: raw.sources.unwrap_or(defaults.sources),
+                author_seeds: raw.author_seeds.unwrap_or(defaults.author_seeds),
                 max_works_per_listing: raw
                     .max_works_per_listing
                     .unwrap_or(defaults.max_works_per_listing),
@@ -4626,6 +4749,17 @@ impl Config {
     /// Environment-specific rules (a production instance must not run with
     /// development settings) live in [`crate::safety`].
     pub fn validate(&self) -> Result<()> {
+        for rule in &self.syndication.sources {
+            rule.parse().map_err(|message| anyhow::anyhow!(message))?;
+            darkhold_domain::retention::BodyAudience::parse_stored(Some(&rule.body_audience))
+                .ok_or_else(|| {
+                    anyhow::anyhow!(
+                        "syndication.sources.{}: invalid body audience `{}`",
+                        rule.source_id,
+                        rule.body_audience
+                    )
+                })?;
+        }
         darkhold_domain::modules::validate(&self.modules.disabled, &self.modules.enabled)
             .map_err(|message| anyhow::anyhow!(message))?;
         if self.server.port == 0 {
@@ -4845,6 +4979,10 @@ struct SyndicationSection {
     enabled: Option<bool>,
     interval_hours: Option<u64>,
     tags: Option<Vec<String>>,
+    #[serde(default)]
+    sources: Option<Vec<SourceSyncRule>>,
+    #[serde(default)]
+    author_seeds: Option<Vec<AuthorSeed>>,
     max_works_per_listing: Option<usize>,
     account_handle: Option<String>,
     account_email: Option<String>,

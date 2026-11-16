@@ -533,6 +533,23 @@
         "kind": "none"
       },
       "note": "XenForo; the site's AI-bot list does not name this client, so the `*` group applies."
+    },
+    {
+      "id": "pawchive",
+      "name": "Pawchive",
+      "host": "pawchive.pw",
+      "family": "patreon_mirror",
+      "adapter": "pawchive",
+      "bodies": "allowed",
+      "robots": {
+        "verdict": "public HTML author pages and a public JSON post API; no robots.txt restriction observed 2026-11-17",
+        "checked": "2026-11-17"
+      },
+      "discovery": {
+        "kind": "author_frontier",
+        "recommended_template": "/patreon/user/{id}/recommended"
+      },
+      "note": "System-fic and dark-MC Patreon cross-posts. One story may have many chapter posts; group them by normalised title before import."
     }
   ]
 }

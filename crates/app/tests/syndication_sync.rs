@@ -117,6 +117,7 @@ async fn enabled_with_no_tags_queues_nothing_because_there_is_nothing_to_walk() 
         SyndicationConfig {
             enabled: true,
             tags: Vec::new(),
+            author_seeds: Vec::new(),
             ..SyndicationConfig::default()
         },
     )

@@ -1,14 +1,14 @@
 {
   "sources": {
     "requirements.csv": {
-      "rows": 958,
+      "rows": 959,
       "by_status": {
         "implemented-verified-e2e": 138,
         "implemented-locally-tested": 270,
         "unsupported": 4,
         "implemented-fully-tested": 460,
         "implemented": 41,
-        "planned": 35,
+        "planned": 36,
         "evaluated-and-rejected": 7,
         "done": 3
       }
@@ -238,6 +238,12 @@
       "milestone": "M45",
       "requirement": "Seed the instance from the operator's rated reading list, through the product's own write path: measure first, prove the write path, then a dry-run seeder, then apply through the service, then rebuild what the ratings feed. The list is a prior, not a population, and the plan says so.",
       "notes": "Registered 2026-11-12 because the repository held a dated roadmap that this ledger did not: the idea catalogue's coverage gate refused to regenerate until every idea a live roadmap names had a home, and the honest home for a proposal is a row, not an exemption. Measured basis (taste_census.py, 2026-11-11): accounts 20, taste_profiles 2, instance_theme 1, rating 0, work_ratings 0, work_taste_vectors 0 \u2014 twenty accounts and not one rating, so every ranking surface on the busiest member is decoration. Phases: 0 measure, 1 the write path (estate ledger 406, a prerequisite), 2 the seeder with a dry run first, 3 apply through the service, 4 rebuild the taste vectors and the instance theme, 5 the verification that closes it. Non-goal stated in the document: this is one person's list and may not be presented as a population. PLAN RECORDED 2026-11-16, NO CODE IMPLEMENTED: the write path already exists (`PUT /works/{id}/rating` \u2192 `reading::upsert_rating`); the blocker is owner data and an owner-gated census, not a missing route. Measured sidecar target: 268 lines, 218 matched, 3 wrapped_title (reported, never guessed), 47 unmatched, 218 distinct ids. Decision: append-only audit sidecar instead of `rating.source` DDL or `taste_provenance`; `is_public=false`; ratings keyed by pseud. Fixed accept rule before apply: \u2265180 exact, \u226420 ambiguous, \u2265180 applied, and \u22651 overlap with the operator\u2019s top-10 personal recommendations; failure opens a wiring row, never a new ranking crate. Task 0 stop: deploy tree dirty/behind, so no deployed-unit work until those docs paths are committed or set aside. Estate row 407 remains owner-gated."
+    },
+    {
+      "id": "M74-01",
+      "milestone": "M74",
+      "requirement": "Periodically discover system-fic/dark-MC works from all declared sources; walk favourite-author recommendations on Pawchive breadth-first to depth 3; apply per-source newer/older windows (7d default, Pawchive 6mo); merge chapter posts into one story; keep metadata public and bodies at trust level 2 with no low-trust hint.",
+      "notes": "Spec docs/spec-amendments/71-syndicated-trope-frontier.md; plan .hermes/plans/2026-11-17_002000-syndicated-trope-frontier.md; census in docs/plans/roadmap-remaining.md. Reconciles 33 reviewed sources with public web evidence. Full gate and deploy pending."
     }
   ],
   "open_by_milestone": {
@@ -250,7 +256,8 @@
     "M69": 1,
     "M29": 1,
     "M44": 1,
-    "M70": 1
+    "M70": 1,
+    "M74": 1
   },
   "unlinked_concord": [],
   "deferred_concord": [

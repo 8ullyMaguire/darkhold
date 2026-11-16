@@ -1,5 +1,15 @@
 # The remaining roadmap, ordered for execution
 
+## M74-01 syndicated trope frontier — census, 2026-11-17
+
+Source: `docs/spec-amendments/71-syndicated-trope-frontier.md` and `.hermes/plans/2026-11-17_002000-syndicated-trope-frontier.md`. The owner asked for source updates with system fics/dark MCs, a depth-3 BFS over favourite-author recommendations on Pawchive (seed `26677387`), per-source newer/older windows (default 7d, Pawchive 6mo), chapter posts merged into one story, and metadata-public/body-TL2 content.
+
+**Census:** REUSE the existing `source_sync` worker, `jobs`/`imports` queue path, `Catalogue`, `SafeFetcher`, `SourceAdapter::list_author_works`, `library_items`/`import_units`, `retention::BodyAudience` and its indistinguishability test; ADAPT `SyndicationConfig` with per-source windows/seeds/body audience, `Discovery::AuthorFrontier`, the Pawchive adapter's story grouping, and the `library_input` provenance; BUILD only the pure BFS helper, the Pawchive HTML/story-key functions, and the new test targets. Non-goals: no second scheduler, no new table, no unattended walk of blocked/metadata-only sources, no body write outside the import pipeline.
+
+**Decision:** depth 3 means seed at 0 and three expansion hops. Six months = 180 days in the existing `Nm` grammar. Pawchive chapters collapse on `(author_id, normalised story title)` into one `source_work_key`, with chapter posts as units. Freshness is parsed at config load and applied to discovered listing dates before enqueue. A source with no adapter stays a declaration, never a queued job. The body audience is `trust_at_least:2` by default for every sourced story; the low-trust no-hint contract is already guarded by `body_audience_indistinguishability.rs`, which this row re-runs as evidence.
+
+**Evidence:** `syndication_frontier` 4/4, `pawchive_frontier` 4/4, `syndication_sync` 6/6, `body_audience` 11/11, `body_audience_indistinguishability` 3/3, `import_visibility` 5/5 (25/25 across the four viewer suites), `imported_story_identity_two_engines` 1/1 SQLite + 1/1 PostgreSQL. Mutants: BFS depth bound and chapter-number normaliser each reddened their test and were restored from `/tmp`; clippy clean for app/scrapers/db; `gate.sh repo` ok. Remaining: full gate, push, deploy, live re-probe.
+
 `docs/requirements.csv` holds **66 planned rows** as of 2026-11-08 (10 of them the new M72 batch below). This file is the order they will be taken in and the
 reason for that order, so a later session does not have to re-derive it. The ledger stays the source of truth: a row
 moves when `scripts/ledger.py upsert` says so, not when this file says so.

@@ -20,7 +20,7 @@
 //! * `GET /api/v1/patreon/user/{uid}/post/{pid}` — one post with navigation
 
 use async_trait::async_trait;
-use scraper::Html;
+use scraper::{Html, Selector};
 use url::Url;
 
 use crate::{
@@ -30,6 +30,113 @@ use crate::{
 
 /// Hosts this adapter serves.
 const HOSTS: [&str; 2] = ["pawchive.pw", "www.pawchive.pw"];
+
+/// Every similar-creator link on a `/patreon/user/{id}/recommended` page.
+///
+/// The live page on 2026-11-17 renders anchors whose href is a relative `/patreon/user/{id}`.
+/// Absolute links from the same host are accepted too. Malformed ids are dropped rather than
+/// queued: a walk that followed `/patreon/user/not-a-number` would fail at the post API and report a
+/// broken source when the page was fine.
+#[must_use]
+pub fn similar_creator_urls(html: &str) -> Vec<String> {
+    let document = Html::parse_fragment(html);
+    let Ok(selector) = Selector::parse("a[href]") else {
+        return Vec::new();
+    };
+    let mut out = Vec::new();
+    for anchor in document.select(&selector) {
+        let Some(href) = anchor.value().attr("href") else {
+            continue;
+        };
+        let path = href
+            .strip_prefix("https://pawchive.pw")
+            .or_else(|| href.strip_prefix("http://pawchive.pw"))
+            .or_else(|| href.strip_prefix("https://www.pawchive.pw"))
+            .unwrap_or(href);
+        let Some(id) = path.strip_prefix("/patreon/user/") else {
+            continue;
+        };
+        let id = id.trim_end_matches('/');
+        if id.is_empty() || !id.chars().all(|c| c.is_ascii_digit()) {
+            continue;
+        }
+        let url = format!("https://pawchive.pw/patreon/user/{id}");
+        if !out.contains(&url) {
+            out.push(url);
+        }
+    }
+    out
+}
+
+/// Collapse a Pawchive post title to the story it belongs to.
+///
+/// Witnessed live: "Sailing the Skies with my Endergirl 10" and "... 11" are chapters of one story.
+/// A four-digit bare number is part of a name ("Gachapunk 2076") and is kept; an explicit
+/// "Chapter 2076" is still a chapter and is removed.
+#[must_use]
+pub fn story_title(post_title: &str) -> String {
+    let title = post_title.trim();
+    let lower = title.to_lowercase();
+    if let Some(position) = lower.rfind("chapter ") {
+        let suffix = title[position + "chapter ".len()..].trim();
+        let number = suffix.trim_matches(|c: char| !c.is_ascii_digit());
+        if !number.is_empty() {
+            let before = title[..position].trim_end_matches(|c: char| "-–—: ".contains(c));
+            if !before.trim().is_empty() {
+                return before.trim().to_owned();
+            }
+        }
+    }
+    let digits = title
+        .chars()
+        .rev()
+        .take_while(|c| c.is_ascii_digit())
+        .count();
+    if digits == 0 || digits > 3 {
+        return title.to_owned();
+    }
+    let before = title[..title.len() - digits].trim_end_matches(|c: char| "-–—: ".contains(c));
+    if before.trim().is_empty() {
+        title.to_owned()
+    } else {
+        before.trim().to_owned()
+    }
+}
+
+/// The natural key of one story at one author: `pawchive:{author_id}:{slug}`.
+#[must_use]
+pub fn story_key(author_id: &str, post_title: &str) -> String {
+    let slug = polaris_slug::slug(&story_title(post_title), polaris_slug::Policy::NONE);
+    format!("pawchive:{author_id}:{slug}")
+}
+
+/// The stable slug of the story a post belongs to.
+#[must_use]
+pub fn story_slug(post_title: &str) -> String {
+    polaris_slug::slug(&story_title(post_title), polaris_slug::Policy::NONE)
+}
+
+/// One canonical import URL per story, independent of the post that revealed it.
+#[must_use]
+pub fn story_url(author_id: &str, post_title: &str) -> String {
+    format!(
+        "https://pawchive.pw/patreon/user/{author_id}?story={}",
+        story_slug(post_title)
+    )
+}
+
+/// Distinct story slugs in first-seen order. Chapter posts collapse to one slug.
+#[must_use]
+pub fn distinct_story_slugs(titles: &[&str]) -> Vec<String> {
+    let mut out = Vec::new();
+    for title in titles {
+        let slug = story_slug(title);
+        if !slug.is_empty() && !out.contains(&slug) {
+            out.push(slug);
+        }
+    }
+    out
+}
 
 /// The Pawchive adapter.
 #[derive(Debug, Clone)]
@@ -213,6 +320,36 @@ where
 /// The JSON list response is just an array of posts.
 type ApiPostList = Vec<ApiPost>;
 
+/// Every post for one author, paginated. The natural story identity lives in the post titles,
+/// so a story cannot be found from the first page alone.
+async fn all_posts(fetch: &dyn Fetcher, uid: &str) -> SourceResult<ApiPostList> {
+    let mut posts = Vec::new();
+    let mut offset = 0u32;
+    loop {
+        let page = fetch
+            .get(&Pawchive::api_user_posts_url(uid, offset))
+            .await
+            .map_err(|error| SourceError::Network(format!("listing posts: {error}")))?;
+        let page_posts: ApiPostList = serde_json::from_str(&page.body).map_err(|error| {
+            SourceError::Parse(format!("Pawchive API returned invalid JSON: {error}"))
+        })?;
+        let exhausted = page_posts.len() < 50;
+        posts.extend(page_posts);
+        if exhausted {
+            break;
+        }
+        offset += 50;
+    }
+    Ok(posts)
+}
+
+/// The `?story=` slug on a canonical story URL, when one is present.
+fn requested_story(url: &Url) -> Option<String> {
+    url.query_pairs()
+        .find(|(key, _)| key == "story")
+        .map(|(_, value)| value.into_owned())
+}
+
 /// `/api/v1/patreon/user/{uid}/profile` — the author's display name.
 #[derive(Debug, serde::Deserialize)]
 struct ApiProfile {
@@ -259,44 +396,45 @@ impl SourceAdapter for Pawchive {
     ) -> SourceResult<SourceWork> {
         let uid = Self::user_id(url)
             .ok_or_else(|| SourceError::Unsupported(format!("{url} is not a Pawchive user URL")))?;
-
-        // Fetch first page of posts to count them and pick up metadata.
-        let api_url = Self::api_user_posts_url(&uid, 0);
-        let page = fetch
-            .get(&api_url)
-            .await
-            .map_err(|e| SourceError::Network(format!("listing posts: {e}")))?;
-        let posts: ApiPostList = serde_json::from_str(&page.body)
-            .map_err(|e| SourceError::Parse(format!("Pawchive API returned invalid JSON: {e}")))?;
-
+        let wanted = requested_story(url);
+        let posts = all_posts(fetch, &uid).await?;
         if posts.is_empty() {
             return Err(SourceError::NotFound);
         }
 
-        // Count posts with real content (chapters) vs links-only, and collect
-        // the union of post tags for the work's tag list.
-        let mut units = Vec::new();
+        let selected: Vec<&ApiPost> = posts
+            .iter()
+            .filter(|post| match &wanted {
+                Some(slug) => story_slug(&post.title) == *slug,
+                None => true,
+            })
+            .collect();
+        if selected.is_empty() {
+            return Err(SourceError::NotFound);
+        }
+
         let mut tag_set: Vec<String> = Vec::new();
-        for (ordinal, post) in posts.iter().enumerate() {
+        let mut units = Vec::new();
+        for post in &selected {
             for tag in &post.tags {
-                if !tag.is_empty() && !tag_set.iter().any(|t| t.eq_ignore_ascii_case(tag)) {
+                if !tag.is_empty()
+                    && !tag_set
+                        .iter()
+                        .any(|existing| existing.eq_ignore_ascii_case(tag))
+                {
                     tag_set.push(tag.clone());
                 }
             }
-            let text = strip_tags(&post.content);
-            let text = text.trim().to_owned();
-            // Only include posts that have meaningful chapter text.
+            let text = strip_tags(&post.content).trim().to_owned();
             if text.len() > 50 {
                 units.push(crate::UnitRef {
-                    ordinal: ordinal as u32 + 1,
+                    ordinal: units.len() as u32 + 1,
                     source_unit_key: post.id.clone(),
                     title: post.title.clone(),
                 });
             }
         }
 
-        // The author's display name. Without this every work is credited to
-        // "Pawchive user 5149963" instead of "Cambrian".
         let author_name = fetch
             .get(&format!(
                 "https://pawchive.pw/api/v1/patreon/user/{uid}/profile"
@@ -308,14 +446,34 @@ impl SourceAdapter for Pawchive {
             .filter(|name| !name.is_empty())
             .unwrap_or_else(|| format!("Pawchive user {uid}"));
 
+        let (source_work_key, title, summary) = match &wanted {
+            Some(slug) => {
+                let story = story_title(&selected[0].title);
+                (
+                    format!("pawchive:{uid}:{slug}"),
+                    story.clone(),
+                    format!("{story} by {author_name} on Pawchive"),
+                )
+            }
+            None => (
+                uid.clone(),
+                author_name.clone(),
+                format!("{} posts on Pawchive", selected.len()),
+            ),
+        };
+
         Ok(SourceWork {
             source_key: self.key.clone(),
-            source_work_key: uid.clone(),
-            source_url: url.to_string(),
-            title: author_name.clone(),
+            source_work_key,
+            source_url: if wanted.is_some() {
+                url.to_string()
+            } else {
+                format!("https://pawchive.pw/patreon/user/{uid}")
+            },
+            title,
             author_text: author_name,
-            author_url: Some(url.to_string()),
-            summary: format!("{} posts on Pawchive", posts.len()),
+            author_url: Some(format!("https://pawchive.pw/patreon/user/{uid}")),
+            summary,
             word_count: None,
             language: Some("en".to_owned()),
             status: WorkStatus::Unknown,
@@ -334,59 +492,54 @@ impl SourceAdapter for Pawchive {
         work: &SourceWork,
         _creds: Option<&Credentials>,
     ) -> SourceResult<Vec<SourceUnit>> {
-        let uid = &work.source_work_key;
-
-        // Paginate through all posts and yield those with chapter text.
+        let url = Url::parse(&work.source_url)
+            .map_err(|error| SourceError::Unsupported(format!("invalid source url: {error}")))?;
+        let uid = Self::user_id(&url).ok_or_else(|| {
+            SourceError::Unsupported(format!("{} is not a Pawchive URL", work.source_url))
+        })?;
+        let wanted = requested_story(&url);
+        let posts = all_posts(fetch, &uid).await?;
         let mut units = Vec::new();
-        let mut offset = 0;
-        loop {
-            let api_url = Self::api_user_posts_url(uid, offset);
-            let page = fetch
-                .get(&api_url)
-                .await
-                .map_err(|e| SourceError::Network(format!("listing posts: {e}")))?;
-            let posts: ApiPostList = serde_json::from_str(&page.body).map_err(|e| {
-                SourceError::Parse(format!("Pawchive API returned invalid JSON: {e}"))
-            })?;
-
-            if posts.is_empty() {
-                break;
-            }
-
-            for post in &posts {
-                let text = strip_tags(&post.content);
-                let text = collapse_whitespace(&text);
-                if text.len() > 50 {
-                    units.push(SourceUnit {
-                        ordinal: units.len() as u32 + 1,
-                        source_unit_key: post.id.clone(),
-                        title: post.title.clone(),
-                        content_html: text,
-                        image_urls: Vec::new(),
-                    });
+        for post in posts {
+            if let Some(slug) = &wanted {
+                if story_slug(&post.title) != *slug {
+                    continue;
                 }
             }
-
-            if posts.len() < 50 {
-                break;
+            let text = collapse_whitespace(&strip_tags(&post.content));
+            if text.len() <= 50 {
+                continue;
             }
-            offset += 50;
+            units.push(SourceUnit {
+                ordinal: units.len() as u32 + 1,
+                source_unit_key: post.id,
+                title: post.title,
+                content_html: text,
+                image_urls: Vec::new(),
+            });
         }
-
         Ok(units)
     }
 
     async fn list_author_works(
         &self,
-        _fetch: &dyn Fetcher,
-        _profile_url: &Url,
+        fetch: &dyn Fetcher,
+        profile_url: &Url,
         _creds: Option<&Credentials>,
     ) -> SourceResult<Vec<String>> {
-        // Pawchive does not expose a "recommended" JSON API, so the caller
-        // must use the HTML scraping path if they want similar authors.
-        Err(SourceError::Unsupported(
-            "Pawchive does not have a native similar-authors API".to_owned(),
-        ))
+        let uid = Self::user_id(profile_url).ok_or_else(|| {
+            SourceError::Unsupported(format!("{profile_url} is not a Pawchive user URL"))
+        })?;
+        let posts = all_posts(fetch, &uid).await?;
+        let titles: Vec<&str> = posts
+            .iter()
+            .filter(|post| strip_tags(&post.content).trim().len() > 50)
+            .map(|post| post.title.as_str())
+            .collect();
+        Ok(distinct_story_slugs(&titles)
+            .into_iter()
+            .map(|slug| format!("https://pawchive.pw/patreon/user/{uid}?story={slug}"))
+            .collect())
     }
 
     fn preview_from_html(&self, html: &str, url: &Url) -> SourceResult<SourceWork> {

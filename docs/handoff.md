@@ -1,3 +1,11 @@
+## 2026-11-17 — M74-01 in progress: the syndicated trope frontier
+
+Spec and plan written before code: `docs/spec-amendments/71-syndicated-trope-frontier.md` and `.hermes/plans/2026-11-17_002000-syndicated-trope-frontier.md`; both requested written lists exist at `docs/ideas/2026-11-17-syndicated-trope-frontier-ideas.md` (50 ideas) and `docs/design/what-i-would-not-build-from-scratch.md` (144 exclusions). Census is in `docs/plans/roadmap-remaining.md`. No new scheduler, table or body-writing path.
+
+Config now parses `Nh/Nd/Nw/Nm` windows (default 7d, Pawchive 6mo), validates per-source body audiences (default `trust_at_least:2`), and carries author seeds. `source_sync::author_frontier` walks seeds breadth-first to depth 3 with no revisits and an author cap. Pawchive's `/recommended` page now yields deduped creator links, chapter titles collapse to one story key, `list_author_works` returns one URL per story, and the source catalogue declares the frontier. Evidence: `syndication_frontier 4/4`, `pawchive_frontier 4/4`, `syndication_sync 6/6`; mutants on the BFS bound and chapter normaliser reddened their tests and were restored from `/tmp`.
+
+Evidence completed: `imported_story_identity_two_engines` 1/1 SQLite and 1/1 PostgreSQL (two chapter posts, one library item with two units); the four viewer suites together gave `body_audience 11/11`, `body_audience_indistinguishability 3/3`, `import_visibility 5/5`, `syndication_sync 6/6` (25/25). `cargo clippy -p darkhold-app -p darkhold-scrapers -p darkhold-db --all-targets -- -D warnings` is clean; `gate.sh repo` ok; ledger row `M74-01` added; backlog regenerated. Full gate, push and deploy follow in the same row. The earlier `712e5882` gate/deploy processes were started before this row and must not be cited as evidence for it.
+
 ## 2026-11-16 — M71-07 overview decision recorded
 
 No `/admin` route or `AdminOverview.svelte` exists; the router has only jobs, economy/flows, media-health and mirror. Decision: build a new `/admin` operator overview document with a ROUTE_TABLE row, server-side 404 for non-operators, live counts from existing admin summaries, and an AlertBar naming every red state with a fix link. No new admin API. Recorded in roadmap and ledger before code.
