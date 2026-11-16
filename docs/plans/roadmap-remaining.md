@@ -516,6 +516,12 @@ invariant.
 
 `the_abuse_view_lists_the_busy_keys_and_no_reader_can_read_it` **1/1 both engines**; mutant (gate removed) → `200` where `404` was required.
 
+## Deploy probe 2026-11-16 21:14 — ssh open, propagation done, memory still short
+
+`ssh -o ConnectTimeout=10 thinkcentre` now answers (`HOST_OK`). Both propagation checkouts were stale and clean; they are now fast-forwarded to `b593b0c6`: the mount mirror `~/code/rust/darkhold` fetched from origin and merged `--ff-only` (0 dirty files), and the host deploy tree `/personal/documents/code/rust/darkhold` did the same (`HOST_TREE=b593b0c6 dirty=0`). This clears the **host-reachability and propagation** half of the block.
+
+Memory does not clear: `free -m` reports `MemAvailable: 4392292 kB` (~4.3 GB) with `load average: 37, 71, 32, 75, 34, 43`, below the 8 GB link-window gate from the record below. **Clearing condition narrows to memory alone:** wait until `MemAvailable >= 8 GB` with no foreign `rustc` through the link step, or get the owner's explicit go-ahead for a lower-memory release profile (`codegen-units > 1` and/or `lto = off`), which changes the shipped artifact. Live remains `0.1.0+00edcf34`; no dump or build was started this probe.
+
 ## Blocked (environmental): M63-22 deploy — 2026-11-16, host still starved
 
 The 2026-11-16 deploy script `/tmp/deploy-m63-22.sh` started with `avail=4G rustc=1`, waited ten 30-second samples

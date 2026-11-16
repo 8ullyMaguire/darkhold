@@ -1,3 +1,7 @@
+## 2026-11-16 — propagation cleared, deploy narrowed to memory
+
+At 21:14 `ssh thinkcentre` answered. The mirror `~/code/rust/darkhold` fetched and fast-forwarded to `b593b0c6` with 0 dirty files, and the host deploy tree did the same (`HOST_TREE=b593b0c6 dirty=0`), so the reachability/propagation half of the deploy block is cleared. `free -m` still shows only `MemAvailable 4392292 kB` with load ~37, below the 8 GB link-window gate. Live remains `0.1.0+00edcf34`; no dump or build started. Roadmap block records the narrowed clearing condition.
+
 ## 2026-11-16 — fmt fix and the gate that counts
 
 The full gate started after `2a342e4f` failed at **fmt**: I had inserted `pub mod author_page;` before `author_media`, which rustfmt rejects. `4b420720 fix(fmt): keep route modules in rustfmt order` corrects both route files; `bash scripts/gate.sh fmt` is now `ok: fmt`. A replacement full `gate.sh all` is running in `/tmp/gate-all-author-fmtfix-20261116.log` and is the run that counts for this tree. The earlier `gate-all-author-20261116.log` ended `GATE_ALL_EXIT=1` at that fmt step.
