@@ -1794,6 +1794,25 @@ export interface FacetGroupView {
   when_unknown?: string | null;
 }
 
+/** One population-equal bucket of the word-count distribution (M71-12). */
+export interface WordBucketView {
+  index: number;
+  low: number;
+  high: number;
+  count: number;
+  share: number;
+}
+
+/** The word-count distribution under one filter set; unmeasured works are counted, never bucketed. */
+export interface WordHistogramView {
+  unit: string;
+  buckets: WordBucketView[];
+  measured: number;
+  unknown: number;
+  total: number;
+  when_unknown?: string | null;
+}
+
 /** The search result envelope. */
 export interface SearchResultList {
   items: SearchResult[];
@@ -1812,6 +1831,15 @@ export function searchWorks(
 ): Promise<SearchResultList> {
   const params = new URLSearchParams({ q: query, limit: String(limit) });
   return apiFetch<SearchResultList>(`/search?${params}`, { signal });
+}
+
+/** The real word-count distribution under the same filters the search applied. */
+export function fetchWordHistogram(
+  q: string,
+  signal?: AbortSignal,
+): Promise<WordHistogramView> {
+  const params = new URLSearchParams({ q });
+  return apiFetch<WordHistogramView>(`/facets/words?${params}`, { signal });
 }
 
 /** One recorded search, newest first, as its owner sees it (spec §9.6 / M47-08b). */

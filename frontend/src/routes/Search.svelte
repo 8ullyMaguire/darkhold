@@ -3,6 +3,7 @@
   import {
     clearSearchHistory,
     fetchSearchHistory,
+    fetchWordHistogram,
     searchWorks,
     type SearchHistoryEntry,
     type SearchResultList,
@@ -10,6 +11,7 @@
   import Combobox from '../lib/components/Combobox.svelte';
   import EmptyState from '../lib/components/EmptyState.svelte';
   import FacetPanel from '../lib/components/FacetPanel.svelte';
+  import WordHistogram from '../lib/components/WordHistogram.svelte';
   import ErrorSummary from '../lib/components/ErrorSummary.svelte';
   import Skeleton from '../lib/components/Skeleton.svelte';
   import { WorkBlurb } from '@polaris/ui';
@@ -42,6 +44,8 @@
 
   let query = $state('');
   let results = $state<SearchResultList | null>(null);
+  /** The real distribution under the current query, loaded beside the hits (M71-12). */
+  let histogram = $state<Awaited<ReturnType<typeof fetchWordHistogram>> | null>(null);
   let loading = $state(false);
   let error = $state<unknown>(null);
   let searched = $state(false);
@@ -217,7 +221,12 @@
     error = null;
     searched = true;
     try {
-      results = await searchWorks(fullQuery, 20);
+      const [hits, distribution] = await Promise.all([
+        searchWorks(fullQuery, 20),
+        fetchWordHistogram(fullQuery),
+      ]);
+      results = hits;
+      histogram = distribution;
       // The server recorded this search (unless the reader turned recording off), so the row
       // is re-read rather than patched locally: the store owns dedupe and the cap, and a local
       // prepend would disagree with it the first time a repeated query moved instead of added.
@@ -225,6 +234,7 @@
     } catch (failure) {
       error = failure;
       results = null;
+      histogram = null;
     } finally {
       loading = false;
     }
@@ -382,6 +392,18 @@
       {/if}
     </div>
   </fieldset>
+
+  {#if histogram && histogram.buckets.length > 0}
+    <WordHistogram
+      {histogram}
+      pending={loading}
+      onselect={(low, high) => {
+        minWords = String(low);
+        maxWords = String(high);
+        void runSearch();
+      }}
+    />
+  {/if}
 
   {#if results?.facets && results.facets.length > 0}
     <FacetPanel

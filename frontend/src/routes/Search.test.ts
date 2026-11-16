@@ -6,11 +6,13 @@ import Search from './Search.svelte';
 const searchWorks = vi.fn();
 const fetchSearchHistory = vi.fn();
 const clearSearchHistory = vi.fn();
+const fetchWordHistogram = vi.fn();
 
 vi.mock('../lib/api', () => ({
   searchWorks: (...args: unknown[]) => searchWorks(...args),
   fetchSearchHistory: (...args: unknown[]) => fetchSearchHistory(...args),
   clearSearchHistory: (...args: unknown[]) => clearSearchHistory(...args),
+  fetchWordHistogram: (...args: unknown[]) => fetchWordHistogram(...args),
 }));
 
 beforeEach(() => {
@@ -20,6 +22,8 @@ beforeEach(() => {
   fetchSearchHistory.mockResolvedValue({ items: [], recording: true });
   clearSearchHistory.mockReset();
   clearSearchHistory.mockResolvedValue({ cleared: 0 });
+  fetchWordHistogram.mockReset();
+  fetchWordHistogram.mockResolvedValue({ unit: 'words', buckets: [], measured: 0, unknown: 0, total: 0 });
 });
 
 describe('Search page', () => {
@@ -277,5 +281,31 @@ describe('M71-11 facet counts on the search page', () => {
 
     await fireEvent.click(screen.getByText('Under 1,000 words'));
     await waitFor(() => expect(searchWorks.mock.calls[1][0]).toContain('words:<=999'));
+  });
+});
+
+describe('M71-12 word histogram on the search page', () => {
+  it('draws the server distribution and a bar click fills the existing word range', async () => {
+    fetchWordHistogram.mockResolvedValue({
+      unit: 'words',
+      buckets: [{ index: 0, low: 1000, high: 4999, count: 8, share: 0.4 }],
+      measured: 20,
+      unknown: 3,
+      total: 23,
+      when_unknown: '3 works have no measured length',
+    });
+    render(Search);
+    await fireEvent.input(screen.getByPlaceholderText(/fandom:/), { target: { value: 'story' } });
+    await fireEvent.click(screen.getByRole('button', { name: 'Search' }));
+
+    expect(await screen.findByLabelText('Word count distribution')).toBeInTheDocument();
+    expect(screen.getByText('3 works have no measured length')).toBeInTheDocument();
+    await fireEvent.click(screen.getByRole('button', { name: /1,000 – 4,999 words/ }));
+
+    await waitFor(() =>
+      expect(searchWorks.mock.calls[1][0]).toContain('words:1000..4999'),
+    );
+    expect(screen.getByLabelText('Min words')).toHaveValue(1000);
+    expect(screen.getByLabelText('Max words')).toHaveValue(4999);
   });
 });

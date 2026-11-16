@@ -4,6 +4,19 @@
 reason for that order, so a later session does not have to re-derive it. The ledger stays the source of truth: a row
 moves when `scripts/ledger.py upsert` says so, not when this file says so.
 
+## M71-12 UI half — built and closed, 2026-11-16
+
+The endpoint is shipped: `GET /api/v1/facets/words` returns ten population-equal buckets (`index`, `low`, `high`, `count`, `share`) plus `measured`, `unknown`, `total`, `when_unknown` under the same filter set as `/facets`. The ledger's remaining clause is the control that draws the bars and lets a reader select a range.
+
+**Census:** REUSE the server's edges and shares — recomputing quantiles in the browser would describe a different set; REUSE the `words:` term in `Search.svelte` and the panel just built for M71-11; ADAPT the range selection to set the existing min/max word inputs rather than adding a third source of truth; BUILD one small `WordHistogram.svelte` because no chart component for a distribution exists in the SPA. Non-goal: no new server route, no equal-width buckets (the server deliberately uses quantile edges).
+
+**Decision:** clicking a bar sets `min_words`/`max_words` to that bar's inclusive edges and reruns the search; the chart then reloads under the narrowed filter. Unmeasured works stay in the sentence, never in a bucket. A bucket with zero works is not emitted by the server, so no zero-height bar is drawn.
+
+**Shipped.** `WordHistogram.svelte` draws the server buckets at their own shares and hands the inclusive edges back to `Search.svelte`, which writes them into the existing min/max inputs and reruns the search. No chart-side quantile maths, no second range input, no new route.
+
+**Evidence:** vitest `WordHistogram 3/3 + Search 23/23` (the new page test proves the chart is mounted, the unmeasured sentence is shown, and a bar click sends `words:1000..4999`), `svelte-check 0 errors`. Mutant: off-by-one on the chosen high edge → the edge assertion reddened; restored from `/tmp`. M71-11's pre-registered latency measurement closes that half of the row. Live SPA not redeployed — same host memory block.
+
+
 ## M71-11 UI half — built and closed, 2026-11-16
 
 The API half is shipped: `/api/v1/search` already carries `facets` (four groups, each `{facet, buckets:[{key,label,count}], known, unknown, when_unknown}`), `facets_over` and `facets_computed_at_ms_ago`; the server memoises the scan for a minute. What is missing is the reader-facing half named in the ledger: per-group rendering and an explicit pending state while a new search is in flight.

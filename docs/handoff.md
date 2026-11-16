@@ -1,3 +1,7 @@
+## 2026-11-16 — M71-12 closed: the word-count chart is real, 37 planned
+
+`WordHistogram.svelte` draws the server's quantile buckets (own low/high/share, em dash while pending) and a bar click writes the inclusive edges into the search page's existing min/max word inputs, which reruns the query. No recomputed quantiles, no duplicate range state. Evidence: vitest 26/26 across the component and page suites, `svelte-check 0 errors`, mutant on the high edge restored from `/tmp`. M71-11's pre-registered latency measurement is referenced in M71-12's ledger row, so both clauses are now evidenced. Neither SPA change is deployed — the host memory block still stands.
+
 ## 2026-11-16 — M71-11 closed: facet counts reach the reader, 38 planned
 
 Four previously-red gate suites rerun together this turn: `m65_module_host` 8/8, `milestone_18` 7/7, `milestone_38` 16/16, `orphan_queries` 2/2. The `milestone_38` failure from the earlier sweep did not reproduce, so it is closed as a transient with that output rather than left vague.
