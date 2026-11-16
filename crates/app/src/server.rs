@@ -1500,6 +1500,14 @@ pub fn build_router(state: AppState) -> Router {
                 auth::load_session,
             )),
         )
+        // An author's page (ADR 0006, M71-20): work-page bylines already point here. The handler is a document so the
+        // link a reader copies is the page a crawler sees, and it reuses the search engine's visibility rule.
+        .merge(
+            routes::author_page::router().layer(middleware::from_fn_with_state(
+                state.clone(),
+                auth::load_session,
+            )),
+        )
         // A tag's page (ADR 0006, M71-20): the archive's second door, and the one a search result or a shared link
         // arrives at. Its listing comes from a query that already filters to published public works.
         .merge(routes::tag_page::router())

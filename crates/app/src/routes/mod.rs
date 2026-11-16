@@ -25,6 +25,7 @@ pub mod archive;
 pub mod arena;
 pub mod audience;
 pub mod auth;
+pub mod author_page;
 pub mod author_media;
 pub mod browse;
 pub mod catalogue;

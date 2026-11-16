@@ -6827,6 +6827,14 @@ pub const ROUTE_TABLE: &[RouteEntry] = &[
         path: "/search",
         audience: Audience::Public,
     },
+    // ADR 0006 / M71-20: work-page bylines write `/people/{handle}`; the document is what that link must reach.
+    RouteEntry {
+        file: "author_page.rs",
+        handler: "author_page",
+        method: "GET",
+        path: "/people/{handle}",
+        audience: Audience::Public,
+    },
     // W6 §7.5a, merged from the thinkcentre line: the ATProto feed skeleton an AppView asks for by feed URI. The
     // handler takes no session extractor, so the door is public — a skeleton is a list of post references, and the
     // records behind them are public by the nature of ATProto.

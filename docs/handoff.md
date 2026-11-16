@@ -1,3 +1,11 @@
+## 2026-11-16 — author page document
+
+Work-page bylines now reach a real document at `/people/{handle}` instead of the SPA fallback. `routes/author_page.rs` reuses `author:"handle"` through `search_works_ast_scoped`, so private/draft/restricted works stay off the page by the engine's own filter; it lists title, byline, words, points and status, caps at 50, and 404s an unknown or empty author. Evidence: `author_page` 2/2 SQLite and 2/2 PostgreSQL, `route_inventory` 6/6, clippy -D warnings green; the `author:"nobody"` mutant reddened the reachable-works assertion. M71-20 stays `planned` for collection/series pages and Svelte-route deletions.
+
+## 2026-11-16 — gate superseded by the docs commit
+
+The full gate started at `bc5f3625` (`proc_3307d50d8e84`, `gate-all-m71-20.log`) was stopped by PID after `27d081cf` changed the tree: fmt/lint had passed and build was in progress, but a gate that starts before a later commit does not describe the tree it would report on. Its log is retained in `/tmp`, not committed.
+
 ## 2026-11-16 — fanfiction quality plan recorded in the docs
 
 Read `.hermes/plans/2026-11-16_203519-fanfiction-quality-import-and-seed.md` and folded it into the repo state without implementing it: `docs/ROADMAP-seed-from-reading-list.md` now carries the measured 268 / 218 / 3 wrapped / 47 unmatched numbers, drops the already-built Phase 1, replaces the invented exit-code table with a pointer to `docs/cli-exit-codes.md`, and names the sidecar/audit path instead of `rating.source`; `docs/plans/roadmap-remaining.md` records the plan and sharpens M45-74's block to the owner-gated census and the fixed ≥180 / ≤20 / ≥180 / ≥1 accept rule; the ledger row says the same. No code was written for that plan: Task 0's stop condition still applies because the deploy tree is dirty and behind. M45-74 stays `planned`.

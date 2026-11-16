@@ -18,7 +18,9 @@ Source: `.hermes/plans/2026-11-16_203519-fanfiction-quality-import-and-seed.md`.
 
 **Decision:** the document is anonymous by design and takes the query from `?q=`. A signed-in reader is handed the SPA shell exactly as on `/works/{id}`, because save-search/add-to-shelf actions belong to the application. The document caps at 50 hits and says so rather than inventing a total. The SPA route stays: ADR 0006 keeps the application for members, so "delete the Svelte route" applies only to pages fully replaced by documents.
 
-**Shipped (search slice).** `routes/search_page.rs` renders a script-free GET form and the JSON door's hits as Archive rows, with title→work link, byline, words, points and a status word. Evidence: `search_page` 3/3 SQLite and 3/3 PostgreSQL; `route_inventory` 6/6 after the new public `/search` row; app search suites 42/42; mutant on the session split reddened the signed-in test. Row stays `planned` for author, collection and series pages and the final Svelte-route deletions.
+**Shipped (search slice).** `routes/search_page.rs` renders a script-free GET form and the JSON door's hits as Archive rows, with title→work link, byline, words, points and a status word. Evidence: `search_page` 3/3 SQLite and 3/3 PostgreSQL; `route_inventory` 6/6 after the new public `/search` row; app search suites 42/42; mutant on the session split reddened the signed-in test. Row stays `planned` for collection and series pages and the final Svelte-route deletions.
+
+**Author slice shipped.** Work-page bylines already wrote `/people/{handle}`; that link now reaches a script-free document instead of the SPA fallback. `routes/author_page.rs` looks the pseud up, queries `author:"handle"` through the shared search engine, lists title/byline/words/points/status, caps at 50 and 404s an unknown or empty author. It invents no author column and no second visibility rule. Evidence: `author_page` 2/2 SQLite and 2/2 PostgreSQL; `route_inventory` 6/6 with the new public route row; mutant `author:"nobody"` reddened the reachable-works assertion.
 
 ## M71-08 reader bar — no-JS slice shipped, 2026-11-16
 
