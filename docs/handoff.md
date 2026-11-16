@@ -15,6 +15,10 @@ No `/admin` route or `AdminOverview.svelte` exists; the router has only jobs, ec
 
 The gate started before the last few frontend/docs commits but its `frontend`, `dialects` and `repo` stages ran after them; no Rust source changed after its `test` stage, so the single exit-0 result is the current tree's evidence.
 
+## 2026-11-16 — stale deploy and gate superseded by b1398163
+
+The named backup for the earlier deploy completed (`TABLE_DATA=407`, 3,740,192,286 bytes) but its estate build was still building `1361c937` after three newer live surfaces shipped. That build and its wrapper were killed; a new named-backup deploy from `b1398163` supersedes it. The full gate started before those commits was likewise killed and restarted from `b1398163` so its result names the tree it actually tested.
+
 ## 2026-11-16 — reader typography provenance and reset shipped (deploy pending)
 
 The reader now states whether its appearance comes from "Site defaults" or "From your account settings". A saved row offers a form-post "Reset to site defaults" backed by a new both-engine `reset_typography` DELETE; with no row there is no reset control. Evidence: `reader_page 8/8`, `typography_reset_two_engines 1/1` SQLite + 1/1 PostgreSQL, mutant `WHERE 1 = 0` reddened the test and was restored from `/tmp`; token, frontend and repo gates ok. This changes the server-rendered reader, so the pending deploy must start from this commit, not `5d4a62c8`.
