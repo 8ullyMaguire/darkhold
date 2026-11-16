@@ -18,6 +18,8 @@ Rules the counts obey:
     items is how a backlog of 80 becomes a backlog of 885 and nobody starts;
   * a Concord card whose title matches a requirement's text is the same item, and is reported as
     `linked` rather than added;
+  * a card explicitly entered in `concord-deferred.tsv` is a documented scope decision, not a lost card:
+    it must still exist in the Concord snapshot, and is counted as `deferred` rather than `unlinked`;
   * everything else in the Concord snapshot is `unlinked` work, which is the genuinely new surface.
 """
 
@@ -34,6 +36,7 @@ REQUIREMENTS = ROOT / "docs/requirements.csv"
 ROADMAP = ROOT / "docs/plans/REMAINING-2026-10-03.md"
 CONCORD = ROOT / "docs/backlog/concord-features.tsv"
 MAP = ROOT / "docs/backlog/concord-map.tsv"
+DEFERRED = ROOT / "docs/backlog/concord-deferred.tsv"
 OUT_JSON = ROOT / "docs/backlog/backlog.json"
 OUT_MD = ROOT / "docs/backlog/INVENTORY.md"
 
@@ -142,6 +145,31 @@ def linked(concord_title: str, requirements: list[dict]) -> str | None:
     return best[1] if best else None
 
 
+def read_deferred(concord: list[dict]) -> dict[str, tuple[str, str]]:
+    """Cards deliberately left out of this build, with the decision and its reason.
+
+    A silent omission is how a card goes missing between the project page and the tracker. This file makes the
+    omission a reviewed row: a stale card id, a duplicate, or a reason left blank is an error rather than a count.
+    """
+    known = {card["id"] for card in concord}
+    result: dict[str, tuple[str, str]] = {}
+    with open(DEFERRED, encoding="utf-8") as handle:
+        reader = csv.DictReader(handle, delimiter="\t")
+        assert {"card", "decision", "reason"}.issubset(reader.fieldnames or []), "the deferral file needs card, decision, reason columns"
+        for number, row in enumerate(reader, 2):
+            card = row["card"].strip()
+            decision = row["decision"].strip()
+            reason = row["reason"].strip()
+            if card not in known:
+                raise ValueError(f"{DEFERRED.name}:{number}: card {card} is not in the Concord snapshot")
+            if card in result:
+                raise ValueError(f"{DEFERRED.name}:{number}: card {card} is deferred twice")
+            if not decision or not reason:
+                raise ValueError(f"{DEFERRED.name}:{number}: card {card} needs a decision and a reason")
+            result[card] = (decision, reason)
+    return result
+
+
 def build() -> dict:
     requirements = read_requirements()
     concord = read_concord()
@@ -155,13 +183,18 @@ def build() -> dict:
     rollups = [c for c in concord if ROLLUP.match(c["title"])]
     cards = [c for c in concord if not ROLLUP.match(c["title"])]
     mapping = read_map(requirements)
-    linked_cards, unlinked = [], []
+    deferred_by_id = read_deferred(concord)
+    linked_cards, unlinked, deferred = [], [], []
     for card in cards:
         # The reviewed mapping wins over the heuristic, and it is reported separately so the two kinds of link stay
         # distinguishable: "a person read both sentences" and "the words overlapped enough".
         if card["id"] in mapping:
             owner, why = mapping[card["id"]]
             linked_cards.append({**card, "requirement": owner, "link": "reviewed", "why": why})
+            continue
+        if card["id"] in deferred_by_id:
+            decision, reason = deferred_by_id[card["id"]]
+            deferred.append({**card, "decision": decision, "reason": reason})
             continue
         owner = linked(card["title"], requirements)
         if owner:
@@ -184,6 +217,10 @@ def build() -> dict:
                 "linked_to_a_requirement": len(linked_cards),
                 "linked_by_review": sum(1 for c in linked_cards if c["link"] == "reviewed"),
                 "unlinked": len(unlinked),
+                "deferred_by_decision": {
+                    decision: sum(1 for c in deferred if c["decision"] == decision)
+                    for decision in sorted({c["decision"] for c in deferred})
+                },
             },
             "roadmap": {"items": len(roadmap)},
         },
@@ -198,6 +235,7 @@ def build() -> dict:
         ],
         "open_by_milestone": dict(sorted(by_milestone.items(), key=lambda kv: -kv[1])),
         "unlinked_concord": unlinked,
+        "deferred_concord": deferred,
         "roadmap": roadmap,
     }
 
@@ -220,6 +258,7 @@ def render_md(data: dict) -> str:
         f"| …rollup cards (`M09: 41 implemented`) | {s['concord']['rollups']} | not work; a milestone summary |",
         f"| …work cards | {s['concord']['work_cards']} | |",
         f"| …already restating a requirement | {s['concord']['linked_to_a_requirement']} | same item, not a second one |",
+        f"| …deliberately deferred with a written reason | {len(data['deferred_concord'])} | a scope decision, not a lost card |",
         f"| …genuinely unlinked | {s['concord']['unlinked']} | **new surface** |",
         f"| roadmap items in the current session plan | {s['roadmap']['items']} | ordered work, mostly process |",
         "",
@@ -235,6 +274,22 @@ def render_md(data: dict) -> str:
     for row in data["open_requirements"]:
         text = row["requirement"].replace("|", "\\|")
         lines.append(f"| `{row['id']}` | {row['milestone']} | {text[:150]} |")
+
+    if data["deferred_concord"]:
+        lines += [
+            "",
+            "## Concord cards deliberately deferred",
+            "",
+            "These cards are visible, counted and out of this build. `docs/backlog/concord-deferred.tsv` is the "
+            "reviewed decision; changing a line there is how a card re-enters the queue.",
+            "",
+            "| card | status | decision | reason |",
+            "|---|---|---|---|",
+        ]
+        for card in data["deferred_concord"]:
+            lines.append(
+                f"| {card['id']} | {card['status']} | {card['decision']} | {card['reason'][:140]} |"
+            )
 
     if data["unlinked_concord"]:
         lines += [
@@ -314,7 +369,8 @@ def main() -> int:
     print(
         f"  concord: {data['sources']['concord']['cards_in_snapshot']} cards,"
         f" {data['sources']['concord']['rollups']} rollups,"
-        f" {data['sources']['concord']['unlinked']} unlinked"
+        f" {data['sources']['concord']['unlinked']} unlinked,"
+        f" {len(data['deferred_concord'])} deliberately deferred"
     )
     print(f"  roadmap items: {len(data['roadmap'])}")
     return 0

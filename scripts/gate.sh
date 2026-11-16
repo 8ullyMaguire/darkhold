@@ -215,6 +215,10 @@ run_repo() {
     # every other gate, which reads the file with `csv` and does not care. It sat
     # undiscovered for ten commits before this line existed.
     python3 "$REPO_ROOT/scripts/ledger_test.py"
+    # §1 check 2 lives here: a Concord card is either linked to a requirement or explicitly deferred with a written
+    # reason. The inventory is regenerated output, so a stale one fails the same gate as a new unlinked card.
+    python3 "$REPO_ROOT/scripts/backlog.py" --check
+    python3 "$REPO_ROOT/scripts/backlog_test.py"
     python3 "$REPO_ROOT/scripts/check-vocabulary.py"
     python3 "$REPO_ROOT/scripts/check-requirement-ids.py"
     # Migration numbers, per engine. Two migrations shared 0178 on 2026-11-07 — one from this tree (M63-37) and one

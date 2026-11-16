@@ -1,6 +1,6 @@
 {
  "generated_by": "scripts/ideas_catalogue.py",
- "count": 113,
+ "count": 112,
  "ideas": [
   {
    "why_summary": "",
@@ -81,20 +81,7 @@
    "built": false
   },
   {
-   "why_summary": "docs/ideas/2026-11-01-idea-sweep-power-users.md Power-user sweep P22. The operator's microscope for 'why is this ranked first' \u2014 the debugging counterpart of the shipped slot expla",
-   "id": "M63-22",
-   "title": "dh admin explain-rec <work>",
-   "sources": [
-    "docs/requirements.csv"
-   ],
-   "milestone": "M63",
-   "relevance": 4,
-   "because": "a requirements row exists (+4)",
-   "default_on": false,
-   "built": false
-  },
-  {
-   "why_summary": "docs/ideas/2026-11-01-idea-sweep-power-users.md Power-user sweep P23. `ssh host dh admin backup | zstd > backup.zst`, and monitoring is a cron job rather than a dashboard.",
+   "why_summary": "docs/ideas/2026-11-01-idea-sweep-power-users.md Power-user sweep P22. Split by census 2026-11-12: the health half is already met by `dh doctor --json` (crates/cli/src/doctor.rs:132",
    "id": "M63-23",
    "title": "dh admin backup --to - streams a consistent dump to stdout; dh admin health emits machine-readable checks with per-check exit codes",
    "sources": [

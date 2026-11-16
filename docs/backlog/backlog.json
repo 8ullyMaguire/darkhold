@@ -6,9 +6,9 @@
         "implemented-verified-e2e": 138,
         "implemented-locally-tested": 270,
         "unsupported": 4,
-        "implemented-fully-tested": 455,
+        "implemented-fully-tested": 456,
         "implemented": 41,
-        "planned": 40,
+        "planned": 39,
         "evaluated-and-rejected": 7,
         "done": 3
       }
@@ -19,7 +19,10 @@
       "work_cards": 87,
       "linked_to_a_requirement": 37,
       "linked_by_review": 8,
-      "unlinked": 50
+      "unlinked": 0,
+      "deferred_by_decision": {
+        "deferred-out-of-scope": 50
+      }
     },
     "roadmap": {
       "items": 17
@@ -49,12 +52,6 @@
       "milestone": "M63",
       "requirement": "dh watch <saved-query> --exec '<cmd>' --notify ntfy|desktop|webhook: a debounced polling daemon",
       "notes": "Power-user sweep P12. The difference between a saved search and a workflow. Pluggable sinks so the notification path is not tied to one provider."
-    },
-    {
-      "id": "M63-22",
-      "milestone": "M63",
-      "requirement": "dh admin explain-rec <work>: full feature vector and every strategy's score for one work",
-      "notes": "Power-user sweep P22. The operator's microscope for 'why is this ranked first' \u2014 the debugging counterpart of the shipped slot explanation."
     },
     {
       "id": "M63-23",
@@ -268,7 +265,7 @@
     }
   ],
   "open_by_milestone": {
-    "M63": 11,
+    "M63": 10,
     "M71": 10,
     "M64": 8,
     "M73": 4,
@@ -279,256 +276,357 @@
     "M44": 1,
     "M70": 1
   },
-  "unlinked_concord": [
+  "unlinked_concord": [],
+  "deferred_concord": [
     {
       "id": "2473",
       "title": "Quorum-gated front page",
-      "status": "discussion"
+      "status": "discussion",
+      "decision": "deferred-out-of-scope",
+      "reason": "governance mechanics beyond the shipped adjudication rows"
     },
     {
       "id": "2507",
       "title": "Taste-portability file",
-      "status": "discussion"
+      "status": "discussion",
+      "decision": "deferred-out-of-scope",
+      "reason": "ranking or taste experiment with no requirement row in this tracker"
     },
     {
       "id": "2511",
       "title": "Reader-set \"effort\" bands",
-      "status": "unknown"
+      "status": "unknown",
+      "decision": "deferred-out-of-scope",
+      "reason": "ranking or taste experiment with no requirement row in this tracker"
     },
     {
       "id": "2512",
       "title": "Explicit \"why not\" for hidden works",
-      "status": "unknown"
+      "status": "unknown",
+      "decision": "deferred-out-of-scope",
+      "reason": "ranking or taste experiment with no requirement row in this tracker"
     },
     {
       "id": "2513",
       "title": "Cohort-level taste drift alarms",
-      "status": "unknown"
+      "status": "unknown",
+      "decision": "deferred-out-of-scope",
+      "reason": "ranking or taste experiment with no requirement row in this tracker"
     },
     {
       "id": "2514",
       "title": "Author-side cohort targeting",
-      "status": "unknown"
+      "status": "unknown",
+      "decision": "deferred-out-of-scope",
+      "reason": "ranking or taste experiment with no requirement row in this tracker"
     },
     {
       "id": "2515",
       "title": "Non-fiction and meta shelf",
-      "status": "unknown"
+      "status": "unknown",
+      "decision": "deferred-out-of-scope",
+      "reason": "ranking or taste experiment with no requirement row in this tracker"
     },
     {
       "id": "2516",
       "title": "Multi-work reading sessions",
-      "status": "unknown"
+      "status": "unknown",
+      "decision": "deferred-out-of-scope",
+      "reason": "ranking or taste experiment with no requirement row in this tracker"
     },
     {
       "id": "2517",
       "title": "Recency-weighted kudos for revived works",
-      "status": "unknown"
+      "status": "unknown",
+      "decision": "deferred-out-of-scope",
+      "reason": "ranking or taste experiment with no requirement row in this tracker"
     },
     {
       "id": "2518",
       "title": "Curator rotation with handover notes",
-      "status": "unknown"
+      "status": "unknown",
+      "decision": "deferred-out-of-scope",
+      "reason": "operator visibility page not scheduled in this build"
     },
     {
       "id": "2519",
       "title": "Discovery regression suite",
-      "status": "unknown"
+      "status": "unknown",
+      "decision": "deferred-out-of-scope",
+      "reason": "operator visibility page not scheduled in this build"
     },
     {
       "id": "2521",
       "title": "Publish the trust-level thresholds",
-      "status": "unknown"
+      "status": "unknown",
+      "decision": "deferred-out-of-scope",
+      "reason": "operator visibility page not scheduled in this build"
     },
     {
       "id": "2525",
       "title": "One appeal, differently sampled",
-      "status": "discussion"
+      "status": "discussion",
+      "decision": "deferred-out-of-scope",
+      "reason": "governance mechanics beyond the shipped adjudication rows"
     },
     {
       "id": "2526",
       "title": "Decision receipts",
-      "status": "unknown"
+      "status": "unknown",
+      "decision": "deferred-out-of-scope",
+      "reason": "governance mechanics beyond the shipped adjudication rows"
     },
     {
       "id": "2527",
       "title": "Rules as versioned objects",
-      "status": "unknown"
+      "status": "unknown",
+      "decision": "deferred-out-of-scope",
+      "reason": "governance mechanics beyond the shipped adjudication rows"
     },
     {
       "id": "2528",
       "title": "Meta-moderation",
-      "status": "unknown"
+      "status": "unknown",
+      "decision": "deferred-out-of-scope",
+      "reason": "governance mechanics beyond the shipped adjudication rows"
     },
     {
       "id": "2544",
       "title": "Sybil resistance from reading depth",
-      "status": "unknown"
+      "status": "unknown",
+      "decision": "deferred-out-of-scope",
+      "reason": "governance mechanics beyond the shipped adjudication rows"
     },
     {
       "id": "2546",
       "title": "Signed instance policy documents",
-      "status": "unknown"
+      "status": "unknown",
+      "decision": "deferred-out-of-scope",
+      "reason": "governance mechanics beyond the shipped adjudication rows"
     },
     {
       "id": "2564",
       "title": "Status-quo default for unresolved disputes",
-      "status": "unknown"
+      "status": "unknown",
+      "decision": "deferred-out-of-scope",
+      "reason": "governance mechanics beyond the shipped adjudication rows"
     },
     {
       "id": "2569",
       "title": "Everything reversible by quorum",
-      "status": "unknown"
+      "status": "unknown",
+      "decision": "deferred-out-of-scope",
+      "reason": "governance mechanics beyond the shipped adjudication rows"
     },
     {
       "id": "2570",
       "title": "Continuity document",
-      "status": "unknown"
+      "status": "unknown",
+      "decision": "deferred-out-of-scope",
+      "reason": "governance mechanics beyond the shipped adjudication rows"
     },
     {
       "id": "2579",
       "title": "Two-vouch promotion",
-      "status": "unknown"
+      "status": "unknown",
+      "decision": "deferred-out-of-scope",
+      "reason": "governance mechanics beyond the shipped adjudication rows"
     },
     {
       "id": "2590",
       "title": "Governance dry-run simulator",
-      "status": "unknown"
+      "status": "unknown",
+      "decision": "deferred-out-of-scope",
+      "reason": "governance mechanics beyond the shipped adjudication rows"
     },
     {
       "id": "2592",
       "title": "WebFinger and actor discovery",
-      "status": "discussion"
+      "status": "discussion",
+      "decision": "deferred-out-of-scope",
+      "reason": "federated transport and cross-instance identity are outside this instance queue"
     },
     {
       "id": "2594",
       "title": "Inbox idempotency and replay defence",
-      "status": "discussion"
+      "status": "discussion",
+      "decision": "deferred-out-of-scope",
+      "reason": "federated transport and cross-instance identity are outside this instance queue"
     },
     {
       "id": "2598",
       "title": "Cross-instance work identity",
-      "status": "unknown"
+      "status": "unknown",
+      "decision": "deferred-out-of-scope",
+      "reason": "federated transport and cross-instance identity are outside this instance queue"
     },
     {
       "id": "2604",
       "title": "Content-addressed bodies",
-      "status": "unknown"
+      "status": "unknown",
+      "decision": "deferred-out-of-scope",
+      "reason": "federated transport and cross-instance identity are outside this instance queue"
     },
     {
       "id": "2619",
       "title": "ActivityPub bridge to PieFed, announce-only",
-      "status": "unknown"
+      "status": "unknown",
+      "decision": "deferred-out-of-scope",
+      "reason": "federated transport and cross-instance identity are outside this instance queue"
     },
     {
       "id": "2621",
       "title": "Webmention support",
-      "status": "discussion"
+      "status": "discussion",
+      "decision": "deferred-out-of-scope",
+      "reason": "federated transport and cross-instance identity are outside this instance queue"
     },
     {
       "id": "2626",
       "title": "Cross-instance jury for federated content",
-      "status": "unknown"
+      "status": "unknown",
+      "decision": "deferred-out-of-scope",
+      "reason": "federated transport and cross-instance identity are outside this instance queue"
     },
     {
       "id": "2627",
       "title": "Bounded credit reconciliation",
-      "status": "discussion"
+      "status": "discussion",
+      "decision": "deferred-out-of-scope",
+      "reason": "federated transport and cross-instance identity are outside this instance queue"
     },
     {
       "id": "2632",
       "title": "Category-scoped federation",
-      "status": "unknown"
+      "status": "unknown",
+      "decision": "deferred-out-of-scope",
+      "reason": "federated transport and cross-instance identity are outside this instance queue"
     },
     {
       "id": "2634",
       "title": "Signed instance manifests for clients",
-      "status": "discussion"
+      "status": "discussion",
+      "decision": "deferred-out-of-scope",
+      "reason": "federated transport and cross-instance identity are outside this instance queue"
     },
     {
       "id": "2638",
       "title": "Cross-instance spam hashes",
-      "status": "unknown"
+      "status": "unknown",
+      "decision": "deferred-out-of-scope",
+      "reason": "federated transport and cross-instance identity are outside this instance queue"
     },
     {
       "id": "2639",
       "title": "Mirror-first publish",
-      "status": "discussion"
+      "status": "discussion",
+      "decision": "deferred-out-of-scope",
+      "reason": "federated transport and cross-instance identity are outside this instance queue"
     },
     {
       "id": "2640",
       "title": "Air-gapped instance sync via signed bundles",
-      "status": "unknown"
+      "status": "unknown",
+      "decision": "deferred-out-of-scope",
+      "reason": "federated transport and cross-instance identity are outside this instance queue"
     },
     {
       "id": "2643",
       "title": "Peer delivery honesty score",
-      "status": "discussion"
+      "status": "discussion",
+      "decision": "deferred-out-of-scope",
+      "reason": "federated transport and cross-instance identity are outside this instance queue"
     },
     {
       "id": "2644",
       "title": "Deterministic merged-edit conflict resolution",
-      "status": "unknown"
+      "status": "unknown",
+      "decision": "deferred-out-of-scope",
+      "reason": "federated transport and cross-instance identity are outside this instance queue"
     },
     {
       "id": "2652",
       "title": "Per-chapter content hashing",
-      "status": "discussion"
+      "status": "discussion",
+      "decision": "deferred-out-of-scope",
+      "reason": "federated transport and cross-instance identity are outside this instance queue"
     },
     {
       "id": "2704",
       "title": "Self-hosted mirror in a box",
-      "status": "unknown"
+      "status": "unknown",
+      "decision": "deferred-out-of-scope",
+      "reason": "federated transport and cross-instance identity are outside this instance queue"
     },
     {
       "id": "2736",
       "title": "Rate-limit visibility",
-      "status": "discussion"
+      "status": "discussion",
+      "decision": "deferred-out-of-scope",
+      "reason": "operator visibility page not scheduled in this build"
     },
     {
       "id": "2737",
       "title": "Custom feed builder",
-      "status": "unknown"
+      "status": "unknown",
+      "decision": "deferred-out-of-scope",
+      "reason": "reader-facing UI surface not scheduled in this build"
     },
     {
       "id": "2742",
       "title": "Snippet and quote cards",
-      "status": "discussion"
+      "status": "discussion",
+      "decision": "deferred-out-of-scope",
+      "reason": "reader-facing UI surface not scheduled in this build"
     },
     {
       "id": "2755",
       "title": "Content-hash dedupe across archives",
-      "status": "discussion"
+      "status": "discussion",
+      "decision": "deferred-out-of-scope",
+      "reason": "operator visibility page not scheduled in this build"
     },
     {
       "id": "2772",
       "title": "Cursor-paged server-rendered catalogue grid",
-      "status": "discussion"
+      "status": "discussion",
+      "decision": "deferred-out-of-scope",
+      "reason": "reader-facing UI surface not scheduled in this build"
     },
     {
       "id": "2785",
       "title": "Taste-ordered front page with a for-you redirect",
-      "status": "discussion"
+      "status": "discussion",
+      "decision": "deferred-out-of-scope",
+      "reason": "ranking or taste experiment with no requirement row in this tracker"
     },
     {
       "id": "2810",
       "title": "Theme and density remembered",
-      "status": "discussion"
+      "status": "discussion",
+      "decision": "deferred-out-of-scope",
+      "reason": "reader-facing UI surface not scheduled in this build"
     },
     {
       "id": "2851",
       "title": "Imports page: runs, refusals, yield",
-      "status": "discussion"
+      "status": "discussion",
+      "decision": "deferred-out-of-scope",
+      "reason": "operator visibility page not scheduled in this build"
     },
     {
       "id": "2852",
       "title": "Per-source health page",
-      "status": "discussion"
+      "status": "discussion",
+      "decision": "deferred-out-of-scope",
+      "reason": "operator visibility page not scheduled in this build"
     },
     {
       "id": "2853",
       "title": "Storage page with budgets and what would be evicted",
-      "status": "discussion"
+      "status": "discussion",
+      "decision": "deferred-out-of-scope",
+      "reason": "operator visibility page not scheduled in this build"
     }
   ],
   "roadmap": [
