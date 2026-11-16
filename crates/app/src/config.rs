@@ -5836,13 +5836,13 @@ impl Config {
     /// Parse a TOML body directly into a `Config` — for tests that need to
     /// assert config values without building an entire scratch instance.
     pub fn parse_from_str(body: &str) -> Result<Self> {
-        let dir = std::env::temp_dir().join(format!(
-            "darkhold-parse-{}",
-            std::time::SystemTime::now()
-                .duration_since(std::time::UNIX_EPOCH)
-                .unwrap()
-                .as_nanos()
-        ));
+        // A wall clock is not a unique key: two tests parsing in parallel can read the same
+        // nanosecond, overwrite each other's file and then assert the other test's config.
+        // Measured 2026-11-16 as milestone_38 failing only under the full parallel sweep.
+        static NEXT_PARSE_DIR: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
+        let sequence = NEXT_PARSE_DIR.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+        let dir =
+            std::env::temp_dir().join(format!("darkhold-parse-{}-{sequence}", std::process::id()));
         let _ = std::fs::remove_dir_all(&dir);
         std::fs::create_dir_all(&dir).expect("temp dir");
         let path = dir.join("darkhold.toml");
