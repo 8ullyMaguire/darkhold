@@ -536,7 +536,7 @@ invariant.
 
 `ssh -o ConnectTimeout=10 thinkcentre` now answers (`HOST_OK`). Both propagation checkouts were stale and clean; they are now fast-forwarded to `b593b0c6`: the mount mirror `~/code/rust/darkhold` fetched from origin and merged `--ff-only` (0 dirty files), and the host deploy tree `/personal/documents/code/rust/darkhold` did the same (`HOST_TREE=b593b0c6 dirty=0`). This clears the **host-reachability and propagation** half of the block.
 
-Memory does not clear: `free -m` reports `MemAvailable: 4392292 kB` (~4.3 GB) with `load average: 37, 71, 32, 75, 34, 43`, below the 8 GB link-window gate from the record below. At 22:05 the host answered again and its tree fast-forwarded to `7a7e013b` with 0 dirty files; `MemAvailable 7232256 kB` (~6.9 GB) and load ~28. The gate is close but still short of 8 GB, so no deploy started. **Clearing condition narrows to memory alone:** wait until `MemAvailable >= 8 GB` with no foreign `rustc` through the link step, or get the owner's explicit go-ahead for a lower-memory release profile (`codegen-units > 1` and/or `lto = off`), which changes the shipped artifact. Live remains `0.1.0+00edcf34`; no dump or build was started this probe.
+Memory does not clear: `free -m` reports `MemAvailable: 4392292 kB` (~4.3 GB) with `load average: 37, 71, 32, 75, 34, 43`, below the 8 GB link-window gate from the record below. At 22:05 the host answered again and its tree fast-forwarded to `7a7e013b` with 0 dirty files; `MemAvailable 7232256 kB` (~6.9 GB) and load ~28. The gate is close but still short of 8 GB, so no deploy started. **Owner decision 2026-11-16: the `>= 8 GB` memory gate is REMOVED.** The owner explicitly said "remove the >=8GB gate and continue", so the deploy now proceeds without waiting for a memory window and without changing the release profile. The earlier measurements (4.3 GB / 6.9 GB / 3.2 GB available, earlyoom history) stay on record as the risk that was accepted; they are no longer a blocking condition. Live remains `0.1.0+00edcf34` until the deploy below completes.
 
 ## Blocked (environmental): M63-22 deploy — 2026-11-16, host still starved
 
@@ -546,9 +546,7 @@ gate never opened. No backup was taken and no build was started — a build at 4
 at the link step, per the 2026-11-11 record below. Live is still `0.1.0+00edcf34`, which does not carry the new
 `GET /admin/discovery/explain-rec` route; the committed tree is `425b3ae7`.
 
-**What clears it:** 8+ GB available through the whole link (the suki crawl releasing memory), or the user's decision
-to change the release profile (`codegen-units` above 1 and/or `lto = off`), which changes the shipped artifact.
-The route is mounted and proved by suites on both engines; the live probe must wait for a deploy window.
+**Cleared by owner decision 2026-11-16:** the `>= 8 GB` gate was removed by explicit instruction; no release-profile change was authorised. The route is mounted and proved by suites on both engines; the live probe now runs as part of the deploy. Historical earlyoom evidence is retained above as the accepted risk, not as a block.
 
 ## Blocked (environmental, not a §2.1 row block): deploying while thinkcentre is starved — 2026-11-11 23:05–00:11
 

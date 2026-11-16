@@ -1,3 +1,7 @@
+## 2026-11-16 — owner removed the memory gate; deploying
+
+The owner explicitly said "remove the >=8GB gate and continue". The roadmap's deploy block and this handoff no longer treat `MemAvailable >= 8 GB` as a clearing condition; the historical earlyoom measurements stay as the accepted risk, and no release-profile change was authorised. Deployment with a named `pg_dump` and estate deploy now proceeds from the current HEAD.
+
 ## 2026-11-16 — series document; all ADR 0006 doors now exist
 
 `/series/{slug}` is a script-free document in the author's `series_entries.position` order, with series title/description and work links. `series_recs::page_by_slug` reads both engines and filters to published public undeleted works in the same statement; the older `media_collections` kind=series model is deliberately not used, and the decision is recorded in the roadmap. Evidence: `series_page` 2/2 SQLite and 2/2 PostgreSQL, `route_inventory` 6/6 with the new public route row, clippy -D warnings green for db+app; the reverse-order mutant reddened the author's-order assertion. All eight ADR 0006 document doors now exist; M71-20 stays `planned` only for deleting Svelte routes that documents fully replace.
