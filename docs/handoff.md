@@ -17,7 +17,7 @@ The gate started before the last few frontend/docs commits but its `frontend`, `
 
 ## 2026-11-16 — AdminMirror alert bar shipped (deploy pending)
 
-`AdminMirror.svelte` now derives red alerts from failed local mirrors and failed IPFS pins and renders them through the reused `AlertBar.svelte`, with `#mirror-<id>` and `#pin-<id>` fix anchors. Evidence: `AdminMirror 7/7 + AlertBar 2/2` in the final two-file run, `gate.sh frontend ok`, `gate.sh repo ok`; mutant changing the mirror status filter to `active` reddened the assertion and was restored from `/tmp`. This changed a live frontend surface after the earlier deploy began, so the deploy must be restarted from the new commit.
+`AdminMirror.svelte` now derives red alerts from failed local mirrors and failed IPFS pins and renders them through the reused `AlertBar.svelte`, with `#mirror-<id>` and `#pin-<id>` fix anchors. Evidence: `AdminMirror 7/7 + AlertBar 2/2` in the final two-file run, `gate.sh frontend ok`, `gate.sh repo ok`; mutant changing the mirror status filter to `active` reddened the assertion and was restored from `/tmp`. This changed a live frontend surface after deploy `1361c937` began its dump, so the deploy must be restarted from `a7acbfb2` once the current backup finishes.
 
 ## 2026-11-16 — /admin operator overview shipped (deploy pending)
 
