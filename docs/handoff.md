@@ -1,3 +1,7 @@
+## 2026-11-16 — host reachability regressed during propagation
+
+The docs commit `d30210be` was pushed to both forges. The mount mirror `~/code/rust/darkhold` fast-forwarded to `d30210be`; the follow-up `ssh thinkcentre` fetch for the host deploy tree then timed out at 300 s, and a plain 10 s-connect probe also timed out at 60 s. The host is intermittently reachable, not stably open. The host tree was last *verified* at `b593b0c6` with 0 dirty files; its state now is unknown. Clearing condition: a stable ssh session long enough for `git fetch origin master && git merge --ff-only origin/master`, plus `MemAvailable >= 8 GB` through the release link.
+
 ## 2026-11-16 — propagation cleared, deploy narrowed to memory
 
 At 21:14 `ssh thinkcentre` answered. The mirror `~/code/rust/darkhold` fetched and fast-forwarded to `b593b0c6` with 0 dirty files, and the host deploy tree did the same (`HOST_TREE=b593b0c6 dirty=0`), so the reachability/propagation half of the deploy block is cleared. `free -m` still shows only `MemAvailable 4392292 kB` with load ~37, below the 8 GB link-window gate. Live remains `0.1.0+00edcf34`; no dump or build started. Roadmap block records the narrowed clearing condition.
