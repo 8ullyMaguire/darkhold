@@ -1,3 +1,7 @@
+## 2026-11-16 — fmt fix and the gate that counts
+
+The full gate started after `2a342e4f` failed at **fmt**: I had inserted `pub mod author_page;` before `author_media`, which rustfmt rejects. `4b420720 fix(fmt): keep route modules in rustfmt order` corrects both route files; `bash scripts/gate.sh fmt` is now `ok: fmt`. A replacement full `gate.sh all` is running in `/tmp/gate-all-author-fmtfix-20261116.log` and is the run that counts for this tree. The earlier `gate-all-author-20261116.log` ended `GATE_ALL_EXIT=1` at that fmt step.
+
 ## 2026-11-16 — author page document
 
 Work-page bylines now reach a real document at `/people/{handle}` instead of the SPA fallback. `routes/author_page.rs` reuses `author:"handle"` through `search_works_ast_scoped`, so private/draft/restricted works stay off the page by the engine's own filter; it lists title, byline, words, points and status, caps at 50, and 404s an unknown or empty author. Evidence: `author_page` 2/2 SQLite and 2/2 PostgreSQL, `route_inventory` 6/6, clippy -D warnings green; the `author:"nobody"` mutant reddened the reachable-works assertion. M71-20 stays `planned` for collection/series pages and Svelte-route deletions.
