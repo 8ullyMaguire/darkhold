@@ -309,3 +309,43 @@ describe('M71-12 word histogram on the search page', () => {
     expect(screen.getByLabelText('Max words')).toHaveValue(4999);
   });
 });
+
+describe('M71-15 query state on the search page', () => {
+  it('renders the server chips, hides an unavailable ordering control, and removes a word chip', async () => {
+    searchWorks.mockResolvedValue({
+      items: [],
+      state: {
+        query: 'story AND words:>=1000',
+        chips: [
+          {
+            kind: 'min_words',
+            value: '1000',
+            label: '1000+ words',
+            editable_in_query: true,
+            removable: true,
+          },
+          {
+            kind: 'sort',
+            value: 'relevance',
+            label: 'sorted by relevance',
+            editable_in_query: false,
+            removable: true,
+          },
+        ],
+        unexpressed_note: 'One content filter is applied outside the query.',
+      },
+    });
+    render(Search);
+    await fireEvent.input(screen.getByPlaceholderText(/fandom:/), { target: { value: 'story' } });
+    await fireEvent.click(screen.getByRole('button', { name: 'Search' }));
+
+    expect(await screen.findByLabelText('Search state')).toBeInTheDocument();
+    expect(screen.getByText('One content filter is applied outside the query.')).toBeInTheDocument();
+    expect(screen.getByText('sorted by relevance')).toBeTruthy();
+    expect(screen.queryByRole('button', { name: 'Remove sorted by relevance' })).toBeNull();
+
+    await fireEvent.click(screen.getByRole('button', { name: 'Remove 1000+ words' }));
+    await waitFor(() => expect(searchWorks.mock.calls[1][0]).not.toContain('words:>=1000'));
+    expect(screen.getByLabelText('Min words')).toHaveValue(null);
+  });
+});

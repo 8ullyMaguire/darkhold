@@ -4,6 +4,19 @@
 reason for that order, so a later session does not have to re-derive it. The ledger stays the source of truth: a row
 moves when `scripts/ledger.py upsert` says so, not when this file says so.
 
+## M71-15 UI half — built and closed, 2026-11-16
+
+The API half is shipped: `/api/v1/search` returns `state{query, chips, unexpressed_note}` from the single `FilterState` grammar model. Each chip carries `kind`, `value`, `label`, `editable_in_query`, `removable` and an optional `reason`; pinned content filters are non-removable with a reason, and `sort` is removable but explicitly not editable in the query. The missing clause is the panel that renders those chips.
+
+**Census:** REUSE the server's canonical `state.query` and chip flags — the client must not reimplement the grammar; REUSE the search page's existing query input and word/rating controls as the things a removal acts on; BUILD one small `QueryStatePanel.svelte` because no chip renderer exists in the SPA (grep of `frontend/src` finds chips in tests and cards, not in a query-state panel). Non-goal: no new filter grammar, no server route, no change to the facet/histogram panels just shipped.
+
+**Decision:** the panel shows the canonical query as text with an explicit "Use this query" action rather than silently overwriting what the reader is typing. A chip with `removable: false` has no remove button and prints its reason; a chip with `editable_in_query: false` but removable (sort) is removed through the control that owns it, never by editing a token the grammar does not know. `unexpressed_note` is always visible when present.
+
+**Shipped.** `QueryStatePanel.svelte` shows the server's canonical string with an explicit "Use this query" action, every chip with its reason, and `unexpressed_note`. Pinned chips have no remove control. The Search page has no ordering control, so it maps the server's removable `sort` chip to non-removable with that reason rather than offering a button that could do nothing; removing min/max words clears the existing inputs.
+
+**Evidence:** vitest `QueryStatePanel 4/4 + Search 24/24` (wiring test proves the panel mounts from `results.state` and that removing a word chip reruns the search without it), `svelte-check 0 errors`. Mutant: always render the remove button → the pinned-chip assertion reddened; restored from `/tmp`. Live SPA not redeployed — same host memory block.
+
+
 ## M71-12 UI half — built and closed, 2026-11-16
 
 The endpoint is shipped: `GET /api/v1/facets/words` returns ten population-equal buckets (`index`, `low`, `high`, `count`, `share`) plus `measured`, `unknown`, `total`, `when_unknown` under the same filter set as `/facets`. The ledger's remaining clause is the control that draws the bars and lets a reader select a range.

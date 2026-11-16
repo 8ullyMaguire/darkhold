@@ -1,3 +1,7 @@
+## 2026-11-16 — M71-15 closed: query string and chips are one visible state, 36 planned
+
+`QueryStatePanel.svelte` renders the server's canonical query with an explicit "Use this query" action, every chip with its reason, and the unexpressed-note sentence. Pinned chips have no remove control; this page has no ordering control, so the server's removable sort chip is mapped to non-removable with that reason instead of a dead button. Evidence: vitest 28/28 across the component and page suites, `svelte-check 0 errors`, mutant on the remove-button gate restored from `/tmp`. Backlog regenerated: 36 planned, 0 unlinked, 50 deferred. Not redeployed — host memory block.
+
 ## 2026-11-16 — M71-12 closed: the word-count chart is real, 37 planned
 
 `WordHistogram.svelte` draws the server's quantile buckets (own low/high/share, em dash while pending) and a bar click writes the inclusive edges into the search page's existing min/max word inputs, which reruns the query. No recomputed quantiles, no duplicate range state. Evidence: vitest 26/26 across the component and page suites, `svelte-check 0 errors`, mutant on the high edge restored from `/tmp`. M71-11's pre-registered latency measurement is referenced in M71-12's ledger row, so both clauses are now evidenced. Neither SPA change is deployed — the host memory block still stands.

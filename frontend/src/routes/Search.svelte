@@ -11,6 +11,7 @@
   import Combobox from '../lib/components/Combobox.svelte';
   import EmptyState from '../lib/components/EmptyState.svelte';
   import FacetPanel from '../lib/components/FacetPanel.svelte';
+  import QueryStatePanel from '../lib/components/QueryStatePanel.svelte';
   import WordHistogram from '../lib/components/WordHistogram.svelte';
   import ErrorSummary from '../lib/components/ErrorSummary.svelte';
   import Skeleton from '../lib/components/Skeleton.svelte';
@@ -269,6 +270,35 @@
     void runSearch();
   }
 
+  /**
+   * M71-15: the server owns the canonical string and the chips. This page has no ordering control, so a `sort` chip
+   * cannot be removed here even though the grammar model marks it removable; say so rather than offer a dead button.
+   */
+  function stateForPanel() {
+    const state = results?.state;
+    if (!state) return null;
+    return {
+      ...state,
+      chips: state.chips.map((chip) =>
+        chip.kind === 'sort'
+          ? { ...chip, removable: false, reason: 'this page has no ordering control' }
+          : chip,
+      ),
+    };
+  }
+
+  function removeChip(kind: string, value: string) {
+    if (kind === 'min_words') minWords = '';
+    else if (kind === 'max_words') maxWords = '';
+    else {
+      query = query
+        .split(/\s+AND\s+/)
+        .filter((part) => !part.includes(value))
+        .join(' AND ');
+    }
+    void runSearch();
+  }
+
   function onSubmit(e: Event) {
     e.preventDefault();
     if (debounceTimer) clearTimeout(debounceTimer);
@@ -392,6 +422,17 @@
       {/if}
     </div>
   </fieldset>
+
+  {#if stateForPanel()}
+    <QueryStatePanel
+      state={stateForPanel()!}
+      onremove={removeChip}
+      onusequery={(canonical) => {
+        query = canonical;
+        void runSearch();
+      }}
+    />
+  {/if}
 
   {#if histogram && histogram.buckets.length > 0}
     <WordHistogram

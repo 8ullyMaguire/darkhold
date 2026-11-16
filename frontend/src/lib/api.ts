@@ -1813,6 +1813,23 @@ export interface WordHistogramView {
   when_unknown?: string | null;
 }
 
+/** One filter chip as the server's FilterState describes it (M71-15). */
+export interface QueryChipView {
+  kind: string;
+  value: string;
+  label: string;
+  editable_in_query: boolean;
+  removable: boolean;
+  reason?: string | null;
+}
+
+/** The canonical query string and the chips that describe the same state. */
+export interface SearchStateView {
+  query: string;
+  chips: QueryChipView[];
+  unexpressed_note?: string | null;
+}
+
 /** The search result envelope. */
 export interface SearchResultList {
   items: SearchResult[];
@@ -1820,7 +1837,7 @@ export interface SearchResultList {
   /** Which set the counts describe — not the page of hits. */
   facets_over?: string;
   facets_computed_at_ms_ago?: number;
-  state?: { query: string; chips: unknown[]; unexpressed_note?: string | null };
+  state?: SearchStateView;
 }
 
 /** Search works using the AST query language. */
