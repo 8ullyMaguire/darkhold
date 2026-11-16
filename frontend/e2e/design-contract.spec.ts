@@ -30,6 +30,16 @@ test('main navigation exposes one row on desktop and a mobile bar', async ({ pag
   await expect(page.getByRole('button', { name: /more/i }).first()).toBeVisible();
 });
 
+test('forced colors keeps a visible focus ring', async ({ page }) => {
+  await page.emulateMedia({ forcedColors: 'active' });
+  await page.setViewportSize({ width: 390, height: 900 });
+  await page.goto('/search');
+  await page.keyboard.press('Tab');
+  const ring = await page.evaluate(() =>
+    getComputedStyle(document.activeElement as HTMLElement).outlineStyle);
+  expect(ring).not.toBe('none');
+});
+
 test('interactive targets are at least 24 CSS px', async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 900 });
   await page.goto('/search');
