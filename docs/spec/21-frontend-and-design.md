@@ -28,12 +28,14 @@ website look like https://novellunar.com/"*. Simplicity is the requirement; the 
 is the subject matter. A dark, ornate interface is not simpler, and a simpler one is not
 therefore plain.
 
-**What the reference contributes** — see ADR 0033 for the decision of record:
+**What the reference contributes** — see ADR 0033 for the decision of record (2026-11-16):
 
-The Novellunar dark cover-card grid is **not** this site's chrome. Its useful properties — one nav row, one taxonomy
-column, one ranked list, a measured dark scale, one type family — are kept as constraints and expressed through The
-Archive's dense row contract (ADR 0007/0033). The reader keeps The Reading Room's paper and Literata. A dark interface
-with a warm-paper reader is the intended combination; the reader is never made dark just because the chrome is.
+The Novellunar dark cover-card grid is **not** this site's chrome. At 141,317 catalogue rows a card grid shows three
+rows per screen and has no vocabulary for provenance; §21's earlier reading of the reference is superseded by ADR
+0007/0033. Its useful properties — one nav row, one taxonomy column, one ranked list, a measured dark scale, one type
+family — are kept as constraints and expressed through The Archive's dense row contract. The reader keeps The Reading
+Room's paper and Literata: a dark interface with a warm-paper reading page is the intended combination, and the reader
+is never made dark just because the chrome is.
 
 **And what the design must express** is the register the instance actually holds: **power,
 dominance, corruption, progression, the dark side of fanfiction** — without becoming a screencap

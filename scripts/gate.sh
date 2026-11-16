@@ -226,6 +226,7 @@ run_repo() {
     # number was file-name sort. The gate refuses a repeat, a number in one engine only, and a file with no prefix.
     python3 "$REPO_ROOT/scripts/check-migration-numbers.py"
     python3 "$REPO_ROOT/scripts/check-frontend-routes.py"
+    (cd "$REPO_ROOT/frontend" && node ./scripts/feature-inventory.mjs --check)
     python3 "$REPO_ROOT/scripts/check-split-spec.py"
 }
 
