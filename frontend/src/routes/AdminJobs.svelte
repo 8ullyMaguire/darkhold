@@ -17,6 +17,7 @@
   import { session } from '../lib/session.svelte.ts';
   import ErrorSummary from '../lib/components/ErrorSummary.svelte';
   import Skeleton from '../lib/components/Skeleton.svelte';
+  import StatusMark from '../lib/components/StatusMark.svelte';
 
   /*
    * The states are the server's vocabulary, listed so the filter cannot offer
@@ -44,6 +45,12 @@
   let busy = $state<string | null>(null);
 
   const hasActive = $derived(jobs.some((job) => ACTIVE.has(job.state)));
+
+  function levelFor(state: string): 'red' | 'amber' | 'green' {
+    if (state === 'failed') return 'red';
+    if (state === 'succeeded') return 'green';
+    return 'amber';
+  }
 
   $effect(() => {
     void stateFilter;
@@ -157,7 +164,7 @@
           <tr>
             <td>{job.kind}</td>
             <td>
-              <span class="state" data-state={job.state}>{job.state}</span>
+              <StatusMark level={levelFor(job.state)} label={job.state} />
               {#if job.last_error}
                 <span class="failure" title={job.last_error}>{job.last_error}</span>
               {/if}
@@ -222,16 +229,6 @@
     padding: var(--space-2);
     border-bottom: var(--border-width) solid var(--color-border);
     vertical-align: top;
-  }
-
-  .state {
-    padding: 0 var(--space-2);
-    border: var(--border-width) solid var(--color-border);
-    border-radius: var(--radius-sm);
-  }
-
-  .state[data-state='failed'] {
-    border-color: var(--color-danger, #b3261e);
   }
 
   .failure {

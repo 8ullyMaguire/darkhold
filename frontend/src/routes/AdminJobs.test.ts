@@ -72,4 +72,11 @@ describe('AdminJobs page', () => {
     await waitFor(() => expect(screen.getByText('Queue')).toBeInTheDocument());
     await waitFor(() => expect(screen.getAllByText(/failed/).length).toBeGreaterThan(0));
   });
+
+  it('names a failed job state as a red status, not only a coloured badge', async () => {
+    render(AdminJobs);
+    await waitFor(() => expect(screen.getByText('Queue')).toBeInTheDocument());
+    const marks = screen.getAllByRole('status');
+    expect(marks.some((mark) => mark.getAttribute('aria-label') === 'red: failed')).toBe(true);
+  });
 });

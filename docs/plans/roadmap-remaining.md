@@ -64,6 +64,10 @@ Source: `.hermes/plans/2026-11-16_203519-fanfiction-quality-import-and-seed.md`.
 
 **Shipped.** `StatusMark` renders the level word, a dot and the label with `role=status`; AdminMirror's mirrors and pins use it, and a fix link appears only for red. Row stays `planned` for the other console surfaces and the overview alert bar. Evidence: `StatusMark 3/3 + AdminMirror 6/6`; mutant removing the word span reddened the text-not-only-colour assertion; `gate.sh frontend ok`.
 
+**AdminJobs census, 2026-11-16.** REUSE `StatusMark` and the server's existing job-state vocabulary; ADAPT `AdminJobs.svelte:160`, which currently renders a coloured `<span class="state" data-state={job.state}>` with no status word for assistive tech; BUILD nothing. Non-goal: no new admin API, no retry-button changes, no overview alert bar yet. Level map: `failed` → red, `succeeded` → green, `queued|leased|running|cancelled` → amber (attention, not success or failure). No fix link: the row already has a retry action and a self-link would be noise.
+
+**Shipped (AdminJobs slice).** `AdminJobs.svelte` now imports `StatusMark` and maps job states with `levelFor()`; the colour-only `.state` badge and its dead CSS are gone. Evidence: `AdminJobs 4/4 + StatusMark 3/3` (7/7), mutant `failed → green` reddened the `red: failed` role/aria-label assertion and was restored from `/tmp`, `gate.sh frontend ok`. Row stays `planned` for the overview alert bar.
+
 ## M71-03 Archive rows — search slice shipped, 2026-11-16
 
 **Census:** REUSE `SearchResult`, the AST query's one grouped SELECT, the server's existing `provenance` attachment and `WorkBlurb`'s title→byline→metrics order; ADAPT `SearchResult` with a lifecycle-derived `status`, the search response and `Search.svelte`'s hit list; BUILD `WorkRow.svelte` only — no component in the estate carries provenance *and* status beside a title. Non-goals: no new route, no new table, no change to the query grammar, no cover-card grid (ADR 0033).

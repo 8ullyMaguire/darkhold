@@ -1,3 +1,7 @@
+## 2026-11-16 — M71-07 AdminJobs status mark shipped
+
+`AdminJobs.svelte` now renders every job state through `StatusMark` (`failed` red, `succeeded` green, the rest amber) and the old colour-only `.state` badge/CSS is gone. Evidence: `AdminJobs 4/4 + StatusMark 3/3`, mutant `failed → green` reddened the `red: failed` assertion and was restored from `/tmp`; `gate.sh frontend ok`. Row remains planned for the overview alert bar.
+
 ## 2026-11-16 — Svelte-route deletion clause resolved without a deletion
 
 The last M71-20 clause asked to delete Svelte routes fully replaced by documents. Measured: no `Tag*.svelte` route exists (`NO_TAG_SVELTE_ROUTE`), the frozen inventory's 38 clientPaths contain no work/tag path, and `router.ts`'s `work-read` is the member-only application the server document hands to signed-in readers (ADR 0006). Deleting it would remove bookmarks, kudos and author tools. Decision recorded in roadmap and ledger: delete nothing, keep the preservation gate green, and prove the clause with `grep` plus the inventory rather than a cosmetic removal. Row remains `planned` until the live probe after deploy.
