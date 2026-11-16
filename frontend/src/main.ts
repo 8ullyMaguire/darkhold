@@ -10,19 +10,6 @@ if (!target) {
 
 export default mount(App, { target });
 
-/**
- * Register the offline worker (spec §13.5).
- *
- * Production only. In development the worker would cache the modules being
- * edited, so a change would appear not to take effect — and the failure mode is
- * invisible, because the page still works, just from yesterday's code.
- *
- * A failure to register is not reported: an instance served over plain HTTP on a
- * LAN cannot register a worker, and that instance's readers lose offline reading
- * and nothing else.
- */
-if (import.meta.env.PROD && 'serviceWorker' in navigator) {
-  window.addEventListener('load', () => {
-    void navigator.serviceWorker.register('/service-worker.js').catch(() => undefined);
-  });
-}
+// The worker is registered by App.svelte once the shell mounts, so install and update can be
+// offered to a reader. See src/lib/pwa.ts. Production only: a development worker would cache the
+// modules being edited and make every change appear not to take effect.

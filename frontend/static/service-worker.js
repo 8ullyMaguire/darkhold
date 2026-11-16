@@ -157,6 +157,12 @@ self.addEventListener('fetch', (event) => {
  * that decision is the page's and this one is not.
  */
 self.addEventListener('message', (event) => {
+  // The page asks for an update only after the reader accepts it: reloading under a half-written
+  // draft is the failure this message exists to prevent.
+  if (event.data?.type === 'skip-waiting') {
+    void self.skipWaiting();
+    return;
+  }
   if (event.data?.type !== 'clear-reads') return;
   event.waitUntil(caches.delete(READ_CACHE));
 });

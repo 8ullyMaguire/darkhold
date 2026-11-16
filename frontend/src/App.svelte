@@ -12,6 +12,8 @@
    * answers it before the SPA shell ever sees it.
    */
 import { Button } from '@polaris/ui';
+  import { onMount } from 'svelte';
+  import { registerPwa } from './lib/pwa';
   import { FamilyNav } from '@polaris/ui';
   import { clearCopies, copiesUsage } from './lib/offline';
   import Drawer from './lib/components/Drawer.svelte';
@@ -227,6 +229,19 @@ import { Button } from '@polaris/ui';
   ]);
   let moreOpen = $state(false);
   let docsSearchOpen = $state(false);
+
+  /** PWA: install affordance only when the browser offers one; update only when a worker waits. */
+  let installAction = $state<null | (() => void)>(null);
+  let updateAction = $state<null | (() => void)>(null);
+  onMount(() => {
+    if (import.meta.env.PROD) {
+      registerPwa({
+        onInstallAvailable: (install) => { installAction = install; },
+        onUpdateAvailable: (apply) => { updateAction = apply; },
+      });
+    }
+  });
+
   let route = $derived(matchRoute(path));
 
   // WHAT THE TAB SAYS IS A PROPERTY OF THE ROUTE. Nothing set `document.title` before this, so every
@@ -521,6 +536,18 @@ import { Button } from '@polaris/ui';
   </nav>
 </header>
 
+{#if installAction || updateAction}
+  <div class="pwa-notice" role="status" aria-live="polite">
+    {#if updateAction}
+      <span>A new version is ready.</span>
+      <button type="button" class="btn quiet sm" onclick={() => updateAction?.()}>Reload to update</button>
+    {:else if installAction}
+      <span>Keep Darkhold on this device for offline reading.</span>
+      <button type="button" class="btn quiet sm" onclick={() => installAction?.()}>Install</button>
+    {/if}
+  </div>
+{/if}
+
 <main id="main" class="container" tabindex="-1">
   {#if route.id === 'home'}
     <Home />
@@ -687,6 +714,18 @@ import { Button } from '@polaris/ui';
 </Drawer>
 
 <style>
+  .pwa-notice {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: center;
+    gap: var(--space-3);
+    padding: var(--space-2) var(--space-4);
+    background: var(--surface-2);
+    border-bottom: 1px solid var(--row-rule);
+    font-size: var(--text-sm);
+  }
+
   .skip-link {
     position: absolute;
     left: var(--space-4);

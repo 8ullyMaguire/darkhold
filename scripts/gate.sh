@@ -239,6 +239,7 @@ run_frontend() {
         node ./node_modules/svelte-check/bin/svelte-check --tsconfig ./tsconfig.json &&
             node ./scripts/token-contract.test.mjs &&
             node ./scripts/contrast-check.mjs &&
+            node ./scripts/manifest.test.mjs &&
             node ./node_modules/vitest/vitest.mjs run
     )
 }

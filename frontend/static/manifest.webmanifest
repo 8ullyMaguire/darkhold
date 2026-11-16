@@ -1,24 +1,27 @@
 {
-  "name": "Darkhold",
+  "id": "/",
+  "name": "Darkhold — a living library",
   "short_name": "Darkhold",
-  "description": "A welcoming home for fanfiction: read, write, import your library, and keep it offline.",
+  "description": "Read, write, import and keep fanfiction offline.",
   "start_url": "/",
   "scope": "/",
   "display": "standalone",
+  "orientation": "any",
   "background_color": "#111014",
   "theme_color": "#111014",
+  "categories": ["books", "entertainment"],
   "icons": [
-    {
-      "src": "/icon.svg",
-      "sizes": "any",
-      "type": "image/svg+xml",
-      "purpose": "any"
-    },
-    {
-      "src": "/icon.svg",
-      "sizes": "any",
-      "type": "image/svg+xml",
-      "purpose": "maskable"
-    }
-  ]
+    { "src": "/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "/icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ],
+  "shortcuts": [
+    { "name": "Search the archive", "short_name": "Search", "url": "/search" },
+    { "name": "Your library", "short_name": "Library", "url": "/library" }
+  ],
+  "share_target": {
+    "action": "/import",
+    "method": "GET",
+    "params": { "title": "title", "text": "text", "url": "url" }
+  }
 }
