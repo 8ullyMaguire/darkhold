@@ -1479,6 +1479,14 @@ pub fn build_router(state: AppState) -> Router {
                 auth::load_session,
             )),
         )
+        // The operator overview is a document, not an API route: mounted on the root router with the other ADR 0006
+        // pages, before the SPA fallback, so `/admin` is the page rather than an application shell.
+        .merge(
+            routes::admin_overview::router().layer(middleware::from_fn_with_state(
+                state.clone(),
+                auth::load_session,
+            )),
+        )
         // The sitemap (M71-16). No session layer: the file a crawler gets must be the file everyone gets, which is why
         // its audience is `Anonymous` rather than a `MaybeSession` nobody reads.
         .merge(routes::sitemap::router())

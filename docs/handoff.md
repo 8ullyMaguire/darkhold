@@ -15,6 +15,10 @@ No `/admin` route or `AdminOverview.svelte` exists; the router has only jobs, ec
 
 The gate started before the last few frontend/docs commits but its `frontend`, `dialects` and `repo` stages ran after them; no Rust source changed after its `test` stage, so the single exit-0 result is the current tree's evidence.
 
+## 2026-11-16 — /admin operator overview shipped (deploy pending)
+
+New `routes/admin_overview.rs` renders `/admin` as a script-free document before the SPA fallback with a ROUTE_TABLE row and live Queue/Sources/Media counts from existing store doors. Red states render the AlertBar contract in HTML, with fix links; anonymous gets 401 from `RequireSession` and a signed-in non-operator gets 404 from `require_operator`. Evidence: `admin_overview 1/1` SQLite + 1/1 PostgreSQL, `route_inventory 6/6`, clippy clean; mutant changing the fix href reddened the assertion and was restored from `/tmp`. Live surface moved: named backup + estate deploy required before this slice is closed live.
+
 ## 2026-11-16 — M71-07 alert bar shipped on AdminJobs
 
 `AlertBar.svelte` is the console's one red-state list: `role=alert`, "Needs attention", one labelled Fix link per state, silent when empty. AdminJobs feeds it failed jobs with `#job-<id>` anchors to the existing retry buttons. Evidence: `AlertBar 2/2 + AdminJobs 5/5 + StatusMark 3/3` (10/10); mutant flattening the fix aria-label reddened the assertion and was restored from `/tmp`; `gate.sh frontend ok`. The future `/admin` overview reuses this component.

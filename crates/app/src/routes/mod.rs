@@ -21,6 +21,7 @@ pub mod whole_work;
 pub mod admin;
 pub mod admin_discovery;
 pub mod admin_fixity;
+pub mod admin_overview;
 pub mod analytics;
 pub mod archive;
 pub mod arena;

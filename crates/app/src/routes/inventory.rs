@@ -2026,6 +2026,13 @@ pub const ROUTE_TABLE: &[RouteEntry] = &[
         audience: Audience::Pseudonymous,
     },
     RouteEntry {
+        file: "admin_overview.rs",
+        handler: "overview",
+        method: "GET",
+        path: "/admin",
+        audience: Audience::AdminOf { site: None },
+    },
+    RouteEntry {
         file: "jobs.rs",
         handler: "list_all_jobs",
         method: "GET",
