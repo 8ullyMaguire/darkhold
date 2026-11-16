@@ -1,9 +1,10 @@
 <script lang="ts">
-  import type { PrivacyKeyDescription } from '../api';
+  import type { PrivacyKeyDescription, SettingProvenanceView } from '../api';
   import { describeValue } from '../labels';
   import { Button } from '@polaris/ui';
   import ErrorSummary from './ErrorSummary.svelte';
   import Select from './Select.svelte';
+  import SettingProvenance from './SettingProvenance.svelte';
 
   interface Props {
     /** The keys belonging to the scope being edited. */
@@ -18,9 +19,13 @@
     note?: string;
     /** Called after a successful save. */
     onsaved?: () => void;
+    /** Where each effective value came from, keyed by setting key (M71-14). */
+    provenance?: Record<string, SettingProvenanceView>;
+    /** Called after a successful reset, so the caller can refetch. */
+    onreset?: () => void;
   }
 
-  let { keys, values, onsave, legend, note, onsaved }: Props = $props();
+  let { keys, values, onsave, legend, note, onsaved, provenance, onreset }: Props = $props();
 
   let draft = $state<Record<string, string>>({});
   let error = $state<unknown>(null);
@@ -87,6 +92,13 @@
   {/if}
 
   {#each keys as key (key.key)}
+    {#if provenance?.[key.key]}
+      <SettingProvenance
+        label={key.summary}
+        view={provenance[key.key]}
+        onchange={onreset}
+      />
+    {/if}
     <Select
       id={`privacy-${key.key}`}
       label={key.summary}

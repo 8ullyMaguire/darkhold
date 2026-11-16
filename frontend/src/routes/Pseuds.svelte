@@ -296,6 +296,8 @@ import { Button } from '@polaris/ui';
                   note="These apply to this pseud alone; another pseud can answer differently."
                   keys={pseudKeys(pseud.id)}
                   values={privacy.pseuds[pseud.id] ?? {}}
+                  provenance={privacy.pseud_provenance?.[pseud.id]}
+                  onreset={async () => { privacy = await fetchPrivacy(); }}
                   onsave={async (changes) => {
                     privacy = await patchPrivacy(changes, pseud.id);
                   }}

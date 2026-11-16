@@ -324,8 +324,26 @@ export interface PrivacyKeyDescription {
  * validated against. The client renders `schema` rather than keeping its own
  * list of keys, so the two cannot drift apart.
  */
+export interface SettingResetView {
+  method: string;
+  path: string;
+  becomes: string;
+}
+
+/** Where one effective setting came from and how to clear that level (M71-14). */
+export interface SettingProvenanceView {
+  value: string;
+  source: 'instance' | 'account' | 'pseud' | 'per-work';
+  reset: SettingResetView | null;
+  note?: string;
+}
+
 export interface PrivacySettings {
   account: Record<string, string>;
+  /** Account-level values with their source. */
+  provenance?: Record<string, SettingProvenanceView>;
+  /** Per-pseud values with their source, keyed by pseud id. */
+  pseud_provenance?: Record<string, Record<string, SettingProvenanceView>>;
   pseuds: Record<string, Record<string, string>>;
   schema: PrivacyKeyDescription[];
 }

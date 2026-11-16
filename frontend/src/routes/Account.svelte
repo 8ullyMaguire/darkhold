@@ -390,6 +390,8 @@ import { Avatar, Button } from '@polaris/ui';
                 note="These apply to the account as a whole. Settings that belong to one pseud are edited on that pseud's page."
                 keys={accountKeys}
                 values={privacy.account}
+                provenance={privacy.provenance}
+                onreset={async () => { privacy = await fetchPrivacy(); }}
                 onsave={async (changes) => {
                   privacy = await patchPrivacy(changes);
                   say('Privacy settings saved.', 'success');
