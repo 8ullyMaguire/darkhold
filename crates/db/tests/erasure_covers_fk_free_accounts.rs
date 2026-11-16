@@ -37,7 +37,7 @@ use test_support::TestDb;
 /// `pragma_foreign_key_list` for the edges. A column is *measured* when its name is one of the account spellings and its
 /// table cannot reach `accounts` by following foreign keys — because a table that can reach `accounts` is deleted or
 /// severed by the database itself, and a treatment there would be a second opinion about a job already done.
-async fn measured_account_columns(
+async fn measured_account_columns_sqlite(
     tdb: &TestDb,
 ) -> (BTreeSet<(String, String)>, BTreeSet<(String, String)>) {
     let pool = tdb
@@ -124,7 +124,7 @@ async fn every_account_column_outside_the_fk_graph_is_classified() {
         eprintln!("skipped on PostgreSQL: the identity scan reads the SQLite schema");
         return;
     }
-    let (measured, schema_columns) = measured_account_columns(&tdb).await;
+    let (measured, schema_columns) = measured_account_columns_sqlite(&tdb).await;
 
     assert!(
         !measured.is_empty(),

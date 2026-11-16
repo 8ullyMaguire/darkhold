@@ -92,8 +92,13 @@ fn proposal_from(row: ProposalRow) -> Proposal {
     }
 }
 
-const SELECT: &str = "SELECT id, gravity_strength, signal_weight_mode, admin_weight, \
-     diversity_injection_percent, opened_by, opened_at, closes_at, threshold_percent, state, decided_at \
+// The four integer columns are INTEGER on SQLite and INT4 on PostgreSQL. `CAST(... AS BIGINT)` is
+// valid on both engines and keeps the row decodable as `i64` without a second, hand-maintained
+// PostgreSQL statement.
+const SELECT: &str = "SELECT id, CAST(gravity_strength AS BIGINT) AS gravity_strength, \
+     signal_weight_mode, CAST(admin_weight AS BIGINT) AS admin_weight, \
+     CAST(diversity_injection_percent AS BIGINT) AS diversity_injection_percent, opened_by, \
+     opened_at, closes_at, CAST(threshold_percent AS BIGINT) AS threshold_percent, state, decided_at \
      FROM taste_lens_proposals";
 
 /// Open a proposal. `closes_at` is the caller's decision because it is the operator's policy, not this module's.
@@ -110,9 +115,12 @@ pub async fn open(
         "INSERT INTO taste_lens_proposals (id, gravity_strength, signal_weight_mode, admin_weight, \
          diversity_injection_percent, opened_by, opened_at, closes_at, threshold_percent, state) \
          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'open')",
+        // The four integer columns are INT4 on PostgreSQL while the caller and the struct carry i64,
+        // so each placeholder names BIGINT and the assignment casts down. Without this, sqlx sends
+        // INT8 into an INT4 column and PostgreSQL refuses the statement.
         "INSERT INTO taste_lens_proposals (id, gravity_strength, signal_weight_mode, admin_weight, \
          diversity_injection_percent, opened_by, opened_at, closes_at, threshold_percent, state) \
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, 'open')",
+         VALUES ($1, $2::bigint, $3, $4::bigint, $5::bigint, $6, $7, $8, $9::bigint, 'open')",
     );
     match db.backend() {
         Backend::Sqlite => {
@@ -161,11 +169,8 @@ pub async fn open(
 
 pub async fn get(db: &Database, id: &str) -> Result<Option<Proposal>> {
     let sqlite_sql = format!("{SELECT} WHERE id = ?");
-    // The three integer columns are INTEGER on SQLite and INT4 on PostgreSQL, so the PostgreSQL statement widens them
-    // to BIGINT: a `Proposal` decoded as `i64` cannot read an INT4 column, and casting here keeps the struct honest
-    // instead of making every caller handle two integer widths.
-    let postgres_sql = "SELECT id, gravity_strength::bigint AS gravity_strength, signal_weight_mode,          admin_weight::bigint AS admin_weight,          diversity_injection_percent::bigint AS diversity_injection_percent, opened_by, opened_at, closes_at,          threshold_percent::bigint AS threshold_percent, state, decided_at          FROM taste_lens_proposals WHERE id = $1";
-    let sql = db.sql(&sqlite_sql, postgres_sql);
+    let postgres_sql = format!("{SELECT} WHERE id = $1");
+    let sql = db.sql(&sqlite_sql, &postgres_sql);
     let row: Option<ProposalRow> = match db.backend() {
         Backend::Sqlite => {
             sqlx::query_as(&sql)
