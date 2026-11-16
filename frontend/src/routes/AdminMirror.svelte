@@ -22,6 +22,7 @@ import { Button } from '@polaris/ui';
   import EmptyState from '../lib/components/EmptyState.svelte';
   import ErrorSummary from '../lib/components/ErrorSummary.svelte';
   import Skeleton from '../lib/components/Skeleton.svelte';
+  import StatusMark from '../lib/components/StatusMark.svelte';
   import { Field } from '@polaris/ui';
 
   // Search state
@@ -226,7 +227,7 @@ import { Button } from '@polaris/ui';
                 {#each mirrors as mirror (mirror.id)}
                   <tr>
                     <td><code>{mirror.storage_path}</code></td>
-                    <td><span class="status {mirror.status}">{mirror.status}</span></td>
+                    <td><StatusMark level={mirror.status === 'active' ? 'green' : mirror.status === 'failed' ? 'red' : 'amber'} label={mirror.status} /></td>
                     <td class="muted">{mirror.last_verified_at ?? 'Never'}</td>
                     <td>
                       {#if mirror.status === 'active'}
@@ -264,7 +265,7 @@ import { Button } from '@polaris/ui';
                   <div class="pin-main">
                     <code>{pin.cid}</code>
                     <span class="badge">{pin.pin_service}</span>
-                    <span class="status {pin.status}">{pin.status}</span>
+                    <StatusMark level={pin.status === 'pinned' ? 'green' : pin.status === 'failed' ? 'red' : 'amber'} label={pin.status} />
                     {#if pin.file_size_bytes > 0}
                       <span class="muted">{Math.round(pin.file_size_bytes / 1024)} KB</span>
                     {/if}
