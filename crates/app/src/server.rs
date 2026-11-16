@@ -1500,6 +1500,14 @@ pub fn build_router(state: AppState) -> Router {
                 auth::load_session,
             )),
         )
+        // A collection's page (ADR 0006, M71-20): a shared shelf is a document, using the events collection model and
+        // the same work gate as the work page. Registered before the fallback so a link preview gets content.
+        .merge(
+            routes::collection_page::router().layer(middleware::from_fn_with_state(
+                state.clone(),
+                auth::load_session,
+            )),
+        )
         // An author's page (ADR 0006, M71-20): work-page bylines already point here. The handler is a document so the
         // link a reader copies is the page a crawler sees, and it reuses the search engine's visibility rule.
         .merge(

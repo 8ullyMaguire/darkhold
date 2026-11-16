@@ -22,6 +22,14 @@ Source: `.hermes/plans/2026-11-16_203519-fanfiction-quality-import-and-seed.md`.
 
 **Author slice shipped.** Work-page bylines already wrote `/people/{handle}`; that link now reaches a script-free document instead of the SPA fallback. `routes/author_page.rs` looks the pseud up, queries `author:"handle"` through the shared search engine, lists title/byline/words/points/status, caps at 50 and 404s an unknown or empty author. It invents no author column and no second visibility rule. Evidence: `author_page` 2/2 SQLite and 2/2 PostgreSQL; `route_inventory` 6/6 with the new public route row; mutant `author:"nobody"` reddened the reachable-works assertion.
 
+## M71-20 collection document — census, 2026-11-16
+
+**Census:** REUSE `routes/document.rs`, `events::get_collection` / `list_collection_items` / `collection_coverage`, `content::find_work` and the Archive row order used by search/author; ADAPT `server.rs` and `routes/inventory.rs` with one public route; BUILD only `routes/collection_page.rs`. Non-goals: no new store query, no `media_collections` second model, no member-only collection disclosure, no SPA removal (ADR 0006 keeps application-class routes).
+
+**Decision:** the canonical path is `/collections/{id}` — the events collection id that `collection_items` already keys on. A private collection is a 404, not a teaser. Works are included only when `find_work` returns a row with `lifecycle = 'published'`, `visibility = 'public'` and no deletion, and the page prints `collection_coverage`'s sentence rather than inventing a count. The route is public-class but names `MaybeSession` so the route table can check the claim.
+
+**Collection slice shipped.** `/collections/{id}` serves a script-free document for public events collections, using `get_collection`/`list_collection_items`/`collection_coverage` and `find_work` with the same published/public/undeleted gate as the work page. Private and empty collections 404. Evidence: `collection_page` 2/2 SQLite and 2/2 PostgreSQL; `route_inventory` 6/6 after the new public route row; `milestone_13 + milestone_18_events` 19/19; clippy -D warnings green. Mutant dropping the visibility filter leaked the private title. Row stays `planned` for series pages and the Svelte-route deletions.
+
 ## M71-08 reader bar — no-JS slice shipped, 2026-11-16
 
 **Census:** REUSE the server-rendered reader, its TOC, `position`/`stale_position` and the existing typography form; ADAPT `render_page` with a `nav[aria-label="Reading controls"]`; BUILD nothing. Non-goals: no scroll-hiding script, no bookmark or in-work search yet, no client-side percentage.

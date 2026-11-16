@@ -6835,6 +6835,14 @@ pub const ROUTE_TABLE: &[RouteEntry] = &[
         path: "/people/{handle}",
         audience: Audience::Public,
     },
+    // ADR 0006 / M71-20: a shared collection is a document; private collections 404 in the handler.
+    RouteEntry {
+        file: "collection_page.rs",
+        handler: "collection_page",
+        method: "GET",
+        path: "/collections/{id}",
+        audience: Audience::Public,
+    },
     // W6 §7.5a, merged from the thinkcentre line: the ATProto feed skeleton an AppView asks for by feed URI. The
     // handler takes no session extractor, so the door is public — a skeleton is a list of post references, and the
     // records behind them are public by the nature of ATProto.

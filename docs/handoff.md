@@ -1,3 +1,9 @@
+## 2026-11-16 — collection document; gate superseded again
+
+`/collections/{id}` is now a script-free document for public events collections. It reuses `events::get_collection` / `list_collection_items` / `collection_coverage` and `content::find_work` with the same published/public/undeleted gate as the work page; private and empty collections 404, and no `media_collections` second model was introduced. Evidence: `collection_page` 2/2 SQLite and 2/2 PostgreSQL, `route_inventory` 6/6 with the new public route row, `milestone_13 + milestone_18_events` 19/19, clippy -D warnings green; the mutant dropping the visibility filter leaked the private work title into a public shelf.
+
+The full gate `proc_ad5fb681fdd7` was stopped by PID while in its test stage: it began at `b593b0c6`, but `d30210be` and `d07892e1` changed the tree after it started, so it could no longer describe this tree. Its superseded log is `/tmp/gate-all-author-fmtfix-20261116.log`.
+
 ## 2026-11-16 — host reachability regressed during propagation
 
 The docs commit `d30210be` was pushed to both forges. The mount mirror `~/code/rust/darkhold` fast-forwarded to `d30210be`; the follow-up `ssh thinkcentre` fetch for the host deploy tree then timed out at 300 s, and a plain 10 s-connect probe also timed out at 60 s. The host is intermittently reachable, not stably open. The host tree was last *verified* at `b593b0c6` with 0 dirty files; its state now is unknown. Clearing condition: a stable ssh session long enough for `git fetch origin master && git merge --ff-only origin/master`, plus `MemAvailable >= 8 GB` through the release link.
