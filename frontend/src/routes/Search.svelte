@@ -528,23 +528,6 @@
     margin: 0;
   }
 
-  /* Archive rows, not cards: a rule between results and nothing else competing with the title. */
-  .result-card {
-    display: flex;
-    flex-direction: column;
-    gap: 0.15rem;
-    padding: var(--space-2) var(--space-1);
-    border: 0;
-    border-bottom: 1px solid var(--row-rule);
-    border-radius: 0;
-    text-decoration: none;
-    color: inherit;
-  }
-
-  .result-card:hover {
-    background: var(--surface-muted);
-  }
-
   .title {
     font-weight: 600;
   }
