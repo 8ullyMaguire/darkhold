@@ -1,3 +1,7 @@
+## 2026-11-16 — fanfiction quality plan recorded in the docs
+
+Read `.hermes/plans/2026-11-16_203519-fanfiction-quality-import-and-seed.md` and folded it into the repo state without implementing it: `docs/ROADMAP-seed-from-reading-list.md` now carries the measured 268 / 218 / 3 wrapped / 47 unmatched numbers, drops the already-built Phase 1, replaces the invented exit-code table with a pointer to `docs/cli-exit-codes.md`, and names the sidecar/audit path instead of `rating.source`; `docs/plans/roadmap-remaining.md` records the plan and sharpens M45-74's block to the owner-gated census and the fixed ≥180 / ≤20 / ≥180 / ≥1 accept rule; the ledger row says the same. No code was written for that plan: Task 0's stop condition still applies because the deploy tree is dirty and behind. M45-74 stays `planned`.
+
 ## 2026-11-16 — search results as a document
 
 **M71-20 search slice:** anonymous `GET /search?q=…` now renders a script-free document with a real GET form and the same `search_works_ast_scoped` hits the JSON door returns, as Archive rows with work links, byline, words, points and status. Signed-in readers keep the SPA shell (ADR 0006) because save-search and shelf actions belong to the application; the mutant on that branch reddened the signed-in test. Evidence: `search_page` 3/3 SQLite + 3/3 PostgreSQL, `route_inventory` 6/6 after the new public route row, app search suites 42/42. Row stays `planned` for author/collection/series pages and the remaining Svelte-route deletions. Not deployed: live is still `0.1.0+00edcf34` (host block below).

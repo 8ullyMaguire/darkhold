@@ -1,6 +1,6 @@
 # ROADMAP — seed darkhold from the rated reading list
 
-Status: proposed 2026-11-11. Owner: darkhold member agent. Ledger row: 407.
+Status: proposed 2026-11-11, **superseded in part 2026-11-16** by `.hermes/plans/2026-11-16_203519-fanfiction-quality-import-and-seed.md`. Owner: darkhold member agent. Ledger row: 407 (estate) / M45-74 (repo).
 Source of truth for the list: `/personal/literature/fanfiction/read.txt` (on thinkcentre; 268 lines, 27 KB, last modified 2026-11-02).
 
 ## Why this exists
@@ -53,21 +53,22 @@ site's work id, the second the rating on a **0–10 scale**, then title and auth
 
 **Measured 2026-11-11** with that rule (`/tmp/parse_read_list.py`, kept beside this doc's plan):
 
-    lines          268
-    matched        218
-    unmatched       50   (19% — not "a handful", which is what this doc claimed before it was run)
-    distinct ids   218   (no duplicate work ids)
+    lines            268
+    matched          218
+    wrapped_title      3   (reported, never guessed)
+    unmatched         47
+    distinct ids     218   (no duplicate work ids)
     rating spread  {10:9, 9:7, 8:36, 7:15, 6:50, 5:18, 4:52, 3:7, 2:21, 1:3}   (sums to 218)
 
-The unmatched 50 are: line 1 (the `calibredb` command itself, which is how the list was produced), line 2 (the header), and blank lines — plus rows
-whose **title wrapped onto the next line**, so the author column falls away from them:
+Measured again 2026-11-16 by the sidecar plan. The unmatched 47 are the command line, the header, blank lines and rows the parser cannot classify.
+Three rows have a **title wrapped onto the next line**, so the author column falls away from them:
 
     line  69: 2398  7    Shut up and Sith: or how I learned to keep calm and UNLIMIT
     line  70:            Gamer Story
 
 So the seeder needs a **wrap-recovery step before parsing**: if a line does not match and the *next* line starts with ≥11 spaces and contains no leading
 integer id, join it to the previous line with a single space and retry. Recoverable rows must be counted separately from truly unmatched ones, because the
-difference between "218 works" and "~235 works" is the size of the seed.
+three wrapped rows are named in the sidecar with `status: wrapped_title` and are never turned into guessed ratings.
 
 The list's own provenance, from line 1 — record it, so the data can be reproduced:
 
@@ -102,44 +103,27 @@ concurrency via `expected_version` (a seeder should not send it).
 **Ledger 406 is therefore closed, not a prerequisite**: the write path exists and the zero ratings were a population fact. Phase 2 below is the whole
 job; the estate brief for it is `~/secondbrain/10-Projects/briefs/darkhold-seed-reading-list.md`.
 
-## Phase 1 — the write path (ledger 406 — ALREADY EXISTS, see the correction above; do not build it)
-
-Deliverable: `POST /works/{id}/rate` (form field `value`), authenticated, which
-
-1. rejects a value outside the works scale, with a typed error the template can render;
-2. inserts or updates one `rating` row per `(account_id, work_id)`, `ON CONFLICT … DO UPDATE`, stamping `updated_at`;
-3. returns the trust-weighted summary for that work, so the caller sees the effect (this is what makes the gate measurable);
-4. is covered by a test that rates twice and asserts one row and a changed value.
-
-Gate for 406: a signed-in person rates a work in under ten seconds and the row lands in `rating` in the same request. Then and only then does Phase 2 run.
-
 ## Phase 2 — the seeder, dry-run first
 
-New CLI subcommand, following the member's existing CLI conventions (`docs/cli-exit-codes.md`):
+New CLI subcommand, following the member's existing CLI conventions (`docs/cli-exit-codes.md` for the exit-code vocabulary):
 
-    darkhold seed read-list --file /personal/literature/fanfiction/read.txt --dry-run
-    darkhold seed read-list --file … --apply --account <operator-id> --scale-divisor 2
+    python3 scripts/read_list_sidecar.py --file /personal/literature/fanfiction/read.txt --out read-list.jsonl
+    darkhold seed read-list --sidecar read-list.jsonl                 # dry-run, writes nothing
+    darkhold seed read-list --sidecar read-list.jsonl --apply --account <id> --pseud <id> --audit audit.jsonl
 
-Behaviour with `--dry-run` (default): parse, match, print a table and an unmatched report, touch no table, exit 0. Exit codes: `0` clean, `2` file
-unreadable, `3` some rows unmatched (with the count on stderr), `4` `--apply` without `--account`.
-
-Matching order, first hit wins, and the chosen strategy is recorded per row:
-
-1. **external id + source** — if the works table stores an AO3/FFN id, exact match (the strong path; 268 rows should mostly land here);
-2. **normalised title + author** — lowercased, punctuation stripped, whitespace collapsed, author compared as a prefix (accounts are often
-   `(Neckbeard_Satan)` style suffixes);
-3. **unmatched** — reported, never invented.
-
-Scale: the list is 0–10, darkhold's own scale is whatever Phase 0 step 2 prints. `--scale-divisor` makes the mapping explicit and testable (0–10 → 0–5 at
-divisor 2, rounding half up). If darkhold's scale is already 0–10, pass 1.
+The Python producer owns text parsing and emits a versioned JSONL sidecar; the Rust command owns every database write. Dry-run is the default,
+`--apply` is required to write, and the audit sidecar records every write. Matching is **exact normalised title only**: `works` has no author column,
+so an author "match" would be a guess about somebody's taste. A title with two hits is reported as `ambiguous`, never chosen.
+Scale is settled in the producer: Calibre's 0–10 rating becomes 1–5 stars (half up), and Calibre 0 is `unmatched` rather than a 1-star rating.
 
 ## Phase 3 — apply, through the service
 
 For each matched row with no existing rating from the seed account:
 
-- call the same service function `POST /works/{id}/rate` calls, with `account = operator`, `value = round(list_rating / divisor)`;
-- write `taste_provenance` with `source = 'seed.read_list'`, the file's mtime, and the source row (`id`, rating) so the row can be traced back and
-  revoked;
+- call `darkhold_db::reading::upsert_rating` — the same function `PUT /works/{id}/rating` calls — with `account`, `pseud`, `work` and 1–5 stars;
+  a rating belongs to a pseud, not merely an account, and `is_public = false` keeps one person's reading history private;
+- append the work id, calibre id, source line, stars and strategy to an **append-only audit sidecar**; there is deliberately no `rating.source`
+  column or `taste_provenance` table — a one-person prior does not justify a two-engine migration, and revocation reads the sidecar;
 - idempotent: a second `--apply` writes zero rows and says so.
 
 Never `INSERT INTO rating` directly. If the service cannot be reached in-process, the seeder fails loudly — a seeder that bypasses the route is a seeder
@@ -159,12 +143,15 @@ Record the row counts before and after in the PR body.
 
     # after --apply
     psql -d darkhold -Atc "select count(*) from rating"                       -- expect ≈ matched rows (not 0)
-    psql -d darkhold -Atc "select count(*) from rating where source='seed.read_list'"  -- expect the same number
+    jq -r '.work_id' audit.jsonl | sort -u                              -- the sidecar is the provenance
     psql -d darkhold -Atc "select count(*) from work_taste_vectors"           -- expect > 0
     psql -d darkhold -Atc "select count(*) from taste_profiles where account_id=<operator>"  -- expect 1, signal count > 150
     python3 /personal/documents/code/estate/scripts/taste_census.py           -- darkhold line must stop reading 0
 
-Plus a test: seed a 3-row fixture twice, assert 3 rows and no duplicates; seed a row whose title matches nothing, assert exit code 3 and an unmatched report. And a parser test over the real file: **218 matched, 50 unmatched, 218 distinct ids** — a regression changes those three numbers.
+Plus a test: seed a 3-row fixture twice, assert 3 rows and no duplicates the second time (`applied 0 skipped_existing 3`). A parser test over the
+real file pins **218 matched, 47 unmatched, 3 wrapped_title, 268 lines**. The acceptance gate is a ranking intersection: after seeding, at least one of
+the operator's top-10 personal recommendations must be a work in the audit sidecar. Zero means the seed did not reach a ranking and a wiring row opens;
+it does not mean a new ranking crate gets built.
 
 ## Phase 6 — what this does and does not buy
 
@@ -176,8 +163,9 @@ Plus a test: seed a 3-row fixture twice, assert 3 rows and no duplicates; seed a
 
 ## Order
 
-1. Ledger 406 write path + test (blocks everything below).
-2. Phase 2 parser + dry-run + unmatched report (no writes; safe to land alone).
-3. Phase 3 apply on a copy of the database, then on live.
-4. Phase 4 rebuild, Phase 5 numbers pasted into the PR.
-5. Re-run `taste_census.py`; update ledger 390 with the new counts; ledger 407 closes on the pasted numbers.
+1. Sidecar producer + parser tests (no database writes; safe to land alone).
+2. CLI shape + exact-title matcher + dry-run report (no writes).
+3. Apply through `upsert_rating` + audit sidecar; prove idempotence on scratch SQLite.
+4. Copy-of-live apply with the fixed accept rule (≥180 exact, ≤20 ambiguous, ≥180 applied), then live apply.
+5. Ranking intersection gate; refresh wiring for crawled metadata; corrected numbers pasted into the PR.
+6. Estate row 407 closes only when the owner accepts the census numbers.
