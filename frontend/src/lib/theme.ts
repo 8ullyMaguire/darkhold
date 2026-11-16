@@ -6,7 +6,7 @@
  * here (to react to changes), so both are kept deliberately small and parallel.
  */
 
-export const THEMES = ['reading-room', 'after-hours', 'clear-day'] as const;
+export const THEMES = ['archive', 'reading-room', 'after-hours', 'clear-day'] as const;
 export type Theme = (typeof THEMES)[number];
 
 /** What the user chose, which may be "follow the system". */
@@ -16,12 +16,13 @@ export const STORAGE_KEY = 'darkhold.theme';
 
 export const THEME_LABELS: Record<ThemePreference, string> = {
   system: 'Match system',
+  archive: 'Archive (dark)',
   'reading-room': 'Reading Room',
   'after-hours': 'After Hours',
   'clear-day': 'Clear Day',
 };
 
-const DARK: Theme = 'after-hours';
+const DARK: Theme = 'archive';
 const LIGHT: Theme = 'reading-room';
 
 /** Whether the value is one of the shipped presets. */

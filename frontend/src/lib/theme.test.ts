@@ -10,7 +10,7 @@ import {
 
 describe('theme resolution', () => {
   it('resolves the system preference to a concrete preset', () => {
-    expect(resolveTheme('system', true)).toBe('after-hours');
+    expect(resolveTheme('system', true)).toBe('archive');
     expect(resolveTheme('system', false)).toBe('reading-room');
   });
 
@@ -20,6 +20,7 @@ describe('theme resolution', () => {
   });
 
   it('recognises only the shipped presets', () => {
+    expect(isTheme('archive')).toBe(true);
     expect(isTheme('reading-room')).toBe(true);
     expect(isTheme('after-hours')).toBe(true);
     expect(isTheme('clear-day')).toBe(true);
@@ -68,6 +69,9 @@ describe('theme resolution', () => {
     applyTheme('clear-day', root);
     expect(root.dataset.theme).toBe('clear-day');
     expect(root.dataset.palette).toBe('clear-day');
+    applyTheme('archive', root);
+    expect(root.dataset.theme).toBe('archive');
+    expect(root.dataset.palette).toBe('archive');
     applyTheme('after-hours', root);
     expect(root.dataset.theme).toBe('after-hours');
     expect(root.dataset.palette).toBe('after-hours');

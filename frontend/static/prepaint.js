@@ -25,7 +25,7 @@
     var resolved =
       !stored || stored === 'system'
         ? prefersDark
-          ? 'after-hours'
+          ? 'archive'
           : 'reading-room'
         : stored;
     document.documentElement.dataset.theme = resolved;

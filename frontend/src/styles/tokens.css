@@ -11,6 +11,7 @@
  * want a dark interface with a warm-paper reading page.
  */
 
+@import '@polaris/ui/palettes/archive.css';
 @import '@polaris/ui/palettes/reading-room.css';
 @import '@polaris/ui/palettes/after-hours.css';
 @import '@polaris/ui/palettes/clear-day.css';
