@@ -1,3 +1,7 @@
+## 2026-11-16 — deploy build killed by earlyoom, mitigated and retried
+
+`estate deploy darkhold` from `b61acbdc`/`5339b7f2` reached `build` and died with exit 101 after 330,944 ms: `rustc --crate-name darkhold_app ... (signal: 15, SIGTERM)`. Diagnosis on the host: `earlyoom -r 3600` active, `available` was ~2.5 GB, and peer builds (suki, concord-cli) plus a 1.8 GB suki import and a 1.6 GB idle ollama model held the host. Per the rustc-SIGTERM procedure I stopped idle `ollama` and dropped caches; `available` rose to 6,967 MB. The named backup `/personal/backups/darkhold-20261116-220834-pre-b61acbdc.dump` was verified independently (`pg_restore -l` → 407 `TABLE DATA`), and a fresh deploy attempt is running as `proc_aa21bd48bb9e`. Owner's removal of the 8 GB gate stays in force: this was mitigation, not a reinstated blocker.
+
 ## 2026-11-16 — M71-07 AdminJobs status mark shipped
 
 `AdminJobs.svelte` now renders every job state through `StatusMark` (`failed` red, `succeeded` green, the rest amber) and the old colour-only `.state` badge/CSS is gone. Evidence: `AdminJobs 4/4 + StatusMark 3/3`, mutant `failed → green` reddened the `red: failed` assertion and was restored from `/tmp`; `gate.sh frontend ok`. Row remains planned for the overview alert bar.
