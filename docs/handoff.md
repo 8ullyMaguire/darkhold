@@ -1,3 +1,7 @@
+## 2026-11-16 — search results as a document
+
+**M71-20 search slice:** anonymous `GET /search?q=…` now renders a script-free document with a real GET form and the same `search_works_ast_scoped` hits the JSON door returns, as Archive rows with work links, byline, words, points and status. Signed-in readers keep the SPA shell (ADR 0006) because save-search and shelf actions belong to the application; the mutant on that branch reddened the signed-in test. Evidence: `search_page` 3/3 SQLite + 3/3 PostgreSQL, `route_inventory` 6/6 after the new public route row, app search suites 42/42. Row stays `planned` for author/collection/series pages and the remaining Svelte-route deletions. Not deployed: live is still `0.1.0+00edcf34` (host block below).
+
 ## 2026-11-16 — reader controls; full gate stopped at fmt, now rerunning
 
 **M71-08 no-JS bar** (`e62780b7`): the server-rendered reader now opens with `nav[aria-label="Reading controls"]` carrying Work, Contents (when a TOC exists), the server-worded position ("No saved place" / "Saved place: 42%" / "from an older revision") and real Previous/Next links. Evidence: `reader_page` 7/7; the nav test asserts the label, the honest no-place sentence and no `<script`; mutant "Saved place: 0%" reddened the honest-position assertion. Row stays `planned` for auto-hide, bookmark, in-work search and typography provenance/reset levels.

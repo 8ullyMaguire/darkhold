@@ -6818,6 +6818,15 @@ pub const ROUTE_TABLE: &[RouteEntry] = &[
         path: "/works/{id}",
         audience: Audience::Public,
     },
+    // ADR 0006 / M71-20: search results as a document. Public audience because the page exists for the reader with no
+    // session; the handler hands a signed-in reader the same SPA shell the work page does.
+    RouteEntry {
+        file: "search_page.rs",
+        handler: "search_page",
+        method: "GET",
+        path: "/search",
+        audience: Audience::Public,
+    },
     // W6 §7.5a, merged from the thinkcentre line: the ATProto feed skeleton an AppView asks for by feed URI. The
     // handler takes no session extractor, so the door is public — a skeleton is a list of post references, and the
     // records behind them are public by the nature of ATProto.

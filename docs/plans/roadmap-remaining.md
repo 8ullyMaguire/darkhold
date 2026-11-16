@@ -4,6 +4,14 @@
 reason for that order, so a later session does not have to re-derive it. The ledger stays the source of truth: a row
 moves when `scripts/ledger.py upsert` says so, not when this file says so.
 
+## M71-20 search results document — census, 2026-11-16
+
+**Census (read-only pass over `~/code-local/rust` and `~/code/rust`):** REUSE `routes/document.rs`'s script-free shell, `work_page`'s anonymous-document/signed-in-SPA split, the existing `/api/v1/search` engine `search_works_ast_scoped`, `SearchResult`, and `WorkRow`'s title→byline→metrics→status order; ADAPT `server.rs`'s document-route mount and `routes/inventory.rs` with one new public route; BUILD `routes/search_page.rs` only — no other module serves a no-JS result list built from the same query the JSON door uses. Non-goals: no new query grammar, no new DB table, no removal of the SPA search route (signed-in readers keep it per ADR 0006), no client-side facet/histogram behaviour on the document.
+
+**Decision:** the document is anonymous by design and takes the query from `?q=`. A signed-in reader is handed the SPA shell exactly as on `/works/{id}`, because save-search/add-to-shelf actions belong to the application. The document caps at 50 hits and says so rather than inventing a total. The SPA route stays: ADR 0006 keeps the application for members, so "delete the Svelte route" applies only to pages fully replaced by documents.
+
+**Shipped (search slice).** `routes/search_page.rs` renders a script-free GET form and the JSON door's hits as Archive rows, with title→work link, byline, words, points and a status word. Evidence: `search_page` 3/3 SQLite and 3/3 PostgreSQL; `route_inventory` 6/6 after the new public `/search` row; app search suites 42/42; mutant on the session split reddened the signed-in test. Row stays `planned` for author, collection and series pages and the final Svelte-route deletions.
+
 ## M71-08 reader bar — no-JS slice shipped, 2026-11-16
 
 **Census:** REUSE the server-rendered reader, its TOC, `position`/`stale_position` and the existing typography form; ADAPT `render_page` with a `nav[aria-label="Reading controls"]`; BUILD nothing. Non-goals: no scroll-hiding script, no bookmark or in-work search yet, no client-side percentage.

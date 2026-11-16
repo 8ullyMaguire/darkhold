@@ -1491,6 +1491,15 @@ pub fn build_router(state: AppState) -> Router {
                 auth::load_session,
             )),
         )
+        // Search results as a document (ADR 0006, M71-20): an anonymous reader gets the same hits the JSON door
+        // returns as HTML before script; a signed-in reader is handed the SPA by the handler. Registered before the
+        // fallback so the document is what a crawler and a link preview see.
+        .merge(
+            routes::search_page::router().layer(middleware::from_fn_with_state(
+                state.clone(),
+                auth::load_session,
+            )),
+        )
         // A tag's page (ADR 0006, M71-20): the archive's second door, and the one a search result or a shared link
         // arrives at. Its listing comes from a query that already filters to published public works.
         .merge(routes::tag_page::router())
