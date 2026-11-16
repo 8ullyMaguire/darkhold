@@ -76,7 +76,7 @@
   .critique-queue {
     margin: 1rem 0;
     padding: 0.75rem;
-    border: 1px solid var(--border, #ddd);
+    border: 1px solid var(--row-rule);
     border-radius: 0.5rem;
   }
   ol {
@@ -93,11 +93,11 @@
     margin-right: 0.5rem;
   }
   .work {
-    color: var(--text-muted, #666);
+    color: var(--text-muted);
     font-style: italic;
   }
   .error {
-    color: var(--error, #c00);
+    color: var(--status-danger);
     font-size: 0.875rem;
   }
 </style>

@@ -77,7 +77,7 @@
     margin: 1rem 0;
   }
   fieldset {
-    border: 1px solid var(--border, #ccc);
+    border: 1px solid var(--row-rule);
     border-radius: 0.5rem;
     padding: 0.75rem;
   }
@@ -101,7 +101,7 @@
     font-size: 0.9rem;
   }
   .receipt {
-    color: var(--ok, #2a7a2a);
+    color: var(--status-success);
     margin-left: 0.5rem;
   }
 </style>

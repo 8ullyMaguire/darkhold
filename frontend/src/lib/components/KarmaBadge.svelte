@@ -53,13 +53,13 @@
     gap: 0.25rem;
     padding: 0.2rem 0.5rem;
     border-radius: 999px;
-    background: var(--surface-muted, #f5f5f5);
-    color: var(--text, #222);
+    background: var(--surface-muted);
+    color: var(--text-1);
     font-size: 0.875rem;
     font-variant-numeric: tabular-nums;
   }
   .star {
-    color: var(--accent, #4a90d9);
+    color: var(--accent);
     font-size: 0.9em;
   }
   .score {
@@ -69,7 +69,7 @@
     opacity: 0.5;
   }
   .error {
-    color: var(--danger, #b00020);
-    background: var(--danger-subtle, #fce8e8);
+    color: var(--status-danger);
+    background: var(--danger-subtle);
   }
 </style>

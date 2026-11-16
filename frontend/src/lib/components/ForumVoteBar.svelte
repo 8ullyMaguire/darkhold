@@ -176,29 +176,29 @@
     align-items: center;
     gap: 0.4rem;
     padding: 0.3rem 0.7rem;
-    border: 1px solid var(--border, #ccc);
+    border: 1px solid var(--row-rule);
     border-radius: 999px;
-    background: var(--surface, #fff);
-    color: var(--text, #222);
+    background: var(--surface-1);
+    color: var(--text-1);
     font-size: 0.875rem;
     cursor: pointer;
     transition: border-color 0.15s, background 0.15s;
   }
   .vote-btn:hover:not(:disabled) {
-    border-color: var(--accent, #4a90d9);
+    border-color: var(--accent);
   }
   .vote-btn:disabled {
     opacity: 0.5;
     cursor: not-allowed;
   }
   .vote-btn.pressed {
-    border-color: var(--accent, #4a90d9);
-    background: var(--accent-subtle, #e8f0fe);
+    border-color: var(--accent);
+    background: var(--accent-subtle);
     font-weight: 500;
   }
   .vote-btn.negative.pressed {
-    border-color: var(--danger, #b00020);
-    background: var(--danger-subtle, #fce8e8);
+    border-color: var(--status-danger);
+    background: var(--danger-subtle);
   }
   .label {
     white-space: nowrap;
@@ -211,7 +211,7 @@
   }
   .totals {
     font-size: 0.8rem;
-    color: var(--text-muted, #666);
+    color: var(--text-muted);
     margin: 0.25rem 0;
   }
   .budget-badge {
@@ -219,17 +219,17 @@
     font-size: 0.75rem;
     padding: 0.2rem 0.5rem;
     border-radius: 999px;
-    background: var(--surface-muted, #f5f5f5);
-    color: var(--text-muted, #666);
+    background: var(--surface-muted);
+    color: var(--text-muted);
     margin-top: 0.25rem;
   }
   .budget-badge.low {
-    color: var(--warning, #b07d00);
-    background: var(--warning-subtle, #fff8e0);
+    color: var(--status-warning);
+    background: var(--warning-subtle);
   }
   .budget-badge.exhausted {
-    color: var(--danger, #b00020);
-    background: var(--danger-subtle, #fce8e8);
+    color: var(--status-danger);
+    background: var(--danger-subtle);
   }
   .who-voted {
     font-size: 0.8rem;
@@ -237,7 +237,7 @@
   }
   .who-voted summary {
     cursor: pointer;
-    color: var(--text-muted, #666);
+    color: var(--text-muted);
   }
   .who-voted ul {
     margin: 0.25rem 0 0;
@@ -245,6 +245,6 @@
   }
   .signin-note {
     font-size: 0.8rem;
-    color: var(--text-muted, #666);
+    color: var(--text-muted);
   }
 </style>

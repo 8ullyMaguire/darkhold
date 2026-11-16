@@ -84,8 +84,8 @@
     min-width: 1.05rem;
     padding: 0 0.25rem;
     border-radius: 999px;
-    background: var(--accent, #b4453c);
-    color: var(--color-accent-contrast, #fff);
+    background: var(--accent);
+    color: var(--text-inverse);
     font-size: 0.7rem;
     line-height: 1.05rem;
     text-align: center;
@@ -97,6 +97,6 @@
     width: 0.35rem;
     height: 0.35rem;
     border-radius: 999px;
-    background: #3f9d5a;
+    background: var(--status-success);
   }
 </style>

@@ -188,7 +188,7 @@
 
 <style>
   .preread {
-    border: 1px solid var(--border, #d4d4d8);
+    border: 1px solid var(--row-rule);
     border-radius: 8px;
     padding: 1rem;
     display: flex;
@@ -199,8 +199,8 @@
   /* The limitation is styled as a warning and sits above the numbers, because a partial
      report read at a glance is a full one. */
   .partial {
-    color: var(--warning-fg, #92400e);
-    background: var(--warning-bg, #fef3c7);
+    color: var(--status-warning);
+    background: var(--warning-subtle);
     border-radius: 6px;
     padding: 0.5rem 0.75rem;
     margin: 0;
@@ -237,7 +237,7 @@
   .missing-reason,
   .hint,
   .empty {
-    color: var(--fg-muted, #52525b);
+    color: var(--text-3);
     font-size: 0.9em;
   }
 

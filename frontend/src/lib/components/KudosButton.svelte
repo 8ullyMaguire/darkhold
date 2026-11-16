@@ -63,7 +63,7 @@
 
 <style>
   .kudos-error {
-    color: var(--color-danger, #b91c1c);
+    color: var(--status-danger);
     font-size: var(--text-xs, 0.75rem);
     margin: var(--space-1, 0.25rem) 0 0;
   }

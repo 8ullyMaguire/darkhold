@@ -69,7 +69,7 @@
     gap: 0.5rem;
   }
   .mode-picker {
-    border: 1px solid var(--border, #ccc);
+    border: 1px solid var(--row-rule);
     border-radius: 4px;
     padding: 0.5rem;
   }
@@ -86,6 +86,6 @@
     font-size: 0.875rem;
   }
   .error {
-    color: var(--danger, #b00020);
+    color: var(--status-danger);
   }
 </style>

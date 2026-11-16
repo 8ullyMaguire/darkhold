@@ -149,9 +149,9 @@
   .moderation-panel {
     margin: 1rem 0;
     padding: 1rem;
-    border: 1px solid var(--border, #ddd);
+    border: 1px solid var(--row-rule);
     border-radius: 0.5rem;
-    background: var(--surface-muted, #f9f9f9);
+    background: var(--surface-muted);
   }
   .control {
     margin-bottom: 0.75rem;
@@ -167,11 +167,11 @@
     padding: 0.25rem;
   }
   .receipt {
-    color: var(--ok, #2a7a2a);
+    color: var(--status-success);
     font-size: 0.875rem;
   }
   .error {
-    color: var(--error, #c00);
+    color: var(--status-danger);
     font-size: 0.875rem;
   }
 </style>

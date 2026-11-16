@@ -102,7 +102,7 @@
     margin-top: 1rem;
   }
   .spoiler-warning {
-    background: var(--accent-bg, #eef);
+    background: var(--accent-bg);
     padding: 0.5rem;
     border-radius: 0.25rem;
     font-size: 0.875rem;
@@ -117,10 +117,10 @@
     gap: 0.5rem;
     align-items: center;
     padding: 0.5rem;
-    border: 1px solid var(--border, #ddd);
+    border: 1px solid var(--row-rule);
     border-radius: 0.25rem;
   }
   .error {
-    color: var(--danger, #b00020);
+    color: var(--status-danger);
   }
 </style>

@@ -136,7 +136,7 @@
   }
 
   .error {
-    color: var(--color-danger, #b00020);
+    color: var(--status-danger);
     font-size: var(--text-sm);
   }
 </style>

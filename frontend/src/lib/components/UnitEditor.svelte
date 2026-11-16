@@ -470,7 +470,7 @@
 
   .state-conflict,
   .state-error {
-    color: var(--color-danger, #a33);
+    color: var(--status-danger);
   }
 
   .state-saved {

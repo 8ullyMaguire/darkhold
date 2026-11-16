@@ -103,7 +103,7 @@
     max-width: 40rem;
   }
   .lede {
-    color: var(--text-muted, #666);
+    color: var(--text-muted);
     margin-bottom: 1rem;
   }
   table {
@@ -114,13 +114,13 @@
   td {
     padding: 0.5rem;
     text-align: left;
-    border-bottom: 1px solid var(--border, #ddd);
+    border-bottom: 1px solid var(--row-rule);
   }
   th {
     font-weight: 600;
   }
   .error {
-    color: var(--error, #c00);
+    color: var(--status-danger);
     font-size: 0.875rem;
   }
 </style>

@@ -154,7 +154,7 @@
     box-sizing: border-box;
     padding: 0.6rem 0.75rem;
     font: inherit;
-    border: 1px solid var(--border, #ccc);
+    border: 1px solid var(--row-rule);
     border-radius: 6px;
     margin-bottom: 0.75rem;
   }
@@ -180,28 +180,28 @@
   }
   li.result button,
   li button:hover {
-    background: var(--surface-2, #eee);
+    background: var(--surface-2);
   }
   .title {
     font-weight: 600;
   }
   .summary {
-    color: var(--text-2, #666);
+    color: var(--text-2);
     font-size: 0.85rem;
   }
   .estate-heading {
-    color: var(--text-2, #666);
+    color: var(--text-2);
     font-size: 0.75rem;
     text-transform: uppercase;
     letter-spacing: 0.04em;
     margin: 0.75rem 0 0.25rem;
   }
   .no-results {
-    color: var(--text-2, #666);
+    color: var(--text-2);
     padding: 0.5rem 0;
   }
   .hint {
-    color: var(--text-2, #666);
+    color: var(--text-2);
     font-size: 0.75rem;
     margin: 0.5rem 0 0;
     text-align: center;

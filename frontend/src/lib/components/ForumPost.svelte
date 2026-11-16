@@ -94,12 +94,12 @@
   .post {
     margin-bottom: 1rem;
     padding: 0.75rem;
-    border: 1px solid var(--border, #ddd);
+    border: 1px solid var(--row-rule);
     border-radius: 0.5rem;
   }
   .post-meta {
     font-size: 0.875rem;
-    color: var(--text-muted, #666);
+    color: var(--text-muted);
     margin-bottom: 0.5rem;
   }
   .author {
@@ -107,13 +107,13 @@
     margin-right: 0.5rem;
   }
   .warning-error {
-    color: var(--danger, #b91c1c);
+    color: var(--status-danger);
     font-size: 0.875rem;
     margin: 0 0 0.75rem;
   }
   .spoiler-zone {
     padding: 1rem;
-    background: var(--surface-muted, #f5f5f5);
+    background: var(--surface-muted);
     border-radius: 0.5rem;
     text-align: center;
     margin-bottom: 0.5rem;
@@ -121,9 +121,9 @@
   .reveal-btn {
     cursor: pointer;
     padding: 0.5rem 1rem;
-    border: 1px solid var(--border, #ddd);
+    border: 1px solid var(--row-rule);
     border-radius: 0.25rem;
-    background: var(--accent-bg, #eef);
+    background: var(--accent-bg);
   }
   .post-body {
     line-height: 1.6;

@@ -273,7 +273,7 @@
   }
 
   .error {
-    color: var(--color-danger, #b91c1c);
+    color: var(--status-danger);
     font-size: var(--text-xs);
     margin: 0;
   }
