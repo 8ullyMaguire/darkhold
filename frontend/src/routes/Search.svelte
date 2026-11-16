@@ -9,6 +9,7 @@
   } from '../lib/api';
   import Combobox from '../lib/components/Combobox.svelte';
   import EmptyState from '../lib/components/EmptyState.svelte';
+  import FacetPanel from '../lib/components/FacetPanel.svelte';
   import ErrorSummary from '../lib/components/ErrorSummary.svelte';
   import Skeleton from '../lib/components/Skeleton.svelte';
   import { WorkBlurb } from '@polaris/ui';
@@ -229,6 +230,35 @@
     }
   }
 
+  /**
+   * M71-11: a facet click becomes a term in the same query language the search box uses. No second filter model.
+   * `cadence` has no grammar token here, so it stays a count in the panel and the component gives it no button.
+   */
+  function facetTerm(facet: string, key: string, label: string): string | null {
+    switch (facet) {
+      case 'length':
+        if (key === 'under_1k') return 'words:<=999';
+        if (key === '1k_5k') return 'words:1000..4999';
+        if (key === '5k_20k') return 'words:5000..19999';
+        if (key === 'over_20k') return 'words:>=20000';
+        return null;
+      case 'status':
+        return `status:"${key}"`;
+      case 'rating':
+        return `rating:"${label}"`;
+      default:
+        return null;
+    }
+  }
+
+  function onFacetSelect(facet: string, key: string) {
+    const label = results?.facets?.find((group) => group.facet === facet)?.buckets.find((b) => b.key === key)?.label ?? key;
+    const term = facetTerm(facet, key, label);
+    if (!term || query.includes(term)) return;
+    query = query.trim() ? `${query.trim()} AND ${term}` : term;
+    void runSearch();
+  }
+
   function onSubmit(e: Event) {
     e.preventDefault();
     if (debounceTimer) clearTimeout(debounceTimer);
@@ -352,6 +382,17 @@
       {/if}
     </div>
   </fieldset>
+
+  {#if results?.facets && results.facets.length > 0}
+    <FacetPanel
+      facets={results.facets}
+      pending={loading}
+      facetsOver={results.facets_over ?? ''}
+      ageMs={results.facets_computed_at_ms_ago ?? 0}
+      selectable={['length', 'status', 'rating']}
+      onselect={onFacetSelect}
+    />
+  {/if}
 
   {#if error}
     <ErrorSummary {error} onretry={runSearch} />

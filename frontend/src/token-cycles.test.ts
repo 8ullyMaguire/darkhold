@@ -13,11 +13,12 @@
  */
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
-import { dirname, join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 
-const here = dirname(fileURLToPath(import.meta.url));
-const SOURCE = readFileSync(join(here, 'styles', 'tokens.css'), 'utf8');
+// `node:path` is not in this tsconfig's DOM lib; the file URL is already a POSIX path on every host this gate runs on.
+const sourceFile = fileURLToPath(import.meta.url);
+const here = sourceFile.slice(0, sourceFile.lastIndexOf('/'));
+const SOURCE = readFileSync(`${here}/styles/tokens.css`, 'utf8');
 /** Comments explain the cycles, so they must not be mistaken for them: strip `/* … *\/` before reading declarations. */
 const TOKENS = SOURCE.replace(/\/\*[\s\S]*?\*\//g, '');
 

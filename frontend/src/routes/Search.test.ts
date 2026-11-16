@@ -251,3 +251,31 @@ describe('Search page history', () => {
     await waitFor(() => expect(fetchSearchHistory.mock.calls.length).toBeGreaterThan(1));
   });
 });
+
+describe('M71-11 facet counts on the search page', () => {
+  it('renders the server counts and turns a facet click into a query term', async () => {
+    searchWorks.mockResolvedValue({
+      items: [],
+      facets: [
+        {
+          facet: 'length',
+          buckets: [{ key: 'under_1k', label: 'Under 1,000 words', count: 7 }],
+          known: 7,
+          unknown: 0,
+        },
+      ],
+      facets_over: 'the catalogue under the word window',
+      facets_computed_at_ms_ago: 1200,
+    });
+    render(Search);
+    await fireEvent.input(screen.getByPlaceholderText(/fandom:/), { target: { value: 'story' } });
+    await fireEvent.click(screen.getByRole('button', { name: 'Search' }));
+
+    expect(await screen.findByLabelText('Facet counts')).toBeInTheDocument();
+    expect(screen.getByText('the catalogue under the word window')).toBeInTheDocument();
+    expect(screen.getByText('7')).toBeInTheDocument();
+
+    await fireEvent.click(screen.getByText('Under 1,000 words'));
+    await waitFor(() => expect(searchWorks.mock.calls[1][0]).toContain('words:<=999'));
+  });
+});

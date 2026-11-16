@@ -1,3 +1,9 @@
+## 2026-11-16 — M71-11 closed: facet counts reach the reader, 38 planned
+
+Four previously-red gate suites rerun together this turn: `m65_module_host` 8/8, `milestone_18` 7/7, `milestone_38` 16/16, `orphan_queries` 2/2. The `milestone_38` failure from the earlier sweep did not reproduce, so it is closed as a transient with that output rather than left vague.
+
+M71-11's remaining half is built: `FacetPanel.svelte` renders the server's four facet groups from the search response with measured counts, an em dash while a search is in flight, the set the counts describe and their age. `Search.svelte` wires it in and maps clicks to query-language terms; cadence stays a non-clickable count because no grammar token exists. Evidence: vitest 25/25 across the component and page suites, `svelte-check` 0 errors, mutant proved the em-dash assertion, `token-cycles` 3/3 after removing an unresolvable `node:path` import. Row closed at `38 planned`. Not redeployed: the SPA change is in the tree but the host memory block still stands.
+
 ## 2026-11-16 — gate failures after the catalogue regen, fixed at the assertion
 
 The first full `gate.sh all` of the day found four red suites. Two were our own maintenance debt and two were inherited:

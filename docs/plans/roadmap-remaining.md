@@ -4,6 +4,18 @@
 reason for that order, so a later session does not have to re-derive it. The ledger stays the source of truth: a row
 moves when `scripts/ledger.py upsert` says so, not when this file says so.
 
+## M71-11 UI half — built and closed, 2026-11-16
+
+The API half is shipped: `/api/v1/search` already carries `facets` (four groups, each `{facet, buckets:[{key,label,count}], known, unknown, when_unknown}`), `facets_over` and `facets_computed_at_ms_ago`; the server memoises the scan for a minute. What is missing is the reader-facing half named in the ledger: per-group rendering and an explicit pending state while a new search is in flight.
+
+**Census:** REUSE the search response (no second fetch for counts the page already has) and the existing `FieldBinding`/button vocabulary; ADAPT `Search.svelte`'s filter state so a facet click becomes the query language's own token rather than a second filter model; BUILD only one small `FacetPanel.svelte` — `grep -rl 'facets' frontend/src` finds no facet renderer anywhere in the SPA, so there is nothing to adopt. Non-goal: the histogram control belongs to M71-12, and this panel does not draw one.
+
+**Decision:** a pending count renders as an em dash (`—`), never `0`: zero is a measurement and the row exists because an unmeasured count must not look like one. The panel states the set the counts describe (`facets_over`) and their age, because both are in the response and both change how the number should be read.
+
+**Shipped.** `FacetPanel.svelte` renders the four groups from the search response; `Search.svelte` passes `pending={loading}`, the set and the age, and turns a click into one query-language term (`words:` bands, `status:"x"`, `rating:"Label"`). Cadence has no grammar token, so it is a non-clickable count — a button there would promise a filter that does not exist. No second fetch and no second filter model.
+
+**Evidence:** `vitest FacetPanel 3/3 + Search 22/22` (the new Search case proves the panel is actually mounted and that a click appends `words:<=999`), `svelte-check 0 errors`, `token-cycles 3/3`. Mutant: render the raw count while pending → the pending test failed on the missing em dash; restored from `/tmp`. Also this turn, the four previously-red gate suites rerun together green: 8/8, 7/7, 16/16, 2/2. Live SPA not redeployed — the host memory block still applies, so this reader-visible half is in the tree and tested but not on the site.
+
 ## M63-22 built and closed — `dh admin explain-rec`, 2026-11-16
 
 `GET /admin/discovery/explain-rec?account=…&work=…` is the microscope: for one account and one work it prints every registered strategy's `produced`, 1-based `rank` and RRF `rrf`, the work's blended position, and its feature vector (words, chapters, kudos, hits, bookmarks, comments, rating, completion, published_at, age_days, tags). The cap is **200 works** and is stated in the response; a work below it is `null` rather than silently absent. A strategy that never returned the work reports `rank: null, rrf: null` — never a zero that would say it weighed the work and found it worthless.

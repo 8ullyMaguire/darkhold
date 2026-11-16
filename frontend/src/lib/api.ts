@@ -1778,9 +1778,30 @@ export interface SearchResult {
   score: number;
 }
 
+/** One named value under the current filter set (M71-11). */
+export interface FacetBucketView {
+  key: string;
+  label: string;
+  count: number;
+}
+
+/** One group of facet counts, with the unmeasured rows stated rather than folded into a bucket. */
+export interface FacetGroupView {
+  facet: string;
+  buckets: FacetBucketView[];
+  known: number;
+  unknown: number;
+  when_unknown?: string | null;
+}
+
 /** The search result envelope. */
 export interface SearchResultList {
   items: SearchResult[];
+  facets?: FacetGroupView[];
+  /** Which set the counts describe — not the page of hits. */
+  facets_over?: string;
+  facets_computed_at_ms_ago?: number;
+  state?: { query: string; chips: unknown[]; unexpressed_note?: string | null };
 }
 
 /** Search works using the AST query language. */
