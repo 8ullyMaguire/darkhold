@@ -64,32 +64,9 @@ async fn search_works_ast_impl(
     scope: &SearchFilters,
 ) -> Result<Vec<SearchResult>> {
     let (sql, texts, numbers) = prepared(db, query, viewer_id, rules, scope)?;
-    let rows: Vec<(
-        String,
-        String,
-        String,
-        i64,
-        i64,
-        String,
-        String,
-        String,
-        String,
-    )> = match db.backend() {
+    let rows: Vec<SearchRow> = match db.backend() {
         Backend::Sqlite => {
-            let mut q = sqlx::query_as::<
-                _,
-                (
-                    String,
-                    String,
-                    String,
-                    i64,
-                    i64,
-                    String,
-                    String,
-                    String,
-                    String,
-                ),
-            >(&sql);
+            let mut q = sqlx::query_as::<_, SearchRow>(&sql);
             for b in &texts {
                 q = q.bind(b.as_str());
             }
@@ -101,20 +78,7 @@ async fn search_works_ast_impl(
                 .await?
         }
         Backend::Postgres => {
-            let mut q = sqlx::query_as::<
-                _,
-                (
-                    String,
-                    String,
-                    String,
-                    i64,
-                    i64,
-                    String,
-                    String,
-                    String,
-                    String,
-                ),
-            >(&sql);
+            let mut q = sqlx::query_as::<_, SearchRow>(&sql);
             for b in &texts {
                 q = q.bind(b.as_str());
             }
@@ -171,6 +135,21 @@ fn status_word(lifecycle: &str, visibility: &str) -> String {
     }
     .to_string()
 }
+
+/// The AST statement's row, in SELECT order. A tuple rather than a `FromRow` struct because the
+/// columns are already named once in the SQL and the outer `SELECT *` makes the order the contract.
+#[allow(clippy::type_complexity)]
+type SearchRow = (
+    String,
+    String,
+    String,
+    i64,
+    i64,
+    String,
+    String,
+    String,
+    String,
+);
 
 /// The statement a search would run, and the string binds it would bind, in bind order.
 ///
