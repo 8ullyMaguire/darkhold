@@ -1,3 +1,13 @@
+## 2026-11-16 — gate failures after the catalogue regen, fixed at the assertion
+
+The first full `gate.sh all` of the day found four red suites. Two were our own maintenance debt and two were inherited:
+`m65_module_host` pinned `M63-22` as an open idea after the generator correctly retired it; `orphan_queries` failed because
+`scripts/orphan-queries.py` stamped today's date into a checked-in baseline (27 orphans unchanged — the date was the only
+diff); `milestone_18` pinned one exact Atom root tag while the sibling `commons-feed` now emits `xml:lang` — it now asserts
+the namespace, not the spelling; `milestone_38::bulk_export_max_bytes_enforced` printed `left: 1073741824, right: 524288000`
+in the sweep but passes 1/1 on a targeted rerun with no code change, so it is recorded as a transient until the rerun of the
+whole gate says otherwise. Fixes committed in `3cd1e62d`; the sample swap was `3d5ebeee`. Full gate rerun in progress.
+
 ## 2026-11-16 — §1 checks 2 and 3 closed; 39 planned, 0 unlinked, 50 deferred
 
 **Decision recorded in `docs/backlog/concord-deferred.tsv`:** the 50 unlinked Concord cards are not requirements
