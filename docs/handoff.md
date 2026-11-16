@@ -8,6 +8,8 @@ Accessibility contract extended in `82d8b379`: the Playwright suite is now 7/7, 
 
 Search now draws its hits as Archive rows (`48fa603e`), and the reader bar's first CSS used two undefined custom properties; `tokens.test.ts` caught them and `2df5f454` renamed them to `--reader-rule`/`--reader-muted`. `gate.sh frontend` is green again after the fix.
 
+The third full gate completed every stage and 514 test targets, then exited **101** on exactly two targets. `milestone_38` failed only under the parallel sweep because `Config::parse_from_str` named its scratch directory with `SystemTime::now().as_nanos()`; two threads can read the same nanosecond and assert each other's config. `94f278a4` names it with a process-local atomic and the test binary passed 20 consecutive runs at 16 threads. `ideas_match_requirements` then caught four idea rows still describing M71-09/11/12/15, which the ledger already marks implemented; `f1168ad3` regenerates the catalogue and the test is 3/3. A fourth full gate (`gate-all-d.log`) is running against both fixes.
+
 ## 2026-11-16 — PWA, settings provenance, admin status: three more slices, 35 planned
 
 **PWA** (`e1861963`): real 192/512/maskable icons and a manifest with shortcuts and `/import` share target; `manifest.test.mjs` checks the files exist and the destinations are routes. `registerPwa()` owns install/update: no install affordance until `beforeinstallprompt`, no update affordance until a controller exists, and no reload until the reader accepts. The worker handles `skip-waiting`. Evidence: manifest test green, `pwa 3/3`, `node --check service-worker.js`, `gate.sh frontend ok`; mutant unconditional reload reddened the first-install test.
