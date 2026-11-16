@@ -4568,6 +4568,15 @@ pub const ROUTE_TABLE: &[RouteEntry] = &[
         path: "/admin/discovery/leakage",
         audience: Audience::AdminOf { site: None },
     },
+    // M63-22: the handler takes a session and then `require_admin_of(..., None)`, so only an estate claim opens it.
+    // The selectors are query parameters, not path segments — the table names the mounted path only.
+    RouteEntry {
+        file: "admin_discovery.rs",
+        handler: "explain_rec_route",
+        method: "GET",
+        path: "/admin/discovery/explain-rec",
+        audience: Audience::Operator,
+    },
     // §53's faucet/sink view. `Operator`, like the leakage view beside it, and for the
     // same reason: the route itself is `RequireSession` and calls `require_operator`
     // inside, so a non-operator gets 404 rather than a 403 that would confirm the

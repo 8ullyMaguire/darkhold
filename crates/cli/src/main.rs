@@ -16,6 +16,7 @@
 //! found, `4` auth, `5` rate-limited — defined once in [`exit`] and documented in
 //! `docs/cli-exit-codes.md`, because a wrapper script decides what to do from that number alone.
 
+mod admin;
 mod bench;
 mod cron;
 mod doctor;
@@ -162,6 +163,11 @@ pub enum Command {
     /// a token that carries `library.read`. It does not run `systemctl`; it prints the two
     /// commands. `--dry-run` prints the units and writes nothing.
     Cron(CronArgs),
+    /// Operator-only diagnostics: `explain-rec` projects one work through every strategy.
+    Admin {
+        #[command(subcommand)]
+        action: admin::AdminAction,
+    },
     /// §59: what this instance runs, and what it could. `list` and `show` read the
     /// server; `check` validates a config file without one.
     Module {
@@ -331,6 +337,20 @@ async fn main() -> std::process::ExitCode {
             }
         },
         Command::Supply { action } => match supply::run(&cli, action).await {
+            Ok(()) => std::process::ExitCode::SUCCESS,
+            Err(error) => {
+                eprintln!("{error}");
+                std::process::ExitCode::from(error.code)
+            }
+        },
+        Command::Admin { action } => match admin::run(
+            &cli,
+            admin::AdminArgs {
+                action: action.clone(),
+            },
+        )
+        .await
+        {
             Ok(()) => std::process::ExitCode::SUCCESS,
             Err(error) => {
                 eprintln!("{error}");

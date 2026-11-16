@@ -1,6 +1,6 @@
 # M63-22 — `dh admin explain-rec <work>`, the operator's microscope
 
-Status: **plan, not built.** Written 2026-11-12 after the census, while a workspace test run held the box.
+Status: **built 2026-11-16.** The file names below were a proposal; the route landed in the existing `admin_discovery.rs` (there was no `discovery_admin.rs` in this tree) and the query-string selectors replaced the two-id path. See the decision record in `roadmap-remaining.md`.
 
 ## Problem
 

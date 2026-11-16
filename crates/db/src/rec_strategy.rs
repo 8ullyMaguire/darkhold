@@ -60,6 +60,56 @@ pub struct RecRunReport {
     pub per_strategy: Vec<StrategyContribution>,
 }
 
+/// Where one work sits in a run, strategy by strategy (M63-22).
+///
+/// `None` means the strategy never returned the work. It must not be reported as a zero score: a zero says the
+/// strategy weighed the work and found it worthless, while the truth is that it never looked.
+#[derive(Debug, Clone, PartialEq)]
+pub struct WorkInStrategy {
+    pub name: String,
+    pub produced: usize,
+    pub rank: Option<usize>,
+    pub rrf: Option<f64>,
+}
+
+/// The operator's projection of one work through one registry run.
+#[derive(Debug, Clone, PartialEq)]
+pub struct WorkExplanation {
+    pub blended_position: Option<usize>,
+    pub strategies: Vec<WorkInStrategy>,
+}
+
+/// Project one work out of a trace without touching the database.
+///
+/// Pure on purpose: the numbers are the run's own, so an operator looking at this table sees exactly what the blend
+/// used, and the projection can be mutated in a unit test without a fixture.
+#[must_use]
+pub fn explain_work(report: &RecRunReport, work: &str) -> WorkExplanation {
+    WorkExplanation {
+        blended_position: report
+            .blended
+            .iter()
+            .position(|candidate| candidate == work)
+            .map(|index| index + 1),
+        strategies: report
+            .per_strategy
+            .iter()
+            .map(|contribution| {
+                let hit = contribution
+                    .ranked
+                    .iter()
+                    .position(|(candidate, _)| candidate == work);
+                WorkInStrategy {
+                    name: contribution.name.clone(),
+                    produced: contribution.produced,
+                    rank: hit.map(|index| index + 1),
+                    rrf: hit.map(|index| contribution.ranked[index].1),
+                }
+            })
+            .collect(),
+    }
+}
+
 /// Registry of recommendation strategies with RRF blending.
 ///
 /// `Clone` because a reader's stored preference (spec §16.1b) narrows the
@@ -874,5 +924,150 @@ mod tests {
         });
         let reg = RecRegistry::build_from_document(60.0, &doc, &factories);
         assert!(reg.strategies.is_empty());
+    }
+}
+
+/// The work half of an explanation: the signals a ranking would see (M63-22).
+///
+/// Read from the same tables the strategies read, so an operator who sees `words = 0` knows the ranking saw zero too.
+/// Every count is a `COALESCE`: a work with no metric row has no kudos, not an unknown number of them.
+#[derive(Debug, Clone, PartialEq)]
+pub struct WorkFeatures {
+    pub words: i64,
+    pub chapters: i64,
+    pub kudos: i64,
+    pub hits: i64,
+    pub bookmarks: i64,
+    pub comments: i64,
+    pub rating: String,
+    pub complete: bool,
+    pub published_at: Option<String>,
+    pub age_days: f64,
+    pub tags: Vec<String>,
+}
+
+/// Read one work's feature vector on either engine.
+pub async fn work_features(db: &Database, work: &str) -> anyhow::Result<WorkFeatures> {
+    let (main, tags) = match db.backend() {
+        crate::Backend::Sqlite => (
+            "SELECT
+               COALESCE((SELECT MAX(word_count) FROM library_items WHERE work_id = ?1), 0),
+               (SELECT COUNT(*) FROM units WHERE work_id = ?1),
+               COALESCE((SELECT kudos FROM work_metric_aggregates WHERE work_id = ?1), 0),
+               COALESCE((SELECT views FROM work_metric_aggregates WHERE work_id = ?1), 0),
+               COALESCE((SELECT bookmarks FROM work_metric_aggregates WHERE work_id = ?1), 0),
+               (SELECT COUNT(*) FROM comments WHERE subject_type = 'work' AND subject_id = ?1),
+               COALESCE((SELECT rating FROM works WHERE id = ?1), 'general'),
+               COALESCE((SELECT CASE WHEN completion = 'complete' THEN 1 ELSE 0 END FROM works WHERE id = ?1), 0),
+               (SELECT published_at FROM works WHERE id = ?1),
+               julianday('now') - julianday(COALESCE((SELECT published_at FROM works WHERE id = ?1),
+                                                   (SELECT created_at FROM works WHERE id = ?1)))",
+            "SELECT ce.canonical FROM work_tags wt
+             JOIN canonical_entities ce ON ce.id = wt.node_id
+             WHERE wt.work_id = ?1 ORDER BY ce.canonical",
+        ),
+        crate::Backend::Postgres => (
+            // Every integer is cast to BIGINT: PostgreSQL's COUNT and the aggregate columns are INT4, and sqlx decodes
+            // this tuple as i64 (the dialect-neutral Rust type). SQLite has no such distinction, which is why only the
+            // PostgreSQL arm of the dual-engine suite can find this.
+            "SELECT
+               COALESCE((SELECT MAX(word_count) FROM library_items WHERE work_id = $1::uuid), 0)::bigint,
+               (SELECT COUNT(*) FROM units WHERE work_id = $1::uuid)::bigint,
+               COALESCE((SELECT kudos FROM work_metric_aggregates WHERE work_id = $1::uuid), 0)::bigint,
+               COALESCE((SELECT views FROM work_metric_aggregates WHERE work_id = $1::uuid), 0)::bigint,
+               COALESCE((SELECT bookmarks FROM work_metric_aggregates WHERE work_id = $1::uuid), 0)::bigint,
+               (SELECT COUNT(*) FROM comments WHERE subject_type = 'work' AND subject_id = $1::text)::bigint,
+               COALESCE((SELECT rating FROM works WHERE id = $1::uuid), 'general'),
+               COALESCE((SELECT CASE WHEN completion = 'complete' THEN 1 ELSE 0 END FROM works WHERE id = $1::uuid), 0)::bigint,
+               (SELECT published_at::text FROM works WHERE id = $1::uuid),
+               (EXTRACT(EPOCH FROM (now() - COALESCE((SELECT published_at::timestamptz FROM works WHERE id = $1::uuid),
+                                                    (SELECT created_at::timestamptz FROM works WHERE id = $1::uuid)))) / 86400.0)::double precision",
+            "SELECT ce.canonical FROM work_tags wt
+             JOIN canonical_entities ce ON ce.id = wt.node_id
+             WHERE wt.work_id = $1::uuid ORDER BY ce.canonical",
+        ),
+    };
+    let row: (
+        i64,
+        i64,
+        i64,
+        i64,
+        i64,
+        i64,
+        String,
+        i64,
+        Option<String>,
+        f64,
+    ) = match db.backend() {
+        crate::Backend::Sqlite => {
+            sqlx::query_as(main)
+                .bind(work)
+                .fetch_one(db.sqlite_pool().expect("sqlite handle"))
+                .await?
+        }
+        crate::Backend::Postgres => {
+            sqlx::query_as(main)
+                .bind(work)
+                .fetch_one(db.postgres_pool().expect("postgres handle"))
+                .await?
+        }
+    };
+    let tags: Vec<String> = match db.backend() {
+        crate::Backend::Sqlite => {
+            sqlx::query_scalar(tags)
+                .bind(work)
+                .fetch_all(db.sqlite_pool().expect("sqlite handle"))
+                .await?
+        }
+        crate::Backend::Postgres => {
+            sqlx::query_scalar(tags)
+                .bind(work)
+                .fetch_all(db.postgres_pool().expect("postgres handle"))
+                .await?
+        }
+    };
+    Ok(WorkFeatures {
+        words: row.0,
+        chapters: row.1,
+        kudos: row.2,
+        hits: row.3,
+        bookmarks: row.4,
+        comments: row.5,
+        rating: row.6,
+        complete: row.7 == 1,
+        published_at: row.8,
+        age_days: row.9,
+        tags,
+    })
+}
+
+#[cfg(test)]
+mod explain_tests {
+    use super::*;
+
+    #[test]
+    fn a_work_a_strategy_never_returned_is_null_not_zero() {
+        let report = RecRunReport {
+            blended: vec!["a".to_owned(), "b".to_owned()],
+            per_strategy: vec![
+                StrategyContribution {
+                    name: "cooccurrence".to_owned(),
+                    produced: 2,
+                    ranked: vec![("a".to_owned(), 1.5), ("b".to_owned(), 0.5)],
+                },
+                StrategyContribution {
+                    name: "hidden_classics".to_owned(),
+                    produced: 1,
+                    ranked: vec![("a".to_owned(), 2.0)],
+                },
+            ],
+        };
+        let explanation = explain_work(&report, "b");
+        assert_eq!(explanation.blended_position, Some(2));
+        assert_eq!(explanation.strategies[0].rank, Some(2));
+        assert_eq!(explanation.strategies[0].rrf, Some(0.5));
+        assert_eq!(explanation.strategies[1].rank, None);
+        assert_eq!(explanation.strategies[1].rrf, None);
+        assert_eq!(explanation.strategies[1].produced, 1);
     }
 }

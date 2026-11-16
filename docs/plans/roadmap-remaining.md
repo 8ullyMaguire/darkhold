@@ -4,6 +4,14 @@
 reason for that order, so a later session does not have to re-derive it. The ledger stays the source of truth: a row
 moves when `scripts/ledger.py upsert` says so, not when this file says so.
 
+## M63-22 built and closed — `dh admin explain-rec`, 2026-11-16
+
+`GET /admin/discovery/explain-rec?account=…&work=…` is the microscope: for one account and one work it prints every registered strategy's `produced`, 1-based `rank` and RRF `rrf`, the work's blended position, and its feature vector (words, chapters, kudos, hits, bookmarks, comments, rating, completion, published_at, age_days, tags). The cap is **200 works** and is stated in the response; a work below it is `null` rather than silently absent. A strategy that never returned the work reports `rank: null, rrf: null` — never a zero that would say it weighed the work and found it worthless.
+
+**Decision recorded where the next reader needs it:** the 2026-11-12 plan named `routes/discovery_admin.rs` and `cli/admin.rs` as new files; this tree already has `routes/admin_discovery.rs` with the operator door and router, so the route was added there instead of creating a second admin namespace. The CLI's `admin` module is new. Query parameters, not a two-id path: the two selectors are independent and no requested URL existed to preserve.
+
+**Evidence:** app suite 5/5 SQLite and 5/5 PostgreSQL (the PG arm found two real faults: `timestamp with time zone - text` on `published_at`, and INT4→i64 decode errors — fixed with `::timestamptz` and `::bigint`), CLI stub 2/2, db projection 1/1, `route_inventory` 6/6. Two mutants reverted from `/tmp`: forcing the first candidate reddened the rank assertion; forcing `rrf: Some(0.0)` reddened the null-not-zero assertion. No migration, no data change, no live surface until deploy.
+
 Two rules that decide the order:
 
 * **Things a reader can see come before things an operator can see, and both come before infrastructure.** A row that

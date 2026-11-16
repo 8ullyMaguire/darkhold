@@ -260,9 +260,99 @@ fn parse_ease(raw: &str) -> Ease {
     }
 }
 
+/// M63-22 — the operator's microscope. Query, not a path parameter: an account id and a work id are two
+/// independent selectors, and putting both in the path would invent a URL nobody asked for.
+#[derive(Debug, Deserialize)]
+pub struct ExplainRecQuery {
+    pub account: String,
+    pub work: String,
+}
+
+/// `GET /admin/discovery/explain-rec?account=…&work=…` — every strategy's view of one work.
+///
+/// The 200-work cap is stated in the response: a work below the cut is honestly `null`, not silently absent, and
+/// a trace over the whole catalogue would be a benchmark wearing a microscope's name.
+pub async fn explain_rec_route(
+    State(state): State<AppState>,
+    RequireSession(user): RequireSession,
+    axum::extract::Query(query): axum::extract::Query<ExplainRecQuery>,
+) -> ApiResult<Json<Value>> {
+    crate::routes::admin_scope::require_admin_of(&state, &user, None).await?;
+
+    let account: darkhold_domain::AccountId = query.account.parse().map_err(|_| {
+        ApiError(AppError::NotFound {
+            resource: "account",
+        })
+    })?;
+    match darkhold_db::identity::find_account(state.db(), account).await {
+        Ok(Some(_)) => {}
+        Ok(None) => {
+            return Err(ApiError(AppError::NotFound {
+                resource: "account",
+            }))
+        }
+        Err(error) => return Err(ApiError(AppError::Internal(error))),
+    }
+
+    let work_id: darkhold_domain::WorkId = query
+        .work
+        .parse()
+        .map_err(|_| ApiError(AppError::NotFound { resource: "work" }))?;
+    match darkhold_db::content::find_work(state.db(), work_id).await {
+        Ok(Some(_)) => {}
+        Ok(None) => return Err(ApiError(AppError::NotFound { resource: "work" })),
+        Err(error) => return Err(ApiError(AppError::Internal(error.into()))),
+    }
+
+    let seen = darkhold_db::reading::seen_work_ids(state.db(), &account.to_string())
+        .await
+        .unwrap_or_default();
+    let registry = crate::rec_engine::build_registry(&state.config().discovery);
+    let report = registry
+        .generate_traced(
+            state.db(),
+            darkhold_db::rec_strategy::RecContext {
+                account_id: account.to_string(),
+                seen,
+                cap: 200,
+            },
+        )
+        .await
+        .map_err(|error| ApiError(AppError::Internal(error)))?;
+    let explanation = darkhold_db::rec_strategy::explain_work(&report, &query.work);
+    let features = darkhold_db::rec_strategy::work_features(state.db(), &query.work)
+        .await
+        .map_err(|error| ApiError(AppError::Internal(error)))?;
+
+    Ok(Json(json!({
+        "account": query.account,
+        "work": query.work,
+        "limit": 200,
+        "blended_position": explanation.blended_position,
+        "strategies": explanation.strategies.iter().map(|s| json!({
+            "name": s.name, "produced": s.produced, "rank": s.rank, "rrf": s.rrf
+        })).collect::<Vec<_>>(),
+        "features": {
+            "words": features.words,
+            "chapters": features.chapters,
+            "kudos": features.kudos,
+            "hits": features.hits,
+            "bookmarks": features.bookmarks,
+            "comments": features.comments,
+            "rating": features.rating,
+            "complete": features.complete,
+            "published_at": features.published_at,
+            "age_days": features.age_days,
+            "tags": features.tags,
+        }
+    })))
+}
+
 pub fn router() -> axum::Router<AppState> {
-    axum::Router::new().route(
-        "/admin/discovery/leakage",
-        get(get_leakage).post(post_leakage),
-    )
+    axum::Router::new()
+        .route(
+            "/admin/discovery/leakage",
+            get(get_leakage).post(post_leakage),
+        )
+        .route("/admin/discovery/explain-rec", get(explain_rec_route))
 }

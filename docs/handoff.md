@@ -1,3 +1,13 @@
+## 2026-11-16 — M63-22 closed: the operator's microscope, 39 planned
+
+**Shipped.** One route, one projection, one CLI verb, no migration. `GET /admin/discovery/explain-rec?account=…&work=…` returns every strategy's rank/RRF for one work plus its feature vector; a strategy that never returned it reports `null` rather than `0.0`. `dh admin explain-rec <work> --account <id>` prints the same body as a table or verbatim with `--json`.
+
+**Evidence:** `m63_22_explain_rec` 5/5 on SQLite and 5/5 on PostgreSQL, `m63_22_explain_rec_cli` 2/2, `darkhold-db --lib explain_tests` 1/1, `route_inventory` 6/6. Two mutants reverted from `/tmp` (first-candidate rank; `rrf=0.0` instead of null). The PG arm found and forced fixes for two dialect faults in the new feature query (`::timestamptz` for the age subtraction, `::bigint` for INT4 columns). The plan's proposed `discovery_admin.rs` did not exist in this tree; the route went into the existing `admin_discovery.rs`, recorded in `docs/plans/roadmap-remaining.md`.
+
+**Where §1 stands:** `planned` **39**, `backlog.py` still 50 unlinked cards, the two domain tests green, `gate.sh ledger`/`repo` last green on 2026-11-12 and not re-run after this row. The phantom `--workspace` target failure and the 50-card scope decision remain the two open definition-of-done items.
+
+**Next.** (1) Deploy this route with a named backup and probe 403/404 through the live host. (2) The 50 Concord cards: decide the `proposed` vocabulary or register them. (3) The phantom `--workspace` gate failure.
+
 ## 2026-11-12 (later) — `dh bench`, and the Concord board's 58 cards measured instead of guessed
 
 **Shipped: `dh bench` (M63-24), three commits, nothing live moved.** `451f2860` is the verb, `59c7bb61` is the borrow
