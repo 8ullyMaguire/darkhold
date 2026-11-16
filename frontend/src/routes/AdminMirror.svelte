@@ -23,6 +23,7 @@ import { Button } from '@polaris/ui';
   import ErrorSummary from '../lib/components/ErrorSummary.svelte';
   import Skeleton from '../lib/components/Skeleton.svelte';
   import StatusMark from '../lib/components/StatusMark.svelte';
+  import AlertBar from '../lib/components/AlertBar.svelte';
   import { Field } from '@polaris/ui';
 
   // Search state
@@ -35,6 +36,14 @@ import { Button } from '@polaris/ui';
   let activeRefId = $state<string | null>(null);
   let mirrors = $state<LocalMirrorView[] | null>(null);
   let pins = $state<IpfsPinView[] | null>(null);
+  const redAlerts = $derived([
+    ...(mirrors ?? [])
+      .filter((mirror) => mirror.status === 'failed')
+      .map((mirror) => ({ label: `Mirror ${mirror.id} failed`, href: `#mirror-${mirror.id}` })),
+    ...(pins ?? [])
+      .filter((pin) => pin.status === 'failed')
+      .map((pin) => ({ label: `Pin ${pin.id} failed`, href: `#pin-${pin.id}` })),
+  ]);
   let mirrorsLoading = $state(false);
   let pinsLoading = $state(false);
 
@@ -208,6 +217,7 @@ import { Button } from '@polaris/ui';
 
       {#if activeRefId}
         <section class="mirror-section">
+          <AlertBar alerts={redAlerts} />
           <h2>Local Mirrors</h2>
           {#if mirrorsLoading}
             <Skeleton lines={2} />
@@ -225,7 +235,7 @@ import { Button } from '@polaris/ui';
               </thead>
               <tbody>
                 {#each mirrors as mirror (mirror.id)}
-                  <tr>
+                  <tr id={`mirror-${mirror.id}`}>
                     <td><code>{mirror.storage_path}</code></td>
                     <td><StatusMark level={mirror.status === 'active' ? 'green' : mirror.status === 'failed' ? 'red' : 'amber'} label={mirror.status} /></td>
                     <td class="muted">{mirror.last_verified_at ?? 'Never'}</td>
@@ -261,7 +271,7 @@ import { Button } from '@polaris/ui';
           {:else if pins && pins.length > 0}
             <ul class="pin-list">
               {#each pins as pin (pin.id)}
-                <li class="pin-row">
+                <li class="pin-row" id={`pin-${pin.id}`}>
                   <div class="pin-main">
                     <code>{pin.cid}</code>
                     <span class="badge">{pin.pin_service}</span>

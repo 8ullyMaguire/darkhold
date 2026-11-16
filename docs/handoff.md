@@ -15,6 +15,10 @@ No `/admin` route or `AdminOverview.svelte` exists; the router has only jobs, ec
 
 The gate started before the last few frontend/docs commits but its `frontend`, `dialects` and `repo` stages ran after them; no Rust source changed after its `test` stage, so the single exit-0 result is the current tree's evidence.
 
+## 2026-11-16 — AdminMirror alert bar shipped (deploy pending)
+
+`AdminMirror.svelte` now derives red alerts from failed local mirrors and failed IPFS pins and renders them through the reused `AlertBar.svelte`, with `#mirror-<id>` and `#pin-<id>` fix anchors. Evidence: `AdminMirror 7/7 + AlertBar 2/2` in the final two-file run, `gate.sh frontend ok`, `gate.sh repo ok`; mutant changing the mirror status filter to `active` reddened the assertion and was restored from `/tmp`. This changed a live frontend surface after the earlier deploy began, so the deploy must be restarted from the new commit.
+
 ## 2026-11-16 — /admin operator overview shipped (deploy pending)
 
 New `routes/admin_overview.rs` renders `/admin` as a script-free document before the SPA fallback with a ROUTE_TABLE row and live Queue/Sources/Media counts from existing store doors. Red states render the AlertBar contract in HTML, with fix links; anonymous gets 401 from `RequireSession` and a signed-in non-operator gets 404 from `require_operator`. Evidence: `admin_overview 1/1` SQLite + 1/1 PostgreSQL, `route_inventory 6/6`, clippy clean; mutant changing the fix href reddened the assertion and was restored from `/tmp`. Live surface moved: named backup + estate deploy required before this slice is closed live.

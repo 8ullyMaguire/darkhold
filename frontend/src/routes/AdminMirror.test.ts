@@ -93,8 +93,8 @@ describe('AdminMirror', () => {
     await fireEvent.input(input, { target: { value: 'abc' } });
     await fireEvent.click(getByText('Search'));
 
-    await waitFor(() => expect(findByText('Manage')).toBeTruthy());
-    await fireEvent.click(getByText('Manage'));
+    const manage = await findByText('Manage');
+    await fireEvent.click(manage);
 
     await waitFor(() => expect(findByText('Storage path')).toBeTruthy());
 
@@ -171,4 +171,70 @@ describe('AdminMirror', () => {
     // Both are shown, and the hash each row matched on is the visible handle.
     expect(getAllByText('00ff').length).toBeGreaterThan(0);
     expect(getAllByText('00fc').length).toBeGreaterThan(0);
+  });
+
+  it('names failed mirrors and pins in the alert bar with links to their rows', async () => {
+    // This test is outside the original describe block; clear any once-queues an earlier top-level test left behind.
+    (api.reverseMediaSearch as ReturnType<typeof vi.fn>).mockReset();
+    (api.fetchLocalMirrors as ReturnType<typeof vi.fn>).mockReset();
+    (api.fetchIpfsPins as ReturnType<typeof vi.fn>).mockReset();
+    const mockData: api.ReverseSearchView = {
+      references: [
+        {
+          id: 'ref-1',
+          media_kind: 'image',
+          perceptual_hash: 'abc',
+          content_hash: 'hash1',
+          curator_verified: false,
+          match_kind: 'perceptual',
+          match_distance: 4,
+          match_confidence: 0.9375,
+          auto_attach: false,
+        },
+      ],
+      works: [],
+    };
+    (api.reverseMediaSearch as ReturnType<typeof vi.fn>).mockResolvedValueOnce(mockData);
+    (api.fetchLocalMirrors as ReturnType<typeof vi.fn>).mockResolvedValueOnce([
+      {
+        id: 'mirror-1',
+        media_reference_id: 'ref-1',
+        storage_path: '/data/broken.jpg',
+        original_url: 'https://example.test/broken.jpg',
+        file_size_bytes: 12,
+        checksum_sha256: null,
+        status: 'failed',
+        last_verified_at: null,
+        created_at: '2026-01-01T00:00:00Z',
+      },
+    ]);
+    (api.fetchIpfsPins as ReturnType<typeof vi.fn>).mockResolvedValueOnce([
+      {
+        id: 'pin-1',
+        media_reference_id: 'ref-1',
+        cid: 'bafybroken',
+        pin_service: 'web3.storage',
+        status: 'failed',
+        file_size_bytes: 12,
+        pinned_at: '2026-01-01T00:00:00Z',
+      },
+    ]);
+
+    const { getByLabelText, getByText, getByRole, findByText } = render(AdminMirror);
+    await fireEvent.input(getByLabelText('Perceptual hash'), { target: { value: 'abc' } });
+    await fireEvent.click(getByText('Search'));
+    const manage = await findByText('Manage');
+    await fireEvent.click(manage);
+
+    await waitFor(() => expect(getByRole('alert')).toBeTruthy());
+    expect(getByRole('alert').textContent).toContain('Mirror mirror-1 failed');
+    expect(getByRole('alert').textContent).toContain('Pin pin-1 failed');
+    expect(getByRole('link', { name: /fix mirror mirror-1 failed/i })).toHaveAttribute(
+      'href',
+      '#mirror-mirror-1',
+    );
+    expect(getByRole('link', { name: /fix pin pin-1 failed/i })).toHaveAttribute(
+      'href',
+      '#pin-pin-1',
+    );
   });
