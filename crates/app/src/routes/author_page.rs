@@ -66,10 +66,18 @@ async fn author_page(
     )
     .await
     else {
-        return docs::not_found(&site, "That author's works are not available.", stylesheet.as_deref());
+        return docs::not_found(
+            &site,
+            "That author's works are not available.",
+            stylesheet.as_deref(),
+        );
     };
     if works.is_empty() {
-        return docs::not_found(&site, "That author has no published works yet.", stylesheet.as_deref());
+        return docs::not_found(
+            &site,
+            "That author has no published works yet.",
+            stylesheet.as_deref(),
+        );
     }
     let more = works.len() as i64 > MAX_WORKS;
     let works = &works[..(MAX_WORKS as usize).min(works.len())];
@@ -80,7 +88,9 @@ async fn author_page(
         stylesheet.as_deref(),
     );
     page.open("main", &[("class", "doc")]);
-    page.open("h1", &[]).text(&format!("Works by {handle}")).close("h1");
+    page.open("h1", &[])
+        .text(&format!("Works by {handle}"))
+        .close("h1");
     page.open("p", &[("class", "counts")]);
     page.text(&format!(
         "{} published public work(s) by {handle}.",
@@ -101,7 +111,10 @@ async fn author_page(
             .text(&format!("by {}", work.author_handle))
             .close("p");
         page.open("p", &[("class", "metrics")])
-            .text(&format!("{} words · {} points", work.word_count, work.score))
+            .text(&format!(
+                "{} words · {} points",
+                work.word_count, work.score
+            ))
             .close("p");
         page.open("p", &[("class", "status")])
             .text(&format!("Status: {}", work.status))
