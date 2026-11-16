@@ -2,7 +2,9 @@
 
 **M71-08 no-JS bar** (`e62780b7`): the server-rendered reader now opens with `nav[aria-label="Reading controls"]` carrying Work, Contents (when a TOC exists), the server-worded position ("No saved place" / "Saved place: 42%" / "from an older revision") and real Previous/Next links. Evidence: `reader_page` 7/7; the nav test asserts the label, the honest no-place sentence and no `<script`; mutant "Saved place: 0%" reddened the honest-position assertion. Row stays `planned` for auto-hide, bookmark, in-work search and typography provenance/reset levels.
 
-The first full `gate.sh all` after these changes stopped at **fmt** on `crates/app/src/routes/reader_page.rs` (exit 1, log `/tmp/gate_all_redesign_20261116.log`); `cargo fmt -p darkhold-app` fixed it before `e62780b7`. A rerun is in flight at `/tmp/gate_all_redesign_20261116b.log`; it has not reported yet, so the full gate is not proven green.
+The first full `gate.sh all` after these changes stopped at **fmt** on `crates/app/src/routes/reader_page.rs` (exit 1, log `/tmp/gate_all_redesign_20261116.log`); `cargo fmt -p darkhold-app` fixed it before `e62780b7`. The second rerun passed fmt, then failed **lint** on `clippy::type_complexity` for the AST row tuple; `0ce36799` introduced the named `SearchRow` alias and `cargo clippy -p darkhold-db --lib -- -D warnings` is clean. A third full gate is in `gate-all-c.log` (fmt/lint ok, build in flight) and is the one that counts.
+
+Accessibility contract extended in `82d8b379`: the Playwright suite is now 7/7, including a forced-colors focus-ring check at 390 px.
 
 ## 2026-11-16 — PWA, settings provenance, admin status: three more slices, 35 planned
 
