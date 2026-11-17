@@ -8,8 +8,8 @@ use std::process::{Command, Output};
 use std::time::{SystemTime, UNIX_EPOCH};
 
 use darkhold_db::{identity, Database, DatabaseConfig};
-use darkhold_domain::{AccountId, PseudId};
 use darkhold_domain::policy::AgeState;
+use darkhold_domain::{AccountId, PseudId};
 
 struct Fixture {
     dir: PathBuf,
