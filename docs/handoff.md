@@ -17,7 +17,7 @@ deploy checkout `71d53fa5`, live `0.1.0+8decc011`; an earlier snapshot (`66ad3d2
 
 ## 2026-11-17 — M71-07 economy warning register shipped (gate/deploy pending)
 
-The economy console's two operator warnings — crossed credit threshold and undeclared mechanisms — now carry the same worded amber `StatusMark` used elsewhere in the console. The explanatory sentences, the no-action rule for the threshold and the no-per-account rule are unchanged. Evidence: `AdminEconomyFlows 8/8 + StatusMark 3/3`; mutant changing the threshold mark to green reddened the assertion and was restored from `/tmp`; `gate.sh frontend/repo ok`. Row stays `planned` for the remaining console surfaces.
+VERIFIED 2026-11-17: `/tmp/gate-all-m71-07-71d53fa5.log` ended `GATE_ALL_EXIT=0` with all eight stages ok. Fresh named dump `/personal/backups/darkhold-20261117-71d53fa5/darkhold-71d53fa5.dump` verified `TABLE_DATA=407`; `/tmp/deploy-darkhold-m71-07-71d53fa5.log` ended `ESTATE_DEPLOY_EXIT=0`, `deploy: darkhold verified in 1196s`, `SSH_DEPLOY_EXIT=0`, origin/edge `0.1.0+71d53fa5`, unit `active`. The economy console's two operator warnings — crossed credit threshold and undeclared mechanisms — now carry the same worded amber `StatusMark` used elsewhere in the console. The explanatory sentences, the no-action rule for the threshold and the no-per-account rule are unchanged. Evidence: `AdminEconomyFlows 8/8 + StatusMark 3/3`; mutant changing the threshold mark to green reddened the assertion and was restored from `/tmp`; `gate.sh frontend/repo ok`. Row stays `planned` for the remaining console surfaces.
 
 ## 2026-11-17 — M71-07 provider-health register shipped (gate/deploy pending)
 

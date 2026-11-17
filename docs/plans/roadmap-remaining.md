@@ -139,7 +139,7 @@ documentation update.
 
 **Census:** REUSE `StatusMark`, `EconomyFlows.over_threshold` and `EconomyFlows.undeclared`; ADAPT `AdminEconomyFlows.svelte`'s two warning paragraphs; BUILD one test asserting worded amber status. Non-goals: no new API, no automatic throttle or clamp, no per-account view, no fix link where the page deliberately takes no action.
 
-SHIPPED 2026-11-17: `AdminEconomyFlows 8/8 + StatusMark 3/3`, frontend/repo gates ok, level mutant red and restored. **Decision:** both operator warnings get `amber: needs-attention` beside the existing sentence. Colour remains a second signal; the sentence stays the explanation. This keeps the economy console in the same register as Jobs, Mirror and Media Health.
+Full gate `GATE_ALL_EXIT=0` at `71d53fa5`; fresh named dump `darkhold-20261117-71d53fa5/darkhold-71d53fa5.dump` (`TABLE_DATA=407`); deployed `0.1.0+71d53fa5`. SHIPPED 2026-11-17: `AdminEconomyFlows 8/8 + StatusMark 3/3`, frontend/repo gates ok, level mutant red and restored. **Decision:** both operator warnings get `amber: needs-attention` beside the existing sentence. Colour remains a second signal; the sentence stays the explanation. This keeps the economy console in the same register as Jobs, Mirror and Media Health.
 
 ## M71-07 provider-health register — 2026-11-17
 
