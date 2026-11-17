@@ -1,3 +1,20 @@
+## 2026-11-17 — fanfiction quality wires re-censused: syndication shipped, seed still not implemented
+
+The M74-01 syndicated trope frontier is live (public `/api/v1/catalogue/syndicated`, successful
+`source_sync` at `2026-11-17T01:51:42Z`); it is a separate row and does not cover the reading-list
+seed or crawler rechecks. `.hermes/plans/2026-11-16_203519-fanfiction-quality-import-and-seed.md`
+remains a plan with **no code written**: no sidecar from `scripts/parse_read_list.py`, no
+`seed_read_list.rs` / `Command::SeedReadList`, no audit sidecar, no `dry_run` or forward-only
+`source_updated_at` in `ficcrawler/loaders/lorehaven.py`, no refresh timer. Live census unchanged
+(`rating 0`, `work_taste_vectors 0`, `taste_profiles 2`); 268 / 218 / 47 / 3 read-list numbers and
+the 66,874-row recheck queue against 141,317 `library_items` still measure the same. No acceptance
+gate has run. The 36-idea bank is at
+`docs/ideas/2026-11-17-reading-list-and-catalogue-quality-ideas.md` (17 implement, 19 declined;
+top scores 2.50); the next action is idea 1, extending the existing parser into a producer.
+Estate rows 309, 391, 394, 407, 430 stay owner-gated. Propagation measured this pass: local and
+deploy checkout `71d53fa5`, live `0.1.0+8decc011`; an earlier snapshot (`66ad3d24` / `acf9e2a9` /
+`0.1.0+93a22eef`) was superseded by concurrent sessions. Nothing propagated from this docs update.
+
 ## 2026-11-17 — M71-07 economy warning register shipped (gate/deploy pending)
 
 The economy console's two operator warnings — crossed credit threshold and undeclared mechanisms — now carry the same worded amber `StatusMark` used elsewhere in the console. The explanatory sentences, the no-action rule for the threshold and the no-per-account rule are unchanged. Evidence: `AdminEconomyFlows 8/8 + StatusMark 3/3`; mutant changing the threshold mark to green reddened the assertion and was restored from `/tmp`; `gate.sh frontend/repo ok`. Row stays `planned` for the remaining console surfaces.

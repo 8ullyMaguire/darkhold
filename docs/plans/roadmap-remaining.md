@@ -14,13 +14,58 @@ Source: `docs/spec-amendments/71-syndicated-trope-frontier.md` and `.hermes/plan
 reason for that order, so a later session does not have to re-derive it. The ledger stays the source of truth: a row
 moves when `scripts/ledger.py upsert` says so, not when this file says so.
 
-## Fanfiction quality wires — plan recorded 2026-11-16, no code implemented
+## Fanfiction quality wires — plan recorded 2026-11-16; syndication shipped, seed not implemented (re-censused 2026-11-17)
 
-Source: `.hermes/plans/2026-11-16_203519-fanfiction-quality-import-and-seed.md`. It turns the existing 141,317-item catalogue into a ranking the owner actually enjoys through three wires, in this order: (A) keep crawled metadata current with a forward-only `source_updated_at` update, a dry-run loader and a daily refresh timer; (B) parse the 268-line Calibre read list into a versioned JSONL sidecar and seed 218 rated works through `reading::upsert_rating` with an append-only audit sidecar; (C) prove a seeded work reaches a top-10 personal recommendation before calling it done. Rejected: a new story sidecar format, `rating.source` DDL, direct `INSERT INTO rating`, a new ranking crate.
+Source: `.hermes/plans/2026-11-16_203519-fanfiction-quality-import-and-seed.md`; idea bank
+`docs/ideas/2026-11-17-reading-list-and-catalogue-quality-ideas.md`; handoff entry of the same date.
+The plan turns the existing 141,317-item catalogue into a ranking the owner actually enjoys through
+three wires: (A) keep crawled metadata current with a forward-only `source_updated_at` update, a
+dry-run loader and a bounded daily refresh timer; (B) parse the 268-line Calibre read list into a
+versioned JSONL sidecar and seed 218 rated works through `reading::upsert_rating` with an
+append-only audit sidecar; (C) prove a seeded work reaches a top-10 personal recommendation.
+Rejected: a new story sidecar format, `rating.source` DDL, direct `INSERT INTO rating`, a new
+ranking crate.
 
-**Census:** REUSE the crawler's existing JSONL sidecars, `library_items`, `reading::upsert_rating`, `search_works_ast_scoped` and the estate's existing ingest/refresh commands; ADAPT the read-list producer, `seed` CLI and crawler loader; BUILD only the sidecar producer, the `seed read-list` command and the refresh unit. Non-goals: no new story format, no `rating.source` migration, no public prior, no second catalogue.
+**Verified shipped (a separate row, not this plan):** M74-01 syndicated trope frontier — depth-3
+Pawchive BFS, per-source windows, public `GET /api/v1/catalogue/syndicated` with TL2-only bodies.
+Live `source_sync` succeeded at `2026-11-17T01:51:42Z`; origin/edge at the time was
+`0.1.0+93a22eef`. That covers periodic pulls for declared sources only.
 
-**Decision and stop conditions:** 218 private ratings from one person are a prior, not a population. The fixed accept rule (≥180 exact, ≤20 ambiguous, ≥180 applied, ≥1 recommendation overlap) is written before the apply run; if it fails, stop and open the wiring row rather than invent a ranking engine. Three wrapped-title rows are reported, never guessed. Estate row 407 stays owner-gated; this plan does not close M45-74.
+**Verified NOT implemented in this plan (2026-11-17):** no versioned sidecar from the existing
+`scripts/parse_read_list.py`, no `scripts/read_list_sidecar.py`, no `seed_read_list.rs`, no
+`Command::SeedReadList`, no audit sidecar; `ficcrawler/loaders/lorehaven.py` has neither `dry_run`
+nor the forward-only `CASE WHEN EXCLUDED.source_updated_at` clause; only
+`fic-catalogue-ingest.timer` is installed, no refresh timer. Live census is unchanged:
+`rating 0`, `work_taste_vectors 0`, `taste_profiles 2`. The read list still measures
+268 lines / 218 rated / 47 unmatched / 3 wrapped; the recheck queue holds 66,874 rows against
+141,317 `library_items`. None of the acceptance gates (copy-of-live apply, fixed accept rule,
+recommendation overlap) has been run. Estate row 407 and repo row M45-74 remain `planned`.
+
+**Census:** REUSE `scripts/parse_read_list.py` (prints the counts but writes no artifact), the
+crawler's existing JSONL sidecars, `library_items`, `reading::upsert_rating`,
+`search_works_ast_scoped` and the estate's ingest/refresh commands; ADAPT the existing parser into
+a producer, the `seed` CLI and the crawler loader; BUILD only the sidecar producer, the
+`seed read-list` command and the refresh unit. Non-goals: no new story format, no `rating.source`
+migration, no public prior, no second catalogue.
+
+**Idea bank:** 36 new ideas, none duplicating the 50-idea frontier bank or the 144-item
+"would not build" list; 17 scored `V/E >= 1.20` to implement, 19 declined. Top of the implement
+list: extend `scripts/parse_read_list.py` into a sidecar producer (2.50), `seed read-list`
+dry-run (2.50), apply through `upsert_rating` plus audit sidecar (2.50), idempotence proof
+(2.00), forward-only crawler update (2.00), bounded daily refresh timer (2.00).
+
+**Decision and stop conditions:** 218 private ratings from one person are a prior, not a
+population. The fixed accept rule (≥180 exact, ≤20 ambiguous, ≥180 applied, ≥1 recommendation
+overlap) is written before the apply run; if it fails, stop and open the wiring row rather than
+invent a ranking engine. Three wrapped-title rows are reported, never guessed. Estate rows 309,
+391, 394, 407 and 430 are owner-gated; this plan closes none of them.
+
+**Propagation (measured 2026-11-17, not quoted from an earlier snapshot):** local build tree
+`71d53fa5`, deploy checkout `71d53fa5` and clean, live `/api/v1/meta` `0.1.0+8decc011`. An
+earlier reading in the same conversation had local `66ad3d24`, deploy `acf9e2a9`, live
+`0.1.0+93a22eef`; concurrent sessions moved all three. Re-read immediately before propagating
+or before telling the owner the tree is in sync. No propagation was performed as part of this
+documentation update.
 
 ## M71-20 search results document — census, 2026-11-16
 

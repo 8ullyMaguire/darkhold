@@ -1,6 +1,6 @@
 # ROADMAP — seed darkhold from the rated reading list
 
-Status: proposed 2026-11-11, **superseded in part 2026-11-16** by `.hermes/plans/2026-11-16_203519-fanfiction-quality-import-and-seed.md`. Owner: darkhold member agent. Ledger row: 407 (estate) / M45-74 (repo).
+Status: proposed 2026-11-11, **superseded in part 2026-11-16** by `.hermes/plans/2026-11-16_203519-fanfiction-quality-import-and-seed.md`. Re-censused **2026-11-17**: still not implemented. The sidecar producer should extend the existing `scripts/parse_read_list.py` (which prints the counts but writes no artifact) rather than create a second parser; the ranked idea bank is `docs/ideas/2026-11-17-reading-list-and-catalogue-quality-ideas.md`. Owner: darkhold member agent. Ledger row: 407 (estate) / M45-74 (repo).
 Source of truth for the list: `/personal/literature/fanfiction/read.txt` (on thinkcentre; 268 lines, 27 KB, last modified 2026-11-02).
 
 ## Why this exists
