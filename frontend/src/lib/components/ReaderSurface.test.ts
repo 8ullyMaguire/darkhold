@@ -42,6 +42,14 @@ describe('NewInYourFandoms', () => {
     expect(getByText('New HP Fic')).toBeTruthy();
   });
 
+  it('draws rail entries as dense Archive rows, not cards', () => {
+    const { container } = render(NewInYourFandoms, {
+      props: { works: [work('a', 'New HP Fic')] },
+    });
+    expect(container.querySelectorAll('.surface-rows .surface-row')).toHaveLength(1);
+    expect(container.querySelectorAll('.card')).toHaveLength(0);
+  });
+
   it('says so when the reader has already saved the work', () => {
     // The section's promise is "new to you", and the promise is only credible if the
     // copy states the exclusion rather than leaving the reader to wonder.

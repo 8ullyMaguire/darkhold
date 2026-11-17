@@ -50,9 +50,9 @@
   <section class="rail" aria-labelledby="most-bookmarked-heading">
     <h2 id="most-bookmarked-heading">Most bookmarked this week</h2>
     <p class="hint">Counted from public bookmarks only. Private bookmarks are never counted.</p>
-    <ol>
+    <ol class="surface-rows">
       {#each works as work, index (work.id)}
-        <li>
+        <li class="surface-row">
           <span class="rank" aria-hidden="true">{index + 1}</span>
           {#if onopen}
             <button type="button" class="title" onclick={() => onopen?.(work.id)}>
@@ -96,19 +96,18 @@
     font-size: var(--text-sm);
   }
 
-  ol {
+  .surface-rows {
     list-style: none;
     margin: 0;
     padding: 0;
-    display: flex;
-    flex-direction: column;
-    gap: var(--space-2);
+    border-top: var(--border-width) solid var(--color-border);
   }
-
-  li {
+  .surface-row {
     display: flex;
     align-items: baseline;
     gap: var(--space-3);
+    padding: var(--space-2) 0;
+    border-bottom: var(--border-width) solid var(--color-border);
   }
 
   .rank {

@@ -51,9 +51,9 @@
     <p class="hint">
       Recently published in fandoms you have bookmarked. Works you already have are left out.
     </p>
-    <ul>
+    <ul class="surface-rows">
       {#each works as work (work.id)}
-        <li>
+        <li class="surface-row">
           {#if onopen}
             <button type="button" class="title" onclick={() => onopen?.(work.id)}>
               {work.title}
@@ -86,13 +86,19 @@
     font-size: var(--text-sm);
   }
 
-  ul {
+  .surface-rows {
     list-style: none;
     margin: 0;
     padding: 0;
+    border-top: var(--border-width) solid var(--color-border);
+  }
+  .surface-row {
     display: flex;
+    align-items: baseline;
     flex-wrap: wrap;
-    gap: var(--space-2) var(--space-4);
+    gap: var(--space-2) var(--space-3);
+    padding: var(--space-2) 0;
+    border-bottom: var(--border-width) solid var(--color-border);
   }
 
   .title {

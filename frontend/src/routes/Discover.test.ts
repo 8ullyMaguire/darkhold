@@ -45,6 +45,16 @@ describe('Discover page', () => {
     await waitFor(() => expect(screen.getAllByText(/Discovery Test/).length).toBeGreaterThan(0));
   });
 
+  it('draws feed hits as dense Archive rows, not cards', async () => {
+    const { container } = render(Discover);
+    await waitFor(() => expect(screen.getAllByText(/Discovery Test/).length).toBeGreaterThan(0));
+
+    expect(container.querySelectorAll('.feed .feed-row')).toHaveLength(1);
+    expect(container.querySelectorAll('.feed .card')).toHaveLength(0);
+    // The row carries the server's own words, not a client-formatted guess.
+    expect(container.querySelector('.feed-row')?.textContent).toContain('by alice');
+  });
+
   it('fetches the feed on mount', async () => {
     render(Discover);
     await waitFor(() => expect(fetchDiscoveryFeed).toHaveBeenCalled());

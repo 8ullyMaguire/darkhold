@@ -90,6 +90,12 @@ Source: `.hermes/plans/2026-11-16_203519-fanfiction-quality-import-and-seed.md`.
 
 **Shipped (AdminJobs slice).** `AdminJobs.svelte` now imports `StatusMark` and maps job states with `levelFor()`; the colour-only `.state` badge and its dead CSS are gone. Evidence: `AdminJobs 4/4 + StatusMark 3/3` (7/7), mutant `failed → green` reddened the `red: failed` role/aria-label assertion and was restored from `/tmp`, `gate.sh frontend ok`. Row stays `planned` for the overview alert bar.
 
+## M71-03 Archive rows — Discover feed and rails slice, 2026-11-17
+
+**Census:** REUSE `DiscoveryItem`, `WhyRecommended`, the two reader-surface rail components and their server-owned counts; ADAPT `Discover.svelte`'s feed list and the two rail lists from rounded/wrapped cards to dense hairline rows; BUILD only two regression assertions. Non-goals: no new API, no invented total or cursor — `DiscoveryFeed` has neither, so the page must not claim one; no change to the rail visibility or privacy rules, which are already tested.
+
+DISCOVER/RAILS SLICE SHIPPED 2026-11-17: `Discover.svelte` feed rows and all three rail components use `feed-row`/`surface-row` hairline rows with no rounded card boxes; `Discover 5/5 + ReaderSurface 22/22`, frontend/repo gates ok, feed and rail class mutants red and restored. **Decision:** the recommendation feed and both rails use the same Archive row language as Search/Library: one title line with the server's author/count/length words, hairline dividers, no rounded card boxes. The rails' empty case still renders nothing. Row stays `planned` only for the remaining "overflow view" clause until a rail API exposes enough rows to overflow.
+
 ## M71-03 Archive rows — library slice, 2026-11-17
 
 **Census:** REUSE `LibraryItem` fields (`source_display_name`, `unit_count`, `word_count`, `status`, `last_synced_at`), the existing selection/status/tag/shelf controls, `WorkRow.svelte`'s title→byline→metadata order and the Archive hairline-row vocabulary; ADAPT only `Library.svelte`'s list markup and CSS; BUILD only one regression test. Non-goals: no new route, no new API field, no invented rating — the library API has no rating and a fabricated one would be a lie. The requirement's "date" is `last_synced_at` when present, not an unmeasured guess. Cursor pagination and the stated total already exist and stay.

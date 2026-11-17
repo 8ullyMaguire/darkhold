@@ -181,7 +181,7 @@ import { Button } from '@polaris/ui';
   {:else}
     <ul class="feed">
       {#each items as item}
-        <li>
+        <li class="feed-row">
           <a
             href={`/works/${encodeURIComponent(item.work_id)}`}
             onclick={(event) => handleLinkClick(event, `/works/${encodeURIComponent(item.work_id)}`)}
@@ -231,31 +231,31 @@ import { Button } from '@polaris/ui';
     border-radius: 0.5rem;
     color: var(--text-muted);
   }
-  .feed li {
-    display: flex;
-    align-items: baseline;
-    justify-content: space-between;
-    gap: 0.5rem;
-  }
-
+  /* M71-03 / ADR 0033: the feed is a ranked Archive list, not a card gallery. */
   .feed {
     list-style: none;
     padding: 0;
     margin: 0;
-    display: grid;
-    gap: 0.75rem;
+    border-top: var(--border-width) solid var(--color-border);
+  }
+  .feed-row {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: var(--space-3);
+    padding: var(--space-2) 0;
+    border-bottom: var(--border-width) solid var(--color-border);
   }
   .feed a {
     display: flex;
     flex-direction: column;
-    padding: 1rem;
-    border: 1px solid var(--border);
-    border-radius: 0.5rem;
+    gap: var(--space-1);
     text-decoration: none;
     color: inherit;
   }
-  .feed a:hover {
-    background: var(--surface-hover);
+  .feed a:hover .feed-work {
+    text-decoration: underline;
+    text-underline-offset: 2px;
   }
   .feed-work {
     font-family: var(--font-mono);
