@@ -1,5 +1,9 @@
 ## 2026-11-17 — M71-08 reader bookmark shipped (gate/deploy pending)
 
+## 2026-11-17 — mirror checkout carries concurrent work
+
+`/home/alvaro/code/rust/darkhold` fast-forwarded to `edb1d8e0` and its `origin/master` matches, but it has 13 uncommitted files/untracked migrations from another session's fanfiction-quality wire work (`seed_read_list.rs`, `0216_rating_source.sql`, related test/catalogue changes). Do not discard them; they are not part of the M71-08 close-out. The local build tree is clean at `edb1d8e0`.
+
 ## 2026-11-17 — M71-08 in-work search shipped (gate/deploy pending)
 
 VERIFIED 2026-11-17: `/tmp/gate-all-m71-08-d6d975a4.log` ended `GATE_ALL_EXIT=0` with all eight stages ok. Fresh named dump `/personal/backups/darkhold-20261117-d6d975a4/darkhold-d6d975a4.dump` verified `TABLE_DATA=407`; `/tmp/deploy-darkhold-m71-08-d6d975a4.log` ended `ESTATE_DEPLOY_EXIT=0`, `deploy: darkhold verified in 2697s`, `SSH_DEPLOY_EXIT=0`, origin/edge `0.1.0+d6d975a4`, unit `active`. M71-08 is now CLOSED: every listed clause has its own gate output. The reader now carries a GET form that searches the work's visible unit texts case-insensitively and lists matching units with match counts as real links. Spoiler-gated units are excluded until revealed, so search cannot become a spoiler side channel. No script, no new route, no index. Evidence: `reader_page 11/11` SQLite + PG; case-sensitivity mutant red and restored from `/tmp/reader-search.bak`; fmt/clippy/frontend/repo gates ok. With this slice, M71-08's last clause is covered.
