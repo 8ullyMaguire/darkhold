@@ -151,7 +151,7 @@ ESTATE BLOCK CLEARED 2026-11-17: estate `a218f4d` fixed loom's capabilities and 
 
 **Census:** REUSE `content::Unit.plain_text`, `Reveals::covers`, the reader's existing server-rendered form pattern and the `Html` builder; ADAPT `reader_page.rs` page handler/rendering and `reader.css`; BUILD one route-level test. Non-goals: no new route, no script, no full-text engine, no search into drafts or spoiler-gated units the reader has not revealed.
 
-SHIPPED 2026-11-17: `reader_page 11/11` SQLite + PG; case-sensitivity mutant red and restored; fmt/clippy/frontend/repo gates ok. **Decision:** reading controls carry a GET form that searches the current work's visible unit texts case-insensitively and lists matching units with match counts as real links. The query is echoed only through the escaping `Html` builder. A gated unit contributes matches only after the reader reveals it, so search cannot become a spoiler side channel. This is the last M71-08 clause.
+CLOSED 2026-11-17: full gate `GATE_ALL_EXIT=0` at `d6d975a4`; fresh named dump `darkhold-20261117-d6d975a4/darkhold-d6d975a4.dump` (`TABLE_DATA=407`); deployed `0.1.0+d6d975a4`. SHIPPED 2026-11-17: `reader_page 11/11` SQLite + PG; case-sensitivity mutant red and restored; fmt/clippy/frontend/repo gates ok. **Decision:** reading controls carry a GET form that searches the current work's visible unit texts case-insensitively and lists matching units with match counts as real links. The query is echoed only through the escaping `Html` builder. A gated unit contributes matches only after the reader reveals it, so search cannot become a spoiler side channel. This is the last M71-08 clause.
 
 ## M71-08 reader bookmark — 2026-11-17
 
