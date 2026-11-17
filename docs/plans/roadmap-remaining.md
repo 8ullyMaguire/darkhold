@@ -4728,7 +4728,7 @@ the file's `0600` is the boundary, the same one `ssh` uses.
 
 | Surface | Block | Exact clearing condition |
 | --- | --- | --- |
-| `~/code/rust/darkhold` mirror | SSHFS FUSE channel hung; `git merge --ff-only origin/master` and other git processes are in D state `fuse_chan_send`. Local checkout and both forges are at `c62eb13c`; only the mirror lags. | FUSE channel recovers or the mount is remounted, D-state git processes exit, then `GIT_CONFIG_GLOBAL=/dev/null git -C ~/code/rust/darkhold fetch origin master && git merge --ff-only origin/master` reports `c62eb13c` with `dirty=0`. |
+| `~/code/rust/darkhold` mirror | **CLEARED 2026-11-17.** SSHFS FUSE channel had hung; git processes sat in D state `fuse_chan_send`. | Mount lazily unmounted and remounted; local `f1f4306d` pushed to both forges; mirror `fetch origin master` + `merge --ff-only origin/master` now reports `f1f4306d dirty=0`. |
 
 ## Blocked rows, and the queue that results (2026-11-10)
 
