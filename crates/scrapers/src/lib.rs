@@ -937,6 +937,25 @@ pub trait SourceAdapter: Send + Sync {
         )))
     }
 
+    /// List an author's works with the newest date the source exposed for each.
+    ///
+    /// The default preserves the older API: undated URLs are returned with `None`, so adapters that
+    /// have no dates keep working and the caller can undecorated listings explicitly. A dated
+    /// adapter overrides this rather than changing the undated signature every caller uses.
+    async fn list_author_works_dated(
+        &self,
+        fetch: &dyn Fetcher,
+        profile_url: &url::Url,
+        creds: Option<&Credentials>,
+    ) -> SourceResult<Vec<(String, Option<OffsetDateTime>)>> {
+        Ok(self
+            .list_author_works(fetch, profile_url, creds)
+            .await?
+            .into_iter()
+            .map(|url| (url, None))
+            .collect())
+    }
+
     /// List an author's works, for a bibliography import (spec §11.9).
     /// Default: refused, and reported as such by
     /// [`SourceCapabilities::bibliography`] being false.

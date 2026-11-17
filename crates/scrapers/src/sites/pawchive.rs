@@ -21,6 +21,7 @@
 
 use async_trait::async_trait;
 use scraper::{Html, Selector};
+use time::{format_description::well_known::Rfc3339, OffsetDateTime};
 use url::Url;
 
 use crate::{
@@ -519,6 +520,43 @@ impl SourceAdapter for Pawchive {
             });
         }
         Ok(units)
+    }
+
+    async fn list_author_works_dated(
+        &self,
+        fetch: &dyn Fetcher,
+        profile_url: &Url,
+        _creds: Option<&Credentials>,
+    ) -> SourceResult<Vec<(String, Option<OffsetDateTime>)>> {
+        let uid = Self::user_id(profile_url).ok_or_else(|| {
+            SourceError::Unsupported(format!("{profile_url} is not a Pawchive user URL"))
+        })?;
+        let posts = all_posts(fetch, &uid).await?;
+        let mut works: Vec<(String, Option<OffsetDateTime>)> = Vec::new();
+        for post in posts
+            .iter()
+            .filter(|post| strip_tags(&post.content).trim().len() > 50)
+        {
+            let slug = story_slug(&post.title);
+            if slug.is_empty() {
+                continue;
+            }
+            let published = post
+                .published
+                .as_deref()
+                .and_then(|value| OffsetDateTime::parse(value, &Rfc3339).ok());
+            if let Some(existing) = works.iter_mut().find(|(url, _)| url.ends_with(&slug)) {
+                if published > existing.1 {
+                    existing.1 = published;
+                }
+            } else {
+                works.push((
+                    format!("https://pawchive.pw/patreon/user/{uid}?story={slug}"),
+                    published,
+                ));
+            }
+        }
+        Ok(works)
     }
 
     async fn list_author_works(

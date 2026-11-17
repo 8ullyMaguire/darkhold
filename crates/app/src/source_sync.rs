@@ -27,6 +27,7 @@
 //! is not borrowed to stand in for an archive.
 
 use std::collections::HashMap;
+use time::OffsetDateTime;
 
 use chrono::{DateTime, Utc};
 use darkhold_db::{imports, jobs, syndication};
@@ -61,6 +62,55 @@ fn author_id_from_url(url: &str) -> String {
         .next()
         .unwrap_or_default()
         .to_owned()
+}
+
+/// Apply the window to a whole listing, returning admitted URLs and the rejected count.
+pub fn filter_candidates(
+    candidates: Vec<(String, Option<OffsetDateTime>)>,
+    now: OffsetDateTime,
+    rule: &crate::config::SourceSyncRule,
+) -> (Vec<String>, usize) {
+    let mut admitted = Vec::new();
+    let mut rejected = 0;
+    for (url, published) in candidates {
+        if is_in_window(published, now, rule) {
+            admitted.push(url);
+        } else {
+            rejected += 1;
+        }
+    }
+    (admitted, rejected)
+}
+
+/// Enforce a source's declared freshness window at the candidate boundary.
+///
+/// `None` means the listing parser gave no date, so the candidate is skipped rather than admitted
+/// on guesswork. Both bounds are strict: a post exactly `older_than` old is still too new for a
+/// source that asks for *older than* that window. Invalid windows admit nothing.
+pub fn is_in_window(
+    candidate: Option<OffsetDateTime>,
+    now: OffsetDateTime,
+    rule: &crate::config::SourceSyncRule,
+) -> bool {
+    let Some(candidate) = candidate else {
+        return false;
+    };
+    let age = now - candidate;
+    if age < time::Duration::ZERO {
+        return false;
+    }
+    if let Some(newer) = rule.newer_than.as_deref() {
+        let Ok(window) = crate::config::parse_age_window(newer) else {
+            return false;
+        };
+        if age >= time::Duration::seconds(window.as_secs() as i64) {
+            return false;
+        }
+    }
+    let Ok(window) = crate::config::parse_age_window(&rule.older_than) else {
+        return false;
+    };
+    age > time::Duration::seconds(window.as_secs() as i64)
 }
 
 /// Breadth-first author walk from the configured seeds.
@@ -135,6 +185,8 @@ pub struct SourceReport {
     pub queued: usize,
     /// Works already in the queue or already imported.
     pub known: usize,
+    /// Candidates rejected by the source's declared freshness window.
+    pub freshness_skipped: usize,
     /// Why the source was skipped, when it was.
     pub skipped: Option<String>,
 }
@@ -160,7 +212,8 @@ impl Summary {
             .map(|r| r.source.as_str())
             .collect();
         format!(
-            "syndication: {seen} works seen, {queued} queued, {known} already known, {} sources skipped{}",
+            "syndication: {seen} works seen, {queued} queued, {known} already known, {} skipped by freshness, {} sources skipped{}",
+            self.sources.iter().map(|r| r.freshness_skipped).sum::<usize>(),
             skipped.len(),
             if skipped.is_empty() {
                 String::new()
@@ -275,7 +328,9 @@ pub async fn run(state: &AppState) -> anyhow::Result<Summary> {
                 let Ok(author_url) = url::Url::parse(&node.url) else {
                     continue;
                 };
-                let story_urls = match adapter.list_author_works(&fetcher, &author_url, None).await
+                let story_urls = match adapter
+                    .list_author_works_dated(&fetcher, &author_url, None)
+                    .await
                 {
                     Ok(urls) => urls,
                     Err(error) => {
@@ -288,7 +343,11 @@ pub async fn run(state: &AppState) -> anyhow::Result<Summary> {
                         continue;
                     }
                 };
-                for url in story_urls.into_iter().take(config.max_works_per_listing) {
+                let rule = config.rule_for(&entry.id);
+                let (admitted, rejected) =
+                    filter_candidates(story_urls, OffsetDateTime::now_utc(), &rule);
+                report.freshness_skipped += rejected;
+                for url in admitted.into_iter().take(config.max_works_per_listing) {
                     let slug = url::Url::parse(&url)
                         .ok()
                         .and_then(|parsed| {
@@ -556,6 +615,7 @@ mod tests {
                 discovered: 25,
                 queued: 3,
                 known: 22,
+                freshness_skipped: 4,
                 skipped: None,
             }],
         };
@@ -563,6 +623,7 @@ mod tests {
         assert!(line.contains("25 works seen"), "{line}");
         assert!(line.contains("3 queued"), "{line}");
         assert!(line.contains("22 already known"), "{line}");
+        assert!(line.contains("4 skipped by freshness"), "{line}");
         assert_eq!(summary.queued(), 3);
     }
 
