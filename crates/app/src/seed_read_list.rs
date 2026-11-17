@@ -180,8 +180,14 @@ fn row_match(line: &str) -> Option<(&str, &str, &str, &str)> {
         return None; // no whitespace after the id
     }
     let rest = remainder.trim_start();
-    let (rating, tail) = split_number(rest)?;
-    if rating.is_empty() || rating.len() > 2 {
+    // Calibre exports an unrated row as the literal `None`, not as a number.
+    // Treat it as a rating field so parse can count it as skipped rather than
+    // misreporting a known row as unmatched.
+    let (rating, tail) = match rest.strip_prefix("None") {
+        Some(tail) if tail.starts_with(char::is_whitespace) => ("None", tail),
+        _ => split_number(rest)?,
+    };
+    if rating.is_empty() || (rating != "None" && rating.len() > 2) {
         return None;
     }
     let after = tail.trim_start();
