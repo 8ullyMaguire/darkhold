@@ -158,10 +158,11 @@ async fn one_interval_queues_one_pass_no_matter_how_often_the_sweep_runs() {
 
 /// The config surface an operator actually writes.
 #[tokio::test]
-async fn the_syndication_section_parses_and_defaults_to_off() {
-    // Default: off, twelve hours, no tags. A fresh instance must not start fetching archives on boot.
+async fn the_syndication_section_parses_and_defaults_to_on() {
+    // Default: on, twelve hours, no tags but one author seed. The owner asked for a periodic pull;
+    // the catalogue and the per-source windows are what keep it bounded.
     let default = SyndicationConfig::default();
-    assert!(!default.enabled);
+    assert!(default.enabled);
     assert_eq!(default.interval_hours, 12);
     assert!(default.tags.is_empty());
     assert_eq!(default.max_works_per_listing, 25);
