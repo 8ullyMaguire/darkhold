@@ -26,6 +26,22 @@ describe('SettingProvenance', () => {
     expect(screen.queryByRole('button', { name: /reset/i })).toBeNull();
   });
 
+  it('links its label to the exact control that owns the value', () => {
+    render(SettingProvenance, {
+      props: {
+        label: 'Who can see your reading history',
+        controlId: 'privacy-history_visibility',
+        view: {
+          value: 'readers',
+          source: 'instance',
+          reset: null,
+        },
+      },
+    });
+    const link = screen.getByRole('link', { name: /who can see your reading history/i });
+    expect(link).toHaveAttribute('href', '#privacy-history_visibility');
+  });
+
   it('offers a reset that calls the server path and tells the parent to reload', async () => {
     const onchange = vi.fn();
     render(SettingProvenance, {

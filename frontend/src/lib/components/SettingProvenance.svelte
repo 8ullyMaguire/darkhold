@@ -3,10 +3,12 @@
 
   interface Props {
     label: string;
+    /** The id of the control this provenance explains, for a same-page deep link. */
+    controlId?: string;
     view: SettingProvenanceView;
     onchange?: () => void;
   }
-  let { label, view, onchange }: Props = $props();
+  let { label, controlId, view, onchange }: Props = $props();
   let clearing = $state(false);
   let failure = $state<unknown>(null);
 
@@ -26,7 +28,11 @@
 </script>
 
 <div class="provenance">
-  <span class="label">{label}</span>
+  {#if controlId}
+    <a class="label" href={`#${controlId}`}>{label}</a>
+  {:else}
+    <span class="label">{label}</span>
+  {/if}
   <span class="value">{view.value}</span>
   <span class="source" title="Where this value comes from">{view.source}</span>
   {#if view.note}<span class="note">{view.note}</span>{/if}
@@ -49,6 +55,7 @@
     color: var(--text-3);
   }
   .label { font-weight: 600; color: var(--text-2); }
+  a.label:hover { text-decoration: underline; text-underline-offset: 2px; }
   .value { font-family: var(--font-mono); color: var(--text-1); }
   .source {
     padding: 0 var(--space-1);

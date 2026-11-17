@@ -90,6 +90,12 @@ Source: `.hermes/plans/2026-11-16_203519-fanfiction-quality-import-and-seed.md`.
 
 **Shipped (AdminJobs slice).** `AdminJobs.svelte` now imports `StatusMark` and maps job states with `levelFor()`; the colour-only `.state` badge and its dead CSS are gone. Evidence: `AdminJobs 4/4 + StatusMark 3/3` (7/7), mutant `failed → green` reddened the `red: failed` role/aria-label assertion and was restored from `/tmp`, `gate.sh frontend ok`. Row stays `planned` for the overview alert bar.
 
+## M71-14 provenance deep link — 2026-11-17
+
+**Census:** REUSE `SettingProvenanceView`, `SettingProvenance.svelte` and the existing `Select` ids (`privacy-{key}`); ADAPT the provenance row so its label links to the exact control and `PrivacySettings` passes that id; BUILD one regression assertion. Non-goals: no new API field, no new route, no change to reset semantics or to the instance/account/pseud source words.
+
+SHIPPED 2026-11-17: provenance labels are same-page links to `#privacy-{key}`; `SettingProvenance 3/3 + PrivacySettings 2/2`, frontend/repo gates ok, href mutant red and restored. **Decision:** the provenance label is a same-page `#privacy-{key}` link, not a button and not a client-side navigation. It works without JS, names the setting it explains, and lands on the control that owns the value. Row stays `planned` for the per-work level and typography/gravity provenance.
+
 ## M71-03 Archive rows — Discover feed and rails slice, 2026-11-17
 
 **Census:** REUSE `DiscoveryItem`, `WhyRecommended`, the two reader-surface rail components and their server-owned counts; ADAPT `Discover.svelte`'s feed list and the two rail lists from rounded/wrapped cards to dense hairline rows; BUILD only two regression assertions. Non-goals: no new API, no invented total or cursor — `DiscoveryFeed` has neither, so the page must not claim one; no change to the rail visibility or privacy rules, which are already tested.

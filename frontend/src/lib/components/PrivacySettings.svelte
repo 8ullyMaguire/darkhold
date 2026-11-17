@@ -95,6 +95,7 @@
     {#if provenance?.[key.key]}
       <SettingProvenance
         label={key.summary}
+        controlId={`privacy-${key.key}`}
         view={provenance[key.key]}
         onchange={onreset}
       />
