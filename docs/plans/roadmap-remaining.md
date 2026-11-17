@@ -4724,6 +4724,12 @@ inherits the developer's config file is not a test. The helper now removes `DARK
 
 **Not built, named:** no `dh config unset`, no per-profile `name`/`description`, and the token is not encrypted at rest —
 the file's `0600` is the boundary, the same one `ssh` uses.
+## Blocked (environmental, 2026-11-17): mirror fast-forward on hung SSHFS
+
+| Surface | Block | Exact clearing condition |
+| --- | --- | --- |
+| `~/code/rust/darkhold` mirror | SSHFS FUSE channel hung; `git merge --ff-only origin/master` and other git processes are in D state `fuse_chan_send`. Local checkout and both forges are at `c62eb13c`; only the mirror lags. | FUSE channel recovers or the mount is remounted, D-state git processes exit, then `GIT_CONFIG_GLOBAL=/dev/null git -C ~/code/rust/darkhold fetch origin master && git merge --ff-only origin/master` reports `c62eb13c` with `dirty=0`. |
+
 ## Blocked rows, and the queue that results (2026-11-10)
 
 A blocked row is demoted, never waited on: it goes to the back, the block is recorded here, and the next
