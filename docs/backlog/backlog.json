@@ -3,8 +3,8 @@
     "requirements.csv": {
       "rows": 959,
       "by_status": {
-        "implemented-verified-e2e": 139,
-        "implemented-locally-tested": 270,
+        "implemented-verified-e2e": 138,
+        "implemented-locally-tested": 271,
         "unsupported": 4,
         "implemented-fully-tested": 460,
         "implemented": 41,
