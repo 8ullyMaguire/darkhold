@@ -90,6 +90,12 @@ Source: `.hermes/plans/2026-11-16_203519-fanfiction-quality-import-and-seed.md`.
 
 **Shipped (AdminJobs slice).** `AdminJobs.svelte` now imports `StatusMark` and maps job states with `levelFor()`; the colour-only `.state` badge and its dead CSS are gone. Evidence: `AdminJobs 4/4 + StatusMark 3/3` (7/7), mutant `failed → green` reddened the `red: failed` role/aria-label assertion and was restored from `/tmp`, `gate.sh frontend ok`. Row stays `planned` for the overview alert bar.
 
+## M71-08 script-free auto-hide — 2026-11-17
+
+**Census:** REUSE the server-rendered `nav[aria-label="Reading controls"]`, the existing `reader.css` control block and the no-script reader test; ADAPT `reader.css` only; BUILD one CSS-contract assertion in `reader_page.rs`. Non-goals: no `<script>`, no observer, no change to links/position text, no change to typography form or progress posts.
+
+SHIPPED 2026-11-17: `reader_page 9/9`, scroll-timeline mutant red and restored, frontend/repo gates ok, fmt/clippy clean. **Decision:** auto-hide is a scroll-driven CSS animation behind `@supports (animation-timeline: scroll())` and `@media (prefers-reduced-motion: no-preference)`. The bar fades to a low-opacity rail as the reader scrolls, returns on `:hover` and `:focus-within`, and is fully visible when scroll animations or motion are unavailable. This keeps M5-01's no-JS guarantee literal: the enhancement lives in the stylesheet, not in markup. Row stays `planned` for bookmark and in-work search.
+
 ## M71-16 media-feed eligibility proof — 2026-11-17
 
 **Census:** REUSE `m71_16_machine_surfaces.rs` harness (which already seeds public/unlisted/private/restricted works and tags), the existing `eligibility_filter` predicate behind `/api/v1/media/feed`, and the five format renderers; ADAPT the test file with one feed-sweep assertion; BUILD no route, no table and no renderer. Non-goals: no new feed format, no change to the sitemap tests, no personalisation.

@@ -402,6 +402,35 @@
   border-bottom: 1px solid var(--reader-rule);
   font-family: var(--font-interface);
   font-size: var(--text-sm);
+  /* Progressive enhancement: a scroll timeline hides the bar without a script.
+     Browsers without it keep the still bar these declarations describe. */
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  background: var(--reader-bg);
+  animation: none;
+  animation-timeline: scroll(root block);
+  animation-range: 0 220px;
+}
+
+@keyframes reader-controls-recede {
+  from { opacity: 1; transform: none; }
+  to { opacity: 0.14; transform: translateY(-0.2rem); }
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  @supports (animation-timeline: scroll()) {
+    .reader-surface__controls {
+      animation: reader-controls-recede linear both;
+    }
+  }
+}
+
+.reader-surface__controls:hover,
+.reader-surface__controls:focus-within {
+  animation: none !important;
+  opacity: 1;
+  transform: none;
 }
 
 .reader-surface__controls a {

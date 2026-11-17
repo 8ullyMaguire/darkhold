@@ -1,3 +1,7 @@
+## 2026-11-17 — M71-08 script-free auto-hide shipped (gate/deploy pending)
+
+The reading controls keep their server-rendered links and position text, and now recede on scroll through a CSS scroll timeline. There is still no `<script>` in the reader document. Hover and `:focus-within` restore the full bar, `prefers-reduced-motion: no-preference` and `@supports (animation-timeline: scroll())` gate the animation, and browsers without either see the original still bar. Evidence: `reader_page 9/9`; mutant changing `animation-timeline: scroll(root block)` to `none` reddened the new contract and was restored from `/tmp`; `gate.sh frontend/repo ok`, fmt and clippy clean. Row stays `planned` for bookmark and in-work search.
+
 ## 2026-11-17 — M71-16 media-feed eligibility proof (gate pending)
 
 VERIFIED 2026-11-17: `/tmp/gate-all-m71-16-acf9e2a9.log` ended `GATE_ALL_EXIT=0` with all eight stages ok. No deploy: this row changed no runtime surface. The remaining M71-16 acceptance clause is now proven: one test sweeps `/api/v1/media/feed` in `atom`, `rss`, `opds`, `dc` and `jsonld`, asserting the public work appears and unlisted/private/restricted works do not. No runtime change — the shared `eligibility_filter` already held the rule. Evidence: `m71_16_machine_surfaces 4/4` on SQLite and 4/4 on PostgreSQL; mutant admitting unlisted works reddened the assertion on both engines and was restored from `/tmp`; `cargo fmt --all -- --check` and targeted clippy `-D warnings` clean. No new route, so no ROUTE_TABLE row; no store change, so no migration.

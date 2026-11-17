@@ -721,3 +721,27 @@ async fn typography_names_its_provenance_and_can_reset_to_the_site_default() {
         "and the page says where that value came from: {body}"
     );
 }
+
+/// M71-08's auto-hide clause is a progressive enhancement, not a script. This asserts the stylesheet contract:
+/// scroll-driven fade, an explicit no-motion escape, and a focus/hover reveal that keeps every real link usable.
+#[test]
+fn the_reading_controls_hide_on_scroll_without_script() {
+    const CSS: &str = include_str!("../../../frontend/src/styles/reader.css");
+    let controls = CSS
+        .split("\n}")
+        .find(|block| block.contains(".reader-surface__controls {"))
+        .unwrap_or_else(|| panic!("the reader controls have no stylesheet block"));
+    assert!(
+        controls.contains("animation-timeline: scroll"),
+        "auto-hide must be scroll-driven by CSS, not by a script: {controls}"
+    );
+    assert!(
+        CSS.contains("@media (prefers-reduced-motion: no-preference)"),
+        "readers who ask for less motion must keep a still bar"
+    );
+    assert!(
+        CSS.contains(".reader-surface__controls:hover")
+            && CSS.contains(".reader-surface__controls:focus-within"),
+        "a hidden bar must come back for a pointer or a keyboard before it is used"
+    );
+}
