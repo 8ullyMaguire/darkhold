@@ -239,3 +239,42 @@ async fn a_base_url_with_an_ampersand_still_produces_a_parseable_document() {
         "the raw ampersand survived: {body}"
     );
 }
+
+/// M71-16's remaining acceptance clause: the media feeds are enumeration too. A published-but-unlisted work is
+/// reachable by direct link and must not appear in a feed; private and restricted must not appear either. The same
+/// `eligibility_filter` drives all five renderers, so one sweep over the documented formats proves the claim at the
+/// surface a feed reader actually sees.
+#[tokio::test]
+async fn every_media_feed_excludes_unlisted_private_and_restricted_works() {
+    let harness = Harness::new("media-eligibility").await;
+    harness.seed().await;
+
+    for format in ["atom", "rss", "opds", "dc", "jsonld"] {
+        let (status, _, body) = body_of(
+            raw(
+                harness.client(),
+                &format!("/api/v1/media/feed?format={format}"),
+            )
+            .await,
+        )
+        .await;
+        assert_eq!(status, StatusCode::OK, "format={format}: {body}");
+        assert!(
+            body.contains("Open Work"),
+            "the public work must be enumerateable: format={format}: {body}"
+        );
+        for (title, why) in [
+            ("Unlisted Work", "link-reachable is not indexable"),
+            ("Private Work", "private is not published to anyone"),
+            (
+                "Restricted Work",
+                "restricted is absent from the anonymous door",
+            ),
+        ] {
+            assert!(
+                !body.contains(title),
+                "{why}: format={format}: found {title} in {body}"
+            );
+        }
+    }
+}

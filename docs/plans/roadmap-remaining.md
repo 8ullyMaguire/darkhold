@@ -90,6 +90,12 @@ Source: `.hermes/plans/2026-11-16_203519-fanfiction-quality-import-and-seed.md`.
 
 **Shipped (AdminJobs slice).** `AdminJobs.svelte` now imports `StatusMark` and maps job states with `levelFor()`; the colour-only `.state` badge and its dead CSS are gone. Evidence: `AdminJobs 4/4 + StatusMark 3/3` (7/7), mutant `failed → green` reddened the `red: failed` role/aria-label assertion and was restored from `/tmp`, `gate.sh frontend ok`. Row stays `planned` for the overview alert bar.
 
+## M71-16 media-feed eligibility proof — 2026-11-17
+
+**Census:** REUSE `m71_16_machine_surfaces.rs` harness (which already seeds public/unlisted/private/restricted works and tags), the existing `eligibility_filter` predicate behind `/api/v1/media/feed`, and the five format renderers; ADAPT the test file with one feed-sweep assertion; BUILD no route, no table and no renderer. Non-goals: no new feed format, no change to the sitemap tests, no personalisation.
+
+PROVEN 2026-11-17: `m71_16_machine_surfaces 4/4` SQLite + 4/4 PostgreSQL; eligibility mutant red on both engines and restored from `/tmp`; fmt and targeted clippy clean. No runtime change or deploy. **Decision:** one test loops the five documented formats (`atom`, `rss`, `opds`, `dc`, `jsonld`) and asserts the public work is present while the unlisted, private and restricted works are absent from every body. That is the missing acceptance clause: the same eligibility predicate already exists, so this row closes with proof, not new code. Runs on both engines through the same `TestDb` harness.
+
 ## M71-14 provenance deep link — 2026-11-17
 
 **Census:** REUSE `SettingProvenanceView`, `SettingProvenance.svelte` and the existing `Select` ids (`privacy-{key}`); ADAPT the provenance row so its label links to the exact control and `PrivacySettings` passes that id; BUILD one regression assertion. Non-goals: no new API field, no new route, no change to reset semantics or to the instance/account/pseud source words.
