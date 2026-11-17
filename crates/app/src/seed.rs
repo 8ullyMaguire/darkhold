@@ -207,6 +207,7 @@ mod tests {
 
     fn args(development: bool) -> SeedArgs {
         SeedArgs {
+            source: None,
             development,
             reset: false,
             email: "dev@darkhold.local".to_owned(),

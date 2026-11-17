@@ -109,7 +109,7 @@ pub enum Command {
     /// Apply or inspect database migrations.
     Migrate(MigrateArgs),
 
-    /// Populate a development instance with sample data.
+    /// Populate a development instance with sample data, or seed from a list.
     Seed(SeedArgs),
 
     /// Check configuration, database, storage and converters.
@@ -203,6 +203,11 @@ pub struct MigrateArgs {
 /// Options for `seed`.
 #[derive(Debug, Args)]
 pub struct SeedArgs {
+    /// Which seed to run. The development fixture stays the default when no
+    /// subcommand is given, so `darkhold seed --development` keeps working.
+    #[command(subcommand)]
+    pub source: Option<SeedSource>,
+
     /// Required acknowledgement that this is a development instance.
     #[arg(long)]
     pub development: bool,
@@ -218,6 +223,38 @@ pub struct SeedArgs {
     /// Password for the generated development account.
     #[arg(long, value_name = "PASSWORD", default_value = "darkhold-dev")]
     pub password: String,
+}
+
+/// The data a `seed` command can import.
+#[derive(Debug, Clone, Subcommand)]
+pub enum SeedSource {
+    /// Seed private ratings from the operator's rated reading list.
+    ReadList(ReadListArgs),
+}
+
+/// Options for `seed read-list`.
+#[derive(Debug, Clone, Args)]
+pub struct ReadListArgs {
+    /// The Calibre reading-list export to read.
+    #[arg(long, value_name = "PATH")]
+    pub file: PathBuf,
+
+    /// Print the report without writing. The default; kept explicit for scripts.
+    #[arg(long)]
+    pub dry_run: bool,
+
+    /// Write the matched ratings. Requires --account and --pseud.
+    #[arg(long, conflicts_with = "dry_run")]
+    pub apply: bool,
+
+    /// The operator's account id, required with --apply.
+    #[arg(long, value_name = "UUID")]
+    pub account: Option<String>,
+
+    /// The operator's pseud id, required with --apply. A rating belongs to a
+    /// pseud, so --account alone is not enough.
+    #[arg(long, value_name = "UUID")]
+    pub pseud: Option<String>,
 }
 
 /// Options for `doctor`.
