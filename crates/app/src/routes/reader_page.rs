@@ -37,7 +37,7 @@
 //! validated editor document (spec §8.3, ADR 0002) — the one value here that
 //! is markup rather than text.
 
-use axum::extract::{Form, Path, State};
+use axum::extract::{Form, Path, Query, State};
 use axum::http::{header, StatusCode};
 use axum::response::{Html as AxumHtml, IntoResponse, Redirect, Response};
 use axum::routing::{get, post};
@@ -219,6 +219,13 @@ pub struct TypographyForm {
     pub reader_theme: String,
 }
 
+/// A case-insensitive phrase search over this work's visible unit texts.
+#[derive(Debug, Default, Deserialize)]
+pub struct ReaderSearch {
+    #[serde(default)]
+    pub q: String,
+}
+
 /// The form a reader's bookmark posts.
 #[derive(Debug, Default, Deserialize)]
 pub struct BookmarkForm {
@@ -239,6 +246,7 @@ async fn read_unit_page(
     State(state): State<AppState>,
     MaybeSession(session): MaybeSession,
     Path((work_id, unit_id)): Path<(String, String)>,
+    Query(search): Query<ReaderSearch>,
     headers: axum::http::HeaderMap,
 ) -> ApiResult<Response> {
     let work_id = parse_work_id(&work_id)?;
@@ -402,6 +410,8 @@ async fn read_unit_page(
         &unit,
         sanitized.as_deref(),
         &units,
+        &reveals,
+        &search,
         previous,
         next,
         &typography,
@@ -850,6 +860,27 @@ fn position_label(
     }
 }
 
+/// Units a reader may search: never a spoiler-gated unit before it is revealed. Search must not become a side
+/// channel around the reveal door.
+fn work_search_matches(
+    units: &[content::Unit],
+    reveals: &Reveals,
+    query: &str,
+) -> Vec<(String, String, usize)> {
+    let needle = query.trim().to_lowercase();
+    if needle.is_empty() {
+        return Vec::new();
+    }
+    units
+        .iter()
+        .filter(|unit| !unit.spoiler_gated || reveals.covers(&unit.id.to_string()))
+        .filter_map(|unit| {
+            let count = unit.plain_text.to_lowercase().matches(&needle).count();
+            (count > 0).then(|| (unit.id.to_string(), unit.title.clone(), count))
+        })
+        .collect()
+}
+
 /// Render the reading page.
 #[allow(clippy::too_many_arguments)]
 fn render_page(
@@ -857,6 +888,8 @@ fn render_page(
     unit: &content::Unit,
     sanitized_html: Option<&str>,
     units: &[content::Unit],
+    reveals: &Reveals,
+    search: &ReaderSearch,
     previous: Option<&content::Unit>,
     next: Option<&content::Unit>,
     typography: &reading::Typography,
@@ -1064,7 +1097,70 @@ fn render_page(
         page.close("button");
         page.close("form");
     }
+    page.open(
+        "form",
+        &[
+            ("class", "reader-surface__search"),
+            ("method", "get"),
+            ("action", &format!("/works/{}/units/{}", work.id, unit.id)),
+        ],
+    );
+    page.open("label", &[("for", "reader-search")]);
+    page.text("Search in this work");
+    page.close("label");
+    page.open(
+        "input",
+        &[
+            ("type", "search"),
+            ("id", "reader-search"),
+            ("name", "q"),
+            ("value", search.q.trim()),
+            ("maxlength", "120"),
+        ],
+    );
+    page.close("input");
+    page.open("button", &[("type", "submit")]);
+    page.text("Find");
+    page.close("button");
+    page.close("form");
     page.close("nav");
+
+    let matches = work_search_matches(units, reveals, &search.q);
+    if !search.q.trim().is_empty() {
+        page.open(
+            "section",
+            &[
+                ("class", "reader-surface__search-results"),
+                ("aria-label", "Search in this work"),
+            ],
+        );
+        if matches.is_empty() {
+            page.text(&format!(
+                "No matches for “{}” in this work.",
+                search.q.trim()
+            ));
+        } else {
+            let total: usize = matches.iter().map(|(_, _, count)| *count).sum();
+            let word = if total == 1 { "match" } else { "matches" };
+            page.text(&format!(
+                "“{}” — {total} {word} in this work:",
+                search.q.trim()
+            ));
+            page.open("ul", &[]);
+            for (unit_id, title, count) in &matches {
+                page.open("li", &[]);
+                page.open(
+                    "a",
+                    &[("href", &format!("/works/{}/units/{}", work.id, unit_id))],
+                );
+                page.text(&format!("{title} ({count})"));
+                page.close("a");
+                page.close("li");
+            }
+            page.close("ul");
+        }
+        page.close("section");
+    }
 
     page.open("article", &[("class", "reader-surface__unit")]);
     if !unit.title.trim().is_empty() {

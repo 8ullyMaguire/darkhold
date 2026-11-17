@@ -796,3 +796,31 @@ async fn a_signed_in_reader_can_bookmark_the_current_unit_with_a_form() {
     assert_eq!(mine["note"].as_str(), Some("Remember this passage"));
     assert_eq!(mine["is_public"].as_bool(), Some(false));
 }
+
+/// M71-08: in-work search is a GET form on the reader document, not a script. It searches the work's visible unit
+/// texts and returns real unit links, with the reader's own query echoed back as escaped text.
+#[tokio::test]
+async fn the_reader_can_search_the_work_with_a_server_form() {
+    let harness = Harness::new("reader-search").await;
+    let mut client = harness.client();
+    let (work_id, first_unit, _) = published_work_with_two_units(&mut client, "searchreader").await;
+
+    let (status, body, _) = client
+        .get(&format!("/works/{work_id}/units/{first_unit}?q=BODY"))
+        .await;
+    assert_eq!(status, StatusCode::OK, "{body}");
+    assert!(
+        body.contains("aria-label=\"Search in this work\""),
+        "the search result is part of the document: {body}"
+    );
+    assert!(
+        body.contains("2 matches"),
+        "the result states its count: {body}"
+    );
+    assert!(
+        body.contains(&format!("/works/{work_id}/units/{first_unit}")),
+        "a match is a real unit link: {body}"
+    );
+    assert!(body.contains("The body of unit number 1."), "{body}");
+    assert!(!body.contains("<script"), "search needs no script: {body}");
+}
