@@ -45,7 +45,7 @@
       "id": "M63-11",
       "milestone": "M63",
       "requirement": "dh lib tag --from-csv with a per-row error report and a rollback file; dh lib diff and push --dry-run before any bulk write",
-      "notes": "Power-user sweep P11. Batch editorial work on 500 rows must be resumable and reversible; a partial failure that cannot be resumed is not a feature."
+      "notes": "Power-user sweep P11. Batch editorial work on 500 rows must be resumable and reversible; a partial failure that cannot be resumed is not a feature. CSV TAG SLICE SHIPPED 2026-11-17: `dh lib tag --from-csv` with per-row report and targeted rollback SQL; no new dependency, no HTTP route. Row remains planned for `lib diff` and `lib push`."
     },
     {
       "id": "M63-12",
