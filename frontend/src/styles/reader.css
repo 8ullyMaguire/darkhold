@@ -451,6 +451,36 @@
   font-family: var(--font-mono);
 }
 
+.reader-surface__bookmark {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin-left: auto;
+}
+
+.reader-surface__bookmark label {
+  color: var(--reader-muted);
+}
+
+.reader-surface__bookmark input {
+  width: 16ch;
+  min-height: var(--tap-min);
+  font: inherit;
+  color: var(--reader-text);
+  background: transparent;
+  border: 0;
+  border-bottom: 1px solid var(--reader-rule);
+}
+
+.reader-surface__bookmark button {
+  min-height: var(--tap-min);
+  font: inherit;
+  color: var(--reader-link);
+  background: transparent;
+  border: 1px solid var(--reader-rule);
+  cursor: pointer;
+}
+
 .reader-surface__typography-source {
   font-family: var(--font-mono);
   font-size: var(--text-sm);

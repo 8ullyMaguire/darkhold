@@ -46,6 +46,7 @@ use axum::Router;
 use serde::Deserialize;
 
 use darkhold_db::content;
+use darkhold_db::library::{self, NewBookmark};
 use darkhold_db::reading::{self, ProgressInput};
 use darkhold_domain::AppError;
 
@@ -165,6 +166,10 @@ pub fn router() -> Router<AppState> {
         )
         .route("/works/{work_id}/units/{unit_id}/notes", post(save_note))
         .route(
+            "/works/{work_id}/units/{unit_id}/bookmark",
+            post(save_bookmark),
+        )
+        .route(
             "/works/{work_id}/units/{unit_id}/notes/{note_id}/delete",
             post(delete_note),
         )
@@ -212,6 +217,13 @@ pub struct TypographyForm {
     pub measure: String,
     #[serde(default)]
     pub reader_theme: String,
+}
+
+/// The form a reader's bookmark posts.
+#[derive(Debug, Default, Deserialize)]
+pub struct BookmarkForm {
+    #[serde(default)]
+    pub note: String,
 }
 
 /// The form a reader's note posts.
@@ -728,6 +740,47 @@ async fn set_did_not_finish(
     Ok(Redirect::to(&back).into_response())
 }
 
+/// Save a private bookmark at this unit, and return the reader to the page.
+async fn save_bookmark(
+    State(state): State<AppState>,
+    MaybeSession(session): MaybeSession,
+    Path((work_id, unit_id)): Path<(String, String)>,
+    Form(form): Form<BookmarkForm>,
+) -> ApiResult<Response> {
+    let work_id = parse_work_id(&work_id)?;
+    let unit_id = parse_unit_id(&unit_id)?;
+    let back = format!("/works/{work_id}/units/{unit_id}");
+
+    let Some(user) = session else {
+        return Ok(Redirect::to(&back).into_response());
+    };
+    let note = {
+        let trimmed = form.note.trim();
+        if trimmed.is_empty() {
+            "Bookmarked here"
+        } else {
+            trimmed
+        }
+    };
+    let unit = unit_id.to_string();
+    let work = work_id.to_string();
+    library::create_bookmark(
+        state.db(),
+        &user.account_id.to_string(),
+        &NewBookmark {
+            subject_type: "work",
+            subject_id: &work,
+            unit_id: Some(&unit),
+            position_permille: None,
+            note,
+            is_public: false,
+        },
+    )
+    .await?;
+
+    Ok(Redirect::to(&back).into_response())
+}
+
 /// Save a reader's note, and return them to the page.
 async fn save_note(
     State(state): State<AppState>,
@@ -980,6 +1033,36 @@ fn render_page(
         page.open("a", &[("rel", "next"), ("href", &unit_href(work, next))])
             .text("Next")
             .close("a");
+    }
+    if signed_in {
+        page.open(
+            "form",
+            &[
+                ("class", "reader-surface__bookmark"),
+                ("method", "post"),
+                (
+                    "action",
+                    &format!("/works/{}/units/{}/bookmark", work.id, unit.id),
+                ),
+            ],
+        );
+        page.open("label", &[("for", "reader-bookmark")]);
+        page.text("Bookmark this place");
+        page.close("label");
+        page.open(
+            "input",
+            &[
+                ("type", "text"),
+                ("id", "reader-bookmark"),
+                ("name", "note"),
+                ("maxlength", "200"),
+            ],
+        );
+        page.close("input");
+        page.open("button", &[("type", "submit")]);
+        page.text("Bookmark");
+        page.close("button");
+        page.close("form");
     }
     page.close("nav");
 

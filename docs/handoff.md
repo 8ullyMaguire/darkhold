@@ -1,3 +1,7 @@
+## 2026-11-17 — M71-08 reader bookmark shipped (gate/deploy pending)
+
+A signed-in reader now gets a real form in Reading controls that posts to `/works/{work_id}/units/{unit_id}/bookmark`, creates a private bookmark on the work at that unit, and redirects back. Anonymous readers see no bookmark form because a bookmark is an account fact. The new route has a ROUTE_TABLE row with `Audience::Public` because the page remains public and the post degrades to a redirect rather than a 401. Evidence: `reader_page 10/10` SQLite + 10/10 PostgreSQL, `route_inventory 6/6`; private-flag mutant red and restored from `/tmp`; fmt/clippy/frontend/repo gates ok. Row stays `planned` for in-work search.
+
 ## 2026-11-17 — fanfiction quality wires re-censused: syndication shipped, seed still not implemented
 
 The M74-01 syndicated trope frontier is live (public `/api/v1/catalogue/syndicated`, successful

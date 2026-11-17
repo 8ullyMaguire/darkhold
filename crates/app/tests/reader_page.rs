@@ -745,3 +745,54 @@ fn the_reading_controls_hide_on_scroll_without_script() {
         "a hidden bar must come back for a pointer or a keyboard before it is used"
     );
 }
+
+/// M71-08: bookmarking a place is an account fact and a real form post. The reader document must carry the form
+/// before any script, and the post must create one private bookmark scoped to this work and unit.
+#[tokio::test]
+async fn a_signed_in_reader_can_bookmark_the_current_unit_with_a_form() {
+    let harness = Harness::new("bookmark-form").await;
+    let mut client = harness.client();
+    let (work_id, first_unit, _) =
+        published_work_with_two_units(&mut client, "bookmarkreader").await;
+
+    let (status, body, _) = client
+        .get(&format!("/works/{work_id}/units/{first_unit}"))
+        .await;
+    assert_eq!(status, StatusCode::OK, "{body}");
+    let action = format!("action=\"/works/{work_id}/units/{first_unit}/bookmark\"");
+    assert!(
+        body.contains(&action),
+        "the bookmark form posts to a real route: {body}"
+    );
+    assert!(
+        body.contains("name=\"note\""),
+        "the reader can name the place: {body}"
+    );
+    assert!(
+        !body.contains("<script"),
+        "bookmarking needs no script: {body}"
+    );
+
+    let (status, _, _) = client
+        .post_form(
+            &format!("/works/{work_id}/units/{first_unit}/bookmark"),
+            "note=Remember+this+passage",
+        )
+        .await;
+    assert!(
+        status.is_redirection(),
+        "the form returns the reader to the page: {status}"
+    );
+
+    let (status, body, _) = client.get("/api/v1/bookmarks?subject_type=work").await;
+    assert_eq!(status, StatusCode::OK, "{body}");
+    let json: Value = serde_json::from_str(&body).expect("bookmark list is JSON");
+    let items = json["items"].as_array().expect("items array");
+    let mine = items
+        .iter()
+        .find(|item| item["subject_id"].as_str() == Some(&work_id))
+        .expect("the bookmark was created");
+    assert_eq!(mine["unit_id"].as_str(), Some(first_unit.as_str()));
+    assert_eq!(mine["note"].as_str(), Some("Remember this passage"));
+    assert_eq!(mine["is_public"].as_bool(), Some(false));
+}

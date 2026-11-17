@@ -6437,6 +6437,16 @@ pub const ROUTE_TABLE: &[RouteEntry] = &[
     },
     RouteEntry {
         file: "reader_page.rs",
+        handler: "save_bookmark",
+        method: "POST",
+        path: "/works/{work_id}/units/{unit_id}/bookmark",
+        // A bookmark is a fact about the reader's own account, but the page is
+        // public: an anonymous post is redirected back rather than answered
+        // with a 401, exactly as the other reader form posts are.
+        audience: Audience::Public,
+    },
+    RouteEntry {
+        file: "reader_page.rs",
         handler: "delete_note",
         method: "POST",
         path: "/works/{work_id}/units/{unit_id}/notes/{note_id}/delete",
