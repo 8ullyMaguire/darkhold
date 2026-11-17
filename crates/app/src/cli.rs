@@ -125,6 +125,35 @@ pub enum Command {
     /// retention is a promise — an export is kept seven days and then removed —
     /// and a promise nothing enqueues is not kept.
     Maintain(MaintainArgs),
+
+    /// Local library tools: offline mirrors, CSV tag loads and diffs.
+    Lib(LibArgs),
+}
+
+/// Local library tools.
+#[derive(Debug, Args)]
+pub struct LibArgs {
+    #[command(subcommand)]
+    pub command: LibCommand,
+}
+
+/// One local-library verb.
+#[derive(Debug, Subcommand)]
+pub enum LibCommand {
+    /// Tag works from a two-column `work_id,tag` CSV.
+    Tag(TagArgs),
+}
+
+/// Options for `lib tag`.
+#[derive(Debug, Args)]
+pub struct TagArgs {
+    /// CSV with a `work_id,tag` header and one pair per row.
+    #[arg(long)]
+    pub from_csv: PathBuf,
+
+    /// Where to write the SQL that undoes rows this run applied.
+    #[arg(long)]
+    pub rollback: Option<PathBuf>,
 }
 
 /// Options for `maintain`.

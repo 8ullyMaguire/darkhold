@@ -34,6 +34,7 @@ pub mod http_signature;
 pub mod imports;
 pub mod inbox;
 pub mod keys;
+pub mod lib_tag;
 pub mod library_updates;
 pub mod limiter;
 pub mod logging;
@@ -84,7 +85,7 @@ use darkhold_db::Database;
 
 use darkhold_domain::jobs::{JobKind, RetryPolicy};
 
-use crate::cli::{Cli, Command};
+use crate::cli::{Cli, Command, LibCommand};
 use crate::config::Config;
 use crate::state::AppState;
 
@@ -162,6 +163,38 @@ pub async fn run(cli: Cli) -> Result<ExitCode> {
             }
             Ok(ExitCode::SUCCESS)
         }
+        Command::Lib(args) => match args.command {
+            LibCommand::Tag(tag) => {
+                let csv = tokio::fs::read_to_string(&tag.from_csv)
+                    .await
+                    .with_context(|| format!("reading {}", tag.from_csv.display()))?;
+                let parsed = lib_tag::parse_tag_csv(&csv);
+                let db = connect(&config).await?;
+                let applied = lib_tag::apply(&db, &parsed).await?;
+                print!("{}", lib_tag::render_report(&parsed));
+
+                let rollback = tag.rollback.unwrap_or_else(|| {
+                    let mut path = tag.from_csv.clone().into_os_string();
+                    path.push(".rollback.sql");
+                    path.into()
+                });
+                let mut sql = String::new();
+                for row in &applied {
+                    sql.push_str(&lib_tag::rollback_sql(row));
+                }
+                tokio::fs::write(&rollback, sql)
+                    .await
+                    .with_context(|| format!("writing {}", rollback.display()))?;
+                println!("rollback written to {}", rollback.display());
+                db.close().await;
+                Ok(if parsed.errors.is_empty() {
+                    ExitCode::SUCCESS
+                } else {
+                    ExitCode::FAILURE
+                })
+            }
+        },
+
         Command::Doctor(args) => {
             let report = doctor::run(&config, &args).await;
             print!("{}", doctor::render(&report));

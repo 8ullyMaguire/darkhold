@@ -1,3 +1,7 @@
+## 2026-11-17 — M63-11 CSV tag loader shipped (gate pending)
+
+`dh lib tag --from-csv <path> [--rollback <path>]` now validates a `work_id,tag` CSV before writing, applies good rows through `taxonomy::tag_work`, reports rejected rows with line numbers, exits non-zero if any row failed, and writes a rollback SQL file containing only rows actually written. Quoted fields and embedded commas are rejected by design. Evidence: `lib_tag_csv 3/3` and `lib_tag_csv_apply 1/1` on SQLite and PostgreSQL; bad-row mutant red and restored from `/tmp/lib-tag-csv.bak`; fmt/clippy/frontend/repo gates ok. No HTTP route, no schema change, no deploy. Row stays `planned` for `lib diff` and `lib push`.
+
 ## 2026-11-17 — M71-08 reader bookmark shipped (gate/deploy pending)
 
 ## 2026-11-17 — mirror checkout carries concurrent work

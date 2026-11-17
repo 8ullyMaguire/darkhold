@@ -67,6 +67,12 @@ earlier reading in the same conversation had local `66ad3d24`, deploy `acf9e2a9`
 or before telling the owner the tree is in sync. No propagation was performed as part of this
 documentation update.
 
+## M63-11 `dh lib tag --from-csv` — 2026-11-17
+
+**Spec/plan:** add one CLI slice that reads a two-column `work_id,tag` CSV, validates every row before writing anything, applies valid rows through the existing `darkhold_db::taxonomy::tag_work`, prints a per-row error report with line numbers, and writes a reversible SQL rollback file. Non-goals: no `lib diff`/`lib push` in this slice, no new CSV dependency, no embedded commas/quotes in tag names (rejected with a named error), no HTTP route, no deploy.
+
+SHIPPED 2026-11-17: `lib_tag_csv 3/3`, `lib_tag_csv_apply 1/1` SQLite + PG; bad-row mutant red; fmt/clippy/frontend/repo gates ok. **Census:** REUSE `clap` CLI, `taxonomy::tag_work`, `TagAssertion` and the existing `TestDb` harness; ADAPT `cli.rs`/`lib.rs` with one `Lib::Tag` subcommand; BUILD `lib_tag.rs` (parser + report + rollback) and two test targets. Decision: a bad row never blocks a good row; the command exits non-zero if any row failed, and the rollback file contains only rows actually written. Row stays `planned` for `lib diff` and `lib push`.
+
 ## M71-20 search results document — census, 2026-11-16
 
 **Census (read-only pass over `~/code-local/rust` and `~/code/rust`):** REUSE `routes/document.rs`'s script-free shell, `work_page`'s anonymous-document/signed-in-SPA split, the existing `/api/v1/search` engine `search_works_ast_scoped`, `SearchResult`, and `WorkRow`'s title→byline→metrics→status order; ADAPT `server.rs`'s document-route mount and `routes/inventory.rs` with one new public route; BUILD `routes/search_page.rs` only — no other module serves a no-JS result list built from the same query the JSON door uses. Non-goals: no new query grammar, no new DB table, no removal of the SPA search route (signed-in readers keep it per ADR 0006), no client-side facet/histogram behaviour on the document.
