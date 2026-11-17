@@ -90,6 +90,12 @@ Source: `.hermes/plans/2026-11-16_203519-fanfiction-quality-import-and-seed.md`.
 
 **Shipped (AdminJobs slice).** `AdminJobs.svelte` now imports `StatusMark` and maps job states with `levelFor()`; the colour-only `.state` badge and its dead CSS are gone. Evidence: `AdminJobs 4/4 + StatusMark 3/3` (7/7), mutant `failed → green` reddened the `red: failed` role/aria-label assertion and was restored from `/tmp`, `gate.sh frontend ok`. Row stays `planned` for the overview alert bar.
 
+## M71-07 provider-health register — 2026-11-17
+
+**Census:** REUSE `StatusMark` and `ProviderReliability.health_rate`; ADAPT `AdminMediaHealth.svelte`'s provider table; BUILD one test asserting worded status for each band. Non-goals: no new admin API, no threshold change to the server's health report, no fix link where no concrete fix action exists.
+
+SHIPPED 2026-11-17: `AdminMediaHealth 5/5 + StatusMark 3/3`, frontend/repo gates ok, threshold mutant red and restored. **Decision:** green ≥ 0.95, amber ≥ 0.80, red < 0.80, with the numeric rate still shown beside the worded level. The console's colour is never the only signal. This extends the same register already used in AdminJobs and AdminMirror; row stays `planned` for the remaining console surfaces.
+
 ## M71-08 script-free auto-hide — 2026-11-17
 
 **Census:** REUSE the server-rendered `nav[aria-label="Reading controls"]`, the existing `reader.css` control block and the no-script reader test; ADAPT `reader.css` only; BUILD one CSS-contract assertion in `reader_page.rs`. Non-goals: no `<script>`, no observer, no change to links/position text, no change to typography form or progress posts.

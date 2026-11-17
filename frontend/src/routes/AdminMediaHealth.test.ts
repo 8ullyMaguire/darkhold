@@ -41,6 +41,7 @@ vi.mock('../lib/api', () => ({
     providers: [
       { provider: 'imgur', healthy: 95, total: 100, health_rate: 0.95 },
       { provider: 'pinterest', healthy: 80, total: 100, health_rate: 0.8 },
+      { provider: 'deadhost', healthy: 21, total: 50, health_rate: 0.42 },
     ],
   })),
 }));
@@ -87,6 +88,15 @@ describe('AdminMediaHealth page', () => {
     await waitFor(() => expect(screen.getByText('42')).toBeInTheDocument());
     await waitFor(() => expect(screen.getByText('7')).toBeInTheDocument());
     await waitFor(() => expect(screen.getByText('1.00 GB')).toBeInTheDocument());
+  });
+
+  it('names provider health by level, not colour alone', async () => {
+    render(AdminMediaHealth);
+    await waitFor(() => expect(screen.getByText('Provider reliability')).toBeInTheDocument());
+    expect(screen.getByRole('status', { name: 'green: healthy' })).toBeInTheDocument();
+    expect(screen.getByRole('status', { name: 'amber: degraded' })).toBeInTheDocument();
+    expect(screen.getByRole('status', { name: 'red: failing' })).toBeInTheDocument();
+    expect(screen.getByText('42.0%')).toBeInTheDocument();
   });
 
   it('shows curator leaderboard entries', async () => {

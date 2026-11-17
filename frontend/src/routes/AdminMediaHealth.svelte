@@ -31,6 +31,7 @@
   import ErrorSummary from '../lib/components/ErrorSummary.svelte';
   import SignInGate from '../lib/components/SignInGate.svelte';
   import Skeleton from '../lib/components/Skeleton.svelte';
+  import StatusMark from '../lib/components/StatusMark.svelte';
 
   let overview = $state<MediaHealthOverview | null>(null);
   let linkRot = $state<LinkRotReport | null>(null);
@@ -87,6 +88,13 @@
     } finally {
       loading = false;
     }
+  }
+
+  /** M71-07: the operator console names the level, not just its colour. */
+  function healthLevel(rate: number): { level: 'green' | 'amber' | 'red'; label: string } {
+    if (rate >= 0.95) return { level: 'green', label: 'healthy' };
+    if (rate >= 0.8) return { level: 'amber', label: 'degraded' };
+    return { level: 'red', label: 'failing' };
   }
 
   function fmtBytes(bytes: number): string {
@@ -216,6 +224,7 @@
             <th scope="col">Healthy</th>
             <th scope="col">Total</th>
             <th scope="col">Health rate</th>
+            <th scope="col">Level</th>
           </tr>
         </thead>
         <tbody>
@@ -225,6 +234,12 @@
               <td>{p.healthy}</td>
               <td>{p.total}</td>
               <td>{(p.health_rate * 100).toFixed(1)}%</td>
+              <td>
+                <StatusMark
+                  level={healthLevel(p.health_rate).level}
+                  label={healthLevel(p.health_rate).label}
+                />
+              </td>
             </tr>
           {/each}
         </tbody>
