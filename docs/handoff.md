@@ -1,6 +1,6 @@
 ## 2026-11-17 — M74-01 listing-side freshness shipped (gate/deploy pending)
 
-Per-source windows are now enforced before a candidate becomes an import job. Pawchive's dated discovery method carries the newest chapter's `published` date through story grouping; the worker admits only dated posts inside the rule and counts rejects in `freshness_skipped`. Undated listings are rejected rather than guessed. Evidence: `syndication_freshness 5/5`, `pawchive_freshness 1/1`, related suites still green, clippy clean; three mutants (window bound, listing filter, newest-date choice) each reddened their guard and were restored from `/tmp`. No route or schema change.
+VERIFIED 2026-11-17: `/tmp/gate-all-m74-52cfa0a1.log` ended `GATE_ALL_EXIT=0` with all eight stages ok; named-backup deploy ended `ESTATE_DEPLOY_EXIT=0`, `deploy: darkhold verified in 1198s`, origin and edge `0.1.0+52cfa0a1`, unit active. Per-source windows are now enforced before a candidate becomes an import job. Pawchive's dated discovery method carries the newest chapter's `published` date through story grouping; the worker admits only dated posts inside the rule and counts rejects in `freshness_skipped`. Undated listings are rejected rather than guessed. Evidence: `syndication_freshness 5/5`, `pawchive_freshness 1/1`, related suites still green, clippy clean; three mutants (window bound, listing filter, newest-date choice) each reddened their guard and were restored from `/tmp`. No route or schema change.
 
 ## 2026-11-17 — M74-01 public syndicated catalogue shipped (gate/deploy pending)
 
