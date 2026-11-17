@@ -580,9 +580,9 @@ import { Button } from '@polaris/ui';
           description="Works you import from other sites are listed here, with the address they came from."
         />
       {:else}
-        <ul class="grid">
+        <ul class="rows" aria-label="Imported works">
           {#each items as item (item.id)}
-            <li class="card">
+            <li class="work-row">
               <label class="pick">
                 <input
                   type="checkbox"
@@ -621,7 +621,7 @@ import { Button } from '@polaris/ui';
                 {#if item.word_count !== null}
                   <li>{item.word_count.toLocaleString()} words</li>
                 {/if}
-                <li>synchronised {when(item.last_synced_at)}</li>
+                <li>synced {when(item.last_synced_at)}</li>
               </ul>
 
               {#if item.reading_status || (item.tags?.length ?? 0) > 0 || (item.shelves?.length ?? 0) > 0}
@@ -910,25 +910,56 @@ import { Button } from '@polaris/ui';
     color: var(--color-muted);
   }
 
-  .grid {
+  /* M71-03 / ADR 0033: The Archive is a dense list, not a card grid. Hairline
+     dividers carry the separation; cards and rounded boxes would turn a
+     141,317-row catalogue into a gallery. */
+  .rows {
     list-style: none;
     padding: 0;
     margin: 0;
-    display: grid;
-    /* `min(20rem, 100%)` and not a bare 20rem: a minimum track wider than the
-       container makes the grid overflow, and 20rem is wider than a 320px viewport
-       once the page's own padding is taken off. */
-    grid-template-columns: repeat(auto-fill, minmax(min(20rem, 100%), 1fr));
-    gap: var(--space-3);
+    border-top: var(--border-width) solid var(--color-border);
   }
 
-  .card {
-    border: var(--border-width) solid var(--color-border);
-    border-radius: var(--radius-md);
-    padding: var(--space-3);
-    display: flex;
-    flex-direction: column;
-    gap: var(--space-2);
+  .work-row {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr) auto;
+    column-gap: var(--space-3);
+    row-gap: var(--space-1);
+    align-items: baseline;
+    padding: var(--space-2) 0;
+    border-bottom: var(--border-width) solid var(--color-border);
+  }
+
+  .work-row > .pick {
+    grid-column: 1;
+    grid-row: 1 / span 5;
+  }
+
+  .head,
+  .byline,
+  .provenance,
+  .facts,
+  .library-facts {
+    grid-column: 2;
+    min-width: 0;
+  }
+
+  .card-actions {
+    grid-column: 3;
+    grid-row: 1 / span 5;
+    margin-top: 0;
+    justify-content: flex-end;
+  }
+
+  @media (max-width: 48rem) {
+    .work-row {
+      grid-template-columns: auto minmax(0, 1fr);
+    }
+    .card-actions {
+      grid-column: 2;
+      grid-row: auto;
+      justify-content: flex-start;
+    }
   }
 
   .pick {

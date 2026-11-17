@@ -90,6 +90,12 @@ Source: `.hermes/plans/2026-11-16_203519-fanfiction-quality-import-and-seed.md`.
 
 **Shipped (AdminJobs slice).** `AdminJobs.svelte` now imports `StatusMark` and maps job states with `levelFor()`; the colour-only `.state` badge and its dead CSS are gone. Evidence: `AdminJobs 4/4 + StatusMark 3/3` (7/7), mutant `failed → green` reddened the `red: failed` role/aria-label assertion and was restored from `/tmp`, `gate.sh frontend ok`. Row stays `planned` for the overview alert bar.
 
+## M71-03 Archive rows — library slice, 2026-11-17
+
+**Census:** REUSE `LibraryItem` fields (`source_display_name`, `unit_count`, `word_count`, `status`, `last_synced_at`), the existing selection/status/tag/shelf controls, `WorkRow.svelte`'s title→byline→metadata order and the Archive hairline-row vocabulary; ADAPT only `Library.svelte`'s list markup and CSS; BUILD only one regression test. Non-goals: no new route, no new API field, no invented rating — the library API has no rating and a fabricated one would be a lie. The requirement's "date" is `last_synced_at` when present, not an unmeasured guess. Cursor pagination and the stated total already exist and stay.
+
+**Decision:** `class="grid"` and `class="card"` are removed from the library list: a 141,317-row catalogue cannot be a card grid under ADR 0033. Each work is one dense row with provenance word, source URL, unit count, word count, completion, sync date and the reader's own status/tags/shelves inline. Quick actions remain keyboard-reachable; on narrow viewports they wrap below the facts instead of becoming a second column. LIBRARY SLICE SHIPPED 2026-11-17: `Library.svelte` now renders `ul.rows > li.work-row` with hairline dividers, source/URL/counts/completion/sync date and inline reader facts; no card grid. `Library 10/10`, `gate.sh frontend ok`, `gate.sh repo ok`; mutant restoring `.grid` reddened the assertion and was restored from `/tmp`. No API or route changed. Row stays `planned` until browse and rail surfaces are also converted.
+
 ## M71-03 Archive rows — search slice shipped, 2026-11-16
 
 **Census:** REUSE `SearchResult`, the AST query's one grouped SELECT, the server's existing `provenance` attachment and `WorkBlurb`'s title→byline→metrics order; ADAPT `SearchResult` with a lifecycle-derived `status`, the search response and `Search.svelte`'s hit list; BUILD `WorkRow.svelte` only — no component in the estate carries provenance *and* status beside a title. Non-goals: no new route, no new table, no change to the query grammar, no cover-card grid (ADR 0033).

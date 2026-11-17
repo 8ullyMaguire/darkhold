@@ -189,7 +189,7 @@ describe('the library page', () => {
     await waitFor(() => expect(document.body.textContent).toContain('Mother of Learning'));
 
     const pick = document.querySelector(
-      'input[type="checkbox"][aria-label], .card input[type="checkbox"]',
+      'input[type="checkbox"][aria-label], .work-row input[type="checkbox"]',
     ) as HTMLInputElement;
     await fireEvent.change(pick, { target: { checked: true } });
     await waitFor(() => expect(document.body.textContent).toContain('1 selected'));
@@ -207,7 +207,7 @@ describe('the library page', () => {
     render(Library);
     await waitFor(() => expect(document.body.textContent).toContain('Mother of Learning'));
 
-    const pick = document.querySelector('.card input[type="checkbox"]') as HTMLInputElement;
+    const pick = document.querySelector('.work-row input[type="checkbox"]') as HTMLInputElement;
     await fireEvent.change(pick, { target: { checked: true } });
     await waitFor(() => expect(document.body.textContent).toContain('1 selected'));
 
@@ -229,7 +229,7 @@ describe('the library page', () => {
     // So the selection is attempted *inside* the wait: a stale card produces no
     // "1 selected", which fails the assertion and retries against a fresh query.
     await waitFor(async () => {
-      const box = document.querySelector('.card input[type="checkbox"]') as HTMLInputElement | null;
+      const box = document.querySelector('.work-row input[type="checkbox"]') as HTMLInputElement | null;
       expect(box, 'the reloaded card must be in the grid').not.toBeNull();
       await fireEvent.change(box!, { target: { checked: true } });
       expect(document.body.textContent).toContain('1 selected');
@@ -326,6 +326,27 @@ describe('the library page', () => {
     // The bar holds one value per facet and the view held two shelves, so the
     // loss is said rather than dropped in silence.
     await waitFor(() => expect(document.body.textContent).toContain('shows the first of each'));
+  });
+
+  it('draws imported works as Archive rows, never a card grid', async () => {
+    render(Library);
+    await waitFor(() => expect(document.body.textContent).toContain('Mother of Learning'));
+
+    expect(document.querySelectorAll('ul.grid')).toHaveLength(0);
+    expect(document.querySelectorAll('li.card')).toHaveLength(0);
+    const list = document.querySelector('ul.rows');
+    expect(list).not.toBeNull();
+    const row = list?.querySelector('li.work-row');
+    expect(row).not.toBeNull();
+    // The row carries the Archive facts, not just the title: source word, counts,
+    // completion and the date the local copy was last synchronised.
+    expect(row?.textContent).toContain('Royal Road');
+    expect(row?.textContent).toContain('109 units');
+    expect(row?.textContent).toContain('806,306 words');
+    expect(row?.textContent).toContain('complete');
+    expect(row?.textContent).toContain('synced');
+    // The total and opaque cursor stay on the page, as the row contract requires.
+    expect(document.body.textContent).toContain('Showing 1 of 1.');
   });
 
   it('says so when the library is empty rather than showing an empty list', async () => {
