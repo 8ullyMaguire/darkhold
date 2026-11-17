@@ -169,6 +169,13 @@ pub const ROUTE_TABLE: &[RouteEntry] = &[
         path: "/instance/capacity",
         audience: Audience::Public,
     },
+    RouteEntry {
+        file: "syndicated_catalogue.rs",
+        handler: "syndicated_catalogue",
+        method: "GET",
+        path: "/catalogue/syndicated",
+        audience: Audience::Public,
+    },
     // ------------------------------------------------------------------
     // Metadata exchange (M57, spec §11.17)
     //

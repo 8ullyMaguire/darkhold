@@ -133,6 +133,7 @@ pub mod source_engagement;
 pub mod spoilers;
 pub mod subscriptions;
 pub mod succession;
+pub mod syndicated_catalogue;
 // M45-25 (§58): keystone authors, droughts, and the routing record.
 pub mod supply;
 // M45-26 (§58.6): the welcome rota — one work, one reader, seventy-two hours.

@@ -1,3 +1,7 @@
+## 2026-11-17 — M74-01 public syndicated catalogue shipped (gate/deploy pending)
+
+`GET /api/v1/catalogue/syndicated` is a public API door over the existing instance-owned `library_items`. Metadata is visible to everyone; `chapters` with stored body text is present only for trust >= 2. Below that the payload has the same key set as a story with no stored body — no `chapters`, `body`, `body_audience`, count or badge — so the response cannot reveal a withheld body. New ROUTE_TABLE row uses `Audience::Public`; the route is mounted on the existing `supply` module. Evidence: `catalogue_visibility 1/1` SQLite and 1/1 PostgreSQL, `route_inventory 6/6`, `openapi 8/8`, clippy clean, `gate.sh repo ok`; mutant lowering the trust threshold reddened the low-trust shape assertion and was restored from `/tmp`. Full gate and named deploy follow.
+
 ## 2026-11-17 — M74-01 in progress: the syndicated trope frontier
 
 Spec and plan written before code: `docs/spec-amendments/71-syndicated-trope-frontier.md` and `.hermes/plans/2026-11-17_002000-syndicated-trope-frontier.md`; both requested written lists exist at `docs/ideas/2026-11-17-syndicated-trope-frontier-ideas.md` (50 ideas) and `docs/design/what-i-would-not-build-from-scratch.md` (144 exclusions). Census is in `docs/plans/roadmap-remaining.md`. No new scheduler, table or body-writing path.

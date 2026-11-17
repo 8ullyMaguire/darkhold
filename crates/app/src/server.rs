@@ -477,6 +477,13 @@ pub fn build_router(state: AppState) -> Router {
             routes::meta::router(),
             RouteClass::Default,
         ))
+        // Public catalogue metadata for syndicated works; body text is added only at trust 2 (M74-01).
+        .merge(module_mount(
+            &state,
+            "supply",
+            routes::syndicated_catalogue::router(),
+            RouteClass::Default,
+        ))
         // Tagging a work: the writers `tag_assertions` was built for and nothing called (M70-13's class B). On the `taxonomy`
         // module, because a tag is a taxonomy node and an instance that switched the taxonomy off must not keep a door that
         // adds nodes to works.

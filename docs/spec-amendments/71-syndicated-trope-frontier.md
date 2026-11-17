@@ -41,6 +41,10 @@ Pawchive posts are grouped into one work per `(author_id, normalised story title
 
 Imported works carry `body_audience = 'trust_at_least:2'`. Anonymous and TL1 readers receive title, author, tags, word count and status from search/work listings. They do **not** receive body text, an excerpt, a chapter count, a "restricted/unlock/TL2" badge, or any count that reveals a withheld body exists. The withheld test asserts the difference between an imported TL2 work and an ordinary public work in the same payload, so an empty result cannot pass. Staff reviewing their own imported works remain entitled to read them.
 
+### R71.6 — public syndicated metadata door (check: `catalogue_visibility` tests)
+
+Imported items remain owned by the instance account in `library_items`; no second table and no new publication flag. `GET /api/v1/catalogue/syndicated` lists their metadata (title, author, source, status, word count, source URL, work key) for every visitor. It includes `chapters` with stored body text only when the caller's trust level is at least 2. Below that, the `chapters` key is absent entirely — not `[]`, `null`, a count, or a "restricted" badge — so payload shape cannot reveal a withheld body. The test compares a low-trust response with an equivalent catalogue that has no stored body, so an empty list cannot pass.
+
 ### R71.5 — periodic scheduling (check: existing worker test plus new gate)
 
 The existing `source_sync` worker and its interval-bucketed `enqueue_if_due` are reused; no second scheduler. The rule key is derived from the interval, with `max(1h)` floor. `enabled=false` and `enabled=true` with zero sources/seeds both queue nothing. A second pass over unchanged listings reports all work ids as already known; a late new post moves the stored unit set (the `DO NOTHING` mutant must die). The run report names discovered, queued, known and skipped per source.
