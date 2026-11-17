@@ -31,6 +31,7 @@
   import ErrorSummary from '../lib/components/ErrorSummary.svelte';
   import SignInGate from '../lib/components/SignInGate.svelte';
   import Skeleton from '../lib/components/Skeleton.svelte';
+  import StatusMark from '../lib/components/StatusMark.svelte';
 
   let flows = $state<EconomyFlows | null>(null);
   let loading = $state(true);
@@ -148,6 +149,7 @@
         the whole of its job.
       -->
       <p class="threshold" data-testid="over-threshold">
+        <StatusMark level="amber" label="needs-attention" />
         Net credits are above the configured threshold of {credits(flows.threshold)}. Reported
         for a human to act on; nothing has been adjusted or suspended.
       </p>
@@ -187,6 +189,7 @@
         Undeclared ({flows.undeclared})
       </h3>
       <p class="warn" data-testid="undeclared-warning">
+        <StatusMark level="amber" label="needs-attention" />
         These moved credits but nobody has declared which side of the loop they are on. Their
         credits are in the net above — they are not missing from the economy, they are
         unclassified in it.

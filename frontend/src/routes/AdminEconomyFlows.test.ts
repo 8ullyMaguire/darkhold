@@ -76,6 +76,15 @@ describe('AdminEconomyFlows', () => {
     expect(screen.getByTestId('undeclared-undeclared:grant:mystery')).toHaveTextContent('4,200');
   });
 
+  it('names both operator warnings with a worded status, not colour alone', async () => {
+    mockFetch.mockResolvedValue({ ...window_(), over_threshold: true });
+    render(AdminEconomyFlows);
+    await waitFor(() => expect(screen.getByTestId('over-threshold')).toBeTruthy());
+    const warnings = screen.getAllByRole('status', { name: 'amber: needs-attention' });
+    expect(warnings.length).toBeGreaterThanOrEqual(2);
+    expect(screen.getByTestId('undeclared-warning')).toHaveTextContent('unclassified in it');
+  });
+
   it('never renders a per-account balance', async () => {
     // §53.2 forbids per-account detail in an economy view. The server does not send it;
     // this asserts the component neither invents nor displays one.

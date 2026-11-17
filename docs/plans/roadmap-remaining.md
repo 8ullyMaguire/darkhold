@@ -90,6 +90,12 @@ Source: `.hermes/plans/2026-11-16_203519-fanfiction-quality-import-and-seed.md`.
 
 **Shipped (AdminJobs slice).** `AdminJobs.svelte` now imports `StatusMark` and maps job states with `levelFor()`; the colour-only `.state` badge and its dead CSS are gone. Evidence: `AdminJobs 4/4 + StatusMark 3/3` (7/7), mutant `failed → green` reddened the `red: failed` role/aria-label assertion and was restored from `/tmp`, `gate.sh frontend ok`. Row stays `planned` for the overview alert bar.
 
+## M71-07 economy warnings register — 2026-11-17
+
+**Census:** REUSE `StatusMark`, `EconomyFlows.over_threshold` and `EconomyFlows.undeclared`; ADAPT `AdminEconomyFlows.svelte`'s two warning paragraphs; BUILD one test asserting worded amber status. Non-goals: no new API, no automatic throttle or clamp, no per-account view, no fix link where the page deliberately takes no action.
+
+SHIPPED 2026-11-17: `AdminEconomyFlows 8/8 + StatusMark 3/3`, frontend/repo gates ok, level mutant red and restored. **Decision:** both operator warnings get `amber: needs-attention` beside the existing sentence. Colour remains a second signal; the sentence stays the explanation. This keeps the economy console in the same register as Jobs, Mirror and Media Health.
+
 ## M71-07 provider-health register — 2026-11-17
 
 **Census:** REUSE `StatusMark` and `ProviderReliability.health_rate`; ADAPT `AdminMediaHealth.svelte`'s provider table; BUILD one test asserting worded status for each band. Non-goals: no new admin API, no threshold change to the server's health report, no fix link where no concrete fix action exists.

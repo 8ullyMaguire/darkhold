@@ -1,3 +1,7 @@
+## 2026-11-17 — M71-07 economy warning register shipped (gate/deploy pending)
+
+The economy console's two operator warnings — crossed credit threshold and undeclared mechanisms — now carry the same worded amber `StatusMark` used elsewhere in the console. The explanatory sentences, the no-action rule for the threshold and the no-per-account rule are unchanged. Evidence: `AdminEconomyFlows 8/8 + StatusMark 3/3`; mutant changing the threshold mark to green reddened the assertion and was restored from `/tmp`; `gate.sh frontend/repo ok`. Row stays `planned` for the remaining console surfaces.
+
 ## 2026-11-17 — M71-07 provider-health register shipped (gate/deploy pending)
 
 The provider reliability table in the operator console now names each health band with the shared `StatusMark` vocabulary — green/healthy ≥ 0.95, amber/degraded ≥ 0.80, red/failing below — beside the existing numeric rate. No API or server threshold changed; no fix link was invented where no concrete fix action exists. Evidence: `AdminMediaHealth 5/5 + StatusMark 3/3`, `gate.sh frontend/repo ok`; threshold mutant reddened the band assertion and was restored from `/tmp`. Row stays `planned` for the remaining console surfaces.
