@@ -2440,9 +2440,7 @@ impl SyndicationConfig {
 impl Default for SyndicationConfig {
     fn default() -> Self {
         Self {
-            // The owner asked for a periodic pull, so a fresh instance walks the one declared seed.
-            // Sources are still bounded by the catalogue's reviewed verdicts and the 7d/6mo windows.
-            enabled: true,
+            enabled: false,
             interval_hours: Self::default_interval_hours(),
             tags: Vec::new(),
             sources: vec![SourceSyncRule {

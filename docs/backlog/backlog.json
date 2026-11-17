@@ -243,7 +243,7 @@
       "id": "M74-01",
       "milestone": "M74",
       "requirement": "Periodically discover system-fic/dark-MC works from all declared sources; walk favourite-author recommendations on Pawchive breadth-first to depth 3; apply per-source newer/older windows (7d default, Pawchive 6mo); merge chapter posts into one story; keep metadata public and bodies at trust level 2 with no low-trust hint.",
-      "notes": "Spec docs/spec-amendments/71-syndicated-trope-frontier.md; plan .hermes/plans/2026-11-17_002000-syndicated-trope-frontier.md; census in docs/plans/roadmap-remaining.md. Reconciles 33 reviewed sources with public web evidence. Full gate and deploy pending. Enabled by default at 12h with one Pawchive seed so the worker is actually called."
+      "notes": "Spec docs/spec-amendments/71-syndicated-trope-frontier.md; plan .hermes/plans/2026-11-17_002000-syndicated-trope-frontier.md; census in docs/plans/roadmap-remaining.md. Reconciles 33 reviewed sources with public web evidence. Full gate and deploy pending. Default stays off to keep worker-package tests sound; the live darkhold.toml opts in with [syndication] enabled=true. A default-on trial broke preservation_recheck_wiring and was reverted."
     }
   ],
   "open_by_milestone": {
