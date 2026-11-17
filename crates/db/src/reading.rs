@@ -698,6 +698,7 @@ pub async fn upsert_rating(
     work: WorkId,
     stars: i64,
     is_public: bool,
+    source: Option<&str>,
 ) -> Result<i64> {
     let id = uuid::Uuid::new_v4().to_string();
     let now = now_rfc3339();
@@ -706,22 +707,24 @@ pub async fn upsert_rating(
     let sql = db.sql(
         "INSERT INTO rating
              (id, account_id, pseud_id, work_id, stars, is_public, created_at,
-              updated_at, version, deleted_at)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1, NULL)
+              updated_at, version, deleted_at, source)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1, NULL, ?)
          ON CONFLICT (pseud_id, work_id) WHERE deleted_at IS NULL
          DO UPDATE SET stars = excluded.stars,
                        is_public = excluded.is_public,
+                       source = excluded.source,
                        updated_at = excluded.updated_at,
                        deleted_at = NULL,
                        version = rating.version + 1
          RETURNING version",
         "INSERT INTO rating
              (id, account_id, pseud_id, work_id, stars, is_public, created_at,
-              updated_at, version, deleted_at)
-         VALUES (?::uuid, ?::uuid, ?::uuid, ?::uuid, ?, ?::int::boolean, ?, ?, 1, NULL)
+              updated_at, version, deleted_at, source)
+         VALUES (?::uuid, ?::uuid, ?::uuid, ?::uuid, ?, ?::int::boolean, ?, ?, 1, NULL, ?::text)
          ON CONFLICT (pseud_id, work_id) WHERE deleted_at IS NULL
          DO UPDATE SET stars = excluded.stars,
                        is_public = excluded.is_public,
+                       source = excluded.source,
                        updated_at = excluded.updated_at,
                        deleted_at = NULL,
                        version = rating.version + 1
@@ -744,6 +747,7 @@ pub async fn upsert_rating(
                 .bind(public_int)
                 .bind(&now)
                 .bind(&now)
+                .bind(source)
                 .execute(&mut *tx)
                 .await?;
             let version: i64 = sqlx::query_scalar(
@@ -767,12 +771,48 @@ pub async fn upsert_rating(
                 .bind(public_int)
                 .bind(&now)
                 .bind(&now)
+                .bind(source)
                 .fetch_one(pool)
                 .await?
         }
     };
 
     Ok(version)
+}
+
+/// The provenance of the caller's rating, if it carries any.
+///
+/// `None` is both "no row" and "a human row": callers that need to tell those
+/// apart call [`rating_for`] as well. Seeded rows carry the source the seeder
+/// stamped; a human rating keeps a NULL source even after an update.
+pub async fn rating_source_for(
+    db: &Database,
+    pseud: PseudId,
+    work: WorkId,
+) -> Result<Option<String>> {
+    let sql = db.sql(
+        "SELECT source FROM rating
+          WHERE pseud_id = ? AND work_id = ? AND deleted_at IS NULL",
+        "SELECT source FROM rating
+          WHERE pseud_id::text = ? AND work_id::text = ? AND deleted_at IS NULL",
+    );
+    let row: Option<(Option<String>,)> = match db.backend() {
+        Backend::Sqlite => {
+            sqlx::query_as(&sql)
+                .bind(pseud.to_string())
+                .bind(work.to_string())
+                .fetch_optional(db.sqlite_pool().expect("sqlite handle"))
+                .await?
+        }
+        Backend::Postgres => {
+            sqlx::query_as(&sql)
+                .bind(pseud.to_string())
+                .bind(work.to_string())
+                .fetch_optional(db.postgres_pool().expect("postgres handle"))
+                .await?
+        }
+    };
+    Ok(row.and_then(|(source,)| source))
 }
 
 /// The caller's rating for a work, if any.

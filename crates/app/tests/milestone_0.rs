@@ -73,6 +73,7 @@ fn config_for(dir: &Path) -> Config {
 
 fn seed_args() -> SeedArgs {
     SeedArgs {
+        source: None,
         development: true,
         reset: false,
         email: "dev@darkhold.local".to_owned(),

@@ -1427,6 +1427,59 @@ pub async fn touch_library_item_synced(db: &Database, item_id: &str) -> Result<(
     Ok(())
 }
 
+/// A library item that was materialised into a work, reduced to the four
+/// identity fields the read-list seeder needs.
+///
+/// Read-only. The seeder must never create a work or a library item: it only
+/// rates works the product already holds.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct MaterialisedLibraryItem {
+    pub source_key: String,
+    pub source_work_key: String,
+    pub title: String,
+    pub author_text: String,
+    pub work_id: String,
+}
+
+/// Every library row that points at a work, on either engine.
+///
+/// `work_id` is a UUID column on PostgreSQL and text on SQLite, so the
+/// PostgreSQL half casts it to text before decoding.
+pub async fn materialised_library_items(db: &Database) -> Result<Vec<MaterialisedLibraryItem>> {
+    let sql = db.sql(
+        "SELECT source_key, source_work_key, title, author_text, work_id
+           FROM library_items
+          WHERE work_id IS NOT NULL AND source_work_key <> ''",
+        "SELECT source_key, source_work_key, title, author_text, work_id::text
+           FROM library_items
+          WHERE work_id IS NOT NULL AND source_work_key <> ''",
+    );
+    let rows: Vec<(String, String, String, String, String)> = match db.backend() {
+        Backend::Sqlite => {
+            sqlx::query_as(&sql)
+                .fetch_all(db.sqlite_pool().expect("sqlite handle"))
+                .await?
+        }
+        Backend::Postgres => {
+            sqlx::query_as(&sql)
+                .fetch_all(db.postgres_pool().expect("postgres handle"))
+                .await?
+        }
+    };
+    Ok(rows
+        .into_iter()
+        .map(
+            |(source_key, source_work_key, title, author_text, work_id)| MaterialisedLibraryItem {
+                source_key,
+                source_work_key,
+                title,
+                author_text,
+                work_id,
+            },
+        )
+        .collect())
+}
+
 // ---------------------------------------------------------------------------
 // Import jobs
 // ---------------------------------------------------------------------------

@@ -61,6 +61,7 @@ pub mod profile_fetch;
 pub mod safety;
 pub mod secrets;
 pub mod seed;
+pub mod seed_read_list;
 pub mod server;
 pub mod source_sync;
 pub mod state;
@@ -119,6 +120,9 @@ pub async fn run(cli: Cli) -> Result<ExitCode> {
         }
 
         Command::Seed(args) => {
+            if let Some(crate::cli::SeedSource::ReadList(read_list)) = &args.source {
+                return seed_read_list::run(&config, read_list).await;
+            }
             let db = connect(&config).await?;
             let summary = seed::run(&config, &db, &args).await?;
             print_seed_summary(&summary, &config);

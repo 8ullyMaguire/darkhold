@@ -700,6 +700,7 @@ async fn upsert_rating(
         work_id,
         stars,
         is_public,
+        None,
     )
     .await?;
     Ok(Json(RatingView {

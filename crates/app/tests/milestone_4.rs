@@ -486,6 +486,7 @@ async fn the_public_aggregate_is_absent_below_the_minimum_count() {
             work_uuid,
             4,
             true,
+            None,
         )
         .await
         .expect("upsert");
@@ -537,6 +538,7 @@ async fn the_aggregate_reports_its_count_and_method() {
             work_uuid,
             *stars,
             true,
+            None,
         )
         .await
         .expect("upsert");

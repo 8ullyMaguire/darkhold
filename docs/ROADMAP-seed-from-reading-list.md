@@ -1,6 +1,6 @@
 # ROADMAP — seed darkhold from the rated reading list
 
-Status: proposed 2026-11-11, **superseded in part 2026-11-16** by `.hermes/plans/2026-11-16_203519-fanfiction-quality-import-and-seed.md`. Re-censused **2026-11-17**: still not implemented. The sidecar producer should extend the existing `scripts/parse_read_list.py` (which prints the counts but writes no artifact) rather than create a second parser; the ranked idea bank is `docs/ideas/2026-11-17-reading-list-and-catalogue-quality-ideas.md`. Owner: darkhold member agent. Ledger row: 407 (estate) / M45-74 (repo).
+Status: proposed 2026-11-11, **superseded in part 2026-11-16** by `.hermes/plans/2026-11-16_203519-fanfiction-quality-import-and-seed.md`. Re-censused **2026-11-17**: Phase 2 shipped as `darkhold seed read-list --file` (row 407); Phase 4 remains open. The parser is the Rust command itself; `scripts/parse_read_list.py` remains the measurement tool only. The ranked idea bank is `docs/ideas/2026-11-17-reading-list-and-catalogue-quality-ideas.md`. Owner: darkhold member agent. Ledger row: 407 (estate) / M45-74 (repo).
 Source of truth for the list: `/personal/literature/fanfiction/read.txt` (on thinkcentre; 268 lines, 27 KB, last modified 2026-11-02).
 
 ## Why this exists
@@ -81,8 +81,10 @@ In Calibre `*rating` is a **0–10** field (stars × 2), which matches the obser
 Run these and paste the output into the PR body:
 
     ssh thinkcentre 'cd /personal/documents/code/rust/darkhold'
-    # 1. Is there a write path at all? (expected today: nothing — only reads)
-    rg -n "route\(.*rate|rate_work|submit_rating|create_rating" -g '*.rs' -g '!target' crates/app/src
+    # 1. Is there a write path at all? CORRECTED: yes — the route has existed since row 406.
+    rg -n "route\(.*rate|rate_work|submit_rating|create_rating|upsert_rating" -g '*.rs' -g '!target' crates/app/src
+    # Expected today: `PUT /api/v1/works/{id}/rating` -> routes/reading.rs::upsert_rating -> reading::upsert_rating.
+    # The earlier "nothing — only reads" expectation was a false negative from a single-line grep.
     # 2. What scale does `rating` use? (column type, check constraint, existing rows)
     rg -n "CREATE TABLE.*rating|CHECK.*rating|rating .*(SMALLINT|INT)" -g '*.sql' crates/ | head
     # 3. Which table holds external ids, and does it know AO3/FFN ids?
@@ -107,13 +109,16 @@ job; the estate brief for it is `~/secondbrain/10-Projects/briefs/darkhold-seed-
 
 New CLI subcommand, following the member's existing CLI conventions (`docs/cli-exit-codes.md` for the exit-code vocabulary):
 
-    python3 scripts/read_list_sidecar.py --file /personal/literature/fanfiction/read.txt --out read-list.jsonl
-    darkhold seed read-list --sidecar read-list.jsonl                 # dry-run, writes nothing
-    darkhold seed read-list --sidecar read-list.jsonl --apply --account <id> --pseud <id> --audit audit.jsonl
+    python3 scripts/parse_read_list.py /personal/literature/fanfiction/read.txt   # measure only, no artifact
+    darkhold seed read-list --file /personal/literature/fanfiction/read.txt                          # dry-run, writes nothing
+    darkhold seed read-list --file /personal/literature/fanfiction/read.txt --apply --account <id> --pseud <id>
 
-The Python producer owns text parsing and emits a versioned JSONL sidecar; the Rust command owns every database write. Dry-run is the default,
-`--apply` is required to write, and the audit sidecar records every write. Matching is **exact normalised title only**: `works` has no author column,
-so an author "match" would be a guess about somebody's taste. A title with two hits is reported as `ambiguous`, never chosen.
+The Rust command owns text parsing and every database write, and the provenance stamp is a nullable `rating.source` written by `reading::upsert_rating`.
+Dry-run is the default, `--apply` is required to write, and `--file` reads the export directly: no second parser and no sidecar.
+Match order, first hit wins, is recorded per row: external id + source (materialised `library_items`, `source_key`/`source_work_key`); then normalised
+title + author (that table's `title`/`author_text`, case- and punctuation-folded); then report as unmatched. The old sentence "matching is exact
+normalised title only" was false: `works` has no author column, but `library_items` does, and a title alone is not identity. A title+author key with
+more than one distinct work id is `ambiguous`, never chosen.
 Scale is settled in the producer: Calibre's 0–10 rating becomes 1–5 stars (half up), and Calibre 0 is `unmatched` rather than a 1-star rating.
 
 ## Phase 3 — apply, through the service
@@ -122,9 +127,11 @@ For each matched row with no existing rating from the seed account:
 
 - call `darkhold_db::reading::upsert_rating` — the same function `PUT /works/{id}/rating` calls — with `account`, `pseud`, `work` and 1–5 stars;
   a rating belongs to a pseud, not merely an account, and `is_public = false` keeps one person's reading history private;
-- append the work id, calibre id, source line, stars and strategy to an **append-only audit sidecar**; there is deliberately no `rating.source`
-  column or `taste_provenance` table — a one-person prior does not justify a two-engine migration, and revocation reads the sidecar;
-- idempotent: a second `--apply` writes zero rows and says so.
+- stamp provenance in the row itself: migration `0216_rating_source.sql` adds nullable `rating.source`, and `reading::upsert_rating` writes
+  `'seed.read_list'`. The old sentence "there is deliberately no `rating.source` column" was false after row 407 — the audit sidecar needed a second
+  write and could drift from the row it described; a nullable column is the one fact in one place;
+- idempotent: a second `--apply` with the same export writes zero rows and says so. A seeded row whose stars changed in the export is refreshed
+  through the same upsert; a human rating (NULL source) is never rewritten.
 
 Never `INSERT INTO rating` directly. If the service cannot be reached in-process, the seeder fails loudly — a seeder that bypasses the route is a seeder
 that certifies a path the product does not have.
