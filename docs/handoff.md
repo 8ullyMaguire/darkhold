@@ -1,6 +1,6 @@
 ## 2026-11-17 — M71-14 provenance deep link shipped (gate/deploy pending)
 
-The provenance line above a setting now links its label to the exact control (`#privacy-{key}`), using the same id the `Select` already owns. No script, no new API field, no change to source words or reset semantics. Evidence: `SettingProvenance 3/3 + PrivacySettings 2/2`, `gate.sh frontend ok`, `gate.sh repo ok`; mutant flattening the href to `#` reddened the deep-link assertion and was restored from `/tmp`. Row stays `planned` for per-work level and typography/gravity provenance.
+VERIFIED 2026-11-17: `/tmp/gate-all-m71-14-93a22eef.log` ended `GATE_ALL_EXIT=0` with all eight stages ok. A fresh named dump `/personal/backups/darkhold-20261117-93a22eef-pre-deploy.dump` verified `TABLE_DATA=407`; `/tmp/deploy-darkhold-m71-14-93a22eef.log` ended `ESTATE_DEPLOY_EXIT=0`, `deploy: darkhold verified in 1084s`, `SSH_DEPLOY_EXIT=0`, origin/edge `0.1.0+93a22eef`, unit `active`. The provenance line above a setting now links its label to the exact control (`#privacy-{key}`), using the same id the `Select` already owns. No script, no new API field, no change to source words or reset semantics. Evidence: `SettingProvenance 3/3 + PrivacySettings 2/2`, `gate.sh frontend ok`, `gate.sh repo ok`; mutant flattening the href to `#` reddened the deep-link assertion and was restored from `/tmp`. Row stays `planned` for per-work level and typography/gravity provenance.
 
 ## 2026-11-17 — M71-03 Discover feed and rails shipped (gate/deploy pending)
 

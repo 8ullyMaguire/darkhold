@@ -94,7 +94,7 @@ Source: `.hermes/plans/2026-11-16_203519-fanfiction-quality-import-and-seed.md`.
 
 **Census:** REUSE `SettingProvenanceView`, `SettingProvenance.svelte` and the existing `Select` ids (`privacy-{key}`); ADAPT the provenance row so its label links to the exact control and `PrivacySettings` passes that id; BUILD one regression assertion. Non-goals: no new API field, no new route, no change to reset semantics or to the instance/account/pseud source words.
 
-SHIPPED 2026-11-17: provenance labels are same-page links to `#privacy-{key}`; `SettingProvenance 3/3 + PrivacySettings 2/2`, frontend/repo gates ok, href mutant red and restored. **Decision:** the provenance label is a same-page `#privacy-{key}` link, not a button and not a client-side navigation. It works without JS, names the setting it explains, and lands on the control that owns the value. Row stays `planned` for the per-work level and typography/gravity provenance.
+Full gate `GATE_ALL_EXIT=0` at `93a22eef`; fresh named dump `darkhold-20261117-93a22eef-pre-deploy.dump` (`TABLE_DATA=407`); deployed `0.1.0+93a22eef`. SHIPPED 2026-11-17: provenance labels are same-page links to `#privacy-{key}`; `SettingProvenance 3/3 + PrivacySettings 2/2`, frontend/repo gates ok, href mutant red and restored. **Decision:** the provenance label is a same-page `#privacy-{key}` link, not a button and not a client-side navigation. It works without JS, names the setting it explains, and lands on the control that owns the value. Row stays `planned` for the per-work level and typography/gravity provenance.
 
 ## M71-03 Archive rows — Discover feed and rails slice, 2026-11-17
 
