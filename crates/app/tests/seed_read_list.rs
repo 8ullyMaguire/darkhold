@@ -8,8 +8,8 @@ use std::process::{Command, Output};
 use std::time::{SystemTime, UNIX_EPOCH};
 
 use darkhold_db::{identity, Database, DatabaseConfig};
-use darkhold_domain::policy::AgeState;
 use darkhold_domain::{AccountId, PseudId};
+use darkhold_domain::policy::AgeState;
 
 struct Fixture {
     dir: PathBuf,
@@ -19,8 +19,6 @@ struct Fixture {
     account: AccountId,
     pseud: PseudId,
     work_a: String,
-    #[allow(dead_code)]
-    work_b: String,
 }
 
 fn stamp() -> u128 {
@@ -112,7 +110,6 @@ async fn fixture() -> Fixture {
         account,
         pseud,
         work_a,
-        work_b,
     }
 }
 
@@ -149,7 +146,6 @@ fn run_cli(f: &Fixture, file: &Path, apply: bool) -> Output {
     cmd.output().expect("seed binary")
 }
 
-#[allow(dead_code)]
 fn metric(stdout: &str, prefix: &str) -> i64 {
     let line = stdout
         .lines()
@@ -183,7 +179,7 @@ async fn reading_seed_cli_rates_twice_one_row_and_a_changed_value() {
     );
     let stdout = String::from_utf8_lossy(&dry.stdout);
     assert!(stdout.contains("dry-run (no writes)"));
-    assert!(stdout.contains("strategy title_author       2"));
+    assert_eq!(metric(&stdout, "strategy title_author"), 2);
     assert!(ratings(&f).await.is_empty(), "dry-run must write nothing");
 
     let first = run_cli(&f, &file, true);
@@ -192,7 +188,8 @@ async fn reading_seed_cli_rates_twice_one_row_and_a_changed_value() {
         "apply: {}",
         String::from_utf8_lossy(&first.stderr)
     );
-    assert!(String::from_utf8_lossy(&first.stdout).contains("created              2"));
+    let stdout = String::from_utf8_lossy(&first.stdout);
+    assert_eq!(metric(&stdout, "created"), 2, "{stdout}");
     let rows = ratings(&f).await;
     assert_eq!(rows.len(), 2);
     assert!(rows
@@ -213,8 +210,8 @@ async fn reading_seed_cli_rates_twice_one_row_and_a_changed_value() {
         String::from_utf8_lossy(&second.stderr)
     );
     let stdout = String::from_utf8_lossy(&second.stdout);
-    assert!(stdout.contains("refreshed            1"), "{stdout}");
-    assert!(stdout.contains("skipped existing     1"), "{stdout}");
+    assert_eq!(metric(&stdout, "refreshed"), 1, "{stdout}");
+    assert_eq!(metric(&stdout, "skipped existing"), 1, "{stdout}");
     let rows = ratings(&f).await;
     assert_eq!(rows.len(), 2, "still one row per (pseud, work)");
     let alpha = rows
