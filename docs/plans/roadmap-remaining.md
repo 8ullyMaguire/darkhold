@@ -71,7 +71,7 @@ documentation update.
 
 **Spec/plan:** add one CLI slice that reads a two-column `work_id,tag` CSV, validates every row before writing anything, applies valid rows through the existing `darkhold_db::taxonomy::tag_work`, prints a per-row error report with line numbers, and writes a reversible SQL rollback file. Non-goals: no `lib diff`/`lib push` in this slice, no new CSV dependency, no embedded commas/quotes in tag names (rejected with a named error), no HTTP route, no deploy.
 
-SHIPPED 2026-11-17: `lib_tag_csv 3/3`, `lib_tag_csv_apply 1/1` SQLite + PG; bad-row mutant red; fmt/clippy/frontend/repo gates ok. **Census:** REUSE `clap` CLI, `taxonomy::tag_work`, `TagAssertion` and the existing `TestDb` harness; ADAPT `cli.rs`/`lib.rs` with one `Lib::Tag` subcommand; BUILD `lib_tag.rs` (parser + report + rollback) and two test targets. Decision: a bad row never blocks a good row; the command exits non-zero if any row failed, and the rollback file contains only rows actually written. Row stays `planned` for `lib diff` and `lib push`.
+FULL GATE `GATE_ALL_EXIT=0` at `81b9969c` (`/tmp/gate-all-m63-11-81b9969c-retry.log`); no deploy, no live surface. SHIPPED 2026-11-17: `lib_tag_csv 3/3`, `lib_tag_csv_apply 1/1` SQLite + PG; bad-row mutant red; fmt/clippy/frontend/repo gates ok. **Census:** REUSE `clap` CLI, `taxonomy::tag_work`, `TagAssertion` and the existing `TestDb` harness; ADAPT `cli.rs`/`lib.rs` with one `Lib::Tag` subcommand; BUILD `lib_tag.rs` (parser + report + rollback) and two test targets. Decision: a bad row never blocks a good row; the command exits non-zero if any row failed, and the rollback file contains only rows actually written. Row stays `planned` for `lib diff` and `lib push`.
 
 ## M71-20 search results document — census, 2026-11-16
 

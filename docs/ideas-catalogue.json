@@ -263,19 +263,6 @@
    "built": false
   },
   {
-   "why_summary": "No-JS slice 2026-11-16: `cargo test -p darkhold-app --test reader_page the_navigation_is_a_real_link_and_following_it_returns_the_next_unit` 1/1, asserting `aria-label=\"Reading con",
-   "id": "M71-08",
-   "title": "The reader gains an auto-hiding bar (back, unit navigation, position, typography, bookmark, in-work search) and a typography panel whose settings are per reader and per work, with provenance shown ('your default' / 'instance default' / 'this work') and a reset at each level.",
-   "sources": [
-    "docs/requirements.csv"
-   ],
-   "milestone": "M71",
-   "relevance": 4,
-   "because": "a requirements row exists (+4)",
-   "default_on": false,
-   "built": false
-  },
-  {
    "why_summary": "bf404997, a7664d54 Priority 3. 5.4% fandom coverage is a fact the CLI already prints and the UI hides; a catalogue that hides it is claiming a completeness it does not have. Accept",
    "id": "M71-13",
    "title": "Every surface that enumerates a partially covered dimension states its coverage",
