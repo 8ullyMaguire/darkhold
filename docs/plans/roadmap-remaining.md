@@ -67,6 +67,12 @@ earlier reading in the same conversation had local `66ad3d24`, deploy `acf9e2a9`
 or before telling the owner the tree is in sync. No propagation was performed as part of this
 documentation update.
 
+## M63-10 `dh lib sync --since` — 2026-11-17
+
+**Spec/plan:** add `dh lib sync --to <mirror.sqlite> [--since <RFC3339>] [--account <id>]`, producing a local SQLite mirror of library items and works changed since the watermark. The mirror stores a JSON payload per row plus an explicit watermark, so a later sync can be incremental and `--offline` has a local fact to read. Non-goals: no HTTP client, no credential handling, no body caching, no change to the site DB, no deploy.
+
+SHIPPED 2026-11-17: `lib_sync 2/2` SQLite + PG; since-predicate mutant red and restored; fmt/clippy/repo gates ok. **Census:** REUSE `clap` CLI, `Database`/`DatabaseConfig`, both-engine SQL and `TestDb`; ADAPT `cli.rs`/`lib.rs` with one `Lib::Sync` subcommand; BUILD `lib_sync.rs` and one both-engine test. Decision: the source is the configured site DB, not a network API; this is the local operator's own instance, and adding a token-authenticated remote client would be a second security surface. The mirror is a derived SQLite file with `mirror_rows(kind,id,updated_at,payload)` and `mirror_meta(last_sync)`, not a copy of the site schema.
+
 ## M63-11 `dh lib tag --from-csv` — 2026-11-17
 
 **Spec/plan:** add one CLI slice that reads a two-column `work_id,tag` CSV, validates every row before writing anything, applies valid rows through the existing `darkhold_db::taxonomy::tag_work`, prints a per-row error report with line numbers, and writes a reversible SQL rollback file. Non-goals: no `lib diff`/`lib push` in this slice, no new CSV dependency, no embedded commas/quotes in tag names (rejected with a named error), no HTTP route, no deploy.

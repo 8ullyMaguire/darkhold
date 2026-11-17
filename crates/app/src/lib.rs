@@ -34,6 +34,7 @@ pub mod http_signature;
 pub mod imports;
 pub mod inbox;
 pub mod keys;
+pub mod lib_sync;
 pub mod lib_tag;
 pub mod library_updates;
 pub mod limiter;
@@ -168,6 +169,25 @@ pub async fn run(cli: Cli) -> Result<ExitCode> {
             Ok(ExitCode::SUCCESS)
         }
         Command::Lib(args) => match args.command {
+            LibCommand::Sync(args) => {
+                let db = connect(&config).await?;
+                let changes =
+                    lib_sync::read_changes(&db, args.since.as_deref(), args.account.as_deref())
+                        .await?;
+                let watermark = changes
+                    .iter()
+                    .map(|change| change.updated_at.as_str())
+                    .max()
+                    .unwrap_or(args.since.as_deref().unwrap_or("0000-01-01T00:00:00Z"))
+                    .to_owned();
+                let report = lib_sync::write_mirror(&args.to, &changes, &watermark).await?;
+                println!(
+                    "synced {} library rows and {} work rows; watermark {}",
+                    report.library_rows, report.work_rows, report.watermark
+                );
+                db.close().await;
+                Ok(ExitCode::SUCCESS)
+            }
             LibCommand::Tag(tag) => {
                 let csv = tokio::fs::read_to_string(&tag.from_csv)
                     .await

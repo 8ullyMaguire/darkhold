@@ -142,6 +142,25 @@ pub struct LibArgs {
 pub enum LibCommand {
     /// Tag works from a two-column `work_id,tag` CSV.
     Tag(TagArgs),
+
+    /// Pull changed library and catalogue rows into a local SQLite mirror.
+    Sync(SyncArgs),
+}
+
+/// Options for `lib sync`.
+#[derive(Debug, Args)]
+pub struct SyncArgs {
+    /// Path to the derived SQLite mirror file.
+    #[arg(long)]
+    pub to: PathBuf,
+
+    /// Only rows changed at or after this RFC 3339 timestamp.
+    #[arg(long)]
+    pub since: Option<String>,
+
+    /// Restrict the library pull to one account.
+    #[arg(long)]
+    pub account: Option<String>,
 }
 
 /// Options for `lib tag`.

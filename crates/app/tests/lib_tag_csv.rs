@@ -61,6 +61,7 @@ fn the_cli_exposes_lib_tag_from_csv() {
                     "/tmp/tags.rollback.sql"
                 );
             }
+            other => panic!("wrong lib command: {other:?}"),
         },
         other => panic!("wrong command: {other:?}"),
     }

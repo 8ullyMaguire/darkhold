@@ -8,8 +8,8 @@ use std::process::{Command, Output};
 use std::time::{SystemTime, UNIX_EPOCH};
 
 use darkhold_db::{identity, Database, DatabaseConfig};
-use darkhold_domain::{AccountId, PseudId};
 use darkhold_domain::policy::AgeState;
+use darkhold_domain::{AccountId, PseudId};
 
 struct Fixture {
     dir: PathBuf,
@@ -19,6 +19,7 @@ struct Fixture {
     account: AccountId,
     pseud: PseudId,
     work_a: String,
+    #[allow(dead_code)]
     work_b: String,
 }
 
@@ -148,6 +149,7 @@ fn run_cli(f: &Fixture, file: &Path, apply: bool) -> Output {
     cmd.output().expect("seed binary")
 }
 
+#[allow(dead_code)]
 fn metric(stdout: &str, prefix: &str) -> i64 {
     let line = stdout
         .lines()
