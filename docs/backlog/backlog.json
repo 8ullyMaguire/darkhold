@@ -3,12 +3,12 @@
     "requirements.csv": {
       "rows": 959,
       "by_status": {
-        "implemented-verified-e2e": 145,
+        "implemented-verified-e2e": 146,
         "implemented-locally-tested": 269,
         "unsupported": 4,
         "implemented-fully-tested": 461,
         "implemented": 41,
-        "planned": 27,
+        "planned": 26,
         "evaluated-and-rejected": 7,
         "done": 3,
         "blocked": 2
@@ -53,12 +53,6 @@
       "milestone": "M63",
       "requirement": "dh stats --by week --year: streaks and a shareable wrapped-style personal report for the engineering-minded reader",
       "notes": "Power-user sweep P26. Recognition for the engine: contribution score from the operation log (imports, tags applied, reports filed) shown on a private profile, never on a public ranking."
-    },
-    {
-      "id": "M63-29",
-      "milestone": "M63",
-      "requirement": "dh tui: a full-screen mode of the same binary behind a feature flag, not a separate project",
-      "notes": "Same verbs, same window grammar, same saved queries, same snapshot cache; only the output layer differs. A separate TUI project would duplicate the parser, which is the fork the window grammar exists to prevent. Built last, after rec/q/export/local are real."
     },
     {
       "id": "M63-30",
@@ -195,7 +189,7 @@
   ],
   "open_by_milestone": {
     "M64": 8,
-    "M63": 7,
+    "M63": 6,
     "M71": 5,
     "M45": 2,
     "M66": 1,

@@ -1,5 +1,11 @@
 # The remaining roadmap, ordered for execution
 
+## M63-29 `dh tui` behind a feature flag — 2026-11-18
+
+**Census:** REUSE `dh` itself as command dispatcher and `--json` output; ADAPT its output into a bounded alternate-screen renderer; BUILD one feature-gated `tui.rs`, the `tui` Cargo feature and tests in both feature states. Decision: default off; line-driven prompt (no raw-key dependency); prompt verbs are `rec/q/library/supply/module/config`; `tui` inside `tui` is refused by name. No route, schema or live surface; no deploy.
+
+CLOSED 2026-11-18: full gate at `18edf198` (`/tmp/gate-all-m63-29-18edf198-jobsenv.log`) `GATE_ALL_EXIT=0`, all eight stages ok. The gate needs `DARKHOLD_JOBS_TEST_DSN` for the concurrently merged row 409 A3; a scratch DB `polaris_jobs_a3_scratch` was created on the existing test container and the full gate was rerun with that variable set from the container's own environment. The first two gates were red for integration reasons, not this row: a stale `darkhold-db` dependency in `layering` (fixed by confining it to `src/jobs.rs`) and the missing `polaris-jobs` path (fixed by linking the local estate `crates` directory to the thinkcentre mount). Default feature: refusal 1/1 exit 2; `tui` feature: integration 2/2, module 2/2; feature-gate mutant reddened the refusal test and was restored from `/tmp/dh-tui.bak`; clippy clean in both feature states.
+
 ## M63-12 `dh watch` debounced polling daemon — 2026-11-18
 
 **Census:** REUSE `crate::http::send`, the saved-view shape, global `--dry-run`/`--yes` and `clap`; ADAPT saved-view polling into a set-of-ids change detector; BUILD one `watch.rs` module and its CLI subcommand. Decision: a poll is the work-id set, not a body hash; a change is held with trailing-edge debounce; `--exec` uses the shell and needs `--yes`; notification sinks are names, not SDKs. No route, schema or live surface; no deploy.

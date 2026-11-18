@@ -94,19 +94,6 @@
    "built": false
   },
   {
-   "why_summary": "docs/plans/cli-placement.md Same verbs, same window grammar, same saved queries, same snapshot cache; only the output layer differs. A separate TUI project would duplicate the pars",
-   "id": "M63-29",
-   "title": "dh tui",
-   "sources": [
-    "docs/requirements.csv"
-   ],
-   "milestone": "M63",
-   "relevance": 4,
-   "because": "a requirements row exists (+4)",
-   "default_on": false,
-   "built": false
-  },
-  {
    "why_summary": "live information_schema vs migrations/postgres: missing chapters, bodies, chapter_revisions, import_chapters, ship_participants, taxonomy_aliases, taxonomy_closure, taxonomy_edges,",
    "id": "M63-33",
    "title": "reconcile the live database with the workspace migrations",
