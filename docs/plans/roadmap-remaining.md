@@ -1,5 +1,11 @@
 # The remaining roadmap, ordered for execution
 
+## M73-02 darkhold adopts `polaris-affinity` — 2026-11-18
+
+**Census:** REUSE `polaris_affinity::evidence::{Component, weighted_mean}` and `similarity::{jaccard, cosine_counts, agreement_share}` plus darkhold's existing `Components`/`Score` API and tests; ADAPT `domain/affinity.rs` into a declaration-and-projection adapter; BUILD no new surface. Decision: darkhold keeps its vocabulary, weights 0.5/0.3/0.2 and basis-point projection; the estate crate owns all arithmetic, including the clamp. No deploy: no storage, route or wire shape changed.
+
+CLOSED 2026-11-18: full gate at `d542be1b` (`/tmp/gate-all-m73-02-d542be1b.log`) `GATE_ALL_EXIT=0`, all eight stages ok. First full gate at `dc0459bb` failed only at `ideas_match_requirements`: M63-11 and M73-01 idea rows were still present after their ledger rows moved; removed both from `docs/ideas-catalogue.json` and `crates/domain/src/modules/ideas.rs`, targeted suite 3/3, retry green. Adapter tests 12/12; `reader_affinity_two_engines` 2/2 SQLite and 2/2 PostgreSQL; `None→Some(0.0)` mutant reddened the no-evidence assertion and was restored from `/tmp/darkhold-affinity-adapter.bak`; fmt/clippy/repo/dialects ok.
+
 ## M73-01 `polaris-affinity` 0.1 — 2026-11-18
 
 **Census:** REUSE the donor arithmetic and test vectors in darkhold `domain/affinity.rs`, ascend `themes.rs` and orbital `ranking.rs`; ADAPT them to the written contract; BUILD only the new local crate `/home/alvaro/code-local/polaris-affinity`. Registry check (`cargo search` for weighted mean, Jaccard, percentile rank, half-life decay) found general numerical crates but none owning the no-evidence/caller-data contract; verdict BUILD. Decision: `None` for absence, caller-owned weights/bounds/priors/half-lives, total bounded multiplier, no state and no `product` parameter. No adopter changes in this row; M73-02..04 remain planned. No deploy.
