@@ -1,3 +1,7 @@
+## 2026-11-18 — M73-04 blocked by pre-existing polaris-eval drift
+
+`cargo test --test overlap` in `/home/alvaro/code-local/rust/orbital` fails before any test runs: `src/eval.rs:29` imports `polaris_eval::paired` but local `polaris-eval` at `f77fdfc` has no such export. The row's structural test was written first and went RED only because of this compile error; it was reverted and orbital is clean at `87267e9`. Clearing condition: the owning session resolves the `polaris-eval` API drift (`paired` exported or `eval.rs` migrated), then the plan at `/home/alvaro/.hermes/plans/2026-11-18-m73-04-orbital-affinity-adoption.md` applies unchanged. M73-03 is also Blocked (frozen ascend). Next unblocked row taken in this turn.
+
 ## 2026-11-18 — M73-03 blocked by frozen ascend
 
 Ascend is frozen by a standing owner decision. M73-03 (`themes.rs` adopts `polaris-affinity` by deletion) is moved to the Blocked table without touching the checkout; `git HEAD ed9b1bd` was read only. Clearing condition: owner explicitly unfreezes ascend and authorises writes, then the donor vectors (`confidence(5)=0.5`, cold/warm blend, multiplier floor/ceiling, percentile ties) run against the crate before deletion. M73-04 is taken next in the same turn.
