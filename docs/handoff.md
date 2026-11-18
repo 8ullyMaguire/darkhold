@@ -1,3 +1,7 @@
+## 2026-11-18 — SSHFS mirror cleared
+
+`/home/alvaro/code/rust/darkhold` fast-forwarded to `66aad53d` and is clean. The earlier `folio_wait_bit_common` hang did not recur after `origin/master` was fetched with `GIT_CONFIG_GLOBAL=/dev/null`; only the `merge --ff-only` needed a longer timeout (90s). No remaining mirror block.
+
 ## 2026-11-18 — M63-30 Calibre interop shipped
 
 `dh lib --calibre <path>` reads a Calibre `metadata.db` read-only and emits the seed grammar `darkhold seed read-list` already parses. Rated books only, stable author order, 0–10 ratings left unchanged so the server remains the only owner of star conversion. The default prints a preview; `--out <path>` writes the same text locally. No crate/RPC link, no HTTP route, no schema change, no deploy.
