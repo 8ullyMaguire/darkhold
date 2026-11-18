@@ -1,5 +1,11 @@
 # The remaining roadmap, ordered for execution
 
+## M73-01 `polaris-affinity` 0.1 — 2026-11-18
+
+**Census:** REUSE the donor arithmetic and test vectors in darkhold `domain/affinity.rs`, ascend `themes.rs` and orbital `ranking.rs`; ADAPT them to the written contract; BUILD only the new local crate `/home/alvaro/code-local/polaris-affinity`. Registry check (`cargo search` for weighted mean, Jaccard, percentile rank, half-life decay) found general numerical crates but none owning the no-evidence/caller-data contract; verdict BUILD. Decision: `None` for absence, caller-owned weights/bounds/priors/half-lives, total bounded multiplier, no state and no `product` parameter. No adopter changes in this row; M73-02..04 remain planned. No deploy.
+
+CLOSED 2026-11-18: `donor_vectors 13/13` debug and release; two mutants reddened their guards (denominator `total_weight` → `1.0`, and dropping the multiplier clamp) and were restored from `/tmp/polaris-affinity.bak`; `cargo fmt --check` and `cargo clippy --all-targets -- -D warnings` clean. Local crate HEAD `39cbc5c`; no forge push because sibling shared crates have no remotes.
+
 ## M63-11 `dh lib diff` / `dh lib push --dry-run` — 2026-11-18
 
 **Spec/plan:** `.hermes/plans/2026-11-18-m63-11-lib-diff-push.md`. Add a report comparing the derived mirror to the configured site DB, and a push preview naming the rows and fields a future writer could change. Non-goals: no site write, no migration, no HTTP route, no new schema, no deploy; a real push must refuse until an authorisation and rollback decision exists.

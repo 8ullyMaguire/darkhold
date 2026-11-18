@@ -3,12 +3,12 @@
     "requirements.csv": {
       "rows": 959,
       "by_status": {
-        "implemented-verified-e2e": 142,
+        "implemented-verified-e2e": 143,
         "implemented-locally-tested": 269,
         "unsupported": 4,
         "implemented-fully-tested": 461,
         "implemented": 41,
-        "planned": 32,
+        "planned": 31,
         "evaluated-and-rejected": 7,
         "done": 3
       }
@@ -192,12 +192,6 @@
       "notes": "Opened by M71-01 (8a51f9de), which shipped the landing page. Order and reasons are in docs/adr/0006-one-binary-two-renderers.md. The work page is next and is the one that matters for link previews and crawlers: it needs the public view (works::public_view) plus a session-aware split, because the SPA work page carries the signed-in actions (bookmark, kudos, author tools) - a signed-in reader keeps the application, an anonymous one gets the document. Acceptance per page: a test that fetches the HTML, parses it and asserts the content with no script execution, plus a live probe; the Svelte route is removed in the same commit so the count only goes down. PROGRESS 50635a36: landing page (8a51f9de) and work page /works/{id} shipped as documents, each with a no-script test and a live probe. The work page uses reading_decision_publishing_metadata, answers every denial with one 404 page (bodies compared byte for byte in the test), shows a restricted work's record and withholds its text, and hands a signed-in reader the application per ADR 0006. REMAINING per ADR 0006's order: fandom and tag pages, search results, author page, collection and series pages - each deletes its Svelte route in the same commit. TAG PAGE ed9c7088: GET /tags/{tag} is a document listing the works behind a tag (query filters published public works; empty tag = 404 page; capped at 50 with 'more than 50' rather than a false total). The document shell moved to routes/document.rs at the third caller and work_page's copy was deleted. REMAINING: search results, author page, collection and series pages; then delete the Svelte routes for the pages already served as documents. SEARCH DOCUMENT SHIPPED 2026-11-16: anonymous `GET /search?q=\u2026` is a script-free document built from the same `search_works_ast_scoped` engine as the JSON door, with a real GET form, title/work links, byline, words, points and the status word; a signed-in reader keeps the SPA shell exactly as on /works/{id}. The SPA route stays because ADR 0006 gives members the application. REMAINING: author page, collection and series pages, and deleting the Svelte routes fully replaced by documents (work/tag), each with its own no-JS server test and live probe. AUTHOR PAGE SHIPPED 2026-11-16: work-page bylines already linked to `/people/{handle}`, which used to land on the SPA fallback; they now reach a script-free document that reuses `author:\"handle\"` through `search_works_ast_scoped`, lists title/byline/words/points/status, caps at 50, and 404s an unknown or empty author. No new query grammar, store query or author-guessing. REMAINING in this row: collection and series pages, then deleting Svelte routes that documents fully replace (work/tag). COLLECTION DOCUMENT SHIPPED 2026-11-16: `/collections/{id}` is a script-free document for public events collections. It uses `events::get_collection`/`list_collection_items`/`collection_coverage` and `content::find_work` with the same published/public/undeleted gate as the work page; a private collection and an empty collection are honest 404s. No new store query, no `media_collections` second model. REMAINING in this row: series pages, then deleting Svelte routes that documents fully replace (work/tag). SERIES DOCUMENT SHIPPED 2026-11-16: `/series/{slug}` renders a script-free page in the author's `series_entries.position` order with title, description, position and status, reading only published/public/undeleted works through a new both-engine `series_recs::page_by_slug`. The older `media_collections` kind=series model is deliberately not used; no new slug grammar. This completes the new document doors of ADR 0006 (landing, work, fandom, tag, search, author, collection, series). REMAINING in this row: delete Svelte routes that documents fully replace (work/tag) and re-prove the inventory count only goes down. SVELTE-ROUTE CLAUSE DECIDED 2026-11-16: the remaining \"delete the Svelte route in the same commit\" clause is vacuous for the document doors shipped here. `frontend/src/routes` contains no Tag/TagPage component (`NO_TAG_SVELTE_ROUTE`), and the frozen feature inventory's 38 clientPaths contain no work/tag path. `router.ts` still resolves /works/<id> to `work-read`, but that is the member-only application handed to signed-in readers by the server document per ADR 0006 \u2014 deleting it would remove bookmarks, kudos and author tools. No Svelte route is deleted; the inventory gate stays green. Row remains `planned` until the live probe confirms the deployed document doors. LIVE PROBE 2026-11-16 after the successful deploy (build `0.1.0+a494f8dd`): landing, search, work, tag and author all returned HTTP 200 with no `<script` in the body. Collection and series skipped because the production DB has 0 rows in each table; their two-engine server tests remain the evidence for those doors. A work initially 404'd because the probe picked an `accounts_only` body audience; after filtering to body_audience anyone/public it returned 200. Row stays `planned` only until collection/series can be probed with real live rows."
     },
     {
-      "id": "M73-01",
-      "milestone": "M73",
-      "requirement": "`polaris-affinity` 0.1: one crate owning profile\u2192score arithmetic \u2014 set/count similarity, weighted mean over present evidence, confidence blending `n/(n+k)`, bounded multiplier, percentile within a cohort, age decay \u2014 pure functions with no state, no DB and no `product` parameter.",
-      "notes": ""
-    },
-    {
       "id": "M73-02",
       "milestone": "M73",
       "requirement": "darkhold adopts `polaris-affinity` by deletion: `domain/affinity.rs` keeps only the adapter that builds `Component`s, its arithmetic moves to the crate, and its existing tests run as the crate's test vectors.",
@@ -226,7 +220,7 @@
     "M63": 8,
     "M64": 8,
     "M71": 5,
-    "M73": 4,
+    "M73": 3,
     "M45": 2,
     "M66": 1,
     "M69": 1,
