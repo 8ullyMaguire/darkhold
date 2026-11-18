@@ -32,12 +32,27 @@ async fn exec(db: &Database, sql: &str) {
 }
 
 async fn mirror_count(db: &Database, kind: &str, id: &str) -> i64 {
-    sqlx::query_scalar::<_, i64>("SELECT COUNT(*) FROM mirror_rows WHERE kind = ? AND id = ?")
-        .bind(kind)
-        .bind(id)
-        .fetch_one(db.sqlite_pool().expect("mirror sqlite"))
-        .await
-        .expect("mirror count")
+    let sql = "SELECT COUNT(*) FROM mirror_rows WHERE kind = ? AND id = ?";
+    match db.backend() {
+        darkhold_db::Backend::Sqlite => sqlx::query_scalar::<_, i64>(sql)
+            .bind(kind)
+            .bind(id)
+            .fetch_one(db.sqlite_pool().expect("mirror sqlite"))
+            .await
+            .expect("mirror count"),
+        darkhold_db::Backend::Postgres => panic!("the mirror is always SQLite"),
+    }
+}
+
+async fn mirror_watermark(db: &Database) -> String {
+    let sql = "SELECT value FROM mirror_meta WHERE key = 'last_sync'";
+    match db.backend() {
+        darkhold_db::Backend::Sqlite => sqlx::query_scalar(sql)
+            .fetch_one(db.sqlite_pool().expect("mirror sqlite"))
+            .await
+            .expect("watermark"),
+        darkhold_db::Backend::Postgres => panic!("the mirror is always SQLite"),
+    }
 }
 
 #[tokio::test]
@@ -72,11 +87,7 @@ async fn a_since_watermark_moves_the_mirror_forward_on_both_engines() {
         .expect("mirror opens");
     assert_eq!(mirror_count(&mirror, "work", work).await, 1);
     assert_eq!(mirror_count(&mirror, "library_item", item).await, 1);
-    let watermark: String =
-        sqlx::query_scalar("SELECT value FROM mirror_meta WHERE key = 'last_sync'")
-            .fetch_one(mirror.sqlite_pool().expect("mirror sqlite"))
-            .await
-            .expect("watermark");
+    let watermark = mirror_watermark(&mirror).await;
     assert_eq!(watermark, "2026-02-01T00:00:00Z");
     mirror.close().await;
 
