@@ -10,6 +10,10 @@ description = "dh — a query tool over a Darkhold instance's catalogue"
 name = "dh"
 path = "src/main.rs"
 
+[features]
+# M63-29: a full-screen mode in this binary, opt-in because it takes over the terminal.
+tui = []
+
 [dependencies]
 time = { workspace = true, features = ["parsing", "formatting"] }
 # M63-03: one definition of the metric vocabulary, shared with the server.
