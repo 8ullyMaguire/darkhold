@@ -3,12 +3,12 @@
     "requirements.csv": {
       "rows": 959,
       "by_status": {
-        "implemented-verified-e2e": 148,
+        "implemented-verified-e2e": 149,
         "implemented-locally-tested": 269,
         "unsupported": 4,
         "implemented-fully-tested": 461,
         "implemented": 41,
-        "planned": 23,
+        "planned": 22,
         "evaluated-and-rejected": 7,
         "blocked": 3,
         "done": 3
@@ -59,12 +59,6 @@
       "milestone": "M63",
       "requirement": "reconcile the live database with the workspace migrations: 11 tables the migrations create are absent, 12 legacy-named tables are present",
       "notes": "Found while planning M63-01. The live instance was migrated by the other lineage (lorehaven), whose migration numbers collide with this tree's, so master's files are recorded as applied while the schema is the other one. Everything M63-01 touches exists in both shapes, so the milestone was verifiable; anything that reads chapters/bodies/ships from the live instance will not be. Decide per table: rename (units->chapters, entity_*->canonical_*, revisions->chapter_revisions) or create-and-backfill. Do not run this blind: 127k rows live in the legacy shapes."
-    },
-    {
-      "id": "M64-08",
-      "milestone": "M64",
-      "requirement": "fandom_graph: an operator-managed adjacency map with edge weights (Worm<->Ward, Naruto<->Boruto, MCU<->616, SB<->SV culture) used by tag.cross_fandom and author.similar",
-      "notes": "P8. Static by nature and that is the point: it works before any reader exists. Managed as data (an operator file or admin surface), versioned, and never inferred from co-occurrence alone. 2e070f4f: the map is configuration \u2014 [fandom_graph] version + edges{from,to,weight}, validated at load (self-loop, weight outside (0,1], NaN, unnamed end, empty version each refused naming the edge). domain::fandom_graph::FandomGraph answers neighbours()/expand() with symmetric closure, strongest-weight-per-pair (weight AND spelling, so line order cannot change the map), threshold applied once, seeds never returned. db::fandom_graph::related_works returns (work, fandom, weight, likes) for published/public works in the named fandoms, ordered by weight then likes, seed excluded. GET /api/v1/fandoms/{fandom}/related publishes graph_version + neighbours + works (Anonymous, same answer for every caller; an unmapped fandom answers empty lists, not 404). Registry maps fandom_graph in engine_reason and SlotReason::RelatedFandom exists with its sentence. STILL MISSING, and why the row stays planned: tag.cross_fandom and author.similar have no route in this build \u2014 the registry lists them and nothing serves them \u2014 so the map is reachable via the door and related_works, not yet via those two surfaces. Also fixed here: the merged W7 commit gave SessionContext a roles field and crates/db/tests/session_acr.rs still built it without one, so clippy --all-targets failed on master; two initializers gained roles: &[]."
     },
     {
       "id": "M64-09",
@@ -170,7 +164,7 @@
     }
   ],
   "open_by_milestone": {
-    "M64": 7,
+    "M64": 6,
     "M71": 5,
     "M63": 4,
     "M45": 2,

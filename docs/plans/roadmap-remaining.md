@@ -5214,6 +5214,14 @@ a way to ask for one *work* rather than a feed, and the feature vector beside it
 
 Ascend is frozen by a standing owner decision recorded in persistent memory. Changing `themes.rs` would need a new owner authorisation, not another local judgement. Clearing condition: the owner explicitly unfreezes ascend and authorises writes to `/home/alvaro/code-local/rust/ascend`; then re-run its donor vectors and delete the local arithmetic. Demoted to the end of the queue; M73-04 taken next in the same turn.
 
+## M64-08 fandom graph reaches its two named surfaces — 2026-11-18
+
+**Census:** REUSE the operator's declared map, `fandom_graph::RelatedWork`, the two-engine bind pattern, and the existing router harness; ADAPT neighbours into two surface queries; BUILD two anonymous doors, two DB functions, ROUTE_TABLE rows, and tests. No migration, no frontend, no new map editor.
+
+CLOSED 2026-11-18: `GET /api/v1/tags/{tag}/cross-fandom?from=<fandom>&limit=` and `GET /api/v1/authors/{author}/similar?limit=` now publish the map version, its neighbours, and published/public results. `from` is explicit because a trope alone does not name a source fandom. The author door derives source fandoms from published/public works and excludes the source author. The source-author exclusion mutant reddened `the_author_query_uses_declared_fandoms_and_excludes_the_source_author` and was restored from `/tmp/m64-08.bak2`. Route tests 3/3; DB queries 4/4 SQLite and 4/4 PostgreSQL; route inventory 6/6. Full gate `/tmp/gate-all-m64-08-d9e3519f.log` `GATE_ALL_EXIT=0`, all eight stages ok. Deployed `0.1.0+d9e3519f`, dump `/personal/backups/darkhold-20261118-d9e3519f/darkhold-d9e3519f.dump` `TABLE_DATA=408`, estate `ESTATE_DEPLOY_EXIT=0`, origin/edge build verified, unit active.
+
+The first full gate at `30b52bcc` failed only because the idea catalogue floor of 100 was stale: legitimate retirements had taken the count to 99. The floor was lowered to 95 with that reason in `m65_module_host.rs`; a lost source still drops the count by dozens. M64-06 was demoted to Blocked in the same commit because no engaged row carries a tag.
+
 ## Blocked: M64-06 needs engaged tagged rows — 2026-11-18
 
 M64-06 stays planned but is demoted to the end of the queue. Existing gate output says the refusal half is correct: `tag_engagement` reports `0 tagged, 1,247 engaged, 0 in common` when the two sets are disjoint and refuses a WorkTags surface by name with those numbers. `work_tags` joins 0 of the 1,247 liked rows; all 7,626 tagged rows are pawchive with no engagement.

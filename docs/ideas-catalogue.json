@@ -107,19 +107,6 @@
    "built": false
   },
   {
-   "why_summary": "2e070f4f P8. Static by nature and that is the point: it works before any reader exists. Managed as data (an operator file or admin surface), versioned, and never inferred from co-o",
-   "id": "M64-08",
-   "title": "fandom_graph",
-   "sources": [
-    "docs/requirements.csv"
-   ],
-   "milestone": "M64",
-   "relevance": 4,
-   "because": "a requirements row exists (+4)",
-   "default_on": false,
-   "built": false
-  },
-  {
    "why_summary": "71adfa72 PARTIAL 71adfa72 (first half): taste gravity is now a convex mixture served=(1-g)*base+g*taste, both terms normalised to 0..=1 over the page; unbounded multiplier replaced",
    "id": "M64-09",
    "title": "taste gravity applies at every recommendation surface as a bounded influence layer after the blend, with a per-surface strength, reordering and never filtering",

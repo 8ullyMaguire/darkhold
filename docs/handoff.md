@@ -1,3 +1,11 @@
+## 2026-11-18 — M64-08 fandom graph surfaces shipped and deployed
+
+Two new anonymous API doors reach the operator's declared map: `GET /api/v1/tags/{tag}/cross-fandom?from=<fandom>` and `GET /api/v1/authors/{author}/similar`. Both publish the map version and empty lists rather than 404 for unmapped inputs. The trope door requires `from` because a trope alone does not name a source fandom; the author door derives source fandoms from published/public works and excludes the source author. Both queries exist for SQLite and PostgreSQL, carry the operator's edge weight through, and never expose private or draft works.
+
+Proof: route tests 3/3, DB 4/4 on both engines, route inventory 6/6, source-author-exclusion mutant red and restored, full gate `/tmp/gate-all-m64-08-d9e3519f.log` `GATE_ALL_EXIT=0`, deploy `0.1.0+d9e3519f` with named dump `TABLE_DATA=408`, estate `ESTATE_DEPLOY_EXIT=0`, origin/edge build verified, unit active.
+
+M64-06 was demoted: `work_tags` joins zero engaged rows, so the map cannot be proven through a WorkTags surface until M63-32's backfill lands. The `m65_module_host` idea floor moved from 100 to 95 after three legitimate retirements; adding a requirement only to keep a parser floor green would have been worse.
+
 ## 2026-11-18 — SSHFS mirror cleared
 
 `/home/alvaro/code/rust/darkhold` fast-forwarded to `66aad53d` and is clean. The earlier `folio_wait_bit_common` hang did not recur after `origin/master` was fetched with `GIT_CONFIG_GLOBAL=/dev/null`; only the `merge --ff-only` needed a longer timeout (90s). No remaining mirror block.
