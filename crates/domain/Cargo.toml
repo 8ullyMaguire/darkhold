@@ -10,6 +10,7 @@ description = "Domain primitives for Darkhold: identifiers, errors, policies"
 anyhow.workspace = true
 darkhold-decisions = { path = "../decisions" }
 darkhold-metadata = { path = "../metadata" }
+polaris-affinity = { path = "../../../../polaris-affinity" }
 crc32fast.workspace = true
 base64.workspace = true
 flate2.workspace = true

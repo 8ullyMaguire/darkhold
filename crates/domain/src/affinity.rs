@@ -8,19 +8,16 @@
 //! likes ten mediocre works, and they are not the same reader. So the unit here is the **reader**, the number is 0..1,
 //! and it is a *reading of evidence*, not a per-work multiplier.
 //!
-//! # Three signals, reweighted over the evidence that exists
+//! # Adapter over the estate kernel
 //!
-//! | signal | what it measures | weight |
-//! |---|---|---|
-//! | favourite overlap | share of collected works the operator also values | 0.5 |
-//! | tag similarity | do the same tags recur, whatever the individual works | 0.3 |
-//! | arena agreement | on pairs both judged, do they pick the same winner | 0.2 |
-//!
-//! The weights are the *relative* importance of evidence, so an absent signal is removed from both halves of the
-//! division rather than counted as zero. A new reader with no arena history is not "0.2 less aligned" — they have no
-//! evidence about arena agreement, and scoring them as a disagreement would punish every new reader identically. That
-//! is [`score`]'s whole job, and it is why the return is `Option`: a reader with no evidence at all has no score, not
-//! a score of zero. Storing 0.0 for "unknown" is how a system quietly tells a new reader they are wrong.
+//! Since M73-02 the arithmetic lives in `polaris-affinity`. This file keeps darkhold's three weights, its vocabulary
+//! and its public `Components`/`Score` types; it only declares which evidence exists and projects the crate's answer.
+//! There is no second clamp, division or set arithmetic here on purpose — the estate's tests guard against that.
+
+use polaris_affinity::{
+    evidence::{weighted_mean, Component},
+    similarity::{agreement_share, cosine_counts, jaccard as set_jaccard},
+};
 
 /// The weight of each signal. They sum to 1.0, which is what makes an all-present score a weighted mean.
 pub const FAVOURITE_WEIGHT: f64 = 0.5;
@@ -42,16 +39,16 @@ pub struct Components {
 
 impl Components {
     /// The components that carry evidence, with their weights.
-    fn present(&self) -> Vec<(f64, f64)> {
+    fn present(&self) -> Vec<Component> {
         let mut present = Vec::new();
         if let Some(value) = self.favourite_overlap {
-            present.push((FAVOURITE_WEIGHT, clamp01(value)));
+            present.push(Component::new(FAVOURITE_WEIGHT, Some(value)));
         }
         if let Some(value) = self.tag_similarity {
-            present.push((TAG_WEIGHT, clamp01(value)));
+            present.push(Component::new(TAG_WEIGHT, Some(value)));
         }
         if let Some(value) = self.arena_agreement {
-            present.push((ARENA_WEIGHT, clamp01(value)));
+            present.push(Component::new(ARENA_WEIGHT, Some(value)));
         }
         present
     }
@@ -60,18 +57,6 @@ impl Components {
     #[must_use]
     pub fn evidence_count(&self) -> usize {
         self.present().len()
-    }
-}
-
-/// Clamp a similarity into `0..=1`.
-///
-/// Applied at the edge rather than trusted from the store: the components come out of SQL divisions and cosine
-/// arithmetic, and a `1.0000000000000002` must not make a score exceed its own range.
-fn clamp01(value: f64) -> f64 {
-    if value.is_nan() {
-        0.0
-    } else {
-        value.clamp(0.0, 1.0)
     }
 }
 
@@ -95,49 +80,23 @@ pub struct Score {
 /// piece of evidence.
 #[must_use]
 pub fn score(components: &Components) -> Option<Score> {
-    let present = components.present();
-    if present.is_empty() {
-        return None;
-    }
-    let total_weight: f64 = present.iter().map(|(weight, _)| weight).sum();
-    let weighted: f64 = present.iter().map(|(weight, value)| weight * value).sum();
-    // `total_weight` cannot be zero here: every weight is positive and the vector is non-empty.
-    let value = weighted / total_weight;
-    #[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
-    let basis_points = (clamp01(value) * 10_000.0).round() as u16;
-    #[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
-    let evidence_bp = (total_weight * 10_000.0).round() as u16;
+    let measured = weighted_mean(&components.present())?;
     #[allow(clippy::cast_possible_truncation)]
-    let signals = present.len() as u8;
+    let signals = measured.signals as u8;
     Some(Score {
-        basis_points,
-        evidence_bp,
+        basis_points: measured.basis_points,
+        evidence_bp: measured.evidence_bp,
         signals,
     })
 }
 
-/// Jaccard overlap of two id sets, `None` when the reader's set is empty.
+/// Jaccard overlap of two id sets, `None` when either side has no ids to compare.
 ///
 /// The reader's side decides emptiness: an instance with no valued works is a configuration problem, not a score of
 /// zero for everybody, and returning `Some(0.0)` there would quietly grade the whole readership on an empty shelf.
 #[must_use]
 pub fn jaccard(reader: &[String], instance: &[String]) -> Option<f64> {
-    if reader.is_empty() {
-        return None;
-    }
-    if instance.is_empty() {
-        // No valued set to compare against: the instance has stated nothing, so there is no "how close" to answer.
-        return None;
-    }
-    let reader_set: std::collections::BTreeSet<&String> = reader.iter().collect();
-    let instance_set: std::collections::BTreeSet<&String> = instance.iter().collect();
-    let intersection = reader_set.intersection(&instance_set).count();
-    let union = reader_set.union(&instance_set).count();
-    if union == 0 {
-        return None;
-    }
-    #[allow(clippy::cast_precision_loss)]
-    Some(intersection as f64 / union as f64)
+    set_jaccard(reader, instance)
 }
 
 /// Cosine similarity of two tag-count vectors keyed by tag.
@@ -151,21 +110,7 @@ pub fn cosine(
     reader: &std::collections::BTreeMap<String, f64>,
     instance: &std::collections::BTreeMap<String, f64>,
 ) -> Option<f64> {
-    if reader.is_empty() || instance.is_empty() {
-        return None;
-    }
-    let mut dot = 0.0;
-    for (tag, reader_count) in reader {
-        if let Some(instance_count) = instance.get(tag) {
-            dot += reader_count * instance_count;
-        }
-    }
-    let reader_norm = reader.values().map(|v| v * v).sum::<f64>().sqrt();
-    let instance_norm = instance.values().map(|v| v * v).sum::<f64>().sqrt();
-    if reader_norm == 0.0 || instance_norm == 0.0 {
-        return None;
-    }
-    Some(clamp01(dot / (reader_norm * instance_norm)))
+    cosine_counts(reader, instance)
 }
 
 /// Agreement over jointly-judged arena pairs.
@@ -174,17 +119,33 @@ pub fn cosine(
 /// the reason the component is optional rather than zero.
 #[must_use]
 pub fn arena_agreement(shared_pairs: usize, agreed_pairs: usize) -> Option<f64> {
-    if shared_pairs == 0 {
-        return None;
-    }
-    #[allow(clippy::cast_precision_loss)]
-    Some(clamp01(agreed_pairs as f64 / shared_pairs as f64))
+    agreement_share(shared_pairs, agreed_pairs)
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
     use std::collections::BTreeMap;
+
+    #[test]
+    fn the_adapter_does_not_carry_a_second_arithmetic() {
+        let source = include_str!("affinity.rs");
+        let local_clamp = ["fn clamp", "01"].concat();
+        let set_intersection = ["intersection", "("].concat();
+        let local_denominator = ["total", "_weight"].concat();
+        assert!(
+            !source.contains(&local_clamp),
+            "the clamp belongs to polaris-affinity"
+        );
+        assert!(
+            !source.contains(&set_intersection),
+            "set arithmetic belongs to polaris-affinity"
+        );
+        assert!(
+            !source.contains(&local_denominator),
+            "reweighting belongs to polaris-affinity"
+        );
+    }
 
     #[test]
     fn all_three_present_is_their_weighted_mean() {

@@ -977,6 +977,7 @@ dependencies = [
  "flate2",
  "hex",
  "hmac 0.12.1",
+ "polaris-affinity",
  "rand 0.8.8",
  "serde",
  "serde_json",
@@ -2710,6 +2711,10 @@ dependencies = [
  "flate2",
  "miniz_oxide 0.8.9",
 ]
+
+[[package]]
+name = "polaris-affinity"
+version = "0.1.0"
 
 [[package]]
 name = "polaris-core"
