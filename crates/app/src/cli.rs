@@ -145,6 +145,41 @@ pub enum LibCommand {
 
     /// Pull changed library and catalogue rows into a local SQLite mirror.
     Sync(SyncArgs),
+
+    /// Compare the derived mirror with the configured site database.
+    Diff(DiffArgs),
+
+    /// Preview the rows a future bulk writer would update.
+    Push(PushArgs),
+}
+
+/// Options for `lib diff`.
+#[derive(Debug, Args)]
+pub struct DiffArgs {
+    /// Path to the derived SQLite mirror file.
+    #[arg(long)]
+    pub mirror: PathBuf,
+
+    /// Restrict the library comparison to one account.
+    #[arg(long)]
+    pub account: Option<String>,
+}
+
+/// Options for `lib push`.
+#[derive(Debug, Args)]
+pub struct PushArgs {
+    /// Path to the derived SQLite mirror file.
+    #[arg(long)]
+    pub mirror: PathBuf,
+
+    /// Print the write plan without changing the site. Required; a real push
+    /// needs an authorisation and rollback decision this build does not make.
+    #[arg(long)]
+    pub dry_run: bool,
+
+    /// Restrict the library comparison to one account.
+    #[arg(long)]
+    pub account: Option<String>,
 }
 
 /// Options for `lib sync`.

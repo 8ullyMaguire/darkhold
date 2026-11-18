@@ -1,5 +1,11 @@
 # The remaining roadmap, ordered for execution
 
+## M63-11 `dh lib diff` / `dh lib push --dry-run` — 2026-11-18
+
+**Spec/plan:** `.hermes/plans/2026-11-18-m63-11-lib-diff-push.md`. Add a report comparing the derived mirror to the configured site DB, and a push preview naming the rows and fields a future writer could change. Non-goals: no site write, no migration, no HTTP route, no new schema, no deploy; a real push must refuse until an authorisation and rollback decision exists.
+
+**Census:** REUSE `lib_sync::read_changes`, `MirrorChange`, `write_mirror`, `serde_json::Value`, the `clap` `Command::Lib` dispatch and `TestDb`; ADAPT `cli.rs`/`lib.rs` with two subcommands; BUILD only `lib_diff.rs` and one both-engine test target. Decision: diff exits 0 because it is a report; push is dry-run-only and names changed fields, never SQL or credentials.
+
 ## M74-01 syndicated trope frontier — census, 2026-11-17
 
 Source: `docs/spec-amendments/71-syndicated-trope-frontier.md` and `.hermes/plans/2026-11-17_002000-syndicated-trope-frontier.md`. The owner asked for source updates with system fics/dark MCs, a depth-3 BFS over favourite-author recommendations on Pawchive (seed `26677387`), per-source newer/older windows (default 7d, Pawchive 6mo), chapter posts merged into one story, and metadata-public/body-TL2 content.

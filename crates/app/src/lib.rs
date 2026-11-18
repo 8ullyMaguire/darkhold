@@ -34,6 +34,7 @@ pub mod http_signature;
 pub mod imports;
 pub mod inbox;
 pub mod keys;
+pub mod lib_diff;
 pub mod lib_sync;
 pub mod lib_tag;
 pub mod library_updates;
@@ -169,6 +170,24 @@ pub async fn run(cli: Cli) -> Result<ExitCode> {
             Ok(ExitCode::SUCCESS)
         }
         Command::Lib(args) => match args.command {
+            LibCommand::Diff(args) => {
+                let db = connect(&config).await?;
+                let report = lib_diff::diff(&db, &args.mirror, args.account.as_deref()).await?;
+                print!("{}", lib_diff::render_report(&report));
+                db.close().await;
+                Ok(ExitCode::SUCCESS)
+            }
+            LibCommand::Push(args) => {
+                if !args.dry_run {
+                    eprintln!("lib push is dry-run only; no bulk write is enabled in this build");
+                    return Ok(ExitCode::FAILURE);
+                }
+                let db = connect(&config).await?;
+                let plan = lib_diff::push_plan(&db, &args.mirror, args.account.as_deref()).await?;
+                print!("{}", lib_diff::render_plan(&plan));
+                db.close().await;
+                Ok(ExitCode::SUCCESS)
+            }
             LibCommand::Sync(args) => {
                 let db = connect(&config).await?;
                 let changes =
