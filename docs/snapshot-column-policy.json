@@ -1102,6 +1102,16 @@
       "why": "A UUID foreign key to accounts.id, so it must be re-keyed with snapshot_account -- the SAME derivation accounts.id uses, on the account salt, so the join survives. 11.16.3b, and this is the failure the requirement is 'most likely to be implemented backwards': rekey_text emits a `snp_` TEXT hash, which cannot be compared with a uuid, so the relationship to accounts is destroyed while every behavioural column still reads as pseudonymous. The snapshot LOOKS de-identified and is not.",
       "reviewed_by": "alvaro, 2026-09-29, against spec 11.16.3b"
     },
+    "user_list_collaborators.user_id": {
+      "treatment": "rekey_account",
+      "why": "A UUID foreign key to accounts.id. It must use snapshot_account so a published snapshot keeps the collaborator join while no live account id survives; rekey_text would emit an incompatible TEXT hash and silently break the graph.",
+      "reviewed_by": "alvaro, 2026-11-18, against spec 11.16.3b"
+    },
+    "user_lists.owner_id": {
+      "treatment": "rekey_account",
+      "why": "A UUID foreign key to accounts.id, and the UNIQUE(owner_id, name) key. Re-key with snapshot_account so list ownership stays joinable and de-identified in the same derivation accounts.id uses.",
+      "reviewed_by": "alvaro, 2026-11-18, against spec 11.16.3b"
+    },
     "user_devices.account_id": {
       "treatment": "rekey_account",
       "why": "A UUID foreign key to accounts.id, so it must be re-keyed with snapshot_account -- the SAME derivation accounts.id uses, on the account salt, so the join survives. 11.16.3b, and this is the failure the requirement is 'most likely to be implemented backwards': rekey_text emits a `snp_` TEXT hash, which cannot be compared with a uuid, so the relationship to accounts is destroyed while every behavioural column still reads as pseudonymous. The snapshot LOOKS de-identified and is not.",
