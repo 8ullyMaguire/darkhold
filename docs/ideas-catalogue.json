@@ -55,19 +55,6 @@
    "built": false
   },
   {
-   "why_summary": "docs/ideas/2026-11-01-idea-sweep-power-users.md Power-user sweep P10. Enables sub-millisecond dh q, true --offline, and dh bench; the same download machinery a mirror instance need",
-   "id": "M63-10",
-   "title": "dh lib sync --since",
-   "sources": [
-    "docs/requirements.csv"
-   ],
-   "milestone": "M63",
-   "relevance": 4,
-   "because": "a requirements row exists (+4)",
-   "default_on": false,
-   "built": false
-  },
-  {
    "why_summary": "docs/ideas/2026-11-01-idea-sweep-power-users.md Power-user sweep P11. Batch editorial work on 500 rows must be resumable and reversible; a partial failure that cannot be resumed is",
    "id": "M63-11",
    "title": "dh lib tag --from-csv with a per-row error report and a rollback file; dh lib diff and push --dry-run before any bulk write",
