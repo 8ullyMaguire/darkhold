@@ -14,6 +14,7 @@
 //! GET                    /library/items?<filters>            envelope
 //! GET/PUT/DELETE         /library/items/:id/tags[/:tag]
 //! PUT/DELETE             /library/items/:id/status
+//! GET                    /library/items/:id/body?unit=<source unit key>&offset=<chars>
 //! GET                    /saved-views/by-slug/:slug
 //! PUT                    /saved-views/:id/slug
 //! GET/POST               /saved-views
@@ -110,6 +111,8 @@ pub fn router() -> Router<AppState> {
             "/library/items/{id}/status",
             get(read_status).put(set_status).delete(clear_status),
         )
+        // Row 264: the stored body of one imported section. The anchor is required by the handler.
+        .route("/library/items/{id}/body", get(read_item_body))
         .route("/saved-views", get(list_views).post(create_view))
         .route("/saved-views/by-slug/{slug}", get(get_saved_view_by_slug))
         .route(
@@ -821,6 +824,91 @@ async fn query_library_items(
             .collect::<Vec<_>>(),
         "total": page.total,
         "next_cursor": next_cursor,
+    })))
+}
+
+/// A place in an imported work: the source's chapter/section id, plus a character
+/// offset *inside that one unit*.
+///
+/// Row 264. There is no merged document here, and creating a byte offset into a
+/// concatenation of all units would make the address depend on markup the
+/// renderer might change. Both halves are mandatory: a missing unit or offset
+/// is a 400 from the query extractor, not "start at the beginning".
+#[derive(Debug, Deserialize)]
+struct ItemBodyAnchor {
+    unit: String,
+    offset: usize,
+}
+
+/// Read stored prose from one imported unit.
+///
+/// Ownership is checked before the unit is looked up, so another reader gets
+/// the same 404 as a nonexistent item and an anonymous caller gets 401 from
+/// `RequireSession` before the handler runs. The bytes come from the same
+/// `BlobStore` the importer wrote; no second body store and no checksum logic
+/// is repeated here.
+async fn read_item_body(
+    State(state): State<AppState>,
+    RequireSession(user): RequireSession,
+    Path(id): Path<String>,
+    Query(anchor): Query<ItemBodyAnchor>,
+) -> ApiResult<Json<serde_json::Value>> {
+    let account = user.account_id.to_string();
+    if !library::library_item_exists(state.db(), &account, &id).await? {
+        return Err(ApiError(AppError::NotFound {
+            resource: "library item",
+        }));
+    }
+
+    let unit = imports::latest_units_for_item(state.db(), &id)
+        .await?
+        .into_iter()
+        .find(|unit| unit.source_unit_key == anchor.unit && unit.state == "stored")
+        .ok_or_else(|| {
+            ApiError(AppError::Validation {
+                message: "that chapter/section anchor is not a stored unit of this library item"
+                    .to_owned(),
+                field_errors: BTreeMap::from([(
+                    "unit".to_owned(),
+                    "no stored unit with that id".to_owned(),
+                )]),
+            })
+        })?;
+    let Some(checksum) = unit.content_blob_checksum.as_deref() else {
+        return Err(ApiError(AppError::NotFound {
+            resource: "library item body",
+        }));
+    };
+    let store = BlobStore::new(state.config().storage.root.clone());
+    let Some(bytes) = store.get(state.db(), checksum).await? else {
+        return Err(ApiError(AppError::NotFound {
+            resource: "library item body",
+        }));
+    };
+    let body = String::from_utf8_lossy(&bytes);
+    let length = body.chars().count();
+    if anchor.offset > length {
+        return Err(ApiError(AppError::Validation {
+            message: format!(
+                "offset {} is past the end of the anchored unit ({} characters)",
+                anchor.offset, length
+            ),
+            field_errors: BTreeMap::from([(
+                "offset".to_owned(),
+                format!("must be at most {length}"),
+            )]),
+        }));
+    }
+    let slice: String = body.chars().skip(anchor.offset).collect();
+
+    Ok(Json(json!({
+        "item_id": id,
+        "unit": unit.source_unit_key,
+        "ordinal": unit.ordinal,
+        "title": unit.title,
+        "offset": anchor.offset,
+        "length": length,
+        "body": slice,
     })))
 }
 

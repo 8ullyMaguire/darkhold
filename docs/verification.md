@@ -1,3 +1,27 @@
+## 2026-11-18 — row 264: the imported body can be opened again
+
+Prerequisite noted, not invented: this tree has no `docs/SPEC.md`, `docs/PLAN.md` or `docs/COVERAGE.md`; the brief directed `docs/handoff.md` and `docs/verification.md` instead.
+
+Verified on thinkcentre with `CARGO_TARGET_DIR=/home/alvaro/.cargo-target/darkhold`:
+
+```
+cargo test -p darkhold-app --test library_item_body_route
+  -> SQLite: 3 passed; 0 failed
+  -> DARKHOLD_TEST_PG_URL from scripts/pg-test-db.sh: 3 passed; 0 failed
+cargo test -p darkhold-app --test route_inventory --test openapi
+  -> route_inventory 6 passed; openapi 8 passed
+cargo test -p darkhold-db --test migration_catalogue
+  -> 6 passed
+bash scripts/gate.sh dialects -> ok: dialects
+cargo fmt -p darkhold-app -- --check -> FMT_OK
+cargo clippy -p darkhold-app --all-targets -- -D warnings -> Finished, no warnings
+bash scripts/gate.sh repo -> FAILED (pre-existing: master spec /home/alvaro/secondbrain/10-Projects/ultimate-fanfiction-site-spec.md is absent; every in-tree check in that gate reported OK)
+```
+
+Mutation proof: changing the new offset gate to `if false {` made `an_anchor_is_a_unit_plus_an_offset_not_a_byte_into_a_merged_document` fail with `"offset":23,"length":17` and an empty body; the other two tests stayed green. `/tmp/dh264-library.rs.bak` was copied back byte-identically (`cmp -s` ok) and the suite returned 3/3. The first, unmutated run had a faulty assertion in the test itself (`BODY B` is outside the slice at offset 6); that was fixed before the mutation.
+
+Not claimed: no full workspace suite, no all-gates green, no deploy, no live-site probe, no estate repo change, no production DB write.
+
 ## 2026-11-02 — `dh rec` output shape is a contract (M63-05)
 
 **Requirement:** `M63-05` (closed) · `M63-05b` (split out, planned) · **Tests:** 21

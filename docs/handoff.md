@@ -9,6 +9,21 @@ Ascend is frozen by a standing owner decision. M73-03 (`themes.rs` adopts `polar
 ## 2026-11-18 — M73-02 darkhold adopts the affinity kernel
 
 `crates/domain/src/affinity.rs` now only declares darkhold's three weights, builds crate `Component`s, calls `polaris-affinity` and projects its `WeightedMean` into the existing `Score`. The local clamp, reweighting division, set intersection/union and cosine dot/norm are deleted; a source-level test guards against a second arithmetic creeping back. Failing test first: that guard failed on the old file at `fn clamp01`. 12/12 domain affinity tests pass; `reader_affinity_two_engines` 2/2 SQLite and 2/2 PostgreSQL. A `None → Some(0.0)` adapter mutant reddened the no-evidence test and was restored from `/tmp/darkhold-affinity-adapter.bak`. Full gate: `/tmp/gate-all-m73-02-d542be1b.log` ended `GATE_ALL_EXIT=0` with all eight stages ok. The first gate (`dc0459bb`) failed only on stale M63-11/M73-01 idea rows; both were removed from `docs/ideas-catalogue.json` and `crates/domain/src/modules/ideas.rs` and the targeted suite went 3/3 before the retry. No deploy: no live surface, query or wire shape changed. Mirror still blocked in SSHFS `folio_wait_bit_common`; a 25-second `GIT_CONFIG_GLOBAL=/dev/null git fetch origin master` attempt timed out with no output (exit 124). Clearing condition: remount `/home/alvaro/mnt/thinkcentre/personal`, then fetch and `--ff-only` merge to `d542be1b` or later.
+## 2026-11-18 — row 264: imported library item body read path
+
+**Missing prerequisite, recorded as required:** `docs/SPEC.md`, `docs/PLAN.md` and `docs/COVERAGE.md` do not exist in this tree. The brief directed reading `docs/handoff.md` and `docs/verification.md` instead; no spec/plan/coverage file was created or invented. (`docs/spec.md`, `docs/plans/…` and `scripts/coverage_scan.py` exist and are different things.)
+
+Before state, reproduced verbatim on thinkcentre with `grep -rn --include="*.rs" -e "library_item_unit" -e "UNIT_OWNER_TYPE" crates`:
+
+```
+crates/app/src/imports.rs:171:pub const UNIT_OWNER_TYPE: &str = "library_item_unit";
+crates/app/src/imports.rs:1268:                    .reference(state.db(), &checksum, UNIT_OWNER_TYPE, &item.id)
+crates/app/src/imports.rs:1498:            UNIT_OWNER_TYPE,
+```
+
+New door: `GET /api/v1/library/items/{id}/body?unit=<source unit key>&offset=<chars>` in `crates/app/src/routes/library.rs`, tabled in `routes/inventory.rs` as `Audience::Authenticated`. The anchor is one chapter/section id plus a character offset inside that unit; no merged document is ever addressed, so a byte offset past the unit is refused as 422. `RequireSession` answers 401 for a visitor, and the same `library::library_item_exists` ownership check the status door uses answers 404 for another reader before any unit is read. Bytes come from the importer's `BlobStore` and checksum on the `ImportUnit` — no second content store and no copied checksum logic.
+
+Evidence (all on thinkcentre, `CARGO_TARGET_DIR=/home/alvaro/.cargo-target/darkhold`): `cargo test -p darkhold-app --test library_item_body_route` 3/3 SQLite and 3/3 scratch PostgreSQL; first run exposed a wrong assertion in the new test (`"BODY B"` is not in the slice from offset 6), corrected and rerun green. Mutation of the offset gate (`if anchor.offset > length {` → `if false {`) reddened exactly the anchor test with `assertion left == right failed … "offset":23,"length":17`; restored byte-identical from `/tmp/dh264-library.rs.bak` and 3/3 green again. `route_inventory` 6/6, `openapi` 8/8, `migration_catalogue` 6/6, `bash scripts/gate.sh dialects` `ok`, `cargo fmt -p darkhold-app -- --check` `FMT_OK`, clippy `-D warnings` clean. `bash scripts/gate.sh repo` is **red for a pre-existing external prerequisite**: `the master specification is not there: /home/alvaro/secondbrain/10-Projects/ultimate-fanfiction-site-spec.md`; all of that gate's in-tree checks reported OK. No full workspace suite, no estate repo, no deploy, no production DB write.
 
 ## 2026-11-18 — M73-01 affinity kernel shipped
 

@@ -1590,6 +1590,14 @@ pub const ROUTE_TABLE: &[RouteEntry] = &[
         path: "/library/items/{id}/status",
         audience: Audience::Authenticated,
     },
+    // Row 264: the stored body of an imported unit. A library item is its owner's private copy.
+    RouteEntry {
+        file: "library.rs",
+        handler: "read_item_body",
+        method: "GET",
+        path: "/library/items/{id}/body",
+        audience: Audience::Authenticated,
+    },
     RouteEntry {
         file: "library.rs",
         handler: "list_views",
