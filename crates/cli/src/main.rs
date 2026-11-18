@@ -31,6 +31,7 @@ mod q;
 mod rec;
 mod redact;
 mod safety;
+mod stats;
 mod supply;
 #[cfg(feature = "tui")]
 mod tui;
@@ -174,6 +175,11 @@ pub enum Command {
     /// dispatches and records outcomes without making an HTTP request. `Cron` stays: this
     /// subcommand replaces the operator's timer, not the reader's own user timer.
     Jobs(JobsArgs),
+    /// Your private contribution report, from the server's own streak and signed passport.
+    ///
+    /// `dh stats --by week --share` prints an aggregate report with no handle or origin.
+    /// `--json` prints the same data as structured output.
+    Stats(stats::StatsArgs),
     /// Poll a saved query and act once per debounced change.
     ///
     /// `dh watch weekly --exec '…' --notify ntfy --every 10m --debounce 5m` polls the saved view
@@ -372,6 +378,13 @@ async fn main() -> std::process::ExitCode {
         )
         .await
         {
+            Ok(()) => std::process::ExitCode::SUCCESS,
+            Err(error) => {
+                eprintln!("{error}");
+                std::process::ExitCode::from(error.code)
+            }
+        },
+        Command::Stats(args) => match stats::run(&cli, args).await {
             Ok(()) => std::process::ExitCode::SUCCESS,
             Err(error) => {
                 eprintln!("{error}");
