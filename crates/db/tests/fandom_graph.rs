@@ -9,7 +9,9 @@
 //!    asking about one must be able to tell "no relation declared" from "the query broke";
 //! 5. the weight decides the order before likes do: a `0.9` edge's quiet work outranks a `0.2` edge's popular one.
 
-use darkhold_db::fandom_graph::related_works;
+use darkhold_db::fandom_graph::{
+    author_fandoms, related_works, similar_authors, tag_cross_fandom_works,
+};
 use darkhold_db::{Backend, Database, DatabaseConfig};
 
 const T0: &str = "2026-01-01T00:00:00Z";
@@ -23,6 +25,9 @@ const WARD_WORK: &str = "01955c00-0000-4000-8000-00000000f021";
 const NARUTO_WORK: &str = "01955c00-0000-4000-8000-00000000f022";
 const PRIVATE_WARD: &str = "01955c00-0000-4000-8000-00000000f023";
 const DRAFT_WARD: &str = "01955c00-0000-4000-8000-00000000f024";
+const TROPE: &str = "01955c00-0000-4000-8000-00000000f030";
+const ALPHA: &str = "01955c00-0000-4000-8000-00000000f031";
+const BETA: &str = "01955c00-0000-4000-8000-00000000f032";
 
 fn scratch_dir(tag: &str) -> std::path::PathBuf {
     let dir = std::env::temp_dir().join(format!(
@@ -226,4 +231,61 @@ async fn the_edge_weight_decides_before_the_endorsement_count() {
         found[0].title, "Ward story",
         "3 kudos behind a 0.9 edge outrank 900 behind a 0.2: {found:?}"
     );
+}
+
+async fn seed_surface_queries(db: &Database) {
+    seed(db).await;
+    for (id, kind, name) in [
+        (TROPE, "trope", "Grief"),
+        (ALPHA, "author", "Alpha"),
+        (BETA, "author", "Beta"),
+    ] {
+        exec(
+            db,
+            &format!(
+                "INSERT INTO canonical_entities (id, kind, canonical, norm, created_at, review_status, signal_count)
+                 VALUES ('{id}','{kind}','{name}','{}','{T0}','confirmed',1)",
+                name.to_lowercase()
+            ),
+        )
+        .await;
+    }
+    for (work, node) in [
+        (SEED, TROPE),
+        (WARD_WORK, TROPE),
+        (SEED, ALPHA),
+        (WARD_WORK, BETA),
+    ] {
+        tag(db, work, node).await;
+    }
+}
+
+#[tokio::test]
+async fn the_trope_query_carries_the_edge_weight_and_keeps_unreadable_rows_out() {
+    let db = connect("tag-cross-fandom").await;
+    seed_surface_queries(&db).await;
+    let found = tag_cross_fandom_works(&db, "grief", &[("Ward".to_owned(), 0.9)], &[], 10)
+        .await
+        .expect("tag cross-fandom query");
+    assert_eq!(found.len(), 1, "{found:?}");
+    assert_eq!(found[0].work_id, WARD_WORK);
+    assert_eq!(found[0].weight, 0.9);
+    assert_eq!(found[0].fandom, "Ward");
+}
+
+#[tokio::test]
+async fn the_author_query_uses_declared_fandoms_and_excludes_the_source_author() {
+    let db = connect("author-similar").await;
+    seed_surface_queries(&db).await;
+    let fandoms = author_fandoms(&db, "alpha").await.expect("source fandoms");
+    assert_eq!(fandoms, vec!["worm".to_owned()], "{fandoms:?}");
+    let neighbours = vec![("Ward".to_owned(), 0.9)];
+    let found = similar_authors(&db, "alpha", &neighbours, 10)
+        .await
+        .expect("similar authors");
+    assert_eq!(found.len(), 1, "{found:?}");
+    assert_eq!(found[0].author, "Beta");
+    assert_eq!(found[0].fandom, "Ward");
+    assert_eq!(found[0].weight, 0.9);
+    assert_eq!(found[0].works, 1);
 }

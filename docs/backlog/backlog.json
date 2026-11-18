@@ -8,10 +8,10 @@
         "unsupported": 4,
         "implemented-fully-tested": 461,
         "implemented": 41,
-        "planned": 24,
+        "planned": 23,
         "evaluated-and-rejected": 7,
-        "done": 3,
-        "blocked": 2
+        "blocked": 3,
+        "done": 3
       }
     },
     "concord": {
@@ -59,12 +59,6 @@
       "milestone": "M63",
       "requirement": "reconcile the live database with the workspace migrations: 11 tables the migrations create are absent, 12 legacy-named tables are present",
       "notes": "Found while planning M63-01. The live instance was migrated by the other lineage (lorehaven), whose migration numbers collide with this tree's, so master's files are recorded as applied while the schema is the other one. Everything M63-01 touches exists in both shapes, so the milestone was verifiable; anything that reads chapters/bodies/ships from the live instance will not be. Decide per table: rename (units->chapters, entity_*->canonical_*, revisions->chapter_revisions) or create-and-backfill. Do not run this blind: 127k rows live in the legacy shapes."
-    },
-    {
-      "id": "M64-06",
-      "milestone": "M64",
-      "requirement": "tag_jaccard and tag_cooccurrence over the normalised tag taxonomy with synonym mapping, refused by name while no engaged row carries a tag",
-      "notes": "P6, blocked on M63-32. Measured 2026-11-01: work_tags joins 0 of the 1,247 rows that carry likes; all 7,626 tagged rows are pawchive with none. Shipping this before the backfill returns a page that reads as 'nothing is similar'. 61f4da13: the refusal half is built \u2014 db::tag_coverage::tag_engagement (tagged, engaged, tagged_and_engaged against work_metric_aggregates) and list_surfaces refuses a WorkTags surface by name WITH the numbers when rows exist on both sides and never meet ('0 tagged, 1,247 engaged, 0 in common'), distinct from 'has no rows yet'. Engines were already built; what was missing was telling an operator that the problem is the join, not the table. STILL BLOCKED on data: M63-32's backfill \u2014 until tagged works are engaged the surface correctly refuses instead of serving 'nothing is similar'."
     },
     {
       "id": "M64-08",
@@ -176,7 +170,7 @@
     }
   ],
   "open_by_milestone": {
-    "M64": 8,
+    "M64": 7,
     "M71": 5,
     "M63": 4,
     "M45": 2,

@@ -5214,6 +5214,12 @@ a way to ask for one *work* rather than a feed, and the feature vector beside it
 
 Ascend is frozen by a standing owner decision recorded in persistent memory. Changing `themes.rs` would need a new owner authorisation, not another local judgement. Clearing condition: the owner explicitly unfreezes ascend and authorises writes to `/home/alvaro/code-local/rust/ascend`; then re-run its donor vectors and delete the local arithmetic. Demoted to the end of the queue; M73-04 taken next in the same turn.
 
+## Blocked: M64-06 needs engaged tagged rows — 2026-11-18
+
+M64-06 stays planned but is demoted to the end of the queue. Existing gate output says the refusal half is correct: `tag_engagement` reports `0 tagged, 1,247 engaged, 0 in common` when the two sets are disjoint and refuses a WorkTags surface by name with those numbers. `work_tags` joins 0 of the 1,247 liked rows; all 7,626 tagged rows are pawchive with no engagement.
+
+Clears exactly when M63-32's fandom-tag backfill makes at least one published/public work carry both a canonical tag and engagement, after which `m64_01_surfaces 4/4` and the existing two-engine tests can prove the non-refusal half. No code change is needed to unblock it.
+
 ## Blocked: M73-04 orbital adopts `polaris-affinity` — 2026-11-18
 
 Orbital cannot compile in this checkout: `cargo test --test overlap` fails at `src/eval.rs:29` with `unresolved import polaris_eval::paired` (local `polaris-eval` HEAD `f77fdfc` exports no `paired`). This is pre-existing shared-crate API drift, not caused by this row; the structural test added for the row was reverted and orbital is clean at `87267e9`. Clearing condition: `polaris-eval` gains the `paired` API orbital expects, or orbital's `eval.rs` is updated to the current API, by its owning session; then re-run `cargo test --test overlap` and apply `/home/alvaro/.hermes/plans/2026-11-18-m73-04-orbital-affinity-adoption.md`. Demoted; next unblocked row taken in this turn.

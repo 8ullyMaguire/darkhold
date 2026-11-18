@@ -20,6 +20,10 @@ const PSEUD: &str = "01955c00-0000-4000-8000-00000000a001";
 const WORM: &str = "01955c00-0000-4000-8000-00000000a010";
 const WARD: &str = "01955c00-0000-4000-8000-00000000a011";
 const WARD_WORK: &str = "01955c00-0000-4000-8000-00000000a021";
+const WORM_WORK: &str = "01955c00-0000-4000-8000-00000000a022";
+const TROPE: &str = "01955c00-0000-4000-8000-00000000a030";
+const AUTHOR_B: &str = "01955c00-0000-4000-8000-00000000a031";
+const AUTHOR_SOURCE: &str = "01955c00-0000-4000-8000-00000000a032";
 
 struct Harness {
     _tdb: TestDb,
@@ -207,4 +211,98 @@ async fn the_declared_map_is_served_with_its_version_and_the_works_it_reaches() 
     assert_eq!(body["neighbours"].as_array().map(Vec::len), Some(0));
     assert_eq!(body["works"].as_array().map(Vec::len), Some(0));
     assert_eq!(body["graph_version"], "2026-11-07");
+}
+
+fn graph_config(base: &Config) -> Config {
+    let mut configured = base.clone();
+    configured.fandom_graph = darkhold_domain::fandom_graph::FandomGraph {
+        version: "2026-11-18".to_owned(),
+        edges: vec![darkhold_domain::fandom_graph::Edge {
+            from: "Worm".to_owned(),
+            to: "Ward".to_owned(),
+            weight: 0.9,
+        }],
+    };
+    configured.validate().expect("a valid map");
+    configured
+}
+
+async fn seed_surface_rows(db: &Database) {
+    seed(db).await;
+    for (id, kind, name) in [
+        (TROPE, "trope", "Grief"),
+        (AUTHOR_B, "author", "B. Writer"),
+        (AUTHOR_SOURCE, "author", "fgw"),
+    ] {
+        exec(
+            db,
+            &format!(
+                "INSERT INTO canonical_entities (id, kind, canonical, norm, created_at, review_status, signal_count)
+                 VALUES ('{id}','{kind}','{name}','{}','{T0}','confirmed',1)",
+                name.to_lowercase()
+            ),
+        )
+        .await;
+    }
+    exec(
+        db,
+        &format!(
+            "INSERT INTO works (id, owner_pseud_id, title, summary, lifecycle, visibility, completion,
+                                created_at, updated_at, generated_content_posture)
+             VALUES ('{WORM_WORK}','{PSEUD}','Worm story','','published','public','complete','{T0}','{T0}','forbid')"
+        ),
+    )
+    .await;
+    for (work, node) in [
+        (WARD_WORK, WORM),
+        (WARD_WORK, TROPE),
+        (WARD_WORK, AUTHOR_B),
+        (WARD_WORK, AUTHOR_SOURCE),
+        (WORM_WORK, WARD),
+        (WORM_WORK, TROPE),
+        (WORM_WORK, AUTHOR_B),
+        (WORM_WORK, AUTHOR_SOURCE),
+    ] {
+        exec(
+            db,
+            &format!(
+                "INSERT INTO work_tags (work_id, node_id, prominence, added_at)
+                 VALUES ('{work}','{node}',1,'{T0}')"
+            ),
+        )
+        .await;
+    }
+}
+
+#[tokio::test]
+async fn the_trope_surface_reaches_the_same_trope_in_a_declared_neighbour() {
+    let harness = Harness::new("cross-fandom").await;
+    seed_surface_rows(&harness.db).await;
+    let app = server::build_router(AppState::new(
+        graph_config(&harness.config),
+        harness.db.clone(),
+    ));
+
+    let (status, body) = get(app, "/api/v1/tags/Grief/cross-fandom?from=Worm").await;
+    assert_eq!(status, StatusCode::OK, "body: {body}");
+    assert_eq!(body["graph_version"], "2026-11-18");
+    assert_eq!(body["neighbours"][0]["name"], "Ward");
+    assert_eq!(body["works"][0]["title"], "Ward story", "body: {body}");
+    assert_eq!(body["works"][0]["weight"], 0.9);
+}
+
+#[tokio::test]
+async fn the_author_surface_reaches_authors_in_a_declared_neighbour() {
+    let harness = Harness::new("author-similar").await;
+    seed_surface_rows(&harness.db).await;
+    let app = server::build_router(AppState::new(
+        graph_config(&harness.config),
+        harness.db.clone(),
+    ));
+
+    let (status, body) = get(app, "/api/v1/authors/fgw/similar").await;
+    assert_eq!(status, StatusCode::OK, "body: {body}");
+    assert_eq!(body["graph_version"], "2026-11-18");
+    assert_eq!(body["authors"][0]["author"], "B. Writer", "body: {body}");
+    assert_eq!(body["authors"][0]["weight"], 0.9);
 }

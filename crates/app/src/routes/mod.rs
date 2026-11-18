@@ -59,6 +59,7 @@ pub mod discovery;
 pub mod document;
 pub mod lens;
 // §16.10a: the draw slot.
+pub mod author_similar;
 pub mod dnf;
 pub mod draw;
 pub mod economy;
@@ -135,6 +136,7 @@ pub mod spoilers;
 pub mod subscriptions;
 pub mod succession;
 pub mod syndicated_catalogue;
+pub mod tag_cross_fandom;
 // M45-25 (§58): keystone authors, droughts, and the routing record.
 pub mod supply;
 // M45-26 (§58.6): the welcome rota — one work, one reader, seventy-two hours.

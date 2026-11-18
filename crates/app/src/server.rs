@@ -505,7 +505,17 @@ pub fn build_router(state: AppState) -> Router {
             &state,
         ))
         .merge(classified(
+            routes::author_similar::router(),
+            RouteClass::Default,
+            &state,
+        ))
+        .merge(classified(
             routes::fandom_graph::router(),
+            RouteClass::Default,
+            &state,
+        ))
+        .merge(classified(
+            routes::tag_cross_fandom::router(),
             RouteClass::Default,
             &state,
         ))
