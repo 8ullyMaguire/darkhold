@@ -30,8 +30,10 @@ pub mod crosspost;
 pub mod extension_documents;
 pub mod extension_review;
 pub mod marked_for_later;
+// Row 413 — the imported user-list service; routes call it for every list gate.
 pub mod orphan;
 pub mod reader_skin;
+pub mod user_list;
 pub mod whole_work;
 // M63-03: source-relative quality metrics.
 pub mod metrics;

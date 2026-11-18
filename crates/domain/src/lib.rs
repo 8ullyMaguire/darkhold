@@ -24,6 +24,8 @@ pub mod step_up;
 pub mod succession;
 pub mod trust;
 pub mod trust_velocity;
+// Row 413 — gravity's §13.2 list/collaborator/visibility shape, darkhold's reading list.
+pub mod user_list;
 // M45-22 (§54): the personal concierge's session selector and budget cut.
 pub mod concierge;
 pub mod consensus;

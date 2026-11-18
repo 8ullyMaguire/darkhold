@@ -85,6 +85,23 @@ impl From<darkhold_db::content::ContentError> for ApiError {
     }
 }
 
+impl From<darkhold_db::user_list::UserListError> for ApiError {
+    fn from(error: darkhold_db::user_list::UserListError) -> Self {
+        use darkhold_db::user_list::UserListError;
+        match error {
+            UserListError::NotFound => Self(AppError::NotFound {
+                resource: "reading list",
+            }),
+            UserListError::Forbidden => Self(AppError::AccessDenied),
+            UserListError::Validation(message) => Self(AppError::Validation {
+                message,
+                field_errors: BTreeMap::new(),
+            }),
+            UserListError::Fault(cause) => Self(AppError::Internal(cause.into())),
+        }
+    }
+}
+
 impl From<anyhow::Error> for ApiError {
     fn from(error: anyhow::Error) -> Self {
         Self(AppError::Internal(error))

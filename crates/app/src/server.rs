@@ -833,6 +833,14 @@ pub fn build_router(state: AppState) -> Router {
             routes::marked_for_later::router(),
             RouteClass::Write,
         ))
+        // Row 413 — reading lists: gravity's imported user-list shape behind darkhold's noun. The module
+        // is `library` (reading is part of the library), and every gate stays in the service.
+        .merge(module_mount(
+            &state,
+            "library",
+            routes::reading_lists::router(),
+            RouteClass::Write,
+        ))
         // M70-05 — collection tags: what a collection is FOR. They never reach a work (no work_tags write, no
         // work-facing read), which is what keeps a challenge tag out of that tag's search results and taste vectors.
         .merge(module_mount(

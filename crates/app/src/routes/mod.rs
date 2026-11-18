@@ -14,6 +14,7 @@ pub mod extension_review;
 pub mod marked_for_later;
 pub mod orphan;
 pub mod reader_skin;
+pub mod reading_lists;
 pub mod themes;
 pub mod webhook_ops;
 pub mod whole_work;
