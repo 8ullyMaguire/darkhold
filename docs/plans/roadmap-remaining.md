@@ -1,5 +1,13 @@
 # The remaining roadmap, ordered for execution
 
+## M63-30 `dh lib --calibre <path>` — 2026-11-18
+
+**Census:** REUSE `sqlx` SQLite (already in the workspace), the `darkhold seed read-list` text grammar, and `dh`'s JSON/exit conventions; ADAPT Calibre's `books`/`authors`/`books_authors_link` schema into that grammar; BUILD one `calibre.rs` module, the `dh lib` flag and a generated-metadata.db test. No crate, RPC, route, schema, migration or deploy.
+
+**Decision:** the interop contract is a file, not a dependency. `dh lib --calibre` opens `metadata.db` read-only, skips unrated books, emits `<id>  <rating-0-10>  <title>  <author>` in the exact grammar the server seeder parses, and leaves star conversion with the server so the two products do not each own the rule. `--out <path>` is an explicit local export; the default prints a dry-run preview. No site write, no live surface.
+
+CLOSED 2026-11-18: full gate at `063badea` (`/tmp/gate-all-m63-30-063badea.log`) `GATE_ALL_EXIT=0`, all eight stages ok. Integration 1/1 against a generated Calibre database, including a byte-for-byte check that the source DB is unmodified; unit 1/1; one-space separator mutant reddened the grammar test and was restored from `/tmp/dh-calibre.bak`; clippy and repo gate clean.
+
 ## M63-26 `dh stats --by week --year` — 2026-11-18
 
 **Census:** REUSE the private `GET /me/streak` and `GET /me/passport` surfaces, global credentials, `darkhold_domain::passport` and `serde_json`; ADAPT them into one report; BUILD `crates/cli/src/stats.rs`, the subcommand, and a pure renderer. No new route, schema, table or deploy.

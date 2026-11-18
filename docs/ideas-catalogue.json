@@ -601,19 +601,6 @@
    "built": false
   },
   {
-   "why_summary": "docs/plans/cli-placement.md The honest interop direction between the two products: same file format, no dependency (the Ascend file-handshake precedent applied to a database). Read",
-   "id": "M63-30",
-   "title": "dh lib --calibre <path>",
-   "sources": [
-    "docs/requirements.csv"
-   ],
-   "milestone": "M63",
-   "relevance": 2,
-   "because": "a requirements row exists (+4); needs a third party or an external client (-2)",
-   "default_on": false,
-   "built": false
-  },
-  {
    "why_summary": "Search slice, 2026-11-16: `cargo test -p darkhold-db --test m71_03_status_two_engines` 1/1 SQLite and 1/1 PostgreSQL; vitest `WorkRow 3/3 + Search 25/25`; `svelte-check 0 errors`; ",
    "id": "M71-03",
    "title": "Browse, search, library and the overflow view of every recommendation rail render results as dense list rows \u2014 title, author, provenance word, word count, unit count, completion, rating, date, metrics \u2014 with a stated total and cursor pagination, never a card grid and never infinite scroll.",
