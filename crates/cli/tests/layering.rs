@@ -72,7 +72,10 @@ fn the_manifest_was_actually_read() {
 fn darkhold_db_is_confined_to_the_local_job_runner() {
     let manifest = Path::new(env!("CARGO_MANIFEST_DIR")).join("Cargo.toml");
     let text = std::fs::read_to_string(&manifest).expect("read Cargo.toml");
-    if !text.lines().any(|line| line.trim_start().starts_with("darkhold-db ")) {
+    if !text
+        .lines()
+        .any(|line| line.trim_start().starts_with("darkhold-db "))
+    {
         return;
     }
     let src = Path::new(env!("CARGO_MANIFEST_DIR")).join("src");
