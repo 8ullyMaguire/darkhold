@@ -14,6 +14,8 @@ path = "src/main.rs"
 time = { workspace = true, features = ["parsing", "formatting"] }
 # M63-03: one definition of the metric vocabulary, shared with the server.
 darkhold-domain = { path = "../domain" }
+darkhold-db = { path = "../db" }
+polaris-jobs = { path = "../../../../estate/crates/polaris-jobs" }
 anyhow.workspace = true
 clap.workspace = true
 reqwest = { workspace = true, features = ["rustls-tls"] }
@@ -26,3 +28,5 @@ clap_mangen = "0.2.32"
 
 [dev-dependencies]
 tokio = { workspace = true, features = ["rt-multi-thread", "macros", "net", "io-util"] }
+test-support = { path = "../test-support" }
+sqlx = { workspace = true }

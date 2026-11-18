@@ -1,3 +1,36 @@
+## 2026-11-18 — row 409 A3: `--jobs` gate evidence (thinkcentre only)
+
+Host `M720q` (thinkcentre), tree `/personal/documents/code/rust/darkhold`, `CARGO_TARGET_DIR=/home/alvaro/.cargo-target/darkhold`, all cargo commands `--offline`. Scratch PostgreSQL DSN `postgres://darkhold:darkhold@127.0.0.1:55433/polaris_jobs_a3_scratch`; member DB from `test_support::TestDb` SQLite scratch dir `~/.cargo-target/darkhold/jobs-a3-tests`. No production DB write, no DNS/tunnel, no deploy/restart.
+
+```
+cargo check -p darkhold-cli --all-targets --offline
+  CHECK_RC=0
+  Finished `dev` profile ... in 1.18s
+
+env -u DARKHOLD_TEST_PG_URL cargo test -p darkhold-cli --bin dh jobs --offline -- --nocapture --test-threads=1
+  {"attempts":1,"detail":null,"effect":"0","job_id":1,"kind":"expire_bounties","outcome":"done"}
+  {"failed":false,"processed":1}
+  {"attempts":2,"detail":null,"effect":"0","job_id":2,"kind":"purge_terminal_jobs","outcome":"done"}
+  {"failed":false,"processed":1}
+  test result: ok. 5 passed; 0 failed; 0 ignored; 0 measured; 107 filtered out
+```
+
+`a_job_runs_with_no_http_request_and_a_new_store_sees_the_result` asserts the row is `done` in a *new* `PgStore` after the first is dropped, attempts 1 and no lease. There is no HTTP client in `crates/cli/src/jobs.rs`; the run needs no `DARKHOLD_BASE_URL`. `an_expired_lease_is_recovered_with_attempts_recorded` claims with `crashed-worker`, then completes from `worker-b` at `lease_until + 1`, attempts 2. `unknown_kind_is_refused_with_no_row` compares `store.count()` before/after a refused `enqueue`. `max_attempts_leaves_a_terminal_row_with_last_error` checks `Status::Failed`, attempts 2, `last_error` contains `max attempts`, count `before + 1`.
+
+Mutation of the member-side gate (`is_known` returns true; `KINDS.len()` kept so the mutant compiles):
+```
+cargo test -p darkhold-cli --bin dh jobs::tests::unknown_kind_is_refused_with_no_row --offline
+  {"job_id":7,"kind":"not_a_darkhold_kind","status":"pending"}
+  called `Result::unwrap_err()` on an `Ok` value: ()
+  test result: FAILED. 0 passed; 1 failed
+cp /tmp/darkhold-jobs-a3.rs.orig crates/cli/src/jobs.rs
+  RESTORED_SHA=dd992e57979f5dacb55c73d5956a375e650df1fce3c2b1278e6d15283d4212df
+cargo test -p darkhold-cli --bin dh jobs --offline -- --test-threads=1
+  test result: ok. 5 passed; 0 failed
+```
+
+`cargo test -p darkhold-cli --bin dh` **without** `DARKHOLD_JOBS_TEST_DSN` is not a clean verdict: 108 passed, 4 failed, all four jobs tests panicking on the missing scratch DSN (`a3-cli-all.log`); with the DSN the jobs tests are 5/5 green. No workspace-wide green claim is made. Logs: `~/.cargo-target/darkhold/{jobs-a3-tests2.log,mutant2.log,restored2.log,a3-cli-all.log,check6.log}`. Route/OpenAPI/migration suites were started at the 45-minute cutoff and are **not claimed as verified in this run**; see handoff for what remains.
+
 ## 2026-11-18 — row 264: the imported body can be opened again
 
 Prerequisite noted, not invented: this tree has no `docs/SPEC.md`, `docs/PLAN.md` or `docs/COVERAGE.md`; the brief directed `docs/handoff.md` and `docs/verification.md` instead.

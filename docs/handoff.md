@@ -1,3 +1,33 @@
+## 2026-11-18 — row 409 A3: `dh jobs` on the shared polaris-jobs store
+
+Implemented on thinkcentre in `/personal/documents/code/rust/darkhold` (HEAD before this work `20c8126e`, `master`, ahead 17 of `origin/master` — the push carries those 17). New `crates/cli/src/jobs.rs`, plus `mod jobs`, `Command::Jobs(JobsArgs)` and its dispatch in `crates/cli/src/main.rs`; `darkhold-db`, `polaris-jobs` (path `../../../../estate/crates/polaris-jobs`) and test deps in `crates/cli/Cargo.toml` and `Cargo.lock`. `Command::Cron` and `crates/cli/src/cron.rs` are **kept**: the spec's "replace the cron install doc" is an operator-schedule change, not an explicit deletion of the reader's user-timer command.
+
+Two kinds only, both with real callers in this tree (`crates/app/src/worker.rs` runs them today and loses the schedule on restart; no invented work): `expire_bounties` → `darkhold_db::finder::sweep_expired`, and `purge_terminal_jobs` → `darkhold_db::jobs::purge_terminal_jobs`. `dh jobs enqueue` refuses an unknown kind before writing a row; `dh jobs run` claims on `PgStore::connect_shared`, dispatches, persists the outcome, and makes **no HTTP request**. One JSON line per job (`job_id`, `kind`, `attempts`, `outcome`, `effect`, `detail`) plus a `processed`/`failed` summary; a failed handler exits non-zero. The runner is entered on a dedicated OS thread because `PgStore` owns its own Tokio runtime and refuses `block_on` inside one.
+
+Proof (scratch PostgreSQL on `127.0.0.1:55433`, DB `polaris_jobs_a3_scratch`; no production DB, no deploy):
+`CARGO_TARGET_DIR=/home/alvaro/.cargo-target/darkhold DARKHOLD_JOBS_TEST_DSN=… env -u DARKHOLD_TEST_PG_URL cargo test -p darkhold-cli --bin dh jobs --offline -- --test-threads=1` → `test result: ok. 5 passed; 0 failed` (log `~/.cargo-target/darkhold/jobs-a3-tests2.log`). The no-HTTP test also opens a second `PgStore` and sees the terminal row; the crash test reclaims an expired lease with `attempts: 2`; unknown kind leaves the count unchanged; max-attempts leaves `Status::Failed`, `attempts: 2`, `last_error` containing `max attempts`, row retained.
+Mutation: `is_known` changed to accept everything → `test result: FAILED. 0 passed; 1 failed`, panic `called Result::unwrap_err() on an Ok value: ()` after `{"kind":"not_a_darkhold_kind","status":"pending"}` (`mutant2.log`). Restored from `/tmp/darkhold-jobs-a3.rs.orig` (sha256 `dd992e57979f5dacb55c73d5956a375e650df1fce3c2b1278e6d15283d4212df`) → `5 passed; 0 failed` (`restored2.log`). A first mutant that made `KINDS` dead code never compiled and was discarded; the compiled mutant above is the one that proves the gate.
+
+**Estate owner: exact `[[site.jobs]]` declarations to add under `[[site]] name = "darkhold"` in `estate.toml`** (not added here; `estate.toml` belongs to another agent):
+
+```toml
+[[site.jobs]]
+kind = "darkhold.expire_bounties"
+schedule = "*-*-* 04:15:00"
+enabled = true
+unit = "darkhold-jobs-expire-bounties"
+exec = "/home/alvaro/.cargo-target/darkhold/release/dh --jobs run --kind expire_bounties"
+
+[[site.jobs]]
+kind = "darkhold.purge_terminal_jobs"
+schedule = "*-*-* 04:25:00"
+enabled = true
+unit = "darkhold-jobs-purge-terminal-jobs"
+exec = "/home/alvaro/.cargo-target/darkhold/release/dh --jobs run --kind purge_terminal_jobs"
+```
+
+Both need `DARKHOLD_JOBS_DSN` (shared `polaris_jobs` store) and `DARKHOLD_DB_URL` (member store) in the generated service environment — deliberately not on the command line. The release binary at that path is from 2026-11-15 and does **not** yet contain `--jobs`; the estate owner must build/deploy it before enabling the timers. `scripts/check-jobs-manifest.sh` will check the exec path exists (it does) and require regenerated `generated/jobs.json` + both `.timer` files. No timer was installed or restarted here.
+
 ## 2026-11-18 — M73-04 blocked by pre-existing polaris-eval drift
 
 `cargo test --test overlap` in `/home/alvaro/code-local/rust/orbital` fails before any test runs: `src/eval.rs:29` imports `polaris_eval::paired` but local `polaris-eval` at `f77fdfc` has no such export. The row's structural test was written first and went RED only because of this compile error; it was reverted and orbital is clean at `87267e9`. Clearing condition: the owning session resolves the `polaris-eval` API drift (`paired` exported or `eval.rs` migrated), then the plan at `/home/alvaro/.hermes/plans/2026-11-18-m73-04-orbital-affinity-adoption.md` applies unchanged. M73-03 is also Blocked (frozen ascend). Next unblocked row taken in this turn.

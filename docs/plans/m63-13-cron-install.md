@@ -1,4 +1,10 @@
-# M63-13 — `dh cron install`: a timer a user owns, without a unit file by hand
+# M63-13 — `dh cron install` (reader-owned timer; operator work now uses `--jobs`)
+
+> 2026-11-18, row 409 A3: the instance's recurring work is no longer meant to be hand-installed
+> from this document. It is `dh jobs run` on the shared `polaris-jobs` store, declared as
+> `[[site.jobs]]` in estate (exact declarations in `docs/handoff.md`). `dh cron install` remains for
+> the **reader's own** saved-query timer; this document is kept for that surface, not regenerated
+> from the manifest in this member tree. Nothing here installs or restarts a timer.
 
 Status: planned, blocked on nothing. Row `M63-13` (power-user). Idea: sweep P13 — "the instance
 already runs timers for fic-catalogue-ingest; this hands the same mechanism to a user".

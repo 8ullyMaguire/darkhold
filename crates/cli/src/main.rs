@@ -23,6 +23,7 @@ mod doctor;
 mod exit;
 mod gen;
 mod http;
+mod jobs;
 mod module;
 mod output;
 mod profiles;
@@ -36,6 +37,7 @@ mod watch;
 use clap::{Parser, Subcommand};
 
 use crate::cron::CronArgs;
+use crate::jobs::JobsArgs;
 
 /// Query a Darkhold catalogue from a terminal.
 #[derive(Debug, Parser)]
@@ -164,6 +166,12 @@ pub enum Command {
     /// a token that carries `library.read`. It does not run `systemctl`; it prints the two
     /// commands. `--dry-run` prints the units and writes nothing.
     Cron(CronArgs),
+    /// ADR 0048 row 409 A3: run scheduled work from the shared `polaris_jobs` store.
+    ///
+    /// `dh jobs enqueue` refuses an unknown kind before writing a row; `dh jobs run` claims,
+    /// dispatches and records outcomes without making an HTTP request. `Cron` stays: this
+    /// subcommand replaces the operator's timer, not the reader's own user timer.
+    Jobs(JobsArgs),
     /// Poll a saved query and act once per debounced change.
     ///
     /// `dh watch weekly --exec '…' --notify ntfy --every 10m --debounce 5m` polls the saved view
@@ -377,6 +385,34 @@ async fn main() -> std::process::ExitCode {
                 std::process::ExitCode::from(error.code)
             }
         },
+        // `polaris-jobs`' PgStore owns its own Tokio runtime and refuses to be driven from
+        // inside one. Give the whole invocation its own OS thread; join before exiting.
+        Command::Jobs(args) => {
+            let action = args.action.clone();
+            match std::thread::spawn(move || match action {
+                jobs::JobsCommand::Run(run) => jobs::run(run),
+                jobs::JobsCommand::Enqueue(enqueue) => jobs::enqueue(enqueue),
+            })
+            .join()
+            {
+                Ok(Ok(())) => std::process::ExitCode::SUCCESS,
+                Ok(Err(error)) => {
+                    let message = format!("{error:#}");
+                    eprintln!("{message}");
+                    // An unknown kind is a wrong call, not a broken environment (M63-16).
+                    let code = if message.contains("unknown job kind") {
+                        exit::USAGE
+                    } else {
+                        exit::ERROR
+                    };
+                    std::process::ExitCode::from(code)
+                }
+                Err(_) => {
+                    eprintln!("the jobs runner panicked");
+                    std::process::ExitCode::from(exit::ERROR)
+                }
+            }
+        }
     }
 }
 
