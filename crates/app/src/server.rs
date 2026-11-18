@@ -617,6 +617,11 @@ pub fn build_router(state: AppState) -> Router {
             routes::reader_surface::router(),
             RouteClass::Default,
         ))
+        .merge(classified(
+            routes::story_lists_containing::router(),
+            RouteClass::Default,
+            &state,
+        ))
         // Item 1 of the 100-idea audit. Its own merge, because `classified` takes ONE
         // tree: passing two routers to it was a four-argument call to a three-argument
         // function. Default class rather than Read, because the handler is gated by

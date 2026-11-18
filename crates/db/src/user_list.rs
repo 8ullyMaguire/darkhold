@@ -796,3 +796,41 @@ async fn child_counts(db: &Database, id: &str) -> Result<(i64, i64)> {
         }
     })
 }
+
+/// The public lists that contain one work — the `story.lists_containing` candidate pipeline.
+///
+/// Only `visibility = 'public'` rows are returned: a private list is not a discovery signal for a reader who cannot see it, and
+/// returning its name (or even a count) would disclose that it exists. The pair of tables already carries the relationship, so
+/// this is a projection, not a new model.
+pub async fn lists_containing(db: &Database, work_id: &str, limit: i64) -> Result<Vec<UserList>> {
+    let limit = clamp_limit(limit);
+    let sqlite =
+        "SELECT ul.id, ul.owner_id, ul.name, ul.description, ul.visibility, ul.moderation, \
+                         ul.criteria, ul.created_at, ul.updated_at \
+                    FROM user_list_members m JOIN user_lists ul ON ul.id = m.list_id \
+                   WHERE m.work_id = ? AND ul.visibility = 'public' \
+                   ORDER BY ul.created_at DESC, ul.name ASC LIMIT ?";
+    let postgres =
+        "SELECT ul.id::text, ul.owner_id::text, ul.name, ul.description, ul.visibility, \
+                           ul.moderation, ul.criteria, ul.created_at::text, ul.updated_at::text \
+                      FROM user_list_members m JOIN user_lists ul ON ul.id = m.list_id \
+                     WHERE m.work_id = $1::uuid AND ul.visibility = 'public' \
+                     ORDER BY ul.created_at DESC, ul.name ASC LIMIT $2";
+    let rows: Vec<ListRow> = match db.backend() {
+        Backend::Sqlite => {
+            sqlx::query_as::<sqlx::Sqlite, _>(sqlite)
+                .bind(work_id)
+                .bind(limit)
+                .fetch_all(db.sqlite_pool().expect("sqlite handle"))
+                .await?
+        }
+        Backend::Postgres => {
+            sqlx::query_as::<sqlx::Postgres, _>(postgres)
+                .bind(work_id)
+                .bind(limit)
+                .fetch_all(db.postgres_pool().expect("postgres handle"))
+                .await?
+        }
+    };
+    Ok(rows.into_iter().map(decode_list).collect())
+}

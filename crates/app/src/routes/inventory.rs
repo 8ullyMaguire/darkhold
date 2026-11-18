@@ -1360,6 +1360,13 @@ pub const ROUTE_TABLE: &[RouteEntry] = &[
         audience: Audience::Anonymous,
     },
     RouteEntry {
+        file: "story_lists_containing.rs",
+        handler: "lists_containing",
+        method: "GET",
+        path: "/works/{work_id}/lists",
+        audience: Audience::Anonymous,
+    },
+    RouteEntry {
         file: "tag_cross_fandom.rs",
         handler: "cross_fandom",
         method: "GET",

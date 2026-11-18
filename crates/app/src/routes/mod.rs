@@ -133,6 +133,7 @@ pub mod sitemap;
 pub mod source_adapters;
 pub mod source_engagement;
 pub mod spoilers;
+pub mod story_lists_containing;
 pub mod subscriptions;
 pub mod succession;
 pub mod syndicated_catalogue;
