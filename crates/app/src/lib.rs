@@ -67,6 +67,7 @@ pub mod seed_read_list;
 pub mod server;
 pub mod source_sync;
 pub mod state;
+pub mod surface_gravity;
 pub mod taste;
 pub mod taste_knobs;
 pub mod taste_notify;

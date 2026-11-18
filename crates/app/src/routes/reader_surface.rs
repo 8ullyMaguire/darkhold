@@ -153,7 +153,7 @@ async fn most_bookmarked(
 async fn similar(
     State(state): State<AppState>,
     // Public door, declared explicitly. See the note on `most_bookmarked`.
-    MaybeSession(_session): MaybeSession,
+    MaybeSession(session): MaybeSession,
     Path(work_id): Path<String>,
 ) -> ApiResult<Json<WorksResponse<darkhold_db::reader_surface::SurfaceWork>>> {
     // M64-11: this surface reads its configured algorithm set (M64-01) instead of running the tag engine unconditionally.
@@ -186,5 +186,14 @@ async fn similar(
         works.truncate(SIMILAR.max(0) as usize);
     }
 
+    let session = session.as_ref();
+    let works = crate::surface_gravity::apply(
+        &state,
+        "story.similar",
+        works,
+        session.map(|value| value.account_id),
+        session.and_then(|value| value.pseud_id),
+    )
+    .await;
     Ok(Json(WorksResponse::new(works)))
 }

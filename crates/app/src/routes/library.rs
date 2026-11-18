@@ -369,6 +369,14 @@ async fn because_you_shelved(
         works = darkhold_db::reader_surface::works_by_score(state.db(), scored).await?;
     }
 
+    let works = crate::surface_gravity::apply(
+        &state,
+        "library.because_you_shelved",
+        works,
+        Some(user.account_id),
+        user.pseud_id,
+    )
+    .await;
     Ok(Json(serde_json::json!({
         "works": works,
         "next_cursor": null,
