@@ -39,7 +39,7 @@
       "id": "M63-10",
       "milestone": "M63",
       "requirement": "dh lib sync --since: incremental local sqlite mirror of the library and catalogue",
-      "notes": "Power-user sweep P10. Enables sub-millisecond dh q, true --offline, and dh bench; the same download machinery a mirror instance needs (P34/P35 preservation)."
+      "notes": "Power-user sweep P10. Enables sub-millisecond dh q, true --offline, and dh bench; the same download machinery a mirror instance needs (P34/P35 preservation). LOCAL MIRROR SHIPPED 2026-11-17: `dh lib sync --to <path> [--since] [--account]` writes a derived SQLite mirror with a watermark. No network client, no site-side write."
     },
     {
       "id": "M63-11",
