@@ -32,6 +32,8 @@ mod rec;
 mod redact;
 mod safety;
 mod supply;
+#[cfg(feature = "tui")]
+mod tui;
 mod watch;
 
 use clap::{Parser, Subcommand};
@@ -188,6 +190,11 @@ pub enum Command {
         #[command(subcommand)]
         action: module::ModuleAction,
     },
+    /// A full-screen mode of the same binary (opt-in: build with `--features tui`).
+    ///
+    /// The prompt dispatches each line back to `dh` itself, so the query grammar and saved views are the
+    /// server's. `q` restores the terminal.
+    Tui,
     /// A completion script for your shell, generated from this parser (`M63-17`).
     ///
     /// ```text
@@ -378,6 +385,25 @@ async fn main() -> std::process::ExitCode {
                 std::process::ExitCode::from(error.code)
             }
         },
+        Command::Tui => {
+            #[cfg(feature = "tui")]
+            {
+                match tui::run(&cli) {
+                    Ok(()) => std::process::ExitCode::SUCCESS,
+                    Err(error) => {
+                        eprintln!("{error}");
+                        std::process::ExitCode::from(error.code)
+                    }
+                }
+            }
+            #[cfg(not(feature = "tui"))]
+            {
+                eprintln!(
+                    "dh tui was built without the tui feature; rebuild this binary with --features tui"
+                );
+                std::process::ExitCode::from(2)
+            }
+        }
         Command::Cron(args) => match cron::run(&cli, args).await {
             Ok(()) => std::process::ExitCode::SUCCESS,
             Err(error) => {

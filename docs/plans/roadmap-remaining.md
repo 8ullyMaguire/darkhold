@@ -1,5 +1,11 @@
 # The remaining roadmap, ordered for execution
 
+## M63-12 `dh watch` debounced polling daemon — 2026-11-18
+
+**Census:** REUSE `crate::http::send`, the saved-view shape, global `--dry-run`/`--yes` and `clap`; ADAPT saved-view polling into a set-of-ids change detector; BUILD one `watch.rs` module and its CLI subcommand. Decision: a poll is the work-id set, not a body hash; a change is held with trailing-edge debounce; `--exec` uses the shell and needs `--yes`; notification sinks are names, not SDKs. No route, schema or live surface; no deploy.
+
+CLOSED 2026-11-18: full gate at `ffc66201` (`/tmp/gate-all-m63-12-ffc66201.log`) `GATE_ALL_EXIT=0`, all eight stages ok. First gate at `66761284` failed only on the stale M73-02 idea row; it was removed from `docs/ideas-catalogue.json` and `crates/domain/src/modules/ideas.rs`, the targeted suite went 3/3, and the retry was green. Integration tests 2/2; module unit tests 2/2; debounce mutant (treat any pending change as elapsed) reddened the hold assertion and was restored from `/tmp/dh-watch.bak`; fmt/clippy/repo ok.
+
 ## M73-02 darkhold adopts `polaris-affinity` — 2026-11-18
 
 **Census:** REUSE `polaris_affinity::evidence::{Component, weighted_mean}` and `similarity::{jaccard, cosine_counts, agreement_share}` plus darkhold's existing `Components`/`Score` API and tests; ADAPT `domain/affinity.rs` into a declaration-and-projection adapter; BUILD no new surface. Decision: darkhold keeps its vocabulary, weights 0.5/0.3/0.2 and basis-point projection; the estate crate owns all arithmetic, including the clamp. No deploy: no storage, route or wire shape changed.

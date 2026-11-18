@@ -27,6 +27,9 @@ exec = "/home/alvaro/.cargo-target/darkhold/release/dh --jobs run --kind purge_t
 ```
 
 Both need `DARKHOLD_JOBS_DSN` (shared `polaris_jobs` store) and `DARKHOLD_DB_URL` (member store) in the generated service environment — deliberately not on the command line. The release binary at that path is from 2026-11-15 and does **not** yet contain `--jobs`; the estate owner must build/deploy it before enabling the timers. `scripts/check-jobs-manifest.sh` will check the exec path exists (it does) and require regenerated `generated/jobs.json` + both `.timer` files. No timer was installed or restarted here.
+## 2026-11-18 — M63-12 `dh watch` shipped
+
+`dh watch <saved> --exec '<cmd>' --notify ntfy|desktop|webhook --every 10m --debounce 5m [--once]` polls the saved view through the CLI's shared `http::send`, treats the returned work-id set as the state, and runs one command plus one notification only after a changed set survives the debounce window. Dry-run is the default and `--yes` is required to start a daemon; no command is executed in a dry run. Ntfy and webhook use the existing `reqwest` dependency; desktop uses `notify-send`; no credential is stored or printed. Integration tests 2/2, module unit tests 2/2. A debounce mutant that treated any pending change as elapsed reddened the hold assertion and was restored from `/tmp/dh-watch.bak`. Full gate: `/tmp/gate-all-m63-12-ffc66201.log` ended `GATE_ALL_EXIT=0`, all eight stages ok. The first gate failed only on a stale M73-02 idea row; removed, targeted suite 3/3, retry green. No deploy: CLI only. M73-03 (frozen ascend) and M73-04 (`polaris_eval::paired` drift) remain Blocked with clearing conditions in the roadmap.
 
 ## 2026-11-18 — M73-04 blocked by pre-existing polaris-eval drift
 
