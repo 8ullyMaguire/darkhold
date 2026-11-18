@@ -55,19 +55,6 @@
    "built": false
   },
   {
-   "why_summary": "docs/ideas/2026-11-01-idea-sweep-power-users.md Power-user sweep P11. Batch editorial work on 500 rows must be resumable and reversible; a partial failure that cannot be resumed is",
-   "id": "M63-11",
-   "title": "dh lib tag --from-csv with a per-row error report and a rollback file; dh lib diff and push --dry-run before any bulk write",
-   "sources": [
-    "docs/requirements.csv"
-   ],
-   "milestone": "M63",
-   "relevance": 4,
-   "because": "a requirements row exists (+4)",
-   "default_on": false,
-   "built": false
-  },
-  {
    "why_summary": "docs/ideas/2026-11-01-idea-sweep-power-users.md Power-user sweep P22. Split by census 2026-11-12: the health half is already met by `dh doctor --json` (crates/cli/src/doctor.rs:132",
    "id": "M63-23",
    "title": "dh admin backup --to - streams a consistent dump to stdout; dh admin health emits machine-readable checks with per-check exit codes",
@@ -257,19 +244,6 @@
     "docs/requirements.csv"
    ],
    "milestone": "M71",
-   "relevance": 4,
-   "because": "a requirements row exists (+4)",
-   "default_on": false,
-   "built": false
-  },
-  {
-   "why_summary": "",
-   "id": "M73-01",
-   "title": "`polaris-affinity` 0.1",
-   "sources": [
-    "docs/requirements.csv"
-   ],
-   "milestone": "M73",
    "relevance": 4,
    "because": "a requirements row exists (+4)",
    "default_on": false,
