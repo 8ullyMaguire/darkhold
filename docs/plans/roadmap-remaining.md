@@ -1,5 +1,13 @@
 # The remaining roadmap, ordered for execution
 
+## M63-26 `dh stats --by week --year` — 2026-11-18
+
+**Census:** REUSE the private `GET /me/streak` and `GET /me/passport` surfaces, global credentials, `darkhold_domain::passport` and `serde_json`; ADAPT them into one report; BUILD `crates/cli/src/stats.rs`, the subcommand, and a pure renderer. No new route, schema, table or deploy.
+
+**Decision:** the power-user sweep asked for an "operation log (imports, tags applied, reports filed)" score, but no `operation_log` table exists in either engine and no read route exposes those events. The counts that do exist are the origin's signed passport `works/revisions/comments`; inventing an operation-log score would be a number with no source. The report says "signed snapshot" and keeps the period as a label. `--share` suppresses handle, origin and issued-at, leaving only aggregate counts, and nothing is ever published.
+
+CLOSED 2026-11-18: full gate at `ba364ea5` (`/tmp/gate-all-m63-26-ba364ea5.log`) `GATE_ALL_EXIT=0`, all eight stages ok. Integration 3/3 against a two-route fake origin; unit 3/3; identity-leak mutant reddened the share test and was restored from `/tmp/dh-stats.bak`; clippy and repo gate clean. No live surface moved.
+
 ## M63-29 `dh tui` behind a feature flag — 2026-11-18
 
 **Census:** REUSE `dh` itself as command dispatcher and `--json` output; ADAPT its output into a bounded alternate-screen renderer; BUILD one feature-gated `tui.rs`, the `tui` Cargo feature and tests in both feature states. Decision: default off; line-driven prompt (no raw-key dependency); prompt verbs are `rec/q/library/supply/module/config`; `tui` inside `tui` is refused by name. No route, schema or live surface; no deploy.
