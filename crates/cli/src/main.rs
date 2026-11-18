@@ -31,6 +31,7 @@ mod rec;
 mod redact;
 mod safety;
 mod supply;
+mod watch;
 
 use clap::{Parser, Subcommand};
 
@@ -163,6 +164,11 @@ pub enum Command {
     /// a token that carries `library.read`. It does not run `systemctl`; it prints the two
     /// commands. `--dry-run` prints the units and writes nothing.
     Cron(CronArgs),
+    /// Poll a saved query and act once per debounced change.
+    ///
+    /// `dh watch weekly --exec '…' --notify ntfy --every 10m --debounce 5m` polls the saved view
+    /// `weekly` and prints a plan. Adding `--yes` starts the daemon.
+    Watch(watch::WatchArgs),
     /// Operator-only diagnostics: `explain-rec` projects one work through every strategy.
     Admin {
         #[command(subcommand)]
@@ -351,6 +357,13 @@ async fn main() -> std::process::ExitCode {
         )
         .await
         {
+            Ok(()) => std::process::ExitCode::SUCCESS,
+            Err(error) => {
+                eprintln!("{error}");
+                std::process::ExitCode::from(error.code)
+            }
+        },
+        Command::Watch(args) => match watch::run(&cli, args).await {
             Ok(()) => std::process::ExitCode::SUCCESS,
             Err(error) => {
                 eprintln!("{error}");
