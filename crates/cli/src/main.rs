@@ -18,6 +18,7 @@
 
 mod admin;
 mod bench;
+mod calibre;
 mod cron;
 mod doctor;
 mod exit;
@@ -175,6 +176,11 @@ pub enum Command {
     /// dispatches and records outcomes without making an HTTP request. `Cron` stays: this
     /// subcommand replaces the operator's timer, not the reader's own user timer.
     Jobs(JobsArgs),
+    /// Read a Calibre `metadata.db` as a file handshake, without a crate or RPC link.
+    ///
+    /// `dh lib --calibre ~/Calibre/metadata.db` prints seed rows in the grammar
+    /// `darkhold seed read-list` already parses. Nothing is written by default.
+    Lib(calibre::LibArgs),
     /// Your private contribution report, from the server's own streak and signed passport.
     ///
     /// `dh stats --by week --share` prints an aggregate report with no handle or origin.
@@ -378,6 +384,13 @@ async fn main() -> std::process::ExitCode {
         )
         .await
         {
+            Ok(()) => std::process::ExitCode::SUCCESS,
+            Err(error) => {
+                eprintln!("{error}");
+                std::process::ExitCode::from(error.code)
+            }
+        },
+        Command::Lib(args) => match calibre::run(&cli, args).await {
             Ok(()) => std::process::ExitCode::SUCCESS,
             Err(error) => {
                 eprintln!("{error}");

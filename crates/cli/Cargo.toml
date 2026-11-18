@@ -19,6 +19,7 @@ time = { workspace = true, features = ["parsing", "formatting"] }
 # M63-03: one definition of the metric vocabulary, shared with the server.
 darkhold-domain = { path = "../domain" }
 base64.workspace = true
+sqlx.workspace = true
 darkhold-db = { path = "../db" }
 polaris-jobs = { path = "../../../../estate/crates/polaris-jobs" }
 anyhow.workspace = true
