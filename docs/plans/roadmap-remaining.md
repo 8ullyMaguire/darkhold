@@ -5182,3 +5182,7 @@ something they cannot do.
 than the row looks: `RecRegistry::generate_traced(db, ctx) -> RecRunReport` (`crates/db/src/rec_strategy.rs:187`) already
 produces per-strategy output for a run, so the "every strategy's score" half is **REUSE**, not BUILD — what is missing is
 a way to ask for one *work* rather than a feed, and the feature vector beside it.
+## Blocked: M73-03 ascend adopts `polaris-affinity` — 2026-11-18
+
+Ascend is frozen by a standing owner decision recorded in persistent memory. Changing `themes.rs` would need a new owner authorisation, not another local judgement. Clearing condition: the owner explicitly unfreezes ascend and authorises writes to `/home/alvaro/code-local/rust/ascend`; then re-run its donor vectors and delete the local arithmetic. Demoted to the end of the queue; M73-04 taken next in the same turn.
+
