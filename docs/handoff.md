@@ -1,6 +1,6 @@
 ## 2026-11-18 — M73-01 affinity kernel shipped
 
-Built `polaris-affinity` 0.1 at `/home/alvaro/code-local/polaris-affinity` from the estate's written contract (`docs/CONTRACT.md` in that crate). Six pure modules — similarity, evidence, confidence, bounds, cohort, decay — with 13 donor test vectors from darkhold/ascend/orbital, 13/13 in debug and release. Mutants on the present-weight denominator and on the multiplier clamp each reddened their guard and were restored from `/tmp/polaris-affinity.bak`; fmt and clippy clean. Local crate HEAD `39cbc5c`, clean; it intentionally has no git remote, matching `polaris-gravity` and `polaris-eval`, so no forge push was possible or claimed. No darkhold code changed; no darkhold gate rerun and no deploy.
+Built `polaris-affinity` 0.1 at `/home/alvaro/code-local/polaris-affinity` from the estate's written contract (`docs/CONTRACT.md` in that crate). Six pure modules — similarity, evidence, confidence, bounds, cohort, decay — with 13 donor test vectors from darkhold/ascend/orbital, 13/13 in debug and release. Mutants on the present-weight denominator and on the multiplier clamp each reddened their guard and were restored from `/tmp/polaris-affinity.bak`; fmt and clippy clean. Local crate HEAD `ec4cb8d`, clean; it intentionally has no git remote, matching `polaris-gravity` and `polaris-eval`, so no forge push was possible or claimed. No darkhold code changed; no darkhold gate rerun and no deploy.
 
 ## 2026-11-18 — M63-11 diff and push preview shipped
 

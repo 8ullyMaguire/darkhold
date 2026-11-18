@@ -4,7 +4,7 @@
 
 **Census:** REUSE the donor arithmetic and test vectors in darkhold `domain/affinity.rs`, ascend `themes.rs` and orbital `ranking.rs`; ADAPT them to the written contract; BUILD only the new local crate `/home/alvaro/code-local/polaris-affinity`. Registry check (`cargo search` for weighted mean, Jaccard, percentile rank, half-life decay) found general numerical crates but none owning the no-evidence/caller-data contract; verdict BUILD. Decision: `None` for absence, caller-owned weights/bounds/priors/half-lives, total bounded multiplier, no state and no `product` parameter. No adopter changes in this row; M73-02..04 remain planned. No deploy.
 
-CLOSED 2026-11-18: `donor_vectors 13/13` debug and release; two mutants reddened their guards (denominator `total_weight` → `1.0`, and dropping the multiplier clamp) and were restored from `/tmp/polaris-affinity.bak`; `cargo fmt --check` and `cargo clippy --all-targets -- -D warnings` clean. Local crate HEAD `39cbc5c`; no forge push because sibling shared crates have no remotes.
+CLOSED 2026-11-18: `donor_vectors 13/13` debug and release; two mutants reddened their guards (denominator `total_weight` → `1.0`, and dropping the multiplier clamp) and were restored from `/tmp/polaris-affinity.bak`; `cargo fmt --check` and `cargo clippy --all-targets -- -D warnings` clean. Local crate HEAD `ec4cb8d`; no forge push because sibling shared crates have no remotes.
 
 ## M63-11 `dh lib diff` / `dh lib push --dry-run` — 2026-11-18
 
