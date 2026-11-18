@@ -1,6 +1,6 @@
 ## 2026-11-17 — mirror fast-forward blocked by SSHFS FUSE again
 
-Local commit `facbc360` is clean and pushed to both forges (`git ls-remote` names it on `origin/master` and `github/master`). The mirror at `/home/alvaro/code/rust/darkhold` is still at `9f766788`; two `GIT_CONFIG_GLOBAL=/dev/null git fetch` attempts hung after a lazy remount. Clearing condition: the SSHFS channel stays healthy long enough for `git fetch origin master && git merge --ff-only origin/master` to reach `facbc360`; remount again and retry in a fresh session if it still hangs. This is an environment block, not a row block.
+Local HEAD `cd7a8188` is clean and pushed to both forges; the gate that closed M63-10 ran at `f9929f56`. The mirror at `/home/alvaro/code/rust/darkhold` is still at `9f766788`; two `GIT_CONFIG_GLOBAL=/dev/null git fetch` attempts hung after a lazy remount. Clearing condition: the SSHFS channel stays healthy long enough for `git fetch origin master && git merge --ff-only origin/master` to reach `facbc360`; remount again and retry in a fresh session if it still hangs. This is an environment block, not a row block.
 
 ## 2026-11-17 — M63-10 local library mirror shipped (gate pending)
 
