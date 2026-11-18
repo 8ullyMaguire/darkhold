@@ -5214,6 +5214,12 @@ a way to ask for one *work* rather than a feed, and the feature vector beside it
 
 Ascend is frozen by a standing owner decision recorded in persistent memory. Changing `themes.rs` would need a new owner authorisation, not another local judgement. Clearing condition: the owner explicitly unfreezes ascend and authorises writes to `/home/alvaro/code-local/rust/ascend`; then re-run its donor vectors and delete the local arithmetic. Demoted to the end of the queue; M73-04 taken next in the same turn.
 
+## M64-09 taste gravity on the remaining reader rails — 2026-11-18
+
+**Census:** REUSE the feed's `taste_knobs`, `taste_signal`, `gravity_prefs`, `polaris_gravity::effective` and `apply_taste_gravity`; ADAPT `SurfaceWork` order into `Candidate` order and back; BUILD one shared `surface_gravity` helper. No new route, schema, config key, store query or ROUTE_TABLE row.
+
+CLOSED 2026-11-18: `story.similar` and `library.because_you_shelved` now apply the same bounded mixture after their engines finish. Position becomes the base score so gravity reorders only; each work's `similarity` is untouched, nothing is filtered, and invalid ids keep their place. A failed taste-signal read serves the rail unpulled with a warning rather than inventing a zero shelf. Pure tests 2/2; reader_surface and library suites green; strength mutant reddened `gravity_reorders_without_filtering_and_without_editing_scores` and was restored from `/tmp/m64-09.bak`. Full gate `/tmp/gate-all-m64-09-47e855dd.log` `GATE_ALL_EXIT=0`, all eight stages ok. Deployed `0.1.0+47e855dd`, dump `/personal/backups/darkhold-20261118-47e855dd/darkhold-47e855dd.dump` `TABLE_DATA=411`, estate `ESTATE_DEPLOY_EXIT=0`, origin/edge build verified, unit active.
+
 ## M64-08 fandom graph reaches its two named surfaces — 2026-11-18
 
 **Census:** REUSE the operator's declared map, `fandom_graph::RelatedWork`, the two-engine bind pattern, and the existing router harness; ADAPT neighbours into two surface queries; BUILD two anonymous doors, two DB functions, ROUTE_TABLE rows, and tests. No migration, no frontend, no new map editor.

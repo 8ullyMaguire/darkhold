@@ -1,3 +1,9 @@
+## 2026-11-18 — M64-09 taste gravity on the remaining rails shipped
+
+`GET /works/{id}/similar` and `GET /api/v1/library/because-you-shelved` now apply the same bounded taste-gravity mixture as the feed. A shared helper resolves the surface's knobs, the reader's dial and the reader's own shelf signal, then reorders the engine's output without filtering it or changing any score. Anonymous callers and failed signal reads keep the original order. No new route, schema, config key or deploy-time migration.
+
+Proof: pure gravity tests 2/2, reader_surface/library suites green, zero-strength mutant red and restored, full gate `/tmp/gate-all-m64-09-47e855dd.log` `GATE_ALL_EXIT=0`, deploy `0.1.0+47e855dd` with named dump `TABLE_DATA=411`, estate `ESTATE_DEPLOY_EXIT=0`, origin/edge build verified, unit active.
+
 ## 2026-11-18 — M64-08 fandom graph surfaces shipped and deployed
 
 Two new anonymous API doors reach the operator's declared map: `GET /api/v1/tags/{tag}/cross-fandom?from=<fandom>` and `GET /api/v1/authors/{author}/similar`. Both publish the map version and empty lists rather than 404 for unmapped inputs. The trope door requires `from` because a trope alone does not name a source fandom; the author door derives source fandoms from published/public works and excludes the source author. Both queries exist for SQLite and PostgreSQL, carry the operator's edge weight through, and never expose private or draft works.

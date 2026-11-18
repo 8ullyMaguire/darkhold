@@ -107,19 +107,6 @@
    "built": false
   },
   {
-   "why_summary": "71adfa72 PARTIAL 71adfa72 (first half): taste gravity is now a convex mixture served=(1-g)*base+g*taste, both terms normalised to 0..=1 over the page; unbounded multiplier replaced",
-   "id": "M64-09",
-   "title": "taste gravity applies at every recommendation surface as a bounded influence layer after the blend, with a per-surface strength, reordering and never filtering",
-   "sources": [
-    "docs/requirements.csv"
-   ],
-   "milestone": "M64",
-   "relevance": 4,
-   "because": "a requirements row exists (+4)",
-   "default_on": false,
-   "built": false
-  },
-  {
    "why_summary": "ee413789 P11, the endgame signal and the one with the longest lead time: it needs lists to exist and to be used before it has any rows. Design lists first so the data accumulates f",
    "id": "M64-11",
    "title": "co_shelving",
