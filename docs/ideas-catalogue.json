@@ -251,19 +251,6 @@
   },
   {
    "why_summary": "",
-   "id": "M73-02",
-   "title": "darkhold adopts `polaris-affinity` by deletion",
-   "sources": [
-    "docs/requirements.csv"
-   ],
-   "milestone": "M73",
-   "relevance": 4,
-   "because": "a requirements row exists (+4)",
-   "default_on": false,
-   "built": false
-  },
-  {
-   "why_summary": "",
    "id": "M73-03",
    "title": "ascend adopts `polaris-affinity` by deletion",
    "sources": [
