@@ -1,6 +1,6 @@
 ## 2026-11-19 — M64-15 closed
 
-`POST /api/v1/operator/experiments/{surface}/preview` accepts `{pseud, algorithms?}` for `discover.feed`, runs the chosen reader's taste ranker on the read side, and writes no arm, impression, shadow sample or slot. Both engines 3/3, arm-guard mutant red/restored from `/tmp/m64-15.bak`. Final full gate `/tmp/gate-all-m64-15-retry-a187730c.log` `GATE_ALL_EXIT=0`, all eight stages plus ledger/repo green. The first gate failed only on the missing pre-existing `DARKHOLD_JOBS_TEST_DSN`; targeted CLI retry 117/117. Ledger closed; live deploy pending with this commit.
+`POST /api/v1/operator/experiments/{surface}/preview` accepts `{pseud, algorithms?}` for `discover.feed`, runs the chosen reader's taste ranker on the read side, and writes no arm, impression, shadow sample or slot. Both engines 3/3, arm-guard mutant red/restored from `/tmp/m64-15.bak`. Final full gate `/tmp/gate-all-m64-15-retry-a187730c.log` `GATE_ALL_EXIT=0`, all eight stages plus ledger/repo green. The first gate failed only on the missing pre-existing `DARKHOLD_JOBS_TEST_DSN`; targeted CLI retry 117/117. Ledger closed; deploy is BLOCKED on host memory, not code: named dump `/personal/backups/darkhold-20261119-224442-d80c113d.dump` verified `TABLE_DATA=411`; estate build was SIGTERM'd by earlyoom with rustc at 6.9 GB RSS and 1.5 GB available. Clears at ≥8 GB available with no foreign compiler/crawler, or owner authorises a lower-peak profile. Next unblocked row: M71-07..
 
 ## 2026-11-19 — M70-14 closed against the existing worker
 
