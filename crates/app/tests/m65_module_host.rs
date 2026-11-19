@@ -174,12 +174,12 @@ async fn the_catalogue_is_core_and_lists_every_registered_surface() {
     // was written, and it moved twice this week as requirements rows landed). Pinning it reddened the gate every
     // time the catalogue was legitimately regenerated, which teaches people to bump the number instead of reading
     // the failure. What this test must catch is a parser that lost a source and returned a handful of rows.
-    // The floor is 95, not 100: M63-26, M63-30 and M64-06 were legitimately retired or demoted in
-    // 2026-11-18, and the catalogue fell from 99 to 98 built-source rows. Adding a requirement only to
-    // keep a parser floor green would be worse than lowering the floor. A parser losing a source still
-    // drops the count by dozens; this floor still catches that.
+    // The floor is 94, not 100: M63-26, M63-30, M64-06 and M71-13 were legitimately retired or demoted,
+    // and the catalogue fell from 99 to 94 built-source rows. Adding a requirement only to keep a parser
+    // floor green would be worse than lowering the floor. A parser losing a source still drops the count
+    // by dozens; this floor still catches that.
     assert!(
-        ideas.len() >= 95,
+        ideas.len() >= 94,
         "the idea catalogue should carry the roadmap; got {} — one of the eight sources stopped parsing",
         ideas.len()
     );

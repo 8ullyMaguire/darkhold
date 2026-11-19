@@ -5214,6 +5214,12 @@ a way to ask for one *work* rather than a feed, and the feature vector beside it
 
 Ascend is frozen by a standing owner decision recorded in persistent memory. Changing `themes.rs` would need a new owner authorisation, not another local judgement. Clearing condition: the owner explicitly unfreezes ascend and authorises writes to `/home/alvaro/code-local/rust/ascend`; then re-run its donor vectors and delete the local arithmetic. Demoted to the end of the queue; M73-04 taken next in the same turn.
 
+## M71-13 coverage provenance split — 2026-11-19
+
+**Census:** hosted/referenced/known already existed as one vocabulary in `routes/provenance.rs`; the catalogues and facets already had one `dimension_coverage` statement. Verdict REUSE the provenance rules and the coverage object, ADAPT the one coverage statement to return the split. No new schema: hosted means a unit with a current revision, referenced means no such unit but a `library_items.source_url`, known means neither.
+
+CLOSED 2026-11-19: `Coverage` now carries `hosted`, `referenced`, `known` and `split_sentence` from one two-engine statement; the shared object is published on tag and fandom doors and the document tag page prints the same split. Decision: there is no separate fandom/source document route in this tree, so the shared `coverage` object is the contract every dimension page consumes rather than a second hand-written split. Tests: two-engine DB 1/1, API/document 3/3; removing the hosted predicate reddened both guards and was restored from `/tmp/m71-13-split.bak`.
+
 ## M64-13 engagement overlap — 2026-11-19
 
 **Census:** estate rg found darkhold 13 files, darkhold-roadmap 12, ascend 1. No shared engagement-overlap crate exists; the estate's k-anonymity floor already lives in `darkhold_domain::analytics` (`K_OTHERS = 10`). Verdict BUILD one darkhold store query and door; REUSE `reading_sessions`, `analytics::Reported`, router/ROUTE_TABLE and both-engine harness. Decision: a reader cluster is the set of distinct readers with a ≥30-second signed-in session on a work in the window; the floor is `K_OTHERS` and a below-floor count becomes `{fewer_than:10}` rather than a number.

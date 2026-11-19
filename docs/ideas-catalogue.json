@@ -159,19 +159,6 @@
    "built": false
   },
   {
-   "why_summary": "bf404997, a7664d54 Priority 3. 5.4% fandom coverage is a fact the CLI already prints and the UI hides; a catalogue that hides it is claiming a completeness it does not have. Accept",
-   "id": "M71-13",
-   "title": "Every surface that enumerates a partially covered dimension states its coverage",
-   "sources": [
-    "docs/requirements.csv"
-   ],
-   "milestone": "M71",
-   "relevance": 4,
-   "because": "a requirements row exists (+4)",
-   "default_on": false,
-   "built": false
-  },
-  {
    "why_summary": "",
    "id": "M73-03",
    "title": "ascend adopts `polaris-affinity` by deletion",

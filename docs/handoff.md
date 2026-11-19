@@ -1,3 +1,9 @@
+## 2026-11-19 — M71-13 coverage provenance split shipped
+
+Dimension coverage now splits works into hosted, referenced and known using the same rules as a work's provenance badge. The numbers come from the existing one-statement aggregate on both engines; the tag/fandom API and the document tag page publish the same words.
+
+Decision: no separate fandom/source document route exists here, so the shared `coverage` object is the source of truth and no second split was hand-written.
+
 ## 2026-11-19 — M64-13 engagement-overlap door shipped
 
 `GET /api/v1/works/{work_id}/engagement-overlap` publishes the size of the intersection of two works' reader clusters, after the `K_OTHERS = 10` floor. Below-floor answers are `{fewer_than:10}` and no reader id leaves the database. The row remains partial until the query is wired into the three named ranking surfaces.
