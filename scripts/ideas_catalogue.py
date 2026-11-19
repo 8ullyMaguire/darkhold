@@ -338,6 +338,12 @@ GATE_IGNORE = {
     # Ascend") is a statement about where work is scheduled, not a proposal.
     # The ideas it points at are scheduled in that other repo's plan file.
     "docs/ideas/NETWORK-PLAN.md": "a pointer to ~/code-local/rust/ascend/docs/PLAN-network.md, not an idea document",
+    # Two scored banks from 2026-11-17 are explicit intake, not a queue: the first says
+    # "status: intake only — not a queue, no row is committed", and the second calls its
+    # items "candidate rows, not commitments". Only rows registered in requirements.csv
+    # become ideas; the bank titles are filing labels, not proposals with an owner.
+    "docs/ideas/2026-11-17-reading-list-and-catalogue-quality-ideas.md": "intake-only scored bank; no row is committed",
+    "docs/ideas/2026-11-17-syndicated-trope-frontier-ideas.md": "candidate bank; registered rows are the M71 requirements",
 }
 
 
