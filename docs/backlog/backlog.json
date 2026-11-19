@@ -88,7 +88,7 @@
       "id": "M66-08",
       "milestone": "M66",
       "requirement": "P2P local file sharing over the LAN and by direct link, with a seeding network later: a reader serves their own files to another person directly \u2014 no relay, no DHT, no node discovery, no global namespace \u2014 and their files stay their own files.",
-      "notes": "The first milestone is deliberately smaller and shippable: serve local files to another person on the LAN or by a direct link, with no relay, no DHT, no node discovery and no global namespace; the user's own files stay their own files. Items 50, 51, 61, 69 and 96 belong to it (drag-drop import, local full-text search, offline queue, Calibre metadata.db ingestion, a local engine over local edges). The seeding network (81, 93, 98, 99) is a later spec that needs a threat model first \u2014 a document, not a weekend."
+      "notes": "The first milestone is deliberately smaller and shippable: serve local files to another person on the LAN or by a direct link, with no relay, no DHT, no node discovery and no global namespace; the user's own files stay their own files. Items 50, 51, 61, 69 and 96 belong to it (drag-drop import, local full-text search, offline queue, Calibre metadata.db ingestion, a local engine over local edges). The seeding network (81, 93, 98, 99) is a later spec that needs a threat model first \u2014 a document, not a weekend. DIRECT SHARE SHIPPED 2026-11-19: dh share --dir serves one directory under a random URL capability, loopback by default and --lan explicit; real HTTP test 1/1, wrong-token mutant red/restored. Row stays planned for local engine and seeding milestones."
     },
     {
       "id": "M69-24",

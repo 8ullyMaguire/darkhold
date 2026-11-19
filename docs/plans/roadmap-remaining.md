@@ -5214,6 +5214,12 @@ a way to ask for one *work* rather than a feed, and the feature vector beside it
 
 Ascend is frozen by a standing owner decision recorded in persistent memory. Changing `themes.rs` would need a new owner authorisation, not another local judgement. Clearing condition: the owner explicitly unfreezes ascend and authorises writes to `/home/alvaro/code-local/rust/ascend`; then re-run its donor vectors and delete the local arithmetic. Demoted to the end of the queue; M73-04 taken next in the same turn.
 
+## M66-08 direct file-share first milestone — 2026-11-19
+
+**Census:** REUSE Tokio's TCP stack, the CLI parser/dispatch and `std::fs` canonicalisation; ADAPT the fake-origin HTTP pattern into a tiny GET-only response writer; BUILD one CLI module and a real-socket test. No site route, store, schema or deploy.
+
+PARTIAL SHIPPED (row stays planned for drag-drop import, local full-text search, offline queue, local engine and the later seeding threat model): `dh share --dir DIR [--lan] [--port N] [--once]` serves one directory under a per-run 32-byte random URL capability. Default bind is loopback; `--lan` is explicit. Paths are canonicalised under the chosen root, `..` is refused, only GET is accepted, and directories render an HTML index. Failing test first, real HTTP test 1/1 (valid file, valid index, wrong token 404); wrong-token mutant reddened the assertion and was restored from `/tmp/dh-share.bak`; fmt/clippy/repo clean.
+
 ## M63-25 `dh audit --since` CLI clause — 2026-11-19
 
 **Census:** REUSE `watch::parse_duration`, `stats`' credential path, `http::send` and the shipped `/me/audit-log?since=` door; ADAPT the response's `items` into a text table; BUILD one CLI module and a fake-origin test. No server, store or schema change.

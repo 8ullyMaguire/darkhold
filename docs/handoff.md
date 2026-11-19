@@ -1,3 +1,7 @@
+## 2026-11-19 — M66-08 direct file share shipped
+
+`dh share --dir DIR` serves the reader's own files directly under a per-run random URL capability. Loopback is the default; `--lan` is an explicit exposure choice. No relay, DHT, discovery, global namespace or site account. Real HTTP test 1/1; wrong-token mutant red/restored. Row stays planned for the remaining local-engine and seeding milestones.
+
 ## 2026-11-19 — M63-25 `dh audit` CLI clause shipped
 
 `dh audit --since 7d` now works: relative windows are resolved client-side to RFC 3339 because the server deliberately refuses `7d`. The text output says "what your account did" and names the missing token attribution rather than pretending the schema has it. Fake-origin test 1/1, unit 1/1, mutant red/restored. Row stays planned for the DDL/backfill decision that would add a token id to the write path.
