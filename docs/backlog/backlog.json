@@ -3,12 +3,12 @@
     "requirements.csv": {
       "rows": 960,
       "by_status": {
-        "implemented-verified-e2e": 161,
+        "implemented-verified-e2e": 162,
         "implemented-locally-tested": 269,
         "unsupported": 4,
         "implemented-fully-tested": 461,
         "implemented": 41,
-        "planned": 13,
+        "planned": 12,
         "evaluated-and-rejected": 7,
         "blocked": 1,
         "done": 3
@@ -53,12 +53,6 @@
       "milestone": "M64",
       "requirement": "embedding similarity for summaries first and full text last, feature-gated on a configured AI provider and degrading to disabled rather than erroring",
       "notes": "P14. The spec already names embedding and matrix-factorisation strategies as provider-gated (\u00a716). Summary embeddings are the cheap half; full-text style matching needs the bodies, which the catalogue deliberately does not store. DOMAIN SLICE SHIPPED 2026-11-19: `darkhold_domain::embeddings` selects summary first, delegates dense cosine to polaris-affinity, and degrades to original order for disabled/unavailable/failed/malformed inputs. Row remains planned for the provider adapter and served-feed wiring; no configured provider exists on this instance."
-    },
-    {
-      "id": "M64-15",
-      "milestone": "M64",
-      "requirement": "the operator console lists every live experiment per surface with its numbers, allows hold, promote and preview-as-persona, and shows why each promotion happened",
-      "notes": "P15. Promotion is automatic (M64-04); this is the surface where the operator can disagree without editing a table. preview-as-persona reuses M45-46 (preview before apply). PARTIAL 7e58e239: GET /api/v1/operator/experiments (operator-only, 404 for a reader) lists every surface with numbers per arm (impressions, readers, guest_readers, events, conversion_rate), the override the feed is running, and the last decision verbatim (day, lift, evidence, algorithms_before/after) - passed through rather than recomputed, so the console cannot disagree with the record. Tested behaviourally (operator sees impressions 1000 / rate 0.1; reader gets 404 on both operator doors). WRITE HALF 0612cdf7: migration 0170 experiment_holds + experiment_decisions.source (automatic|manual); POST/DELETE /operator/experiments/{surface}/hold (a held surface is skipped by the sweep and REPORTED as held, reason required), POST .../promote {algorithms} and .../demote, both through record_manual which writes the same row shape and installs/clears the override identically, distinguished only by source. NOT DONE: preview-as-persona (needs a reader-shaped view for a chosen pseud - a different mechanism from a write)."
     },
     {
       "id": "M66-08",
@@ -112,8 +106,8 @@
   "open_by_milestone": {
     "M45": 2,
     "M63": 2,
-    "M64": 2,
     "M71": 2,
+    "M64": 1,
     "M66": 1,
     "M69": 1,
     "M29": 1,

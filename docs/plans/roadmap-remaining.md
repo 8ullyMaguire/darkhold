@@ -5223,6 +5223,12 @@ Ascend is frozen by a standing owner decision recorded in persistent memory. Cha
 
 `darkhold_domain::embeddings` now owns summary-first selection, dense cosine through `polaris-affinity`, and degrade-to-disabled ranking. Tests 3/3; summary-first mutant red/restored from `/tmp/m64-14.bak`; full gate `/tmp/gate-all-m64-14-5a4d72f2.log` `GATE_ALL_EXIT=0` at `5a4d72f2`. The row stays planned for the provider adapter and served-feed wiring: no AI provider is configured on this instance, and a fake provider is not a live surface.
 
+## M64-15 preview-as-persona — 2026-11-19
+
+**Census:** searched both estate roots for `preview-as-persona|preview.*persona|preview_for|as_persona`; no implementation exists outside planning docs. Verdict REUSE `feed_for`, `require_operator`, `find_pseud_by_handle` and the existing route inventory; ADAPT the feed builder with a non-mutating flag and a read-only algorithm override; BUILD one operator route. Decision: `POST /operator/experiments/{surface}/preview` accepts `{pseud, algorithms?}` only for `discover.feed`, validates algorithm names against `recommendation_surfaces::engine_reason`, and never assigns an arm, logs an impression, seeds a shadow sample or records a slot. M45-46's anonymous knobs preview stays unchanged.
+
+CLOSED: SQLite 3/3 and PostgreSQL 3/3; mutant removing the `log_impressions` guard reddened `operator_preview_is_a_read` (`left: 1 / right: 0`, exit 101) and was restored from `/tmp/m64-15.bak`. First full gate `/tmp/gate-all-m64-15-a187730c.log` exited 101 only because `DARKHOLD_JOBS_TEST_DSN` was unset: four existing `jobs::tests` require that scratch PostgreSQL DSN. Targeted retry `cargo test -p darkhold-cli --bin dh` 117/117 after setting it; final full gate `/tmp/gate-all-m64-15-retry-a187730c.log` `GATE_ALL_EXIT=0`, all eight stages ok plus ledger/repo. The persona path now runs the reader's taste ranker on the read side while suppressing every write arm. Live deploy pending with this row's commit.
+
 ## M70-13 orphan pass and reserved decisions — 2026-11-19
 
 The ratchet moved 28 → 27 by deleting `module_state::count`; full gate `/tmp/gate-all-m70-13-41da552a.log` `GATE_ALL_EXIT=0` at `41da552a`. The first gate failed on a stale `M63-23` idea sample in `m65_module_host`, fixed by pinning `M63-33`. M63-33, M71-20 and M71-03 were closed by the recorded best-judgement decisions in `docs/DECISIONS.md`. M45-43 still needs the Discord portal intent toggle and a guild invite.

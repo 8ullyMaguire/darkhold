@@ -1,3 +1,7 @@
+## 2026-11-19 — M64-15 closed
+
+`POST /api/v1/operator/experiments/{surface}/preview` accepts `{pseud, algorithms?}` for `discover.feed`, runs the chosen reader's taste ranker on the read side, and writes no arm, impression, shadow sample or slot. Both engines 3/3, arm-guard mutant red/restored from `/tmp/m64-15.bak`. Final full gate `/tmp/gate-all-m64-15-retry-a187730c.log` `GATE_ALL_EXIT=0`, all eight stages plus ledger/repo green. The first gate failed only on the missing pre-existing `DARKHOLD_JOBS_TEST_DSN`; targeted CLI retry 117/117. Ledger closed; live deploy pending with this commit.
+
 ## 2026-11-19 — M70-14 closed against the existing worker
 
 The requirement was already satisfied by `crates/app/src/worker.rs` and `webhook_delivery.rs`; the ledger now records that rather than opening a second outbound path.

@@ -35,3 +35,10 @@ The owner states ascend is unfrozen and authorises writes. The previous block co
 * M45-43: the gateway now reaches READY with the supplied application. The remaining condition is not code: an operator must enable the MESSAGE_CONTENT privileged intent in the Discord developer portal and invite the bot to a guild, then one real command can prove the read path. `DARKBOT_DISCORD_MESSAGE_CONTENT=1` turns the intent on once the portal allows it.
 
 * M70-14: closed against existing code, not newly built. `Worker::deliver_outbox` is the only drainer, `webhook_delivery` records every attempt and outcome, and unhandled topics are deferred rather than marked delivered. The decision is that this is the outbound-delivery owner the requirement asked for; building a second worker would be the duplication the estate avoids.
+
+### M64-15 preview-as-persona — 2026-11-19
+
+* A persona preview is a read, not a session. It deliberately synthesizes a `SessionUser` for the chosen pseud so the reader's taste, DNF and gravity profile are included, but passes `log_impressions = false` so no experiment arm, impression, shadow sample or slot row is written. The alternative — asking the operator to sign in as a reader — was rejected because it has no place to put a second session and would mutate the reader's history.
+* `algorithms` is optional and validated against `recommendation_surfaces::engine_reason` before it takes precedence for this one preview. It never installs an override; `POST .../promote` remains the only write door.
+* M45-46's `POST /admin/discovery/preview` stays anonymous. "What a stranger sees under proposed knobs" and "what this reader sees under an experiment" are different questions, and merging them would have made the former leak a reader's history into an operator screen.
+

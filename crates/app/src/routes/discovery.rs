@@ -111,7 +111,7 @@ fn dashboard_routes() -> Router<AppState> {
 
 /// Query params for `GET /discovery` (spec §43.2).
 #[derive(Debug, serde::Deserialize)]
-pub struct DiscoveryQuery {
+pub(crate) struct DiscoveryQuery {
     #[serde(default)]
     sort: Option<String>,
 }
@@ -160,6 +160,9 @@ async fn apply_taste_ordering_and_log(
     account_id: &str,
     viewer_pseud: uuid::Uuid,
     ranked: Vec<darkhold_domain::discovery::Candidate>,
+    // The ranker is a read; the impression and slot writes after it are an
+    // exposure event. A persona preview needs the first without the second.
+    log_impressions: bool,
 ) -> Vec<darkhold_domain::discovery::Candidate> {
     if ranked.is_empty() {
         return ranked;
@@ -253,7 +256,7 @@ async fn apply_taste_ordering_and_log(
     // non-null propensity. `all_impressions` is the one call that gathers them
     // without re-deriving which stage produced which row.
     let impressions = outcome.all_impressions();
-    if !impressions.is_empty() {
+    if log_impressions && !impressions.is_empty() {
         let request_id = uuid::Uuid::new_v4();
         let mut records: Vec<darkhold_db::recommendation_slots::SlotRecord> =
             Vec::with_capacity(outcome.ranked.len());
@@ -703,19 +706,26 @@ async fn get_discovery(
     // M45-46: the knobs in force come from one place (`taste_knobs::effective`), and the same builder is what the
     // operator's preview runs — a second ranking path for the preview would drift from the page readers get.
     let knobs = crate::taste_knobs::effective(&state, "discover.feed").await;
-    feed_for(&state, session.as_ref(), &params, &knobs).await
+    feed_for(&state, session.as_ref(), &params, &knobs, None, true).await
 }
 
 /// Build the feed for one viewer under one set of knobs.
 ///
 /// What a viewer *is* decides what may be written: a session means an account means an impression may be recorded, and
-/// `None` means there is nobody to record it for. That is why the operator's preview passes `None` rather than a flag —
-/// an anonymous run cannot pollute the impression record by construction, not by a boolean somebody could flip.
-async fn feed_for(
+/// `None` means there is nobody to record it for. `preview_discovery` (M45-46) keeps that anonymous-by-construction
+/// guarantee. M64-15 needs a real viewer but no writes, so it passes an explicit `log_impressions = false`; every write
+/// arm in this function consults that flag rather than assuming a session alone means exposure.
+pub(crate) async fn feed_for(
     state: &AppState,
     session: Option<&crate::auth::SessionUser>,
     params: &DiscoveryQuery,
     knobs: &crate::taste_knobs::Knobs,
+    // M64-15: an operator preview may choose an algorithm set without writing
+    // it. `None` means the normal precedence (promotion, arm, config).
+    algorithm_override: Option<&[String]>,
+    // Preview calls reuse every ranking operator but must not write: assigning
+    // an arm while "just looking" would make the console change its own data.
+    log_impressions: bool,
 ) -> ApiResult<Json<serde_json::Value>> {
     let limit = 20;
     let account_id: Option<String> = session.map(|s| s.account_id.to_string());
@@ -742,21 +752,44 @@ async fn feed_for(
     // M64-02: with `discovery.experiment_buckets > 1`, a signed-in reader is assigned a stored arm once and runs that
     // arm's half of the surface. The assignment happens here, on the read path, because the impression that follows is
     // the event the arm exists to be measured against — assigning at sign-in would be a bucket with no exposure yet.
-    let arm = experiment_arm(state, viewer_pseud, "discover.feed").await?;
+    let arm = if log_impressions {
+        experiment_arm(state, viewer_pseud, "discover.feed").await?
+    } else {
+        None
+    };
     // A promoted experiment's algorithms win over both the configured set and the reader's arm: the arm existed to decide
     // between two sets, and once one has won there is nothing left to split. This is the precedence the overrides table
     // documents, and it is read here rather than in `enabled_engines_for_bucket` so the two cannot drift.
-    let enabled = match darkhold_db::experiment_decisions::override_for(state.db(), "discover.feed")
-        .await
-        .map_err(|error| ApiError(AppError::internal("reading a surface override", error)))?
-    {
-        Some(algorithms) => algorithms
-            .iter()
-            .filter_map(|algorithm| {
-                darkhold_domain::recommendation_surfaces::engine_reason(algorithm)
-            })
-            .collect(),
-        None => enabled_engines_for_bucket(state, "discover.feed", arm),
+    let enabled = match algorithm_override {
+        Some(algorithms) => {
+            let mut set = std::collections::BTreeSet::new();
+            for algorithm in algorithms {
+                let reason = darkhold_domain::recommendation_surfaces::engine_reason(algorithm)
+                    .ok_or_else(|| {
+                        ApiError(AppError::field(
+                            "algorithms",
+                            format!("unknown recommendation algorithm: {algorithm}"),
+                        ))
+                    })?;
+                set.insert(reason);
+            }
+            set
+        }
+        None => {
+            match darkhold_db::experiment_decisions::override_for(state.db(), "discover.feed")
+                .await
+                .map_err(|error| {
+                    ApiError(AppError::internal("reading a surface override", error))
+                })? {
+                Some(algorithms) => algorithms
+                    .iter()
+                    .filter_map(|algorithm| {
+                        darkhold_domain::recommendation_surfaces::engine_reason(algorithm)
+                    })
+                    .collect(),
+                None => enabled_engines_for_bucket(state, "discover.feed", arm),
+            }
+        }
     };
     let engines = build_candidate_engines(
         state,
@@ -843,7 +876,7 @@ async fn feed_for(
     // evaluation that broke discovery would be worse than no evaluation, since
     // the reader is owed a feed either way. The mode's contract is "the reader
     // sees legacy", and that holds even when the comparison cannot be made.
-    if mode == "shadow" {
+    if log_impressions && mode == "shadow" {
         if let Some(ref account_id) = account_id {
             let served: Vec<String> = blended.iter().map(|c| c.work_id.to_string()).collect();
             let registry = crate::rec_engine::build_registry(&state.config().discovery);
@@ -1013,11 +1046,12 @@ async fn feed_for(
     // signed-in reader only. Placed after every other reordering operator so
     // half-life, operator affinity and theme gravity still get their say, and
     // anonymous readers fall through unchanged.
-    // M45 / spec §47: taste-based ordering plus impression logging, for a signed-in reader only. An anonymous run (the
-    // operator's preview) has no account and no pseud, so this arm cannot fire for it.
+    // M45 / spec §47: taste-based ordering plus impression logging, for a signed-in reader only. An anonymous run cannot
+    // fire this arm; a persona preview has a viewer but passes `log_impressions = false`, so it takes the taste ordering's
+    // read side without recording exposure.
     let ranked = match (account_id.as_deref(), viewer_pseud) {
         (Some(account_id), Some(pseud)) => {
-            apply_taste_ordering_and_log(state, account_id, pseud, ranked).await
+            apply_taste_ordering_and_log(state, account_id, pseud, ranked, log_impressions).await
         }
         _ => ranked,
     };
@@ -1144,24 +1178,25 @@ async fn feed_for(
     // explanation should still get their recommendations, so a write failure
     // leaves the items untouched and simply withholds the slot ids.
     let request_id = uuid::Uuid::new_v4();
-    if let Some(viewer) = viewer_pseud {
-        if !items.is_empty() {
-            let claimed: std::collections::HashMap<String, Vec<SlotReason>> = engines
-                .iter()
-                .flatten()
-                .fold(std::collections::HashMap::new(), |mut acc, c| {
-                    if let Some(reason) = SlotReason::from_engine_reason(&c.reason) {
-                        acc.entry(c.work_id.to_string()).or_default().push(reason);
-                    }
-                    acc
-                });
-            let signals: std::collections::HashMap<String, f64> = engines
-                .iter()
-                .flatten()
-                .map(|c| (c.work_id.to_string(), c.taste_signal))
-                .collect();
+    if log_impressions {
+        if let Some(viewer) = viewer_pseud {
+            if !items.is_empty() {
+                let claimed: std::collections::HashMap<String, Vec<SlotReason>> = engines
+                    .iter()
+                    .flatten()
+                    .fold(std::collections::HashMap::new(), |mut acc, c| {
+                        if let Some(reason) = SlotReason::from_engine_reason(&c.reason) {
+                            acc.entry(c.work_id.to_string()).or_default().push(reason);
+                        }
+                        acc
+                    });
+                let signals: std::collections::HashMap<String, f64> = engines
+                    .iter()
+                    .flatten()
+                    .map(|c| (c.work_id.to_string(), c.taste_signal))
+                    .collect();
 
-            let records: Vec<SlotRecord> = items
+                let records: Vec<SlotRecord> = items
                 .iter()
                 .enumerate()
                 .filter_map(|(position, item)| {
@@ -1208,24 +1243,25 @@ async fn feed_for(
                 })
                 .collect();
 
-            match darkhold_db::recommendation_slots::record_response(
-                state.db(),
-                viewer,
-                request_id,
-                &records,
-            )
-            .await
-            {
-                Ok(ids) => {
-                    for (item, slot_id) in items.iter_mut().zip(ids) {
-                        item["slot_id"] = serde_json::Value::String(slot_id);
+                match darkhold_db::recommendation_slots::record_response(
+                    state.db(),
+                    viewer,
+                    request_id,
+                    &records,
+                )
+                .await
+                {
+                    Ok(ids) => {
+                        for (item, slot_id) in items.iter_mut().zip(ids) {
+                            item["slot_id"] = serde_json::Value::String(slot_id);
+                        }
                     }
-                }
-                Err(e) => {
-                    // Logged rather than swallowed silently, because a reader
-                    // silently losing "why?" is exactly the failure this
-                    // milestone exists to prevent.
-                    tracing::warn!("could not record recommendation slots: {e}");
+                    Err(e) => {
+                        // Logged rather than swallowed silently, because a reader
+                        // silently losing "why?" is exactly the failure this
+                        // milestone exists to prevent.
+                        tracing::warn!("could not record recommendation slots: {e}");
+                    }
                 }
             }
         }
@@ -1247,6 +1283,33 @@ async fn feed_for(
             "unchanged": pull.unchanged,
         },
     })))
+}
+
+/// M64-15: the operator's read-only view of one reader's feed.
+///
+/// This is deliberately not `preview_discovery`: that route previews the
+/// instance's knobs with no viewer at all, while an experiment decision needs
+/// the reader's own taste profile without changing any stored state.
+pub(crate) async fn preview_persona_feed(
+    state: &AppState,
+    pseud: darkhold_db::identity::Pseud,
+    algorithms: Option<&[String]>,
+) -> ApiResult<serde_json::Value> {
+    let account_id = std::str::FromStr::from_str(&pseud.account_id.to_string())
+        .map_err(|_| ApiError(AppError::NotFound { resource: "pseud" }))?;
+    let session = crate::auth::SessionUser {
+        account_id,
+        session_id: darkhold_domain::ids::SessionId::new(),
+        pseud_id: Some(pseud.id),
+        age_state: darkhold_domain::policy::AgeState::Unknown,
+        csrf_token_hash: String::new(),
+        acr: None,
+        roles: Vec::new(),
+    };
+    let params = DiscoveryQuery { sort: None };
+    let knobs = crate::taste_knobs::effective(state, "discover.feed").await;
+    let Json(feed) = feed_for(state, Some(&session), &params, &knobs, algorithms, false).await?;
+    Ok(feed)
 }
 
 /// What the operator is asking to preview.
@@ -1287,7 +1350,7 @@ async fn preview_discovery(
     )
     .map_err(|(field, message)| ApiError(AppError::field(field, message)))?;
     let params = DiscoveryQuery { sort: None };
-    let Json(mut page) = feed_for(&state, None, &params, &knobs).await?;
+    let Json(mut page) = feed_for(&state, None, &params, &knobs, None, true).await?;
     page["preview"] = serde_json::json!({
         "applied": false,
         // Which source the preview started from, so a preview of a change to a stored row is not mistaken for a preview

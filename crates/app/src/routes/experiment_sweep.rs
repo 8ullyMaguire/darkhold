@@ -73,6 +73,10 @@ pub fn router() -> Router<AppState> {
             "/operator/experiments/{surface}/demote",
             post(demote_by_hand),
         )
+        .route(
+            "/operator/experiments/{surface}/preview",
+            post(preview_persona),
+        )
         // M69-16 layer two: the instance's content policy, with a reason on every block and a revocation rather than a delete.
         .route(
             "/operator/content-policy",
@@ -148,6 +152,51 @@ async fn promote_by_hand(
 ) -> ApiResult<Json<Value>> {
     require_operator(&state, &session.0)?;
     decide_by_hand(&state, &surface, &body.algorithms, "promote").await
+}
+
+/// M64-15: what a chosen reader would actually see under this surface.
+///
+/// The experiment console can hold, promote and demote, but until this route
+/// existed it could not answer the first question an operator asks before any
+/// of those: "what would this change look like to a person?" The preview reuses
+/// the reader's own feed builder and is read-only — an operator looking at a
+/// reader must not assign that reader an arm or write an impression.
+#[derive(Debug, Deserialize)]
+struct PreviewPersonaRequest {
+    pseud: String,
+    #[serde(default)]
+    algorithms: Option<Vec<String>>,
+}
+
+async fn preview_persona(
+    State(state): State<AppState>,
+    session: RequireSession,
+    axum::extract::Path(surface): axum::extract::Path<String>,
+    Json(body): Json<PreviewPersonaRequest>,
+) -> ApiResult<Json<Value>> {
+    require_operator(&state, &session.0)?;
+    if surface != "discover.feed" {
+        return Err(ApiError(AppError::field(
+            "surface",
+            format!("preview-as-persona is available on discover.feed, not {surface}"),
+        )));
+    }
+    let pseud = darkhold_db::identity::find_pseud_by_handle(state.db(), body.pseud.trim())
+        .await?
+        .ok_or_else(|| ApiError(AppError::NotFound { resource: "pseud" }))?;
+    let feed = crate::routes::discovery::preview_persona_feed(
+        &state,
+        pseud.clone(),
+        body.algorithms.as_deref(),
+    )
+    .await?;
+    Ok(Json(json!({
+        "surface": surface,
+        "persona": pseud.handle,
+        "override": body.algorithms,
+        "applied": feed.get("sort").cloned().unwrap_or(Value::Null),
+        "feed": feed,
+    })))
 }
 
 async fn demote_by_hand(

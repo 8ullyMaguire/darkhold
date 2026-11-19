@@ -6957,6 +6957,13 @@ pub const ROUTE_TABLE: &[RouteEntry] = &[
         audience: Audience::Authenticated,
     },
     RouteEntry {
+        file: "experiment_sweep.rs",
+        handler: "preview_persona",
+        method: "POST",
+        path: "/operator/experiments/{surface}/preview",
+        audience: Audience::Authenticated,
+    },
+    RouteEntry {
         file: "gravity_dial.rs",
         handler: "read",
         method: "GET",
