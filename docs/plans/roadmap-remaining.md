@@ -5214,6 +5214,10 @@ a way to ask for one *work* rather than a feed, and the feature vector beside it
 
 Ascend is frozen by a standing owner decision recorded in persistent memory. Changing `themes.rs` would need a new owner authorisation, not another local judgement. Clearing condition: the owner explicitly unfreezes ascend and authorises writes to `/home/alvaro/code-local/rust/ascend`; then re-run its donor vectors and delete the local arithmetic. Demoted to the end of the queue; M73-04 taken next in the same turn.
 
+## M63-23 local operator dump and health — 2026-11-19
+
+Closed: `dh admin backup --to -` streams `pg_dump --format=custom` locally and refuses file paths; `dh admin health [--json]` is the doctor report under its operational name. Tests 2/2, stdout-null mutant red/restored, full gate `/tmp/gate-all-m63-23-8be69b22.log` `GATE_ALL_EXIT=0` at `8be69b22`. CLI only: no live surface moved, no dump taken.
+
 ## Owner unblocks — 2026-11-19
 
 The owner supplied a dedicated Discord application and stated ascend is unfrozen; reserved decisions were delegated with best judgement. Decisions and remaining conditions live in `docs/DECISIONS.md`. M73-03 and M73-04 were implemented outside the darkhold tree; M45-43's credential and gateway halves are done, with the developer-portal intent toggle and guild invite as the only remaining live conditions.

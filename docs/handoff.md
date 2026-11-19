@@ -1,3 +1,7 @@
+## 2026-11-19 — M63-23 local operator dump and health shipped
+
+`dh admin backup --to -` and `dh admin health` are implemented. Full gate green at `8be69b22`. The first gate failed on stale built-idea rows after M73-03/M73-04 closure; regenerated catalogue and re-ran green.
+
 ## 2026-11-19 — owner unblocks
 
 Discord credential stored out-of-tree and verified; darkbot gateway wired and reached READY, with MESSAGE_CONTENT opt-in until the developer portal enables it. Ascend unfrozen and adopted `polaris-affinity` by deletion. `polaris-eval` drift fixed and orbital adopted the shared affinity arithmetic. No darkhold deploy: these are separate products.
