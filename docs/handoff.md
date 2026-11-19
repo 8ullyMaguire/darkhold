@@ -1,3 +1,7 @@
+## 2026-11-19 — M70-13 orphan pass and reserved decisions
+
+28 → 27 orphans; full gate green at `41da552a`. M63-33, M71-20 and M71-03 closed by recorded decisions. M45-43 waits only on the Discord portal intent toggle and a guild invite.
+
 ## 2026-11-19 — M63-23 local operator dump and health shipped
 
 `dh admin backup --to -` and `dh admin health` are implemented. Full gate green at `8be69b22`. The first gate failed on stale built-idea rows after M73-03/M73-04 closure; regenerated catalogue and re-ran green.

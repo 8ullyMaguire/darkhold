@@ -5214,6 +5214,10 @@ a way to ask for one *work* rather than a feed, and the feature vector beside it
 
 Ascend is frozen by a standing owner decision recorded in persistent memory. Changing `themes.rs` would need a new owner authorisation, not another local judgement. Clearing condition: the owner explicitly unfreezes ascend and authorises writes to `/home/alvaro/code-local/rust/ascend`; then re-run its donor vectors and delete the local arithmetic. Demoted to the end of the queue; M73-04 taken next in the same turn.
 
+## M70-13 orphan pass and reserved decisions — 2026-11-19
+
+The ratchet moved 28 → 27 by deleting `module_state::count`; full gate `/tmp/gate-all-m70-13-41da552a.log` `GATE_ALL_EXIT=0` at `41da552a`. The first gate failed on a stale `M63-23` idea sample in `m65_module_host`, fixed by pinning `M63-33`. M63-33, M71-20 and M71-03 were closed by the recorded best-judgement decisions in `docs/DECISIONS.md`. M45-43 still needs the Discord portal intent toggle and a guild invite.
+
 ## M63-23 local operator dump and health — 2026-11-19
 
 Closed: `dh admin backup --to -` streams `pg_dump --format=custom` locally and refuses file paths; `dh admin health [--json]` is the doctor report under its operational name. Tests 2/2, stdout-null mutant red/restored, full gate `/tmp/gate-all-m63-23-8be69b22.log` `GATE_ALL_EXIT=0` at `8be69b22`. CLI only: no live surface moved, no dump taken.

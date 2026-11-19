@@ -1,6 +1,6 @@
 {
  "generated_by": "scripts/ideas_catalogue.py",
- "count": 104,
+ "count": 101,
  "ideas": [
   {
    "why_summary": "",
@@ -58,19 +58,6 @@
    "why_summary": "docs/ideas/2026-11-01-idea-sweep-power-users.md Power-user sweep P25. Automation is accountable to the person it acts for; the operation log already records the writes. | HALF-BUIL",
    "id": "M63-25",
    "title": "dh audit --since 7d",
-   "sources": [
-    "docs/requirements.csv"
-   ],
-   "milestone": "M63",
-   "relevance": 4,
-   "because": "a requirements row exists (+4)",
-   "default_on": false,
-   "built": false
-  },
-  {
-   "why_summary": "live information_schema vs migrations/postgres: missing chapters, bodies, chapter_revisions, import_chapters, ship_participants, taxonomy_aliases, taxonomy_closure, taxonomy_edges,",
-   "id": "M63-33",
-   "title": "reconcile the live database with the workspace migrations",
    "sources": [
     "docs/requirements.csv"
    ],
@@ -181,19 +168,6 @@
    "milestone": "M71",
    "relevance": 3,
    "because": "a requirements row exists (+4); the source hedges (-1)",
-   "default_on": false,
-   "built": false
-  },
-  {
-   "why_summary": "Search-document slice 2026-11-16: `cargo test -p darkhold-app --test search_page` 3/3 (SQLite) and 3/3 (PostgreSQL); `route_inventory` 6/6 with the new public /search row; `m47_05_",
-   "id": "M71-20",
-   "title": "The remaining document-class pages migrate in ADR 0006's order - work page /works/{id}, fandom and tag pages, search results, author and collection/series pages - each shipped as server-rendered HTML whose content, links and primary action work with no script, with its Svelte route deleted in the same commit and a server test asserting the no-JS content.",
-   "sources": [
-    "docs/requirements.csv"
-   ],
-   "milestone": "M71",
-   "relevance": 3,
-   "because": "a requirements row exists (+4); needs a model or heavy compute (-1)",
    "default_on": false,
    "built": false
   },
@@ -510,19 +484,6 @@
    "built": false
   },
   {
-   "why_summary": "Search slice, 2026-11-16: `cargo test -p darkhold-db --test m71_03_status_two_engines` 1/1 SQLite and 1/1 PostgreSQL; vitest `WorkRow 3/3 + Search 25/25`; `svelte-check 0 errors`; ",
-   "id": "M71-03",
-   "title": "Browse, search, library and the overflow view of every recommendation rail render results as dense list rows \u2014 title, author, provenance word, word count, unit count, completion, rating, date, metrics \u2014 with a stated total and cursor pagination, never a card grid and never infinite scroll.",
-   "sources": [
-    "docs/requirements.csv"
-   ],
-   "milestone": "M71",
-   "relevance": 2,
-   "because": "a requirements row exists (+4); needs a third party or an external client (-2)",
-   "default_on": false,
-   "built": false
-  },
-  {
    "why_summary": "",
    "id": "idea.add-a-fanfiction-net-adapter-score-0-40-v2-e",
    "title": "Add a FanFiction.net adapter \u2014 score 0.40 (V2/E5) [new, was I21]",
@@ -718,7 +679,7 @@
    "built": false
   },
   {
-   "why_summary": "f19ecf18 ORPHAN RATCHET over crates/db: every pass deletes or wires one dead store function, writes the failing test first, proves it with a mutant reverted from /tmp, and runs bot",
+   "why_summary": "d8701c15 pass 28->27; full gate retry /tmp/gate-all-m70-13-41da552a.log GATE_ALL_EXIT=0 ORPHAN RATCHET over crates/db: every pass deletes or wires one dead store function, writes t",
    "id": "M70-13",
    "title": "Every db listing query that a reader surface depends on is either wired to a route or deleted",
    "sources": [
