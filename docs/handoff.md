@@ -1,3 +1,9 @@
+## 2026-11-19 — M64-13 engagement-overlap door shipped
+
+`GET /api/v1/works/{work_id}/engagement-overlap` publishes the size of the intersection of two works' reader clusters, after the `K_OTHERS = 10` floor. Below-floor answers are `{fewer_than:10}` and no reader id leaves the database. The row remains partial until the query is wired into the three named ranking surfaces.
+
+Proof: both-engine DB test 1/1, route test 1/1, route inventory 6/6, floor mutant red/restored, full gate `/tmp/gate-all-m64-13-64c30a83.log` `GATE_ALL_EXIT=0`, deploy `0.1.0+64c30a83` with named dump `TABLE_DATA=411`, estate `ESTATE_DEPLOY_EXIT=0`, unit active.
+
 ## 2026-11-19 — M64-12 co-read transitions shipped and deployed
 
 `GET /api/v1/works/{work_id}/also-enjoyed` is live. It derives aggregate co-read edges from signed-in reading sessions, excludes sub-30-second legs, and applies a distinct-reader floor before reporting an edge. The only writer of the source table requires a signed-in pseud; a future bot writer would need an explicit exclusion here.

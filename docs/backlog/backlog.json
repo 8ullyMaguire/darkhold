@@ -64,7 +64,7 @@
       "id": "M64-13",
       "milestone": "M64",
       "requirement": "engagement_overlap at reader-cluster level with k-anonymity (a minimum number of readers per cluster) and aggregation thresholds, exposing no per-reader signal",
-      "notes": "P13. Feeds author.similar, library.fill_the_gap and story.similar. The privacy floor is the gate: below the threshold the algorithm reports unmeasured rather than pretending. BLOCK REVERSED 2026-11-19: protocol \u00a72.1 admits only credential, other-session work or reserved decision; this is a design decision and was decided in code/roadmap instead."
+      "notes": "P13. Feeds author.similar, library.fill_the_gap and story.similar. The privacy floor is the gate: below the threshold the algorithm reports unmeasured rather than pretending. BLOCK REVERSED 2026-11-19: protocol \u00a72.1 admits only credential, other-session work or reserved decision; this is a design decision and was decided in code/roadmap instead. PARTIAL 2026-11-19: floor-suppressed overlap door shipped and deployed; remaining clause is wiring the query into author.similar, library.fill_the_gap and story.similar."
     },
     {
       "id": "M64-14",

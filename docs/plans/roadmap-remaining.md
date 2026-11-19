@@ -5214,6 +5214,12 @@ a way to ask for one *work* rather than a feed, and the feature vector beside it
 
 Ascend is frozen by a standing owner decision recorded in persistent memory. Changing `themes.rs` would need a new owner authorisation, not another local judgement. Clearing condition: the owner explicitly unfreezes ascend and authorises writes to `/home/alvaro/code-local/rust/ascend`; then re-run its donor vectors and delete the local arithmetic. Demoted to the end of the queue; M73-04 taken next in the same turn.
 
+## M64-13 engagement overlap — 2026-11-19
+
+**Census:** estate rg found darkhold 13 files, darkhold-roadmap 12, ascend 1. No shared engagement-overlap crate exists; the estate's k-anonymity floor already lives in `darkhold_domain::analytics` (`K_OTHERS = 10`). Verdict BUILD one darkhold store query and door; REUSE `reading_sessions`, `analytics::Reported`, router/ROUTE_TABLE and both-engine harness. Decision: a reader cluster is the set of distinct readers with a ≥30-second signed-in session on a work in the window; the floor is `K_OTHERS` and a below-floor count becomes `{fewer_than:10}` rather than a number.
+
+SHIPPED AS PARTIAL ROW: `GET /api/v1/works/{work_id}/engagement-overlap?with=<work_id>&since_days=30` publishes only the floor-suppressed intersection size. Both-engine DB test 1/1, route test 1/1 (exact 10 and below-floor 9, no reader ids), route inventory 6/6; deleting the floor reddened the route test and was restored from `/tmp/m64-13.bak`. Full gate `/tmp/gate-all-m64-13-64c30a83.log` `GATE_ALL_EXIT=0`, all eight stages ok. Deployed `0.1.0+64c30a83`, dump `/personal/backups/darkhold-20261118-64c30a83/darkhold-64c30a83.dump` `TABLE_DATA=411`, estate `ESTATE_DEPLOY_EXIT=0`, unit active. Remaining clause: wire this query into `author.similar`, `library.fill_the_gap` and `story.similar` ranking, each as a floor-suppressed feature.
+
 ## M64-12 co-read transitions — 2026-11-19
 
 **Census:** estate rg found darkhold 8 files, darkhold-roadmap 7, kindred 2; kindred's co-reader signal is bookmark collab-pool co-occurrence, not time-based session transitions. Verdict BUILD a darkhold store query and route, REUSE `reading_sessions`, router/ROUTE_TABLE and both-engine harness. Decision: the only `reading_sessions` writer requires a signed-in pseud, so token-driven bots cannot enter it; a future bot writer must add an explicit exclusion. Single-click traffic is a leg shorter than 30 seconds.
