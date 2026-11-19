@@ -107,19 +107,6 @@
    "built": false
   },
   {
-   "why_summary": "docs/design/2026-11-01-ranking-signals-and-surfaces.md P12. Needs M64-02's logging. Noisy by nature; the threshold is a minimum transitions-per-item before an edge is usable.",
-   "id": "M64-12",
-   "title": "co_read",
-   "sources": [
-    "docs/requirements.csv"
-   ],
-   "milestone": "M64",
-   "relevance": 4,
-   "because": "a requirements row exists (+4)",
-   "default_on": false,
-   "built": false
-  },
-  {
    "why_summary": "docs/design/2026-11-01-ranking-signals-and-surfaces.md P13. Feeds author.similar, library.fill_the_gap and story.similar. The privacy floor is the gate: below the threshold the alg",
    "id": "M64-13",
    "title": "engagement_overlap at reader-cluster level with k-anonymity (a minimum number of readers per cluster) and aggregation thresholds, exposing no per-reader signal",

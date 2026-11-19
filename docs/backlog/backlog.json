@@ -3,12 +3,12 @@
     "requirements.csv": {
       "rows": 959,
       "by_status": {
-        "implemented-verified-e2e": 151,
+        "implemented-verified-e2e": 152,
         "implemented-locally-tested": 269,
         "unsupported": 4,
         "implemented-fully-tested": 461,
         "implemented": 41,
-        "planned": 20,
+        "planned": 19,
         "evaluated-and-rejected": 7,
         "blocked": 3,
         "done": 3
@@ -61,16 +61,10 @@
       "notes": "Found while planning M63-01. The live instance was migrated by the other lineage (lorehaven), whose migration numbers collide with this tree's, so master's files are recorded as applied while the schema is the other one. Everything M63-01 touches exists in both shapes, so the milestone was verifiable; anything that reads chapters/bodies/ships from the live instance will not be. Decide per table: rename (units->chapters, entity_*->canonical_*, revisions->chapter_revisions) or create-and-backfill. Do not run this blind: 127k rows live in the legacy shapes."
     },
     {
-      "id": "M64-12",
-      "milestone": "M64",
-      "requirement": "co_read: session transitions feed story.also_enjoyed, with bot and single-click traffic excluded",
-      "notes": "P12. Needs M64-02's logging. Noisy by nature; the threshold is a minimum transitions-per-item before an edge is usable. BLOCKED 2026-11-19: reading_sessions has no bot/client signal; clearing needs an approved bot marker or authoritative token join plus a named minimum-session rule."
-    },
-    {
       "id": "M64-13",
       "milestone": "M64",
       "requirement": "engagement_overlap at reader-cluster level with k-anonymity (a minimum number of readers per cluster) and aggregation thresholds, exposing no per-reader signal",
-      "notes": "P13. Feeds author.similar, library.fill_the_gap and story.similar. The privacy floor is the gate: below the threshold the algorithm reports unmeasured rather than pretending. BLOCKED 2026-11-19: reader clusters have no definition or k floor; clearing needs owner approval of cluster input, k and below-floor privacy behaviour."
+      "notes": "P13. Feeds author.similar, library.fill_the_gap and story.similar. The privacy floor is the gate: below the threshold the algorithm reports unmeasured rather than pretending. BLOCK REVERSED 2026-11-19: protocol \u00a72.1 admits only credential, other-session work or reserved decision; this is a design decision and was decided in code/roadmap instead."
     },
     {
       "id": "M64-14",
@@ -136,7 +130,7 @@
       "id": "M71-14",
       "milestone": "M71",
       "requirement": "Settings show inheritance with provenance at every level (instance, account, pseud, per-work), deep-link to the exact control, offer a reset at each level that overrides, and reflect inline changes made elsewhere with a 'set as default' affordance.",
-      "notes": "Priority 4. The product already has per-work reader overrides and content filters enforced server-side; the settings surface does not explain where a value came from, so an override looks like a bug. Locked chips for server-enforced filters carry a link to settings and no dismiss control (\u00a78.16). b799f828: GET /api/v1/settings/privacy now carries `provenance` (account keys) and `pseud_provenance` (per pseud), each {value, source: SettingSource (instance|account|pseud), reset: {method, path, becomes} | null, note?}; source reuses darkhold_domain::settings::SettingSource so /settings/export and this door cannot spell a level differently. New door DELETE /api/v1/settings/privacy/{key}[?pseud_id=] clears one level (204 whether or not a row existed; 422 on an unknown key; 404 on a pseud that is not yours \u2014 deliberately not 403, which would be an account-enumeration oracle). THE FINDING: registration and pseud creation write every key at account/pseud scope by design, and those rows were indistinguishable from choices, so a fresh account reported six settings as its own decisions and a later instance-default change could never reach it \u2014 migration 0180 adds privacy_settings.origin ('onboarding'|'reader', default 'reader' so pre-existing rows keep their meaning rather than being relabelled by a guess); onboarding writes 'onboarding', every reader write writes 'reader', and an onboarding row is reported as instance with a note and no reset. This reverses the earlier in-code claim that the difference 'is not actionable'. STILL MISSING: the per-work level, the deep link to the exact control, and typography/gravity settings are not yet reported through this vocabulary. UI SHIPPED 2026-11-16: `SettingProvenance.svelte` renders each effective value with source (instance/account/pseud) and a reset only when the server supplies one; Account and Pseuds pass `privacy.provenance` / `pseud_provenance` and refetch after reset. REMAINING: per-work level, the deep link to the exact control, and typography/gravity provenance. DEEP LINK SHIPPED 2026-11-17: provenance label links to #privacy-{key}; no API or reset change. Row remains planned for per-work level and typography/gravity provenance. BLOCKED 2026-11-19: privacy_settings has no work scope in either dialect; clearing needs owner-approved two-engine DDL or a decision to model per-work overrides elsewhere."
+      "notes": "Priority 4. The product already has per-work reader overrides and content filters enforced server-side; the settings surface does not explain where a value came from, so an override looks like a bug. Locked chips for server-enforced filters carry a link to settings and no dismiss control (\u00a78.16). b799f828: GET /api/v1/settings/privacy now carries `provenance` (account keys) and `pseud_provenance` (per pseud), each {value, source: SettingSource (instance|account|pseud), reset: {method, path, becomes} | null, note?}; source reuses darkhold_domain::settings::SettingSource so /settings/export and this door cannot spell a level differently. New door DELETE /api/v1/settings/privacy/{key}[?pseud_id=] clears one level (204 whether or not a row existed; 422 on an unknown key; 404 on a pseud that is not yours \u2014 deliberately not 403, which would be an account-enumeration oracle). THE FINDING: registration and pseud creation write every key at account/pseud scope by design, and those rows were indistinguishable from choices, so a fresh account reported six settings as its own decisions and a later instance-default change could never reach it \u2014 migration 0180 adds privacy_settings.origin ('onboarding'|'reader', default 'reader' so pre-existing rows keep their meaning rather than being relabelled by a guess); onboarding writes 'onboarding', every reader write writes 'reader', and an onboarding row is reported as instance with a note and no reset. This reverses the earlier in-code claim that the difference 'is not actionable'. STILL MISSING: the per-work level, the deep link to the exact control, and typography/gravity settings are not yet reported through this vocabulary. UI SHIPPED 2026-11-16: `SettingProvenance.svelte` renders each effective value with source (instance/account/pseud) and a reset only when the server supplies one; Account and Pseuds pass `privacy.provenance` / `pseud_provenance` and refetch after reset. REMAINING: per-work level, the deep link to the exact control, and typography/gravity provenance. DEEP LINK SHIPPED 2026-11-17: provenance label links to #privacy-{key}; no API or reset change. Row remains planned for per-work level and typography/gravity provenance. BLOCK REVERSED 2026-11-19: protocol \u00a72.1 admits only credential, other-session work or reserved decision; this is a design decision and was decided in code/roadmap instead."
     },
     {
       "id": "M71-20",
@@ -154,7 +148,7 @@
   "open_by_milestone": {
     "M71": 5,
     "M63": 4,
-    "M64": 4,
+    "M64": 3,
     "M45": 2,
     "M66": 1,
     "M69": 1,

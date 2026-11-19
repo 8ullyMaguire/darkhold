@@ -1,3 +1,9 @@
+## 2026-11-19 — M64-12 co-read transitions shipped and deployed
+
+`GET /api/v1/works/{work_id}/also-enjoyed` is live. It derives aggregate co-read edges from signed-in reading sessions, excludes sub-30-second legs, and applies a distinct-reader floor before reporting an edge. The only writer of the source table requires a signed-in pseud; a future bot writer would need an explicit exclusion here.
+
+Proof: both-engine DB test 1/1, route test 1/1, route inventory 6/6, 30-second mutant red/restored, full gate `/tmp/gate-all-m64-12-946f18f9.log` `GATE_ALL_EXIT=0`, deploy `0.1.0+946f18f9` with named dump `TABLE_DATA=411`, estate `ESTATE_DEPLOY_EXIT=0`, unit active.
+
 ## 2026-11-19 — M66-08 direct-share local text search shipped
 
 `dh share` now answers `?q=needle` on the capability URL with bounded local text search over the shared directory. Real HTTP test 2/2; query-ignoring mutant red/restored. No deploy (CLI only). M71-14, M64-12 and M64-13 blocks with exact clearing conditions were written into the roadmap.

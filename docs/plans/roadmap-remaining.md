@@ -5214,6 +5214,12 @@ a way to ask for one *work* rather than a feed, and the feature vector beside it
 
 Ascend is frozen by a standing owner decision recorded in persistent memory. Changing `themes.rs` would need a new owner authorisation, not another local judgement. Clearing condition: the owner explicitly unfreezes ascend and authorises writes to `/home/alvaro/code-local/rust/ascend`; then re-run its donor vectors and delete the local arithmetic. Demoted to the end of the queue; M73-04 taken next in the same turn.
 
+## M64-12 co-read transitions — 2026-11-19
+
+**Census:** estate rg found darkhold 8 files, darkhold-roadmap 7, kindred 2; kindred's co-reader signal is bookmark collab-pool co-occurrence, not time-based session transitions. Verdict BUILD a darkhold store query and route, REUSE `reading_sessions`, router/ROUTE_TABLE and both-engine harness. Decision: the only `reading_sessions` writer requires a signed-in pseud, so token-driven bots cannot enter it; a future bot writer must add an explicit exclusion. Single-click traffic is a leg shorter than 30 seconds.
+
+CLOSED 2026-11-19: `GET /api/v1/works/{work_id}/also-enjoyed` publishes `{work_id, works:[{work_id,readers}]}` from signed-in A→B reading transitions. Both engines 1/1; route test 1/1; route inventory 6/6; dropping the 30-second predicate reddened the two-engine guard and was restored from `/tmp/m64-12.bak`. Full gate `/tmp/gate-all-m64-12-946f18f9.log` `GATE_ALL_EXIT=0`, all eight stages ok. Deployed `0.1.0+946f18f9`, dump `/personal/backups/darkhold-20261118-946f18f9/darkhold-946f18f9.dump` `TABLE_DATA=411`, estate `ESTATE_DEPLOY_EXIT=0`, origin/edge build verified, unit active.
+
 ## M66-08 direct-share local text search — 2026-11-19
 
 **Census:** REUSE the capability guard, canonical path resolution and Tokio listener; ADAPT them into a bounded filesystem scan; BUILD one search response and one real-socket test. No site route, store, schema or deploy.
