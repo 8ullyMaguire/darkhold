@@ -5214,6 +5214,10 @@ a way to ask for one *work* rather than a feed, and the feature vector beside it
 
 Ascend is frozen by a standing owner decision recorded in persistent memory. Changing `themes.rs` would need a new owner authorisation, not another local judgement. Clearing condition: the owner explicitly unfreezes ascend and authorises writes to `/home/alvaro/code-local/rust/ascend`; then re-run its donor vectors and delete the local arithmetic. Demoted to the end of the queue; M73-04 taken next in the same turn.
 
+## Owner unblocks — 2026-11-19
+
+The owner supplied a dedicated Discord application and stated ascend is unfrozen; reserved decisions were delegated with best judgement. Decisions and remaining conditions live in `docs/DECISIONS.md`. M73-03 and M73-04 were implemented outside the darkhold tree; M45-43's credential and gateway halves are done, with the developer-portal intent toggle and guild invite as the only remaining live conditions.
+
 ## M71-13 coverage provenance split — 2026-11-19
 
 **Census:** hosted/referenced/known already existed as one vocabulary in `routes/provenance.rs`; the catalogues and facets already had one `dimension_coverage` statement. Verdict REUSE the provenance rules and the coverage object, ADAPT the one coverage statement to return the split. No new schema: hosted means a unit with a current revision, referenced means no such unit but a `library_items.source_url`, known means neither.

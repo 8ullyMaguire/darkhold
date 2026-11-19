@@ -1,3 +1,7 @@
+## 2026-11-19 — owner unblocks
+
+Discord credential stored out-of-tree and verified; darkbot gateway wired and reached READY, with MESSAGE_CONTENT opt-in until the developer portal enables it. Ascend unfrozen and adopted `polaris-affinity` by deletion. `polaris-eval` drift fixed and orbital adopted the shared affinity arithmetic. No darkhold deploy: these are separate products.
+
 ## 2026-11-19 — M71-13 coverage provenance split shipped
 
 Dimension coverage now splits works into hosted, referenced and known using the same rules as a work's provenance badge. The numbers come from the existing one-statement aggregate on both engines; the tag/fandom API and the document tag page publish the same words.
