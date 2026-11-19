@@ -28,7 +28,7 @@ reqwest = { workspace = true, features = ["rustls-tls"] }
 serde.workspace = true
 toml.workspace = true
 serde_json.workspace = true
-tokio = { workspace = true, features = ["rt-multi-thread", "macros"] }
+tokio = { workspace = true, features = ["rt-multi-thread", "macros", "net", "io-util"] }
 clap_complete = "4.5.67"
 clap_mangen = "0.2.32"
 

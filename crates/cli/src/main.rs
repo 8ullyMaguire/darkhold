@@ -33,6 +33,7 @@ mod q;
 mod rec;
 mod redact;
 mod safety;
+mod share;
 mod stats;
 mod supply;
 #[cfg(feature = "tui")]
@@ -182,6 +183,11 @@ pub enum Command {
     /// `dh lib --calibre ~/Calibre/metadata.db` prints seed rows in the grammar
     /// `darkhold seed read-list` already parses. Nothing is written by default.
     Lib(calibre::LibArgs),
+    /// Serve one directory directly to another person, under a per-run capability.
+    ///
+    /// `dh share --dir ~/exports` binds loopback only; `--lan` exposes it on the local network. It is a
+    /// direct handoff of your own files — no relay, discovery, global namespace or site account.
+    Share(share::ShareArgs),
     /// Your private account audit log, with a client-resolved relative window.
     ///
     /// `dh audit --since 7d` sends an RFC 3339 bound to `/me/audit-log`. The log records the account
@@ -397,6 +403,13 @@ async fn main() -> std::process::ExitCode {
             }
         },
         Command::Lib(args) => match calibre::run(&cli, args).await {
+            Ok(()) => std::process::ExitCode::SUCCESS,
+            Err(error) => {
+                eprintln!("{error}");
+                std::process::ExitCode::from(error.code)
+            }
+        },
+        Command::Share(args) => match share::run(args).await {
             Ok(()) => std::process::ExitCode::SUCCESS,
             Err(error) => {
                 eprintln!("{error}");
