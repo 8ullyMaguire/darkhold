@@ -286,3 +286,33 @@ async fn the_document_tag_page_prints_the_same_coverage_sentence() {
     );
     let _ = &harness.dir;
 }
+
+#[tokio::test]
+async fn coverage_splits_hosted_from_referenced() {
+    let harness = Harness::new("split").await;
+    seed(&harness.db).await;
+    // Work 01 carries a readable unit; work 02 is a pointer with a source URL; the rest are known only.
+    exec(&harness.db, "INSERT INTO units (id, work_id, order_key, title, current_revision_id, created_at, updated_at) VALUES ('01956000-0000-4000-8000-0000000a0011','01956000-0000-4000-8000-0000000f0001',10,'One',NULL,'2026-01-01T00:00:00Z','2026-01-01T00:00:00Z')").await;
+    exec(&harness.db, "INSERT INTO revisions (id, unit_id, revision_number, document_json, sanitized_html, plain_text, word_count, created_by_pseud_id, created_at) VALUES ('01956000-0000-4000-8000-0000000a0001','01956000-0000-4000-8000-0000000a0011',1,'{}','<p>hello</p>','hello',1,'01955000-0000-4000-8000-0000000e0002','2026-01-01T00:00:00Z')").await;
+    exec(&harness.db, "UPDATE units SET current_revision_id = '01956000-0000-4000-8000-0000000a0001' WHERE id = '01956000-0000-4000-8000-0000000a0011'").await;
+    exec(&harness.db, "INSERT INTO library_items (id, account_id, work_id, source_key, source_work_key, title, source_url, created_at, updated_at) VALUES ('01956000-0000-4000-8000-0000000a0021','01955000-0000-4000-8000-0000000e0001','01956000-0000-4000-8000-0000000f0002','pawchive','story-2','Another burn','https://example.invalid/story/2','2026-01-01T00:00:00Z','2026-01-01T00:00:00Z')").await;
+
+    let (status, body) = json_of(harness.client(), "/api/v1/tags/slow%20burn").await;
+    assert_eq!(status, StatusCode::OK, "{body}");
+    let coverage = &body["coverage"];
+    assert_eq!(coverage["works"], 2, "{coverage}");
+    assert_eq!(coverage["hosted"], 1, "{coverage}");
+    assert_eq!(coverage["referenced"], 1, "{coverage}");
+    let sentence = coverage["split_sentence"].as_str().expect("split_sentence");
+    assert!(
+        sentence.contains("1 hosted") && sentence.contains("1 referenced"),
+        "{sentence}"
+    );
+
+    let (status, html) = html_of(harness.client(), "/tags/slow%20burn").await;
+    assert_eq!(status, StatusCode::OK);
+    assert!(
+        html.contains("1 hosted") && html.contains("1 referenced"),
+        "the document page carries the same split"
+    );
+}

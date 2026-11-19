@@ -2006,6 +2006,14 @@ pub struct Coverage {
     pub share: f64,
     /// One sentence a page can print verbatim.
     pub sentence: String,
+    /// Works in `works` whose text this instance holds (the same rule as the `hosted` provenance word).
+    pub hosted: i64,
+    /// Works in `works` with no local text but a source URL (the `referenced` provenance word).
+    pub referenced: i64,
+    /// Works in `works` with neither local text nor a source URL (the `known` provenance word).
+    pub known: i64,
+    /// The hosted/referenced/known split, using the same words as a work's provenance badge.
+    pub split_sentence: String,
 }
 
 /// The coverage of one `(dimension, value)` pair.
@@ -2019,16 +2027,38 @@ pub async fn dimension_coverage(db: &Database, dimension: &str, value: &str) -> 
                JOIN canonical_entities tn ON tn.id = wt.node_id
               WHERE tn.norm = ?1 AND w.lifecycle = 'published' AND w.visibility = 'public' AND w.deleted_at IS NULL),
             (SELECT COUNT(*) FROM works w
-              WHERE w.lifecycle = 'published' AND w.visibility = 'public' AND w.deleted_at IS NULL)";
+              WHERE w.lifecycle = 'published' AND w.visibility = 'public' AND w.deleted_at IS NULL),
+            (SELECT COUNT(DISTINCT w.id) FROM works w
+               JOIN work_tags wt ON wt.work_id = w.id
+               JOIN canonical_entities tn ON tn.id = wt.node_id
+              WHERE tn.norm = ?1 AND w.lifecycle = 'published' AND w.visibility = 'public' AND w.deleted_at IS NULL
+                AND EXISTS (SELECT 1 FROM units u WHERE u.work_id = w.id AND u.current_revision_id IS NOT NULL)),
+            (SELECT COUNT(DISTINCT w.id) FROM works w
+               JOIN work_tags wt ON wt.work_id = w.id
+               JOIN canonical_entities tn ON tn.id = wt.node_id
+              WHERE tn.norm = ?1 AND w.lifecycle = 'published' AND w.visibility = 'public' AND w.deleted_at IS NULL
+                AND NOT EXISTS (SELECT 1 FROM units u WHERE u.work_id = w.id AND u.current_revision_id IS NOT NULL)
+                AND EXISTS (SELECT 1 FROM library_items li WHERE li.work_id = w.id AND COALESCE(li.source_url, '') <> ''))";
     let postgres = "SELECT
             (SELECT COUNT(DISTINCT w.id) FROM works w
                JOIN work_tags wt ON wt.work_id = w.id
                JOIN canonical_entities tn ON tn.id = wt.node_id
               WHERE tn.norm = $1 AND w.lifecycle = 'published' AND w.visibility = 'public' AND w.deleted_at IS NULL),
             (SELECT COUNT(*) FROM works w
-              WHERE w.lifecycle = 'published' AND w.visibility = 'public' AND w.deleted_at IS NULL)";
+              WHERE w.lifecycle = 'published' AND w.visibility = 'public' AND w.deleted_at IS NULL),
+            (SELECT COUNT(DISTINCT w.id) FROM works w
+               JOIN work_tags wt ON wt.work_id = w.id
+               JOIN canonical_entities tn ON tn.id = wt.node_id
+              WHERE tn.norm = $1 AND w.lifecycle = 'published' AND w.visibility = 'public' AND w.deleted_at IS NULL
+                AND EXISTS (SELECT 1 FROM units u WHERE u.work_id = w.id AND u.current_revision_id IS NOT NULL)),
+            (SELECT COUNT(DISTINCT w.id) FROM works w
+               JOIN work_tags wt ON wt.work_id = w.id
+               JOIN canonical_entities tn ON tn.id = wt.node_id
+              WHERE tn.norm = $1 AND w.lifecycle = 'published' AND w.visibility = 'public' AND w.deleted_at IS NULL
+                AND NOT EXISTS (SELECT 1 FROM units u WHERE u.work_id = w.id AND u.current_revision_id IS NOT NULL)
+                AND EXISTS (SELECT 1 FROM library_items li WHERE li.work_id = w.id AND COALESCE(li.source_url, '') <> ''))";
     let sql = db.sql(sqlite, postgres);
-    let (works, catalogue): (i64, i64) = match db.backend() {
+    let (works, catalogue, hosted, referenced): (i64, i64, i64, i64) = match db.backend() {
         Backend::Sqlite => {
             sqlx::query_as(&sql)
                 .bind(&norm)
@@ -2054,6 +2084,7 @@ pub async fn dimension_coverage(db: &Database, dimension: &str, value: &str) -> 
     } else {
         0.0
     };
+    let known = (works - hosted - referenced).max(0);
     Ok(Coverage {
         dimension: dimension.to_owned(),
         value: value.to_owned(),
@@ -2061,6 +2092,10 @@ pub async fn dimension_coverage(db: &Database, dimension: &str, value: &str) -> 
         catalogue,
         share,
         sentence: coverage_sentence(dimension, value, works, catalogue, share),
+        hosted,
+        referenced,
+        known,
+        split_sentence: format!("{hosted} hosted, {referenced} referenced, {known} known only."),
     })
 }
 

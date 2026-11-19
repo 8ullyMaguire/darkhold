@@ -88,6 +88,11 @@ async fn tag_page(
     page.open("p", &[("class", "counts")])
         .text(&counts)
         .close("p");
+    if let Some(coverage) = &coverage {
+        page.open("p", &[("class", "coverage-split")])
+            .text(&coverage.split_sentence)
+            .close("p");
+    }
 
     page.open("ul", &[("class", "entries")]);
     for (id, title, handle, updated) in &rows {
