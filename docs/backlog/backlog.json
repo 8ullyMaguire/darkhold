@@ -52,7 +52,7 @@
       "id": "M64-14",
       "milestone": "M64",
       "requirement": "embedding similarity for summaries first and full text last, feature-gated on a configured AI provider and degrading to disabled rather than erroring",
-      "notes": "P14. The spec already names embedding and matrix-factorisation strategies as provider-gated (\u00a716). Summary embeddings are the cheap half; full-text style matching needs the bodies, which the catalogue deliberately does not store."
+      "notes": "P14. The spec already names embedding and matrix-factorisation strategies as provider-gated (\u00a716). Summary embeddings are the cheap half; full-text style matching needs the bodies, which the catalogue deliberately does not store. DOMAIN SLICE SHIPPED 2026-11-19: `darkhold_domain::embeddings` selects summary first, delegates dense cosine to polaris-affinity, and degrades to original order for disabled/unavailable/failed/malformed inputs. Row remains planned for the provider adapter and served-feed wiring; no configured provider exists on this instance."
     },
     {
       "id": "M64-15",

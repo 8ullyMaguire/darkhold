@@ -5214,6 +5214,10 @@ a way to ask for one *work* rather than a feed, and the feature vector beside it
 
 Ascend is frozen by a standing owner decision recorded in persistent memory. Changing `themes.rs` would need a new owner authorisation, not another local judgement. Clearing condition: the owner explicitly unfreezes ascend and authorises writes to `/home/alvaro/code-local/rust/ascend`; then re-run its donor vectors and delete the local arithmetic. Demoted to the end of the queue; M73-04 taken next in the same turn.
 
+## M64-14 embedding similarity domain slice — 2026-11-19
+
+`darkhold_domain::embeddings` now owns summary-first selection, dense cosine through `polaris-affinity`, and degrade-to-disabled ranking. Tests 3/3; summary-first mutant red/restored from `/tmp/m64-14.bak`; full gate `/tmp/gate-all-m64-14-5a4d72f2.log` `GATE_ALL_EXIT=0` at `5a4d72f2`. The row stays planned for the provider adapter and served-feed wiring: no AI provider is configured on this instance, and a fake provider is not a live surface.
+
 ## M70-13 orphan pass and reserved decisions — 2026-11-19
 
 The ratchet moved 28 → 27 by deleting `module_state::count`; full gate `/tmp/gate-all-m70-13-41da552a.log` `GATE_ALL_EXIT=0` at `41da552a`. The first gate failed on a stale `M63-23` idea sample in `m65_module_host`, fixed by pinning `M63-33`. M63-33, M71-20 and M71-03 were closed by the recorded best-judgement decisions in `docs/DECISIONS.md`. M45-43 still needs the Discord portal intent toggle and a guild invite.

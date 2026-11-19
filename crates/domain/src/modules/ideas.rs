@@ -157,7 +157,7 @@ pub const IDEAS: &[Module] = &[
     Module {
         id: "M64-14",
         name: "embedding similarity for summaries first and full text last, feature-gated on a…",
-        summary: "docs/design/2026-11-01-ranking-signals-and-surfaces.md P14. The spec already names embedding and matrix-factorisation strategies as provider-gated (§16). Summary embeddings are the",
+        summary: "crates/domain/tests/embedding_similarity.rs 3/3; summary-first mutant red/restored from /tmp/m64-14.bak; full gate /tmp/gate-all-m64-14-5a4d72f2.log GATE_ALL_EXIT=0 at 5a4d72f2 P14",
         default_on: false,
         stability: Stability::Planned,
         toggle: Toggle::Operator,

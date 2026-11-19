@@ -1,3 +1,7 @@
+## 2026-11-19 — M64-14 embedding domain slice
+
+Summary-first selection, kernel dense cosine, and degrade-to-disabled ranking shipped at `5a4d72f2`; full gate green. Not wired to a feed because no provider is configured — the row remains planned for the adapter and served surface.
+
 ## 2026-11-19 — M64-13 ledger close
 
 The engagement-overlap row was already deployed at `0.1.0+64c30a83` with a green full gate, but its ledger status stayed `planned`. Corrected to `implemented-verified-e2e` with the existing gate and dump evidence.
