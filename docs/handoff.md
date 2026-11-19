@@ -1,3 +1,7 @@
+## 2026-11-19 — M63-25 `dh audit` CLI clause shipped
+
+`dh audit --since 7d` now works: relative windows are resolved client-side to RFC 3339 because the server deliberately refuses `7d`. The text output says "what your account did" and names the missing token attribution rather than pretending the schema has it. Fake-origin test 1/1, unit 1/1, mutant red/restored. Row stays planned for the DDL/backfill decision that would add a token id to the write path.
+
 ## 2026-11-19 — M71-13 fandom facet coverage line shipped
 
 The fandom facet leads with `N of M works are tagged (P%)` from the API's existing aggregate, not a typed-in headline. No API or store change. `FacetPanel 4/4`, `gate.sh frontend ok`; percentage mutant red/restored. Row stays planned for the hosted/referenced split, which needs an origin concept first.
