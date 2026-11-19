@@ -1,6 +1,6 @@
 {
  "generated_by": "scripts/ideas_catalogue.py",
- "count": 101,
+ "count": 100,
  "ideas": [
   {
    "why_summary": "",
@@ -62,19 +62,6 @@
     "docs/requirements.csv"
    ],
    "milestone": "M63",
-   "relevance": 4,
-   "because": "a requirements row exists (+4)",
-   "default_on": false,
-   "built": false
-  },
-  {
-   "why_summary": "both-engine DB 1/1; route 1/1; floor mutant red/restored; full gate exit 0 at 64c30a83; deploy 0.1.0+64c30a83 P13. Feeds author.similar, library.fill_the_gap and story.similar. The",
-   "id": "M64-13",
-   "title": "engagement_overlap at reader-cluster level with k-anonymity (a minimum number of readers per cluster) and aggregation thresholds, exposing no per-reader signal",
-   "sources": [
-    "docs/requirements.csv"
-   ],
-   "milestone": "M64",
    "relevance": 4,
    "because": "a requirements row exists (+4)",
    "default_on": false,

@@ -1,3 +1,7 @@
+## 2026-11-19 — M64-13 ledger close
+
+The engagement-overlap row was already deployed at `0.1.0+64c30a83` with a green full gate, but its ledger status stayed `planned`. Corrected to `implemented-verified-e2e` with the existing gate and dump evidence.
+
 ## 2026-11-19 — M70-13 orphan pass and reserved decisions
 
 28 → 27 orphans; full gate green at `41da552a`. M63-33, M71-20 and M71-03 closed by recorded decisions. M45-43 waits only on the Discord portal intent toggle and a guild invite.
