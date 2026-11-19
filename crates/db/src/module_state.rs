@@ -143,25 +143,3 @@ pub async fn clear(db: &Database, account: &str, module_id: &str) -> Result<bool
     };
     Ok(removed > 0)
 }
-
-/// How many override rows exist on this instance, over all accounts.
-///
-/// Reported rather than used as a gate: the count is what an operator wants to know before
-/// wondering whether the feature works at all, and it is the number M65-09 would cache.
-pub async fn count(db: &Database) -> Result<i64> {
-    let sql = db.sql(
-        "SELECT COUNT(*) AS n FROM module_user_state",
-        "SELECT CAST(COUNT(*) AS BIGINT) AS n FROM module_user_state",
-    );
-    let n = match db.backend() {
-        Backend::Sqlite => sqlx::query(&sql)
-            .fetch_one(db.sqlite_pool().expect("sqlite handle"))
-            .await?
-            .get::<i64, _>("n"),
-        Backend::Postgres => sqlx::query(&sql)
-            .fetch_one(db.postgres_pool().expect("postgres handle"))
-            .await?
-            .get::<i64, _>("n"),
-    };
-    Ok(n)
-}

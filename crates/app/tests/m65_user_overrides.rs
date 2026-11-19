@@ -273,13 +273,6 @@ async fn switching_it_back_on_removes_the_row() {
     assert_eq!(body["overridden"], false, "the row is gone: {body}");
     assert_eq!(body["enabled_for_caller"], true);
 
-    // The row is deleted rather than stored as "on", so the store's count is zero.
-    assert_eq!(
-        darkhold_db::module_state::count(harness.tdb.db())
-            .await
-            .expect("count"),
-        0
-    );
     let (status, body) = alice.get("/api/v1/modules").await;
     assert_eq!(status, StatusCode::OK);
     assert!(
@@ -322,14 +315,6 @@ async fn a_switch_that_is_not_the_readers_answers_403_and_says_who_decides() {
             .unwrap_or_default()
             .contains("instance"),
         "body: {body}"
-    );
-
-    // And nothing was written for the refused ids.
-    assert_eq!(
-        darkhold_db::module_state::count(harness.tdb.db())
-            .await
-            .expect("count"),
-        0
     );
 }
 

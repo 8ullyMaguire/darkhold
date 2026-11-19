@@ -9,7 +9,7 @@
 # outside this list, which is why the operator audit route always answered an empty trail. Correcting the
 # measurement moved the baseline from 43 to 57. An intermediate version that ignored `use` imports said 80; the
 # debt was never new, the ruler was wrong in both directions.
-# 28 orphan(s)
+# 27 orphan(s)
 
 session_for  # crates/db/src/concierge_store.rs
 enqueue_job  # crates/db/src/economy.rs
@@ -27,7 +27,6 @@ mark_queue_failed  # crates/db/src/federation.rs
 set_generated_content_policy  # crates/db/src/generated_content.rs
 close  # crates/db/src/lib.rs
 apply_to  # crates/db/src/migrate.rs
-count  # crates/db/src/module_state.rs
 topics_for_work  # crates/db/src/outbox.rs
 save_report  # crates/db/src/preread_store.rs
 upsert_card  # crates/db/src/roadmap.rs

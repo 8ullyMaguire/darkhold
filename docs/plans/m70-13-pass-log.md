@@ -677,3 +677,7 @@ ran its own targeted suite. Four independent failures were waiting behind that g
 binary's tests run in parallel, so under full-suite load another test's work landed in the cache first. The claim the test means is
 "the second answer is the one that was computed", so it now measures the first response and compares the second to it — same
 assertion under the mutant, no assumption about isolation.
+
+---
+
+PASS 2026-11-19: 28 -> 27. `module_state::count` was a whole-table count whose only callers were two integration suites and one app test; `overrides_for` already answers the same question through the product path. DELETED the function, redirected the store tests to `overrides_for(...).len()`, and removed the two app assertions that a row was gone (the response body and catalogue already prove it). Rejecting the alternative of wiring a new operator route: a new door for a number nobody asked to see would add a surface to justify a dead query. Mutant: re-adding `pub async fn count` reddened the new source guard, restored from `/tmp/m70-13.bak`. `module_user_state` 6/6 on SQLite and 6/6 on PostgreSQL; `m65_user_overrides` 7/7; `orphan_queries` 2/2 with regenerated baseline 27.

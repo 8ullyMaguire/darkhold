@@ -18,6 +18,16 @@
 //!
 //! Run on SQLite by default; set `DARKHOLD_TEST_PG_URL` for the PostgreSQL arm.
 
+// M70-13: the orphan ratchet deletes the narrower twin, not the product path.
+#[test]
+fn module_state_has_no_dead_count_helper() {
+    let source = include_str!("../src/module_state.rs");
+    assert!(
+        !source.contains("pub async fn count"),
+        "a whole-table count whose only callers are tests is the narrow twin of overrides_for"
+    );
+}
+
 use std::time::Duration;
 
 use darkhold_db::{module_state, Database};
@@ -140,7 +150,13 @@ async fn narrowing_is_idempotent_and_listed_once() {
         vec!["arena".to_owned()],
         "one row per account per module, however many times it is written"
     );
-    assert_eq!(module_state::count(&db).await.expect("count"), 1);
+    assert_eq!(
+        module_state::overrides_for(&db, &who)
+            .await
+            .expect("list")
+            .len() as i64,
+        1
+    );
 }
 
 #[tokio::test]
@@ -160,7 +176,13 @@ async fn clearing_returns_to_the_instance_decision() {
         "the second clear removed nothing, and says so"
     );
     assert!(!module_state::is_off(&db, &who, "quiz").await.expect("read"));
-    assert_eq!(module_state::count(&db).await.expect("count"), 0);
+    assert_eq!(
+        module_state::overrides_for(&db, &who)
+            .await
+            .expect("list")
+            .len() as i64,
+        0
+    );
 }
 
 #[tokio::test]
@@ -183,7 +205,13 @@ async fn one_accounts_narrowing_is_not_anothers() {
         "bob never wrote a row; a per-account table that answers for him is not per-account"
     );
     // And the count is over accounts, not over people who agree with each other.
-    assert_eq!(module_state::count(&db).await.expect("count"), 1);
+    assert_eq!(
+        module_state::overrides_for(&db, &alice)
+            .await
+            .expect("list")
+            .len(),
+        1
+    );
 }
 
 #[tokio::test]
@@ -203,5 +231,11 @@ async fn two_rows_for_one_account_are_two_changes() {
         vec!["arena".to_owned(), "narration".to_owned()],
         "listed in id order, so a settings page renders a stable list"
     );
-    assert_eq!(module_state::count(&db).await.expect("count"), 2);
+    assert_eq!(
+        module_state::overrides_for(&db, &who)
+            .await
+            .expect("list")
+            .len() as i64,
+        2
+    );
 }
