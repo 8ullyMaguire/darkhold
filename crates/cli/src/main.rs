@@ -17,6 +17,7 @@
 //! `docs/cli-exit-codes.md`, because a wrapper script decides what to do from that number alone.
 
 mod admin;
+mod audit;
 mod bench;
 mod calibre;
 mod cron;
@@ -181,6 +182,11 @@ pub enum Command {
     /// `dh lib --calibre ~/Calibre/metadata.db` prints seed rows in the grammar
     /// `darkhold seed read-list` already parses. Nothing is written by default.
     Lib(calibre::LibArgs),
+    /// Your private account audit log, with a client-resolved relative window.
+    ///
+    /// `dh audit --since 7d` sends an RFC 3339 bound to `/me/audit-log`. The log records the account
+    /// actor, not the token used, and the output says so rather than claiming per-token attribution.
+    Audit(audit::AuditArgs),
     /// Your private contribution report, from the server's own streak and signed passport.
     ///
     /// `dh stats --by week --share` prints an aggregate report with no handle or origin.
@@ -391,6 +397,13 @@ async fn main() -> std::process::ExitCode {
             }
         },
         Command::Lib(args) => match calibre::run(&cli, args).await {
+            Ok(()) => std::process::ExitCode::SUCCESS,
+            Err(error) => {
+                eprintln!("{error}");
+                std::process::ExitCode::from(error.code)
+            }
+        },
+        Command::Audit(args) => match audit::run(&cli, args).await {
             Ok(()) => std::process::ExitCode::SUCCESS,
             Err(error) => {
                 eprintln!("{error}");
