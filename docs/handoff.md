@@ -1,3 +1,7 @@
+## 2026-11-19 — M66-08 direct-share local text search shipped
+
+`dh share` now answers `?q=needle` on the capability URL with bounded local text search over the shared directory. Real HTTP test 2/2; query-ignoring mutant red/restored. No deploy (CLI only). M71-14, M64-12 and M64-13 blocks with exact clearing conditions were written into the roadmap.
+
 ## 2026-11-19 — M71-07 media health alert bar shipped
 
 The media health console names its red states in the operator alert bar: failing providers by name and dead links with the window date. Fix links reach the existing panels; no automatic repair or new action was invented. `AdminMediaHealth 6/6`, frontend gate ok, mutant red/restored. Row stays planned for remaining console surfaces.

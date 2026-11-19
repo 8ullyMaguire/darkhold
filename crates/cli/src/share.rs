@@ -7,6 +7,7 @@
 use std::path::{Path, PathBuf};
 
 use clap::Args;
+use serde::Serialize;
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::net::TcpListener;
 
@@ -101,6 +102,79 @@ fn escape_html(text: &str) -> String {
         .replace('"', "&quot;")
 }
 
+#[derive(Debug, Serialize)]
+struct SearchHit {
+    path: String,
+    line: usize,
+    text: String,
+}
+
+fn collect_files(dir: &Path, out: &mut Vec<PathBuf>) {
+    if out.len() >= 100 {
+        return;
+    }
+    let Ok(entries) = std::fs::read_dir(dir) else {
+        return;
+    };
+    let mut paths: Vec<PathBuf> = entries
+        .filter_map(Result::ok)
+        .map(|entry| entry.path())
+        .collect();
+    paths.sort();
+    for path in paths {
+        if out.len() >= 100 {
+            return;
+        }
+        if path.is_dir() {
+            collect_files(&path, out);
+        } else if path.is_file() {
+            out.push(path);
+        }
+    }
+}
+
+/// A bounded scan of the reader's own files. Binary files are skipped rather than guessed at; a file that cannot be read is
+/// not a failed search, because one unreadable file must not reveal or hide the others.
+fn search(root: &Path, query: &str) -> Vec<SearchHit> {
+    let mut files = Vec::new();
+    collect_files(root, &mut files);
+    let needle = query.to_lowercase();
+    let mut hits = Vec::new();
+    for path in files {
+        let Ok(canonical) = path.canonicalize() else {
+            continue;
+        };
+        if !canonical.starts_with(root) {
+            continue;
+        }
+        let Ok(bytes) = std::fs::read(&canonical) else {
+            continue;
+        };
+        if bytes.len() > 1024 * 1024 {
+            continue;
+        }
+        let Ok(text) = String::from_utf8(bytes) else {
+            continue;
+        };
+        for (index, line) in text.lines().enumerate() {
+            if line.to_lowercase().contains(&needle) {
+                let relative = canonical
+                    .strip_prefix(root)
+                    .unwrap_or(&canonical)
+                    .to_string_lossy()
+                    .into_owned();
+                hits.push(SearchHit {
+                    path: relative,
+                    line: index + 1,
+                    text: line.trim().to_owned(),
+                });
+                break;
+            }
+        }
+    }
+    hits
+}
+
 async fn send(mut socket: tokio::net::TcpStream, status: &str, kind: &str, body: &[u8]) {
     let head = format!(
         "HTTP/1.1 {status}\r\nContent-Type: {kind}\r\nContent-Length: {}\r\nCache-Control: no-store\r\nConnection: close\r\n\r\n",
@@ -147,6 +221,20 @@ async fn handle(socket: tokio::net::TcpStream, root: PathBuf, token: String) {
         return;
     };
     if path.is_dir() {
+        let query = target
+            .split_once('?')
+            .and_then(|(_, query)| query.strip_prefix("q="))
+            .map(decode_path)
+            .unwrap_or_default();
+        if !query.is_empty() {
+            let body = serde_json::to_vec(&serde_json::json!({
+                "query": query,
+                "matches": search(&root, &query),
+            }))
+            .unwrap_or_default();
+            send(socket, "200 OK", "application/json", &body).await;
+            return;
+        }
         let mut names: Vec<String> = match std::fs::read_dir(&path) {
             Ok(entries) => entries
                 .filter_map(Result::ok)

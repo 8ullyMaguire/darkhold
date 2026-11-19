@@ -5214,6 +5214,12 @@ a way to ask for one *work* rather than a feed, and the feature vector beside it
 
 Ascend is frozen by a standing owner decision recorded in persistent memory. Changing `themes.rs` would need a new owner authorisation, not another local judgement. Clearing condition: the owner explicitly unfreezes ascend and authorises writes to `/home/alvaro/code-local/rust/ascend`; then re-run its donor vectors and delete the local arithmetic. Demoted to the end of the queue; M73-04 taken next in the same turn.
 
+## M66-08 direct-share local text search — 2026-11-19
+
+**Census:** REUSE the capability guard, canonical path resolution and Tokio listener; ADAPT them into a bounded filesystem scan; BUILD one search response and one real-socket test. No site route, store, schema or deploy.
+
+SHIPPED AS PARTIAL ROW: `dh share` answers `?q=needle` on the same capability URL with JSON hits `{query, matches:[{path,line,text}]}`. The scan covers at most 100 regular UTF-8 files up to 1 MiB each, resolves every path under the canonical root, and skips unreadable or binary files rather than guessing at them. Real HTTP test 2/2; ignoring the query reddened `share_search_finds_text_under_the_capability` and was restored from `/tmp/dh-share-search.bak`. Row stays planned for offline queue, local edges and the later seeding threat model.
+
 ## M71-07 media health alert bar — 2026-11-19
 
 **Census:** REUSE `AlertBar`, `StatusMark`, `healthLevel`, the link-rot report and provider reliability rows; ADAPT them into one ordered alert list; BUILD no new component. No API, store, route or schema change.
@@ -5267,4 +5273,23 @@ Clears exactly when M63-32's fandom-tag backfill makes at least one published/pu
 ## Blocked: M73-04 orbital adopts `polaris-affinity` — 2026-11-18
 
 Orbital cannot compile in this checkout: `cargo test --test overlap` fails at `src/eval.rs:29` with `unresolved import polaris_eval::paired` (local `polaris-eval` HEAD `f77fdfc` exports no `paired`). This is pre-existing shared-crate API drift, not caused by this row; the structural test added for the row was reverted and orbital is clean at `87267e9`. Clearing condition: `polaris-eval` gains the `paired` API orbital expects, or orbital's `eval.rs` is updated to the current API, by its owning session; then re-run `cargo test --test overlap` and apply `/home/alvaro/.hermes/plans/2026-11-18-m73-04-orbital-affinity-adoption.md`. Demoted; next unblocked row taken in this turn.
+
+
+## Blocked: M71-14 per-work provenance needs a scope decision — 2026-11-19
+
+`privacy_settings` in both dialects allows exactly one of `account_id` or `pseud_id` (`CHECK ((account_id IS NULL) <> (pseud_id IS NULL))`) and has no work column. Reporting a per-work override's provenance therefore needs a new scope representation, not another read of an existing row.
+
+**What clears it:** owner approval for a two-engine migration adding a work scope (for example nullable `work_id` plus an updated check and unique index), or an explicit decision that per-work overrides are not privacy settings and belong in a different existing table.
+
+## Blocked: M64-12 co_read needs a bot signal — 2026-11-19
+
+`reading_sessions` records `(account_id, work_id, seconds, started_at, ended_at)` but carries no bot/client classification. A minimum duration can exclude single-click traffic; it cannot distinguish a bot that sleeps from a reader.
+
+**What clears it:** owner approval of a bot/client marker on the session write path (or an existing authoritative token table the query may join), plus a named minimum duration for a real session.
+
+## Blocked: M64-13 reader clusters need a definition — 2026-11-19
+
+No store function or table derives reader clusters, and the row's k-anonymity floor is a privacy decision rather than an implementation detail.
+
+**What clears it:** owner approval of the clustering input and minimum cluster size, with a privacy review of what may be reported when a cluster is below the floor.
 
