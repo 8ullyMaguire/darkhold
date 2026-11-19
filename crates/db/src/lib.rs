@@ -44,6 +44,7 @@ pub mod community;
 pub mod oidc;
 // M45-22 (§54): the concierge's session and WIP-watch store.
 pub mod claims;
+pub mod co_read;
 pub mod concierge_store;
 pub mod content;
 pub mod continue_reading;
