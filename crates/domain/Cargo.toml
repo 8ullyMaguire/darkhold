@@ -28,5 +28,8 @@ uuid.workspace = true
 url = "2"
 zip = { version = "5.0.1", default-features = false, features = ["deflate-flate2"] }
 
+[dev-dependencies]
+tokio = { workspace = true, features = ["macros", "rt"] }
+
 [lints]
 workspace = true

@@ -17,6 +17,7 @@ pub mod caps;
 pub mod category_governance;
 pub mod charging;
 pub mod community;
+pub mod embeddings;
 pub mod extension_document;
 pub mod moderation_ladder;
 pub mod payments;
