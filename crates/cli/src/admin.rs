@@ -21,6 +21,17 @@ pub enum AdminAction {
         #[arg(long)]
         account: String,
     },
+    /// Stream a consistent dump to stdout. No HTTP route can hand a copy of user data to a token.
+    Backup {
+        /// Only `-` is accepted: an operator's dump belongs in their pipeline, not in a CLI-chosen file.
+        #[arg(long)]
+        to: String,
+    },
+    /// Machine-readable health checks. This is `dh doctor --json` under its operational name.
+    Health {
+        #[arg(long)]
+        json: bool,
+    },
 }
 
 #[derive(Debug, Args)]
@@ -32,6 +43,40 @@ pub struct AdminArgs {
 pub async fn run(cli: &Cli, args: AdminArgs) -> Result<(), Failure> {
     match args.action {
         AdminAction::ExplainRec { work, account } => explain_rec(cli, &work, &account).await,
+        AdminAction::Backup { to } => backup(&to),
+        AdminAction::Health { json } => {
+            let code = crate::doctor::run(cli, json).await;
+            if code == 0 {
+                Ok(())
+            } else {
+                Err(environment(format!("{code} health check(s) failed")))
+            }
+        }
+    }
+}
+
+fn backup(to: &str) -> Result<(), Failure> {
+    if to != "-" {
+        return Err(bad_request(
+            "dh admin backup --to - streams to stdout; use your shell to redirect if needed",
+        ));
+    }
+    if std::env::var_os("PGDATABASE").is_none() {
+        return Err(environment(
+            "set PGDATABASE (and the other standard PG* variables) for the local pg_dump",
+        ));
+    }
+    let status = std::process::Command::new("pg_dump")
+        .arg("--format=custom")
+        .arg("--no-owner")
+        .stdout(std::process::Stdio::inherit())
+        .stderr(std::process::Stdio::inherit())
+        .status()
+        .map_err(|error| environment(format!("running pg_dump: {error}")))?;
+    if status.success() {
+        Ok(())
+    } else {
+        Err(environment(format!("pg_dump exited {status}")))
     }
 }
 
