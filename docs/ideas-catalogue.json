@@ -1,6 +1,6 @@
 {
  "generated_by": "scripts/ideas_catalogue.py",
- "count": 99,
+ "count": 97,
  "ideas": [
   {
    "why_summary": "",
@@ -62,19 +62,6 @@
     "docs/requirements.csv"
    ],
    "milestone": "M63",
-   "relevance": 4,
-   "because": "a requirements row exists (+4)",
-   "default_on": false,
-   "built": false
-  },
-  {
-   "why_summary": "0612cdf7 P15. Promotion is automatic (M64-04); this is the surface where the operator can disagree without editing a table. preview-as-persona reuses M45-46 (preview before apply).",
-   "id": "M64-15",
-   "title": "the operator console lists every live experiment per surface with its numbers, allows hold, promote and preview-as-persona, and shows why each promotion happened",
-   "sources": [
-    "docs/requirements.csv"
-   ],
-   "milestone": "M64",
    "relevance": 4,
    "because": "a requirements row exists (+4)",
    "default_on": false,
@@ -647,19 +634,6 @@
     "docs/requirements.csv"
    ],
    "milestone": "M45",
-   "relevance": 1,
-   "because": "a requirements row exists (+4); needs a third party or an external client (-2); needs a model or heavy compute (-1)",
-   "default_on": false,
-   "built": false
-  },
-  {
-   "why_summary": "d8701c15 pass 28->27; full gate retry /tmp/gate-all-m70-13-41da552a.log GATE_ALL_EXIT=0 ORPHAN RATCHET over crates/db: every pass deletes or wires one dead store function, writes t",
-   "id": "M70-13",
-   "title": "Every db listing query that a reader surface depends on is either wired to a route or deleted",
-   "sources": [
-    "docs/requirements.csv"
-   ],
-   "milestone": "M70",
    "relevance": 1,
    "because": "a requirements row exists (+4); needs a third party or an external client (-2); needs a model or heavy compute (-1)",
    "default_on": false,

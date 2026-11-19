@@ -812,58 +812,6 @@ pub async fn bot_owned_by(db: &Database, bot_id: &str, account: &str) -> Result<
     }
 }
 
-/// Point a bot registration at its current credential, returning the token it pointed at before.
-///
-/// **Linking rotates the credential.** A linked bot's token is the one the reader just granted, and the registration has to
-/// point at it or nothing can check whether the bot is suspended — `bot_for_token` looks the registration up *by token*, so a
-/// token the registration does not name is a token whose bot is invisible. The previous token comes back so the caller can
-/// revoke it: two live credentials for one bot is one more than the suspension check can reason about.
-pub async fn rebind_bot_token(
-    db: &Database,
-    bot_id: &str,
-    token_id: &str,
-) -> Result<Option<String>, sqlx::Error> {
-    let select = db.sql(
-        "SELECT token_id FROM bot_registrations WHERE id = ?1",
-        "SELECT token_id FROM bot_registrations WHERE id = $1::text",
-    );
-    let previous: Option<String> = match db.backend() {
-        Backend::Sqlite => {
-            sqlx::query_scalar(&select)
-                .bind(bot_id)
-                .fetch_optional(db.sqlite_pool().expect("sqlite handle"))
-                .await?
-        }
-        Backend::Postgres => {
-            sqlx::query_scalar(&select)
-                .bind(bot_id)
-                .fetch_optional(db.postgres_pool().expect("postgres handle"))
-                .await?
-        }
-    };
-    let update = db.sql(
-        "UPDATE bot_registrations SET token_id = ?1 WHERE id = ?2",
-        "UPDATE bot_registrations SET token_id = $1::text WHERE id = $2::text",
-    );
-    match db.backend() {
-        Backend::Sqlite => {
-            sqlx::query(&update)
-                .bind(token_id)
-                .bind(bot_id)
-                .execute(db.sqlite_pool().expect("sqlite handle"))
-                .await?;
-        }
-        Backend::Postgres => {
-            sqlx::query(&update)
-                .bind(token_id)
-                .bind(bot_id)
-                .execute(db.postgres_pool().expect("postgres handle"))
-                .await?;
-        }
-    }
-    Ok(previous)
-}
-
 /// Resolve a short feed handle to the subject it names.
 ///
 /// `kind` says how the subject is to be read — `tag` is a search term, `user` an author — because a handle is a *name* and the

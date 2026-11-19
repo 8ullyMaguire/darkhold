@@ -681,3 +681,7 @@ assertion under the mutant, no assumption about isolation.
 ---
 
 PASS 2026-11-19: 28 -> 27. `module_state::count` was a whole-table count whose only callers were two integration suites and one app test; `overrides_for` already answers the same question through the product path. DELETED the function, redirected the store tests to `overrides_for(...).len()`, and removed the two app assertions that a row was gone (the response body and catalogue already prove it). Rejecting the alternative of wiring a new operator route: a new door for a number nobody asked to see would add a surface to justify a dead query. Mutant: re-adding `pub async fn count` reddened the new source guard, restored from `/tmp/m70-13.bak`. `module_user_state` 6/6 on SQLite and 6/6 on PostgreSQL; `m65_user_overrides` 7/7; `orphan_queries` 2/2 with regenerated baseline 27.
+
+---
+
+PASS 2026-11-19: 27 -> 26. `external::rebind_bot_token` was a credential writer with no app caller; its only echo was a test comment saying it "used to rewrite it on every confirmation". DELETED the function rather than adding a route: a second writer for `bot_registrations.token_id` would break the multi-link guarantee that a registration names a stable credential. RED first: removing its baseline line while the function still existed reddened `orphan_queries` (1 passed, 1 failed). GREEN after deletion and regenerated baseline 26 (2/2). Mutant: restoring the function from `/tmp/m70-13-rebind.bak` reddened 1/2; restored clean source from `/tmp/m70-13-clean.rs` and reran 2/2. No live surface moved; no deploy.
