@@ -32,6 +32,7 @@
   import SignInGate from '../lib/components/SignInGate.svelte';
   import Skeleton from '../lib/components/Skeleton.svelte';
   import StatusMark from '../lib/components/StatusMark.svelte';
+  import AlertBar from '../lib/components/AlertBar.svelte';
 
   let overview = $state<MediaHealthOverview | null>(null);
   let linkRot = $state<LinkRotReport | null>(null);
@@ -97,6 +98,22 @@
     return { level: 'red', label: 'failing' };
   }
 
+  /** M71-07: every red state is named once in words, with a link to the panel that holds it. */
+  const failingProviders = $derived(
+    (providers ?? []).filter((provider) => healthLevel(provider.health_rate).level === 'red'),
+  );
+  const redAlerts = $derived([
+    ...(linkRot && linkRot.total_rot > 0
+      ? [{ label: `${linkRot.total_rot} dead links since ${linkRot.since.slice(0, 10)}`, href: '#link-rot' }]
+      : []),
+    ...(failingProviders.length > 0
+      ? [{
+          label: `${failingProviders.length} provider${failingProviders.length === 1 ? '' : 's'} failing (${failingProviders.map((provider) => provider.provider).join(', ')})`,
+          href: '#provider-reliability',
+        }]
+      : []),
+  ]);
+
   function fmtBytes(bytes: number): string {
     if (bytes < 1024) return `${bytes} B`;
     if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
@@ -132,6 +149,7 @@
 {:else if error}
   <ErrorSummary error={error} onretry={() => void load()} />
 {:else if overview}
+  <AlertBar alerts={redAlerts} />
   <section class="panel" aria-label="Overall media health">
     <h2>Overall health</h2>
     <div class="metrics-grid">
@@ -155,7 +173,7 @@
   </section>
 
   {#if linkRot}
-    <section class="panel" aria-label="Link rot by provider">
+    <section class="panel" id="link-rot" aria-label="Link rot by provider">
       <h2>Link rot</h2>
       <p class="note">Since {linkRot.since.slice(0, 10)}. Total dead: {linkRot.total_rot}</p>
       {#if linkRot.by_provider.length > 0}
@@ -215,7 +233,7 @@
   {/if}
 
   {#if providers && providers.length > 0}
-    <section class="panel" aria-label="Provider reliability ranking">
+    <section class="panel" id="provider-reliability" aria-label="Provider reliability ranking">
       <h2>Provider reliability</h2>
       <table>
         <thead>

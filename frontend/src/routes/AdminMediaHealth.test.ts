@@ -99,6 +99,17 @@ describe('AdminMediaHealth page', () => {
     expect(screen.getByText('42.0%')).toBeInTheDocument();
   });
 
+  it('names red states in one alert bar with fix anchors', async () => {
+    render(AdminMediaHealth);
+    await waitFor(() => expect(screen.getByText('Needs attention')).toBeInTheDocument());
+    expect(screen.getByText('1 provider failing (deadhost)')).toBeInTheDocument();
+    expect(screen.getByText('8 dead links since 2026-09-16')).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Fix 1 provider failing (deadhost)' })).toHaveAttribute(
+      'href',
+      '#provider-reliability',
+    );
+  });
+
   it('shows curator leaderboard entries', async () => {
     render(AdminMediaHealth);
     await waitFor(() => expect(screen.getByText('Media health')).toBeInTheDocument());

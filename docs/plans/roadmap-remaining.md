@@ -5214,6 +5214,12 @@ a way to ask for one *work* rather than a feed, and the feature vector beside it
 
 Ascend is frozen by a standing owner decision recorded in persistent memory. Changing `themes.rs` would need a new owner authorisation, not another local judgement. Clearing condition: the owner explicitly unfreezes ascend and authorises writes to `/home/alvaro/code-local/rust/ascend`; then re-run its donor vectors and delete the local arithmetic. Demoted to the end of the queue; M73-04 taken next in the same turn.
 
+## M71-07 media health alert bar — 2026-11-19
+
+**Census:** REUSE `AlertBar`, `StatusMark`, `healthLevel`, the link-rot report and provider reliability rows; ADAPT them into one ordered alert list; BUILD no new component. No API, store, route or schema change.
+
+PARTIAL SHIPPED (row stays planned for remaining console surfaces): `AdminMediaHealth` now names red states in one alert bar — failing providers with each provider named, and dead links with the window date. Fix links are in-page anchors to the panels that hold the numbers; no repair action is invented. `AdminMediaHealth 6/6`, `gate.sh frontend ok`; dropping the failing-provider alert reddened the assertion and was restored from `/tmp/m71-07-media.bak`.
+
 ## M66-08 direct file-share first milestone — 2026-11-19
 
 **Census:** REUSE Tokio's TCP stack, the CLI parser/dispatch and `std::fs` canonicalisation; ADAPT the fake-origin HTTP pattern into a tiny GET-only response writer; BUILD one CLI module and a real-socket test. No site route, store, schema or deploy.

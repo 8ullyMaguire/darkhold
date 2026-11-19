@@ -1,3 +1,7 @@
+## 2026-11-19 — M71-07 media health alert bar shipped
+
+The media health console names its red states in the operator alert bar: failing providers by name and dead links with the window date. Fix links reach the existing panels; no automatic repair or new action was invented. `AdminMediaHealth 6/6`, frontend gate ok, mutant red/restored. Row stays planned for remaining console surfaces.
+
 ## 2026-11-19 — M66-08 direct file share shipped
 
 `dh share --dir DIR` serves the reader's own files directly under a per-run random URL capability. Loopback is the default; `--lan` is an explicit exposure choice. No relay, DHT, discovery, global namespace or site account. Real HTTP test 1/1; wrong-token mutant red/restored. Row stays planned for the remaining local-engine and seeding milestones.
