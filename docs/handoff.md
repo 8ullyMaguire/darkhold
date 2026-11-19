@@ -1,3 +1,7 @@
+## 2026-11-19 — M70-14 closed against the existing worker
+
+The requirement was already satisfied by `crates/app/src/worker.rs` and `webhook_delivery.rs`; the ledger now records that rather than opening a second outbound path.
+
 ## 2026-11-19 — M64-14 embedding domain slice
 
 Summary-first selection, kernel dense cosine, and degrade-to-disabled ranking shipped at `5a4d72f2`; full gate green. Not wired to a feed because no provider is configured — the row remains planned for the adapter and served surface.

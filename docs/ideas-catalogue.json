@@ -1,6 +1,6 @@
 {
  "generated_by": "scripts/ideas_catalogue.py",
- "count": 100,
+ "count": 99,
  "ideas": [
   {
    "why_summary": "",
@@ -88,19 +88,6 @@
     "docs/requirements.csv"
    ],
    "milestone": "M69",
-   "relevance": 4,
-   "because": "a requirements row exists (+4)",
-   "default_on": false,
-   "built": false
-  },
-  {
-   "why_summary": "docs/DECISIONS.md (2026-11-19 owner-unblock decisions) M70-13 reserved-decision clearance 2026-11-19. The orphan ratchet must not delete a store function whose only proof is a test",
-   "id": "M70-14",
-   "title": "An outbound delivery worker owns every push to an external destination",
-   "sources": [
-    "docs/requirements.csv"
-   ],
-   "milestone": "M70",
    "relevance": 4,
    "because": "a requirements row exists (+4)",
    "default_on": false,
