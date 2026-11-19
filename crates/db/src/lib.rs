@@ -55,6 +55,7 @@ pub mod discovery;
 pub mod dnf;
 pub mod economy;
 pub mod engagement;
+pub mod engagement_overlap;
 pub mod entity_closure;
 pub mod entity_floor;
 pub mod erasure;

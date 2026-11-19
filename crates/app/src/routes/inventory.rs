@@ -1374,6 +1374,13 @@ pub const ROUTE_TABLE: &[RouteEntry] = &[
         audience: Audience::Anonymous,
     },
     RouteEntry {
+        file: "story_engagement_overlap.rs",
+        handler: "overlap",
+        method: "GET",
+        path: "/works/{work_id}/engagement-overlap",
+        audience: Audience::Anonymous,
+    },
+    RouteEntry {
         file: "tag_cross_fandom.rs",
         handler: "cross_fandom",
         method: "GET",
