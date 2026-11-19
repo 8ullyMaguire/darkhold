@@ -1,3 +1,9 @@
+## 2026-11-19 — M64-11 lists-containing door shipped
+
+`GET /api/v1/works/{work_id}/lists` is live. It answers the `story.lists_containing` registry surface from the existing `user_lists`/`user_list_members` adjacency, publishing only public lists. No new table, migration, config key or session is needed, and private lists are not named or counted.
+
+Proof: two-engine DB test and route test green, visibility mutant red/restored, route inventory 6/6, full gate `/tmp/gate-all-m64-11-fdc22bd1.log` `GATE_ALL_EXIT=0`, live HTTP 200 probe, deploy `0.1.0+fdc22bd1` with named dump `TABLE_DATA=411`, estate `ESTATE_DEPLOY_EXIT=0`, unit active.
+
 ## 2026-11-18 — M64-09 taste gravity on the remaining rails shipped
 
 `GET /works/{id}/similar` and `GET /api/v1/library/because-you-shelved` now apply the same bounded taste-gravity mixture as the feed. A shared helper resolves the surface's knobs, the reader's dial and the reader's own shelf signal, then reorders the engine's output without filtering it or changing any score. Anonymous callers and failed signal reads keep the original order. No new route, schema, config key or deploy-time migration.

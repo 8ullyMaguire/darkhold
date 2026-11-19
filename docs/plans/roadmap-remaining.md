@@ -5214,6 +5214,12 @@ a way to ask for one *work* rather than a feed, and the feature vector beside it
 
 Ascend is frozen by a standing owner decision recorded in persistent memory. Changing `themes.rs` would need a new owner authorisation, not another local judgement. Clearing condition: the owner explicitly unfreezes ascend and authorises writes to `/home/alvaro/code-local/rust/ascend`; then re-run its donor vectors and delete the local arithmetic. Demoted to the end of the queue; M73-04 taken next in the same turn.
 
+## M64-11 lists-containing candidate door — 2026-11-18
+
+**Census:** REUSE `user_lists`, `user_list_members`, `UserList` and the existing router/route-inventory pattern; ADAPT the two existing tables into a public projection; BUILD one query, one route and tests. No new table, migration, config key, session requirement or private-list disclosure.
+
+CLOSED 2026-11-18/19: `GET /api/v1/works/{work_id}/lists` is anonymous and returns only `visibility = 'public'` lists containing the work, newest first, with a clamped `limit`. Private lists are absent rather than counted. Two-engine DB test `1/1` SQLite and PostgreSQL, route test `1/1`, route inventory `6/6`; dropping the visibility predicate reddened both tests and was restored from `/tmp/m64-11.bak`. Full gate `/tmp/gate-all-m64-11-fdc22bd1.log` `GATE_ALL_EXIT=0`, all eight stages ok. Live route probe `/api/v1/works/5525e919-b51c-4dd5-ac2e-2a5fa5085dc4/lists?limit=3` returned HTTP 200 and an empty list. Deployed `0.1.0+fdc22bd1`, named dump `/personal/backups/darkhold-20261118-fdc22bd1/darkhold-fdc22bd1.dump` `TABLE_DATA=411`, estate `ESTATE_DEPLOY_EXIT=0`, unit active.
+
 ## M64-09 taste gravity on the remaining reader rails — 2026-11-18
 
 **Census:** REUSE the feed's `taste_knobs`, `taste_signal`, `gravity_prefs`, `polaris_gravity::effective` and `apply_taste_gravity`; ADAPT `SurfaceWork` order into `Candidate` order and back; BUILD one shared `surface_gravity` helper. No new route, schema, config key, store query or ROUTE_TABLE row.
