@@ -5214,6 +5214,12 @@ a way to ask for one *work* rather than a feed, and the feature vector beside it
 
 Ascend is frozen by a standing owner decision recorded in persistent memory. Changing `themes.rs` would need a new owner authorisation, not another local judgement. Clearing condition: the owner explicitly unfreezes ascend and authorises writes to `/home/alvaro/code-local/rust/ascend`; then re-run its donor vectors and delete the local arithmetic. Demoted to the end of the queue; M73-04 taken next in the same turn.
 
+## M71-13 facet coverage line — 2026-11-19
+
+**Census:** REUSE the `known`/`unknown`/`total` aggregate the facet API already publishes; ADAPT it into the existing `FacetPanel` group header; BUILD one sentence and one test. No API, store, schema or route change.
+
+PARTIAL SHIPPED (row stays planned for hosted/referenced split): the fandom facet now leads with `N of M works are tagged (P%)`, computed from the API's one aggregate view; an empty set says `Nothing to measure against`. `FacetPanel 4/4`, `gate.sh frontend ok`; the percentage mutant (hard-coded 100%) reddened the coverage assertion and was restored from `/tmp/m71-13.bak`. Remaining clause still needs an origin concept before a hosted/referenced split can mean anything.
+
 ## M64-11 lists-containing candidate door — 2026-11-18
 
 **Census:** REUSE `user_lists`, `user_list_members`, `UserList` and the existing router/route-inventory pattern; ADAPT the two existing tables into a public projection; BUILD one query, one route and tests. No new table, migration, config key, session requirement or private-list disclosure.

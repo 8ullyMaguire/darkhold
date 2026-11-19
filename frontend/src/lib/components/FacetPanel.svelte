@@ -52,6 +52,15 @@
   function age(): string {
     return ageMs >= 1000 ? `${(ageMs / 1000).toFixed(1)}s ago` : `${ageMs}ms ago`;
   }
+
+  /** M71-13: the fandom facet leads with the one aggregate the API already publishes, not a typed-in copy claim. */
+  function coverage(group: FacetGroupView): string | null {
+    if (group.facet !== 'fandom') return null;
+    const total = group.known + group.unknown;
+    if (total <= 0) return 'Nothing to measure against';
+    const percent = Math.round((group.known / total) * 100);
+    return `${group.known} of ${total} works are tagged (${percent}%)`;
+  }
 </script>
 
 <aside class="facets" aria-label="Facet counts" aria-busy={pending}>
@@ -63,6 +72,9 @@
   {#each facets as group (group.facet)}
     <section class="group" role="group" aria-label={labelFor(group.facet)} data-facet={group.facet}>
       <h3>{labelFor(group.facet)}</h3>
+      {#if coverage(group)}
+        <p class="coverage">{coverage(group)}</p>
+      {/if}
       <ul>
         {#each group.buckets as bucket (bucket.key)}
           <li>
@@ -101,6 +113,7 @@
   }
   .over,
   .age,
+  .coverage,
   .unknown {
     margin: 0;
     font-family: var(--font-mono);

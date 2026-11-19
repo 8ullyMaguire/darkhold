@@ -40,6 +40,21 @@ describe('FacetPanel', () => {
     expect(getAllByRole('group')).toHaveLength(2);
   });
 
+  it('leads the fandom facet with coverage from the one aggregate the API already returns', () => {
+    const { getByText } = render(FacetPanel, {
+      props: {
+        facets: [{
+          facet: 'fandom',
+          buckets: [{ key: 'svsss', label: 'SVSSS', count: 12 }],
+          known: 12,
+          unknown: 3,
+          when_unknown: null,
+        }],
+      },
+    });
+    expect(getByText('12 of 15 works are tagged (80%)')).toBeTruthy();
+  });
+
   it('shows an em dash while counts are pending, never a zero that would be a measurement', () => {
     const { getAllByText, queryByText } = render(FacetPanel, {
       props: { facets, pending: true },

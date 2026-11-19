@@ -1,3 +1,7 @@
+## 2026-11-19 — M71-13 fandom facet coverage line shipped
+
+The fandom facet leads with `N of M works are tagged (P%)` from the API's existing aggregate, not a typed-in headline. No API or store change. `FacetPanel 4/4`, `gate.sh frontend ok`; percentage mutant red/restored. Row stays planned for the hosted/referenced split, which needs an origin concept first.
+
 ## 2026-11-19 — M64-11 lists-containing door shipped
 
 `GET /api/v1/works/{work_id}/lists` is live. It answers the `story.lists_containing` registry surface from the existing `user_lists`/`user_list_members` adjacency, publishing only public lists. No new table, migration, config key or session is needed, and private lists are not named or counted.
