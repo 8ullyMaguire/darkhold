@@ -1,3 +1,7 @@
+## 2026-11-20 — M63-32 like-count half blocked
+
+Pawchive's public API has no likes/endorsements field or endpoint. Its documented public surface has 14 operations; the five favorite operations are account-session `cookieAuth` endpoints. The public post page shows a Favorite button with no count. Views/comments are not a substitute. Clearing condition: an authenticated Pawchive favorites/likes export or an owner-provided session credential stored out of tree; no credential value belongs in chat or the repo.
+
 ## 2026-11-20 — M63-32 archive full pass complete
 
 Background backfill finished: archive 28,488 scanned, 11,885 works tagged, 329,455 assertions, 57,724 nodes. Live coverage is archive 11,885 / 28,488 and pawchive 19,028 / 27,464. SQL over provenance proves those are exactly the rows carrying stored claims: archive 11,885 / 28,488 with non-empty `tags`; pawchive 18,890 / 27,464 with fandom/tags/characters (plus 138 rows tagged before this pass). The stored-metadata tag half is complete for archive and pawchive. AO3 still needs source re-fetch; 10 / 2,082 are tagged from the first applied batch.

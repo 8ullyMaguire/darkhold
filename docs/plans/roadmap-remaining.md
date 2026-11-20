@@ -5417,3 +5417,7 @@ Before any write, a named scoped dump of the two affected tables was taken and v
 ## M63-32 stored-metadata backfill complete for archive and pawchive — 2026-11-20
 
 Archive full pass: 28,488 scanned, 11,885 works tagged, 329,455 assertions, 57,724 nodes. Pawchive full pass: 27,464 scanned, 18,890 works tagged, 38,725 assertions, 3,102 nodes. Coverage matches the stored claim sets exactly, so neither source can yield more tags without new metadata. AO3 still needs paced source re-fetch; its first applied batch tagged 10 of 2,082 works.
+
+### M63-32 like counts — Blocked (2026-11-20)
+
+Public Pawchive API has no likes/endorsements field; favorites require an account session and post pages expose no count. Clears when an authenticated favorites/likes export or an owner-provided out-of-tree session credential exists. Views/comments are explicitly not a substitute.
