@@ -1,6 +1,6 @@
 ## 2026-11-20 — M66-08 offline queue shipped
 
-`dh share-queue --queue FILE add|list|drain` queues direct-share paths locally with no network call; `drain` keeps unreachable items. Queue file mode 0600 because the URL is a bearer capability. Tests 5/5 including traversal guard mutant red/restored; fmt/clippy/repo green, full gate pending. Row remains planned for local edges and the later seeding threat model.
+`dh share-queue --queue FILE add|list|drain` queues direct-share paths locally with no network call; `drain` keeps unreachable items. Queue file mode 0600 because the URL is a bearer capability. Tests 5/5 including traversal guard mutant red/restored; First full gate failed on roff-escaped `share\-queue` in the man page and a stale M71-07 idea row; test normalised, catalogue regenerated to 94 ideas, targeted tests green. Retry pending. Row remains planned for local edges and the later seeding threat model.
 
 ## 2026-11-20 — M71-07 closed by census
 

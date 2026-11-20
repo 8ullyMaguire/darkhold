@@ -93,8 +93,14 @@ fn the_man_page_is_generated_and_names_the_subcommands() {
         "a roff man page starts with .TH: {:?}",
         page.lines().next()
     );
+    // roff escapes a literal hyphen as `\-`; the parser name is still `share-queue`.
+    // Normalise only that escape before comparing, so a genuinely missing command fails.
+    let rendered = page.replace("\\-", "-");
     for name in &names {
-        assert!(page.contains(name), "the man page never mentions `{name}`");
+        assert!(
+            rendered.contains(name),
+            "the man page never mentions `{name}`"
+        );
     }
 }
 
