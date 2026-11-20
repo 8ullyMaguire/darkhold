@@ -12,6 +12,15 @@ use darkhold_db::{
 
 use crate::rec::{environment, Failure};
 
+fn claims_from_tags(tags: &[String]) -> Vec<(String, String)> {
+    tags.iter()
+        .filter_map(|tag| {
+            let canonical = tag.trim();
+            (!canonical.is_empty()).then(|| ("tag".to_owned(), canonical.to_owned()))
+        })
+        .collect()
+}
+
 #[derive(Debug, Clone, Args)]
 pub struct CatalogueArgs {
     /// Instance database URL.
@@ -112,14 +121,7 @@ async fn refetch_source_tags(
         let Ok(work) = adapter.preview(&fetcher, &url, None).await else {
             continue;
         };
-        let claims: Vec<(String, String)> = work
-            .tags
-            .iter()
-            .filter_map(|tag| {
-                let canonical = tag.trim();
-                (!canonical.is_empty()).then(|| ("tag".to_owned(), canonical.to_owned()))
-            })
-            .collect();
+        let claims = claims_from_tags(&work.tags);
         if claims.is_empty() {
             continue;
         }
@@ -131,4 +133,27 @@ async fn refetch_source_tags(
         }
     }
     Ok(report)
+}
+
+
+#[cfg(test)]
+mod tests {
+    use super::claims_from_tags;
+
+    #[test]
+    fn adapter_tags_become_source_tag_claims() {
+        let tags = vec![
+            "  Alternate Universe ".to_owned(),
+            "".to_owned(),
+            "   ".to_owned(),
+            "Slow Burn".to_owned(),
+        ];
+        assert_eq!(
+            claims_from_tags(&tags),
+            vec![
+                ("tag".to_owned(), "Alternate Universe".to_owned()),
+                ("tag".to_owned(), "Slow Burn".to_owned()),
+            ]
+        );
+    }
 }
