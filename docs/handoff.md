@@ -4,7 +4,7 @@ Shipped: pure taste scorer (`crates/taste/src/curation.rs`), provenance-tag pres
 
 ## 2026-11-20 — TA1 cross-archive taste archive started
 
-Spec: `docs/spec/2026-11-20-cross-archive-taste-archive.md`. Ledger row `TA1` added. Scope: metadata from all supported catalogued sources, private 0600 taste preferences, per-job body policy, 100-work pilot before a 20k cap, shortfall instead of padding. No reader-facing schema blobs and no source bypass.
+Spec: `docs/spec/71-cross-archive-taste-archive.md`. Ledger row `TA1` added. Scope: metadata from all supported catalogued sources, private 0600 taste preferences, per-job body policy, 100-work pilot before a 20k cap, shortfall instead of padding. No reader-facing schema blobs and no source bypass.
 
 ## 2026-11-20 — M63-32 like-count half blocked
 
