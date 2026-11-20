@@ -933,6 +933,7 @@ dependencies = [
  "clap_mangen",
  "darkhold-db",
  "darkhold-domain",
+ "darkhold-scrapers",
  "polaris-jobs",
  "reqwest",
  "serde",
@@ -942,6 +943,7 @@ dependencies = [
  "time",
  "tokio",
  "toml",
+ "url",
 ]
 
 [[package]]

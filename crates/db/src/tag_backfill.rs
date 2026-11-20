@@ -95,29 +95,10 @@ pub async fn backfill_from_provenance(
         if claims.is_empty() {
             continue;
         }
-        let mut wrote = false;
-        for (kind, canonical) in claims {
-            if dry_run {
-                report.assertions += 1;
-                wrote = true;
-                continue;
-            }
-            let existed = crate::taxonomy::node_id_by_norm(
-                db,
-                &kind,
-                &crate::taxonomy::canonical_form(&canonical),
-            )
-            .await?
-            .is_some();
-            let node = crate::taxonomy::ensure_node_from_signal(db, &kind, &canonical).await?;
-            if !existed {
-                report.nodes_created += 1;
-            }
-            assert_tag(db, &work_id, &node.id, Claimant::Source, false, 1.0).await?;
-            report.assertions += 1;
-            wrote = true;
-        }
-        if wrote {
+        let (written, created) = assert_claims(db, &work_id, &claims, dry_run).await?;
+        report.assertions += written;
+        report.nodes_created += created;
+        if written > 0 {
             report.works_tagged += 1;
         }
     }
@@ -158,4 +139,35 @@ fn claims_from(value: &Value) -> Vec<(String, String)> {
         }
     }
     claims
+}
+
+
+/// Write, or count in a dry run, the source assertions for one work.
+pub async fn assert_claims(
+    db: &Database,
+    work_id: &str,
+    claims: &[(String, String)],
+    dry_run: bool,
+) -> Result<(usize, usize)> {
+    if dry_run {
+        return Ok((claims.len(), 0));
+    }
+    let mut written = 0;
+    let mut created = 0;
+    for (kind, canonical) in claims {
+        let existed = crate::taxonomy::node_id_by_norm(
+            db,
+            kind,
+            &crate::taxonomy::canonical_form(canonical),
+        )
+        .await?
+        .is_some();
+        let node = crate::taxonomy::ensure_node_from_signal(db, kind, canonical).await?;
+        if !existed {
+            created += 1;
+        }
+        assert_tag(db, work_id, &node.id, Claimant::Source, false, 1.0).await?;
+        written += 1;
+    }
+    Ok((written, created))
 }

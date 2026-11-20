@@ -1,3 +1,7 @@
+## 2026-11-20 — M63-32 AO3 re-fetch tool shipped
+
+`dh catalogue --source ao3 --refetch --limit N` now fetches source metadata through Darkhold's own adapter registry and `SafeFetcher` with 1.2 s/2 s pacing, then writes the adapter tags as source assertions through the same idempotent helper. Dry-run by default. The earlier HTTP 429 cleared on a later probe.
+
 ## 2026-11-20 — M63-32 AO3 fetch probe
 
 AO3's stored provenance has no tags, so its 2,082 works need a source re-fetch. A representative source URL answered HTTP 429 from this host, so that re-fetch is rate-limited right now and must be retried later with the site's own adapter and backoff. Archive backfill was still running; interim coverage was archive 2,922 / 28,488 and pawchive 19,028 / 27,464.
