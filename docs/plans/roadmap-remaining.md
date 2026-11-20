@@ -1,5 +1,24 @@
 # The remaining roadmap, ordered for execution
 
+## TA2 — daily fanfiction aggregation, Pawchive grouping, unbounded taste bodies — 2026-11-20
+
+**Census:** REUSE `source_sync`, `SafeFetcher`, the import worker, `library_items`, `content_blobs`, retention rules, the private taste scorer and `dh archive`; ADAPT config, Pawchive grouping and body selection; BUILD a no-cap CLI, a chapter-repair verb and a daily body wrapper. No second crawler, no reader-facing schema blobs, no new import pipeline.
+
+**Decisions:** one Pawchive BFS seed (`https://pawchive.pw/patreon/user/13212571/recommended`) at depth 3 only; Pawchive chapter submissions become one work; Pawchive uses `older_than = 120d`; AO3/QQ/SV/SB and other supported archives check daily with no 120-day filter; bodies are stored only for private taste matches with no exclusions; no global 20k ceiling; adapter coverage expands one fixture-tested source at a time. Deploy once after TA2 code.
+
+Plan: `/home/alvaro/.hermes/plans/2026-11-20_214101-ta2-daily-aggregation-and-bodies.md`.
+
+Checklist:
+
+- [ ] TA2-1 deploy current binary after TA2 code is merged.
+- [ ] TA2-2 configure Pawchive BFS seed at depth 3.
+- [ ] TA2-3 group Pawchive chapter submissions into one work and repair existing duplicates.
+- [ ] TA2-4 apply Pawchive `older_than = 120d`.
+- [ ] TA2-5 check AO3/QQ/SV/SB and other archives daily without the Pawchive window.
+- [ ] TA2-6 archive bodies for taste-matching works, excluding disliked tags.
+- [ ] TA2-7 remove the 20k ceiling.
+- [ ] TA2-8 expand adapter coverage fixture-by-fixture.
+
 ## TA1 cross-archive metadata and private taste body archive — 2026-11-20
 
 **Census:** REUSE `source_sync`, `SafeFetcher`, the adapter registry, the import worker, `library_items`, `content_blobs`, retention policy and the existing `dh` CLI; ADAPT a per-job body policy and provenance tags; BUILD a pure taste scorer, a two-engine candidate query and two `dh archive` verbs. No new reader-facing schema, no second crawler, no body blob columns.

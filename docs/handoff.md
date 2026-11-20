@@ -1,3 +1,7 @@
+## 2026-11-20 — TA2 roadmap opened; code work pending
+
+New decisions: one Pawchive BFS seed at `https://pawchive.pw/patreon/user/13212571/recommended`, depth 3 only; Pawchive chapter submissions collapse into one library work; Pawchive admits only updates older than 120 days; AO3/QQ/SV/SB and other supported archives check daily without that window; bodies are archived for works with liked tags and no excluded tags; the 20k ceiling is removed; adapter coverage expands fixture-by-fixture. Spec: `docs/SPEC-TA2-DAILY-AGGREGATION-AND-BODIES.md`. Plan: `/home/alvaro/.hermes/plans/2026-11-20_214101-ta2-daily-aggregation-and-bodies.md`. Deploy happens once after TA2 code, not twice.
+
 ## 2026-11-20 — TA1 code shipped, live pilot pending
 
 Shipped: pure taste scorer (`crates/taste/src/curation.rs`), provenance-tag preservation, per-job `body_policy` (`skip` for discovery, `store` for selected works), two-engine candidate query (`crates/db/src/taste_curation.rs`), and `dh archive rank|bodies`. Private preferences are a 0600 gitignored JSON expanded from the operator's AO3 searches, with low-weight runtime signals merged from the local reading list and bookmarks; those private files are never printed or committed. Targeted tests are green and one mutant per code task failed and was restored. Live 100-work pilot and full 20k run are still pending.

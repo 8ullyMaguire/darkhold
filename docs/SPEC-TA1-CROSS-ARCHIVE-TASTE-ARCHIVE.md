@@ -1,6 +1,6 @@
 # Spec — cross-archive metadata aggregation and private taste body archive (TA1)
 
-Status: planned 2026-11-20. Implementer: this repository's `master` lineage.
+Status: superseded by `docs/SPEC-TA2-DAILY-AGGREGATION-AND-BODIES.md` (20k ceiling and pilot gate removed). Implementer: this repository's `master` lineage.
 
 ## Problem
 
