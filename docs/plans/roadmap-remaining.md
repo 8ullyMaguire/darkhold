@@ -5359,3 +5359,11 @@ Census: REUSE the offline queue state and capability URLs; ADAPT one `suggest` s
 ## M69-24 blocked by foreign session — 2026-11-20
 
 `/home/alvaro/code/rust/suki` is dirty with an uncommitted `backend/src/services/mod.rs` and `backend/migrations/0171_identification.sql`. Proving identical taste computation needs both products in a clean, comparable state; editing around a foreign working tree risks overwriting another session's work. Clears when that checkout is committed/stashed by its owner, then the shared-crate and schema diff can be run.
+
+## M44-02 closed — 2026-11-20
+
+Census: the section was already delivered as M45-01 and M45-D00. Six `roadmap.rs` rows are in `ROUTE_TABLE` — public board, card detail, changelog; authenticated arena and suggest; operator-only move. `darkhold_domain::consensus` owns MaxDiff→Elo with symmetry and zero-sum invariants. Evidence: `crates/app/tests/milestone_45_roadmap` 55/55, `darkhold-domain --lib consensus` 3/3. No new surface; targeted-only per owner efficiency rule. Closing the row removed the requirements-sourced idea, so `scripts/ideas_catalogue.py` gained an explicit retired-doc-title alias for §44; catalogue regenerated to 93 ideas and `ideas_match_requirements` 3/3.
+
+## M29-08 remaining — 2026-11-20
+
+The board half is the same M45-01/M45-D00 product and is not being rebuilt. What §29 adds beyond it is not present: the three-per-identity rolling-day suggestion limit, embedding clustering, first-author representative text, and least-compared arena selection. Those are the remaining slices, in that order.

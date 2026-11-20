@@ -1,3 +1,7 @@
+## 2026-11-20 — M44-02 closed, M29-08 remaining scoped
+
+M44-02 was already delivered as M45-01/M45-D00: six roadmap routes, MaxDiff→Elo, 55-test acceptance suite. Added a retired-doc-title alias so the closed row stops generating an idea; catalogue 93 ideas, ideas test 3/3. M29-08 keeps only the §29 additions — suggestion rate limit, clustering, frozen representative text, least-compared arena — and those are the next slices.
+
 ## 2026-11-20 — M66-08 local edges shipped
 
 `dh share-queue --queue FILE suggest --for PATH` derives recommendations from co-queued paths on this device only; no network. Targeted share suite 6/6, mutant red/restored, clippy clean. No full gate per owner rule. M69-24 is blocked until the suki checkout is clean (foreign uncommitted migration/service edit).

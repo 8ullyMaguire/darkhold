@@ -3,12 +3,12 @@
     "requirements.csv": {
       "rows": 960,
       "by_status": {
-        "implemented-verified-e2e": 165,
+        "implemented-verified-e2e": 166,
         "implemented-locally-tested": 269,
         "unsupported": 4,
         "implemented-fully-tested": 461,
         "implemented": 41,
-        "planned": 8,
+        "planned": 7,
         "evaluated-and-rejected": 7,
         "blocked": 1,
         "partial": 1,
@@ -68,12 +68,6 @@
       "notes": "Reserved section, specified in docs/spec/29-community-roadmap-feature-consensus-and.md. Registered 2026-11-02 while making the ideas generator able to run at all (M65-08): its coverage gate had been refusing because this idea had no home."
     },
     {
-      "id": "M44-02",
-      "milestone": "M44",
-      "requirement": "44 roadmap consensus an elo ranked community voted board: a public board where the community ranks feature ideas by pairwise consensus, ported from FicHub's fichub-consensus Elo design",
-      "notes": "Reserved section, specified in docs/spec/44-roadmap-consensus-an-elo-ranked-community-voted.md. Registered 2026-11-02 for the same reason as M29-08: an idea the coverage gate named with no home."
-    },
-    {
       "id": "M45-74",
       "milestone": "M45",
       "requirement": "Seed the instance from the operator's rated reading list, through the product's own write path: measure first, prove the write path, then a dry-run seeder, then apply through the service, then rebuild what the ratings feed. The list is a prior, not a population, and the plan says so.",
@@ -85,8 +79,7 @@
     "M63": 2,
     "M64": 1,
     "M69": 1,
-    "M29": 1,
-    "M44": 1
+    "M29": 1
   },
   "unlinked_concord": [],
   "deferred_concord": [
