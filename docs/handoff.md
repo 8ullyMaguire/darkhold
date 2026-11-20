@@ -1,6 +1,6 @@
 ## 2026-11-20 — M71-14 per-work provenance slice
 
-`GET/PUT /feedback/preferences/works/{id}` now reports each field's source and a reset for an explicit per-work override. RED first, then 1/1 SQLite + 1/1 PostgreSQL; source mutant red/restored from `/tmp/m71-14-clean.rs`. Full gate pending; typography/gravity and the UI affordance remain in the row. Deploy stays under the host-memory block.
+`GET/PUT /feedback/preferences/works/{id}` now reports each field's source and a reset for an explicit per-work override. RED first, then 1/1 SQLite + 1/1 PostgreSQL; source mutant red/restored from `/tmp/m71-14-clean.rs`. Full gate `/tmp/gate-all-m71-14-provenance-67e523c6.log` `GATE_ALL_EXIT=0` at `67e523c6`. Typography/gravity and the UI affordance remain in the row. Deploy stays under the host-memory block.
 
 ## 2026-11-20 — M71-07 economy register added
 
