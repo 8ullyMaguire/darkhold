@@ -4,6 +4,7 @@
 //! listener is loopback only; `--lan` is an explicit choice to expose it. Every request must carry the random path token, and
 //! every resolved path is canonicalised back under the chosen root.
 
+use std::collections::{BTreeMap, BTreeSet};
 use std::path::{Component, Path, PathBuf};
 
 use clap::{Args, Subcommand};
@@ -354,6 +355,12 @@ pub enum QueueCommand {
     },
     /// Print the pending queue as JSON. Works offline.
     List,
+    /// Recommend other queued paths that appeared in the same local queue.
+    Suggest {
+        /// The queued path to find neighbours for.
+        #[arg(long = "for", value_name = "REL")]
+        for_path: String,
+    },
     /// Fetch reachable items into a directory, keeping failed ones queued.
     Drain {
         /// Output root. Every resolved destination must stay under it.
@@ -496,6 +503,32 @@ pub fn run_queue(args: QueueArgs) -> Result<(), Failure> {
                 "{}",
                 serde_json::to_string_pretty(&state)
                     .map_err(|error| environment(format!("cannot encode queue: {error}")))?
+            );
+            Ok(())
+        }
+        QueueCommand::Suggest { for_path } => {
+            let state = queue_load(&args.queue)?;
+            let mut edges: BTreeMap<String, BTreeSet<String>> = BTreeMap::new();
+            for item in &state.items {
+                if !safe_relative(&item.path) {
+                    continue;
+                }
+                for other in &state.items {
+                    if other.path != item.path && safe_relative(&other.path) {
+                        edges
+                            .entry(item.path.clone())
+                            .or_default()
+                            .insert(other.path.clone());
+                    }
+                }
+            }
+            let suggestions: Vec<&str> = edges
+                .get(&for_path)
+                .map(|set| set.iter().map(String::as_str).collect())
+                .unwrap_or_default();
+            println!(
+                "{}",
+                serde_json::json!({ "for": for_path, "suggestions": suggestions })
             );
             Ok(())
         }

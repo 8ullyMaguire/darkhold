@@ -1,3 +1,7 @@
+## 2026-11-20 — M66-08 local edges shipped
+
+`dh share-queue --queue FILE suggest --for PATH` derives recommendations from co-queued paths on this device only; no network. Targeted share suite 6/6, mutant red/restored, clippy clean. No full gate per owner rule. M69-24 is blocked until the suki checkout is clean (foreign uncommitted migration/service edit).
+
 ## 2026-11-20 — M66-08 offline queue shipped
 
 `dh share-queue --queue FILE add|list|drain` queues direct-share paths locally with no network call; `drain` keeps unreachable items. Queue file mode 0600 because the URL is a bearer capability. Tests 5/5 including traversal guard mutant red/restored; First full gate failed on roff-escaped `share\-queue` in the man page and a stale M71-07 idea row; test normalised, catalogue regenerated to 94 ideas, targeted tests green. Retry stopped by owner efficiency correction (`proc_bd3f087f86a4` killed): no more hour-long gates mid-turn. Targeted share 5/5, completions 4/4, ideas 3/3 are the evidence. Row remains planned for local edges and the later seeding threat model.

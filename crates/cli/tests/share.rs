@@ -263,3 +263,36 @@ fn share_queue_refuses_paths_outside_the_output_root() {
     );
     assert!(!queue_file.exists(), "refused path still wrote a queue");
 }
+
+#[test]
+fn share_queue_suggests_from_local_co_queued_edges() {
+    let dir = std::env::temp_dir().join(format!("dh-queue-edges-{}", std::process::id()));
+    let _ = std::fs::remove_dir_all(&dir);
+    std::fs::create_dir_all(&dir).expect("fixture dir");
+    let queue_file = dir.join("queue.json");
+    for path in ["a.txt", "b.txt", "c.txt"] {
+        let added = queue(
+            &[
+                "add",
+                "--url",
+                &format!("http://127.0.0.1:1/deadtoken/{path}"),
+                "--path",
+                path,
+            ],
+            &queue_file,
+        );
+        assert!(added.status.success(), "add {path} failed");
+    }
+
+    let suggested = queue(&["suggest", "--for", "a.txt"], &queue_file);
+    assert!(suggested.status.success(), "suggest failed");
+    let json: serde_json::Value = serde_json::from_slice(&suggested.stdout).expect("suggest JSON");
+    assert_eq!(json["for"], "a.txt");
+    let names: Vec<&str> = json["suggestions"]
+        .as_array()
+        .expect("suggestions array")
+        .iter()
+        .filter_map(|value| value.as_str())
+        .collect();
+    assert_eq!(names, ["b.txt", "c.txt"], "local edges: {json}");
+}

@@ -8,9 +8,10 @@
         "unsupported": 4,
         "implemented-fully-tested": 461,
         "implemented": 41,
-        "planned": 9,
+        "planned": 8,
         "evaluated-and-rejected": 7,
         "blocked": 1,
+        "partial": 1,
         "done": 3
       }
     },
@@ -55,12 +56,6 @@
       "notes": "P14. The spec already names embedding and matrix-factorisation strategies as provider-gated (\u00a716). Summary embeddings are the cheap half; full-text style matching needs the bodies, which the catalogue deliberately does not store. DOMAIN SLICE SHIPPED 2026-11-19: `darkhold_domain::embeddings` selects summary first, delegates dense cosine to polaris-affinity, and degrades to original order for disabled/unavailable/failed/malformed inputs. Row remains planned for the provider adapter and served-feed wiring; no configured provider exists on this instance."
     },
     {
-      "id": "M66-08",
-      "milestone": "M66",
-      "requirement": "P2P local file sharing over the LAN and by direct link, with a seeding network later: a reader serves their own files to another person directly \u2014 no relay, no DHT, no node discovery, no global namespace \u2014 and their files stay their own files.",
-      "notes": "The first milestone is deliberately smaller and shippable: serve local files to another person on the LAN or by a direct link, with no relay, no DHT, no node discovery and no global namespace; the user's own files stay their own files. Items 50, 51, 61, 69 and 96 belong to it (drag-drop import, local full-text search, offline queue, Calibre metadata.db ingestion, a local engine over local edges). The seeding network (81, 93, 98, 99) is a later spec that needs a threat model first \u2014 a document, not a weekend. DIRECT SHARE SHIPPED 2026-11-19: dh share --dir serves one directory under a random URL capability, loopback by default and --lan explicit; real HTTP test 1/1, wrong-token mutant red/restored. Row stays planned for local engine and seeding milestones. LOCAL SEARCH SHIPPED 2026-11-19: dh share ?q= returns bounded JSON text hits under the same capability; real HTTP test 2/2, mutant red/restored."
-    },
-    {
       "id": "M69-24",
       "milestone": "M69",
       "requirement": "one shared taste crate and one JSON schema set, so darkhold and suki compute blend, affinity and the passport identically",
@@ -89,7 +84,6 @@
     "M45": 2,
     "M63": 2,
     "M64": 1,
-    "M66": 1,
     "M69": 1,
     "M29": 1,
     "M44": 1
