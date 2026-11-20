@@ -1058,9 +1058,19 @@ fn library_input(
             "source_url": row.source_url,
             "import_job_id": row.id,
             "body_audience": body_audience,
+            "tags": work.tags.clone(),
         })
         .to_string(),
     }
+}
+
+#[doc(hidden)]
+pub fn library_input_for_test(
+    work: &SourceWork,
+    row: &imports::ImportJob,
+    body_audience: &str,
+) -> imports::LibraryItemInput {
+    library_input(work, row, body_audience)
 }
 
 /// The planner's view of one stored unit.

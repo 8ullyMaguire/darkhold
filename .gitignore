@@ -75,3 +75,5 @@ __pycache__/
 # The gate writes one report per run; the committed one is the sweep being cited.
 docs/design/family/design-gate-*.json
 !docs/design/family/design-gate-latest.json
+
+/config/darkhold-taste.local.json
