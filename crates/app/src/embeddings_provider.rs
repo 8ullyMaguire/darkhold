@@ -39,7 +39,7 @@ impl OllamaEmbeddings {
 
 impl EmbeddingProvider for OllamaEmbeddings {
     fn available(&self) -> bool {
-        self.model.trim().len() > 0
+        !self.model.trim().is_empty()
             && (self.endpoint.starts_with("http://") || self.endpoint.starts_with("https://"))
     }
 
