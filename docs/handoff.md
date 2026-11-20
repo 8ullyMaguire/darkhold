@@ -1,6 +1,10 @@
+## 2026-11-20 — M71-14 closed
+
+Inline typography edits now offer "Set as default", and the gravity dial reports its level with a bodyless reset. RED first for both, GREEN ReaderSettings 2/2 and gravity 1/1 SQLite + 1/1 PostgreSQL; dirty-always-false and source-always-instance mutants red/restored. Full gate pending; live deploy remains under the host-memory block.
+
 ## 2026-11-20 — M71-14 typography UI and bodyless reset
 
-The provenance rows are now visible in the reader settings and their Reset button calls `DELETE /api/v1/settings/typography`; a version-0 reload applies instance defaults. RED first for both route and component, GREEN 1/1 SQLite + 1/1 PostgreSQL, route_inventory 6/6, ReaderSettings 1/1; both mutants red/restored. Full gate pending. The "set as default" inline-change affordance remains in the row; deploy stays under the host-memory block.
+The provenance rows are now visible in the reader settings and their Reset button calls `DELETE /api/v1/settings/typography`; a version-0 reload applies instance defaults. RED first for both route and component, GREEN 1/1 SQLite + 1/1 PostgreSQL, route_inventory 6/6, ReaderSettings 1/1; both mutants red/restored. Full gate `/tmp/gate-all-m71-14-ui-defa0933.log` `GATE_ALL_EXIT=0` at `defa0933`. The "set as default" inline-change affordance remains in the row; deploy stays under the host-memory block.
 
 ## 2026-11-20 — M71-14 typography provenance and reset
 

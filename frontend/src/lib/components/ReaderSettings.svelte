@@ -44,6 +44,21 @@
   let error = $state<unknown>(null);
   let conflict = $state(false);
   let provenance = $state<Record<string, SettingProvenanceView> | null>(null);
+  let saved = $state<TypographyPrefs>(readTypographyPrefs() ?? { ...DEFAULT_TYPOGRAPHY });
+
+  function sameTypography(a: TypographyPrefs, b: TypographyPrefs): boolean {
+    return (
+      a.font_scale === b.font_scale &&
+      a.line_height === b.line_height &&
+      a.measure === b.measure &&
+      a.reader_theme === b.reader_theme &&
+      a.distraction_free === b.distraction_free
+    );
+  }
+
+  // An inline toolbar edit is not yet a default. Only after it differs from the
+  // loaded values does the affordance to promote it appear (§46.5).
+  let dirty = $derived(signedIn && !sameTypography(prefs, saved));
 
   const PROVENANCE_LABELS: Record<string, string> = {
     distraction_free: 'Distraction-free',
@@ -74,6 +89,7 @@
       provenance = view.provenance ?? null;
       if (view.version === 0) {
         prefs = { ...DEFAULT_TYPOGRAPHY, version: 0 };
+        saved = { ...prefs };
         return;
       }
       // If the server's version is not newer than what we already hold,
@@ -89,6 +105,7 @@
         distraction_free: view.distraction_free,
         version: view.version,
       };
+      saved = { ...prefs };
     } catch {
       // Keep whatever is stored locally; the reader can still read.
     }
@@ -175,7 +192,7 @@
 
   {#if signedIn}
     <button type="button" onclick={save} disabled={saving}>
-      {saving ? 'Saving…' : 'Save settings'}
+      {saving ? 'Saving…' : dirty ? 'Set as default' : 'Save settings'}
     </button>
   {:else}
     <p class="note">Sign in to keep these settings across your devices.</p>

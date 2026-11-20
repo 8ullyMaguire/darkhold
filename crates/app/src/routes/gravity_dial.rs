@@ -57,6 +57,23 @@ async fn read(State(state): State<AppState>, session: RequireSession) -> ApiResu
         "effective": effective(instance, stored),
         "locked": taste.gravity_locked,
         "ceiling": taste.gravity_ceiling,
+        "provenance": {
+            "strength": {
+                // A dial belongs to the acting pseud; no row means the instance is
+                // in force. The reset is deliberately bodyless like privacy resets.
+                "value": format!("{:.2}", effective(instance, stored)),
+                "source": if stored.is_some() { "pseud" } else { "instance" },
+                "reset": if stored.is_some() {
+                    json!({
+                        "method": "DELETE",
+                        "path": "/api/v1/discovery/gravity",
+                        "becomes": "instance default",
+                    })
+                } else {
+                    Value::Null
+                },
+            },
+        },
     })))
 }
 

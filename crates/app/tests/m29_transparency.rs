@@ -2258,6 +2258,12 @@ async fn the_reader_gravity_dial_narrows_never_widens_and_cannot_move_a_locked_i
     assert_eq!(body["instance"], 0.2, "{body}");
     assert!(body["yours"].is_null(), "no stored choice yet: {body}");
     assert_eq!(body["effective"], 0.2, "{body}");
+    assert_eq!(
+        body["provenance"]["strength"]["source"], "instance",
+        "{body}"
+    );
+    assert_eq!(body["provenance"]["strength"]["value"], "0.20", "{body}");
+    assert!(body["provenance"]["strength"]["reset"].is_null(), "{body}");
 
     // Narrowing is allowed, all the way to zero.
     let (status, body) = reader
@@ -2271,6 +2277,16 @@ async fn the_reader_gravity_dial_narrows_never_widens_and_cannot_move_a_locked_i
         "zero is a choice, not an absence: {body}"
     );
     assert_eq!(body["effective"], 0.0, "{body}");
+    assert_eq!(body["provenance"]["strength"]["source"], "pseud", "{body}");
+    assert_eq!(body["provenance"]["strength"]["value"], "0.00", "{body}");
+    assert_eq!(
+        body["provenance"]["strength"]["reset"]["method"], "DELETE",
+        "{body}"
+    );
+    assert_eq!(
+        body["provenance"]["strength"]["reset"]["path"], "/api/v1/discovery/gravity",
+        "{body}"
+    );
 
     // Widening is refused, and the refusal says what would have been accepted.
     let (status, body) = reader

@@ -55,7 +55,7 @@ vi.mock('../api', () => ({
   apiFetch: vi.fn(async () => undefined),
 }));
 
-import { apiFetch, fetchTypography } from '../api';
+import { apiFetch, fetchTypography, patchTypography } from '../api';
 import ReaderSettings from './ReaderSettings.svelte';
 
 describe('ReaderSettings provenance', () => {
@@ -82,5 +82,25 @@ describe('ReaderSettings provenance', () => {
     );
     await waitFor(() => expect(screen.queryByRole('button', { name: /reset/i })).toBeNull());
     expect(screen.getAllByText('instance').length).toBeGreaterThan(0);
+  });
+
+  it('offers to set an inline edit as the reader default', async () => {
+    vi.mocked(fetchTypography).mockResolvedValue(accountView as never);
+    vi.mocked(patchTypography).mockClear();
+
+    const { container } = render(ReaderSettings, { props: { signedIn: true } });
+    await waitFor(() => expect(screen.getAllByText('account').length).toBe(5));
+    expect(screen.queryByRole('button', { name: /set as default/i })).toBeNull();
+
+    const slider = container.querySelector('#typography-font_scale') as HTMLInputElement;
+    await fireEvent.input(slider, { target: { value: '1.4' } });
+
+    const button = await screen.findByRole('button', { name: /set as default/i });
+    await fireEvent.click(button);
+    await waitFor(() =>
+      expect(patchTypography).toHaveBeenCalledWith(
+        expect.objectContaining({ expected_version: 1, font_scale: 1.4 }),
+      ),
+    );
   });
 });
