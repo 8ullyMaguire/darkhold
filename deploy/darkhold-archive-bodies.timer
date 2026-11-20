@@ -1,0 +1,10 @@
+[Unit]
+Description=Run the Darkhold private taste body archive daily
+
+[Timer]
+OnCalendar=*-*-* 04:15:00
+Persistent=true
+Unit=darkhold-archive-bodies.service
+
+[Install]
+WantedBy=timers.target

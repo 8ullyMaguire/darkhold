@@ -1,0 +1,9 @@
+[Unit]
+Description=Darkhold private taste body archive
+After=network-online.target
+
+[Service]
+Type=oneshot
+EnvironmentFile=/personal/secrets/estate/darkhold.env
+WorkingDirectory=/personal/documents/code/rust/darkhold
+ExecStart=/bin/bash /personal/documents/code/rust/darkhold/scripts/darkhold-archive-bodies.sh
