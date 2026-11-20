@@ -17,6 +17,8 @@
 //! `docs/cli-exit-codes.md`, because a wrapper script decides what to do from that number alone.
 
 mod admin;
+mod archive;
+mod archive_preferences;
 mod audit;
 mod bench;
 mod catalogue;
@@ -179,6 +181,8 @@ pub enum Command {
     /// dispatches and records outcomes without making an HTTP request. `Cron` stays: this
     /// subcommand replaces the operator's timer, not the reader's own user timer.
     Jobs(JobsArgs),
+    /// TA1: rank the private catalogue and enqueue capped body imports.
+    Archive(archive::ArchiveArgs),
     /// M63-32: backfill source-backed tags from stored import provenance.
     ///
     /// `dh catalogue --db-url … --source archive --limit 500 --yes`
@@ -408,6 +412,13 @@ async fn main() -> std::process::ExitCode {
         )
         .await
         {
+            Ok(()) => std::process::ExitCode::SUCCESS,
+            Err(error) => {
+                eprintln!("{error}");
+                std::process::ExitCode::from(error.code)
+            }
+        },
+        Command::Archive(args) => match archive::run(&cli, args).await {
             Ok(()) => std::process::ExitCode::SUCCESS,
             Err(error) => {
                 eprintln!("{error}");

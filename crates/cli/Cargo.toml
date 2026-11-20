@@ -17,6 +17,7 @@ tui = []
 [dependencies]
 time = { workspace = true, features = ["parsing", "formatting"] }
 # M63-03: one definition of the metric vocabulary, shared with the server.
+darkhold-taste = { path = "../taste" }
 darkhold-domain = { path = "../domain" }
 base64.workspace = true
 sqlx.workspace = true

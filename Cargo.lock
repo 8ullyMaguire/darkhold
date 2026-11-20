@@ -934,6 +934,7 @@ dependencies = [
  "darkhold-db",
  "darkhold-domain",
  "darkhold-scrapers",
+ "darkhold-taste",
  "polaris-jobs",
  "reqwest",
  "serde",
