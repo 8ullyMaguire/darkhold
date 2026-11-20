@@ -1,3 +1,7 @@
+## 2026-11-20 — M64-14 deployed live
+
+`estate.py deploy darkhold --yes` completed: build exit 0 (1019 s), migrate exit 0, restart exit 0, five probes exit 0, `DEPLOY_EXIT=0`. Live `/api/v1/meta` reports `0.1.0+9c34e649`. No migration or data write was part of this deploy, so no new `pg_dump` was taken; the earlier named dump remains the rollback point.
+
 ## 2026-11-20 — M63-32 partial: provenance tag backfill tool shipped
 
 `dh catalogue --db-url … --source KEY --limit N --yes` now backfills source-backed tags from `library_items.provenance_json` without re-fetching source pages. Dry run writes nothing; a real pass writes visible `Claimant::Source` assertions into fandom/character/relationship/tag nodes and is idempotent. Tests 2/2 SQLite and 2/2 PostgreSQL; dry-run mutant `left: 7 / right: 0`, restored from /tmp. Live backfill not run; like counts still blocked by Pawchive's API.

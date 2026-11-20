@@ -5405,3 +5405,7 @@ The bot now works the Ascend way: signed HTTP interactions and registered slash 
 Census REUSE `library_items.provenance_json`, `tag_assertions::assert_tag(Claimant::Source)`, `taxonomy::ensure_node_from_signal`; ADAPT one `darkhold-db` pass plus one `dh catalogue` operator verb; BUILD one two-engine integration suite. No network re-fetch is needed for tags: the metadata is already stored. The tool is dry-run by default and only writes with `--yes`.
 
 Live backfill has NOT been run. The like-count half is still open because Pawchive's posts API publishes no likes field; do not infer endorsement from views or comments. This row stays partial until a bounded live run shifts the measured coverage.
+
+## M64-14 deployed — 2026-11-20
+
+Estate deploy verified commit `9c34e649` live: build 1019 s, migrate 45 ms, restart 117 ms, five probes green, `darkhold verified in 1045s`. `/api/v1/meta` on the public host reads `0.1.0+9c34e649`. No migration or data write accompanied the code, so the earlier named dump remains the rollback point.
