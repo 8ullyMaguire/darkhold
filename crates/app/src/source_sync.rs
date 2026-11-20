@@ -178,6 +178,19 @@ where
     visited
 }
 
+/// Resolve a catalogue's recommendation template against its host.
+///
+/// The source catalogue records site-relative templates such as
+/// `/patreon/user/{id}/recommended`; `SafeFetcher` needs a full URL.
+pub fn recommendation_url(host: &str, template: &str, author_id: &str) -> String {
+    let path = template.replace("{id}", author_id);
+    if path.starts_with("http://") || path.starts_with("https://") {
+        path
+    } else {
+        format!("https://{host}{path}")
+    }
+}
+
 /// Whether a catalogue discovery shape gives the sync pass anything to walk.
 ///
 /// `AuthorFrontier` builds its work list from the configured seeds instead of a
@@ -319,6 +332,7 @@ pub async fn run(state: &AppState) -> anyhow::Result<Summary> {
                 .filter(|seed| seed.source_id == entry.id)
                 .cloned()
                 .collect();
+            let host = entry.host.clone();
             let recommended_template = match &entry.discovery {
                 Discovery::AuthorFrontier { recommended_template } => recommended_template.clone(),
                 _ => String::new(),
@@ -330,8 +344,10 @@ pub async fn run(state: &AppState) -> anyhow::Result<Summary> {
                 config.max_works_per_listing.max(1),
                 |author_id| {
                     let template = recommended_template.clone();
+                    let host = host.clone();
                     async move {
-                        let recommendation_url = template.replace("{id}", &author_id);
+                        let recommendation_url =
+                            recommendation_url(&host, &template, &author_id);
                         let fetched = frontier_fetcher
                             .get_declared(&recommendation_url, FetchClass::Metadata)
                             .await

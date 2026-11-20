@@ -1,3 +1,13 @@
+## 2026-11-20 — TA2 complete
+
+Deploy revealed three real defects, each fixed with a targeted red/green/mutant cycle: an `AuthorFrontier` source was skipped because it has no static listing; the `/recommended` suffix was mistaken for the author id; and the catalogue's relative `recommended_template` was passed to `SafeFetcher` as if it were absolute. Pawchive BFS now walks from the single Dark Wolf Shiro seed.
+
+Live repair before body archiving: `dh catalogue --group-chapters --account … --yes` reported `scanned=27464 groups=464 merged=809 urls=464 applied=true`; Pawchive library rows fell from 27,464 to 26,655 and 464 keeper rows carry `source_urls` in provenance. A named 3.5 GB dump was taken first and verified with `pg_restore -l`.
+
+The daily body wrapper ran successfully and wrote `~/.local/state/darkhold/archive-bodies.latest`. It uses `dh archive --db-url … --account … --pseud …` with the private 0600 preferences file copied to the deploy tree; discovery stays body-policy `skip`, selected works use `store`. The remaining 20k default in `bodies --limit` was removed: the flag is optional, unbounded by default.
+
+Acceptance commands and evidence: `cargo test -p darkhold-app --test syndication_frontier` 7/7; `cargo test -p darkhold-cli --test archive_cli` 3/3; `cargo test -p darkhold-db --test pawchive_grouping` SQLite+PostgreSQL green; `cargo test -p darkhold-scrapers --test efiction_fixtures` green. One mutant per fix reddened and was restored. Full estate gate was not rerun after the first 420 s timeout, per the targeted-test instruction.
+
 ## 2026-11-20 — TA2 code complete; final deploy in progress
 
 All TA2 code rows are implemented on `master`: no 20k ceiling, Pawchive chapter grouping with a repair verb, private-taste body enqueue test, daily body wrapper/timer, live 24-hour syndication config with the one Dark Wolf Shiro seed and 120-day Pawchive window, and four new eFiction-family adapters with fixture-backed host claims. The other 20 catalogued sources have written coverage dispositions in `docs/SPEC-TA2-DAILY-AGGREGATION-AND-BODIES.md`. Targeted tests and one mutant per code row are green/red/restored. TA2-1 remains open until the release build and live restart finish.

@@ -10,7 +10,7 @@ Plan: `/home/alvaro/.hermes/plans/2026-11-20_214101-ta2-daily-aggregation-and-bo
 
 Checklist:
 
-- [ ] TA2-1 deploy current binary after TA2 code is merged.
+- [x] TA2-1 deploy current binary after TA2 code is merged.
 - [x] TA2-2 configure Pawchive BFS seed at depth 3.
 - [x] TA2-3 group Pawchive chapter submissions into one work and repair existing duplicates.
 - [x] TA2-4 apply Pawchive `older_than = 120d`.
