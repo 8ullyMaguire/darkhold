@@ -1,6 +1,6 @@
 ## 2026-11-20 — M71-07 economy register added
 
-`AdminEconomyFlows` now feeds the shared `AlertBar`: an undeclared credit source is named with its next step and a Fix link to the unclassified table. RED 1/10 before implementation, GREEN 10/10, condition mutant RED 2/10 and restored from `/tmp/m71-07-clean.svelte`. No new API or store query. Full gate pending; live deploy shares the M64-15 host-memory block.
+`AdminEconomyFlows` now feeds the shared `AlertBar`: an undeclared credit source is named with its next step and a Fix link to the unclassified table. RED 1/10 before implementation, GREEN 10/10, condition mutant RED 2/10 and restored from `/tmp/m71-07-clean.svelte`. No new API or store query. Full gate `/tmp/gate-all-m71-07-economy-5a56e16c.log` `GATE_ALL_EXIT=0` at `5a56e16c`. Live deploy shares the M64-15 host-memory block.
 
 ## 2026-11-19 — M70-13 orphan ratchet 27 → 26
 
