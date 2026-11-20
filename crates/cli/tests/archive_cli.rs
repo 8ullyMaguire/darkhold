@@ -39,6 +39,23 @@ fn private_preferences_must_be_mode_0600() {
 }
 
 #[test]
+fn bodies_only_enqueue_private_taste_matches() {
+    let source = include_str!("../src/archive.rs");
+    assert!(
+        source.contains("if scored.excluded {"),
+        "excluded candidates must be filtered out"
+    );
+    assert!(
+        source.contains("if scored.value <= 0.0 {"),
+        "only positive taste matches may be selected"
+    );
+    assert!(
+        source.contains("\"body_policy\": \"store\""),
+        "selected works must request body storage"
+    );
+}
+
+#[test]
 fn no_global_body_ceiling_remains() {
     let archive = include_str!("../src/archive.rs");
     let prefs = include_str!("../src/archive_preferences.rs");
