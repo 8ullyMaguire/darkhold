@@ -1,0 +1,43 @@
+# TA2 syndication configuration excerpt.
+#
+# Apply to /personal/documents/code/rust/darkhold/darkhold.toml on thinkcentre.
+# The full file is owned by the deploy tree; this excerpt is the reviewable copy.
+
+[syndication]
+enabled = true
+interval_hours = 24
+max_works_per_listing = 200
+
+[[syndication.author_seeds]]
+source_id = "pawchive"
+author_url = "https://pawchive.pw/patreon/user/13212571/recommended"
+
+[[syndication.sources]]
+source_id = "pawchive"
+enabled = true
+older_than = "120d"
+body_audience = "role_operator"
+
+[[syndication.sources]]
+source_id = "ao3"
+enabled = true
+older_than = "36500d"
+body_audience = "role_operator"
+
+[[syndication.sources]]
+source_id = "qq"
+enabled = true
+older_than = "36500d"
+body_audience = "role_operator"
+
+[[syndication.sources]]
+source_id = "sv"
+enabled = true
+older_than = "36500d"
+body_audience = "role_operator"
+
+[[syndication.sources]]
+source_id = "sb"
+enabled = true
+older_than = "36500d"
+body_audience = "role_operator"
