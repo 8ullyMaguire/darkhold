@@ -1,6 +1,6 @@
 {
  "generated_by": "scripts/ideas_catalogue.py",
- "count": 97,
+ "count": 96,
  "ideas": [
   {
    "why_summary": "",
@@ -116,19 +116,6 @@
    "milestone": "M64",
    "relevance": 3,
    "because": "a requirements row exists (+4); needs a model or heavy compute (-1)",
-   "default_on": false,
-   "built": false
-  },
-  {
-   "why_summary": "UI half 2026-11-16: `SettingProvenance 2/2`, `PrivacySettings 2/2`, `Account 2/2`, `Pseuds 4/4`; `svelte-check 0 errors`; `gate.sh frontend ok`; mutant always-rendering reset redde",
-   "id": "M71-14",
-   "title": "Settings show inheritance with provenance at every level (instance, account, pseud, per-work), deep-link to the exact control, offer a reset at each level that overrides, and reflect inline changes made elsewhere with a 'set as default' affordance.",
-   "sources": [
-    "docs/requirements.csv"
-   ],
-   "milestone": "M71",
-   "relevance": 3,
-   "because": "a requirements row exists (+4); the source hedges (-1)",
    "default_on": false,
    "built": false
   },
