@@ -1,3 +1,7 @@
+## 2026-11-20 — all remaining rows blocked; M69-24 condition refined
+
+Suki is clean and already depends on `polaris-taste-source`, so that half of M69-24 cleared. The shared crate itself now has uncommitted `Cargo.lock` and five source files from another session. M69-24 clears when that checkout is committed or stashed; then one versioned passport schema can be added in the shared crate and adopted by both products. Every other remaining row is still blocked; halted per §2.1.
+
 ## 2026-11-20 — M29-08 closed
 
 Representative title and body are proven immutable against later joiners; rewrite mutant red/restored. All §29 slices shipped (rate limit, local clustering, frozen text, least-compared arena) on top of M45-01/M45-D00.
