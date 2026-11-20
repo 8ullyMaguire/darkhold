@@ -5371,3 +5371,7 @@ The board half is the same M45-01/M45-D00 product and is not being rebuilt. What
 ## M29-08 suggestion rate limit — 2026-11-20
 
 Census: REUSE `roadmap_suggestions.created_at/account_id`, `RoadmapConfig` and the existing `post_suggest` trust gate; ADAPT one two-engine count and one route guard; BUILD no table, route or crate. Decision: three suggestions per acting identity per rolling 24 hours, configurable as `[roadmap].max_suggestions_per_day` (default 3); the refusal names count, limit and window. The route is session-only, so the guest identifier half is not invented. Evidence: count 1/1 SQLite + 1/1 PostgreSQL, count-always-zero mutant red (`left: 0 / right: 3`) and restored from `/tmp/m29-08-limit.bak`, config 76/76, clippy -p darkhold-app clean. Targeted-only; no full gate. Row stays partial for clustering, frozen representative text and least-compared arena selection.
+
+## M29-08 clustering — 2026-11-20
+
+Census: REUSE the shared `polaris-affinity` Jaccard kernel, idea-stage cards and the exact-title attach; ADAPT one domain score, one store search and one `clustered_by` response field; BUILD nothing. Decision: no embedding provider is configured, so local word overlap is the best-effort signal and is named as such; a card's representative title is never rewritten. Evidence: domain 1/1; store 1/1 SQLite + 1/1 PostgreSQL; always-None score mutant reddened the store test, restored from `/tmp/m29-08-cluster-clean.rs`. Targeted only. Row stays partial for frozen representative text and least-compared arena selection.

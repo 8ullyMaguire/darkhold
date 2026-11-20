@@ -72,6 +72,30 @@ pub fn maxdiff_elo_updates(
     }
 }
 
+/// Best-effort local clustering score for a new suggestion against a card's
+/// representative text.
+///
+/// With no embedding provider configured this is deliberately just normalised
+/// word overlap using the estate's shared Jaccard kernel. It is honest about
+/// its evidence: a high score means "these words look alike", not "a model
+/// judged these ideas the same". `None` means one side had no words.
+pub fn suggestion_cluster_score(candidate: &str, representative: &str) -> Option<f64> {
+    let words = |text: &str| -> Vec<String> {
+        text.to_lowercase()
+            .split_whitespace()
+            .map(|word| {
+                word.chars()
+                    .filter(|c| c.is_alphanumeric())
+                    .collect::<String>()
+            })
+            .filter(|word| !word.is_empty())
+            .collect()
+    };
+    let candidate = words(candidate);
+    let representative = words(representative);
+    polaris_affinity::similarity::jaccard(&candidate, &representative)
+}
+
 /// Kanban stages (spec §44.2). Only `idea` is arena-eligible by default.
 pub const STAGES: &[&str] = &[
     "idea",
@@ -120,5 +144,22 @@ mod tests {
         let out = maxdiff_elo_updates(1512.0, 1460.0, &unchosen, K_FACTOR);
         let total = out.best_delta + out.worst_delta + out.unchosen_deltas.iter().sum::<f64>();
         assert!(total.abs() < 1e-9, "ballot must be zero-sum, got {total}");
+    }
+
+    #[test]
+    fn a_local_suggestion_score_uses_word_overlap() {
+        let close = crate::consensus::suggestion_cluster_score(
+            "better search filters for tags",
+            "better search filters",
+        )
+        .expect("both texts have words");
+        let far = crate::consensus::suggestion_cluster_score(
+            "better search filters",
+            "dark mode for reading",
+        )
+        .expect("both texts have words");
+        assert!(close > 0.5, "close score: {close}");
+        assert!(far < 0.2, "far score: {far}");
+        assert!(crate::consensus::suggestion_cluster_score("   ", "better search").is_none());
     }
 }

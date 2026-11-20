@@ -483,9 +483,24 @@ pub async fn post_suggest(
         }));
     }
 
-    let card = roadmap::find_card_by_title_normalized(state.db(), &body.title)
+    let mut card = roadmap::find_card_by_title_normalized(state.db(), &body.title)
         .await
         .map_err(|e| ApiError(AppError::Internal(e.into())))?;
+
+    let mut clustered_by = if card.is_some() {
+        "exact-title"
+    } else {
+        "new-card"
+    };
+    if card.is_none() {
+        let threshold = state.config().roadmap.cluster_threshold;
+        card = roadmap::find_similar_card(state.db(), &body.title, threshold, Some("idea"))
+            .await
+            .map_err(|e| ApiError(AppError::Internal(e.into())))?;
+        if card.is_some() {
+            clustered_by = "local-jaccard";
+        }
+    }
 
     let card_id = card.as_ref().map(|c| c.id.clone());
     roadmap::insert_suggestion(
@@ -503,6 +518,7 @@ pub async fn post_suggest(
         Json(json!({
             "status": "recorded",
             "matched_existing": card_id.is_some(),
+            "clustered_by": clustered_by,
         })),
     ))
 }

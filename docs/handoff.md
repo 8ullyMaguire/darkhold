@@ -1,3 +1,7 @@
+## 2026-11-20 — M29-08 clustering shipped
+
+Suggestions now attach to the closest idea-stage card via shared local Jaccard, with `clustered_by` distinguishing exact-title, local-jaccard and new-card; representative titles are not rewritten. Domain 1/1, store 1/1 SQLite + 1/1 PG, mutant red/restored. Remaining: frozen representative text and least-compared arena.
+
 ## 2026-11-20 — M29-08 suggestion rate limit shipped
 
 `[roadmap].max_suggestions_per_day` defaults to 3 and is enforced through a two-engine `count_suggestions_since`. Count 1/1 SQLite + 1/1 PostgreSQL, mutant red/restored, config 76/76, clippy clean. Remaining: clustering, frozen representative text, least-compared arena.

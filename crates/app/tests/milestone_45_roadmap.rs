@@ -50,8 +50,8 @@ use std::path::PathBuf;
 
 use darkhold_db::roadmap::{
     apply_elo_and_counters, arena_candidates, count_suggestions_since, create_ballot, fetch_ballot,
-    find_card_by_id, find_card_by_title_normalized, insert_suggestion, list_cards, list_moves,
-    mark_voted, record_move, update_card_stage, upsert_card, Card,
+    find_card_by_id, find_card_by_title_normalized, find_similar_card, insert_suggestion,
+    list_cards, list_moves, mark_voted, record_move, update_card_stage, upsert_card, Card,
 };
 use test_support::TestDb;
 
@@ -1379,5 +1379,39 @@ async fn a_rolling_day_counts_only_recent_suggestions() {
             .await
             .expect("count"),
         0
+    );
+}
+
+#[tokio::test]
+async fn a_similar_suggestion_joins_an_idea_without_renaming_it() {
+    let harness = Harness::new("suggest-cluster").await;
+    let card = harness.card("Better search filters", "idea", 1500.0).await;
+    harness.card("Dark mode for reading", "idea", 1500.0).await;
+    harness.card("Shipped old filters", "shipped", 1500.0).await;
+
+    let found = find_similar_card(
+        harness.db(),
+        "better search filters for tags",
+        0.6,
+        Some("idea"),
+    )
+    .await
+    .expect("find similar");
+    assert_eq!(found.expect("clustered").id, card.id);
+    assert!(
+        find_similar_card(
+            harness.db(),
+            "better search filters for tags",
+            0.9,
+            Some("idea"),
+        )
+        .await
+        .expect("find similar")
+        .is_none(),
+        "a high threshold must not invent a match"
+    );
+    assert_eq!(
+        card.title, "Better search filters",
+        "representative text moved"
     );
 }

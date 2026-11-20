@@ -193,6 +193,38 @@ pub async fn find_card_by_title_normalized(
         .find(|c| normalize_title(&c.title) == target))
 }
 
+/// Find the best idea-stage card whose representative text is close enough to
+/// a new suggestion. This is best-effort local clustering, not a vote: the
+/// caller decides the threshold and no card text is rewritten here.
+pub async fn find_similar_card(
+    db: &Database,
+    text: &str,
+    threshold: f64,
+    stage: Option<&str>,
+) -> Result<Option<Card>, sqlx::Error> {
+    let mut best: Option<(f64, Card)> = None;
+    for card in list_cards(db, stage).await? {
+        if card.stage != "idea" {
+            continue;
+        }
+        let Some(score) = darkhold_domain::consensus::suggestion_cluster_score(text, &card.title)
+        else {
+            continue;
+        };
+        if score < threshold {
+            continue;
+        }
+        if best
+            .as_ref()
+            .map(|(current, _)| score > *current)
+            .unwrap_or(true)
+        {
+            best = Some((score, card));
+        }
+    }
+    Ok(best.map(|(_, card)| card))
+}
+
 /// List cards, optionally filtered by stage. Elo DESC, tie-break matches_played DESC, card_id ASC.
 pub async fn list_cards(db: &Database, stage: Option<&str>) -> Result<Vec<Card>, sqlx::Error> {
     let sql = match stage {

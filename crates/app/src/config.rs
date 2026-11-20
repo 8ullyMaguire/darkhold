@@ -240,6 +240,8 @@ pub struct RoadmapConfig {
     pub min_trust: i64,
     /// §29.1: suggestions per acting identity in a rolling 24 hours.
     pub max_suggestions_per_day: i64,
+    /// §29.1: local word-overlap threshold for attaching a suggestion to a card.
+    pub cluster_threshold: f64,
     /// Whether the arena ranks by Glicko-2 rather than Elo (M69-10). Off by default: it changes what a stranger sees on the
     /// board — a rating plus an uncertainty — so it waits for a decision rather than a default.
     pub glicko: bool,
@@ -250,6 +252,7 @@ impl Default for RoadmapConfig {
         Self {
             min_trust: 1,
             max_suggestions_per_day: 3,
+            cluster_threshold: 0.6,
             glicko: false,
         }
     }
@@ -3607,6 +3610,11 @@ impl Config {
                     .as_ref()
                     .and_then(|r| r.max_suggestions_per_day)
                     .unwrap_or(3),
+                cluster_threshold: file
+                    .roadmap
+                    .as_ref()
+                    .and_then(|r| r.cluster_threshold)
+                    .unwrap_or(0.6),
                 glicko: file
                     .roadmap
                     .as_ref()
@@ -5253,6 +5261,8 @@ struct ThemeSignalWeightsSection {
 struct RoadmapSection {
     /// Suggestions per identity per rolling day (§29.1).
     max_suggestions_per_day: Option<i64>,
+    /// Local clustering threshold (§29.1).
+    cluster_threshold: Option<f64>,
     /// The trust level a reader needs to ballot, vote, or suggest on the
     /// roadmap. Defaults to 1, which is what the three call sites used to
     /// hardcode.
