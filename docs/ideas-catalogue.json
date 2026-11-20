@@ -1,6 +1,6 @@
 {
  "generated_by": "scripts/ideas_catalogue.py",
- "count": 93,
+ "count": 92,
  "ideas": [
   {
    "why_summary": "",
@@ -12,19 +12,6 @@
    "milestone": "unassigned",
    "relevance": 5,
    "because": "specified by an amendment (+3); named in the spec (+2)",
-   "default_on": false,
-   "built": false
-  },
-  {
-   "why_summary": "docs/spec/29-community-roadmap-feature-consensus-and.md Reserved section, specified in docs/spec/29-community-roadmap-feature-consensus-and.md. Registered 2026-11-02 while making t",
-   "id": "M29-08",
-   "title": "29 community roadmap feature consensus",
-   "sources": [
-    "docs/requirements.csv"
-   ],
-   "milestone": "M29",
-   "relevance": 4,
-   "because": "a requirements row exists (+4)",
    "default_on": false,
    "built": false
   },

@@ -5379,3 +5379,7 @@ Census: REUSE the shared `polaris-affinity` Jaccard kernel, idea-stage cards and
 ## M29-08 least-compared arena — 2026-11-20
 
 Census: REUSE `roadmap_cards.matches_played`, `arena_candidates` and the existing ballot route; ADAPT the two dialect `ORDER BY` clauses; BUILD nothing. Decision: least-compared first means `matches_played ASC`, with random tiebreak among equals; no pairing-history table is invented because the route already refuses a voter's repeated ballot. Evidence: store 1/1 SQLite + 1/1 PostgreSQL across eight distinct match counts; random-only mutant red/restored from `/tmp/m29-08-least.bak`. Targeted only. Row stays partial for an explicit frozen-representative-text guard.
+
+## M29-08 closed — 2026-11-20
+
+All §29 additions are now shipped on top of the M45-01/M45-D00 board: three-suggestion rolling-day limit, deterministic local clustering with `clustered_by`, frozen representative title/body, and least-compared arena ordering. Frozen-text acceptance attaches two joiner suggestions and asserts neither title nor body changes; a rewrite mutant reddened it and was restored from `/tmp/m29-08-frozen.bak`. Targeted-only, no full gate.

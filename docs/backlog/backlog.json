@@ -3,7 +3,7 @@
     "requirements.csv": {
       "rows": 960,
       "by_status": {
-        "implemented-verified-e2e": 166,
+        "implemented-verified-e2e": 167,
         "implemented-locally-tested": 269,
         "unsupported": 4,
         "implemented-fully-tested": 461,
@@ -11,7 +11,7 @@
         "planned": 6,
         "evaluated-and-rejected": 7,
         "blocked": 1,
-        "partial": 2,
+        "partial": 1,
         "done": 3
       }
     },

@@ -1,3 +1,7 @@
+## 2026-11-20 — M29-08 closed
+
+Representative title and body are proven immutable against later joiners; rewrite mutant red/restored. All §29 slices shipped (rate limit, local clustering, frozen text, least-compared arena) on top of M45-01/M45-D00.
+
 ## 2026-11-20 — M29-08 least-compared arena shipped
 
 `arena_candidates` now orders by `matches_played ASC, RANDOM()` on both engines. Store 1/1 SQLite + 1/1 PG; random-only mutant red/restored. Only the explicit frozen-representative-text guard remains.

@@ -1385,7 +1385,14 @@ async fn a_rolling_day_counts_only_recent_suggestions() {
 #[tokio::test]
 async fn a_similar_suggestion_joins_an_idea_without_renaming_it() {
     let harness = Harness::new("suggest-cluster").await;
-    let card = harness.card("Better search filters", "idea", 1500.0).await;
+    let card = harness
+        .card_with_body(
+            "Better search filters",
+            "idea",
+            1500.0,
+            "A one-sentence representative body",
+        )
+        .await;
     harness.card("Dark mode for reading", "idea", 1500.0).await;
     harness.card("Shipped old filters", "shipped", 1500.0).await;
 
@@ -1412,8 +1419,29 @@ async fn a_similar_suggestion_joins_an_idea_without_renaming_it() {
     );
     assert_eq!(
         card.title, "Better search filters",
-        "representative text moved"
+        "representative title moved"
     );
+
+    for text in [
+        "better search filters for tags",
+        "better search filters for fandom",
+    ] {
+        insert_suggestion(
+            harness.db(),
+            &harness.account().await,
+            text,
+            None,
+            Some(&card.id),
+        )
+        .await
+        .expect("attach suggestion");
+    }
+    let after = find_card_by_id(harness.db(), &card.id)
+        .await
+        .expect("find card")
+        .expect("card still exists");
+    assert_eq!(after.title, card.title, "a joiner rewrote representative title");
+    assert_eq!(after.body, card.body, "a joiner rewrote representative body");
 }
 
 #[tokio::test]

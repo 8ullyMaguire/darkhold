@@ -489,7 +489,10 @@ def document_titles(path: Path) -> list[str] | None:
 # Spec titles whose requirement row is built and therefore no longer produces an
 # idea from the requirements pass. Without this alias the coverage gate asks a
 # closed row to keep producing an idea, which is the second backlog §59.8 forbids.
-RETIRED_DOC_TITLES = {"44 Roadmap Consensus An Elo Ranked Community Voted"}
+RETIRED_DOC_TITLES = {
+    "29 Community Roadmap Feature Consensus And",
+    "44 Roadmap Consensus An Elo Ranked Community Voted",
+}
 
 
 def coverage_gate(catalogue_slugs: set[str], retired_slugs: set[str],
