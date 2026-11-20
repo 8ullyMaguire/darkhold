@@ -29,6 +29,8 @@
 //!    rating is keyed on the *pseud* that wrote it, so switching faces shows a
 //!    different set.
 
+use std::collections::BTreeMap;
+
 use axum::extract::{Path, Query, State};
 use axum::http::StatusCode;
 use axum::routing::{delete, get, post, put};
@@ -143,6 +145,11 @@ struct NoteRequest {
 #[derive(Debug, Deserialize)]
 struct TypographyRequest {
     expected_version: i64,
+    /// Reset to instance defaults by deleting the account row (M71-14). This is
+    /// not a patch of the default values: writing those would keep the source
+    /// "account" and lie about where the effective values came from.
+    #[serde(default)]
+    reset: bool,
     #[serde(default)]
     font_scale: Option<f64>,
     #[serde(default)]
@@ -363,6 +370,22 @@ struct TypographyView {
     reader_theme: String,
     distraction_free: bool,
     version: i64,
+    provenance: BTreeMap<String, TypographyProvenanceView>,
+}
+
+/// Where one typography field came from and how to clear that level (M71-14).
+#[derive(Debug, Serialize)]
+struct TypographyProvenanceView {
+    value: String,
+    source: &'static str,
+    reset: Option<TypographyResetView>,
+}
+
+#[derive(Debug, Serialize)]
+struct TypographyResetView {
+    method: &'static str,
+    path: &'static str,
+    becomes: &'static str,
 }
 
 // ---------------------------------------------------------------------------
@@ -1043,11 +1066,59 @@ async fn delete_note(
 // Typography
 // ---------------------------------------------------------------------------
 
+/// `version > 0` means a real account row exists; `version == 0` means the
+/// instance defaults are in force and there is nothing for the reader to reset.
+fn typography_provenance(
+    typography: &reading::Typography,
+) -> BTreeMap<String, TypographyProvenanceView> {
+    let reset = (typography.version > 0).then_some(TypographyResetView {
+        method: "PATCH",
+        path: "/api/v1/settings/typography",
+        becomes: "instance default",
+    });
+    let source = if reset.is_some() {
+        "account"
+    } else {
+        "instance"
+    };
+    let mut provenance = BTreeMap::new();
+    for (key, value) in [
+        (
+            "distraction_free",
+            if typography.distraction_free {
+                "on"
+            } else {
+                "off"
+            }
+            .to_owned(),
+        ),
+        ("font_scale", format!("{:.2}", typography.font_scale)),
+        ("line_height", format!("{:.2}", typography.line_height)),
+        ("measure", typography.measure.to_string()),
+        ("reader_theme", typography.reader_theme.clone()),
+    ] {
+        provenance.insert(
+            key.to_owned(),
+            TypographyProvenanceView {
+                value,
+                source,
+                reset: reset.as_ref().map(|r| TypographyResetView {
+                    method: r.method,
+                    path: r.path,
+                    becomes: r.becomes,
+                }),
+            },
+        );
+    }
+    provenance
+}
+
 async fn get_typography(
     State(state): State<AppState>,
     RequireSession(user): RequireSession,
 ) -> ApiResult<Json<TypographyView>> {
     let typography = reading::typography_for(state.db(), user.account_id).await?;
+    let provenance = typography_provenance(&typography);
     Ok(Json(TypographyView {
         font_scale: typography.font_scale,
         line_height: typography.line_height,
@@ -1055,6 +1126,7 @@ async fn get_typography(
         reader_theme: typography.reader_theme,
         distraction_free: typography.distraction_free,
         version: typography.version,
+        provenance,
     }))
 }
 
@@ -1063,6 +1135,10 @@ async fn save_typography(
     RequireSession(user): RequireSession,
     Json(request): Json<TypographyRequest>,
 ) -> ApiResult<StatusCode> {
+    if request.reset {
+        reading::reset_typography(state.db(), user.account_id).await?;
+        return Ok(StatusCode::NO_CONTENT);
+    }
     let current = reading::typography_for(state.db(), user.account_id).await?;
     let font_scale = request.font_scale.unwrap_or(current.font_scale);
     let line_height = request.line_height.unwrap_or(current.line_height);

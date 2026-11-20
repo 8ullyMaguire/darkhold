@@ -804,6 +804,77 @@ async fn a_stale_typography_patch_returns_conflict() {
     harness.cleanup().await;
 }
 
+#[tokio::test]
+async fn typography_provenance_names_the_level_and_offers_a_reset() {
+    let harness = Harness::new("typography-provenance").await;
+    let mut reader = harness.client();
+    register(&mut reader, "reader@example.com", "Reader").await;
+
+    // An untouched account reads instance defaults: no override, no reset to offer.
+    let (status, body) = reader.get("/api/v1/settings/typography").await;
+    assert_eq!(status, StatusCode::OK, "{body}");
+    assert_eq!(
+        body["provenance"]["font_scale"]["source"], "instance",
+        "{body}"
+    );
+    assert!(
+        body["provenance"]["font_scale"]["reset"].is_null(),
+        "{body}"
+    );
+
+    let (status, _) = reader
+        .patch(
+            "/api/v1/settings/typography",
+            json!({ "expected_version": 0, "font_scale": 1.2 }),
+        )
+        .await;
+    assert_eq!(status, StatusCode::NO_CONTENT);
+
+    let (status, body) = reader.get("/api/v1/settings/typography").await;
+    assert_eq!(status, StatusCode::OK, "{body}");
+    assert_eq!(
+        body["provenance"]["font_scale"]["source"], "account",
+        "{body}"
+    );
+    assert_eq!(body["provenance"]["font_scale"]["value"], "1.20", "{body}");
+    assert_eq!(
+        body["provenance"]["font_scale"]["reset"]["method"], "PATCH",
+        "{body}"
+    );
+    assert_eq!(
+        body["provenance"]["font_scale"]["reset"]["path"], "/api/v1/settings/typography",
+        "{body}"
+    );
+    assert_eq!(
+        body["provenance"]["font_scale"]["reset"]["becomes"], "instance default",
+        "{body}"
+    );
+
+    // Reset deletes the row. Writing defaults back would keep the source "account"
+    // and lie about where the values now come from.
+    let version = body["version"].as_i64().expect("version");
+    let (status, body) = reader
+        .patch(
+            "/api/v1/settings/typography",
+            json!({ "expected_version": version, "reset": true }),
+        )
+        .await;
+    assert_eq!(status, StatusCode::NO_CONTENT, "{body}");
+    let (status, body) = reader.get("/api/v1/settings/typography").await;
+    assert_eq!(status, StatusCode::OK, "{body}");
+    assert_eq!(body["version"], 0, "{body}");
+    assert_eq!(
+        body["provenance"]["font_scale"]["source"], "instance",
+        "{body}"
+    );
+    assert!(
+        body["provenance"]["font_scale"]["reset"].is_null(),
+        "{body}"
+    );
+
+    harness.cleanup().await;
+}
+
 // ---------------------------------------------------------------------------
 // Two devices: the reader is asked which position to resume from
 // ---------------------------------------------------------------------------
