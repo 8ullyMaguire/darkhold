@@ -51,7 +51,10 @@ impl EmbeddingProvider for OllamaEmbeddings {
             if !self.available() {
                 return Err(EmbeddingError::Unavailable);
             }
-            let response = reqwest::Client::new()
+            let response = reqwest::Client::builder()
+                .timeout(std::time::Duration::from_secs(2))
+                .build()
+                .map_err(|_| EmbeddingError::Unavailable)?
                 .post(&self.endpoint)
                 .json(&serde_json::json!({
                     "model": self.model,

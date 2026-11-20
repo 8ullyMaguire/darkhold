@@ -1,6 +1,6 @@
 {
  "generated_by": "scripts/ideas_catalogue.py",
- "count": 89,
+ "count": 88,
  "ideas": [
   {
    "why_summary": "",
@@ -36,19 +36,6 @@
     "docs/requirements.csv"
    ],
    "milestone": "M63",
-   "relevance": 3,
-   "because": "a requirements row exists (+4); needs a model or heavy compute (-1)",
-   "default_on": false,
-   "built": false
-  },
-  {
-   "why_summary": "crates/domain/tests/embedding_similarity.rs 3/3; summary-first mutant red/restored from /tmp/m64-14.bak; full gate /tmp/gate-all-m64-14-5a4d72f2.log GATE_ALL_EXIT=0 at 5a4d72f2 202",
-   "id": "M64-14",
-   "title": "embedding similarity for summaries first and full text last, feature-gated on a configured AI provider and degrading to disabled rather than erroring",
-   "sources": [
-    "docs/requirements.csv"
-   ],
-   "milestone": "M64",
    "relevance": 3,
    "because": "a requirements row exists (+4); needs a model or heavy compute (-1)",
    "default_on": false,

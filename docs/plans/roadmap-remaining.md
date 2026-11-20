@@ -4889,11 +4889,11 @@ this table. The rule and the three legal kinds of block are in `~/secondbrain/10
 
 | row | kind | what would clear it | taken instead |
 |---|---|---|---|
-| M45-43 — Discord bot (rec commands, per-fandom feeds, account linking) | **external credential/config** | The bot credentials are stored out-of-tree and the gateway reaches READY. Remaining: enable the `MESSAGE_CONTENT` privileged intent in the Discord developer portal (set `DARKBOT_DISCORD_MESSAGE_CONTENT=1`), invite the bot to a guild, and run one real command. | **M70-13**, M63-23, M64-14 |
-| M45-74 — seed from the operator's rated reading list | **unblocked: census accepted** | Owner accepted the sidecar census under the pre-declared rule. | **M71-20 search document**, then the dry-run seeder |
+| M45-43 — Discord bot (rec commands, per-fandom feeds, account linking) | **closed** | Ascend-style signed interactions and guild slash commands shipped; `/darkhold help` proved live; `MESSAGE_CONTENT` off. | — |
+| M45-74 — seed from the operator's rated reading list | **closed** | Sidecar census accepted; dry-run seeder provenance test 1/1 with mutant red/restored. | — |
 | M63-25 — `dh audit --since 7d` | **closed by owner decision** | Promise renamed to "what your account did"; no DDL, no backfill. | — |
 | M63-32 — fandom-tag backfill | **unblocked: network authorized** | Owner authorized source re-fetch and pawchive like-count import. | **M64-14** |
-| M64-14 — embedding similarity | **unblocked: Ollama provider** | Owner chose local Ollama `/v1/embeddings`, preferably `qwen3-embedding:0.6b` or `nomic-embed-text`. Adapter names the model and still degrades to disabled. | **M70-13** |
+| M64-14 — embedding similarity | **closed** | Served feed reranks on the reader's fandom signals when local Ollama is configured; both engines 2/2 and a served-path mutant went red. | — |
 | M64-15 — operator preview-as-persona | **closed** | Route and read-only feed builder shipped; live deploy waits on host memory. | — |
 | M66-08 — P2P file sharing | **partial: seeding threat model** | Direct link, search, offline queue and local co-queue edges ship. The later seeding network still needs a written threat model. | **M69-24** |
 | M69-24 — shared taste crate | **another session owns the shared crate** | Suki is clean and already depends on `polaris-taste-source`. I will not stash another session's six uncommitted files there. Clears when that checkout is committed or stashed by its owner. | **M64-14**, M66-08 |

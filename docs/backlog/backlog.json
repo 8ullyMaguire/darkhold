@@ -3,13 +3,13 @@
     "requirements.csv": {
       "rows": 960,
       "by_status": {
-        "implemented-verified-e2e": 170,
+        "implemented-verified-e2e": 171,
         "implemented-locally-tested": 269,
         "unsupported": 4,
         "implemented-fully-tested": 461,
         "implemented": 41,
         "evaluated-and-rejected": 7,
-        "planned": 3,
+        "planned": 2,
         "blocked": 1,
         "partial": 1,
         "done": 3
@@ -38,12 +38,6 @@
       "notes": "Found while shipping M63-01. The filter works and is honest about coverage (fandom_tagged_rows / fandom_tagged_with_likes), but as data it answers 'Naruto' with 265 pawchive rows that carry no likes, so --sort likes orders ties. The tagging came in with the pawchive importer; the forum and AO3 imports wrote no tags. Needs either a backfill from the source metadata (AO3 tags are in the work page the importer already fetches) or a tag-inference pass, and a like-count import for pawchive. b387cb1e: the inference route is built \u2014 db::tag_inference::propose_from_text matches existing tag nodes against stored title/summary text and writes Claimant::Model proposals (inferred+unconfirmed \u21d2 invisible to readers), longest node wins and a subsumed shorter node is dropped; db::tag_inference::coverage reports per source items/tagged/with_likes/tagged_and_liked with tagged counting only reader-visible rows. Operator doors GET /operator/tag-inference/coverage and POST /operator/tag-inference/run?limit= (1..5000). NOT DONE and not doable here: the importer stores no category field (0006_imports.sql), so a metadata backfill needs re-fetching source pages \u2014 that is the remaining half, plus pawchive's like-count import."
     },
     {
-      "id": "M64-14",
-      "milestone": "M64",
-      "requirement": "embedding similarity for summaries first and full text last, feature-gated on a configured AI provider and degrading to disabled rather than erroring",
-      "notes": "P14. The spec already names embedding and matrix-factorisation strategies as provider-gated (\u00a716). Summary embeddings are the cheap half; full-text style matching needs the bodies, which the catalogue deliberately does not store. DOMAIN SLICE SHIPPED 2026-11-19: `darkhold_domain::embeddings` selects summary first, delegates dense cosine to polaris-affinity, and degrades to original order for disabled/unavailable/failed/malformed inputs. Row remains planned for the provider adapter and served-feed wiring; no configured provider exists on this instance. | OLLAMA PROVIDER SHIPPED 2026-11-20: `darkhold_app::embeddings_provider::OllamaEmbeddings` posts to the OpenAI-compatible `/v1/embeddings`, reads `data[0].embedding`, names its model, and degrades to `EmbeddingError` on unreachable endpoint, bad JSON, or malformed vector. Configured by `DARKHOLD_OLLAMA_URL` and `DARKHOLD_OLLAMA_MODEL`; owner chose local Ollama with `qwen3-embedding:0.6b` or `nomic-embed-text`. Evidence: mock-HTTP test 2/2; empty-vector mutant red (`left: [] / right: [0.25, 0.5]`) and restored from `/tmp/m64-14-ollama.bak`. Row stays partial until the served feed is wired to this provider."
-    },
-    {
       "id": "M69-24",
       "milestone": "M69",
       "requirement": "one shared taste crate and one JSON schema set, so darkhold and suki compute blend, affinity and the passport identically",
@@ -52,7 +46,6 @@
   ],
   "open_by_milestone": {
     "M63": 1,
-    "M64": 1,
     "M69": 1
   },
   "unlinked_concord": [],

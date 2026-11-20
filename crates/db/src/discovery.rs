@@ -1379,3 +1379,47 @@ pub async fn work_details_for(
     }
     Ok(map)
 }
+
+
+/// M64-14: the summary text for a set of works, used by the served-feed
+/// embedding reranker. Kept beside `work_details_for` so the two-engine shape
+/// (SQLite placeholders, PostgreSQL `ANY`) stays in one place.
+pub async fn work_summaries_for(
+    db: &Database,
+    ids: &[String],
+) -> Result<std::collections::HashMap<String, String>, sqlx::Error> {
+    if ids.is_empty() {
+        return Ok(std::collections::HashMap::new());
+    }
+    let mut map = std::collections::HashMap::new();
+    match db.backend() {
+        Backend::Sqlite => {
+            let placeholders = std::iter::repeat_n("?", ids.len())
+                .collect::<Vec<_>>()
+                .join(", ");
+            let sql = format!(
+                "SELECT id AS wid, summary FROM works WHERE id IN ({placeholders}) AND deleted_at IS NULL"
+            );
+            let mut q = sqlx::query(&sql);
+            for id in ids {
+                q = q.bind(id);
+            }
+            let rows = q.fetch_all(db.sqlite_pool().expect("sqlite")).await?;
+            for r in rows {
+                map.insert(r.get::<String, _>("wid"), r.get::<String, _>("summary"));
+            }
+        }
+        Backend::Postgres => {
+            let rows = sqlx::query(
+                "SELECT id::text AS wid, summary FROM works WHERE id = ANY($1::uuid[]) AND deleted_at IS NULL",
+            )
+            .bind(ids)
+            .fetch_all(db.postgres_pool().expect("postgres"))
+            .await?;
+            for r in rows {
+                map.insert(r.get::<String, _>("wid"), r.get::<String, _>("summary"));
+            }
+        }
+    }
+    Ok(map)
+}

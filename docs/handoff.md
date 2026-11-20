@@ -1,3 +1,9 @@
+## 2026-11-20 — M64-14 served-feed rerank shipped
+
+The discovery feed now reranks its final candidate order against the signed-in reader's fandom signals when local Ollama is configured (`DARKHOLD_OLLAMA_URL`, `DARKHOLD_OLLAMA_MODEL`). It runs after the pull histogram and returns the caller's order on unset config, no taste profile, anonymous reader, provider failure or DB failure. New `work_summaries_for` reads summaries on both engines; provider calls carry a 2-second timeout.
+
+Evidence: `crates/app/tests/m64_14_feed_embedding.rs` 2/2 on SQLite and 2/2 on PostgreSQL. The fake provider moves the matching work first, and the mock HTTP endpoint proves the served feed calls the configured provider. Removing the `feed_for` call failed with `the served feed never called the configured provider`; restored from `/tmp/m64-14-feed-wiring-clean.rs`. Clippy `-D warnings` exit 0.
+
 ## 2026-11-20 — M45-43 closed by live slash-command proof
 
 Discord bot redesigned to Ascend-style signed interactions. `/darkhold help` works in Gaming Omniverse; endpoint saved and verified; MESSAGE_CONTENT off. Icon and deployment evidence are in the darkbot repo.

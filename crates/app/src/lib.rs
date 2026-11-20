@@ -19,6 +19,7 @@ pub mod config;
 pub mod crypto;
 pub mod cursor;
 pub mod derivative;
+pub mod discovery_embedding;
 pub mod doctor;
 pub mod embeddings_provider;
 pub mod estate_search;

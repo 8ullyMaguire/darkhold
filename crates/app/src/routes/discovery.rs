@@ -1064,6 +1064,26 @@ pub(crate) async fn feed_for(
             .collect::<Vec<_>>(),
     );
 
+    // M64-14: semantic rerank against the reader's fandom signals, but only
+    // when a provider is configured. It runs after the pull histogram so that
+    // histogram still measures the ranking operators it was built for, and it
+    // returns the caller's order on any provider or database failure.
+    let ranked = match (
+        account_id.as_deref(),
+        crate::embeddings_provider::OllamaEmbeddings::from_env(),
+    ) {
+        (Some(account), Some(provider)) => {
+            crate::discovery_embedding::rerank_with_provider(
+                state.db(),
+                account,
+                ranked,
+                &provider,
+            )
+            .await
+        }
+        _ => ranked,
+    };
+
     // M71-06: the reason and the match percentage travel with the row, because an explanation the client has to
     // reconstruct from a slot id is an explanation most readers will never see. `SlotReason::from_engine_reason`
     // returns `None` for a reason outside the closed vocabulary, and that `None` is load-bearing: the row then carries
