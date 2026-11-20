@@ -4,10 +4,10 @@
 //! listener is loopback only; `--lan` is an explicit choice to expose it. Every request must carry the random path token, and
 //! every resolved path is canonicalised back under the chosen root.
 
-use std::path::{Path, PathBuf};
+use std::path::{Component, Path, PathBuf};
 
-use clap::Args;
-use serde::Serialize;
+use clap::{Args, Subcommand};
+use serde::{Deserialize, Serialize};
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::net::TcpListener;
 
@@ -323,4 +323,225 @@ pub async fn run(args: &ShareArgs) -> Result<(), Failure> {
         }
     }
     Ok(())
+}
+
+// ---- M66-08 offline queue -------------------------------------------------
+//
+// A queue is a local JSON list of direct-share items. Adding an item makes no
+// network request, so a reader can queue a handoff while the other person is
+// offline. The URL is a bearer capability, so the file is created mode 0600.
+
+#[derive(Debug, Clone, Args)]
+pub struct QueueArgs {
+    /// Local queue file. Created mode 0600 because it holds capability URLs.
+    #[arg(long, value_name = "FILE")]
+    pub queue: PathBuf,
+
+    #[command(subcommand)]
+    pub command: QueueCommand,
+}
+
+#[derive(Debug, Clone, Subcommand)]
+pub enum QueueCommand {
+    /// Add one safe relative path under a direct-share URL; never contacts the peer.
+    Add {
+        /// A `http://…/<token>/<path>` URL printed by `dh share`.
+        #[arg(long)]
+        url: String,
+        /// Relative path inside the shared directory. `..` and absolute paths are refused.
+        #[arg(long, value_name = "REL")]
+        path: String,
+    },
+    /// Print the pending queue as JSON. Works offline.
+    List,
+    /// Fetch reachable items into a directory, keeping failed ones queued.
+    Drain {
+        /// Output root. Every resolved destination must stay under it.
+        #[arg(long, value_name = "DIR")]
+        out: PathBuf,
+    },
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+struct QueueState {
+    version: u32,
+    items: Vec<QueueItem>,
+}
+
+impl Default for QueueState {
+    fn default() -> Self {
+        Self {
+            version: 1,
+            items: Vec::new(),
+        }
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+struct QueueItem {
+    url: String,
+    path: String,
+}
+
+fn safe_relative(raw: &str) -> bool {
+    if raw.is_empty() || raw.contains('\\') {
+        return false;
+    }
+    let path = Path::new(raw);
+    path.components().count() > 0
+        && path
+            .components()
+            .all(|component| matches!(component, Component::Normal(_)))
+}
+
+fn validate_queue_url(url: &str) -> Result<(), Failure> {
+    let rest = url
+        .strip_prefix("http://")
+        .ok_or_else(|| bad_request("queue URLs must be http:// direct-share URLs"))?;
+    let (authority, tail) = rest
+        .split_once('/')
+        .ok_or_else(|| bad_request("queue URL needs a /<token>/<path> tail"))?;
+    if authority.is_empty() || tail.split('/').next().unwrap_or_default().is_empty() {
+        return Err(bad_request("queue URL needs an authority and a token"));
+    }
+    Ok(())
+}
+
+fn queue_load(path: &Path) -> Result<QueueState, Failure> {
+    if !path.exists() {
+        return Ok(QueueState::default());
+    }
+    let text = std::fs::read_to_string(path)
+        .map_err(|error| environment(format!("cannot read {}: {error}", path.display())))?;
+    serde_json::from_str(&text)
+        .map_err(|error| environment(format!("bad queue file {}: {error}", path.display())))
+}
+
+fn queue_save(path: &Path, state: &QueueState) -> Result<(), Failure> {
+    let text = serde_json::to_string_pretty(state)
+        .map_err(|error| environment(format!("cannot encode queue: {error}")))?;
+    let mut options = std::fs::OpenOptions::new();
+    options.create(true).truncate(true).write(true);
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::OpenOptionsExt;
+        options.mode(0o600);
+    }
+    let mut file = options
+        .open(path)
+        .map_err(|error| environment(format!("cannot write {}: {error}", path.display())))?;
+    use std::io::Write as _;
+    file.write_all(text.as_bytes())
+        .map_err(|error| environment(format!("cannot write {}: {error}", path.display())))
+}
+
+fn fetch_queued(url: &str) -> Result<Vec<u8>, Failure> {
+    use std::io::{Read as _, Write as _};
+    let rest = url
+        .strip_prefix("http://")
+        .ok_or_else(|| bad_request("queue URLs must be http:// direct-share URLs"))?;
+    let (authority, tail) = rest
+        .split_once('/')
+        .ok_or_else(|| bad_request("queue URL needs a /<token>/<path> tail"))?;
+    let mut stream = std::net::TcpStream::connect(authority)
+        .map_err(|error| environment(format!("{authority} is unreachable: {error}")))?;
+    let request = format!("GET /{tail} HTTP/1.1\r\nHost: {authority}\r\nConnection: close\r\n\r\n");
+    stream
+        .write_all(request.as_bytes())
+        .map_err(|error| environment(format!("queue request failed: {error}")))?;
+    let mut response = Vec::new();
+    stream
+        .read_to_end(&mut response)
+        .map_err(|error| environment(format!("queue response failed: {error}")))?;
+    let split = response
+        .windows(4)
+        .position(|window| window == b"\r\n\r\n")
+        .ok_or_else(|| environment("queue response had no header boundary"))?;
+    let head = String::from_utf8_lossy(&response[..split]);
+    let status = head
+        .lines()
+        .next()
+        .and_then(|line| line.split_whitespace().nth(1))
+        .unwrap_or("000");
+    if status != "200" {
+        return Err(environment(format!("{url} returned HTTP {status}")));
+    }
+    Ok(response[split + 4..].to_vec())
+}
+
+/// Run the offline queue. Adding and listing are pure local operations; only
+/// `drain` opens a socket, and failed items remain in the file.
+pub fn run_queue(args: QueueArgs) -> Result<(), Failure> {
+    match args.command {
+        QueueCommand::Add { url, path } => {
+            validate_queue_url(&url)?;
+            if !safe_relative(&path) {
+                return Err(bad_request(
+                    "queue path must be relative with no .. components or backslashes",
+                ));
+            }
+            let mut state = queue_load(&args.queue)?;
+            if !state
+                .items
+                .iter()
+                .any(|item| item.url == url && item.path == path)
+            {
+                state.items.push(QueueItem { url, path });
+            }
+            queue_save(&args.queue, &state)
+        }
+        QueueCommand::List => {
+            let state = queue_load(&args.queue)?;
+            println!(
+                "{}",
+                serde_json::to_string_pretty(&state)
+                    .map_err(|error| environment(format!("cannot encode queue: {error}")))?
+            );
+            Ok(())
+        }
+        QueueCommand::Drain { out } => {
+            std::fs::create_dir_all(&out).map_err(|error| {
+                environment(format!("cannot create {}: {error}", out.display()))
+            })?;
+            let root = out.canonicalize().map_err(|error| {
+                environment(format!("cannot resolve {}: {error}", out.display()))
+            })?;
+            let mut state = queue_load(&args.queue)?;
+            let mut remaining = Vec::new();
+            for item in state.items {
+                if !safe_relative(&item.path) {
+                    eprintln!("keeping unsafe queue path {}", item.path);
+                    remaining.push(item);
+                    continue;
+                }
+                let destination = root.join(&item.path);
+                let parent = destination.parent().unwrap_or(&root);
+                if let Err(error) = std::fs::create_dir_all(parent) {
+                    eprintln!("keeping {} — cannot create parent: {error}", item.path);
+                    remaining.push(item);
+                    continue;
+                }
+                match fetch_queued(&item.url) {
+                    Ok(bytes) => {
+                        let temporary = parent.join(format!(".dh-queue-{}", std::process::id()));
+                        let write = std::fs::write(&temporary, bytes)
+                            .and_then(|()| std::fs::rename(&temporary, &destination));
+                        if let Err(error) = write {
+                            let _ = std::fs::remove_file(&temporary);
+                            eprintln!("keeping {} — cannot write: {error}", item.path);
+                            remaining.push(item);
+                        } else {
+                            println!("QUEUED_DRAINED={}", item.path);
+                        }
+                    }
+                    Err(error) => {
+                        eprintln!("keeping {} — {error}", item.path);
+                        remaining.push(item);
+                    }
+                }
+            }
+            state.items = remaining;
+            queue_save(&args.queue, &state)
+        }
+    }
 }

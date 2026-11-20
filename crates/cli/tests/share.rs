@@ -2,7 +2,7 @@
 
 use std::io::{BufRead, BufReader, Read, Write};
 use std::net::TcpStream;
-use std::process::{Command, Stdio};
+use std::process::{Command, Output, Stdio};
 
 fn request(url: &str) -> (u16, String) {
     let rest = url.strip_prefix("http://").expect("http url");
@@ -117,4 +117,149 @@ fn share_search_finds_text_under_the_capability() {
 
     let _ = child.kill();
     let _ = child.wait();
+}
+
+fn queue(args: &[&str], queue_file: &std::path::Path) -> Output {
+    Command::new(env!("CARGO_BIN_EXE_dh"))
+        .arg("share-queue")
+        .arg("--queue")
+        .arg(queue_file)
+        .args(args)
+        .output()
+        .expect("run share-queue")
+}
+
+#[test]
+fn share_queue_adds_and_lists_while_the_peer_is_offline() {
+    let dir = std::env::temp_dir().join(format!("dh-queue-offline-{}", std::process::id()));
+    let _ = std::fs::remove_dir_all(&dir);
+    std::fs::create_dir_all(&dir).expect("fixture dir");
+    let queue_file = dir.join("queue.json");
+    let dead = "http://127.0.0.1:1/deadtoken/chapter.txt";
+
+    let added = queue(
+        &["add", "--url", dead, "--path", "chapter.txt"],
+        &queue_file,
+    );
+    assert!(
+        added.status.success(),
+        "offline add failed: {}",
+        String::from_utf8_lossy(&added.stderr)
+    );
+
+    let listed = queue(&["list"], &queue_file);
+    assert!(listed.status.success(), "offline list failed");
+    let out = String::from_utf8_lossy(&listed.stdout);
+    assert!(out.contains("chapter.txt"), "list body: {out}");
+    assert!(out.contains(dead), "list body: {out}");
+}
+
+#[test]
+fn share_queue_drains_reachable_items_and_keeps_failed_ones() {
+    let dir = std::env::temp_dir().join(format!("dh-queue-drain-{}", std::process::id()));
+    let _ = std::fs::remove_dir_all(&dir);
+    std::fs::create_dir_all(&dir).expect("fixture dir");
+    std::fs::write(dir.join("note.txt"), "queued bytes\n").expect("fixture file");
+    let queue_file = dir.join("queue.json");
+
+    let mut child = Command::new(env!("CARGO_BIN_EXE_dh"))
+        .args(["share", "--dir"])
+        .arg(&dir)
+        .args(["--port", "0"])
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped())
+        .spawn()
+        .expect("spawn dh share");
+    let stdout = child.stdout.take().expect("stdout");
+    let mut reader = BufReader::new(stdout);
+    let mut url = String::new();
+    for _ in 0..40 {
+        let mut line = String::new();
+        if reader.read_line(&mut line).expect("read line") == 0 {
+            break;
+        }
+        if let Some(value) = line.strip_prefix("SHARE_URL=") {
+            url = value.trim().to_owned();
+            break;
+        }
+    }
+    assert!(!url.is_empty(), "server never printed SHARE_URL");
+
+    assert!(queue(
+        &[
+            "add",
+            "--url",
+            &format!("{url}note.txt"),
+            "--path",
+            "note.txt"
+        ],
+        &queue_file,
+    )
+    .status
+    .success());
+    assert!(queue(
+        &[
+            "add",
+            "--url",
+            &format!("{url}absent.txt"),
+            "--path",
+            "absent.txt",
+        ],
+        &queue_file,
+    )
+    .status
+    .success());
+
+    let out_dir = dir.join("received");
+    std::fs::create_dir_all(&out_dir).expect("out dir");
+    let drained = queue(&["drain", "--out", out_dir.to_str().unwrap()], &queue_file);
+    assert!(
+        drained.status.success(),
+        "drain failed: {}",
+        String::from_utf8_lossy(&drained.stderr)
+    );
+    assert_eq!(
+        std::fs::read_to_string(out_dir.join("note.txt")).expect("drained file"),
+        "queued bytes\n"
+    );
+    assert!(!out_dir.join("absent.txt").exists(), "404 was written");
+
+    let listed = queue(&["list"], &queue_file);
+    let out = String::from_utf8_lossy(&listed.stdout);
+    assert!(
+        out.contains("absent.txt"),
+        "failed item was discarded: {out}"
+    );
+    assert!(
+        !out.contains("note.txt"),
+        "successful item stayed queued: {out}"
+    );
+
+    let _ = child.kill();
+    let _ = child.wait();
+}
+
+#[test]
+fn share_queue_refuses_paths_outside_the_output_root() {
+    let dir = std::env::temp_dir().join(format!("dh-queue-guard-{}", std::process::id()));
+    let _ = std::fs::remove_dir_all(&dir);
+    std::fs::create_dir_all(&dir).expect("fixture dir");
+    let queue_file = dir.join("queue.json");
+
+    let added = queue(
+        &[
+            "add",
+            "--url",
+            "http://127.0.0.1:1/token/escape.txt",
+            "--path",
+            "../escape.txt",
+        ],
+        &queue_file,
+    );
+    assert_eq!(
+        added.status.code(),
+        Some(2),
+        "guard did not refuse: {added:?}"
+    );
+    assert!(!queue_file.exists(), "refused path still wrote a queue");
 }

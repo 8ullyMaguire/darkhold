@@ -1,3 +1,7 @@
+## 2026-11-20 — M66-08 offline queue shipped
+
+`dh share-queue --queue FILE add|list|drain` queues direct-share paths locally with no network call; `drain` keeps unreachable items. Queue file mode 0600 because the URL is a bearer capability. Tests 5/5 including traversal guard mutant red/restored; fmt/clippy/repo green, full gate pending. Row remains planned for local edges and the later seeding threat model.
+
 ## 2026-11-20 — M71-07 closed by census
 
 Four admin SPA surfaces, all with `StatusMark` and `AlertBar`; no reader-facing component imported by the console. `/admin` is a server document with live counts, named red states with fix links, and 404 for non-operators. Evidence: admin_overview 1/1, frontend 33/33, route_inventory 6/6, ideas 3/3, full gate `/tmp/gate-all-m71-14-close-bc48e323.log` green. Live deploy remains under the host-memory block.

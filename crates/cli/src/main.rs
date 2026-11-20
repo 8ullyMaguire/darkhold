@@ -188,6 +188,11 @@ pub enum Command {
     /// `dh share --dir ~/exports` binds loopback only; `--lan` exposes it on the local network. It is a
     /// direct handoff of your own files — no relay, discovery, global namespace or site account.
     Share(share::ShareArgs),
+    /// Queue direct-share files locally, then drain them when the peer is reachable.
+    ///
+    /// `dh share-queue add --queue q.json --url <SHARE_URL>note.txt --path note.txt` makes no network request.
+    /// `dh share-queue drain --queue q.json --out ./received` fetches only what is reachable and keeps the rest queued.
+    ShareQueue(share::QueueArgs),
     /// Your private account audit log, with a client-resolved relative window.
     ///
     /// `dh audit --since 7d` sends an RFC 3339 bound to `/me/audit-log`. The log records the account
@@ -410,6 +415,13 @@ async fn main() -> std::process::ExitCode {
             }
         },
         Command::Share(args) => match share::run(args).await {
+            Ok(()) => std::process::ExitCode::SUCCESS,
+            Err(error) => {
+                eprintln!("{error}");
+                std::process::ExitCode::from(error.code)
+            }
+        },
+        Command::ShareQueue(args) => match share::run_queue(args.clone()) {
             Ok(()) => std::process::ExitCode::SUCCESS,
             Err(error) => {
                 eprintln!("{error}");
