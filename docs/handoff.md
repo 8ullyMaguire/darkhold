@@ -1,3 +1,7 @@
+## 2026-11-20 — M63-32 live backfill started
+
+Fresh named scoped dump taken before any write: `/personal/backups/darkhold-20261120-163011-m63-32-tag-backfill.dump` (1,006,466 bytes, `TABLE_DATA=2` for `canonical_entities` and `work_tags`, verified with `pg_restore -l`). Applied pawchive 500 (332 works, 624 assertions) and archive 500 (216 works, 6036 assertions), then launched full pawchive and archive passes. Pawchive full pass finished: 27,464 scanned, 18,890 works_tagged, 38,725 assertions, 3,102 nodes. Coverage moved pawchive 18,724 -> 19,028 and archive 0 -> 2,497 while archive was still running.
+
 ## 2026-11-20 — M63-32 live dry run
 
 `dh catalogue --source archive --limit 50 --dry-run` on the live instance scanned 50 rows and parsed 865 source-backed assertions without writing (`applied=false`). The dry-run report now counts `works_tagged` as well. No live write has been made; the next step is a fresh named dump followed by bounded application.

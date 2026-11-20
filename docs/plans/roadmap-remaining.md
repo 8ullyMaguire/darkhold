@@ -5409,3 +5409,7 @@ Live backfill has NOT been run. The like-count half is still open because Pawchi
 ## M64-14 deployed — 2026-11-20
 
 Estate deploy verified commit `9c34e649` live: build 1019 s, migrate 45 ms, restart 117 ms, five probes green, `darkhold verified in 1045s`. `/api/v1/meta` on the public host reads `0.1.0+9c34e649`. No migration or data write accompanied the code, so the earlier named dump remains the rollback point.
+
+## M63-32 live backfill — 2026-11-20
+
+Before any write, a named scoped dump of the two affected tables was taken and verified: `/personal/backups/darkhold-20261120-163011-m63-32-tag-backfill.dump` (`TABLE_DATA=2`). Bounded batches and then full per-source passes began. Pawchive completed with 38,725 assertions; archive was still running when the state notes were written. AO3 still has no source tags in its stored provenance, and the like-count half remains unavailable from Pawchive's API.
