@@ -4890,13 +4890,13 @@ this table. The rule and the three legal kinds of block are in `~/secondbrain/10
 | row | kind | what would clear it | taken instead |
 |---|---|---|---|
 | M45-43 — Discord bot (rec commands, per-fandom feeds, account linking) | **external credential/config** | The bot credentials are stored out-of-tree and the gateway reaches READY. Remaining: enable the `MESSAGE_CONTENT` privileged intent in the Discord developer portal (set `DARKBOT_DISCORD_MESSAGE_CONTENT=1`), invite the bot to a guild, and run one real command. | **M70-13**, M63-23, M64-14 |
-| M45-74 — seed from the operator's rated reading list | **owner data + owner-gated census** | Plan measured 218 rated rows / 3 wrapped / 47 unmatched over 268 lines. Write path exists; owner must accept the private, sidecar-audited census (estate row 407): ≥180 exact, ≤20 ambiguous, ≥180 applied, ≥1 overlap with top-10 personal recommendations. | **M71-20 search document**, then the sidecar producer and dry-run |
-| M63-25 — `dh audit --since 7d`, all writes a token made | **reserved decision** | `audit_log` has no token id column; decide whether to add it with a backfill policy, or rename the promise to "what your account did". `dh audit --since 7d` already ships the account-scoped half. | **M70-13**, M63-23 |
-| M63-32 — fandom-tag backfill | **owner data / source re-fetch** | The importer stores no category field, so the remaining half needs re-fetching source pages plus pawchive like-count import. Not a design decision; requires network/source data. | **M64-14 domain slice** |
-| M64-14 — embedding similarity | **partial: adapter + served-feed wiring** | `darkhold_domain::embeddings` ships summary-first selection, kernel cosine and degrade-to-disabled ranking. Remaining: a configured provider adapter and a served feed using it. | **M70-13** |
+| M45-74 — seed from the operator's rated reading list | **unblocked: census accepted** | Owner accepted the sidecar census under the pre-declared rule. | **M71-20 search document**, then the dry-run seeder |
+| M63-25 — `dh audit --since 7d` | **closed by owner decision** | Promise renamed to "what your account did"; no DDL, no backfill. | — |
+| M63-32 — fandom-tag backfill | **unblocked: network authorized** | Owner authorized source re-fetch and pawchive like-count import. | **M64-14** |
+| M64-14 — embedding similarity | **unblocked: Ollama provider** | Owner chose local Ollama `/v1/embeddings`, preferably `qwen3-embedding:0.6b` or `nomic-embed-text`. Adapter names the model and still degrades to disabled. | **M70-13** |
 | M64-15 — operator preview-as-persona | **closed** | Route and read-only feed builder shipped; live deploy waits on host memory. | — |
 | M66-08 — P2P file sharing | **partial: seeding threat model** | Direct link, search, offline queue and local co-queue edges ship. The later seeding network still needs a written threat model. | **M69-24** |
-| M69-24 — shared taste crate | **another session owns the shared crate** | Suki is now clean and already depends on `polaris-taste-source`. But `/home/alvaro/code-local/polaris-taste-source` has uncommitted `Cargo.lock`, `src/decay.rs`, `src/declaration.rs`, `src/fold.rs`, `src/kind.rs`, `src/selector.rs`. Clears when that session commits or stashes them, then the versioned passport schema can be added once in the shared crate and adopted by both products. | **M64-14**, M66-08 |
+| M69-24 — shared taste crate | **another session owns the shared crate** | Suki is clean and already depends on `polaris-taste-source`. I will not stash another session's six uncommitted files there. Clears when that checkout is committed or stashed by its owner. | **M64-14**, M66-08 |
 | M70-13 — orphan ratchet | **closed** | Baseline 26; rebind writer deleted. | — |
 | M71-07 — operator console register | **closed** | Census proved status/alert bars on all admin SPA surfaces and the server overview. Live deploy waits on host memory. | — |
 | M71-14 — settings provenance | **closed** | All four levels, deep links, resets and the inline set-as-default affordance ship. Live deploy waits on host memory. | — |
@@ -5383,3 +5383,7 @@ Census: REUSE `roadmap_cards.matches_played`, `arena_candidates` and the existin
 ## M29-08 closed — 2026-11-20
 
 All §29 additions are now shipped on top of the M45-01/M45-D00 board: three-suggestion rolling-day limit, deterministic local clustering with `clustered_by`, frozen representative title/body, and least-compared arena ordering. Frozen-text acceptance attaches two joiner suggestions and asserts neither title nor body changes; a rewrite mutant reddened it and was restored from `/tmp/m29-08-frozen.bak`. Targeted-only, no full gate.
+
+## M63-25 closed — 2026-11-20
+
+Owner chose the honest rename: "what your account did" rather than per-token attribution. No DDL, no impossible backfill. `audit.rs` already prints the exact wording and states the actor/token distinction. Evidence: CLI audit test 1/1; "tokens did" mutant red/restored from `/tmp/m63-25-close.bak`. Targeted only.

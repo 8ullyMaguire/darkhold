@@ -1,3 +1,7 @@
+## 2026-11-20 — owner unblocks recorded; M63-25 closed
+
+Owner decisions: rename M63-25; Ollama endpoint for M64-14; authorize M63-32 source re-fetch; accept M45-74 census; keep M69-24 held on the foreign shared-crate checkout; remove the >=8 GB deploy gate. M63-25 audit test 1/1 with wording mutant red/restored. Other decisions are recorded in `docs/DECISIONS.md` and the Blocked table.
+
 ## 2026-11-20 — all remaining rows blocked; M69-24 condition refined
 
 Suki is clean and already depends on `polaris-taste-source`, so that half of M69-24 cleared. The shared crate itself now has uncommitted `Cargo.lock` and five source files from another session. M69-24 clears when that checkout is committed or stashed; then one versioned passport schema can be added in the shared crate and adopted by both products. Every other remaining row is still blocked; halted per §2.1.

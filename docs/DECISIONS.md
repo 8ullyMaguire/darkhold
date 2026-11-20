@@ -42,3 +42,10 @@ The owner states ascend is unfrozen and authorises writes. The previous block co
 * `algorithms` is optional and validated against `recommendation_surfaces::engine_reason` before it takes precedence for this one preview. It never installs an override; `POST .../promote` remains the only write door.
 * M45-46's `POST /admin/discovery/preview` stays anonymous. "What a stranger sees under proposed knobs" and "what this reader sees under an experiment" are different questions, and merging them would have made the former leak a reader's history into an operator screen.
 
+## Owner decisions — 2026-11-20 unblock batch
+
+* **M63-25:** the promise is renamed to “what your account did” and the row closes against existing code. `audit_log` has no token id and historical attribution cannot be reconstructed; adding a column without backfill would not satisfy the old wording. No DDL.
+* **M64-14:** use a local Ollama embeddings endpoint (`http://localhost:11434/v1/embeddings`), preferably `qwen3-embedding:0.6b` (~500 MB) or `nomic-embed-text` (~300 MB) if memory is tight. The provider adapter must report which model was used and still degrade to disabled when the endpoint is unreachable. No fake “AI” hashing adapter.
+* **M63-32:** the owner authorizes network re-fetch of source pages and the pawchive like-count import. This is data work, not a design decision; it can proceed when the row is taken.
+* **M45-74:** the owner accepts the private sidecar census under the pre-declared rule (≥180 exact, ≤20 ambiguous, ≥180 applied, ≥1 overlap with top-10 personal recommendations). No values from the census are recorded in the repository.
+* **M69-24:** the owner leaves the shared-crate handling to best judgement. I will not stash another session's changes in `polaris-taste-source`; the row stays blocked until that checkout is cleaned by its owner. The separate `>=8 GB` deploy gate is removed as an owner decision. Deploy risk remains recorded, but no memory threshold gates it.
