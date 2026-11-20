@@ -77,7 +77,7 @@ pub async fn run(cli: &crate::Cli, args: &ArchiveArgs) -> Result<(), Failure> {
     let (requested_limit, apply) = match &args.command {
         ArchiveCommand::Rank { .. } => (None, false),
         ArchiveCommand::Bodies { limit } => {
-            let cap = (*limit).min(prefs.max_bodies);
+            let cap = *limit;
             let apply = crate::safety::mutating(
                 cli,
                 &format!("enqueue at most {cap} private body imports"),

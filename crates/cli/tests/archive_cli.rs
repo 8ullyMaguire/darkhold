@@ -9,7 +9,7 @@ fn prefs(mode: u32) -> std::path::PathBuf {
     ));
     fs::write(
         &path,
-        r#"{"version":1,"positive":[{"term":"dark mc","weight":1.0}],"negative":["slash"],"max_bodies":2}"#,
+        r#"{"version":1,"positive":[{"term":"dark mc","weight":1.0}],"negative":["slash"]}"#,
     )
     .unwrap();
     fs::set_permissions(&path, fs::Permissions::from_mode(mode)).unwrap();
@@ -39,14 +39,19 @@ fn private_preferences_must_be_mode_0600() {
 }
 
 #[test]
-fn body_cap_is_applied_before_ranking() {
-    let source = include_str!("../src/archive.rs");
-    let cap = source.find("min(prefs.max_bodies)").expect("cap expression");
-    let ranked = source
-        .find("taste_curation::candidates")
-        .expect("candidate query");
+fn no_global_body_ceiling_remains() {
+    let archive = include_str!("../src/archive.rs");
+    let prefs = include_str!("../src/archive_preferences.rs");
     assert!(
-        cap < ranked,
-        "the private max_bodies cap must be applied before reading candidates"
+        !archive.contains("max_bodies"),
+        "archive must not carry a product body ceiling"
+    );
+    assert!(
+        !prefs.contains("max_bodies"),
+        "private preferences must not carry a product body ceiling"
+    );
+    assert!(
+        archive.contains("let cap = *limit;"),
+        "the per-run --limit remains the only brake"
     );
 }

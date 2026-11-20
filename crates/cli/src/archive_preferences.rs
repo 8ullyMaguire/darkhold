@@ -18,7 +18,6 @@ struct LocalFile {
     version: u32,
     positive: Vec<LocalTerm>,
     negative: Vec<String>,
-    max_bodies: usize,
 }
 
 #[derive(Debug, Deserialize)]
@@ -29,7 +28,6 @@ struct LocalTerm {
 
 pub struct LoadedPreferences {
     pub preference: Preference,
-    pub max_bodies: usize,
     pub source_terms: usize,
 }
 
@@ -47,8 +45,8 @@ pub fn load(path: &Path) -> Result<LoadedPreferences> {
     if file.version != 1 {
         bail!("unsupported preference version {}", file.version);
     }
-    if file.max_bodies == 0 {
-        bail!("max_bodies must be greater than zero");
+    if file.positive.is_empty() {
+        bail!("at least one positive preference is required");
     }
     let mut positive: Vec<(String, f64)> = file
         .positive
@@ -76,7 +74,6 @@ pub fn load(path: &Path) -> Result<LoadedPreferences> {
             positive,
             negative: file.negative,
         },
-        max_bodies: file.max_bodies,
         source_terms,
     })
 }
