@@ -6,6 +6,7 @@
 
 use clap::Args;
 use darkhold_db::{
+    imports::group_pawchive_library_items,
     tag_backfill::{assert_claims, backfill_from_provenance, Report},
     Backend, Database, DatabaseConfig,
 };
@@ -35,9 +36,32 @@ pub struct CatalogueArgs {
     /// Re-fetch source metadata for works whose stored provenance has no tags.
     #[arg(long)]
     pub refetch: bool,
+    /// TA2-3: collapse Pawchive chapter submissions into one library work.
+    #[arg(long)]
+    pub group_chapters: bool,
+    /// Owner of the syndicated catalogue works (required with --group-chapters).
+    #[arg(long)]
+    pub account: Option<String>,
 }
 
 pub async fn run(cli: &crate::Cli, args: &CatalogueArgs) -> Result<(), Failure> {
+    if args.group_chapters {
+        let account = args.account.as_deref().ok_or_else(|| {
+            environment("--account is required with --group-chapters")
+        })?;
+        let apply = crate::safety::mutating(cli, "group Pawchive chapter submissions")?;
+        let db = Database::connect(&DatabaseConfig::new(&args.db_url))
+            .await
+            .map_err(|error| environment(error.to_string()))?;
+        let report = group_pawchive_library_items(&db, account, !apply)
+            .await
+            .map_err(|error| environment(error.to_string()))?;
+        println!(
+            "source=pawchive scanned={} groups={} merged={} urls={} applied={apply}",
+            report.scanned, report.groups, report.merged, report.urls
+        );
+        return Ok(());
+    }
     let source = args.source.as_deref().unwrap_or("all");
     let action = if args.refetch {
         "refetch source tags"

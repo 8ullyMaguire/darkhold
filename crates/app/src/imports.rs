@@ -599,23 +599,44 @@ pub async fn run(
         .library_item_id
         .clone()
         .unwrap_or_else(|| darkhold_domain::LibraryItemId::new().to_string());
+    let body_audience = state
+        .config()
+        .syndication
+        .rule_for(&row.source_key)
+        .body_audience;
+    let mut input = library_input(&work, &row, &body_audience);
+    let effective_source_work_key = if row.source_key == "pawchive" {
+        let key = imports::pawchive_work_key(&work.title, &work.author_text);
+        let existing = imports::find_library_item_by_source_key(
+            state.db(),
+            &row.account_id,
+            "pawchive",
+            &key,
+        )
+        .await
+        .map_err(transient)?;
+        input.provenance_json = provenance_with_sources(
+            existing.as_ref().map(|item| item.provenance_json.as_str()),
+            &input.provenance_json,
+            &key,
+            &row.source_url,
+        );
+        key
+    } else {
+        work.source_work_key.clone()
+    };
     let item = imports::upsert_library_item(
         state.db(),
         &row.account_id,
         &row.source_key,
-        &work.source_work_key,
-        &library_input(
-            &work,
-            &row,
-            &state
-                .config()
-                .syndication
-                .rule_for(&row.source_key)
-                .body_audience,
-        ),
+        &effective_source_work_key,
+        &input,
     )
     .await
     .map_err(transient)?;
+    imports::set_import_state(state.db(), import_job_id, "running", Some(&item.id), None)
+        .await
+        .map_err(transient)?;
 
     let source = SourceFetch {
         registry,
@@ -1055,6 +1076,36 @@ fn intake_candidate(work: &SourceWork) -> darkhold_domain::intake::IntakeCandida
         title: work.title.clone(),
         complete: matches!(work.status, darkhold_scrapers::WorkStatus::Complete),
     }
+}
+
+/// Merge a second Pawchive post into the provenance of the one library work.
+///
+/// The fresh value remains authoritative for title, tags and timestamps; only
+/// the list of source URLs grows. This is why a chapter import does not erase
+/// the URLs of chapters imported earlier.
+fn provenance_with_sources(
+    existing: Option<&str>,
+    fresh: &str,
+    work_key: &str,
+    source_url: &str,
+) -> String {
+    let mut value: Value = serde_json::from_str(fresh).unwrap_or_else(|_| json!({}));
+    let mut urls: Vec<String> = Vec::new();
+    if let Some(old) = existing {
+        if let Ok(old_value) = serde_json::from_str::<Value>(old) {
+            if let Some(array) = old_value.get("source_urls").and_then(Value::as_array) {
+                for entry in array.iter().filter_map(Value::as_str) {
+                    urls.push(entry.to_owned());
+                }
+            }
+        }
+    }
+    if !urls.iter().any(|url| url == source_url) {
+        urls.push(source_url.to_owned());
+    }
+    value["source_urls"] = json!(urls);
+    value["pawchive_work_key"] = json!(work_key);
+    value.to_string()
 }
 
 /// The library row for a previewed work.

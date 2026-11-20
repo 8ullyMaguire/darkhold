@@ -19,7 +19,9 @@
 
 use anyhow::{Context, Result};
 use serde::{Deserialize, Serialize};
+use serde_json::Value;
 use sqlx::FromRow;
+use std::collections::HashMap;
 
 use crate::identity::now_rfc3339;
 use crate::{sql_owned, Backend, Database};
@@ -1314,6 +1316,213 @@ pub async fn find_library_item(
         ),
     );
     fetch_optional_library_item(db, &sql, account_id, source_key, source_work_key).await
+}
+
+/// Canonical grouping key for Pawchive chapter submissions.
+///
+/// Pawchive publishes one post per chapter. The title differs by ordinal but
+/// punctuation and spacing are unstable, so a normalised title+author pair is
+/// the work identity; each post URL stays in provenance and units.
+#[must_use]
+pub fn pawchive_work_key(title: &str, author: &str) -> String {
+    fn normalise(raw: &str) -> String {
+        raw.to_ascii_lowercase()
+            .chars()
+            .map(|c| if c.is_ascii_alphanumeric() { c } else { ' ' })
+            .collect::<String>()
+            .split_whitespace()
+            .collect::<Vec<_>>()
+            .join(" ")
+    }
+    format!("{}|{}", normalise(title), normalise(author))
+}
+
+/// Find the library item that owns a canonical source work key.
+pub async fn find_library_item_by_source_key(
+    db: &Database,
+    account_id: &str,
+    source_key: &str,
+    source_work_key: &str,
+) -> Result<Option<LibraryItem>> {
+    let sql = sql_owned(
+        db,
+        format!(
+            "SELECT {LIBRARY_COLUMNS}, {LIBRARY_UNIT_COUNT} FROM library_items \
+             WHERE account_id = ? AND source_key = ? AND source_work_key = ?"
+        ),
+        format!(
+            "SELECT {LIBRARY_COLUMNS_PG}, {LIBRARY_UNIT_COUNT} FROM library_items \
+             WHERE account_id::text = ? AND source_key = ? AND source_work_key = ?"
+        ),
+    );
+    let row: Option<LibraryItemRow> = match db.backend() {
+        Backend::Sqlite => {
+            sqlx::query_as(&sql)
+                .bind(account_id)
+                .bind(source_key)
+                .bind(source_work_key)
+                .fetch_optional(db.sqlite_pool().expect("sqlite handle"))
+                .await?
+        }
+        Backend::Postgres => {
+            sqlx::query_as(&sql)
+                .bind(account_id)
+                .bind(source_key)
+                .bind(source_work_key)
+                .fetch_optional(db.postgres_pool().expect("postgres handle"))
+                .await?
+        }
+    };
+    row.map(decode_library_item).transpose()
+}
+
+/// List library items for one source, bounded for repair passes.
+pub async fn list_library_items_by_source(
+    db: &Database,
+    account_id: &str,
+    source_key: &str,
+    limit: i64,
+) -> Result<Vec<LibraryItem>> {
+    let limit = limit.clamp(1, 100_000);
+    let sql = sql_owned(
+        db,
+        format!(
+            "SELECT {LIBRARY_COLUMNS}, {LIBRARY_UNIT_COUNT} FROM library_items
+             WHERE account_id = ? AND source_key = ?
+             ORDER BY created_at ASC, id ASC
+             LIMIT ?"
+        ),
+        format!(
+            "SELECT {LIBRARY_COLUMNS_PG}, {LIBRARY_UNIT_COUNT} FROM library_items
+             WHERE account_id::text = ? AND source_key = ?
+             ORDER BY created_at ASC, id ASC
+             LIMIT ?"
+        ),
+    );
+    let rows: Vec<LibraryItemRow> = match db.backend() {
+        Backend::Sqlite => {
+            sqlx::query_as(&sql)
+                .bind(account_id)
+                .bind(source_key)
+                .bind(limit)
+                .fetch_all(db.sqlite_pool().expect("sqlite handle"))
+                .await?
+        }
+        Backend::Postgres => {
+            sqlx::query_as(&sql)
+                .bind(account_id)
+                .bind(source_key)
+                .bind(limit)
+                .fetch_all(db.postgres_pool().expect("postgres handle"))
+                .await?
+        }
+    };
+    rows.into_iter().map(decode_library_item).collect()
+}
+
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+pub struct PawchiveGroupingReport {
+    pub scanned: usize,
+    pub groups: usize,
+    pub merged: usize,
+    pub urls: usize,
+}
+
+/// Collapse Pawchive chapter posts into one library work per title+author.
+///
+/// The oldest item is kept. Its provenance grows a `source_urls` list; jobs and
+/// units that pointed at duplicates are re-pointed before those rows are
+/// deleted. Dry run reports what would change and writes nothing.
+pub async fn group_pawchive_library_items(
+    db: &Database,
+    account_id: &str,
+    dry_run: bool,
+) -> Result<PawchiveGroupingReport> {
+    let items = list_library_items_by_source(db, account_id, "pawchive", 100_000).await?;
+    let mut report = PawchiveGroupingReport {
+        scanned: items.len(),
+        ..PawchiveGroupingReport::default()
+    };
+    let mut groups: HashMap<String, Vec<LibraryItem>> = HashMap::new();
+    for item in items {
+        groups
+            .entry(pawchive_work_key(&item.title, &item.author_text))
+            .or_default()
+            .push(item);
+    }
+    for (key, mut members) in groups {
+        if members.len() < 2 {
+            continue;
+        }
+        members.sort_by(|a, b| a.created_at.cmp(&b.created_at).then_with(|| a.id.cmp(&b.id)));
+        let keeper = members.remove(0);
+        report.groups += 1;
+        let mut provenance: Value = serde_json::from_str(&keeper.provenance_json)
+            .unwrap_or_else(|_| serde_json::json!({}));
+        let mut urls: Vec<String> = Vec::new();
+        for member in std::iter::once(&keeper).chain(members.iter()) {
+            if let Ok(value) = serde_json::from_str::<Value>(&member.provenance_json) {
+                if let Some(array) = value.get("source_urls").and_then(Value::as_array) {
+                    for url in array.iter().filter_map(Value::as_str) {
+                        if !urls.iter().any(|existing| existing == url) {
+                            urls.push(url.to_owned());
+                        }
+                    }
+                }
+            }
+            if !urls.iter().any(|existing| existing == &member.source_url) {
+                urls.push(member.source_url.clone());
+            }
+        }
+        report.urls = report.urls.saturating_add(urls.len());
+        provenance["source_urls"] = serde_json::json!(urls);
+        provenance["pawchive_work_key"] = serde_json::json!(key);
+        if dry_run {
+            report.merged += members.len();
+            continue;
+        }
+        let now = now_rfc3339();
+        let provenance_json = serde_json::to_string(&provenance)?;
+        let update = db.sql(
+            "UPDATE library_items SET source_work_key = ?, provenance_json = ?, updated_at = ?, version = version + 1
+             WHERE id = ?",
+            "UPDATE library_items SET source_work_key = ?, provenance_json = ?, updated_at = ?, version = version + 1
+             WHERE id = ?::uuid",
+        );
+        run!(db, &update, |query| {
+            query
+                .bind(&key)
+                .bind(&provenance_json)
+                .bind(&now)
+                .bind(&keeper.id)
+        })
+        .await?;
+        for duplicate in &members {
+            let repoint_jobs = db.sql(
+                "UPDATE import_jobs SET library_item_id = ? WHERE library_item_id = ?",
+                "UPDATE import_jobs SET library_item_id = ?::uuid WHERE library_item_id = ?::uuid",
+            );
+            run!(db, &repoint_jobs, |query| {
+                query.bind(&keeper.id).bind(&duplicate.id)
+            })
+            .await?;
+            let repoint_units = db.sql(
+                "UPDATE import_units SET library_item_id = ? WHERE library_item_id = ?",
+                "UPDATE import_units SET library_item_id = ?::uuid WHERE library_item_id = ?::uuid",
+            );
+            run!(db, &repoint_units, |query| {
+                query.bind(&keeper.id).bind(&duplicate.id)
+            })
+            .await?;
+            let delete = db.sql(
+                "DELETE FROM library_items WHERE id = ?",
+                "DELETE FROM library_items WHERE id = ?::uuid",
+            );
+            run!(db, &delete, |query| query.bind(&duplicate.id)).await?;
+            report.merged += 1;
+        }
+    }
+    Ok(report)
 }
 
 /// One reader's copy, by identifier. Scoped to the account: a library item is
