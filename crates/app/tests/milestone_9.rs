@@ -560,5 +560,32 @@ async fn work_policy_overrides_the_account_default() {
         .get(&format!("/api/v1/feedback/preferences/works/{work_id}"))
         .await;
     assert_eq!(status, StatusCode::OK, "policy is readable: {policy}");
+    // M71-14: an override is visible as a per-work source, the other fields still say
+    // where they came from, and the override carries a reset that clears exactly it.
+    let provenance = &policy["provenance"];
+    assert_eq!(
+        provenance["accept_constructive"]["source"], "per-work",
+        "{policy}"
+    );
+    assert_eq!(provenance["accept_constructive"]["value"], "on", "{policy}");
+    assert_eq!(
+        provenance["ambiguous_auto"]["source"], "account",
+        "{policy}"
+    );
+    assert_eq!(
+        provenance["comments_enabled"]["source"], "account",
+        "{policy}"
+    );
+    assert_eq!(
+        provenance["accept_constructive"]["reset"]["method"], "PUT",
+        "{policy}"
+    );
+    assert!(
+        provenance["accept_constructive"]["reset"]["path"]
+            .as_str()
+            .is_some_and(|path| path.contains(&work_id)),
+        "{policy}"
+    );
+    assert!(provenance["ambiguous_auto"]["reset"].is_null(), "{policy}");
     harness.cleanup().await;
 }

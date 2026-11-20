@@ -5327,3 +5327,7 @@ Deleted `external::rebind_bot_token`: no app caller, and its own history says it
 ## M71-07 economy register — 2026-11-20
 
 Census: `AdminEconomyFlows` was the only `Admin*.svelte` with `StatusMark` and no `AlertBar`. REUSE the shared bar and the existing undeclared table; no new API or store query. An unclassified credit source is a named red state: "Undeclared mechanism moved credits — Classify it before trusting the net", with a Fix link to `#undeclared-mechanisms`. Test-first RED 1 failed / 9 passed; GREEN 10/10; inverting the condition reddened 2/10 and was restored from `/tmp/m71-07-clean.svelte`. Threshold remains an amber worded note because crossing a configured threshold is information, not a broken classification. Full gate `/tmp/gate-all-m71-07-economy-5a56e16c.log` `GATE_ALL_EXIT=0` at `5a56e16c`, all eight stages plus ledger/repo. Live deploy shares the host-memory block with M64-15.
+
+## M71-14 per-work settings provenance — 2026-11-20
+
+Added `provenance` to the existing work-policy response: an explicit override reports `per-work`, `on|off`, and a reset PUT to the same URL; inherited fields report `account` with no reset. RED first (`left: Null / right: "per-work"`), then 1/1 on SQLite and 1/1 on PostgreSQL; hard-coding `account` reddened the test and was restored from `/tmp/m71-14-clean.rs`. No new route, table or frontend surface. Row remains planned for typography/gravity provenance and the UI affordance. Full gate pending; no deploy while the host-memory block stands.

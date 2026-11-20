@@ -20,6 +20,8 @@
 //! * Held text is never listed: the public review list and the inbox filter
 //!   it in SQL, and the inbox adds only a count, never content.
 
+use std::collections::BTreeMap;
+
 use axum::extract::{Path, State};
 use axum::http::StatusCode;
 use axum::routing::{get, post};
@@ -76,12 +78,29 @@ struct PreferencesRequest {
     expected_version: Option<i64>,
 }
 
+/// Where one field of a work policy came from (M71-14).
+#[derive(Debug, Serialize)]
+struct WorkPolicyProvenanceView {
+    value: String,
+    source: &'static str,
+    reset: Option<WorkPolicyResetView>,
+}
+
+/// The reset clears exactly this field; a null value in the request inherits again.
+#[derive(Debug, Serialize)]
+struct WorkPolicyResetView {
+    method: &'static str,
+    path: String,
+    becomes: &'static str,
+}
+
 #[derive(Debug, Serialize)]
 struct WorkPolicyView {
     accept_constructive: bool,
     ambiguous_auto: bool,
     comments_enabled: bool,
     effective_policy: String,
+    provenance: BTreeMap<String, WorkPolicyProvenanceView>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -156,7 +175,10 @@ async fn put_preferences(
     }))
 }
 
-async fn load_effective(state: &AppState, work_id: WorkId) -> ApiResult<FeedbackPreferences> {
+/// Build one work-policy response, including the per-field provenance the settings
+/// surface needs. A value is either an explicit per-work override or the author's
+/// account default; there is no pseud level for a work policy.
+async fn work_policy_view(state: &AppState, work_id: WorkId) -> ApiResult<WorkPolicyView> {
     let work = content::find_work(state.db(), work_id)
         .await?
         .ok_or_else(|| ApiError(AppError::NotFound { resource: "work" }))?;
@@ -166,7 +188,50 @@ async fn load_effective(state: &AppState, work_id: WorkId) -> ApiResult<Feedback
     let _ = work;
     let account = positivity::preferences_for(state.db(), author).await?;
     let work_ov = positivity::override_for(state.db(), work_id).await?;
-    Ok(effective(&account, &work_ov))
+    let prefs = effective(&account, &work_ov);
+    let path = format!("/api/v1/feedback/preferences/works/{work_id}");
+    let mut provenance = BTreeMap::new();
+    for (key, overridden, value) in [
+        (
+            "accept_constructive",
+            work_ov.accept_constructive,
+            prefs.accept_constructive,
+        ),
+        (
+            "ambiguous_auto",
+            work_ov.ambiguous_auto,
+            prefs.ambiguous_auto,
+        ),
+        (
+            "comments_enabled",
+            work_ov.comments_enabled,
+            prefs.comments_enabled,
+        ),
+    ] {
+        provenance.insert(
+            key.to_owned(),
+            WorkPolicyProvenanceView {
+                value: if value { "on" } else { "off" }.to_owned(),
+                source: if overridden.is_some() {
+                    "per-work"
+                } else {
+                    "account"
+                },
+                reset: overridden.map(|_| WorkPolicyResetView {
+                    method: "PUT",
+                    path: path.clone(),
+                    becomes: "account default",
+                }),
+            },
+        );
+    }
+    Ok(WorkPolicyView {
+        accept_constructive: prefs.accept_constructive,
+        ambiguous_auto: prefs.ambiguous_auto,
+        comments_enabled: prefs.comments_enabled,
+        effective_policy: describe_policy(&prefs),
+        provenance,
+    })
 }
 
 async fn get_work_policy(
@@ -177,13 +242,7 @@ async fn get_work_policy(
     let work_id: WorkId = id
         .parse()
         .map_err(|_| ApiError(AppError::NotFound { resource: "work" }))?;
-    let prefs = load_effective(&state, work_id).await?;
-    Ok(Json(WorkPolicyView {
-        accept_constructive: prefs.accept_constructive,
-        ambiguous_auto: prefs.ambiguous_auto,
-        comments_enabled: prefs.comments_enabled,
-        effective_policy: describe_policy(&prefs),
-    }))
+    Ok(Json(work_policy_view(&state, work_id).await?))
 }
 
 async fn put_work_policy(
@@ -209,13 +268,7 @@ async fn put_work_policy(
         comments_enabled: request.comments_enabled,
     };
     positivity::save_work_override(state.db(), work_id, &ov).await?;
-    let prefs = load_effective(&state, work_id).await?;
-    Ok(Json(WorkPolicyView {
-        accept_constructive: prefs.accept_constructive,
-        ambiguous_auto: prefs.ambiguous_auto,
-        comments_enabled: prefs.comments_enabled,
-        effective_policy: describe_policy(&prefs),
-    }))
+    Ok(Json(work_policy_view(&state, work_id).await?))
 }
 
 async fn get_inbox(
