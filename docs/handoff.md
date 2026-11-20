@@ -1,3 +1,7 @@
+## 2026-11-20 — M63-32 AO3 live batch
+
+AO3 re-fetch dry run scanned 10 works and parsed 58 tag assertions without writing. Applied batch of 50: 10 works tagged, 303 assertions, 46 nodes created. AO3 coverage moved 0 -> 10 / 2,082 under the same named pre-write dump. Archive backfill was still running.
+
 ## 2026-11-20 — M63-32 AO3 re-fetch tool shipped
 
 `dh catalogue --source ao3 --refetch --limit N` now fetches source metadata through Darkhold's own adapter registry and `SafeFetcher` with 1.2 s/2 s pacing, then writes the adapter tags as source assertions through the same idempotent helper. Dry-run by default. The earlier HTTP 429 cleared on a later probe.
