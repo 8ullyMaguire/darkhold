@@ -3,11 +3,11 @@
 set -euo pipefail
 
 cd /personal/documents/code/rust/darkhold
-BIN=/home/alvaro/.cargo-target/darkhold/release/darkhold
+BIN=/personal/documents/code/rust/darkhold/target/release/dh
 DB_URL='postgresql:///darkhold?host=/run/postgresql'
 STATE_DIR=/home/alvaro/.local/state/darkhold
 mkdir -p "$STATE_DIR"
 
-"$BIN" --db-url "$DB_URL" archive rank --limit 100000 > "$STATE_DIR/archive-rank.latest"
-"$BIN" --db-url "$DB_URL" archive bodies --yes
+"$BIN" --database-url "$DB_URL" archive rank --limit 100000 > "$STATE_DIR/archive-rank.latest"
+"$BIN" --database-url "$DB_URL" archive bodies --yes
 date -u +%FT%TZ > "$STATE_DIR/archive-bodies.latest"

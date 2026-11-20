@@ -181,11 +181,11 @@ pub enum Command {
     /// dispatches and records outcomes without making an HTTP request. `Cron` stays: this
     /// subcommand replaces the operator's timer, not the reader's own user timer.
     Jobs(JobsArgs),
-    /// TA1: rank the private catalogue and enqueue capped body imports.
+    /// TA1/TA2: rank the private catalogue and enqueue body imports.
     Archive(archive::ArchiveArgs),
     /// M63-32: backfill source-backed tags from stored import provenance.
     ///
-    /// `dh catalogue --db-url … --source archive --limit 500 --yes`
+    /// `dh catalogue --database-url … --source archive --limit 500 --yes`
     /// reads `library_items.provenance_json` and writes source-asserted tags.
     /// Without `--yes` it only prints the preview.
     Catalogue(catalogue::CatalogueArgs),
