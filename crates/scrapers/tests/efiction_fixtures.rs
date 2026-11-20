@@ -866,3 +866,25 @@ async fn the_new_member_reads_its_chapters_and_not_its_neighbours() {
         "two chapters read as one body means the URL was built from the wrong chapter"
     );
 }
+
+#[test]
+fn ta2_members_are_claimed_and_parse_with_the_same_family_fixture() {
+    let adapter = Efiction::new();
+    for host in [
+        "efpfanfic.net",
+        "mediaminer.org",
+        "whofic.com",
+        "adult-fanfiction.org",
+    ] {
+        let raw = format!("https://{host}/viewstory.php?sid=4376&index=1");
+        assert!(
+            adapter.can_handle(&url(&raw)),
+            "{host} is catalogued as an eFiction archive"
+        );
+        let work = adapter
+            .preview_from_html(&fixture("psychfic-work.html"), &url(&raw))
+            .unwrap_or_else(|error| panic!("{host} must parse with the family fixture: {error}"));
+        assert_eq!(work.source_key.as_str(), "efiction");
+        assert!(!work.title.is_empty());
+    }
+}

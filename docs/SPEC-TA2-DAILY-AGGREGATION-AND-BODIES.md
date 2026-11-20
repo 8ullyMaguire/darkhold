@@ -36,6 +36,19 @@ The 20k cap is removed from `config/darkhold-taste.local.json`, `LoadedPreferenc
 
 Adapter expansion uses `crates/scrapers/sources.json` as the source of truth. A source moves from `adapter: null` to a named adapter only after fixture-backed `preview_from_html` and `units_from_html` tests exist.
 
+## Adapter coverage disposition (TA2-8)
+
+Added in TA2: `efpfanfic`, `mediaminer`, `whofic`, `adult-fanfiction` now use the existing eFiction adapter. They are fixture-proven with the family fixture and host-claim test; no new parser was created.
+
+The remaining catalogued sources without an adapter are explicitly skipped, not forgotten:
+
+- Site-wide robots or unreachable: `fanfiktion`, `honeyfeed`, `cfaarchive`, `bulbagarden`, `storiesofarda`.
+- Metadata-only by catalogue policy: `animexx`, `audiofic`, `tthfanfic`.
+- Custom markup needing a dedicated fixture set: `storysea`, `quotev`, `femslash`, `asianfanfics`, `fimfiction`, `lodginghouse`, `lcficmbs`, `ficwad`, `merengo`.
+- XenForo family candidates needing their own forum fixtures: `thousandroads`, `gateworld`, `theforce`.
+
+Each group has a written reason here, so the catalogue no longer presents an unimplemented source as if it were covered.
+
 ## Success criteria
 
 - Live meta build hash matches the deployed TA2 commit.

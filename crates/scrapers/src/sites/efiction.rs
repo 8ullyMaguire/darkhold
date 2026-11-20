@@ -257,6 +257,25 @@ const MEMBERS: &[Member] = &[
         host: "valentchamber.com",
         archive_path: "",
     },
+    // TA2-8: four catalogued archives already speak this family's
+    // `viewstory.php` dialect and are now claimed by the same parser. Their
+    // catalogue entries carry the same adapter key; no second parser exists.
+    Member {
+        host: "efpfanfic.net",
+        archive_path: "",
+    },
+    Member {
+        host: "mediaminer.org",
+        archive_path: "",
+    },
+    Member {
+        host: "whofic.com",
+        archive_path: "",
+    },
+    Member {
+        host: "adult-fanfiction.org",
+        archive_path: "",
+    },
 ];
 
 /// The script that renders a story, on every member.

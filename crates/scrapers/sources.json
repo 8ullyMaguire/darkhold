@@ -234,7 +234,7 @@
       "name": "EFP",
       "host": "efpfanfic.net",
       "family": "efiction",
-      "adapter": null,
+      "adapter": "efiction",
       "bodies": "allowed",
       "robots": {
         "verdict": "robots.txt is empty (0 rules)",
@@ -362,7 +362,7 @@
       "name": "MediaMiner",
       "host": "mediaminer.org",
       "family": "efiction",
-      "adapter": null,
+      "adapter": "efiction",
       "bodies": "allowed",
       "robots": {
         "verdict": "robots.txt is empty (0 rules)",
@@ -410,7 +410,7 @@
       "name": "A Teaspoon and an Open Mind",
       "host": "whofic.com",
       "family": "efiction",
-      "adapter": null,
+      "adapter": "efiction",
       "bodies": "allowed",
       "robots": {
         "verdict": "no rules for *",
@@ -442,7 +442,7 @@
       "name": "Adult-FanFiction.org",
       "host": "adult-fanfiction.org",
       "family": "efiction",
-      "adapter": null,
+      "adapter": "efiction",
       "bodies": "allowed",
       "robots": {
         "verdict": "no robots.txt (404)",
