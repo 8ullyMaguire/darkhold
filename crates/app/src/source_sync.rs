@@ -56,10 +56,14 @@ pub struct FrontierNode {
     pub url: String,
 }
 
-fn author_id_from_url(url: &str) -> String {
-    url.trim_end_matches('/')
-        .rsplit('/')
-        .next()
+pub fn author_id_from_url(url: &str) -> String {
+    let trimmed = url.trim_end_matches('/');
+    let Some(position) = trimmed.find("/patreon/user/") else {
+        return String::new();
+    };
+    trimmed[position + "/patreon/user/".len()..]
+        .split('/')
+        .find(|segment| !segment.is_empty() && segment.chars().all(|c| c.is_ascii_digit()))
         .unwrap_or_default()
         .to_owned()
 }
@@ -315,19 +319,27 @@ pub async fn run(state: &AppState) -> anyhow::Result<Summary> {
                 .filter(|seed| seed.source_id == entry.id)
                 .cloned()
                 .collect();
+            let recommended_template = match &entry.discovery {
+                Discovery::AuthorFrontier { recommended_template } => recommended_template.clone(),
+                _ => String::new(),
+            };
             let frontier_fetcher = &fetcher;
             let nodes = author_frontier(
                 &seeds,
                 3,
                 config.max_works_per_listing.max(1),
-                |url| async move {
-                    let fetched = frontier_fetcher
-                        .get_declared(&url, FetchClass::Metadata)
-                        .await
-                        .map_err(|error| anyhow::anyhow!(error.to_string()))?;
-                    Ok(darkhold_scrapers::sites::pawchive::similar_creator_urls(
-                        &fetched.body,
-                    ))
+                |author_id| {
+                    let template = recommended_template.clone();
+                    async move {
+                        let recommendation_url = template.replace("{id}", &author_id);
+                        let fetched = frontier_fetcher
+                            .get_declared(&recommendation_url, FetchClass::Metadata)
+                            .await
+                            .map_err(|error| anyhow::anyhow!(error.to_string()))?;
+                        Ok(darkhold_scrapers::sites::pawchive::similar_creator_urls(
+                            &fetched.body,
+                        ))
+                    }
                 },
             )
             .await;

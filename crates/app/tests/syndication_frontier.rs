@@ -7,7 +7,7 @@ use std::collections::HashMap;
 use std::time::Duration;
 
 use darkhold_app::config::{parse_age_window, AuthorSeed, SourceSyncRule, SyndicationConfig};
-use darkhold_app::source_sync::discovery_is_walkable;
+use darkhold_app::source_sync::{author_id_from_url, discovery_is_walkable};
 use darkhold_scrapers::Discovery;
 
 #[test]
@@ -19,6 +19,19 @@ fn author_frontier_is_not_skipped_for_having_no_static_listing() {
         template: "/latest".to_owned(),
     }));
     assert!(!discovery_is_walkable(&Discovery::None));
+}
+
+#[test]
+fn seed_recommended_url_yields_numeric_author_id() {
+    assert_eq!(
+        author_id_from_url("https://pawchive.pw/patreon/user/13212571/recommended"),
+        "13212571"
+    );
+    assert_eq!(
+        author_id_from_url("https://pawchive.pw/patreon/user/13212571"),
+        "13212571"
+    );
+    assert!(author_id_from_url("https://pawchive.pw/").is_empty());
 }
 
 #[test]

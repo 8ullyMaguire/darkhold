@@ -185,7 +185,7 @@ pub enum Command {
     Archive(archive::ArchiveArgs),
     /// M63-32: backfill source-backed tags from stored import provenance.
     ///
-    /// `dh catalogue --database-url … --source archive --limit 500 --yes`
+    /// `dh catalogue --db-url … --source archive --limit 500 --yes`
     /// reads `library_items.provenance_json` and writes source-asserted tags.
     /// Without `--yes` it only prints the preview.
     Catalogue(catalogue::CatalogueArgs),
