@@ -99,6 +99,7 @@ pub async fn backfill_from_provenance(
         for (kind, canonical) in claims {
             if dry_run {
                 report.assertions += 1;
+                wrote = true;
                 continue;
             }
             let existed = crate::taxonomy::node_id_by_norm(

@@ -147,7 +147,8 @@ async fn dry_run_writes_nothing() {
         .await
         .expect("dry run");
     assert_eq!(report.scanned, 2, "{report:?}");
-    assert!(report.assertions > 0, "{report:?}");
+    assert_eq!(report.assertions, 7, "{report:?}");
+    assert_eq!(report.works_tagged, 2, "{report:?}");
     assert_eq!(
         count(&db, "SELECT COUNT(*) FROM work_tags").await,
         0,

@@ -1,3 +1,7 @@
+## 2026-11-20 — M63-32 live dry run
+
+`dh catalogue --source archive --limit 50 --dry-run` on the live instance scanned 50 rows and parsed 865 source-backed assertions without writing (`applied=false`). The dry-run report now counts `works_tagged` as well. No live write has been made; the next step is a fresh named dump followed by bounded application.
+
 ## 2026-11-20 — M64-14 deployed live
 
 `estate.py deploy darkhold --yes` completed: build exit 0 (1019 s), migrate exit 0, restart exit 0, five probes exit 0, `DEPLOY_EXIT=0`. Live `/api/v1/meta` reports `0.1.0+9c34e649`. No migration or data write was part of this deploy, so no new `pg_dump` was taken; the earlier named dump remains the rollback point.
