@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from '@testing-library/svelte';
+import { render, screen, waitFor, within } from '@testing-library/svelte';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import AdminEconomyFlows from './AdminEconomyFlows.svelte';
@@ -83,6 +83,36 @@ describe('AdminEconomyFlows', () => {
     const warnings = screen.getAllByRole('status', { name: 'amber: needs-attention' });
     expect(warnings.length).toBeGreaterThanOrEqual(2);
     expect(screen.getByTestId('undeclared-warning')).toHaveTextContent('unclassified in it');
+  });
+
+  it('names the undeclared mechanism as a red state with its next step', async () => {
+    // M71-07: colour is never the signal. The bar has to say what is wrong and what to do,
+    // and its Fix link has to land on the table that carries the unclassified credits.
+    mockFetch.mockResolvedValue(window_());
+    render(AdminEconomyFlows);
+
+    await waitFor(() => {
+      const bar = screen.getByRole('alert', { name: 'Needs attention' });
+      expect(bar).toHaveTextContent('Undeclared mechanism moved credits');
+      expect(bar).toHaveTextContent('Classify it before trusting the net');
+      expect(
+        within(bar).getByRole('link', {
+          name: 'Fix Undeclared mechanism moved credits — Classify it before trusting the net',
+        }),
+      ).toHaveAttribute('href', '#undeclared-mechanisms');
+    });
+  });
+
+  it('is silent when every mechanism is declared', async () => {
+    mockFetch.mockResolvedValue({
+      ...window_(),
+      undeclared: 0,
+      mechanisms: window_().mechanisms.filter((m) => m.declared),
+    });
+    render(AdminEconomyFlows);
+
+    await waitFor(() => expect(screen.getByTestId('net-credits')).toBeTruthy());
+    expect(screen.queryByRole('alert', { name: 'Needs attention' })).toBeNull();
   });
 
   it('never renders a per-account balance', async () => {

@@ -1,3 +1,7 @@
+## 2026-11-20 — M71-07 economy register added
+
+`AdminEconomyFlows` now feeds the shared `AlertBar`: an undeclared credit source is named with its next step and a Fix link to the unclassified table. RED 1/10 before implementation, GREEN 10/10, condition mutant RED 2/10 and restored from `/tmp/m71-07-clean.svelte`. No new API or store query. Full gate pending; live deploy shares the M64-15 host-memory block.
+
 ## 2026-11-19 — M70-13 orphan ratchet 27 → 26
 
 Deleted `external::rebind_bot_token`: no app caller, and its own history says it used to rewrite a registration's credential on every confirmation. Keeping a stable registration is the multi-link guarantee, so the right pass was deletion, not a new operator door. Ratchet was RED first (1 passed, 1 failed), GREEN after baseline regeneration (2/2, 26 orphans); re-add mutant RED and clean restore GREEN from `/tmp/m70-13-clean.rs`. Full gate `/tmp/gate-all-m70-13-60251e45.log` `GATE_ALL_EXIT=0` at `60251e45`. First gate `fb888642` failed only on two now-built idea rows; regenerated catalogue and targeted idea suite 3/3 before retry. No live surface moved; no deploy.

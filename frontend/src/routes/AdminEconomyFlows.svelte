@@ -28,6 +28,7 @@
     type FlowMechanism,
   } from '../lib/api';
   import { session } from '../lib/session.svelte.ts';
+  import AlertBar from '../lib/components/AlertBar.svelte';
   import ErrorSummary from '../lib/components/ErrorSummary.svelte';
   import SignInGate from '../lib/components/SignInGate.svelte';
   import Skeleton from '../lib/components/Skeleton.svelte';
@@ -118,6 +119,23 @@
   {:else if error}
     <ErrorSummary {error} />
   {:else if flows}
+    {#if flows.undeclared > 0}
+      <!--
+        M71-07: an unclassified credit source is a red state, not an amber hint. The
+        bar names it and the next step in words; the Fix link lands on the table that
+        carries those credits so the operator does not have to hunt for them.
+      -->
+      <AlertBar
+        alerts={[
+          {
+            label:
+              'Undeclared mechanism moved credits — Classify it before trusting the net',
+            href: '#undeclared-mechanisms',
+          },
+        ]}
+      />
+    {/if}
+
     <!--
       `role="status"` rather than an alert: crossing the threshold is information
       for an operator, not an error, and an aria-live assertive region would
@@ -185,7 +203,7 @@
       their classification is incomplete, which is the only reason to build the view.
     -->
     {#if undeclared.length > 0}
-      <h3 data-testid="undeclared-heading">
+      <h3 id="undeclared-mechanisms" data-testid="undeclared-heading">
         Undeclared ({flows.undeclared})
       </h3>
       <p class="warn" data-testid="undeclared-warning">

@@ -4903,7 +4903,7 @@ this table. The rule and the three legal kinds of block are in `~/secondbrain/10
 | M29-08 + M44-02 — consensus boards | **not blocked: build as one product** | Both are specified; they need a proposal/ranking board and an operator move surface. | **M70-14 close** |
 
 **Cleared 2026-11-19:** M63-23 (local dump), M70-13's reserved decision (M70-14 row), M71-13 (provenance split), M63-33 (live schema is authoritative), M64-13 (ledger close), M71-20 and M71-03 (owner-accepted proofs).
-| M64-15 live deploy — host-memory limit | **environmental deploy block** | Retry estate deploy when the thinkcentre has ≥8 GB available and no foreign compiler/crawler is competing, or when the owner authorises a lower-peak release build. The named dump `/personal/backups/darkhold-20261119-224442-d80c113d.dump` is already verified (`TABLE_DATA=411`). | M71-07 console register |
+| M64-15 + M71-07 live deploy — host-memory limit | **environmental deploy block** | Retry estate deploy when the thinkcentre has ≥8 GB available and no foreign compiler/crawler is competing, or when the owner authorises a lower-peak release build. The named dump `/personal/backups/darkhold-20261119-224442-d80c113d.dump` is already verified (`TABLE_DATA=411`); M71-07 adds a frontend-only slice. Deploy both together once memory clears. | M71-07 console register |
 
 **De-facto queue after those demotions** (each row still read before it is implemented; this is an order, not
 a shortcut):
@@ -5323,3 +5323,7 @@ Orbital cannot compile in this checkout: `cargo test --test overlap` fails at `s
 ## M70-13 orphan ratchet pass 27 -> 26 — 2026-11-19
 
 Deleted `external::rebind_bot_token`: no app caller, and its own history says it used to rewrite a registration's credential on every confirmation. Keeping `bot_registrations.token_id` stable is the multi-link guarantee, so deletion — not a new operator door — is the right pass. RED first: removing the baseline line while the function still existed reddened `orphan_queries` (1 passed, 1 failed). GREEN after deletion and regenerated baseline 26 (2/2). Mutant: restoring the function from `/tmp/m70-13-rebind.bak` reddened 1/2; clean source restored from `/tmp/m70-13-clean.rs` and reran 2/2. Full gate pending.
+
+## M71-07 economy register — 2026-11-20
+
+Census: `AdminEconomyFlows` was the only `Admin*.svelte` with `StatusMark` and no `AlertBar`. REUSE the shared bar and the existing undeclared table; no new API or store query. An unclassified credit source is a named red state: "Undeclared mechanism moved credits — Classify it before trusting the net", with a Fix link to `#undeclared-mechanisms`. Test-first RED 1 failed / 9 passed; GREEN 10/10; inverting the condition reddened 2/10 and was restored from `/tmp/m71-07-clean.svelte`. Threshold remains an amber worded note because crossing a configured threshold is information, not a broken classification. Full gate pending; live deploy shares the host-memory block with M64-15.
