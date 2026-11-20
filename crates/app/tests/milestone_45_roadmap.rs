@@ -1440,8 +1440,14 @@ async fn a_similar_suggestion_joins_an_idea_without_renaming_it() {
         .await
         .expect("find card")
         .expect("card still exists");
-    assert_eq!(after.title, card.title, "a joiner rewrote representative title");
-    assert_eq!(after.body, card.body, "a joiner rewrote representative body");
+    assert_eq!(
+        after.title, card.title,
+        "a joiner rewrote representative title"
+    );
+    assert_eq!(
+        after.body, card.body,
+        "a joiner rewrote representative body"
+    );
 }
 
 #[tokio::test]
@@ -1464,9 +1470,7 @@ async fn the_arena_draws_the_least_compared_card_first() {
     }
 
     for _ in 0..8 {
-        let candidates = arena_candidates(harness.db(), 1)
-            .await
-            .expect("candidates");
+        let candidates = arena_candidates(harness.db(), 1).await.expect("candidates");
         assert_eq!(
             candidates[0].id, least_id,
             "a more-compared card was drawn first"

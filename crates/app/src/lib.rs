@@ -20,6 +20,7 @@ pub mod crypto;
 pub mod cursor;
 pub mod derivative;
 pub mod doctor;
+pub mod embeddings_provider;
 pub mod estate_search;
 pub mod exports;
 pub mod facets_cache;

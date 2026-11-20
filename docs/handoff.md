@@ -1,3 +1,7 @@
+## 2026-11-20 — M64-14 Ollama provider shipped
+
+Local Ollama `/v1/embeddings` adapter is wired with env config, model naming and degrade-on-failure. Mock HTTP test 2/2; empty-vector mutant red/restored. Served-feed reranking remains.
+
 ## 2026-11-20 — owner unblocks recorded; M63-25 closed
 
 Owner decisions: rename M63-25; Ollama endpoint for M64-14; authorize M63-32 source re-fetch; accept M45-74 census; keep M69-24 held on the foreign shared-crate checkout; remove the >=8 GB deploy gate. M63-25 audit test 1/1 with wording mutant red/restored. Other decisions are recorded in `docs/DECISIONS.md` and the Blocked table.

@@ -5387,3 +5387,7 @@ All §29 additions are now shipped on top of the M45-01/M45-D00 board: three-sug
 ## M63-25 closed — 2026-11-20
 
 Owner chose the honest rename: "what your account did" rather than per-token attribution. No DDL, no impossible backfill. `audit.rs` already prints the exact wording and states the actor/token distinction. Evidence: CLI audit test 1/1; "tokens did" mutant red/restored from `/tmp/m63-25-close.bak`. Targeted only.
+
+## M64-14 Ollama provider — 2026-11-20
+
+Census: REUSE `darkhold_domain::embeddings::EmbeddingProvider` and app's `reqwest`; ADAPT one provider module; BUILD one mock-HTTP test. Owner chose local Ollama (`qwen3-embedding:0.6b`, fallback `nomic-embed-text`) over a fake deterministic adapter. The adapter names its model and degrades on every failure path. Evidence: test 2/2; empty-vector mutant red/restored from `/tmp/m64-14-ollama.bak`. Targeted only. Row stays partial for served-feed reranking.
