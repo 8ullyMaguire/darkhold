@@ -1,6 +1,6 @@
 ## 2026-11-20 — M71-14 typography provenance and reset
 
-`GET /settings/typography` now names each field's level; `PATCH` accepts `{reset:true}` and deletes the account row through the existing reset function rather than writing defaults under an account source. RED first, then 1/1 SQLite + 1/1 PostgreSQL; two valid mutants red/restored from `/tmp/m71-14-typography-clean.rs`. Full gate pending; UI affordance remains in the row. Deploy stays under the host-memory block.
+`GET /settings/typography` now names each field's level; `PATCH` accepts `{reset:true}` and deletes the account row through the existing reset function rather than writing defaults under an account source. RED first, then 1/1 SQLite + 1/1 PostgreSQL; two valid mutants red/restored from `/tmp/m71-14-typography-clean.rs`. Full gate `/tmp/gate-all-m71-14-typography-e50b639b.log` `GATE_ALL_EXIT=0` at `e50b639b`. UI affordance remains in the row. Deploy stays under the host-memory block.
 
 ## 2026-11-20 — M71-14 per-work provenance slice
 
