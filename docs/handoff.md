@@ -1,3 +1,7 @@
+## 2026-11-20 — TA2 code complete; final deploy in progress
+
+All TA2 code rows are implemented on `master`: no 20k ceiling, Pawchive chapter grouping with a repair verb, private-taste body enqueue test, daily body wrapper/timer, live 24-hour syndication config with the one Dark Wolf Shiro seed and 120-day Pawchive window, and four new eFiction-family adapters with fixture-backed host claims. The other 20 catalogued sources have written coverage dispositions in `docs/SPEC-TA2-DAILY-AGGREGATION-AND-BODIES.md`. Targeted tests and one mutant per code row are green/red/restored. TA2-1 remains open until the release build and live restart finish.
+
 ## 2026-11-20 — TA2 roadmap opened; code work pending
 
 New decisions: one Pawchive BFS seed at `https://pawchive.pw/patreon/user/13212571/recommended`, depth 3 only; Pawchive chapter submissions collapse into one library work; Pawchive admits only updates older than 120 days; AO3/QQ/SV/SB and other supported archives check daily without that window; bodies are archived for works with liked tags and no excluded tags; the 20k ceiling is removed; adapter coverage expands fixture-by-fixture. Spec: `docs/SPEC-TA2-DAILY-AGGREGATION-AND-BODIES.md`. Plan: `/home/alvaro/.hermes/plans/2026-11-20_214101-ta2-daily-aggregation-and-bodies.md`. Deploy happens once after TA2 code, not twice.

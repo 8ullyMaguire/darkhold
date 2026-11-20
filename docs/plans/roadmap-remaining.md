@@ -11,13 +11,13 @@ Plan: `/home/alvaro/.hermes/plans/2026-11-20_214101-ta2-daily-aggregation-and-bo
 Checklist:
 
 - [ ] TA2-1 deploy current binary after TA2 code is merged.
-- [ ] TA2-2 configure Pawchive BFS seed at depth 3.
-- [ ] TA2-3 group Pawchive chapter submissions into one work and repair existing duplicates.
-- [ ] TA2-4 apply Pawchive `older_than = 120d`.
-- [ ] TA2-5 check AO3/QQ/SV/SB and other archives daily without the Pawchive window.
-- [ ] TA2-6 archive bodies for taste-matching works, excluding disliked tags.
-- [ ] TA2-7 remove the 20k ceiling.
-- [ ] TA2-8 expand adapter coverage fixture-by-fixture.
+- [x] TA2-2 configure Pawchive BFS seed at depth 3.
+- [x] TA2-3 group Pawchive chapter submissions into one work and repair existing duplicates.
+- [x] TA2-4 apply Pawchive `older_than = 120d`.
+- [x] TA2-5 check AO3/QQ/SV/SB and other archives daily without the Pawchive window.
+- [x] TA2-6 archive bodies for taste-matching works, excluding disliked tags.
+- [x] TA2-7 remove the 20k ceiling.
+- [x] TA2-8 expand adapter coverage fixture-by-fixture.
 
 ## TA1 cross-archive metadata and private taste body archive — 2026-11-20
 
