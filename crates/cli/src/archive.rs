@@ -42,8 +42,8 @@ pub enum ArchiveCommand {
     },
     /// Enqueue body-store imports for the top candidates.
     Bodies {
-        #[arg(long, default_value_t = 20000)]
-        limit: usize,
+        #[arg(long)]
+        limit: Option<usize>,
     },
 }
 
@@ -77,7 +77,7 @@ pub async fn run(cli: &crate::Cli, args: &ArchiveArgs) -> Result<(), Failure> {
     let (requested_limit, apply) = match &args.command {
         ArchiveCommand::Rank { .. } => (None, false),
         ArchiveCommand::Bodies { limit } => {
-            let cap = *limit;
+            let cap = limit.unwrap_or(usize::MAX);
             let apply = crate::safety::mutating(
                 cli,
                 &format!("enqueue at most {cap} private body imports"),

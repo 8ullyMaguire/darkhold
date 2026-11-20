@@ -68,7 +68,7 @@ fn no_global_body_ceiling_remains() {
         "private preferences must not carry a product body ceiling"
     );
     assert!(
-        archive.contains("let cap = *limit;"),
+        archive.contains("limit.unwrap_or(usize::MAX)"),
         "the per-run --limit remains the only brake"
     );
 }
