@@ -238,6 +238,8 @@ pub struct RoadmapConfig {
     /// and a release. The default is 1, so no existing instance changes
     /// behaviour and the three sites that were already there are unchanged.
     pub min_trust: i64,
+    /// §29.1: suggestions per acting identity in a rolling 24 hours.
+    pub max_suggestions_per_day: i64,
     /// Whether the arena ranks by Glicko-2 rather than Elo (M69-10). Off by default: it changes what a stranger sees on the
     /// board — a rating plus an uncertainty — so it waits for a decision rather than a default.
     pub glicko: bool,
@@ -247,6 +249,7 @@ impl Default for RoadmapConfig {
     fn default() -> Self {
         Self {
             min_trust: 1,
+            max_suggestions_per_day: 3,
             glicko: false,
         }
     }
@@ -3599,6 +3602,11 @@ impl Config {
             // already, in the other direction.
             roadmap: RoadmapConfig {
                 min_trust: file.roadmap.as_ref().and_then(|r| r.min_trust).unwrap_or(1),
+                max_suggestions_per_day: file
+                    .roadmap
+                    .as_ref()
+                    .and_then(|r| r.max_suggestions_per_day)
+                    .unwrap_or(3),
                 glicko: file
                     .roadmap
                     .as_ref()
@@ -5243,6 +5251,8 @@ struct ThemeSignalWeightsSection {
 #[derive(Debug, Clone, Default, serde::Deserialize)]
 #[serde(deny_unknown_fields)]
 struct RoadmapSection {
+    /// Suggestions per identity per rolling day (§29.1).
+    max_suggestions_per_day: Option<i64>,
     /// The trust level a reader needs to ballot, vote, or suggest on the
     /// roadmap. Defaults to 1, which is what the three call sites used to
     /// hardcode.

@@ -49,9 +49,9 @@
 use std::path::PathBuf;
 
 use darkhold_db::roadmap::{
-    apply_elo_and_counters, arena_candidates, create_ballot, fetch_ballot, find_card_by_id,
-    find_card_by_title_normalized, insert_suggestion, list_cards, list_moves, mark_voted,
-    record_move, update_card_stage, upsert_card, Card,
+    apply_elo_and_counters, arena_candidates, count_suggestions_since, create_ballot, fetch_ballot,
+    find_card_by_id, find_card_by_title_normalized, insert_suggestion, list_cards, list_moves,
+    mark_voted, record_move, update_card_stage, upsert_card, Card,
 };
 use test_support::TestDb;
 
@@ -1348,5 +1348,36 @@ async fn a_suggestion_records_its_body_and_distinguishes_absent_from_empty() {
         rows.iter().filter(|r| r.0 == "with none at all").count(),
         1,
         "the row exists; only its body is absent"
+    );
+}
+
+#[tokio::test]
+async fn a_rolling_day_counts_only_recent_suggestions() {
+    let harness = Harness::new("suggest-limit").await;
+    let account = harness.account().await;
+    for i in 0..3 {
+        insert_suggestion(harness.db(), &account, &format!("idea {i}"), None, None)
+            .await
+            .expect("insert suggestion");
+    }
+    let cutoff = chrono::Utc::now().format("%Y-%m-%dT%H:%M:%SZ").to_string();
+    assert_eq!(
+        count_suggestions_since(harness.db(), &account, &cutoff)
+            .await
+            .expect("count"),
+        3
+    );
+
+    let where_account = harness.acct("account_id", &account);
+    harness
+        .exec(&format!(
+            "UPDATE roadmap_suggestions SET created_at = '2020-01-01T00:00:00Z' WHERE {where_account}"
+        ))
+        .await;
+    assert_eq!(
+        count_suggestions_since(harness.db(), &account, &cutoff)
+            .await
+            .expect("count"),
+        0
     );
 }

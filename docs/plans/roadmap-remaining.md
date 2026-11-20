@@ -5367,3 +5367,7 @@ Census: the section was already delivered as M45-01 and M45-D00. Six `roadmap.rs
 ## M29-08 remaining — 2026-11-20
 
 The board half is the same M45-01/M45-D00 product and is not being rebuilt. What §29 adds beyond it is not present: the three-per-identity rolling-day suggestion limit, embedding clustering, first-author representative text, and least-compared arena selection. Those are the remaining slices, in that order.
+
+## M29-08 suggestion rate limit — 2026-11-20
+
+Census: REUSE `roadmap_suggestions.created_at/account_id`, `RoadmapConfig` and the existing `post_suggest` trust gate; ADAPT one two-engine count and one route guard; BUILD no table, route or crate. Decision: three suggestions per acting identity per rolling 24 hours, configurable as `[roadmap].max_suggestions_per_day` (default 3); the refusal names count, limit and window. The route is session-only, so the guest identifier half is not invented. Evidence: count 1/1 SQLite + 1/1 PostgreSQL, count-always-zero mutant red (`left: 0 / right: 3`) and restored from `/tmp/m29-08-limit.bak`, config 76/76, clippy -p darkhold-app clean. Targeted-only; no full gate. Row stays partial for clustering, frozen representative text and least-compared arena selection.

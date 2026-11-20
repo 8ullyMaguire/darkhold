@@ -516,6 +516,40 @@ pub async fn list_moves(
     }
 }
 
+/// Count a reader's suggestions at or after an RFC 3339 cutoff.
+///
+/// Used by §29.1's rolling-day limit: the window is computed by the caller so
+/// this store stays configuration-free, and both dialects compare text/timestamps
+/// in the same order because `created_at` is written as canonical RFC 3339.
+pub async fn count_suggestions_since(
+    db: &Database,
+    account_id: &str,
+    since: &str,
+) -> Result<i64, sqlx::Error> {
+    match db.backend() {
+        Backend::Sqlite => {
+            sqlx::query_scalar::<_, i64>(
+                "SELECT COUNT(*) FROM roadmap_suggestions
+             WHERE account_id = ? AND created_at >= ?",
+            )
+            .bind(account_id)
+            .bind(since)
+            .fetch_one(db.sqlite_pool().expect("sqlite"))
+            .await
+        }
+        Backend::Postgres => {
+            sqlx::query_scalar::<_, i64>(
+                "SELECT COUNT(*) FROM roadmap_suggestions
+             WHERE account_id = $1::uuid AND created_at >= $2::timestamptz",
+            )
+            .bind(account_id)
+            .bind(since)
+            .fetch_one(db.postgres_pool().expect("postgres"))
+            .await
+        }
+    }
+}
+
 /// Insert a suggestion. If `card_id` is provided, attach to that card.
 ///
 /// `body` is the description the member offered with the suggestion. It is

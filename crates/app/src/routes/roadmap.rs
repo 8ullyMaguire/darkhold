@@ -462,6 +462,27 @@ pub async fn post_suggest(
         }
     }
 
+    // §29.1: three suggestions per identity per rolling day. The cutoff is an
+    // RFC 3339 string because `created_at` is compared as text on SQLite and a
+    // timestamptz on PostgreSQL; one canonical string works for both.
+    let cutoff = chrono::Utc::now()
+        .checked_sub_signed(chrono::Duration::hours(24))
+        .expect("24 hours before now is representable")
+        .format("%Y-%m-%dT%H:%M:%SZ")
+        .to_string();
+    let used = roadmap::count_suggestions_since(state.db(), &account_id, &cutoff)
+        .await
+        .map_err(|e| ApiError(AppError::Internal(e.into())))?;
+    let limit = state.config().roadmap.max_suggestions_per_day;
+    if used >= limit {
+        return Err(ApiError(AppError::Validation {
+            message: format!(
+                "suggestion limit reached: {used} of {limit} allowed in the last 24 hours"
+            ),
+            field_errors: BTreeMap::new(),
+        }));
+    }
+
     let card = roadmap::find_card_by_title_normalized(state.db(), &body.title)
         .await
         .map_err(|e| ApiError(AppError::Internal(e.into())))?;

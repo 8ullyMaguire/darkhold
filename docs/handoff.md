@@ -1,3 +1,7 @@
+## 2026-11-20 — M29-08 suggestion rate limit shipped
+
+`[roadmap].max_suggestions_per_day` defaults to 3 and is enforced through a two-engine `count_suggestions_since`. Count 1/1 SQLite + 1/1 PostgreSQL, mutant red/restored, config 76/76, clippy clean. Remaining: clustering, frozen representative text, least-compared arena.
+
 ## 2026-11-20 — M44-02 closed, M29-08 remaining scoped
 
 M44-02 was already delivered as M45-01/M45-D00: six roadmap routes, MaxDiff→Elo, 55-test acceptance suite. Added a retired-doc-title alias so the closed row stops generating an idea; catalogue 93 ideas, ideas test 3/3. M29-08 keeps only the §29 additions — suggestion rate limit, clustering, frozen representative text, least-compared arena — and those are the next slices.
