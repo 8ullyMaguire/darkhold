@@ -1,6 +1,6 @@
 ## 2026-11-19 — M70-13 orphan ratchet 27 → 26
 
-Deleted `external::rebind_bot_token`: no app caller, and its own history says it used to rewrite a registration's credential on every confirmation. Keeping a stable registration is the multi-link guarantee, so the right pass was deletion, not a new operator door. Ratchet was RED first (1 passed, 1 failed), GREEN after baseline regeneration (2/2, 26 orphans); re-add mutant RED and clean restore GREEN from `/tmp/m70-13-clean.rs`. Full gate pending below.
+Deleted `external::rebind_bot_token`: no app caller, and its own history says it used to rewrite a registration's credential on every confirmation. Keeping a stable registration is the multi-link guarantee, so the right pass was deletion, not a new operator door. Ratchet was RED first (1 passed, 1 failed), GREEN after baseline regeneration (2/2, 26 orphans); re-add mutant RED and clean restore GREEN from `/tmp/m70-13-clean.rs`. Full gate `/tmp/gate-all-m70-13-60251e45.log` `GATE_ALL_EXIT=0` at `60251e45`. First gate `fb888642` failed only on two now-built idea rows; regenerated catalogue and targeted idea suite 3/3 before retry. No live surface moved; no deploy.
 
 ## 2026-11-19 — M64-15 closed
 
