@@ -622,6 +622,13 @@ pub const ROUTE_TABLE: &[RouteEntry] = &[
         path: "/settings/typography",
         audience: Audience::Authenticated,
     },
+    RouteEntry {
+        file: "reading.rs",
+        handler: "reset_typography",
+        method: "DELETE",
+        path: "/settings/typography",
+        audience: Audience::Authenticated,
+    },
     // ------------------------------------------------------------------
     // M47: User Configuration (spec §46)
     // ------------------------------------------------------------------

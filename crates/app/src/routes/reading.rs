@@ -17,6 +17,7 @@
 //! DELETE /notes/:id
 //! GET    /settings/typography                      effective values + defaults
 //! PATCH  /settings/typography                      { expected_version, … }
+//! DELETE /settings/typography                      reset to instance defaults
 //! ```
 //!
 //! Two rules hold across every handler:
@@ -81,7 +82,9 @@ pub fn authed_router() -> Router<AppState> {
     Router::new()
         .route(
             "/settings/typography",
-            get(get_typography).patch(save_typography),
+            get(get_typography)
+                .patch(save_typography)
+                .delete(reset_typography),
         )
         // §9.7.9 reading goals (M47-13). Pseud-scoped and private: the goal is one reader's own
         // pacing, and no other reader — nor another pseud of the same account — can read it.
@@ -1072,7 +1075,7 @@ fn typography_provenance(
     typography: &reading::Typography,
 ) -> BTreeMap<String, TypographyProvenanceView> {
     let reset = (typography.version > 0).then_some(TypographyResetView {
-        method: "PATCH",
+        method: "DELETE",
         path: "/api/v1/settings/typography",
         becomes: "instance default",
     });
@@ -1169,6 +1172,17 @@ async fn save_typography(
             actual: request.expected_version + 1,
         }));
     }
+    Ok(StatusCode::NO_CONTENT)
+}
+
+/// Reset typography to instance defaults. This is a DELETE, not a PATCH with
+/// default values: the row has to disappear for provenance to truthfully say
+/// the values now come from the instance.
+async fn reset_typography(
+    State(state): State<AppState>,
+    RequireSession(user): RequireSession,
+) -> ApiResult<StatusCode> {
+    reading::reset_typography(state.db(), user.account_id).await?;
     Ok(StatusCode::NO_CONTENT)
 }
 

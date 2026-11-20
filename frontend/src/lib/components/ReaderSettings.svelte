@@ -15,7 +15,12 @@
    * A signed-out reader gets local typography only: the controls still work and
    * are remembered in `localStorage`, they are just not sent anywhere.
    */
-  import { fetchTypography, patchTypography, type TypographyView } from '../api';
+  import {
+    fetchTypography,
+    patchTypography,
+    type SettingProvenanceView,
+    type TypographyView,
+  } from '../api';
   import {
     DEFAULT_TYPOGRAPHY,
     READER_THEMES,
@@ -26,6 +31,7 @@
     type TypographyPrefs,
   } from '../reading';
   import ErrorSummary from './ErrorSummary.svelte';
+  import SettingProvenance from './SettingProvenance.svelte';
 
   interface Props {
     signedIn: boolean;
@@ -37,6 +43,15 @@
   let saving = $state(false);
   let error = $state<unknown>(null);
   let conflict = $state(false);
+  let provenance = $state<Record<string, SettingProvenanceView> | null>(null);
+
+  const PROVENANCE_LABELS: Record<string, string> = {
+    distraction_free: 'Distraction-free',
+    font_scale: 'Text size',
+    line_height: 'Line height',
+    measure: 'Line length',
+    reader_theme: 'Reader theme',
+  };
 
   // The server is the source of truth for a signed-in reader, and the local
   // copy is what everyone else gets.
@@ -53,6 +68,14 @@
   async function load() {
     try {
       const view: TypographyView = await fetchTypography();
+      // Provenance is read on every load, including version 0: after a reset the
+      // row is gone and the reader must see "instance", not keep the old account
+      // values because the version went down.
+      provenance = view.provenance ?? null;
+      if (view.version === 0) {
+        prefs = { ...DEFAULT_TYPOGRAPHY, version: 0 };
+        return;
+      }
       // If the server's version is not newer than what we already hold,
       // a concurrent save or a stale in-flight response would clobber
       // local changes made while this request was in flight. Keep the
@@ -98,24 +121,37 @@
 <fieldset class="typography">
   <legend>Reading</legend>
 
+  {#if signedIn && provenance}
+    <div class="provenance-list">
+      {#each Object.entries(provenance) as [key, view] (key)}
+        <SettingProvenance
+          label={PROVENANCE_LABELS[key] ?? key}
+          controlId={`typography-${key}`}
+          {view}
+          onchange={() => void load()}
+        />
+      {/each}
+    </div>
+  {/if}
+
   <label>
     Text size
-    <input type="range" min="0.8" max="1.6" step="0.05" bind:value={prefs.font_scale} />
+    <input id="typography-font_scale" type="range" min="0.8" max="1.6" step="0.05" bind:value={prefs.font_scale} />
   </label>
 
   <label>
     Line height
-    <input type="range" min="1.2" max="2.2" step="0.1" bind:value={prefs.line_height} />
+    <input id="typography-line_height" type="range" min="1.2" max="2.2" step="0.1" bind:value={prefs.line_height} />
   </label>
 
   <label>
     Line length ({prefs.measure} characters)
-    <input type="range" min="40" max="90" step="2" bind:value={prefs.measure} />
+    <input id="typography-measure" type="range" min="40" max="90" step="2" bind:value={prefs.measure} />
   </label>
 
   <label>
     Reader theme
-    <select bind:value={prefs.reader_theme}>
+    <select id="typography-reader_theme" bind:value={prefs.reader_theme}>
       {#each READER_THEMES as option (option)}
         <option value={option}>{READER_THEME_LABELS[option]}</option>
       {/each}
@@ -123,7 +159,7 @@
   </label>
 
   <label class="checkbox">
-    <input type="checkbox" bind:checked={prefs.distraction_free} />
+    <input id="typography-distraction_free" type="checkbox" bind:checked={prefs.distraction_free} />
     Distraction-free (hide the header and footer while reading)
   </label>
 

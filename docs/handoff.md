@@ -1,3 +1,7 @@
+## 2026-11-20 — M71-14 typography UI and bodyless reset
+
+The provenance rows are now visible in the reader settings and their Reset button calls `DELETE /api/v1/settings/typography`; a version-0 reload applies instance defaults. RED first for both route and component, GREEN 1/1 SQLite + 1/1 PostgreSQL, route_inventory 6/6, ReaderSettings 1/1; both mutants red/restored. Full gate pending. The "set as default" inline-change affordance remains in the row; deploy stays under the host-memory block.
+
 ## 2026-11-20 — M71-14 typography provenance and reset
 
 `GET /settings/typography` now names each field's level; `PATCH` accepts `{reset:true}` and deletes the account row through the existing reset function rather than writing defaults under an account source. RED first, then 1/1 SQLite + 1/1 PostgreSQL; two valid mutants red/restored from `/tmp/m71-14-typography-clean.rs`. Full gate `/tmp/gate-all-m71-14-typography-e50b639b.log` `GATE_ALL_EXIT=0` at `e50b639b`. UI affordance remains in the row. Deploy stays under the host-memory block.

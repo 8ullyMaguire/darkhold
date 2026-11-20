@@ -838,7 +838,7 @@ async fn typography_provenance_names_the_level_and_offers_a_reset() {
     );
     assert_eq!(body["provenance"]["font_scale"]["value"], "1.20", "{body}");
     assert_eq!(
-        body["provenance"]["font_scale"]["reset"]["method"], "PATCH",
+        body["provenance"]["font_scale"]["reset"]["method"], "DELETE",
         "{body}"
     );
     assert_eq!(
@@ -852,13 +852,7 @@ async fn typography_provenance_names_the_level_and_offers_a_reset() {
 
     // Reset deletes the row. Writing defaults back would keep the source "account"
     // and lie about where the values now come from.
-    let version = body["version"].as_i64().expect("version");
-    let (status, body) = reader
-        .patch(
-            "/api/v1/settings/typography",
-            json!({ "expected_version": version, "reset": true }),
-        )
-        .await;
+    let (status, body) = reader.delete("/api/v1/settings/typography").await;
     assert_eq!(status, StatusCode::NO_CONTENT, "{body}");
     let (status, body) = reader.get("/api/v1/settings/typography").await;
     assert_eq!(status, StatusCode::OK, "{body}");

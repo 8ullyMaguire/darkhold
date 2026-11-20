@@ -1029,6 +1029,8 @@ export interface TypographyView {
   reader_theme: string;
   distraction_free: boolean;
   version: number;
+  /** Where each effective value came from and how to clear that level (M71-14). */
+  provenance?: Record<string, SettingProvenanceView>;
 }
 
 /** Progress request body for PUT /reading/progress. */
