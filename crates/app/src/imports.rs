@@ -163,6 +163,27 @@ use crate::worker::HandlerError;
 /// Where the import job's id lives in the queue payload.
 pub const PAYLOAD_IMPORT_JOB_ID: &str = "import_job_id";
 
+/// Where an operator-selected body policy lives in the queue payload.
+///
+/// Discovery enqueues `skip`; the private taste archive enqueues `store`.
+/// Anything else inherits the instance retention policy.
+pub const PAYLOAD_BODY_POLICY: &str = "body_policy";
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum BodyPolicy {
+    Inherit,
+    Skip,
+    Store,
+}
+
+pub fn body_policy_from(payload: &Value) -> BodyPolicy {
+    match payload.get(PAYLOAD_BODY_POLICY).and_then(Value::as_str) {
+        Some("skip") => BodyPolicy::Skip,
+        Some("store") => BodyPolicy::Store,
+        _ => BodyPolicy::Inherit,
+    }
+}
+
 /// The owner type recorded in `content_references` for a stored unit.
 ///
 /// A constant because it is a foreign key in all but name: the blob collector
@@ -254,6 +275,7 @@ pub async fn run(
     job: JobId,
     payload: &Value,
 ) -> Result<(), HandlerError> {
+    let body_policy = body_policy_from(payload);
     let import_job_id = payload
         .get(PAYLOAD_IMPORT_JOB_ID)
         .and_then(Value::as_str)
@@ -623,7 +645,7 @@ pub async fn run(
     // marked `completed`, because storing no body is what it was configured to
     // do. Only a *failure* on a *caching* instance is the degradation §11.15
     // names.
-    let stored = match store_units(state, &source, job, &row, &item).await {
+    let stored = match store_units(state, &source, job, &row, &item, body_policy).await {
         Ok(stored) => stored,
         Err(error) => {
             let message = error.message();
@@ -1134,6 +1156,7 @@ async fn store_units(
     job: JobId,
     row: &imports::ImportJob,
     item: &imports::LibraryItem,
+    body_policy: BodyPolicy,
 ) -> Result<Vec<StoredUnit>, HandlerError> {
     let registry = source.registry;
     let fetcher = source.fetcher;
@@ -1161,6 +1184,17 @@ async fn store_units(
     // says such an instance produces. Returning an error would mark the import
     // failed, and the reader would see a failed import for a work that was in
     // fact imported exactly as this instance intends.
+    // TA1: a metadata-only discovery job decides not to store a body before
+    // retention is consulted. This keeps the broad aggregation pass from ever
+    // growing into a body crawl, whatever the instance retention policy says.
+    if body_policy == BodyPolicy::Skip {
+        tracing::info!(
+            source = %row.source_key,
+            "metadata-only import: body storage skipped by job policy"
+        );
+        return Ok(Vec::new());
+    }
+
     let retention = darkhold_db::retention::resolve_for_source(
         state.db(),
         Some(&row.source_key),
@@ -1172,6 +1206,13 @@ async fn store_units(
     if let Err(refusal) =
         darkhold_domain::retention::check_body_allowed(&retention, Some(&row.source_key))
     {
+        if body_policy == BodyPolicy::Store {
+            return Err(fatal(format!(
+                "this import requires a body but storage is refused by {}: {}",
+                refusal.code(),
+                refusal.message()
+            )));
+        }
         tracing::info!(
             source = %row.source_key,
             code = refusal.code(),

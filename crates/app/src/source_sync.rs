@@ -370,7 +370,7 @@ pub async fn run(state: &AppState) -> anyhow::Result<Summary> {
                     let job_id = jobs::enqueue(
                         state.db(),
                         JobKind::Import,
-                        &serde_json::json!({ "import_job_id": import_id }).to_string(),
+                        &serde_json::json!({ "import_job_id": import_id, "body_policy": "skip" }).to_string(),
                         Some(&key),
                         Some(account),
                         0,
@@ -441,7 +441,7 @@ pub async fn run(state: &AppState) -> anyhow::Result<Summary> {
                 let job_id = jobs::enqueue(
                     state.db(),
                     JobKind::Import,
-                    &serde_json::json!({ "import_job_id": import_id }).to_string(),
+                    &serde_json::json!({ "import_job_id": import_id, "body_policy": "skip" }).to_string(),
                     Some(&key),
                     Some(account),
                     0,
