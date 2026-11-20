@@ -165,6 +165,7 @@ pub mod supply;
 pub mod tag_assertions;
 pub mod tag_confirmation;
 pub mod tag_coverage;
+pub mod tag_backfill;
 pub mod tag_inference;
 pub mod tag_scripts;
 pub mod taste_brief;

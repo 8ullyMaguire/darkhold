@@ -5399,3 +5399,9 @@ Owner accepted the private sidecar census under the fixed rule. The seeder alrea
 ## M45-43 closed — 2026-11-20
 
 The bot now works the Ascend way: signed HTTP interactions and registered slash commands, no privileged MESSAGE_CONTENT intent. Endpoint verified in Discord API, guild commands registered, and the owner proved `/darkhold help` live. Gateway remains in-tree but opt-in via `DARKBOT_DISCORD_GATEWAY=1`. Targeted tests and mutants are recorded in the darkbot repo handoff.
+
+## M63-32 partial — provenance tag backfill tool — 2026-11-20
+
+Census REUSE `library_items.provenance_json`, `tag_assertions::assert_tag(Claimant::Source)`, `taxonomy::ensure_node_from_signal`; ADAPT one `darkhold-db` pass plus one `dh catalogue` operator verb; BUILD one two-engine integration suite. No network re-fetch is needed for tags: the metadata is already stored. The tool is dry-run by default and only writes with `--yes`.
+
+Live backfill has NOT been run. The like-count half is still open because Pawchive's posts API publishes no likes field; do not infer endorsement from views or comments. This row stays partial until a bounded live run shifts the measured coverage.

@@ -19,6 +19,7 @@
 mod admin;
 mod audit;
 mod bench;
+mod catalogue;
 mod calibre;
 mod cron;
 mod doctor;
@@ -178,6 +179,12 @@ pub enum Command {
     /// dispatches and records outcomes without making an HTTP request. `Cron` stays: this
     /// subcommand replaces the operator's timer, not the reader's own user timer.
     Jobs(JobsArgs),
+    /// M63-32: backfill source-backed tags from stored import provenance.
+    ///
+    /// `dh catalogue --db-url … --source archive --limit 500 --yes`
+    /// reads `library_items.provenance_json` and writes source-asserted tags.
+    /// Without `--yes` it only prints the preview.
+    Catalogue(catalogue::CatalogueArgs),
     /// Read a Calibre `metadata.db` as a file handshake, without a crate or RPC link.
     ///
     /// `dh lib --calibre ~/Calibre/metadata.db` prints seed rows in the grammar
@@ -401,6 +408,13 @@ async fn main() -> std::process::ExitCode {
         )
         .await
         {
+            Ok(()) => std::process::ExitCode::SUCCESS,
+            Err(error) => {
+                eprintln!("{error}");
+                std::process::ExitCode::from(error.code)
+            }
+        },
+        Command::Catalogue(args) => match catalogue::run(&cli, args).await {
             Ok(()) => std::process::ExitCode::SUCCESS,
             Err(error) => {
                 eprintln!("{error}");

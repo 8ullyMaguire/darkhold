@@ -1,3 +1,7 @@
+## 2026-11-20 — M63-32 partial: provenance tag backfill tool shipped
+
+`dh catalogue --db-url … --source KEY --limit N --yes` now backfills source-backed tags from `library_items.provenance_json` without re-fetching source pages. Dry run writes nothing; a real pass writes visible `Claimant::Source` assertions into fandom/character/relationship/tag nodes and is idempotent. Tests 2/2 SQLite and 2/2 PostgreSQL; dry-run mutant `left: 7 / right: 0`, restored from /tmp. Live backfill not run; like counts still blocked by Pawchive's API.
+
 ## 2026-11-20 — M64-14 served-feed rerank shipped
 
 The discovery feed now reranks its final candidate order against the signed-in reader's fandom signals when local Ollama is configured (`DARKHOLD_OLLAMA_URL`, `DARKHOLD_OLLAMA_MODEL`). It runs after the pull histogram and returns the caller's order on unset config, no taste profile, anonymous reader, provider failure or DB failure. New `work_summaries_for` reads summaries on both engines; provider calls carry a 2-second timeout.

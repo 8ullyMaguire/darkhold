@@ -71,7 +71,7 @@ pub struct WorkTag {
 /// §15.17's "a signal naming a known tag adds an alias rather than creating a
 /// duplicate" is only true if there is one normaliser. The domain rule is also
 /// the one the wire contract's tests pin, so it is the one that wins.
-fn canonical_form(text: &str) -> String {
+pub fn canonical_form(text: &str) -> String {
     darkhold_domain::exchange::normalise(text)
 }
 
