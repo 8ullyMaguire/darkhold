@@ -1,6 +1,6 @@
 ## 2026-11-20 — M71-14 closed
 
-Inline typography edits now offer "Set as default", and the gravity dial reports its level with a bodyless reset. RED first for both, GREEN ReaderSettings 2/2 and gravity 1/1 SQLite + 1/1 PostgreSQL; dirty-always-false and source-always-instance mutants red/restored. First full gate `24d35749` failed only on the now-built M71-14 idea row; catalogue regenerated to 96 ideas and targeted `ideas_match_requirements` 3/3. Retry pending; live deploy remains under the host-memory block.
+Inline typography edits now offer "Set as default", and the gravity dial reports its level with a bodyless reset. RED first for both, GREEN ReaderSettings 2/2 and gravity 1/1 SQLite + 1/1 PostgreSQL; dirty-always-false and source-always-instance mutants red/restored. First full gate `24d35749` failed only on the now-built M71-14 idea row; catalogue regenerated to 96 ideas and targeted `ideas_match_requirements` 3/3. Full retry `/tmp/gate-all-m71-14-close-bc48e323.log` `GATE_ALL_EXIT=0` at `bc48e323`. Live deploy remains under the host-memory block.
 
 ## 2026-11-20 — M71-14 typography UI and bodyless reset
 
