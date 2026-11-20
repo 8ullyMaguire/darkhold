@@ -5413,3 +5413,7 @@ Estate deploy verified commit `9c34e649` live: build 1019 s, migrate 45 ms, rest
 ## M63-32 live backfill — 2026-11-20
 
 Before any write, a named scoped dump of the two affected tables was taken and verified: `/personal/backups/darkhold-20261120-163011-m63-32-tag-backfill.dump` (`TABLE_DATA=2`). Bounded batches and then full per-source passes began. Pawchive completed with 38,725 assertions; archive was still running when the state notes were written. AO3 still has no source tags in its stored provenance, and the like-count half remains unavailable from Pawchive's API.
+
+## M63-32 stored-metadata backfill complete for archive and pawchive — 2026-11-20
+
+Archive full pass: 28,488 scanned, 11,885 works tagged, 329,455 assertions, 57,724 nodes. Pawchive full pass: 27,464 scanned, 18,890 works tagged, 38,725 assertions, 3,102 nodes. Coverage matches the stored claim sets exactly, so neither source can yield more tags without new metadata. AO3 still needs paced source re-fetch; its first applied batch tagged 10 of 2,082 works.

@@ -1,3 +1,7 @@
+## 2026-11-20 — M63-32 archive full pass complete
+
+Background backfill finished: archive 28,488 scanned, 11,885 works tagged, 329,455 assertions, 57,724 nodes. Live coverage is archive 11,885 / 28,488 and pawchive 19,028 / 27,464. SQL over provenance proves those are exactly the rows carrying stored claims: archive 11,885 / 28,488 with non-empty `tags`; pawchive 18,890 / 27,464 with fandom/tags/characters (plus 138 rows tagged before this pass). The stored-metadata tag half is complete for archive and pawchive. AO3 still needs source re-fetch; 10 / 2,082 are tagged from the first applied batch.
+
 ## 2026-11-20 — M63-32 AO3 live batch
 
 AO3 re-fetch dry run scanned 10 works and parsed 58 tag assertions without writing. Applied batch of 50: 10 works tagged, 303 assertions, 46 nodes created. AO3 coverage moved 0 -> 10 / 2,082 under the same named pre-write dump. Archive backfill was still running.
