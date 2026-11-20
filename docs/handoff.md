@@ -1,6 +1,6 @@
 ## 2026-11-20 — TA2 complete
 
-Deploy revealed three real defects, each fixed with a targeted red/green/mutant cycle: an `AuthorFrontier` source was skipped because it has no static listing; the `/recommended` suffix was mistaken for the author id; and the catalogue's relative `recommended_template` was passed to `SafeFetcher` as if it were absolute. Pawchive BFS now walks from the single Dark Wolf Shiro seed.
+Deploy revealed four real defects, each fixed with a targeted red/green/mutant cycle: an `AuthorFrontier` source was skipped because it has no static listing; the `/recommended` suffix was mistaken for the author id; the catalogue's relative `recommended_template` was passed to `SafeFetcher` as if it were absolute; and full author URLs returned by the Pawchive parser were wrapped into the URL a second time. Pawchive BFS now walks from the single Dark Wolf Shiro seed and hands the adapter one clean author URL.
 
 Live repair before body archiving: `dh catalogue --group-chapters --account … --yes` reported `scanned=27464 groups=464 merged=809 urls=464 applied=true`; Pawchive library rows fell from 27,464 to 26,655 and 464 keeper rows carry `source_urls` in provenance. A named 3.5 GB dump was taken first and verified with `pg_restore -l`.
 

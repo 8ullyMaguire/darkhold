@@ -105,6 +105,39 @@ fn default_config_names_pawchive_and_seven_days() {
 }
 
 #[tokio::test]
+async fn bfs_normalises_full_author_urls_from_the_parser() {
+    let seeds = [AuthorSeed {
+        source_id: "pawchive".to_owned(),
+        author_url: "https://pawchive.pw/patreon/user/13212571/recommended".to_owned(),
+    }];
+    let graph = HashMap::from([(
+        "13212571",
+        vec!["https://pawchive.pw/patreon/user/63522162"],
+    )]);
+    let nodes = darkhold_app::source_sync::author_frontier(&seeds, 1, 10, |id: String| {
+        let graph = &graph;
+        async move {
+            Ok(graph
+                .get(id.as_str())
+                .map(|values| values.iter().map(|value| (*value).to_owned()).collect())
+                .unwrap_or_default())
+        }
+    })
+    .await;
+    assert_eq!(
+        nodes
+            .iter()
+            .map(|node| node.author_id.as_str())
+            .collect::<Vec<_>>(),
+        vec!["13212571", "63522162"]
+    );
+    assert_eq!(
+        nodes[1].url,
+        "https://pawchive.pw/patreon/user/63522162"
+    );
+}
+
+#[tokio::test]
 async fn bfs_stops_at_depth_three_and_never_revisits_an_author() {
     let seeds = [AuthorSeed {
         source_id: "pawchive".to_owned(),

@@ -165,12 +165,16 @@ where
             }
         };
         for neighbour in neighbours {
-            if neighbour.is_empty() || !seen.insert(neighbour.clone()) {
+            // The Pawchive parser returns full author URLs, not bare ids. Normalise
+            // before building the next node so the adapter gets one clean URL.
+            let parsed = author_id_from_url(&neighbour);
+            let author_id = if parsed.is_empty() { neighbour } else { parsed };
+            if author_id.is_empty() || !seen.insert(author_id.clone()) {
                 continue;
             }
             queue.push_back(FrontierNode {
-                url: format!("https://pawchive.pw/patreon/user/{neighbour}"),
-                author_id: neighbour,
+                url: format!("https://pawchive.pw/patreon/user/{author_id}"),
+                author_id,
                 depth: node.depth + 1,
             });
         }
