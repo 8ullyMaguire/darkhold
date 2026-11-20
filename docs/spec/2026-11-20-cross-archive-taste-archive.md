@@ -28,7 +28,7 @@ Discovery stays in `crates/app/src/source_sync.rs`: it walks tag pages/listings/
 
 Source tags are preserved in `library_items.provenance_json`, because metadata-only imports leave `work_id` NULL and cannot rely on taxonomy joins. `crates/taste/src/curation.rs` is a pure scorer: positive terms add weight, hard exclusions remove a candidate, and every selected work carries a short reason string. `crates/db/src/taste_curation.rs` reads candidates on both SQLite and PostgreSQL. `dh archive rank` prints the ranking; `dh archive bodies` enqueues capped body-store jobs through the existing queue.
 
-The private preferences file is `config/darkhold-taste.local.json`, mode 0600 and gitignored. It contains the operator's stated positives (`dark mc`, `progression fantasy`, `system`, `femdom`, `ntr`, `cbt`) and hard exclusions (`slash`, `m/m`, `bestiality`, `angst`). No preference value is published.
+The private preferences file is `config/darkhold-taste.local.json`, mode 0600 and gitignored. It contains the operator's explicit terms, expanded from the AO3 searches the operator supplied: positives cover dark/grey/evil/villain OP protagonists, progression/LitRPG/system/gamer/isekai/transmigration/CYOA-style power growth, and the sexual kink list; hard exclusions cover slash/m-m/gay, romance, hurt/comfort, fluff, angst, slow burn, RPF, reader, omega, needs-a-hug, bestiality and audience ratings. The local reading list and browser bookmarks are also read at runtime as low-weight read-only sources of additional author/title/folder signals. They are never printed, committed or sent over the network. No preference value is published.
 
 ## Success criteria
 

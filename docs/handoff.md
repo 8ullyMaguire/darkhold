@@ -1,3 +1,7 @@
+## 2026-11-20 — TA1 code shipped, live pilot pending
+
+Shipped: pure taste scorer (`crates/taste/src/curation.rs`), provenance-tag preservation, per-job `body_policy` (`skip` for discovery, `store` for selected works), two-engine candidate query (`crates/db/src/taste_curation.rs`), and `dh archive rank|bodies`. Private preferences are a 0600 gitignored JSON expanded from the operator's AO3 searches, with low-weight runtime signals merged from the local reading list and bookmarks; those private files are never printed or committed. Targeted tests are green and one mutant per code task failed and was restored. Live 100-work pilot and full 20k run are still pending.
+
 ## 2026-11-20 — TA1 cross-archive taste archive started
 
 Spec: `docs/spec/2026-11-20-cross-archive-taste-archive.md`. Ledger row `TA1` added. Scope: metadata from all supported catalogued sources, private 0600 taste preferences, per-job body policy, 100-work pilot before a 20k cap, shortfall instead of padding. No reader-facing schema blobs and no source bypass.

@@ -6,6 +6,8 @@
 
 **Decision:** metadata discovery is always `body_policy: skip`; only CLI-selected top works are enqueued with `body_policy: store`. Private preference file is mode 0600 and gitignored. Shortfall is reported, never padded. A 100-work pilot gates the full 20k run.
 
+**Status 2026-11-20:** CODE SHIPPED; live 100-work pilot pending. Commits `7d907d0c` (scorer), `94a2c892` (provenance tags), `67999600` (body policy), `e1a38e87` (DB query), `35e41257` (CLI). Targeted tests green on SQLite and PostgreSQL; one mutant per code task failed and was restored.
+
 Plan: `/home/alvaro/.hermes/plans/2026-11-20_202216-cross-archive-taste-curation.md`.
 
 ## M63-30 `dh lib --calibre <path>` — 2026-11-18
