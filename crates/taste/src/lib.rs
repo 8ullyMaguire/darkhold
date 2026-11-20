@@ -32,6 +32,9 @@
 //! Go and Python ones. The parity test moved with it, so the proof that the Rust port matches
 //! kindred's oracle still runs — in the crate that now owns the algorithm.
 
+/// Pure private taste scoring over source metadata (TA1).
+pub mod curation;
+
 /// The catalogue: the instance's works, tags and entities, ingested into the on-disk
 /// index the engine reads (spec §8.2, §12.7).
 pub mod catalogue;
