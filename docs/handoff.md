@@ -1,3 +1,7 @@
+## 2026-11-20 — M29-08 least-compared arena shipped
+
+`arena_candidates` now orders by `matches_played ASC, RANDOM()` on both engines. Store 1/1 SQLite + 1/1 PG; random-only mutant red/restored. Only the explicit frozen-representative-text guard remains.
+
 ## 2026-11-20 — M29-08 clustering shipped
 
 Suggestions now attach to the closest idea-stage card via shared local Jaccard, with `clustered_by` distinguishing exact-title, local-jaccard and new-card; representative titles are not rewritten. Domain 1/1, store 1/1 SQLite + 1/1 PG, mutant red/restored. Remaining: frozen representative text and least-compared arena.

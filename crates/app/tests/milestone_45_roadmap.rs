@@ -1415,3 +1415,33 @@ async fn a_similar_suggestion_joins_an_idea_without_renaming_it() {
         "representative text moved"
     );
 }
+
+#[tokio::test]
+async fn the_arena_draws_the_least_compared_card_first() {
+    let harness = Harness::new("arena-least-compared").await;
+    let mut least_id = String::new();
+    for matches in 0..8 {
+        let card = harness
+            .card(&format!("Card {matches}"), "idea", 1500.0)
+            .await;
+        harness
+            .exec(&format!(
+                "UPDATE roadmap_cards SET matches_played = {matches} WHERE id = '{}'",
+                card.id
+            ))
+            .await;
+        if matches == 0 {
+            least_id = card.id;
+        }
+    }
+
+    for _ in 0..8 {
+        let candidates = arena_candidates(harness.db(), 1)
+            .await
+            .expect("candidates");
+        assert_eq!(
+            candidates[0].id, least_id,
+            "a more-compared card was drawn first"
+        );
+    }
+}

@@ -5375,3 +5375,7 @@ Census: REUSE `roadmap_suggestions.created_at/account_id`, `RoadmapConfig` and t
 ## M29-08 clustering — 2026-11-20
 
 Census: REUSE the shared `polaris-affinity` Jaccard kernel, idea-stage cards and the exact-title attach; ADAPT one domain score, one store search and one `clustered_by` response field; BUILD nothing. Decision: no embedding provider is configured, so local word overlap is the best-effort signal and is named as such; a card's representative title is never rewritten. Evidence: domain 1/1; store 1/1 SQLite + 1/1 PostgreSQL; always-None score mutant reddened the store test, restored from `/tmp/m29-08-cluster-clean.rs`. Targeted only. Row stays partial for frozen representative text and least-compared arena selection.
+
+## M29-08 least-compared arena — 2026-11-20
+
+Census: REUSE `roadmap_cards.matches_played`, `arena_candidates` and the existing ballot route; ADAPT the two dialect `ORDER BY` clauses; BUILD nothing. Decision: least-compared first means `matches_played ASC`, with random tiebreak among equals; no pairing-history table is invented because the route already refuses a voter's repeated ballot. Evidence: store 1/1 SQLite + 1/1 PostgreSQL across eight distinct match counts; random-only mutant red/restored from `/tmp/m29-08-least.bak`. Targeted only. Row stays partial for an explicit frozen-representative-text guard.
