@@ -174,6 +174,15 @@ where
     visited
 }
 
+/// Whether a catalogue discovery shape gives the sync pass anything to walk.
+///
+/// `AuthorFrontier` builds its work list from the configured seeds instead of a
+/// static listing, so an empty `listings` vector is expected for it. Treating
+/// that empty vector as "unwalkable" would skip Pawchive before its BFS starts.
+pub fn discovery_is_walkable(discovery: &Discovery) -> bool {
+    !matches!(discovery, Discovery::None)
+}
+
 /// What one pass did, per source.
 #[derive(Debug, Default, Clone, PartialEq, Eq)]
 pub struct SourceReport {
@@ -290,7 +299,7 @@ pub async fn run(state: &AppState) -> anyhow::Result<Summary> {
             Discovery::AuthorFrontier { .. } => Vec::new(),
             Discovery::None => Vec::new(),
         };
-        if listings.is_empty() {
+        if listings.is_empty() && !discovery_is_walkable(&entry.discovery) {
             report.skipped = Some("no discovery shape this build can walk".to_owned());
             summary.sources.push(report);
             continue;

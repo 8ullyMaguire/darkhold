@@ -7,6 +7,19 @@ use std::collections::HashMap;
 use std::time::Duration;
 
 use darkhold_app::config::{parse_age_window, AuthorSeed, SourceSyncRule, SyndicationConfig};
+use darkhold_app::source_sync::discovery_is_walkable;
+use darkhold_scrapers::Discovery;
+
+#[test]
+fn author_frontier_is_not_skipped_for_having_no_static_listing() {
+    assert!(discovery_is_walkable(&Discovery::AuthorFrontier {
+        recommended_template: "/patreon/user/{id}/recommended".to_owned(),
+    }));
+    assert!(discovery_is_walkable(&Discovery::Listing {
+        template: "/latest".to_owned(),
+    }));
+    assert!(!discovery_is_walkable(&Discovery::None));
+}
 
 #[test]
 fn freshness_windows_parse_and_reject_zero() {
