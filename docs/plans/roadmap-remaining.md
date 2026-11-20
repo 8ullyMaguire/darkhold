@@ -1,5 +1,13 @@
 # The remaining roadmap, ordered for execution
 
+## TA1 cross-archive metadata and private taste body archive — 2026-11-20
+
+**Census:** REUSE `source_sync`, `SafeFetcher`, the adapter registry, the import worker, `library_items`, `content_blobs`, retention policy and the existing `dh` CLI; ADAPT a per-job body policy and provenance tags; BUILD a pure taste scorer, a two-engine candidate query and two `dh archive` verbs. No new reader-facing schema, no second crawler, no body blob columns.
+
+**Decision:** metadata discovery is always `body_policy: skip`; only CLI-selected top works are enqueued with `body_policy: store`. Private preference file is mode 0600 and gitignored. Shortfall is reported, never padded. A 100-work pilot gates the full 20k run.
+
+Plan: `/home/alvaro/.hermes/plans/2026-11-20_202216-cross-archive-taste-curation.md`.
+
 ## M63-30 `dh lib --calibre <path>` — 2026-11-18
 
 **Census:** REUSE `sqlx` SQLite (already in the workspace), the `darkhold seed read-list` text grammar, and `dh`'s JSON/exit conventions; ADAPT Calibre's `books`/`authors`/`books_authors_link` schema into that grammar; BUILD one `calibre.rs` module, the `dh lib` flag and a generated-metadata.db test. No crate, RPC, route, schema, migration or deploy.

@@ -1,3 +1,7 @@
+## 2026-11-20 — TA1 cross-archive taste archive started
+
+Spec: `docs/spec/2026-11-20-cross-archive-taste-archive.md`. Ledger row `TA1` added. Scope: metadata from all supported catalogued sources, private 0600 taste preferences, per-job body policy, 100-work pilot before a 20k cap, shortfall instead of padding. No reader-facing schema blobs and no source bypass.
+
 ## 2026-11-20 — M63-32 like-count half blocked
 
 Pawchive's public API has no likes/endorsements field or endpoint. Its documented public surface has 14 operations; the five favorite operations are account-session `cookieAuth` endpoints. The public post page shows a Favorite button with no count. Views/comments are not a substitute. Clearing condition: an authenticated Pawchive favorites/likes export or an owner-provided session credential stored out of tree; no credential value belongs in chat or the repo.
