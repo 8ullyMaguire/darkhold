@@ -8,6 +8,6 @@ DB_URL='postgresql:///darkhold?host=/run/postgresql'
 STATE_DIR=/home/alvaro/.local/state/darkhold
 mkdir -p "$STATE_DIR"
 
-"$BIN" archive --db-url "$DB_URL" rank --limit 100000 > "$STATE_DIR/archive-rank.latest"
-"$BIN" archive --db-url "$DB_URL" bodies --yes
+"$BIN" archive --db-url "$DB_URL" --account 9aa50758-bf73-44d3-bf65-9fddb4135925 rank --limit 100000 > "$STATE_DIR/archive-rank.latest"
+"$BIN" archive --db-url "$DB_URL" --account 9aa50758-bf73-44d3-bf65-9fddb4135925 bodies --yes
 date -u +%FT%TZ > "$STATE_DIR/archive-bodies.latest"
