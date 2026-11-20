@@ -5395,3 +5395,7 @@ Census: REUSE `darkhold_domain::embeddings::EmbeddingProvider` and app's `reqwes
 ## M45-74 closed — 2026-11-20
 
 Owner accepted the private sidecar census under the fixed rule. The seeder already existed: `darkhold seed read-list` is dry-run by default, matches only existing works, never guesses ambiguous rows, and stamps `seed.read_list` provenance on private ratings. Evidence: `crates/app/tests/seed_read_list.rs` 1/1; provenance-removal mutant red/restored from `/tmp/m45-74-close.bak`. No census values recorded here. Targeted only.
+
+## M45-43 closed — 2026-11-20
+
+The bot now works the Ascend way: signed HTTP interactions and registered slash commands, no privileged MESSAGE_CONTENT intent. Endpoint verified in Discord API, guild commands registered, and the owner proved `/darkhold help` live. Gateway remains in-tree but opt-in via `DARKBOT_DISCORD_GATEWAY=1`. Targeted tests and mutants are recorded in the darkbot repo handoff.

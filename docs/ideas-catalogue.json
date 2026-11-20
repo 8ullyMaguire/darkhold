@@ -1,6 +1,6 @@
 {
  "generated_by": "scripts/ideas_catalogue.py",
- "count": 90,
+ "count": 89,
  "ideas": [
   {
    "why_summary": "",
@@ -545,19 +545,6 @@
    "milestone": "unassigned",
    "relevance": 2,
    "because": "in an idea sweep (+2)",
-   "default_on": false,
-   "built": false
-  },
-  {
-   "why_summary": "gateway source test 1/1, auth test 2/2, workspace tests/clippy/fmt clean at 79fa05e; live gateway READY observed Gaps review E5. Extends \u00a737 companion bot. | UNBLOCKED 2026-11-11 (",
-   "id": "M45-43",
-   "title": "Discord bot with rec commands, per-fandom feeds, account linking",
-   "sources": [
-    "docs/requirements.csv"
-   ],
-   "milestone": "M45",
-   "relevance": 1,
-   "because": "a requirements row exists (+4); needs a third party or an external client (-2); needs a model or heavy compute (-1)",
    "default_on": false,
    "built": false
   },

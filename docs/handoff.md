@@ -1,3 +1,7 @@
+## 2026-11-20 — M45-43 closed by live slash-command proof
+
+Discord bot redesigned to Ascend-style signed interactions. `/darkhold help` works in Gaming Omniverse; endpoint saved and verified; MESSAGE_CONTENT off. Icon and deployment evidence are in the darkbot repo.
+
 ## 2026-11-20 — M45-74 closed
 
 Owner accepted the sidecar census. Existing `seed read-list` write path proved by its acceptance suite (1/1) with provenance mutant red/restored. No census values recorded in the repo.
