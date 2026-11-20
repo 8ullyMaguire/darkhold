@@ -1,6 +1,6 @@
 {
  "generated_by": "scripts/ideas_catalogue.py",
- "count": 91,
+ "count": 90,
  "ideas": [
   {
    "why_summary": "",
@@ -12,19 +12,6 @@
    "milestone": "unassigned",
    "relevance": 5,
    "because": "specified by an amendment (+3); named in the spec (+2)",
-   "default_on": false,
-   "built": false
-  },
-  {
-   "why_summary": "docs/ROADMAP-seed-from-reading-list.md (proposed 2026-11-11, six phases; source /personal/literature/fanfiction/read.txt on thinkcentre, 268 lines) PLAN 2026-11-16: `.hermes/plans/",
-   "id": "M45-74",
-   "title": "Seed the instance from the operator's rated reading list, through the product's own write path",
-   "sources": [
-    "docs/requirements.csv"
-   ],
-   "milestone": "M45",
-   "relevance": 4,
-   "because": "a requirements row exists (+4)",
    "default_on": false,
    "built": false
   },
@@ -55,7 +42,7 @@
    "built": false
   },
   {
-   "why_summary": "crates/domain/tests/embedding_similarity.rs 3/3; summary-first mutant red/restored from /tmp/m64-14.bak; full gate /tmp/gate-all-m64-14-5a4d72f2.log GATE_ALL_EXIT=0 at 5a4d72f2 P14",
+   "why_summary": "crates/domain/tests/embedding_similarity.rs 3/3; summary-first mutant red/restored from /tmp/m64-14.bak; full gate /tmp/gate-all-m64-14-5a4d72f2.log GATE_ALL_EXIT=0 at 5a4d72f2 202",
    "id": "M64-14",
    "title": "embedding similarity for summaries first and full text last, feature-gated on a configured AI provider and degrading to disabled rather than erroring",
    "sources": [

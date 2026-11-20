@@ -3,12 +3,12 @@
     "requirements.csv": {
       "rows": 960,
       "by_status": {
-        "implemented-verified-e2e": 168,
+        "implemented-verified-e2e": 169,
         "implemented-locally-tested": 269,
         "unsupported": 4,
         "implemented-fully-tested": 461,
         "implemented": 41,
-        "planned": 5,
+        "planned": 4,
         "evaluated-and-rejected": 7,
         "blocked": 1,
         "partial": 1,
@@ -54,16 +54,10 @@
       "milestone": "M69",
       "requirement": "one shared taste crate and one JSON schema set, so darkhold and suki compute blend, affinity and the passport identically",
       "notes": "The synergy row, and the one that keeps the others honest: two products that each implement the blend will disagree within a month, and a passport whose semantics differ between sender and receiver is worse than none. A small Rust crate with no product dependencies plus versioned JSON schemas; both binaries depend on it, neither forks it. Default off: it changes what a stranger sees or what the instance claims about itself, so it waits for a decision rather than a default.  | CENSUS 2026-11-11 (measured, no code written): REUSE the mechanism, BUILD the crate. (1) No shared taste crate exists: `ls ~/code-local/rust` has polaris-candidates and polaris-eval, no polaris-taste. (2) The duplication is real and counted: `rg -l -i 'fn blend|affinity'` over the estate gives darkhold 55 files, suki 38, ascend 7, whitebois 4, tessera 4, orbitals 4, commons 1. (3) darkhold already HAS a taste crate (crates/taste, 'the taste engine: the catalogue, the graph, the ranker and the budgets', binaries + lib) but it depends on `darkhold-domain` \u2014 so it cannot be the shared crate as it stands: extracting it means deciding which types move out of the product's domain first. That is the real work of this row, and it is a design decision, not a copy. (4) The estate ALREADY has the shared-crate pattern and uses it here: crates/taste depends on `polaris-eval` by relative path '../../../../polaris-eval', with a comment saying 'path dependency until the Forgejo registry answers' \u2014 so the publishing mechanism the row asks for is REUSE, and its precondition (a registry that answers) is the one thing this row does not control. DECISION (recorded, not yet implemented): the shared crate is `polaris-taste`, containing the pure parts of darkhold-taste that speak only in domain primitives (budget, diversify, ladder, embed) plus the affinity/blend math, with the product-shaped parts (catalogue, graph, collab, health \u2014 which read a table or a product's rows) staying in each product behind a trait the shared crate defines. The JSON schema set is versioned with the crate, and the passport schema is the one that must be identical on both sides because a passport whose semantics differ between sender and receiver is worse than none. NOT STARTED: no crate was created, because a crate nothing depends on is the 'component nobody calls' failure, and the first commit of an adoption row must be a dependency, not a `pub mod`. NEXT STEP: split the domain dependency, then move budget/diversify/ladder/embed, then make darkhold depend on it and delete its copies (adoption proved by deletion), then suki."
-    },
-    {
-      "id": "M45-74",
-      "milestone": "M45",
-      "requirement": "Seed the instance from the operator's rated reading list, through the product's own write path: measure first, prove the write path, then a dry-run seeder, then apply through the service, then rebuild what the ratings feed. The list is a prior, not a population, and the plan says so.",
-      "notes": "Registered 2026-11-12 because the repository held a dated roadmap that this ledger did not: the idea catalogue's coverage gate refused to regenerate until every idea a live roadmap names had a home, and the honest home for a proposal is a row, not an exemption. Measured basis (taste_census.py, 2026-11-11): accounts 20, taste_profiles 2, instance_theme 1, rating 0, work_ratings 0, work_taste_vectors 0 \u2014 twenty accounts and not one rating, so every ranking surface on the busiest member is decoration. Phases: 0 measure, 1 the write path (estate ledger 406, a prerequisite), 2 the seeder with a dry run first, 3 apply through the service, 4 rebuild the taste vectors and the instance theme, 5 the verification that closes it. Non-goal stated in the document: this is one person's list and may not be presented as a population. PLAN RECORDED 2026-11-16, NO CODE IMPLEMENTED: the write path already exists (`PUT /works/{id}/rating` \u2192 `reading::upsert_rating`); the blocker is owner data and an owner-gated census, not a missing route. Measured sidecar target: 268 lines, 218 matched, 3 wrapped_title (reported, never guessed), 47 unmatched, 218 distinct ids. Decision: append-only audit sidecar instead of `rating.source` DDL or `taste_provenance`; `is_public=false`; ratings keyed by pseud. Fixed accept rule before apply: \u2265180 exact, \u226420 ambiguous, \u2265180 applied, and \u22651 overlap with the operator\u2019s top-10 personal recommendations; failure opens a wiring row, never a new ranking crate. Task 0 stop: deploy tree dirty/behind, so no deployed-unit work until those docs paths are committed or set aside. Estate row 407 remains owner-gated."
     }
   ],
   "open_by_milestone": {
-    "M45": 2,
+    "M45": 1,
     "M63": 1,
     "M64": 1,
     "M69": 1

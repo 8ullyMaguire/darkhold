@@ -5391,3 +5391,7 @@ Owner chose the honest rename: "what your account did" rather than per-token att
 ## M64-14 Ollama provider — 2026-11-20
 
 Census: REUSE `darkhold_domain::embeddings::EmbeddingProvider` and app's `reqwest`; ADAPT one provider module; BUILD one mock-HTTP test. Owner chose local Ollama (`qwen3-embedding:0.6b`, fallback `nomic-embed-text`) over a fake deterministic adapter. The adapter names its model and degrades on every failure path. Evidence: test 2/2; empty-vector mutant red/restored from `/tmp/m64-14-ollama.bak`. Targeted only. Row stays partial for served-feed reranking.
+
+## M45-74 closed — 2026-11-20
+
+Owner accepted the private sidecar census under the fixed rule. The seeder already existed: `darkhold seed read-list` is dry-run by default, matches only existing works, never guesses ambiguous rows, and stamps `seed.read_list` provenance on private ratings. Evidence: `crates/app/tests/seed_read_list.rs` 1/1; provenance-removal mutant red/restored from `/tmp/m45-74-close.bak`. No census values recorded here. Targeted only.
