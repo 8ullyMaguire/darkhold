@@ -600,7 +600,8 @@ fn worker() -> Worker {
         resource_classes: None,
         max_bulk_concurrent: 1,
         fairness: true,
-    })
+            max_jobs_per_source: 1,
+        })
 }
 
 /// Record an import and the queue row that carries it, exactly as the route

@@ -270,7 +270,7 @@ fn claim_sql(extra_clause: &str, backend: Backend) -> String {
             "UPDATE jobs
                 SET state = 'leased', lease_owner = ?, lease_expires_at = ?,
                     updated_at = ?, version = version + 1
-              WHERE id = (SELECT id FROM jobs
+              WHERE id = (SELECT c.id FROM jobs AS c
                            {where_clause}
                            ORDER BY priority DESC, available_at ASC
                            LIMIT 1)
@@ -280,7 +280,7 @@ fn claim_sql(extra_clause: &str, backend: Backend) -> String {
             "UPDATE jobs
                 SET state = 'leased', lease_owner = ?, lease_expires_at = ?,
                     updated_at = ?, version = version + 1
-               FROM (SELECT id FROM jobs
+               FROM (SELECT c.id FROM jobs AS c
                       {where_clause}
                       ORDER BY priority DESC, available_at ASC
                       LIMIT 1
@@ -297,6 +297,7 @@ fn claim_sql(extra_clause: &str, backend: Backend) -> String {
 /// `max_bulk_concurrent` + `fairness`: if `fairness`, skip jobs whose requester
 /// already has a leased/running job, and skip a bulk job when
 /// `max_bulk_concurrent` bulk jobs are already leased/running.
+#[allow(clippy::too_many_arguments)]
 pub async fn claim_next(
     db: &Database,
     worker: &str,
@@ -305,6 +306,7 @@ pub async fn claim_next(
     resource_classes: Option<&[darkhold_domain::jobs::ResourceClass]>,
     max_bulk_concurrent: i64,
     fairness: bool,
+    max_per_source: i64,
 ) -> Result<Option<Job>> {
     let now_text = crate::identity::format_rfc3339(now);
     let expires = crate::identity::format_rfc3339(now + lease);
@@ -340,6 +342,18 @@ pub async fn claim_next(
              (SELECT COUNT(*) FROM jobs WHERE state = 'leased' AND kind = 'bulk_export') < {})",
             max_bulk_concurrent
         ));
+    }
+
+    // Per-source import guard: extra workers are parallelism for the queue,
+    // never several simultaneous fetches against one archive.
+    if max_per_source > 0 {
+        extra.push(
+            "(kind != 'import' OR NOT EXISTS (SELECT 1 FROM import_jobs ij_active \
+             JOIN jobs ja ON ja.id = ij_active.job_id \
+             WHERE ja.state = 'leased' \
+               AND ij_active.source_key = (SELECT source_key FROM import_jobs WHERE job_id = c.id)))"
+                .to_string(),
+        );
     }
 
     let extra_clause = if extra.is_empty() {

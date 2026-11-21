@@ -159,7 +159,8 @@ async fn the_lease_is_renewed_the_summary_counts_every_state_and_the_attempts_ar
         None,
         1,
         false,
-    )
+            1,
+        )
     .await
     .expect("a second worker asks for work");
     // What must not happen is that the *probe* is claimed. The sweep also enqueues the syndication pass, so "the queue is

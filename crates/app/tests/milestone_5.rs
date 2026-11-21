@@ -241,6 +241,7 @@ fn worker_with(policy: RetryPolicy) -> Worker {
         resource_classes: None,
         max_bulk_concurrent: 1,
         fairness: true,
+        max_jobs_per_source: 1,
     })
 }
 
@@ -281,7 +282,8 @@ async fn a_claimed_job_is_not_claimed_twice() {
                 None,
                 1,
                 true,
-            )
+                    1,
+                )
             .await
             .expect("claim")
             .expect("a job is waiting");
@@ -324,7 +326,8 @@ async fn a_lease_that_expires_is_requeued() {
         None,
         1,
         true,
-    )
+            1,
+        )
     .await
     .expect("claim")
     .expect("a job is waiting");
@@ -364,7 +367,8 @@ async fn a_lease_that_expires_is_requeued() {
         None,
         1,
         true,
-    )
+            1,
+        )
     .await
     .expect("claim")
     .expect("the job is claimable again");
@@ -511,7 +515,8 @@ async fn a_retry_uses_the_backoff() {
         None,
         1,
         true,
-    )
+            1,
+        )
     .await
     .expect("claim");
     assert!(
@@ -528,7 +533,8 @@ async fn a_retry_uses_the_backoff() {
         None,
         1,
         true,
-    )
+            1,
+        )
     .await
     .expect("claim")
     .expect("the retry is claimable once its time comes");
@@ -1756,7 +1762,8 @@ async fn a_second_bulk_job_waits_while_the_first_is_running() {
         None,
         1,
         false,
-    )
+            1,
+        )
     .await
     .expect("claim first")
     .expect("a job is waiting");
@@ -1771,7 +1778,8 @@ async fn a_second_bulk_job_waits_while_the_first_is_running() {
         None,
         1,
         false,
-    )
+            1,
+        )
     .await
     .expect("claim second");
     assert!(
@@ -1791,7 +1799,8 @@ async fn a_second_bulk_job_waits_while_the_first_is_running() {
         None,
         1,
         false,
-    )
+            1,
+        )
     .await
     .expect("claim second")
     .expect("the bulk job is now claimable");
@@ -1841,7 +1850,8 @@ async fn a_worker_is_restricted_to_its_resource_classes() {
         Some(&interactive_only),
         1,
         false,
-    )
+            1,
+        )
     .await
     .expect("claim")
     .expect("the maintenance job is claimable");
@@ -1857,7 +1867,8 @@ async fn a_worker_is_restricted_to_its_resource_classes() {
         Some(&bulk_only),
         1,
         false,
-    )
+            1,
+        )
     .await
     .expect("claim")
     .expect("the bulk job is claimable");

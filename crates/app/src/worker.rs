@@ -69,6 +69,9 @@ pub struct WorkerOptions {
     pub max_bulk_concurrent: i64,
     /// Whether to skip a job whose requester already has a leased/running job.
     pub fairness: bool,
+    /// Maximum leased `import` jobs per source key across all workers.
+    /// Extra workers add queue throughput, never extra fetches against one site.
+    pub max_jobs_per_source: i64,
 }
 
 impl Default for WorkerOptions {
@@ -82,6 +85,7 @@ impl Default for WorkerOptions {
             resource_classes: None,
             max_bulk_concurrent: 1,
             fairness: true,
+            max_jobs_per_source: 1,
         }
     }
 }
@@ -217,6 +221,7 @@ impl Worker {
             self.inner.options.resource_classes.as_deref(),
             self.inner.options.max_bulk_concurrent,
             self.inner.options.fairness,
+            self.inner.options.max_jobs_per_source,
         )
         .await
         .context("claiming the next job")?;

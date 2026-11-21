@@ -332,7 +332,8 @@ fn worker() -> Worker {
         resource_classes: None,
         max_bulk_concurrent: 1,
         fairness: true,
-    })
+            max_jobs_per_source: 1,
+        })
 }
 
 /// Let the worker drain the queue.
