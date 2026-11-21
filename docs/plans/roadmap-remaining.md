@@ -4,13 +4,9 @@
 
 Source of truth for this loop is this section. Update it in the same commit as any ledger or code change. The handoff carries history; this table carries the queue.
 
-Done (latest): TA1 private taste pipeline and TA2 daily aggregation shipped, deployed and documented. Forced Pawchive BFS passed: `source_sync:force-ta2-normalized` succeeded and following syndication passes logged `225 works seen`, `0 sources skipped`, with no recommendation-page or doubled-URL warnings. AO3 refetch gained a bounded `--offset` (`2108da6f`) and now skips already-tagged works (`136c771b`); targeted test green, both-engine mutant red and restored, clippy clean, CLI rebuilt on thinkcentre. Invalid `qq` EPUB import jobs were removed. Server binary is unchanged since `79f1de8c`; live meta reports that commit.
+Done (latest): TA1 private taste pipeline and TA2 daily aggregation shipped, deployed and documented. Forced Pawchive BFS passed: `source_sync:force-ta2-normalized` succeeded and following syndication passes logged `225 works seen`, `0 sources skipped`, with no recommendation-page or doubled-URL warnings. AO3 refetch gained a bounded `--offset` (`2108da6f`) and now skips already-tagged works (`136c771b`); targeted test green, both-engine mutant red and restored, clippy clean, CLI rebuilt on thinkcentre. Invalid `qq` EPUB import jobs were removed. TA3-5 consistency check passed: working tree clean, remotes pushed, live meta `0.1.0+79f1de8c` matches the last deployed server source commit, and the CLI installed on thinkcentre is `136c771b`. Server binary was not rebuilt because the source changes were CLI-only.
 
-Open queue (*1 unblocked, 7 blocked*):
-
-| # | open step | gate |
-| --- | --- | --- |
-| TA3-5 | Re-check local, remote and live consistency after further change. | Working tree clean; commits pushed to all configured remotes; live version route matches the last deployed source commit; touched-crate targeted tests and lints green. |
+Open queue (*0 unblocked, 7 blocked*): none.
 
 Blocked (*7*):
 
