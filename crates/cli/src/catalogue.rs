@@ -125,6 +125,7 @@ async fn refetch_source_tags(
             let query = sqlx::query_as::<_, (String, String)>(
                 "SELECT CAST(work_id AS TEXT) AS work_id, source_url FROM library_items
                   WHERE source_key = ? AND work_id IS NOT NULL AND source_url IS NOT NULL
+                    AND NOT EXISTS (SELECT 1 FROM work_tags wt WHERE wt.work_id = library_items.work_id AND wt.source = 'imported')
                   ORDER BY id LIMIT ? OFFSET ?",
             )
             .bind(source)
@@ -136,6 +137,7 @@ async fn refetch_source_tags(
             let query = sqlx::query_as::<_, (String, String)>(
                 "SELECT CAST(work_id AS TEXT) AS work_id, source_url FROM library_items
                   WHERE source_key = $1 AND work_id IS NOT NULL AND source_url IS NOT NULL
+                    AND NOT EXISTS (SELECT 1 FROM work_tags wt WHERE wt.work_id = library_items.work_id AND wt.source = 'imported')
                   ORDER BY id LIMIT $2 OFFSET $3",
             )
             .bind(source)

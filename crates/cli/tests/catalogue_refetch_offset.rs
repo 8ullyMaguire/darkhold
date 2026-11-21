@@ -13,4 +13,8 @@ fn ao3_refetch_can_start_after_an_offset() {
         source.contains("LIMIT ? OFFSET ?"),
         "SQLite refetch query must apply the offset"
     );
+    assert!(
+        source.contains("NOT EXISTS (SELECT 1 FROM work_tags"),
+        "refetch must skip works that already have source tags"
+    );
 }
