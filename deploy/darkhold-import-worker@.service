@@ -6,7 +6,7 @@ Wants=network-online.target
 [Service]
 EnvironmentFile=/personal/secrets/estate/darkhold.env
 Type=simple
-ExecStart=/home/alvaro/.cargo-target/darkhold/release/dh worker
+ExecStart=/home/alvaro/.cargo-target/darkhold/release/darkhold worker
 WorkingDirectory=/personal/documents/code/rust/darkhold
 Environment=DARKHOLD_CONFIG=/personal/documents/code/rust/darkhold/darkhold.toml
 Restart=always
