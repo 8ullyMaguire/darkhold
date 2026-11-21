@@ -6,6 +6,8 @@ Live repair before body archiving: `dh catalogue --group-chapters --account … 
 
 The daily body wrapper ran successfully and wrote `~/.local/state/darkhold/archive-bodies.latest`. It uses `dh archive --db-url … --account … --pseud …` with the private 0600 preferences file copied to the deploy tree; discovery stays body-policy `skip`, selected works use `store`. The remaining 20k default in `bodies --limit` was removed: the flag is optional, unbounded by default.
 
+Final deploy evidence: live meta `0.1.0+79f1de8c`; `dh` CLI rebuilt at `9608c16b`; daily wrapper ran with `body-select queued=11364 skipped_existing=9341 skipped_unfetchable=24232 cap=18446744073709551615 applied=true` and wrote its freshness artefact. The 7,924 invalid `archive` imports from the earlier run were deleted after the named dump; no `archive` import remains. A forced final `source_sync` job is queued behind a saturated single worker; the live pass before the last normalization fix already discovered 26 authors with no skipped source, and the new normalization is covered by a targeted test.
+
 Acceptance commands and evidence: `cargo test -p darkhold-app --test syndication_frontier` 7/7; `cargo test -p darkhold-cli --test archive_cli` 3/3; `cargo test -p darkhold-db --test pawchive_grouping` SQLite+PostgreSQL green; `cargo test -p darkhold-scrapers --test efiction_fixtures` green. One mutant per fix reddened and was restored. Full estate gate was not rerun after the first 420 s timeout, per the targeted-test instruction.
 
 ## 2026-11-20 — TA2 code complete; final deploy in progress
