@@ -1,3 +1,7 @@
+## Current state — where to resume
+
+The open queue, gates and blocked table are in `docs/plans/roadmap-remaining.md` under `Current state — open work`; that section is authoritative. The standing `/goal` paragraph is `docs/plans/next-goal.md`. Do not re-derive “what is left” from this history file.
+
 ## 2026-11-20 — TA2 complete
 
 Deploy revealed four real defects, each fixed with a targeted red/green/mutant cycle: an `AuthorFrontier` source was skipped because it has no static listing; the `/recommended` suffix was mistaken for the author id; the catalogue's relative `recommended_template` was passed to `SafeFetcher` as if it were absolute; and full author URLs returned by the Pawchive parser were wrapped into the URL a second time. Pawchive BFS now walks from the single Dark Wolf Shiro seed and hands the adapter one clean author URL.

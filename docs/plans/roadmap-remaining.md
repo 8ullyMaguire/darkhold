@@ -1,5 +1,32 @@
 # The remaining roadmap, ordered for execution
 
+## Current state — open work
+
+Source of truth for this loop is this section. Update it in the same commit as any ledger or code change. The handoff carries history; this table carries the queue.
+
+Done (latest): TA1 private taste pipeline and TA2 daily aggregation shipped, deployed and documented. Final code commit `9608c16b`; final evidence/docs commit `6e5586bc`. Live meta `0.1.0+79f1de8c`; CLI rebuilt at `9608c16b`. Pawchive duplicates collapsed 27,464 → 26,655; invalid `archive` imports removed; daily body wrapper active; four eFiction-family adapters added.
+
+Open queue (*5 unblocked, 4 blocked*):
+
+| # | open step | gate |
+| --- | --- | --- |
+| TA3-1 | Verify the final forced Pawchive BFS pass after URL normalization. | Forced `source_sync` job reaches `succeeded`; that pass logs a `syndication:` summary and has no `recommendation page could not be read`, `unsupported source`, or doubled-URL warning. |
+| TA3-2 | Confirm the body import queue drains after the adapter-backed source filter. | `select count(*) from import_jobs where state='queued'` reaches zero or a small steady tail; journal has no new `no adapter for source "archive"` error; stale failed rows are either removed or reported with a reason. |
+| TA3-3 | Advance AO3 tag coverage from the stored-provenance backfill. | A paced `dh catalogue --source ao3 --refetch` batch applies successfully and the coverage query increases from its current baseline; sustained 429 is recorded as a blocker, not a pass. |
+| TA3-4 | Expand adapter coverage from the written skip list where a fixture exists. | One new source has a fixture-backed host claim, `sources.json` updated, and its robots/body verdict reviewed; no source is marked body-allowed without that check. |
+| TA3-5 | Re-check local, remote and live consistency after any further change. | Working tree clean; commits pushed to all configured remotes; live version route matches the last deployed source commit; touched-crate targeted tests and lints green. |
+
+Blocked (*4*):
+
+| # | blocked step | waits on | unblock gate |
+| --- | --- | --- | --- |
+| TA3-B1 | Full estate gate | owner approval; the last full run timed out at 420 s and the standing rule is targeted tests only | explicit owner request for the full sweep |
+| TA3-B2 | M69-24 taste-source follow-up | another session owns `/home/alvaro/code-local/polaris-taste-source` with uncommitted files | that tree is clean or explicitly handed over |
+| TA3-B3 | M63-32 likes/favorites half | Pawchive public API has no likes count; authenticated favorites export would require an owner-provided credential stored out of tree | credential or documented public endpoint exists |
+| TA3-B4 | Global Discord command registration | owner approval for product-visible global change | explicit approval |
+
+The standing `/goal` paragraph lives in `docs/plans/next-goal.md`. Read it with this file; never paste counts or open steps into it.
+
 ## TA2 — daily fanfiction aggregation, Pawchive grouping, unbounded taste bodies — 2026-11-20
 
 **Census:** REUSE `source_sync`, `SafeFetcher`, the import worker, `library_items`, `content_blobs`, retention rules, the private taste scorer and `dh archive`; ADAPT config, Pawchive grouping and body selection; BUILD a no-cap CLI, a chapter-repair verb and a daily body wrapper. No second crawler, no reader-facing schema blobs, no new import pipeline.
