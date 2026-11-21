@@ -59,3 +59,5 @@ Each group has a written reason here, so the catalogue no longer presents an uni
 - A body import is queued and stored only for candidates with a positive taste match and no excluded tag.
 - `dh archive bodies --limit 25000` is not capped at 20,000.
 - Every newly added adapter has a fixture test; the repository gate is green at the end.
+
+AO3 refetch acceptance is coverage of source-derived `work_tags`, not the `works_tagged` counter alone. `dh catalogue --source ao3 --refetch` takes `--offset N` and excludes works that already have `work_tags.source = 'imported'`. If AO3 returns HTTP 429, the row is blocked; no auth, cookies, bypass, or unbounded retry is permitted.

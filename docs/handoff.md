@@ -2,6 +2,8 @@
 
 The open queue, gates and blocked table are in `docs/plans/roadmap-remaining.md` under `Current state — open work`; that section is authoritative. The standing `/goal` paragraph is `docs/plans/next-goal.md`. Do not re-derive “what is left” from this history file.
 
+This pass verified the final Pawchive BFS and hardened AO3 refetch: `--offset` (`2108da6f`) selects a bounded starting row and already-tagged works are skipped (`136c771b`). Live paced batches at offsets 0/20/100 applied with `works_tagged=0` because AO3 returned HTTP 429 on public probes; TA3-3 is parked with that exact unblock. The CLI was rebuilt and installed on thinkcentre; the server binary was untouched, so live meta remains `0.1.0+79f1de8c`.
+
 ## 2026-11-20 — TA2 complete
 
 Deploy revealed four real defects, each fixed with a targeted red/green/mutant cycle: an `AuthorFrontier` source was skipped because it has no static listing; the `/recommended` suffix was mistaken for the author id; the catalogue's relative `recommended_template` was passed to `SafeFetcher` as if it were absolute; and full author URLs returned by the Pawchive parser were wrapped into the URL a second time. Pawchive BFS now walks from the single Dark Wolf Shiro seed and hands the adapter one clean author URL.

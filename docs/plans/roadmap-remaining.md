@@ -4,22 +4,21 @@
 
 Source of truth for this loop is this section. Update it in the same commit as any ledger or code change. The handoff carries history; this table carries the queue.
 
-Done (latest): TA1 private taste pipeline and TA2 daily aggregation shipped, deployed and documented. Final code commit `9608c16b`; final evidence/docs commit `6e5586bc`. Live meta `0.1.0+79f1de8c`; CLI rebuilt at `9608c16b`. Pawchive duplicates collapsed 27,464 → 26,655; invalid `archive` imports removed; daily body wrapper active; four eFiction-family adapters added.
+Done (latest): TA1 private taste pipeline and TA2 daily aggregation shipped, deployed and documented. Forced Pawchive BFS passed: `source_sync:force-ta2-normalized` succeeded and following syndication passes logged `225 works seen`, `0 sources skipped`, with no recommendation-page or doubled-URL warnings. AO3 refetch gained a bounded `--offset` (`2108da6f`) and now skips already-tagged works (`136c771b`); targeted test green, both-engine mutant red and restored, clippy clean, CLI rebuilt on thinkcentre. Invalid `qq` EPUB import jobs were removed. Server binary is unchanged since `79f1de8c`; live meta reports that commit.
 
-Open queue (*5 unblocked, 4 blocked*):
+Open queue (*1 unblocked, 7 blocked*):
 
 | # | open step | gate |
 | --- | --- | --- |
-| TA3-1 | Verify the final forced Pawchive BFS pass after URL normalization. | Forced `source_sync` job reaches `succeeded`; that pass logs a `syndication:` summary and has no `recommendation page could not be read`, `unsupported source`, or doubled-URL warning. |
-| TA3-2 | Confirm the body import queue drains after the adapter-backed source filter. | `select count(*) from import_jobs where state='queued'` reaches zero or a small steady tail; journal has no new `no adapter for source "archive"` error; stale failed rows are either removed or reported with a reason. |
-| TA3-3 | Advance AO3 tag coverage from the stored-provenance backfill. | A paced `dh catalogue --source ao3 --refetch` batch applies successfully and the coverage query increases from its current baseline; sustained 429 is recorded as a blocker, not a pass. |
-| TA3-4 | Expand adapter coverage from the written skip list where a fixture exists. | One new source has a fixture-backed host claim, `sources.json` updated, and its robots/body verdict reviewed; no source is marked body-allowed without that check. |
-| TA3-5 | Re-check local, remote and live consistency after any further change. | Working tree clean; commits pushed to all configured remotes; live version route matches the last deployed source commit; touched-crate targeted tests and lints green. |
+| TA3-5 | Re-check local, remote and live consistency after further change. | Working tree clean; commits pushed to all configured remotes; live version route matches the last deployed source commit; touched-crate targeted tests and lints green. |
 
-Blocked (*4*):
+Blocked (*7*):
 
 | # | blocked step | waits on | unblock gate |
 | --- | --- | --- | --- |
+| TA3-2 | Body import queue drain | single-worker throughput; 21,173 queued jobs remain after removing 1,935 invalid `qq` EPUB jobs and the 7,924 earlier `archive` jobs | queued count reaches zero or a small steady tail, with no new adapter errors |
+| TA3-3 | Advance AO3 tag coverage | AO3 public metadata fetch returns HTTP 429 from the host; paced batches at offsets 0/20/100 applied with `works_tagged=0`, and a direct public URL probe returned `429` | AO3 stops rate-limiting public metadata requests, or an owner-provided public cache/mirror exists; no bypass or auth |
+| TA3-4 | Expand adapter coverage from written skip list | no recorded public fixture exists for any remaining skipped source | one recorded public page fixture plus a reviewed robots/body verdict |
 | TA3-B1 | Full estate gate | owner approval; the last full run timed out at 420 s and the standing rule is targeted tests only | explicit owner request for the full sweep |
 | TA3-B2 | M69-24 taste-source follow-up | another session owns `/home/alvaro/code-local/polaris-taste-source` with uncommitted files | that tree is clean or explicitly handed over |
 | TA3-B3 | M63-32 likes/favorites half | Pawchive public API has no likes count; authenticated favorites export would require an owner-provided credential stored out of tree | credential or documented public endpoint exists |
