@@ -36,6 +36,8 @@ pub struct CatalogueArgs {
     /// Re-fetch source metadata for works whose stored provenance has no tags.
     #[arg(long)]
     pub refetch: bool,
+    #[arg(long, default_value_t = 0)]
+    pub offset: usize,
     /// TA2-3: collapse Pawchive chapter submissions into one library work.
     #[arg(long)]
     pub group_chapters: bool,
@@ -68,13 +70,16 @@ pub async fn run(cli: &crate::Cli, args: &CatalogueArgs) -> Result<(), Failure> 
     } else {
         "backfill source tags from provenance"
     };
-    let preview = format!("{action}: source={source} limit={}", args.limit);
+    let preview = format!(
+        "{action}: source={source} limit={} offset={}",
+        args.limit, args.offset
+    );
     let apply = crate::safety::mutating(cli, &preview)?;
     let db = Database::connect(&DatabaseConfig::new(&args.db_url))
         .await
         .map_err(|error| environment(error.to_string()))?;
     let report = if args.refetch {
-        refetch_source_tags(&db, source, args.limit, !apply)
+        refetch_source_tags(&db, source, args.limit, args.offset, !apply)
             .await
             .map_err(|error| environment(error.to_string()))?
     } else {
@@ -96,6 +101,7 @@ async fn refetch_source_tags(
     db: &Database,
     source: &str,
     limit: usize,
+    offset: usize,
     dry_run: bool,
 ) -> anyhow::Result<Report> {
     let mut report = Report::default();
@@ -119,20 +125,22 @@ async fn refetch_source_tags(
             let query = sqlx::query_as::<_, (String, String)>(
                 "SELECT CAST(work_id AS TEXT) AS work_id, source_url FROM library_items
                   WHERE source_key = ? AND work_id IS NOT NULL AND source_url IS NOT NULL
-                  ORDER BY id LIMIT ?",
+                  ORDER BY id LIMIT ? OFFSET ?",
             )
             .bind(source)
-            .bind(limit as i64);
+            .bind(limit as i64)
+            .bind(offset as i64);
             query.fetch_all(db.sqlite_pool().expect("sqlite")).await?
         }
         Backend::Postgres => {
             let query = sqlx::query_as::<_, (String, String)>(
                 "SELECT CAST(work_id AS TEXT) AS work_id, source_url FROM library_items
                   WHERE source_key = $1 AND work_id IS NOT NULL AND source_url IS NOT NULL
-                  ORDER BY id LIMIT $2",
+                  ORDER BY id LIMIT $2 OFFSET $3",
             )
             .bind(source)
-            .bind(limit as i64);
+            .bind(limit as i64)
+            .bind(offset as i64);
             query.fetch_all(db.postgres_pool().expect("postgres")).await?
         }
     };
