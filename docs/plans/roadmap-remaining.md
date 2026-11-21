@@ -4,18 +4,15 @@
 
 Source of truth for this loop is this section. Update it in the same commit as any ledger or code change. The handoff carries history; this table carries the queue.
 
-Done (latest): TA1 private taste pipeline, TA2 daily aggregation and TA3-1 BFS verification shipped and documented. AO3 refetch gained `--offset` and skip-already-tagged (`2108da6f`, `136c771b`). TA3-5 consistency check passed at `0af02914`. The owner then unblocked TA3-2 and TA3-4 via `clarify`; the per-source concurrency guard shipped in `10b610de`, merged with `origin/master` in `d80e8d3e`, and is awaiting live deploy verification. TA3-4 shipped in `0573c8a0` and `0d7c4470`: a public TheForce thread and robots file were recorded, the XenForo family now claims and parses the host, and the adapter honours `Crawl-delay: 10`.
+Done (latest): TA1 private taste pipeline, TA2 daily aggregation and TA3-1 BFS verification shipped and documented. AO3 refetch gained `--offset` and skip-already-tagged (`2108da6f`, `136c771b`). TA3-5 consistency check passed at `0af02914`. The owner then unblocked TA3-2 and TA3-4 via `clarify`; the per-source concurrency guard shipped in `10b610de`, merged with `origin/master` in `d80e8d3e`, and was deployed live: 4 workers active, zero sources with >1 leased import, live meta `0.1.0+d97e7f34`, succeeded jobs rose 450→452 in 30 s while queued stayed 21,122. TA3-4 shipped in `0573c8a0` and `0d7c4470`: a public TheForce thread and robots file were recorded, the XenForo family now claims and parses the host, and the adapter honours `Crawl-delay: 10`.
 
-Open queue (*1 unblocked, 5 blocked*):
+Open queue (*0 unblocked, 6 blocked*): none.
 
-| # | open step | gate |
-| --- | --- | --- |
-| TA3-2 | Deploy the per-source worker guard, start additional workers, verify no source has >1 leased import. | Live query returns no source_key with more than one leased import; several worker processes are active; queued count trends down; `docs/handoff.md` records the evidence. |
-
-Blocked (*5*):
+Blocked (*6*):
 
 | # | blocked step | waits on | unblock gate |
 | --- | --- | --- | --- |
+| TA3-2 | Body import queue drain after concurrency increase | 21,122 queued jobs; 4 workers active, zero duplicate leased imports, but AO3 429 retries keep the queue flat | queued count reaches zero or a small steady tail, with no new adapter errors |
 | TA3-3 | Advance AO3 tag coverage | owner chose wait-and-retry; AO3 returned HTTP 429 on public probes | rate limit clears or a public cache/mirror exists; no auth or bypass |
 | TA3-B1 | Full estate gate | owner chose targeted-only | explicit owner request for the full sweep |
 | TA3-B2 | M69-24 taste-source follow-up | owner chose leave parked; another session owns the checkout | explicit handover |
