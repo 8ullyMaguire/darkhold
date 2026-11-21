@@ -50,6 +50,10 @@ fn bodies_only_enqueue_private_taste_matches() {
         "only positive taste matches may be selected"
     );
     assert!(
+        source.contains("if !body_fetchable(&row.source_url) {"),
+        "only adapter-backed public URLs may be enqueued"
+    );
+    assert!(
         source.contains("\"body_policy\": \"store\""),
         "selected works must request body storage"
     );

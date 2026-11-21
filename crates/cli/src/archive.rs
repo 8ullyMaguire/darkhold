@@ -8,9 +8,11 @@ use clap::{Args, Subcommand};
 use darkhold_db::{imports, jobs, Database, DatabaseConfig};
 use darkhold_domain::jobs::{JobKind, RetryPolicy};
 use darkhold_domain::{AccountId, ImportJobId};
+use darkhold_scrapers::Catalogue;
 use darkhold_taste::curation::{score, Candidate};
 use serde::Deserialize;
 use std::path::PathBuf;
+use url::Url;
 
 use crate::archive_preferences::load;
 use crate::rec::{environment, Failure};
@@ -51,6 +53,27 @@ pub enum ArchiveCommand {
 struct ProvenanceTags {
     #[serde(default)]
     tags: Vec<String>,
+}
+
+/// Only public HTTP(S) URLs on an adapter-backed, body-reading source may be
+/// enqueued. Local EPUB paths in the reading list have no adapter and previously
+/// became jobs that failed with `no adapter for source "archive"`.
+fn body_fetchable(source_url: &str) -> bool {
+    let Ok(parsed) = Url::parse(source_url) else {
+        return false;
+    };
+    if parsed.scheme() != "http" && parsed.scheme() != "https" {
+        return false;
+    }
+    let Some(host) = parsed.host_str() else {
+        return false;
+    };
+    let Ok(catalogue) = Catalogue::bundled() else {
+        return false;
+    };
+    catalogue.by_host(host).is_some_and(|entry| {
+        entry.adapter.is_some() && entry.bodies.may_read_bodies()
+    })
 }
 
 struct Ranked {
@@ -149,7 +172,12 @@ pub async fn run(cli: &crate::Cli, args: &ArchiveArgs) -> Result<(), Failure> {
             let selected: Vec<Ranked> = ranked.into_iter().take(cap).collect();
             let mut queued = 0usize;
             let mut skipped_existing = 0usize;
+            let mut skipped_unfetchable = 0usize;
             for row in selected {
+                if !body_fetchable(&row.source_url) {
+                    skipped_unfetchable += 1;
+                    continue;
+                }
                 let key = format!("body:{}", row.item_id);
                 if jobs::exists_by_idempotency_key(&db, &key)
                     .await
@@ -197,7 +225,7 @@ pub async fn run(cli: &crate::Cli, args: &ArchiveArgs) -> Result<(), Failure> {
                 queued += 1;
             }
             println!(
-                "body-select queued={queued} skipped_existing={skipped_existing} cap={cap} applied={apply}"
+                "body-select queued={queued} skipped_existing={skipped_existing} skipped_unfetchable={skipped_unfetchable} cap={cap} applied={apply}"
             );
         }
     }
