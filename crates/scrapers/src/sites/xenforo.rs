@@ -163,6 +163,8 @@ pub const THEFORCE_HOST: &str = "boards.theforce.net";
 /// `robots.txt` at all — so the fetcher's one-second floor is the pace, stated
 /// here because it is what an operator should expect.
 pub const PACING_MILLIS: u64 = 1_000;
+/// TheForce publishes `Crawl-delay: 10` to every user agent.
+pub const THEFORCE_PACING_MILLIS: u64 = 10_000;
 
 /// How many threadmarks to ask for in one request.
 ///
@@ -286,6 +288,15 @@ impl Forum {
             | Self::SufficientVelocity
             | Self::QuestionableQuesting
             | Self::TheForce => Wall::None,
+        }
+    }
+
+    /// The least interval this host's published robots file permits.
+    #[must_use]
+    pub const fn pacing_millis(self) -> u64 {
+        match self {
+            Self::TheForce => THEFORCE_PACING_MILLIS,
+            _ => PACING_MILLIS,
         }
     }
 
@@ -1024,7 +1035,7 @@ impl SourceAdapter for XenForo {
             // "has this changed?" costs one request and compares two fields.
             incremental: true,
             authentication: AuthKind::None,
-            min_interval_millis: Some(PACING_MILLIS),
+            min_interval_millis: Some(self.forum.pacing_millis()),
         }
     }
 

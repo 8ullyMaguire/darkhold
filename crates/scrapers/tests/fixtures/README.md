@@ -826,9 +826,13 @@ not assumed.
 | `threadmarks-questionablequesting.html` | `forum.questionablequesting.com/threads/margin-of-error.39359/threadmarks` | 2026-09-11 |
 | `robots-spacebattles.txt` | `forums.spacebattles.com/robots.txt` | 2026-09-11 |
 | `robots-sufficientvelocity.txt` | `forums.sufficientvelocity.com/robots.txt` | 2026-09-11 |
+| `thread-theforce.html` | `boards.theforce.net/threads/reign-of-the-empire-book-trilogy-edge-of-the-abyss-releasing-15th-september-2026.50060612/` | 2026-11-21 |
+| `robots-theforce.txt` | `boards.theforce.net/robots.txt` | 2026-11-21 |
 
 The SpaceBattles pages were recorded through the solver; everything else was
-recorded with a plain request, because the other two hosts serve one.
+recorded with a plain request, because the other three hosts serve one. TheForce
+publishes `Crawl-delay: 10`, so its adapter pace is ten seconds, not the shared
+one-second floor.
 
 ### The walls differ between hosts
 

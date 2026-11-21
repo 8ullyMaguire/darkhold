@@ -172,6 +172,11 @@ fn the_recorded_theforce_page_is_claimed_and_parsed() {
         .by_host("boards.theforce.net")
         .expect("the bundled catalogue claims TheForce");
     assert_eq!(entry.adapter.as_deref(), Some("xenforo"));
+    assert_eq!(
+        adapter.capabilities().min_interval_millis,
+        Some(10_000),
+        "the adapter must honour the published crawl delay"
+    );
 }
 
 #[test]
