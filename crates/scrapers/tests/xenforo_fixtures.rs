@@ -147,6 +147,34 @@ fn the_last_chapter_in_reading_order_is_not_the_newest_thing_in_the_thread() {
 }
 
 #[test]
+fn the_recorded_theforce_page_is_claimed_and_parsed() {
+    let adapter = XenForo::theforce();
+    let thread = adapter
+        .parse_thread(&fixture("thread-theforce.html"), "50060612")
+        .expect("the recorded TheForce thread page parses");
+    assert!(
+        thread.title.contains("Edge of the Abyss"),
+        "unexpected title: {}",
+        thread.title
+    );
+    assert!(!thread.author_text.trim().is_empty());
+
+    let rules = RobotsRules::parse(&fixture("robots-theforce.txt"), "Darkhold");
+    assert!(rules.allows("/threads/50060612/"));
+    assert!(!rules.allows("/search/"));
+    assert_eq!(
+        rules.crawl_delay(),
+        Some(std::time::Duration::from_secs(10))
+    );
+
+    let catalogue = darkhold_scrapers::Catalogue::bundled().expect("catalogue parses");
+    let entry = catalogue
+        .by_host("boards.theforce.net")
+        .expect("the bundled catalogue claims TheForce");
+    assert_eq!(entry.adapter.as_deref(), Some("xenforo"));
+}
+
+#[test]
 fn the_thread_page_is_read_for_what_the_work_is() {
     let adapter = spacebattles();
     let thread = adapter

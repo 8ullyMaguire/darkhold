@@ -145,6 +145,8 @@ pub const SPACEBATTLES_KEY: &str = "spacebattles";
 pub const SUFFICIENT_VELOCITY_KEY: &str = "sufficientvelocity";
 /// Questionable Questing.
 pub const QUESTIONABLE_QUESTING_KEY: &str = "questionablequesting";
+/// TheForce / Jedi Council Forums.
+pub const THEFORCE_KEY: &str = "theforce";
 
 /// The hosts, bare, for the fetcher's allow-list.
 pub const SPACEBATTLES_HOST: &str = "forums.spacebattles.com";
@@ -152,6 +154,8 @@ pub const SPACEBATTLES_HOST: &str = "forums.spacebattles.com";
 pub const SUFFICIENT_VELOCITY_HOST: &str = "forums.sufficientvelocity.com";
 /// Questionable Questing's host.
 pub const QUESTIONABLE_QUESTING_HOST: &str = "forum.questionablequesting.com";
+/// TheForce's host.
+pub const THEFORCE_HOST: &str = "boards.theforce.net";
 
 /// The pace.
 ///
@@ -186,6 +190,8 @@ pub enum Forum {
     SufficientVelocity,
     /// Questionable Questing: served plainly, and publishes no `robots.txt`.
     QuestionableQuesting,
+    /// TheForce / Jedi Council Forums: served plainly, `Crawl-delay: 10`.
+    TheForce,
 }
 
 impl Forum {
@@ -196,6 +202,7 @@ impl Forum {
             Self::SpaceBattles => SPACEBATTLES_KEY,
             Self::SufficientVelocity => SUFFICIENT_VELOCITY_KEY,
             Self::QuestionableQuesting => QUESTIONABLE_QUESTING_KEY,
+            Self::TheForce => THEFORCE_KEY,
         }
     }
 
@@ -206,6 +213,7 @@ impl Forum {
             Self::SpaceBattles => "SpaceBattles",
             Self::SufficientVelocity => "Sufficient Velocity",
             Self::QuestionableQuesting => "Questionable Questing",
+            Self::TheForce => "Jedi Council Forums",
         }
     }
 
@@ -216,6 +224,7 @@ impl Forum {
             Self::SpaceBattles => SPACEBATTLES_HOST,
             Self::SufficientVelocity => SUFFICIENT_VELOCITY_HOST,
             Self::QuestionableQuesting => QUESTIONABLE_QUESTING_HOST,
+            Self::TheForce => THEFORCE_HOST,
         }
     }
 
@@ -226,6 +235,7 @@ impl Forum {
             Self::SpaceBattles => "https://forums.spacebattles.com",
             Self::SufficientVelocity => "https://forums.sufficientvelocity.com",
             Self::QuestionableQuesting => "https://forum.questionablequesting.com",
+            Self::TheForce => "https://boards.theforce.net",
         }
     }
 
@@ -272,19 +282,21 @@ impl Forum {
     #[must_use]
     pub const fn wall(self) -> Wall {
         match self {
-            Self::SpaceBattles | Self::SufficientVelocity | Self::QuestionableQuesting => {
-                Wall::None
-            }
+            Self::SpaceBattles
+            | Self::SufficientVelocity
+            | Self::QuestionableQuesting
+            | Self::TheForce => Wall::None,
         }
     }
 
-    /// All three, for the registry and for tests that must cover each host.
+    /// All four, for the registry and for tests that must cover each host.
     #[must_use]
-    pub const fn all() -> [Self; 3] {
+    pub const fn all() -> [Self; 4] {
         [
             Self::SpaceBattles,
             Self::SufficientVelocity,
             Self::QuestionableQuesting,
+            Self::TheForce,
         ]
     }
 }
@@ -314,6 +326,12 @@ impl XenForo {
     #[must_use]
     pub fn questionable_questing() -> Self {
         Self::new(Forum::QuestionableQuesting)
+    }
+
+    /// TheForce / Jedi Council Forums adapter.
+    #[must_use]
+    pub fn theforce() -> Self {
+        Self::new(Forum::TheForce)
     }
 
     /// The adapter for one forum.

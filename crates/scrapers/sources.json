@@ -16,7 +16,7 @@
       "discovery": {
         "kind": "none"
       },
-      "note": "Young platform; no adapter yet — discovery needs a bespoke parser."
+      "note": "Young platform; no adapter yet \u2014 discovery needs a bespoke parser."
     },
     {
       "id": "squidgeworld",
@@ -59,7 +59,7 @@
       "adapter": "ao3",
       "bodies": "allowed",
       "robots": {
-        "verdict": "no robots.txt (404) — nothing restricted",
+        "verdict": "no robots.txt (404) \u2014 nothing restricted",
         "checked": "2026-11-02"
       },
       "discovery": {
@@ -227,7 +227,7 @@
       "discovery": {
         "kind": "none"
       },
-      "note": "Podfic; audio bytes are not bodies — media is out of scope."
+      "note": "Podfic; audio bytes are not bodies \u2014 media is out of scope."
     },
     {
       "id": "efpfanfic",
@@ -314,7 +314,7 @@
       "name": "Jedi Council Forums",
       "host": "boards.theforce.net",
       "family": "xenforo",
-      "adapter": null,
+      "adapter": "xenforo",
       "bodies": "allowed",
       "robots": {
         "verdict": "*: 19 rules, Crawl-delay: 10",
@@ -323,7 +323,7 @@
       "discovery": {
         "kind": "none"
       },
-      "note": "XenForo family; not instantiated in this build. Crawl-delay 10 governs the pace when it is."
+      "note": "XenForo family; public thread fixture recorded 2026-11-21. Crawl-delay 10 governs the pace."
     },
     {
       "id": "lodginghouse",
@@ -471,7 +471,7 @@
     },
     {
       "id": "merengo",
-      "name": "Merengő",
+      "name": "Mereng\u0151",
       "host": "merengo.hu",
       "family": "custom",
       "adapter": null,
@@ -499,7 +499,7 @@
       "discovery": {
         "kind": "none"
       },
-      "note": "robots.txt's * group allows /fiction/ and chapters, but every listing and work page answers 403 to this host with any user agent (checked 2026-11-02). The adapter exists and stays; the source is listed as blocked so nothing walks it. An instance on another network may find the same pages readable — re-check before trusting this verdict."
+      "note": "robots.txt's * group allows /fiction/ and chapters, but every listing and work page answers 403 to this host with any user agent (checked 2026-11-02). The adapter exists and stays; the source is listed as blocked so nothing walks it. An instance on another network may find the same pages readable \u2014 re-check before trusting this verdict."
     },
     {
       "id": "scribblehub",

@@ -1,0 +1,71 @@
+#                    ____
+#                 _.' :  `._
+#             .-.'`.  ;   .'`.-.
+#    __      / : ___\ ;  /___ ; \      __
+#  ,'_ ""--.:__;".-.";: :".-.":__;.--"" _`,
+#  :' `.t""--.. '<@.`;_  ',@>` ..--""j.' `;
+#       `:-.._J '-.-'L__ `-- ' L_..-;'
+#         "-.__ ;  .-"  "-.  : __.-"
+#             L ' /.------.\ ' J
+#              "-.   "--"   .-"
+#             __.l"-:_JL_;-";.__
+#          .-j/'.;  ;""""  / .'\"-.
+#        .' /:`. "-.:     .-" .';  `.
+#     .-"  / ;  "-. "-..-" .-"  :    "-.
+#  .+"-.  : :      "-.__.-"      ;-._   \
+#  ; \  `.; ;                    : : "+. ;
+#  :  ;   ; ;                    : ;  : \:
+# : `."-; ;  ;                  :  ;   ,/;
+#  ;    -: ;  :                ;  : .-"'  :
+#  :\     \  : ;             : \.-"      :
+#   ;`.    \  ; :            ;.'_..--  / ;
+#   :  "-.  "-:  ;          :/."      .'  :
+#     \       .-`.\        /t-""  ":-+.   :
+#      `.  .-"    `l    __/ /`. :  ; ; \  ;
+#        \   .-" .-"-.-"  .' .'j \  /   ;/
+#         \ / .-"   /.     .'.' ;_:'    ;
+#          :-""-.`./-.'     /    `.___.'
+#                \ `t  ._  /  bug :F_P:
+#                 "-.t-._:'
+#
+# Lost the forums, have you? How embarrassing. How embarrassing!
+#
+# If into the cantina you go, only fun will you find:
+# https://boards.theforce.net/threads/50060374/
+#
+# May the force be with you,
+#
+# TheForce.net Jedi Council Forums
+#
+###################################################################
+
+### VERSION #
+################################################################### 
+# Version: 1.2026.06.30
+# Updated: Tue Jun 30 00:07:00 UTC 2026
+################################################################### 
+
+User-agent: *
+Disallow: /whats-new/
+Disallow: /account/
+Disallow: /attachments/
+Disallow: /goto/
+Disallow: /posts/
+Disallow: /login/
+Disallow: /search/
+Disallow: /admin.php
+Disallow: /*?quote=
+Disallow: /forums/*?prefix_id=
+Disallow: /forums/*?order=
+Disallow: /forums/*?unanswered=
+Disallow: /forums/*?unsolved=
+Disallow: /threads/*?order=
+Disallow: /media/*?order=
+Disallow: /forums/*?filter_threads=
+Disallow: /media/*?no_date_limit=
+Disallow: /mailto:
+Disallow: /tel:
+Allow: /
+
+Crawl-delay: 10
+Sitemap: https://boards.theforce.net/sitemap.php
