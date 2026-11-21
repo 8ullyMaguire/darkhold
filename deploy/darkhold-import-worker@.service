@@ -1,0 +1,18 @@
+[Unit]
+Description=Darkhold import worker %i
+After=network-online.target darkhold.service
+Wants=network-online.target
+
+[Service]
+EnvironmentFile=/personal/secrets/estate/darkhold.env
+Type=simple
+ExecStart=/home/alvaro/.cargo-target/darkhold/release/dh worker
+WorkingDirectory=/personal/documents/code/rust/darkhold
+Environment=DARKHOLD_CONFIG=/personal/documents/code/rust/darkhold/darkhold.toml
+Restart=always
+RestartSec=5
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=default.target

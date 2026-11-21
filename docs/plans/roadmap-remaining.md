@@ -4,21 +4,23 @@
 
 Source of truth for this loop is this section. Update it in the same commit as any ledger or code change. The handoff carries history; this table carries the queue.
 
-Done (latest): TA1 private taste pipeline and TA2 daily aggregation shipped, deployed and documented. Forced Pawchive BFS passed: `source_sync:force-ta2-normalized` succeeded and following syndication passes logged `225 works seen`, `0 sources skipped`, with no recommendation-page or doubled-URL warnings. AO3 refetch gained a bounded `--offset` (`2108da6f`) and now skips already-tagged works (`136c771b`); targeted test green, both-engine mutant red and restored, clippy clean, CLI rebuilt on thinkcentre. Invalid `qq` EPUB import jobs were removed. TA3-5 consistency check passed: working tree clean, remotes pushed, live meta `0.1.0+79f1de8c` matches the last deployed server source commit, and the CLI installed on thinkcentre is `136c771b`. Server binary was not rebuilt because the source changes were CLI-only.
+Done (latest): TA1 private taste pipeline, TA2 daily aggregation and TA3-1 BFS verification shipped and documented. AO3 refetch gained `--offset` and skip-already-tagged (`2108da6f`, `136c771b`). TA3-5 consistency check passed at `0af02914`. The owner then unblocked TA3-2 and TA3-4 via `clarify`; the per-source concurrency guard shipped in `10b610de`, merged with `origin/master` in `d80e8d3e`, and is awaiting live deploy verification. TA3-4 shipped in `0573c8a0` and `0d7c4470`: a public TheForce thread and robots file were recorded, the XenForo family now claims and parses the host, and the adapter honours `Crawl-delay: 10`.
 
-Open queue (*0 unblocked, 7 blocked*): none.
+Open queue (*1 unblocked, 5 blocked*):
 
-Blocked (*7*):
+| # | open step | gate |
+| --- | --- | --- |
+| TA3-2 | Deploy the per-source worker guard, start additional workers, verify no source has >1 leased import. | Live query returns no source_key with more than one leased import; several worker processes are active; queued count trends down; `docs/handoff.md` records the evidence. |
+
+Blocked (*5*):
 
 | # | blocked step | waits on | unblock gate |
 | --- | --- | --- | --- |
-| TA3-2 | Body import queue drain | single-worker throughput; 21,173 queued jobs remain after removing 1,935 invalid `qq` EPUB jobs and the 7,924 earlier `archive` jobs | queued count reaches zero or a small steady tail, with no new adapter errors |
-| TA3-3 | Advance AO3 tag coverage | AO3 public metadata fetch returns HTTP 429 from the host; paced batches at offsets 0/20/100 applied with `works_tagged=0`, and a direct public URL probe returned `429` | AO3 stops rate-limiting public metadata requests, or an owner-provided public cache/mirror exists; no bypass or auth |
-| TA3-4 | Expand adapter coverage from written skip list | no recorded public fixture exists for any remaining skipped source | one recorded public page fixture plus a reviewed robots/body verdict |
-| TA3-B1 | Full estate gate | owner approval; the last full run timed out at 420 s and the standing rule is targeted tests only | explicit owner request for the full sweep |
-| TA3-B2 | M69-24 taste-source follow-up | another session owns `/home/alvaro/code-local/polaris-taste-source` with uncommitted files | that tree is clean or explicitly handed over |
-| TA3-B3 | M63-32 likes/favorites half | Pawchive public API has no likes count; authenticated favorites export would require an owner-provided credential stored out of tree | credential or documented public endpoint exists |
-| TA3-B4 | Global Discord command registration | owner approval for product-visible global change | explicit approval |
+| TA3-3 | Advance AO3 tag coverage | owner chose wait-and-retry; AO3 returned HTTP 429 on public probes | rate limit clears or a public cache/mirror exists; no auth or bypass |
+| TA3-B1 | Full estate gate | owner chose targeted-only | explicit owner request for the full sweep |
+| TA3-B2 | M69-24 taste-source follow-up | owner chose leave parked; another session owns the checkout | explicit handover |
+| TA3-B3 | M63-32 likes/favorites half | owner chose leave parked; no public API exists | explicit owner decision and safe credential path |
+| TA3-B4 | Global Discord command registration | owner chose leave parked | explicit approval |
 
 The standing `/goal` paragraph lives in `docs/plans/next-goal.md`. Read it with this file; never paste counts or open steps into it.
 

@@ -56,3 +56,12 @@ The owner states ascend is unfrozen and authorises writes. The previous block co
 
 * **TA3-3:** AO3 refetch now takes a bounded `--offset` and skips works that already have source-derived tags. Re-reading tagged rows counted `works_tagged` without increasing coverage, so that was a false gate. Recorded live coverage stayed at 8,669 work-tag rows while AO3 returned HTTP 429 on direct public probes; this is a rate-limit blocker, not a reason to add auth, bypass, or retries. The server binary was not rebuilt because the source changes were CLI-only; live meta correctly remains `0.1.0+79f1de8c`.
 * **TA3-2:** invalid `qq` EPUB import jobs were removed alongside the earlier `archive` ones. The remaining queued jobs are public HTTP(S) imports on supported adapters and are left to the single worker; throughput scaling is not silently changed in a docs/state pass.
+
+## Owner decisions — 2026-11-21 TA3 unblock batch
+
+* **TA3-2:** the owner authorizes raising worker concurrency, with a hard limit of one worker per source at a time. Extra workers add queue throughput, never extra requests against one archive. Implemented as a claim-time guard in `jobs::claim_next`, not as per-site rate tuning.
+* **TA3-3:** wait and retry AO3 later. No public cache/mirror was supplied and no bypass or auth is permitted.
+* **TA3-4:** fixture TheForce first. XenForo is already a known adapter family, so a recorded public page and a robots/body verdict are the next step.
+* **TA3-B1:** keep targeted-only. The full estate gate stays blocked by explicit owner choice.
+* **TA3-B2/B3/B4:** leave all parked. No action on the shared checkout, likes/favorites, or global Discord registration this cycle.
+* **Diverged remotes:** the local TA3-2 commit was merged with `origin/master`'s taste-fragment commit using `git merge --no-ff`, never a rebase, then pushed to both remotes and fast-forwarded on thinkcentre.
