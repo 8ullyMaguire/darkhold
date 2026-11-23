@@ -5,6 +5,10 @@ built**. `docs/spec.md` says what the platform must do; these files say what to
 type, in what order, and how to check it. They are written for someone who
 knows Rust and Svelte but has never seen this repository.
 
+> **Scope decision (2026-11-23):** milestones M12–M20 are optional per-instance community products, not the core
+> catalogue; their dispositions and start gates live in `community-products-m12-m20.md`. The core must pass with all
+> of them disabled. M20 hardening is core, not optional.
+
 > **Status note (2026-09-30):** **M59 — crawling posture, retention governance
 > and preservation — is built through phase F** and verified on SQLite and
 > PostgreSQL. Plan:
