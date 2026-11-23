@@ -21,6 +21,10 @@ Darkhold is built from a written plan rather than by accretion. The plan, the
 architecture decisions, and an honest log of what has actually been *executed*
 all live in this repository.
 
+The short canonical product scope is [`docs/PRODUCT-SPEC.md`](docs/PRODUCT-SPEC.md); it maps which document owns
+scope, requirement status, decisions and historical narrative. `docs/spec.md` remains as history, not as the status
+ledger.
+
 ## Status
 
 **`docs/goal.md` is the standing brief** — build to completion, no stubs, and
