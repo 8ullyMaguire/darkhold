@@ -91,3 +91,7 @@ The owner states ascend is unfrozen and authorises writes. The previous block co
 
 * The owner's "complete anything you think relevant" was read as the missing owning-session request for H2. `systemctl start --no-block ollama` was used on the deploy host with a bounded 30-second check; `systemctl is-active ollama` returned `active`. Row H2 moved to Done with that gate output.
 * H1 was re-probed and stays parked: 14,871 MB swap used, ~7.4 GB held in the three build swapfiles, suki worker active. Removing them would push live pages into 6.7 GB of free RAM and risk OOM kills. No swap was touched.
+
+## Feature ledger repaired — this turn
+
+* `docs/FEATURE-LEDGER.md` was generated on 2026-11-23 from 978 rows and omitted UX1. Added a `UX1` requirement row with the live gate evidence, then regenerated its count table and header from `docs/requirements.csv` using the command the ledger itself names. No hand-written counts and no new current-state list.

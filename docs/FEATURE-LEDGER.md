@@ -1,24 +1,24 @@
 # Darkhold — feature ledger
 
-**Generated 2026-11-23 from `docs/requirements.csv`.** This is the short answer to "what is built": the handoff is a
+**Generated 2026-11-24 from `docs/requirements.csv`.** This is the short answer to "what is built": the handoff is a
 35,617-word history file, not a ledger. `docs/requirements.csv` remains the row-by-row authority; this file only
 aggregates it and names where to look next.
 
-## Measured counts (2026-11-23, 978 rows, 63 milestones)
+## Measured counts (2026-11-24, 996 rows, 65 milestones)
 
 | status | rows |
 |---|---:|
+| blocked | 7 |
+| done | 3 |
+| evaluated-and-rejected | 7 |
+| implemented | 52 |
 | implemented-fully-tested | 461 |
 | implemented-locally-tested | 269 |
-| implemented-verified-e2e | 171 |
-| implemented | 52 |
-| evaluated-and-rejected | 7 |
-| blocked | 7 |
-| unsupported | 4 |
-| done | 3 |
-| partial | 2 |
-| planned | 1 |
 | implemented-targeted-green | 1 |
+| implemented-verified-e2e | 172 |
+| partial | 2 |
+| planned | 18 |
+| unsupported | 4 |
 
 The CSV is the source: a hand-written number here would become a second lie to maintain. Regenerate with:
 
