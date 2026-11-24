@@ -136,3 +136,9 @@ The owner states ascend is unfrozen and authorises writes. The previous block co
 * The first test expectation was wrong: after applying abandonment the work stays in the candidate queue because a later story update must be able to revive it. The fixed assertion is one scanned and zero changed on the second page, not zero scanned. This is deliberate: the sweep is not a one-shot cursor over works to abandon.
 * `auto_abandon = false` is intentionally not checked inside `sweep_page`; the operator route will gate writes while still allowing a dry run, as the plan states. No route, CLI or timer exists yet, so nothing runs this sweep unattended.
 * The app crate's first compile exceeded the two-minute target; incremental targeted runs were under it. No release build or deploy.
+
+## M45-76.12 — operator route — this turn
+
+* Mounted the router path as `/lifecycle/sweep` inside the router that is nested at `/api/v1`; the public URL is therefore `/api/v1/lifecycle/sweep`. The inventory records the relative path `/lifecycle/sweep`, matching every other entry in that table. The plan named the full URL; this tree's convention is relative inventory paths, and the `/operator` nest is avoided because of its recorded subtree swallowing.
+* `ApiError::field` maps to 422 with a `field_errors.dry_run` message, not 400. The test follows the repository's existing error convention; the plan did not name a status.
+* The route requires an operator session and refuses writes when `auto_abandon = false`, but a dry run still works. No CLI, timer or unattended invocation exists yet.

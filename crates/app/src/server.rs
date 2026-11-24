@@ -1273,6 +1273,9 @@ pub fn build_router(state: AppState) -> Router {
         // The experiment sweep is not an extension: it acts on the ranking every instance has, and gating it behind a module
         // would mean the platform could promote experiments on a surface it cannot rank.
         .merge(routes::experiment_sweep::router())
+        // M45-76 — the lifecycle sweep is an estate-wide operator door, so it belongs in the `/api/v1`
+        // nest rather than under `/operator`, whose subtree swallowing is recorded in docs/known-gaps.md.
+        .merge(routes::work_lifecycle::router())
         // A work's cast is part of the work, not an extension: the store has had characters and relationships since 0127
         // and no door could read them (M70-13).
         .merge(routes::characters::router())

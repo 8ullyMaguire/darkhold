@@ -8004,4 +8004,11 @@ pub const ROUTE_TABLE: &[RouteEntry] = &[
         path: "/reading-lists/{id}/collaborators/{user}",
         audience: Audience::Authenticated,
     },
+    RouteEntry {
+        file: "work_lifecycle.rs",
+        handler: "sweep",
+        method: "POST",
+        path: "/lifecycle/sweep",
+        audience: Audience::AdminOf { site: None },
+    },
 ];
