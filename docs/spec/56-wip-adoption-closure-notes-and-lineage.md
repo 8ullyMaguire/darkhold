@@ -76,8 +76,17 @@ When a work changes hands, who wrote what is a question the archive must answer 
 
 ## 56.4 What this deliberately does not do
 
-- **No automatic abandonment.** Nothing marks a work `abandoned` without the author or an
-  operator doing it. §8.8's derived `dormant` is a *reading*, not a state change.
+- **Automatic abandonment is the `M45-76` exception.** The original text here
+  said "nothing marks a work `abandoned` without the author or an operator
+  doing it", and that was true until 2026-11-24. The owner then chose an
+  automatic lifecycle: a published work whose completion is `in_progress` or
+  `hiatus` and which has no story activity for
+  `[works].auto_abandon_after_months` (default 4) is marked `abandoned` with
+  `completion_source = 'sweep'`; a later story update returns it to
+  `in_progress`. §8.8's derived `dormant` is still a reading, not a state
+  change; this is a different mechanism, with provenance, a source-complete
+  guard, and a reversible mark. See
+  `docs/spec-amendments/automatic-work-lifecycle.md`.
 - **No transfer of ownership, ever.** See 56.1. There is no route that can move
   `owner_pseud_id` because of adoption.
 - **No paywall on the archive.** An adopting author is not compensated by a share of

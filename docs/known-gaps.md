@@ -1,5 +1,27 @@
 # Known gaps
 
+## M45-76 — automatic WIP/abandoned lifecycle does not exist yet (measured 2026-11-24)
+
+The live `darkhold` database has the vocabulary but not the rule. `works.completion`
+is written today only through `PATCH /works/{id}`, which calls `author_work()` and
+`can_edit()` — owner and contributors only. `accounts.is_curator` exists and no
+completion route reads it. `works.derived_activity` is declared with the
+`active | slow | dormant | concluded` vocabulary but has **no production writer** in
+this tree: all 58,042 live works are `active`.
+
+Measured counts: 42,531 `in_progress`, 15,220 `abandoned` (set by the pawchive
+import), 291 `complete`; 9,722 `in_progress` works are older than 120 days on
+`library_items.source_updated_at`, and 30,570 `in_progress` works have no clock
+at all. `works.updated_at` is the wrong clock — 0 / 58,042 are older than
+120 days. `lifecycle_events` is `UNIQUE (work_id, event_type)`, so it cannot hold
+a second stale/revive cycle. The owner chose automatic abandonment on by default
+at four months, with `hiatus` included and completion review at TL3 or
+`is_curator`; that decision supersedes §8.8/§56.4 and is recorded in
+`docs/spec-amendments/automatic-work-lifecycle.md`, with
+`docs/plans/automatic-work-lifecycle.md` and
+`docs/ROADMAP-automatic-work-lifecycle.md` (row `M45-76`). No code was changed
+for this finding.
+
 ## M45-75 — the reader's "stale, popular, unrated, any source" query cannot be expressed (measured 2026-11-24)
 
 `GET /api/v1/search` (the door `dh q` uses) answered, against the live instance:

@@ -1228,10 +1228,11 @@ Activity: active | slow | dormant | concluded
 
 - `active` — updated within three months. `slow` — three to twelve months. `dormant` — over twelve months. `concluded` — the work is marked complete.
 - Derived status is **information and never a penalty.** It changes no ranking, award, credit, badge or trust outcome, and a dormant work keeps everything it earned.
-- **An author-set state always wins.** `hiatus` and `abandoned` (§8.2) override the derived reading, and a work marked complete is `concluded` regardless of when it was last touched.
+- **An author-set state always wins, except for the `M45-76` automatic path below.** `hiatus` and `abandoned` (§8.2) override the derived reading, and a work marked complete is `concluded` regardless of when it was last touched.
+- **Amended 2026-11-24 (`M45-76`): automatic abandonment is the deliberate exception.** A published work whose completion is `in_progress` or `hiatus` and which has no story activity for `[works].auto_abandon_after_months` (default 4) is marked `abandoned` by the sweep, with `completion_source = 'sweep'`. A later story update returns it to `in_progress`. A source that says complete concludes it instead. This is a real state change, not a derived reading; it is reversible, provenance-carrying, and never a ranking penalty. See `docs/spec-amendments/automatic-work-lifecycle.md`.
 - Readers may filter dormant and abandoned works out of search, saved views (§14.2) and recommendations, and **the filter is off by default.**
 - A "likely complete" note may be offered for a work that has not been updated but reads as finished — no open threads, a completion-shaped structure, and the author's own completion field unset. It is a suggestion to the author and never a claim shown to readers as fact.
-- After a long inactivity period the author receives **one** notice they can opt out of: whether the work is still going, and an offer to mark it hiatus or abandoned. It is sent once, never repeated on a schedule, and carries no guilt framing (§28.10). Declining is silent and permanent.
+- After a long inactivity period the author receives **one** notice they can opt out of: whether the work is still going, and an offer to mark it hiatus or abandoned. It is sent once, never repeated on a schedule, and carries no guilt framing (§28.10). Declining is silent and permanent. **Not yet wired (`M45-76.4`, 2026-11-24):** the automatic lifecycle ships the state, provenance and reversible door first; the one-notice email is a named debt, not a claim that it exists.
 - The notice never appears on a work whose author has disabled notifications, and never during a configured quiet period.
 
 ## Acceptance
@@ -10824,8 +10825,13 @@ When a work changes hands, who wrote what is a question the archive must answer 
 
 ### 56.4 What this deliberately does not do
 
-- **No automatic abandonment.** Nothing marks a work `abandoned` without the author or an
-  operator doing it. §8.8's derived `dormant` is a *reading*, not a state change.
+- **Automatic abandonment is the `M45-76` exception.** This section originally said
+  nothing marks a work `abandoned` without the author or an operator doing it. Since
+  2026-11-24, a published non-complete work with no story activity for
+  `[works].auto_abandon_after_months` (default 4) is marked `abandoned` by the sweep,
+  with `completion_source = 'sweep'`, and a later story update returns it to
+  `in_progress`. See `docs/spec-amendments/automatic-work-lifecycle.md`. §8.8's derived
+  `dormant` remains a reading, not a state change.
 - **No transfer of ownership, ever.** See 56.1. There is no route that can move
   `owner_pseud_id` because of adoption.
 - **No paywall on the archive.** An adopting author is not compensated by a share of
@@ -10910,10 +10916,14 @@ recommending it.
 
 - A badge for each of `works.completion`'s values (§8.2): `complete`, `in_progress`,
   `hiatus`, `abandoned`.
-- **The badge is always the work's real state, never an inference.** §8.8's derived
-  activity status (`dormant`) is *not* rendered as an abandonment badge. An author
-  on hiatus has not abandoned anything, and a derived status shown as a decision
-  reads as a judgement on the author's reliability that nobody made.
+- **The badge is the work's real state; the provenance is on the badge.** §8.8's derived
+  activity status (`dormant`) is *not* rendered as an abandonment badge. Since `M45-76`,
+  a `completion='abandoned'` row may have been written by the automatic sweep rather than
+  the author; when `completion_source = 'sweep'`, the badge says `Abandoned · no update in
+  N months` (the configured `N`), never "the author abandoned it". An author-declared
+  `abandoned` keeps the plain badge. This preserves the original prohibition — do not
+  present an inference as the author's decision — while allowing the state to be automatic
+  and reversible.
 - An `abandoned` badge never carries a reason. The author may not have given one,
   and inventing one would be worse than silence.
 

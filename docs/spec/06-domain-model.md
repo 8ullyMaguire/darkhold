@@ -20,8 +20,9 @@
 ## 6.2 Content
 
 - **work** — `title`, `summary`, `language`, `content_rating`, `visibility`, `lifecycle`,
-  `completion`, `format`, `discussion_mode`, `ai_training` (the author's statement),
-  `owner_pseud_id`, `derived_activity`, `half_life_bp`, `contested_at`, `deleted_at`.
+  `completion`, `completion_source`, `completion_marked_at`, `format`, `discussion_mode`,
+  `ai_training` (the author's statement), `owner_pseud_id`, `derived_activity`,
+  `half_life_bp`, `contested_at`, `deleted_at`.
   - **What the implementation settled.** Five of these six columns already existed and
     the work was to bring them to this table's shape. **The defaults move and the rows
     do not**: a *new* work is a `fanwork` with a `thread_only` discussion, and the rows
@@ -32,6 +33,14 @@
     published and it is not a score, a demotion, or a reason to show a work less. And
     **the author's state always wins** — a work the author has declared concluded stays
     concluded, and the nightly recompute must not overwrite it.
+  - **Amended 2026-11-24 (`M45-76`).** `completion` may now be moved to `abandoned`
+    by the lifecycle sweep when a non-complete work has no story activity for
+    `[works].auto_abandon_after_months` (default 4), and back to `in_progress` when a
+    story update follows the mark. The machine mark carries
+    `completion_source = 'sweep'`; a human mark carries `owner` or `review`. This is a
+    deliberate exception to "the author's state always wins", accepted by the owner and
+    written in `docs/spec-amendments/automatic-work-lifecycle.md`; `derived_activity`
+    itself is still a reading and still not a penalty.
   - **`half_life_bp` is nullable, and "NULL = not yet scored" is a meaningful
     absence.** The scale runs 0..10000, where 10000 is the *maximum* — an evergreen
     boost of 1.5× — so a default of 10000 would give every unscored work the largest
@@ -50,6 +59,12 @@
     concluded (the author's state always wins).
   - `discussion_mode` ∈ thread_only (default) · comments_only (legacy, supported indefinitely) ·
     both (operator-warned).
+- **work_completion_marks** — one row per completion transition: `work_id`,
+  `from_completion`, `to_completion`, `source` (import · owner · review · sweep · update),
+  `actor_account_id` (nullable), `note` (nullable), `observed_last_activity`, `marked_at`.
+  **No unique `(work, event)` rule**: a work can go stale, revive and go stale again, and
+  the history is the answer to "who moved it and on what evidence". `lifecycle_events`
+  remains the one-time completion/resurrection incentive, not this history.
 - **unit** — `work_id`, `order_key`, `title`, `current_revision_id`, `word_count`.
 - **revision** — `unit_id`, `document_json` (source of truth), `sanitized_html`, `plain_text`,
   `word_count`, `author_pseud_id` (derived). **Append-only**; restoring creates a new revision.

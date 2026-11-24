@@ -51,10 +51,15 @@ recommending it.
 
 - A badge for each of `works.completion`'s values (§8.2): `complete`, `in_progress`,
   `hiatus`, `abandoned`.
-- **The badge is always the work's real state, never an inference.** §8.8's derived
-  activity status (`dormant`) is *not* rendered as an abandonment badge. An author
-  on hiatus has not abandoned anything, and a derived status shown as a decision
-  reads as a judgement on the author's reliability that nobody made.
+- **The badge is the work's real state; the provenance is on the badge.** §8.8's
+  derived activity status (`dormant`) is *not* rendered as an abandonment badge.
+  Since `M45-76`, a `completion='abandoned'` row may have been written by the
+  automatic sweep rather than the author. When `completion_source = 'sweep'`, the
+  badge says `Abandoned · no update in N months` (the configured `N`), never
+  "the author abandoned it". An author-declared `abandoned` keeps the plain
+  badge. This keeps §57.3's original prohibition — do not present an inference as
+  the author's decision — while allowing the state to be automatic and
+  reversible.
 - An `abandoned` badge never carries a reason. The author may not have given one,
   and inventing one would be worse than silence.
 

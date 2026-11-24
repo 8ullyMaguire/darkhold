@@ -187,6 +187,25 @@ Source revision cache settings (spec §38).
 |-----|------|---------|---------|
 | `ttl_secs` | `int` | `604800` | Revision cache TTL (7 days) |
 
+## `[works]`
+
+Work permission and lifecycle settings (spec §40, §8.8, `M45-76`).
+
+| Key | Type | Default | Purpose |
+|-----|------|---------|---------|
+| `max_fork_depth` | `int` | `3` | Maximum fork chain depth |
+| `gated_metadata_public` | `bool` | `false` | Publish gated works' records while withholding their text |
+| `auto_abandon` | `bool` | `true` | Mark a non-complete work abandoned when its story activity is older than the threshold |
+| `auto_abandon_after_months` | `int` | `4` | Months without story activity before automatic abandonment; `0` is refused |
+| `completion_review_min_trust` | `int` | `3` | Trust level that may set complete/in_progress on a work it does not own; `accounts.is_curator` grants the same power |
+
+`auto_abandon_after_months` counts 30-day months (4 = 120 days), the same
+arithmetic as the search grammar's `updated:<=-120d`. A source that reports
+`complete`, or a work already `completion = 'complete'`, is never auto-abandoned.
+The automatic mark carries `completion_source = 'sweep'`; the UI labels it
+`Abandoned · no update in N months` rather than attributing the decision to the
+author.
+
 ## `[jobs]`
 
 Job queue settings (spec §38).
