@@ -3,14 +3,17 @@
 //! Default body is a dry run: an operator can always inspect what the sweep
 //! would do, even when automatic abandonment is switched off in configuration.
 
-use axum::extract::State;
+use axum::extract::{Path, State};
 use axum::routing::post;
 use axum::{Json, Router};
 use serde::Deserialize;
+use serde_json::{json, Value};
 
 use crate::auth::RequireSession;
 use crate::http::{ApiError, ApiResult};
 use crate::state::AppState;
+
+use darkhold_domain::error::AppError;
 
 #[derive(Debug, Deserialize)]
 pub struct SweepBody {
@@ -48,6 +51,86 @@ pub async fn sweep(
     Ok(Json(report))
 }
 
+#[derive(Debug, Deserialize)]
+pub struct CompletionBody {
+    pub completion: String,
+    #[serde(default)]
+    pub note: Option<String>,
+}
+
+pub async fn set_completion(
+    RequireSession(user): RequireSession,
+    State(state): State<AppState>,
+    Path(id): Path<String>,
+    Json(body): Json<CompletionBody>,
+) -> ApiResult<Json<Value>> {
+    let work_id = crate::routes::works::parse_work_id(&id)?;
+    let Some(work) = darkhold_db::content::find_work(state.db(), work_id).await? else {
+        return Err(ApiError(AppError::NotFound { resource: "work" }));
+    };
+    if work.lifecycle != "published" {
+        return Err(ApiError(AppError::field(
+            "completion",
+            "only a published work carries a completion state",
+        )));
+    }
+    if !matches!(body.completion.as_str(), "complete" | "in_progress") {
+        return Err(ApiError(AppError::field(
+            "completion",
+            "a reviewer sets complete or in_progress; abandoned and hiatus are the author's states",
+        )));
+    }
+    let account = user.account_id.to_string();
+    let may = darkhold_db::work_lifecycle::may_review_completion(
+        state.db(),
+        &account,
+        state.config().works.completion_review_min_trust,
+    )
+    .await
+    .map_err(|e| AppError::Internal(e.into()))?;
+    if !may {
+        return Err(ApiError(AppError::AccessDenied));
+    }
+    if body.completion == work.completion {
+        return Ok(Json(json!({
+            "work_id": work.id.to_string(),
+            "completion": work.completion,
+            "changed": false,
+        })));
+    }
+    let now = darkhold_db::identity::now_rfc3339();
+    let changed = darkhold_db::work_lifecycle::apply_transition(
+        state.db(),
+        &work.id.to_string(),
+        &work.completion,
+        &body.completion,
+        darkhold_domain::work_lifecycle::CompletionSource::Review,
+        Some(&account),
+        body.note.as_deref(),
+        None,
+        &now,
+    )
+    .await
+    .map_err(|e| AppError::Internal(e.into()))?;
+    if !changed {
+        let current = darkhold_db::content::find_work(state.db(), work_id)
+            .await?
+            .ok_or_else(|| ApiError(AppError::NotFound { resource: "work" }))?;
+        return Ok(Json(json!({
+            "work_id": current.id.to_string(),
+            "completion": current.completion,
+            "changed": false,
+        })));
+    }
+    Ok(Json(json!({
+        "work_id": work.id.to_string(),
+        "completion": body.completion,
+        "changed": true,
+    })))
+}
+
 pub fn router() -> Router<AppState> {
-    Router::new().route("/lifecycle/sweep", post(sweep))
+    Router::new()
+        .route("/lifecycle/sweep", post(sweep))
+        .route("/works/{id}/completion", post(set_completion))
 }

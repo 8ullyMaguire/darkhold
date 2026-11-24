@@ -8011,4 +8011,11 @@ pub const ROUTE_TABLE: &[RouteEntry] = &[
         path: "/lifecycle/sweep",
         audience: Audience::AdminOf { site: None },
     },
+    RouteEntry {
+        file: "work_lifecycle.rs",
+        handler: "set_completion",
+        method: "POST",
+        path: "/works/{id}/completion",
+        audience: Audience::Authenticated,
+    },
 ];

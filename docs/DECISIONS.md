@@ -148,3 +148,9 @@ The owner states ascend is unfrozen and authorises writes. The previous block co
 * Kept the documented `dh lifecycle sweep` shape with a nested clap subcommand; the first attempt was a flat `Lifecycle(LifecycleArgs)` and clap rejected the `sweep` token. The test now runs the real binary, so that mistake cannot recur silently.
 * `--apply` is a subcommand flag, not the global `--yes` preview convention: the default is a server-side dry run, so there is no preview to confirm. Passing both `--apply` and the global `--dry-run` is refused as contradictory.
 * The cookie is sent as the `Cookie` header from `DARKHOLD_COOKIE`, matching the other account-scoped commands without printing or logging its value. Exit codes are the shared table: 0 page done, 2 usage/422, 4 missing session, 1 unreachable.
+
+## M45-76.14 — reviewer completion route — this turn
+
+* The route sits in the same `work_lifecycle.rs` router as the sweep, not in `works.rs`, so one module owns the new completion authority. Its inventory audience is `Authenticated` because the trust or curator check happens in the handler, not a coarse role gate.
+* Test fixtures must `UPDATE trust_levels`, not `INSERT`: `sign_in_as` already seeds a row, and the table's primary key is the account. Its `computed_at` and `basis` columns are NOT NULL and were the first failure. The route itself never writes trust.
+* A repeated identical completion answers `changed:false` and writes no second mark; a concurrent change answers the row actually stored. No owner-provenance write exists in `update_work` yet — that is Step 5.2.
