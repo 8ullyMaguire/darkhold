@@ -15,6 +15,7 @@ pub mod canon;
 pub mod capacity;
 pub mod caps;
 pub mod category_governance;
+pub mod trope_governance;
 pub mod charging;
 pub mod community;
 pub mod embeddings;

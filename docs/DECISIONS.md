@@ -222,3 +222,9 @@ The owner states ascend is unfrozen and authorises writes. The previous block co
 * The keys live on `Config` with their own `TropesSection` and `deny_unknown_fields`, not on `TaxonomyConfig`: the latter already contains the declared-but-unread `taxonomy.trope_coverage` example.
 * The shared `load` test helper flattens `anyhow` to its outer `parsing <path>` context. For the typo case the test writes the file and calls `Config::load` directly so `error.chain()` can prove both `unknown field` and the rejected `quo` key; the first assertion using only `error.to_string()` was too weak and was replaced.
 * Steps 5–13, H1/H3 and the live dry run remain parked as recorded.
+
+## M45-77.9 — pure trope governance — this turn
+
+* `trope_governance::proposal_decided` delegates to the already-tested category tally instead of introducing a second quorum rule. `effective_status` compares canonical `Z` timestamps lexicographically and makes the deadline inclusive.
+* Slug grammar stays closed: 3–40 lowercase ASCII letters, digits and single hyphens. Removing the `--` rejection from a `$TMPDIR` copy made the slug test red (0/1); restoring it passed (1/1) with the original SHA-256 prefix.
+* Steps 6–13, H1/H3 and the live dry run remain parked as recorded.
