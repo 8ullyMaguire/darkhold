@@ -178,3 +178,8 @@ The owner states ascend is unfrozen and authorises writes. The previous block co
 * `/meta` now publishes `works.auto_abandon_after_months`, and both `WorkCard` and `WorkPage` read it before naming a sweep abandonment. An older server that omits the block simply gets the plain `Abandoned` label; no client guesses a number.
 * The plan's `node --test` verification cannot load a `.svelte` import in this tree (`ERR_UNKNOWN_FILE_EXTENSION`). The real runner is `node node_modules/vitest/vitest.mjs run <file>`, per `package.json`'s `vitest run` script. Six WorkCard tests pass, including the two new provenance cases.
 * Vite build succeeded with the existing chunk-size warning. This is source and a local build only: H3 still owns deploying the frontend and backend together.
+
+## M45-76.19 — mutation guard 1 of 5 — this turn
+
+* Mutated `crates/domain/src/work_lifecycle.rs` from a copy under `$TMPDIR` (the scratch path, never the system temp dir), ran only `a_source_complete_work_is_concluded`, and restored the original in a `finally` block. The mutant went 0/1 red; the restored source went 1/1 green; the SHA-256 prefix matched before and after.
+* No product source changed. The remaining four mutation guards are still unrun; H3, the live dry run and the owner-gated items are unchanged.
