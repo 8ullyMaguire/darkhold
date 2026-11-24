@@ -30,6 +30,11 @@ use crate::state::AppState;
 
 /// How many works the landing page offers to start from.
 const STARTERS: i64 = 6;
+/// Candidates inspected to find six a stranger can actually open. Fresh imports are
+/// mostly `accounts_only`, so the pool has to be larger than the answer.
+const STARTER_POOL: i64 = 60;
+/// Gated works are still named on the page (a reader sees what exists), but as text only.
+const GATED_TEXT: usize = 2;
 
 pub fn router() -> Router<AppState> {
     Router::new().route("/", get(landing))
@@ -92,15 +97,20 @@ async fn starters(state: &AppState) -> Vec<Starter> {
     let Ok(ids) = darkhold_db::content::list_public_works_by_freshness(
         state.db(),
         darkhold_db::content::FreshnessSort::New,
-        STARTERS,
+        STARTER_POOL,
     )
     .await
     else {
         return Vec::new();
     };
 
-    let mut out = Vec::with_capacity(ids.len());
+    let mut out = Vec::with_capacity(STARTERS as usize + GATED_TEXT);
+    let mut linked = 0usize;
+    let mut gated = 0usize;
     for id in ids {
+        if linked >= STARTERS as usize && gated >= GATED_TEXT {
+            break;
+        }
         let Ok(Some(work)) = darkhold_db::content::find_work(state.db(), id).await else {
             continue;
         };
@@ -119,6 +129,23 @@ async fn starters(state: &AppState) -> Vec<Starter> {
             super::works::reading_decision(state, None, &work, &[]).await,
             super::works::Reading::Public | super::works::Reading::Contributor
         );
+        // Precedence matters: only a work this visitor can read consumes one of the six
+        // linked slots. Gated works remain visible as text, but never take a link slot.
+        let unit_href = readable_by_stranger
+            .then(|| first_readable.map(|unit| format!("/works/{}/units/{}", work.id, unit.id)))
+            .flatten();
+        if unit_href.is_some() {
+            if linked >= STARTERS as usize {
+                continue;
+            }
+            linked += 1;
+        } else {
+            if gated >= GATED_TEXT {
+                continue;
+            }
+            gated += 1;
+        }
+
         let words: i64 = units
             .iter()
             .filter(|unit| unit.current_revision_id.is_some())
@@ -136,15 +163,15 @@ async fn starters(state: &AppState) -> Vec<Starter> {
             // The reader's URL is a document; the work page is still the application. Link the document.
             // The reader's URL takes the unit's id, not its order key: the route is
             // `/works/{work_id}/units/{unit_id}` and `parse_unit_id` refuses anything that is not a unit id.
-            href: readable_by_stranger
-                .then(|| first_readable.map(|unit| format!("/works/{}/units/{}", work.id, unit.id)))
-                .flatten(),
+            href: unit_href,
             author,
             words,
             completion: work.completion,
             rating: work.rating,
         });
     }
+    // Linked works first: a stranger sees what they can open before what is gated.
+    out.sort_by_key(|starter| if starter.href.is_some() { 0 } else { 1 });
     out
 }
 

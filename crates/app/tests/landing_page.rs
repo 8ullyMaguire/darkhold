@@ -331,3 +331,51 @@ async fn a_work_the_stranger_cannot_read_is_text_not_a_dead_link() {
     );
     test_support::assert_no_empty_section(&body, "landing");
 }
+
+/// A fresher work a stranger cannot read must not push a readable work off the front page.
+///
+/// Regression: `starters` used to take six fresh ids and only then ask whether they were
+/// readable. On the live estate 27,464 of 58,042 works are `accounts_only`, so the page
+/// rendered six titles and zero links (measured 2026-11-24). Filter first, then take six.
+#[tokio::test]
+async fn readable_works_are_chosen_before_the_list_is_full() {
+    let harness = Harness::new("readable-pool").await;
+    harness.seed().await;
+    // Seven gated works published later than the readable one fill all six starter slots
+    // under the old take-six-then-filter code, leaving zero links on the page.
+    for i in 1..=7u8 {
+        let gated_work = format!("01957000-0000-4000-8000-0000000000d{i}");
+        let gated_event = format!("01959000-0000-4000-8000-0000000000f{}", i + 1);
+        harness
+            .exec(&format!(
+                "INSERT INTO works (id, owner_pseud_id, title, summary, language, rating, visibility,
+                                    lifecycle, completion, published_at, created_at, updated_at, version,
+                                    body_audience)
+                 VALUES ('{gated_work}','{PSEUD}','Gated fresh work {i}','A blurb.','en','general','public',
+                         'published','complete','2026-11-24T00:00:00Z','2026-11-24T00:00:00Z',
+                         '2026-11-24T00:00:00Z',1,'accounts_only')"
+            ))
+            .await;
+        harness
+            .exec(&format!(
+                "INSERT INTO publication_events (id, work_id, action, occurred_at, actor_pseud_id)
+                 VALUES ('{gated_event}','{gated_work}','publish','2026-11-24T00:00:00Z','{PSEUD}')"
+            ))
+            .await;
+    }
+
+    let (status, body) = harness.client().get("/").await;
+    assert_eq!(status, StatusCode::OK, "{body}");
+    assert!(
+        body.contains(&format!("/works/{WORK}/units/{UNIT}")),
+        "a readable work must still be linked when newer ones are gated: {body}"
+    );
+    for i in 1..=7u8 {
+        assert!(
+            !body.contains(&format!(
+                "href=\"/works/01957000-0000-4000-8000-0000000000d{i}"
+            )),
+            "a gated work must never be a link: {body}"
+        );
+    }
+}
