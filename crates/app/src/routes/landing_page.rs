@@ -253,7 +253,14 @@ fn render(
              .landing .meta{font-family:var(--font-mono);font-size:var(--text-sm);color:var(--text-secondary)}\
              .landing .empty-note{color:var(--text-secondary)}\
              .landing footer{margin-top:var(--space-8);border-top:1px solid var(--border-subtle, rgba(128,128,128,.3));\
-             padding-top:var(--space-4);font-size:var(--text-sm);color:var(--text-secondary)}",
+             padding-top:var(--space-4);font-size:var(--text-sm);color:var(--text-secondary)}\
+             .landing .shelf-search{display:flex;gap:var(--space-2);margin:0 0 var(--space-6)}\
+             .landing .shelf-search input{flex:1;min-width:0;padding:var(--space-2) var(--space-3);border:1px solid var(--border-subtle, rgba(128,128,128,.35));background:var(--surface, transparent);color:inherit;font:inherit}\
+             .landing .shelf-search button{padding:var(--space-2) var(--space-4);font:inherit;cursor:pointer}\
+             .landing .shelf-list{list-style:none;margin:0;padding:0}\
+             .landing .shelf-list li{display:grid;grid-template-columns:2.5rem 1fr;column-gap:var(--space-3);align-items:baseline;border-bottom:1px solid var(--border-subtle, rgba(128,128,128,.3));padding:var(--space-3) 0}\
+             .landing .shelf-list .rank{font-family:var(--font-mono);font-size:var(--text-sm);color:var(--text-secondary)}\
+             .landing .shelf-list a.work-title{font-size:var(--text-lg);text-decoration:none}",
         )
         .close("style");
     page.close("head");
@@ -289,13 +296,40 @@ fn render(
             .close("p");
     }
 
-    // ── start reading (absent when there is nothing to start) ─────────────
+    // The front door is a search, not a paragraph about features. The document posts to the
+    // server-rendered search page, so this works with no script at all.
+    page.open(
+        "form",
+        &[
+            ("class", "shelf-search"),
+            ("action", "/search"),
+            ("method", "get"),
+        ],
+    );
+    page.void(
+        "input",
+        &[
+            ("type", "search"),
+            ("name", "q"),
+            ("placeholder", "Title, author or fandom"),
+            ("aria-label", "Search the archive"),
+        ],
+    );
+    page.open("button", &[("type", "submit")])
+        .text("Search")
+        .close("button");
+    page.close("form");
+
+    // ── open now: one ranked list, no cards ───────────────────────────────
     if !starters.is_empty() {
-        page.open("section", &[]);
-        page.open("h2", &[]).text("Start reading").close("h2");
-        page.open("ul", &[]);
-        for starter in starters {
+        page.open("section", &[("class", "shelf")]);
+        page.open("h2", &[]).text("Open now").close("h2");
+        page.open("ol", &[("class", "shelf-list")]);
+        for (i, starter) in starters.iter().enumerate() {
             page.open("li", &[]);
+            page.open("span", &[("class", "rank")])
+                .text(&format!("{:02}", i + 1))
+                .close("span");
             match &starter.href {
                 Some(href) => {
                     page.open("a", &[("class", "work-title"), ("href", href)])
@@ -327,7 +361,7 @@ fn render(
                 .close("div");
             page.close("li");
         }
-        page.close("ul");
+        page.close("ol");
         page.close("section");
     }
 
