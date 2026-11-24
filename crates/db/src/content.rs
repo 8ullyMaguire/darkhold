@@ -1133,6 +1133,64 @@ pub async fn list_public_works_by_freshness(
     Ok(ids)
 }
 
+/// Candidate ids for the anonymous landing shelf.
+///
+/// `list_public_works_by_freshness` answers "what was published recently" — a different question. On the live estate
+/// all of the newest 10,000 published works carry `body_audience = 'accounts_only'`, while readable works have no
+/// publication event and sort behind them. Asking freshness alone therefore returns zero works a stranger can open.
+/// This query asks "what might a stranger open", keeping the same freshness ordering among those works.
+/// `reading_decision` stays the authority for each link, so a narrower instance default still gates every body.
+pub async fn list_open_shelf_candidates(db: &Database, limit: i64) -> Result<Vec<WorkId>> {
+    let (sqlite, postgres) = (
+        "SELECT w.id FROM works w
+           LEFT JOIN (SELECT work_id, MAX(occurred_at) AS published_at
+                        FROM publication_events
+                       WHERE action = 'publish'
+                       GROUP BY work_id) p ON p.work_id = w.id
+           WHERE w.lifecycle = 'published' AND w.visibility = 'public'
+             AND w.deleted_at IS NULL
+             AND COALESCE(w.body_audience, '') IN ('', 'anyone')
+             AND EXISTS (SELECT 1 FROM units u
+                          WHERE u.work_id = w.id AND u.current_revision_id IS NOT NULL
+                            AND u.deleted_at IS NULL)
+           ORDER BY p.published_at IS NULL ASC, p.published_at DESC, w.id DESC
+           LIMIT ?",
+        "SELECT w.id::text FROM works w
+           LEFT JOIN (SELECT work_id, MAX(occurred_at) AS published_at
+                        FROM publication_events
+                       WHERE action = 'publish'
+                       GROUP BY work_id) p ON p.work_id = w.id
+           WHERE w.lifecycle = 'published' AND w.visibility = 'public'
+             AND w.deleted_at IS NULL
+             AND COALESCE(w.body_audience, '') IN ('', 'anyone')
+             AND EXISTS (SELECT 1 FROM units u
+                          WHERE u.work_id = w.id AND u.current_revision_id IS NOT NULL
+                            AND u.deleted_at IS NULL)
+           ORDER BY p.published_at IS NULL ASC, p.published_at DESC, w.id::text DESC
+           LIMIT $1",
+    );
+    let sql = db.sql(sqlite, postgres);
+    let rows: Vec<(String,)> = match db.backend() {
+        Backend::Sqlite => {
+            sqlx::query_as(&sql)
+                .bind(limit)
+                .fetch_all(db.sqlite_pool().expect("sqlite handle"))
+                .await?
+        }
+        Backend::Postgres => {
+            sqlx::query_as(&sql)
+                .bind(limit)
+                .fetch_all(db.postgres_pool().expect("postgres handle"))
+                .await?
+        }
+    };
+    let mut ids = Vec::with_capacity(rows.len());
+    for (raw,) in rows {
+        ids.push(parse_id::<WorkId>(&raw, "work")?);
+    }
+    Ok(ids)
+}
+
 // ---------------------------------------------------------------------------
 // Units
 // ---------------------------------------------------------------------------

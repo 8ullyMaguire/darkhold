@@ -343,9 +343,9 @@ async fn readable_works_are_chosen_before_the_list_is_full() {
     harness.seed().await;
     // Seven gated works published later than the readable one fill all six starter slots
     // under the old take-six-then-filter code, leaving zero links on the page.
-    for i in 1..=7u8 {
-        let gated_work = format!("01957000-0000-4000-8000-0000000000d{i}");
-        let gated_event = format!("01959000-0000-4000-8000-0000000000f{}", i + 1);
+    for i in 1..=65u8 {
+        let gated_work = format!("01957000-0000-4000-8000-00000000d{i:02x}");
+        let gated_event = format!("01959000-0000-4000-8000-00000000f{:02x}", i + 1);
         harness
             .exec(&format!(
                 "INSERT INTO works (id, owner_pseud_id, title, summary, language, rating, visibility,
@@ -370,10 +370,10 @@ async fn readable_works_are_chosen_before_the_list_is_full() {
         body.contains(&format!("/works/{WORK}/units/{UNIT}")),
         "a readable work must still be linked when newer ones are gated: {body}"
     );
-    for i in 1..=7u8 {
+    for i in 1..=65u8 {
         assert!(
             !body.contains(&format!(
-                "href=\"/works/01957000-0000-4000-8000-0000000000d{i}"
+                "href=\"/works/01957000-0000-4000-8000-00000000d{i:02x}\""
             )),
             "a gated work must never be a link: {body}"
         );
