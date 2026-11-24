@@ -65,3 +65,11 @@ The owner states ascend is unfrozen and authorises writes. The previous block co
 * **TA3-B1:** keep targeted-only. The full estate gate stays blocked by explicit owner choice.
 * **TA3-B2/B3/B4:** leave all parked. No action on the shared checkout, likes/favorites, or global Discord registration this cycle.
 * **Diverged remotes:** the local TA3-2 commit was merged with `origin/master`'s taste-fragment commit using `git merge --no-ff`, never a rebase, then pushed to both remotes and fast-forwarded on thinkcentre.
+
+## Implementation decisions — 2026-11-24 Open Shelf deploy
+
+* **Build host:** the release binary is built on thinkcentre, not this host. gaming-pc has glibc 2.44 and thinkcentre 2.39, so a locally linked binary cannot run there. Two alternatives were tried and rejected with evidence: musl cross-compile failed in `aws-lc-sys` assembly (`zig cc` rejects `--target=x86_64-unknown-linux-musl`), and a `rust:1.98-bookworm` container failed because the workspace resolves absolute path dependencies outside the checkout (`/personal/documents/code/polaris-slug`, `/projects/commons/...`).
+* **Release profile:** thin LTO (`lto=thin`, `codegen-units=1`) was thrashing at 8–20% CPU for 20–30 minutes per attempt on the overloaded deploy host, with earlyoom SIGTERMs. This deploy uses `CARGO_PROFILE_RELEASE_LTO=off CARGO_PROFILE_RELEASE_CODEGEN_UNITS=16`; same source and behaviour, lower peak memory, more parallel codegen. Restoring the project profile is a later, non-blocking step.
+* **Host interference:** `suki-autotag.service` was masked and its orphan workers killed during the build because they restarted in a loop at ~3.5 GB RSS and ~200% CPU. It must be unmasked and restored to its prior state after the build. `ollama` was stopped; temporary swapfiles from the earlier OOM fight are still enabled and are removed only once memory is stable.
+* **Scope:** the landing redesign stays server-rendered Rust HTML with a no-script `GET /search` form. No JS-only path, no cover-card grid, no build/health details on the public page.
+
