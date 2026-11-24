@@ -160,3 +160,9 @@ The owner states ascend is unfrozen and authorises writes. The previous block co
 * Provenance is two-layer by design: `completion_source` and `completion_marked_at` are written in the same `UPDATE works` as the state and are authoritative; the `work_completion_marks` row is appended best-effort by the route and cannot fail a correct edit. A lost history row leaves the state right, while a lost state write is already a revision conflict.
 * Test fixtures for author routes must add a `work_contributors` row with role `owner`: `ContributorRole::parse` does not accept `author`, and `author_work` answered 404 for that mistake. This is a fixture rule, not a product rule.
 * No release build or deploy. The Step 6 dual-engine suite and the live dry run are still unrun.
+
+## M45-76.16 — dual-engine suite — this turn
+
+* The first TL2 assertion was too weak: searching the whole JSON body for `3` passed on a request id. The refusal now uses `AppError::TrustLevelInsufficient { level, required }`, which is a documented 403, and the test reads `error.message` and requires the phrase `trust level 3`.
+* Fixture rules learned here: `library_items.source_updated_at` requires canonical `…Z` (the generic RFC 3339 formatter emitted `+00:00`); every `?` needs a bind; PostgreSQL needs `$1::integer` for trust level, `$1::uuid` for ids, and boolean `true` for `is_curator`. The PG container also needs a bounded `pg_isready` wait after start before the first connection.
+* The final row is 13/13 on both engines. The live dry run, mutation checks and H3 rebuild/deploy remain unrun; no release binary changed.

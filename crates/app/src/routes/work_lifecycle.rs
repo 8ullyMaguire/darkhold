@@ -89,7 +89,16 @@ pub async fn set_completion(
     .await
     .map_err(|e| AppError::Internal(e.into()))?;
     if !may {
-        return Err(ApiError(AppError::AccessDenied));
+        // Name the bar and the level actually held. A bare 403 leaves a TL2
+        // reviewer unable to tell a configuration change from a missing grant.
+        let required = state.config().works.completion_review_min_trust;
+        let level = darkhold_db::governance::trust_for(state.db(), &account)
+            .await
+            .map_err(|e| AppError::Internal(e.into()))?;
+        return Err(ApiError(AppError::TrustLevelInsufficient {
+            level,
+            required,
+        }));
     }
     if body.completion == work.completion {
         return Ok(Json(json!({
