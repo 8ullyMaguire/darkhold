@@ -81,3 +81,8 @@ The owner states ascend is unfrozen and authorises writes. The previous block co
 * **ollama:** left inactive. A start attempt timed out and no owning session has asked for it; starting a model server unrequested would spend memory the deploy host does not have. Unblock is an explicit request or its own timer, recorded as row H2.
 * **Thin LTO:** not rebuilt. No source changed after the last deploy, and rebuilding an unchanged binary would violate the loop's no-rebuild rule and risk replacing a working live binary. Unblock is a real code change plus a quiet host, recorded as row H3.
 * **State prompt:** `docs/plans/next-goal.md` was rewritten in place because it still named the closed UX1 row. The paragraph now names state files and the per-turn contract only; counts and current rows stay in the roadmap. The SecondBrain mirror carries the same text.
+
+## M45-77 entered the state list — 2026-11-24
+
+* The community trope proposal plan is documentation only. `a3861caa` is in this lineage and pushed, but a source scan found no `trope_proposal`, `proposal_min_trust`, `TropeProposal` or `curator_roles` markers in `crates/`, and `docs/requirements.csv` still marks M45-77.* as `planned`. Recorded as a blocked row, not done.
+* Staffing stays the blocker: two eligible accounts, a quorum of two, and a proposer who cannot vote. Lowering the quorum would change the governance the owner chose, so the unblock is granting at least one more curator. A database row without the parser resolver and seven parse-site wirings would be inert; the plan's full implementation remains the gate.

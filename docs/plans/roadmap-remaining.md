@@ -10,9 +10,9 @@ Done (latest): TA1 private taste pipeline, TA2 daily aggregation and TA3-1 BFS v
 | --- | --- | --- | --- |
 | UX1 | Ship the Open Shelf on the live instance | live `/` had 6 linked works, 1 `Open now`, 0 placeholder; first reader URL answered 200 | `9bf772ef`, `8f2de09e`, `fe7ac428`/`9c447373` |
 
-Open queue (*0 unblocked, 9 blocked*): none.
+Open queue (*0 unblocked, 10 blocked*): none.
 
-Blocked (*9*):
+Blocked (*10*):
 
 | # | blocked step | waits on | unblock gate |
 | --- | --- | --- | --- |
@@ -25,6 +25,7 @@ Blocked (*9*):
 | H1 | Remove the deploy host's temporary swapfiles | `/swapfile-build`, `-build2`, `-build3` hold about 7.5 GB of live pages on thinkcentre; `swapoff` now would force those pages into 6.6 GB of free RAM | that host's swap use drops below 2 GB with no build or tagger workers running, then `swapoff` the three files and delete them |
 | H2 | Restore ollama on the deploy host | unit is inactive; an earlier start timed out and no owning session has asked for it | owning session requests it or its own timer starts it; record the resulting unit state |
 | H3 | Restore the project's thin-LTO release profile | the deployed binary uses the recorded low-memory profile and no source changed after the last build | a code change that requires a rebuild, plus a quiet deploy host; build with the project profile and verify live meta |
+| M45-77 | Implement community trope proposals from the 13-step plan | docs-only in `a3861caa`; no Rust markers exist, and requirements M45-77.* are `planned`. Staffing blocker: only 2 accounts at/above TL3, `accounts.is_curator` true for 0, `curator_roles` empty; quorum 2 with proposer abstaining means no group can pass | grant at least one more curator through a real account (never lower the quorum), then follow `docs/plans/community-trope-proposals.md`: store-backed resolver in `parse_query`, all seven production parse sites, one parser and one 24-term budget, dual-engine tests, then turn the M45-77.* requirements green |
 
 The standing `/goal` paragraph lives in `docs/plans/next-goal.md`. Read it with this file; never paste counts or open steps into it.
 
