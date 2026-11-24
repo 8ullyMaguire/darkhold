@@ -5,7 +5,9 @@
 //! hosted work keeps the event clock. Both are checked here rather than in a
 //! later sweep, so a query that silently reports nothing eligible fails.
 
-use darkhold_db::work_lifecycle::{apply_transition, candidates, Candidate, CompletionSource};
+use darkhold_db::work_lifecycle::{
+    apply_transition, candidates, may_review_completion, Candidate, CompletionSource,
+};
 use std::path::PathBuf;
 
 fn scratch(tag: &str) -> PathBuf {
@@ -223,6 +225,56 @@ async fn apply_transition_is_conditional_and_writes_one_mark() {
         stored_actor.as_deref(),
         Some(actor),
         "actor must round-trip"
+    );
+
+    tdb.cleanup().await;
+}
+
+#[tokio::test]
+async fn review_authority_uses_earned_trust_or_the_explicit_curator_grant() {
+    let tdb = test_support::TestDb::connect_with_dir("wl-authority", &scratch("authority")).await;
+    let db = tdb.db();
+    let accounts = [
+        ("01957600-0000-4000-8000-00000000c001", 3, false),
+        ("01957600-0000-4000-8000-00000000c002", 1, false),
+        ("01957600-0000-4000-8000-00000000c003", 1, true),
+        ("01957600-0000-4000-8000-00000000c004", 1, false),
+    ];
+    for (id, level, curator) in accounts {
+        exec(
+            db,
+            &format!(
+                "INSERT INTO accounts (id, status, email, age_state, is_curator, created_at, updated_at, version) \
+                 VALUES ('{id}','active','{id}@test.dev','adult',{curator},'2026-01-01T00:00:00Z','2026-01-01T00:00:00Z',1)"
+            ),
+        )
+        .await;
+        exec(
+            db,
+            &format!(
+                "INSERT INTO trust_levels (account, level, computed_at, basis) \
+                 VALUES ('{id}',{level},'2026-01-01T00:00:00Z','test')"
+            ),
+        )
+        .await;
+    }
+    // A media-resilience opt-in is not an editorial grant.
+    exec(db, "INSERT INTO curator_roles (account_id, opted_in_at, opted_in_by) VALUES ('01957600-0000-4000-8000-00000000c004','2026-01-01T00:00:00Z','self')").await;
+
+    assert!(may_review_completion(db, accounts[0].0, 3)
+        .await
+        .expect("TL3"));
+    assert!(!may_review_completion(db, accounts[1].0, 3)
+        .await
+        .expect("TL1"));
+    assert!(may_review_completion(db, accounts[2].0, 3)
+        .await
+        .expect("curator"));
+    assert!(
+        !may_review_completion(db, accounts[3].0, 3)
+            .await
+            .expect("media opt-in"),
+        "curator_roles must not grant editorial power"
     );
 
     tdb.cleanup().await;

@@ -262,3 +262,39 @@ pub async fn apply_transition(
         }
     }
 }
+
+/// Whether an account may set completion on a work it does not own.
+///
+/// `trust_for` is the earned level; `accounts.is_curator` is the explicit
+/// instance grant. `curator_roles` is deliberately NOT read: it is the
+/// media-resilience opt-in (§32.7.5), not an editorial power.
+pub async fn may_review_completion(
+    db: &Database,
+    account: &str,
+    min_trust: i64,
+) -> Result<bool, sqlx::Error> {
+    if crate::governance::trust_for(db, account).await? >= min_trust {
+        return Ok(true);
+    }
+    let sql = db.sql(
+        "SELECT CAST(CASE WHEN COALESCE(is_curator, 0) THEN 1 ELSE 0 END AS INTEGER)
+           FROM accounts WHERE id = ?",
+        "SELECT CAST(CASE WHEN COALESCE(is_curator, false) THEN 1 ELSE 0 END AS BIGINT)
+           FROM accounts WHERE id = ?::uuid",
+    );
+    let row: Option<(i64,)> = match db.backend() {
+        crate::Backend::Sqlite => {
+            sqlx::query_as(&sql)
+                .bind(account)
+                .fetch_optional(db.sqlite_pool().expect("sqlite handle"))
+                .await?
+        }
+        crate::Backend::Postgres => {
+            sqlx::query_as(&sql)
+                .bind(account)
+                .fetch_optional(db.postgres_pool().expect("postgres handle"))
+                .await?
+        }
+    };
+    Ok(row.is_some_and(|(value,)| value != 0))
+}

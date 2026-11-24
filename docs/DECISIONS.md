@@ -125,3 +125,8 @@ The owner states ascend is unfrozen and authorises writes. The previous block co
 * Kept `from` in the UPDATE's WHERE clause so a concurrent author edit loses the race with `Ok(false)`, not an error. The history insert is inside the same transaction and is skipped when zero rows changed; the test asserts one mark row after a true call followed by a false one.
 * Same placeholder deviation as M45-76.8: the plan's `?1…?9` were converted to unnumbered `?` because `Database::sql` rewrites each `?` to `$n`. In the test's direct PostgreSQL branches (no `db.sql` rewrite) the literal had to be `$1::uuid`; using `?::uuid` there produced a syntax error.
 * Two test-fixture defects were found and fixed: the mark-count query had no bound work id, and the direct PostgreSQL reads needed `$1` rather than `?`. Neither affected production code. Scope is Step 3.2 only; `may_review_completion`, the sweep and the route remain unimplemented.
+
+## M45-76.10 — reviewer authority — this turn
+
+* Implemented exactly the owner's earlier decision: earned trust at or above the configured bar OR `accounts.is_curator`. `curator_roles` is a media-resilience opt-in and is deliberately not consulted; the dual-engine test includes an account with that opt-in and asserts denial. This avoids granting editorial power through an unrelated role.
+* Placeholders are unnumbered again because `Database::sql` rewrites each `?` to `$n`. The test container was started for the PostgreSQL run and stopped afterward. Step 3 of the plan is now complete (candidates, transition, authority); the app sweep, route, CLI and live dry run are still unimplemented, and no route consumes this function yet.
