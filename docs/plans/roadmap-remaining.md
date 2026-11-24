@@ -9,10 +9,11 @@ Done (latest): TA1 private taste pipeline, TA2 daily aggregation and TA3-1 BFS v
 | # | done step | gate output | commit |
 | --- | --- | --- | --- |
 | UX1 | Ship the Open Shelf on the live instance | live `/` had 6 linked works, 1 `Open now`, 0 placeholder; first reader URL answered 200 | `9bf772ef`, `8f2de09e`, `fe7ac428`/`9c447373` |
+| H2 | Restore ollama on the deploy host | `systemctl is-active ollama` returned `active` after a bounded `systemctl start --no-block` | this turn |
 
-Open queue (*0 unblocked, 10 blocked*): none.
+Open queue (*0 unblocked, 9 blocked*): none.
 
-Blocked (*10*):
+Blocked (*9*):
 
 | # | blocked step | waits on | unblock gate |
 | --- | --- | --- | --- |
@@ -22,8 +23,7 @@ Blocked (*10*):
 | TA3-B2 | M69-24 taste-source follow-up | owner chose leave parked; another session owns the checkout | explicit handover |
 | TA3-B3 | M63-32 likes/favorites half | owner chose leave parked; no public API exists | explicit owner decision and safe credential path |
 | TA3-B4 | Global Discord command registration | owner chose leave parked | explicit approval |
-| H1 | Remove the deploy host's temporary swapfiles | `/swapfile-build`, `-build2`, `-build3` hold about 7.5 GB of live pages on thinkcentre; `swapoff` now would force those pages into 6.6 GB of free RAM | that host's swap use drops below 2 GB with no build or tagger workers running, then `swapoff` the three files and delete them |
-| H2 | Restore ollama on the deploy host | unit is inactive; an earlier start timed out and no owning session has asked for it | owning session requests it or its own timer starts it; record the resulting unit state |
+| H1 | Remove the deploy host's temporary swapfiles | fresh probe: 14,871 MB swap used, the three build files hold ~7.4 GB, and a suki worker is at ~70% CPU; `swapoff` now would force those pages into 6.7 GB of free RAM | that host's swap use drops below 2 GB with no build or tagger workers, then `swapoff` the three files and delete them |
 | H3 | Restore the project's thin-LTO release profile | the deployed binary uses the recorded low-memory profile and no source changed after the last build | a code change that requires a rebuild, plus a quiet deploy host; build with the project profile and verify live meta |
 | M45-77 | Implement community trope proposals from the 13-step plan | docs-only in `a3861caa`; no Rust markers exist, and requirements M45-77.* are `planned`. Staffing blocker: only 2 accounts at/above TL3, `accounts.is_curator` true for 0, `curator_roles` empty; quorum 2 with proposer abstaining means no group can pass | grant at least one more curator through a real account (never lower the quorum), then follow `docs/plans/community-trope-proposals.md`: store-backed resolver in `parse_query`, all seven production parse sites, one parser and one 24-term budget, dual-engine tests, then turn the M45-77.* requirements green |
 

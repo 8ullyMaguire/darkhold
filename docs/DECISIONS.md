@@ -86,3 +86,8 @@ The owner states ascend is unfrozen and authorises writes. The previous block co
 
 * The community trope proposal plan is documentation only. `a3861caa` is in this lineage and pushed, but a source scan found no `trope_proposal`, `proposal_min_trust`, `TropeProposal` or `curator_roles` markers in `crates/`, and `docs/requirements.csv` still marks M45-77.* as `planned`. Recorded as a blocked row, not done.
 * Staffing stays the blocker: two eligible accounts, a quorum of two, and a proposer who cannot vote. Lowering the quorum would change the governance the owner chose, so the unblock is granting at least one more curator. A database row without the parser resolver and seven parse-site wirings would be inert; the plan's full implementation remains the gate.
+
+## ollama restored — this turn
+
+* The owner's "complete anything you think relevant" was read as the missing owning-session request for H2. `systemctl start --no-block ollama` was used on the deploy host with a bounded 30-second check; `systemctl is-active ollama` returned `active`. Row H2 moved to Done with that gate output.
+* H1 was re-probed and stays parked: 14,871 MB swap used, ~7.4 GB held in the three build swapfiles, suki worker active. Removing them would push live pages into 6.7 GB of free RAM and risk OOM kills. No swap was touched.
