@@ -1,5 +1,26 @@
 # Known gaps
 
+## M45-75 — the reader's "stale, popular, unrated, any source" query cannot be expressed (measured 2026-11-24)
+
+`GET /api/v1/search` (the door `dh q` uses) answered, against the live instance:
+
+    ?q=source:qq                 -> 200, 0 hits   (unknown field parsed as free text)
+    ?q=source:qq OR source:sv    -> 200, 0 hits
+    ?q=trope:system-grind        -> 200, 5 hits   (no group covers celestial or cyoa)
+    ?q=tag:celestial             -> 200, 1 hit
+    ?q=tag:cyoa                  -> 200, 5 hits
+    ?q=updated:<=-120d           -> 200, 0 hits   (wrong clock)
+    ?sort=popularity|likes|kudos -> echoed, no ordering change
+
+Read-only SQL separated the two clocks: `works.updated_at` older than 120 days — 0/58,042;
+`library_items.source_updated_at` older than 120 days — 86,541/90,662. The search store recognises
+only `newest` and `title` in `sort`, and the query grammar has no source field, no viewer-relative
+predicate and no trope group for the whole subgenre. No code was changed for this finding: the
+spec, plan and roadmap that make it possible are
+`docs/spec-amendments/stale-popular-unrated-search.md`,
+`docs/plans/stale-popular-unrated-search.md` and
+`docs/ROADMAP-stale-popular-unrated-search.md` (row `M45-75`).
+
 ## M45-45 — narrowed: the vote door is reachable, the open door is not (2026-11-11, second measurement)
 
 A probe of four POST paths against `build_router` in one process, with no session:

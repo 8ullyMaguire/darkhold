@@ -25,6 +25,14 @@ Boolean `AND`/`OR`/`NOT`, quoted phrases, fielded terms (`title:`, `author:`, `t
 
 Plus typo tolerance, tag filters, and numeric bounds on kudos, comments, words and chapters.
 
+**Not shipped yet (`M45-75`, measured 2026-11-24):** the grammar has no `source:` field, no
+`source_updated:` (author's clock) field and no `me:rated` viewer predicate, and `sort=popularity`
+is accepted but ignored by the search store. The canonical query for "stale popular unrated works
+from any source" therefore cannot be expressed today. Spec:
+`docs/spec-amendments/stale-popular-unrated-search.md`; plan:
+`docs/plans/stale-popular-unrated-search.md`; roadmap:
+`docs/ROADMAP-stale-popular-unrated-search.md`.
+
 ## 11.3 Body full-text
 
 Where the retention policy is `cache`, the reader can search **inside** the text of the works they
