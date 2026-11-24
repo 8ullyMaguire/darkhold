@@ -72,3 +72,33 @@ describe('WorkCard', () => {
     expect(before(meta!, summary!)).toBe(true);
   });
 });
+
+
+describe('M45-76 provenance', () => {
+  it('names the configured window only for a sweep abandonment', () => {
+    const { getByText } = render(WorkCard, {
+      props: {
+        work: sampleWork({
+          completion: 'abandoned',
+          completion_source: 'sweep',
+        }),
+        abandonAfterMonths: 7,
+      },
+    });
+    expect(getByText('Abandoned · no update in 7 months')).toBeTruthy();
+  });
+
+  it('keeps the plain label for an owner abandonment', () => {
+    const { getByText, queryByText } = render(WorkCard, {
+      props: {
+        work: sampleWork({
+          completion: 'abandoned',
+          completion_source: 'owner',
+        }),
+        abandonAfterMonths: 7,
+      },
+    });
+    expect(getByText('Abandoned')).toBeTruthy();
+    expect(queryByText('Abandoned · no update in 7 months')).toBeFalsy();
+  });
+});

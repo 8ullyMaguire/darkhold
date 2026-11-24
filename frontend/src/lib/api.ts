@@ -182,6 +182,8 @@ export interface InstanceMeta {
   api_version: string;
   environment: string;
   base_url: string;
+  /** Work-lifecycle numbers a reader is allowed to see (M45-76). */
+  works?: { auto_abandon_after_months: number };
   policy: {
     anonymous_reading: boolean;
     anonymous_max_rating: string;
@@ -552,6 +554,9 @@ export interface WorkSummary {
   lifecycle: string;
   visibility: string;
   completion: string;
+  /** Who last moved completion: import, owner, review, sweep or update. */
+  completion_source?: string;
+  completion_marked_at?: string | null;
   rating: string;
   updated_at: string;
   published_at: string | null;
@@ -595,6 +600,8 @@ export interface AuthorWork {
   visibility: string;
   lifecycle: string;
   completion: string;
+  completion_source?: string;
+  completion_marked_at?: string | null;
   version: number;
   created_at: string;
   updated_at: string;
@@ -630,6 +637,8 @@ export interface PublicWork {
   rating: string;
   visibility: string;
   completion: string;
+  completion_source?: string;
+  completion_marked_at?: string | null;
   published_at: string | null;
   show_public_ratings: boolean;
   /** How discussion happens around this work (thread_only/comments_only/both). */
@@ -4974,6 +4983,8 @@ export interface SurfaceWork {
   title: string;
   summary: string;
   completion: string;
+  completion_source?: string;
+  completion_marked_at?: string | null;
   published_at?: string | null;
   /**
    * Item 4: total words across the work's CURRENT unit revisions.

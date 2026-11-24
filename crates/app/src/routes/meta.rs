@@ -31,6 +31,14 @@ struct ThemeSummary {
     influence_sources: Vec<String>,
 }
 
+/// The published work-lifecycle numbers. The UI needs the configured window
+/// to explain an automatic abandonment; a hard-coded number would disagree
+/// with the instance the moment an operator changed `[works]`.
+#[derive(Debug, Serialize)]
+struct WorksSummary {
+    auto_abandon_after_months: u32,
+}
+
 #[derive(Debug, Serialize)]
 struct MetaResponse {
     name: String,
@@ -42,6 +50,8 @@ struct MetaResponse {
     api_version: &'static str,
     environment: &'static str,
     base_url: String,
+    /// The configured automatic-abandonment window (M45-76 Step 8).
+    works: WorksSummary,
     policy: PolicySummary,
     /// What this instance classifies with, disclosed to every reader (amendment
     /// §3.4). See [`DecisionsSummary`].
@@ -244,6 +254,9 @@ async fn meta(
         api_version: version::API_VERSION,
         environment: config.environment.as_str(),
         base_url: config.site.base_url.clone(),
+        works: WorksSummary {
+            auto_abandon_after_months: config.works.auto_abandon_after_months,
+        },
         policy: PolicySummary {
             instance_mode: config.instance.mode.as_str(),
             anonymous_reading: policy.anonymous_reading_enabled,

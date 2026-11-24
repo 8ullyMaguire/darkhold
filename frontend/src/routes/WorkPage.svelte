@@ -14,6 +14,7 @@
   import {
     apiFetch,
     fetchDiscussionMode,
+    fetchInstanceMeta,
       fetchReviews,
       fetchWholeWork,
       fetchUnit,
@@ -38,7 +39,7 @@
     type WorkNoteLinks,
   } from '../lib/api';
   import { ApiError, fetchSimilarWorks, type SurfaceWork } from '../lib/api';
-  import { describeCompletion, describeLifecycle, describeRating, describeVisibility } from '../lib/labels';
+  import { describeCompletionWithSource, describeLifecycle, describeRating, describeVisibility } from '../lib/labels';
   import { handleLinkClick } from '../lib/router';
   import { session } from '../lib/session.svelte.ts';
   import DiscussLink from '../lib/components/DiscussLink.svelte';
@@ -68,6 +69,8 @@
   let { workId }: Props = $props();
 
   let work = $state<PublicWork | AuthorWork | null>(null);
+  /** The configured window, published by `/api/v1/meta`; absent on older servers. */
+  let abandonAfterMonths = $state<number | undefined>(undefined);
   let error = $state<unknown>(null);
   let loading = $state(true);
 
@@ -163,6 +166,13 @@
     error = null;
     try {
       work = await fetchWork(workId);
+      // A missing or old `/meta` leaves the qualifier off rather than guessing
+      // a window the operator may have changed.
+      try {
+        abandonAfterMonths = (await fetchInstanceMeta()).works?.auto_abandon_after_months;
+      } catch {
+        abandonAfterMonths = undefined;
+      }
       // Public reviews are readable by anyone; a failure here must not hide
       // the work itself.
       try {
@@ -396,7 +406,7 @@
   <p class="badges">
     <span>{describeRating(work.rating)}</span>
     <span>{describeVisibility(work.visibility)}</span>
-    <span>{describeCompletion(work.completion)}</span>
+    <span>{describeCompletionWithSource(work.completion, work.completion_source, abandonAfterMonths)}</span>
     {#if work.published_at}<span>Published {work.published_at.slice(0, 10)}</span>{/if}
   </p>
 

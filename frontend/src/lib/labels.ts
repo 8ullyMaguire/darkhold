@@ -128,6 +128,24 @@ export function describeCompletion(completion: string): string {
   return COMPLETION_LABELS[completion] ?? completion;
 }
 
+/**
+ * The completion label with provenance, when the server says the sweep moved
+ * it. The window comes from `/meta`, not from this file: an operator who
+ * changes `[works].auto_abandon_after_months` must not find a label still
+ * claiming four months.
+ */
+export function describeCompletionWithSource(
+  completion: string,
+  source: string | undefined,
+  abandonAfterMonths: number | undefined,
+): string {
+  const months = abandonAfterMonths;
+  if (completion === 'abandoned' && source === 'sweep' && months !== undefined && Number.isInteger(months) && months > 0) {
+    return `Abandoned · no update in ${months} months`;
+  }
+  return describeCompletion(completion);
+}
+
 /** The roles a contributor can hold, and what each may do. */
 export const CONTRIBUTOR_ROLES = [
   { value: 'coauthor', label: 'Co-author — may edit and publish' },

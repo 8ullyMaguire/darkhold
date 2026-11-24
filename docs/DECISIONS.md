@@ -172,3 +172,9 @@ The owner states ascend is unfrozen and authorises writes. The previous block co
 * Mirrored the existing `darkhold-archive-bodies` convention: **user** units under `~/.config/systemd/user`, not system units, because that is how this estate installs its timed jobs and the plan's `sudo systemctl` spelling would put the job under a different account's environment.
 * The plan's `target/release/dh` path is not what the deploy host has. A bounded read-only probe confirmed `/home/alvaro/.cargo-target/darkhold/release/dh`, so `ExecStart` uses that absolute path (systemd does not expand `~`). The environment file remains the private one the archive unit already reads; its contents were neither printed nor committed.
 * The unit files are source artifacts only: they have not been copied to the host, `daemon-reload` has not run, and the timer is not enabled. The runbook requires a dry run and one bounded manual write before enabling; H3 and the operator session are the exact unblocks.
+
+## M45-76.18 — UI provenance — this turn
+
+* `/meta` now publishes `works.auto_abandon_after_months`, and both `WorkCard` and `WorkPage` read it before naming a sweep abandonment. An older server that omits the block simply gets the plain `Abandoned` label; no client guesses a number.
+* The plan's `node --test` verification cannot load a `.svelte` import in this tree (`ERR_UNKNOWN_FILE_EXTENSION`). The real runner is `node node_modules/vitest/vitest.mjs run <file>`, per `package.json`'s `vitest run` script. Six WorkCard tests pass, including the two new provenance cases.
+* Vite build succeeded with the existing chunk-size warning. This is source and a local build only: H3 still owns deploying the frontend and backend together.

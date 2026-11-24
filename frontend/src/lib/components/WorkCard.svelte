@@ -10,6 +10,8 @@
     authorDisplayName: string;
     summary?: string;
     completion: 'in_progress' | 'complete' | 'hiatus' | 'abandoned';
+    completion_source?: string;
+    completion_marked_at?: string | null;
     rating: 'general' | 'teen' | 'mature' | 'explicit';
     wordCount?: number;
     units?: number;
@@ -44,6 +46,7 @@
    */
   import { CardActions, Checkbox, WorkBlurb } from '@polaris/ui';
   import MetadataChip from './MetadataChip.svelte';
+  import { describeCompletionWithSource } from '../labels';
   // `WorkSummary` is declared in this file's module <script>, which the
   // instance script can see without importing it back from itself.
 
@@ -67,6 +70,8 @@
     selected?: boolean;
     /** Called when it is picked or unpicked. */
     onselect?: (id: string, selected: boolean) => void;
+    /** The configured abandonment window, read from `/api/v1/meta`. */
+    abandonAfterMonths?: number;
     /** Actions, drawn in the footer. */
     actions?: import('svelte').Snippet;
   }
@@ -82,14 +87,8 @@
     selected = false,
     onselect,
     actions,
+    abandonAfterMonths,
   }: Props = $props();
-
-  const COMPLETION_LABEL: Record<WorkSummary['completion'], string> = {
-    in_progress: 'In progress',
-    complete: 'Complete',
-    hiatus: 'On hiatus',
-    abandoned: 'Abandoned',
-  };
 
   const RATING_LABEL: Record<WorkSummary['rating'], string> = {
     general: 'General',
@@ -162,7 +161,7 @@
   {/snippet}
 
   {#snippet chipRow()}
-    <MetadataChip label={COMPLETION_LABEL[work.completion]} tone={work.completion === 'complete' ? 'primary' : 'neutral'} />
+    <MetadataChip label={describeCompletionWithSource(work.completion, work.completion_source, abandonAfterMonths)} tone={work.completion === 'complete' ? 'primary' : 'neutral'} />
     {#if variant !== 'compact'}
       <MetadataChip label={RATING_LABEL[work.rating]} />
     {/if}
