@@ -271,3 +271,10 @@ The owner states ascend is unfrozen and authorises writes. The previous block co
 * Mutation 4 (one media parse site reverted to seed-only `parse_query`) reddened `every_production_parse_site_uses_the_resolver`. Acceptance case 8 checks resolver AST equality, not a specific surface, so the source-level wiring probe is the honest witness for this guard.
 * Mutation 5 (`proposal_decided` -> `yes >= quorum` only) did NOT redden the plan case 10: with two no votes the quorum-only rule still decides false. A new 16th case, `a_split_vote_stays_proposed_until_quorum`, was proved green first and then reddened by the mutant. That case is now the guard.
 * All five mutated files were restored before commit; the working tree still contains unrelated in-flight diffs from another session, so only explicit paths were staged. Steps 12–13, H1/H3 and the live dry run remain parked.
+
+## M45-77.16 — public probe staged — this turn
+
+* `docs/plans/community-trope-proposals.md` has 12 steps, not 13. The state list now says so; the earlier "Steps 12–13 / UI" wording was wrong. No unplanned UI was added.
+* `scripts/trope-live-probe.sh` performs only public GETs against `/api/v1/tropes` and `/api/v1/search`. It unsets `DARKHOLD_BASE_URL`, `DARKHOLD_TOKEN` and `DARKHOLD_COOKIE` before the first request and sends no auth header or cookie.
+* The script is staged but not executed: the fresh deploy-host probe still found ~14.5 GB swap used and four active `suki autotag` workers, so H3 remains blocked. Live proposal staffing also still needs a second curator/grant.
+* Unrelated in-flight diffs from another session remain in the shared worktree; only explicit paths were staged.

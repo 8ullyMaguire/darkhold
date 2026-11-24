@@ -4,7 +4,7 @@
 35,617-word history file, not a ledger. `docs/requirements.csv` remains the row-by-row authority; this file only
 aggregates it and names where to look next.
 
-## Measured counts (2026-11-24, 1025 rows, 65 milestones)
+## Measured counts (2026-11-24, 1026 rows, 65 milestones)
 
 | status | rows |
 |---|---:|
@@ -15,7 +15,7 @@ aggregates it and names where to look next.
 | implemented-fully-tested | 461 |
 | implemented-locally-tested | 269 |
 | implemented-source-probe | 1 |
-| implemented-targeted-green | 24 |
+| implemented-targeted-green | 25 |
 | implemented-verified-e2e | 172 |
 | mutation-proven | 5 |
 | partial | 2 |
