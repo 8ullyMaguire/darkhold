@@ -706,3 +706,22 @@ npx svelte-check --threshold error                       -> 0 errors
 route's 422 test; dropping `{#if view?.enabled}` fails the "renders nothing when feedback is off"
 test.
 
+## UX1 — Open Shelf (2026-11-24)
+
+The anonymous landing used to list gated titles as non-links. Two RED fixtures proved the cause:
+seven gated fresh works gave six titles and zero links; 65 newer `accounts_only` works with one older
+readable work still gave zero links. The fix pre-filters candidates to inherited/`anyone` audiences
+with a current unit revision, falls back to the freshness queue only to name gated works, and leaves
+`reading_decision` as the authority for every link.
+
+```
+cargo test -p darkhold-app --test landing_page -> 5 passed, 0 failed
+curl -s http://127.0.0.1:8008/ > /tmp/final-landing.html
+grep -o 'units/' /tmp/final-landing.html | wc -l          -> 6
+grep -o 'Open now' /tmp/final-landing.html | wc -l        -> 1
+grep -o 'frontend not built' /tmp/final-landing.html | wc -l -> 0
+curl -s -o /dev/null -w '%{http_code}' .../works/<id>/units/<id> -> 200
+```
+
+The first deployed binary still had zero links although the markup was live; only the candidate
+query made the shelf useful. Requirements row `UX1` carries the same gate.
