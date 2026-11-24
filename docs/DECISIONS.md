@@ -142,3 +142,9 @@ The owner states ascend is unfrozen and authorises writes. The previous block co
 * Mounted the router path as `/lifecycle/sweep` inside the router that is nested at `/api/v1`; the public URL is therefore `/api/v1/lifecycle/sweep`. The inventory records the relative path `/lifecycle/sweep`, matching every other entry in that table. The plan named the full URL; this tree's convention is relative inventory paths, and the `/operator` nest is avoided because of its recorded subtree swallowing.
 * `ApiError::field` maps to 422 with a `field_errors.dry_run` message, not 400. The test follows the repository's existing error convention; the plan did not name a status.
 * The route requires an operator session and refuses writes when `auto_abandon = false`, but a dry run still works. No CLI, timer or unattended invocation exists yet.
+
+## M45-76.13 — lifecycle CLI — this turn
+
+* Kept the documented `dh lifecycle sweep` shape with a nested clap subcommand; the first attempt was a flat `Lifecycle(LifecycleArgs)` and clap rejected the `sweep` token. The test now runs the real binary, so that mistake cannot recur silently.
+* `--apply` is a subcommand flag, not the global `--yes` preview convention: the default is a server-side dry run, so there is no preview to confirm. Passing both `--apply` and the global `--dry-run` is refused as contradictory.
+* The cookie is sent as the `Cookie` header from `DARKHOLD_COOKIE`, matching the other account-scoped commands without printing or logging its value. Exit codes are the shared table: 0 page done, 2 usage/422, 4 missing session, 1 unreachable.

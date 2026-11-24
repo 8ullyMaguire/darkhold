@@ -21,14 +21,15 @@ mod archive;
 mod archive_preferences;
 mod audit;
 mod bench;
-mod catalogue;
 mod calibre;
+mod catalogue;
 mod cron;
 mod doctor;
 mod exit;
 mod gen;
 mod http;
 mod jobs;
+mod lifecycle;
 mod module;
 mod output;
 mod profiles;
@@ -167,6 +168,15 @@ pub enum Command {
     Supply {
         #[command(subcommand)]
         action: Box<supply::SupplyArgs>,
+    },
+    /// M45-76: inspect or apply the automatic work-lifecycle sweep (operator).
+    ///
+    /// `dh lifecycle sweep` is a dry run; `--apply` writes and `--all` follows
+    /// the server's cursor until the report says `done`. The route decides
+    /// freshness and provenance; this command only sends the typed flags.
+    Lifecycle {
+        #[command(subcommand)]
+        action: Box<lifecycle::LifecycleArgs>,
     },
     /// Install a systemd user timer that runs a saved query on a schedule.
     ///
@@ -398,6 +408,13 @@ async fn main() -> std::process::ExitCode {
             }
         },
         Command::Supply { action } => match supply::run(&cli, action).await {
+            Ok(()) => std::process::ExitCode::SUCCESS,
+            Err(error) => {
+                eprintln!("{error}");
+                std::process::ExitCode::from(error.code)
+            }
+        },
+        Command::Lifecycle { action } => match lifecycle::run(&cli, action).await {
             Ok(()) => std::process::ExitCode::SUCCESS,
             Err(error) => {
                 eprintln!("{error}");
