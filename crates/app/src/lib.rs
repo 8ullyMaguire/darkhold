@@ -60,6 +60,7 @@ pub mod rec_preference;
 pub mod rec_shadow;
 pub mod revisions;
 pub mod routes;
+pub mod work_lifecycle;
 // ADR 0016: the bridge between darkhold's rows and the shared taste fold.
 pub mod profile_fetch;
 pub mod safety;

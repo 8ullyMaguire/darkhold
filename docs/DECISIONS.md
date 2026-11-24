@@ -130,3 +130,9 @@ The owner states ascend is unfrozen and authorises writes. The previous block co
 
 * Implemented exactly the owner's earlier decision: earned trust at or above the configured bar OR `accounts.is_curator`. `curator_roles` is a media-resilience opt-in and is deliberately not consulted; the dual-engine test includes an account with that opt-in and asserts denial. This avoids granting editorial power through an unrelated role.
 * Placeholders are unnumbered again because `Database::sql` rewrites each `?` to `$n`. The test container was started for the PostgreSQL run and stopped afterward. Step 3 of the plan is now complete (candidates, transition, authority); the app sweep, route, CLI and live dry run are still unimplemented, and no route consumes this function yet.
+
+## M45-76.11 — app sweep — this turn
+
+* The first test expectation was wrong: after applying abandonment the work stays in the candidate queue because a later story update must be able to revive it. The fixed assertion is one scanned and zero changed on the second page, not zero scanned. This is deliberate: the sweep is not a one-shot cursor over works to abandon.
+* `auto_abandon = false` is intentionally not checked inside `sweep_page`; the operator route will gate writes while still allowing a dry run, as the plan states. No route, CLI or timer exists yet, so nothing runs this sweep unattended.
+* The app crate's first compile exceeded the two-minute target; incremental targeted runs were under it. No release build or deploy.
