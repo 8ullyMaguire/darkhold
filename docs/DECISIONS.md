@@ -254,3 +254,11 @@ The owner states ascend is unfrozen and authorises writes. The previous block co
 * The router is mounted under the existing `taxonomy` module gate, not a new module id: a new id would be disabled by default and make all five doors 404.
 * The tag-membership check uses a new `taxonomy::tag_exists` helper that reuses the renderer's three normal forms, with `query_sql::stripped_slug` made public for that reuse rather than reimplementing it.
 * `GET /tropes` now reports `source`, `proposal_id` and `version` and merges active community groups. Public proposal reads expose tallies and `expands_to`, never account ids or individual votes. Steps 10–13, H1/H3 and the live dry run remain parked.
+
+## M45-77.14 — dual-engine acceptance — this turn
+
+* Update and retirement proposals get their own proposal slug (`update-<group>`, `retire-<group>`) and name the target in `payload.target_slug`. The unique live-slug index otherwise rejects a second open row for an active group.
+* An accepted update advances the active row's `created_at`, which is the version token readers see. Without that write the same token survives an edit and a later update would pass a stale-version check it should fail.
+* The vote response now includes `changed` alongside `counted`, matching the plan's idempotence vocabulary.
+* `taxonomy::tag_exists` casts its derived count to `bigint` on PostgreSQL; the untyped CASE returns `int4` and failed row decoding in the live route.
+* Case 8 compares the resolver AST with the OR of member `tag:` queries rather than live search hits: the test database snapshot has no `taxonomy_nodes`/`work_tags` fixture, and the real search parity probe belongs to Step 12's live handoff. Case 14 calls the settle store directly rather than the operator route, which is gated by estate-hidden configuration; the route's audience is already proved by the inventory suite. Steps 11–13, H1/H3 and the live dry run remain parked.

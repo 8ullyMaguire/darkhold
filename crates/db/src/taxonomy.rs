@@ -2139,9 +2139,9 @@ pub async fn tag_exists(db: &Database, tag: &str) -> Result<bool> {
         "SELECT CASE WHEN EXISTS (SELECT 1 FROM canonical_entities \
           WHERE kind = 'tag' AND (norm = ? OR norm = ? OR LOWER(canonical) = ?)) \
           THEN 1 ELSE 0 END",
-        "SELECT CASE WHEN EXISTS (SELECT 1 FROM canonical_entities \
+        "SELECT (CASE WHEN EXISTS (SELECT 1 FROM canonical_entities \
           WHERE kind = 'tag' AND (norm = ? OR norm = ? OR LOWER(canonical) = ?)) \
-          THEN 1 ELSE 0 END",
+          THEN 1 ELSE 0 END)::bigint AS found",
     );
     let found: i64 = match db.backend() {
         crate::Backend::Sqlite => {

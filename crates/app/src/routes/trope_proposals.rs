@@ -24,6 +24,8 @@ pub struct CreateProposal {
     pub label: String,
     pub summary: String,
     pub members: Vec<String>,
+    pub target_slug: Option<String>,
+    pub target_version: Option<String>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -110,7 +112,10 @@ pub async fn create_proposal(
     if !valid_slug(&body.slug) || darkhold_domain::tropes::slugs().contains(&body.slug.as_str()) {
         return Err(ApiError(AppError::field(
             "slug",
-            "use a new 3..40 character lowercase hyphenated slug, not a seed group",
+            format!(
+                "{} is not a new 3..40 character lowercase hyphenated slug; seed groups cannot be proposed",
+                body.slug
+            ),
         )));
     }
     if body.members.is_empty() || body.members.len() > 10 {
@@ -119,30 +124,71 @@ pub async fn create_proposal(
             "a trope group needs 1..10 members",
         )));
     }
+    let mut missing = Vec::new();
     for tag in &body.members {
         if !darkhold_db::taxonomy::tag_exists(db, tag)
             .await
             .map_err(internal)?
         {
+            missing.push(tag.clone());
+        }
+    }
+    if !missing.is_empty() {
+        return Err(ApiError(AppError::field(
+            "members",
+            format!("unknown tags: {}", missing.join(", ")),
+        )));
+    }
+    let target_slug = body.target_slug.clone();
+    let target_version = body.target_version.clone();
+    if action != TropeAction::Create {
+        let target = target_slug.as_deref().unwrap_or("");
+        if !valid_slug(target) {
             return Err(ApiError(AppError::field(
-                "members",
-                format!("{tag} is not a tag on this instance"),
+                "target_slug",
+                "update and retire need a valid target slug",
+            )));
+        }
+        let active = store::active_group_details(db)
+            .await
+            .map_err(internal)?
+            .into_iter()
+            .find(|group| group.slug == target);
+        let current = active.ok_or_else(|| {
+            ApiError(AppError::field(
+                "target_slug",
+                "no active community group has that slug",
+            ))
+        })?;
+        if target_version.as_deref() != Some(current.version.as_str()) {
+            return Err(ApiError(AppError::field(
+                "target_version",
+                "the target version does not match the active group",
             )));
         }
     }
+    // The unique live-slug index allows one open proposal per group. An update
+    // or retirement is a *different* proposal whose payload names the target;
+    // reusing the group slug would collide with the active group itself.
+    let proposal_slug = if action == TropeAction::Create {
+        body.slug.clone()
+    } else {
+        let target = target_slug.as_deref().expect("checked above");
+        format!("{}-{target}", action.as_str())
+    };
     let (now, closes_at) = now_and_closes(cfg.voting_days)?;
     let payload = json!({
         "label": body.label,
         "summary": body.summary,
         "members": body.members,
-        "target_slug": null,
-        "target_version": null,
+        "target_slug": target_slug,
+        "target_version": target_version,
         "proposer_role": role_name(authority.role),
     })
     .to_string();
     let id = store::insert_proposal(
         db,
-        &body.slug,
+        &proposal_slug,
         action.as_str(),
         &payload,
         cfg.quorum as i64,
@@ -233,6 +279,7 @@ pub async fn vote(
         .map_err(internal)?;
     Ok(Json(json!({
         "proposal_id": id,
+        "changed": counted,
         "counted": counted,
         "decided": decided,
     })))

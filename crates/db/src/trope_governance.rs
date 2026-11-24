@@ -115,10 +115,11 @@ macro_rules! apply_in_tx {
                     return Err(anyhow!("target version does not match the active group"));
                 }
                 sqlx::query(&$db.sql(
-                    "UPDATE trope_proposals SET payload = ?, action = 'update' WHERE id = ?",
-                    "UPDATE trope_proposals SET payload = ?, action = 'update' WHERE id = ?::uuid",
+                    "UPDATE trope_proposals SET payload = ?, action = 'update', created_at = ? WHERE id = ?",
+                    "UPDATE trope_proposals SET payload = ?, action = 'update', created_at = ?::timestamptz WHERE id = ?::uuid",
                 ))
                 .bind(&proposal.payload)
+                .bind($now)
                 .bind(&current.id)
                 .execute(&mut *$tx)
                 .await?;
