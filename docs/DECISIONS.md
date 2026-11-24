@@ -262,3 +262,12 @@ The owner states ascend is unfrozen and authorises writes. The previous block co
 * The vote response now includes `changed` alongside `counted`, matching the plan's idempotence vocabulary.
 * `taxonomy::tag_exists` casts its derived count to `bigint` on PostgreSQL; the untyped CASE returns `int4` and failed row decoding in the live route.
 * Case 8 compares the resolver AST with the OR of member `tag:` queries rather than live search hits: the test database snapshot has no `taxonomy_nodes`/`work_tags` fixture, and the real search parity probe belongs to Step 12's live handoff. Case 14 calls the settle store directly rather than the operator route, which is gated by estate-hidden configuration; the route's audience is already proved by the inventory suite. Steps 11–13, H1/H3 and the live dry run remain parked.
+
+## M45-77.15 — five mutation guards — this turn
+
+* Mutation 1 (`proposal.proposed_by == account` -> `false`) reddened `the_proposer_cannot_vote`.
+* Mutation 2 (member lookup short-circuited) reddened `an_unknown_member_is_named`.
+* Mutation 3 (`tropes.quorum >= 2` -> `>= 1`) reddened `tropes_quorum_below_two_is_refused`.
+* Mutation 4 (one media parse site reverted to seed-only `parse_query`) reddened `every_production_parse_site_uses_the_resolver`. Acceptance case 8 checks resolver AST equality, not a specific surface, so the source-level wiring probe is the honest witness for this guard.
+* Mutation 5 (`proposal_decided` -> `yes >= quorum` only) did NOT redden the plan case 10: with two no votes the quorum-only rule still decides false. A new 16th case, `a_split_vote_stays_proposed_until_quorum`, was proved green first and then reddened by the mutant. That case is now the guard.
+* All five mutated files were restored before commit; the working tree still contains unrelated in-flight diffs from another session, so only explicit paths were staged. Steps 12–13, H1/H3 and the live dry run remain parked.

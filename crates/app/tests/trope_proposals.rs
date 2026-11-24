@@ -504,3 +504,33 @@ async fn a_one_vote_quorum_is_refused_by_the_loader() {
     let error = Config::load(&args).expect_err("quorum 1 must be refused");
     assert!(error.to_string().contains("quorum below 2"), "{error}");
 }
+
+#[tokio::test]
+async fn a_split_vote_stays_proposed_until_quorum() {
+    let h = Harness::new("split-vote", 4, 2).await;
+    tag(&h, "alpha").await;
+    let (mut proposer, _) = h
+        .account("splitp@trope.test", "splitpone", 4, false, false)
+        .await;
+    let (status, body) = propose(&mut proposer, "split-group", &["alpha"]).await;
+    assert_eq!(status, StatusCode::CREATED, "{body}");
+    let id = body["id"].as_str().expect("proposal id").to_string();
+    for (i, value) in ["yes", "no"].iter().enumerate() {
+        let (mut voter, _) = h
+            .account(
+                &format!("splitv{i}@trope.test"),
+                &format!("splitv{i}"),
+                4,
+                false,
+                false,
+            )
+            .await;
+        let (status, body) = vote(&mut voter, &id, value).await;
+        assert_eq!(status, StatusCode::OK, "{body}");
+    }
+    let row = darkhold_db::trope_governance::get_proposal(h.tdb.db(), &id)
+        .await
+        .expect("read proposal")
+        .expect("proposal exists");
+    assert_eq!(row.status, "proposed", "one vote on each side is undecided");
+}
