@@ -107,3 +107,9 @@ The owner states ascend is unfrozen and authorises writes. The previous block co
 * Used a separate integration test file as the RED probe because the plan's name filter alone matched zero tests: `cargo test -p darkhold-domain work_lifecycle` filtered out the integration file. The row's gate is therefore two explicit targets, `--lib work_lifecycle` (6 unit tests) and `--test work_lifecycle` (2 integration tests). The plan text says "expected 7"; the module it supplies has 6, so the discrepancy is recorded rather than hidden.
 * Mutation check passed: replacing `months * 30` with `months * 31` made the boundary test fail with `left: None, right: Abandon`; the source was restored immediately. No store migration, sweep or route was added; those remain later plan steps. The module is a plan step, not a user-visible feature yet.
 * Chose requirement id `M45-76.6` because `M45-76.1` is already the staleness-clock requirement in the CSV; the state row first drafted with that id was renamed before commit.
+
+## M45-76.7 — migration 0218 — this turn
+
+* Added a dedicated `crates/db/tests/migrations.rs` probe because the plan's named `--test migrations` did not exist; the existing `migration_catalogue.rs` only checks catalogue-versus-disk, not that the schema changed. Both are now the row's gate.
+* The local PostgreSQL test container had to start and settle: the first run got "Connection reset by peer", a port check showed `5432/tcp -> 127.0.0.1:55433`, and a single retry after five seconds passed. No credential value is recorded; the harness takes `DARKHOLD_TEST_PG_URL` from the environment.
+* Existing abandoned rows are seeded from `updated_at`, not a guessed story clock. The migration is append-only; no existing migration was edited, so no checksum changes.
