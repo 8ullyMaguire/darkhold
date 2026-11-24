@@ -154,3 +154,9 @@ The owner states ascend is unfrozen and authorises writes. The previous block co
 * The route sits in the same `work_lifecycle.rs` router as the sweep, not in `works.rs`, so one module owns the new completion authority. Its inventory audience is `Authenticated` because the trust or curator check happens in the handler, not a coarse role gate.
 * Test fixtures must `UPDATE trust_levels`, not `INSERT`: `sign_in_as` already seeds a row, and the table's primary key is the account. Its `computed_at` and `basis` columns are NOT NULL and were the first failure. The route itself never writes trust.
 * A repeated identical completion answers `changed:false` and writes no second mark; a concurrent change answers the row actually stored. No owner-provenance write exists in `update_work` yet — that is Step 5.2.
+
+## M45-76.15 — owner provenance — this turn
+
+* Provenance is two-layer by design: `completion_source` and `completion_marked_at` are written in the same `UPDATE works` as the state and are authoritative; the `work_completion_marks` row is appended best-effort by the route and cannot fail a correct edit. A lost history row leaves the state right, while a lost state write is already a revision conflict.
+* Test fixtures for author routes must add a `work_contributors` row with role `owner`: `ContributorRole::parse` does not accept `author`, and `author_work` answered 404 for that mistake. This is a fixture rule, not a product rule.
+* No release build or deploy. The Step 6 dual-engine suite and the live dry run are still unrun.

@@ -787,6 +787,26 @@ async fn update_work(
                 tracing::warn!(work = %work_id, %error, "failed to record resurrection event");
             }
         }
+        // M45-76: the columns written by `update_work` are the authoritative
+        // provenance. The history row is best-effort: losing it leaves the
+        // state correct, while a lost state write would be a conflict above.
+        if *completion != work.completion {
+            let from = work.completion.clone();
+            let to = completion.clone();
+            let account = user.account_id.to_string();
+            if let Err(error) = darkhold_db::work_lifecycle::record_owner_mark(
+                state.db(),
+                &work_id,
+                &from,
+                &to,
+                &account,
+                &darkhold_db::identity::now_rfc3339(),
+            )
+            .await
+            {
+                tracing::warn!(work = %work_id, %error, "failed to record owner completion mark");
+            }
+        }
     }
 
     // A work that was listed and is no longer listable (or whose rating moved)

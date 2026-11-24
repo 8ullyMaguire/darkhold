@@ -773,6 +773,8 @@ pub async fn update_work(
                 rating = COALESCE(?, rating),
                 visibility = COALESCE(?, visibility),
                 completion = COALESCE(?, completion),
+                completion_source = CASE WHEN ? IS NULL THEN completion_source ELSE 'owner' END,
+                completion_marked_at = CASE WHEN ? IS NULL THEN completion_marked_at ELSE ? END,
                 show_public_ratings = COALESCE(?, show_public_ratings),
                 format = COALESCE(?, format),
                 discussion_mode = COALESCE(?, discussion_mode),
@@ -791,6 +793,8 @@ pub async fn update_work(
                 rating = COALESCE(?, rating),
                 visibility = COALESCE(?, visibility),
                 completion = COALESCE(?, completion),
+                completion_source = CASE WHEN ? IS NULL THEN completion_source ELSE 'owner' END,
+                completion_marked_at = CASE WHEN ? IS NULL THEN completion_marked_at ELSE ? END,
                 show_public_ratings = COALESCE(?, show_public_ratings),
                 format = COALESCE(?, format),
                 discussion_mode = COALESCE(?, discussion_mode),
@@ -809,6 +813,9 @@ pub async fn update_work(
             .bind(patch.rating.as_deref())
             .bind(patch.visibility.as_deref())
             .bind(patch.completion.as_deref())
+            .bind(patch.completion.as_deref())
+            .bind(patch.completion.as_deref())
+            .bind(&now)
             .bind(flags)
             .bind(patch.format.as_deref())
             .bind(patch.discussion_mode.as_deref())
@@ -836,6 +843,9 @@ pub async fn update_work(
             .bind(patch.rating.as_deref())
             .bind(patch.visibility.as_deref())
             .bind(patch.completion.as_deref())
+            .bind(patch.completion.as_deref())
+            .bind(patch.completion.as_deref())
+            .bind(&now)
             .bind(flags)
             .bind(patch.format.as_deref())
             .bind(patch.discussion_mode.as_deref())

@@ -298,3 +298,55 @@ pub async fn may_review_completion(
     };
     Ok(row.is_some_and(|(value,)| value != 0))
 }
+
+/// Best-effort history row for an owner's completion edit.
+///
+/// The authoritative provenance is written in the same `UPDATE works` as the
+/// completion state itself. This row is the human-readable history; losing it
+/// must not fail an edit whose state is already correct, so the route logs and
+/// continues when this returns an error.
+pub async fn record_owner_mark(
+    db: &Database,
+    work_id: &str,
+    from: &str,
+    to: &str,
+    actor_account_id: &str,
+    now: &str,
+) -> Result<(), sqlx::Error> {
+    let insert = db.sql(
+        "INSERT INTO work_completion_marks
+             (id, work_id, from_completion, to_completion, source,
+              actor_account_id, note, observed_last_activity, marked_at)
+         VALUES (?, ?, ?, ?, 'owner', ?, NULL, NULL, ?)",
+        "INSERT INTO work_completion_marks
+             (id, work_id, from_completion, to_completion, source,
+              actor_account_id, note, observed_last_activity, marked_at)
+         VALUES (?::uuid, ?::uuid, ?, ?, 'owner', ?::uuid, NULL, NULL, ?)",
+    );
+    let mark_id = uuid::Uuid::new_v4().to_string();
+    match db.backend() {
+        crate::Backend::Sqlite => {
+            sqlx::query(&insert)
+                .bind(&mark_id)
+                .bind(work_id)
+                .bind(from)
+                .bind(to)
+                .bind(actor_account_id)
+                .bind(now)
+                .execute(db.sqlite_pool().expect("sqlite handle"))
+                .await?;
+        }
+        crate::Backend::Postgres => {
+            sqlx::query(&insert)
+                .bind(&mark_id)
+                .bind(work_id)
+                .bind(from)
+                .bind(to)
+                .bind(actor_account_id)
+                .bind(now)
+                .execute(db.postgres_pool().expect("postgres handle"))
+                .await?;
+        }
+    }
+    Ok(())
+}
