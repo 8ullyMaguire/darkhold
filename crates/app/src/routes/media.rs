@@ -107,8 +107,36 @@ async fn list_media(
     let db = state.db();
     // Empty/absent q means match-all: no text facet is built, so the
     // query never touches works_index.
+    let extra = match darkhold_db::trope_governance::active_community_groups(db).await {
+        Ok(extra) => extra,
+        Err(_) => {
+            return (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(
+                    json!({"error": {"code": "INTERNAL", "message": "trope group lookup failed"}}),
+                ),
+            )
+                .into_response();
+        }
+    };
+    let slugs = extra
+        .iter()
+        .map(|(slug, _)| slug.clone())
+        .collect::<Vec<_>>();
+    let resolver = |slug: &str| -> Option<Vec<String>> {
+        extra
+            .iter()
+            .find(|(s, _)| s == slug)
+            .map(|(_, members)| members.clone())
+    };
     let query = match params.q.as_deref().filter(|q| !q.trim().is_empty()) {
-        Some(q) => match darkhold_domain::query::parse_query(q).and_then(|ast| {
+        Some(q) => match darkhold_domain::query::parse_query_with_tropes(
+            q,
+            darkhold_domain::query::QueryBudget::default(),
+            &resolver,
+            &slugs,
+        )
+        .and_then(|ast| {
             darkhold_domain::query_sql::render_query(&ast)?;
             Ok(ast)
         }) {
@@ -946,8 +974,36 @@ async fn media_feed(
     let db = state.db();
     // Same match-all rule as the list door: empty/absent q builds no text
     // facet, so the feed never touches works_index.
+    let extra = match darkhold_db::trope_governance::active_community_groups(db).await {
+        Ok(extra) => extra,
+        Err(_) => {
+            return (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(
+                    json!({"error": {"code": "INTERNAL", "message": "trope group lookup failed"}}),
+                ),
+            )
+                .into_response();
+        }
+    };
+    let slugs = extra
+        .iter()
+        .map(|(slug, _)| slug.clone())
+        .collect::<Vec<_>>();
+    let resolver = |slug: &str| -> Option<Vec<String>> {
+        extra
+            .iter()
+            .find(|(s, _)| s == slug)
+            .map(|(_, members)| members.clone())
+    };
     let query = match params.q.as_deref().filter(|q| !q.trim().is_empty()) {
-        Some(q) => match darkhold_domain::query::parse_query(q).and_then(|ast| {
+        Some(q) => match darkhold_domain::query::parse_query_with_tropes(
+            q,
+            darkhold_domain::query::QueryBudget::default(),
+            &resolver,
+            &slugs,
+        )
+        .and_then(|ast| {
             darkhold_domain::query_sql::render_query(&ast)?;
             Ok(ast)
         }) {

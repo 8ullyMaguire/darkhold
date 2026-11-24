@@ -12,7 +12,7 @@
 //! still appears in its own search results.
 
 use crate::{sql_owned, Backend, Database};
-use darkhold_domain::query::parse_query;
+use darkhold_domain::query::{parse_query_with_tropes, QueryBudget};
 use darkhold_domain::query_sql_user::render_user_query;
 use serde::Serialize;
 
@@ -46,7 +46,19 @@ pub async fn search_users_ast(
         return Ok(Vec::new());
     }
 
-    let ast = parse_query(query).map_err(|e| SearchError::parse(e.message, e.offset))?;
+    let extra = crate::trope_governance::active_community_groups(db).await?;
+    let slugs = extra
+        .iter()
+        .map(|(slug, _)| slug.clone())
+        .collect::<Vec<_>>();
+    let resolver = |slug: &str| -> Option<Vec<String>> {
+        extra
+            .iter()
+            .find(|(s, _)| s == slug)
+            .map(|(_, members)| members.clone())
+    };
+    let ast = parse_query_with_tropes(query, QueryBudget::default(), &resolver, &slugs)
+        .map_err(|e| SearchError::parse(e.message, e.offset))?;
     let fragment = render_user_query(&ast).map_err(|e| SearchError::render(e.message))?;
 
     // Both dialect arms are the same string. `pseuds.id` is UUID on PostgreSQL

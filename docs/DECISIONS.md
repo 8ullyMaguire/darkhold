@@ -240,3 +240,10 @@ The owner states ascend is unfrozen and authorises writes. The previous block co
 * Curator status (`accounts.is_curator` or an active `curator_roles` opt-in) is checked before the trust branches, so a TL2 curator keeps the Curator label. Level 5+ is labelled Operator but receives only eligibility — no extra vote and no bypass.
 * Used `fetch_optional` for the `is_curator` scalar instead of the plan's `unwrap_or(false)` on `fetch_one`: a missing account should be a denied answer, but a real driver error must still surface.
 * Steps 8–13, H1/H3 and the live dry run remain parked as recorded.
+
+## M45-77.12 — production parse-site wiring — this turn
+
+* All six production files and seven call sites (works, forum, user search; two media handlers; exports; bulk export) now use `parse_query_with_tropes` with `QueryBudget::default()`, preserving the budget the old `parse_query` calls used.
+* `ast_search::prepared` became async because the resolver reads active groups from the store; both callers were already async.
+* A failed group lookup is surfaced as an error rather than falling back to seed-only parsing. A silent fallback would let one surface disagree with another about what `trope:` means.
+* Steps 9–13, H1/H3 and the live dry run remain parked as recorded.

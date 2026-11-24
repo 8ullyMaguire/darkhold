@@ -975,8 +975,26 @@ pub async fn request_bulk(
     } else {
         // Extract the "q" field (DSL string) from the JSON object
         let query_str = query_json.get("q").and_then(|v| v.as_str()).unwrap_or("");
-        // Parse the DSL string, treating parse failure as fatal (never export everything)
-        match darkhold_domain::query::parse_query(query_str) {
+        // Parse the DSL string with the same resolver every search surface uses.
+        let extra = darkhold_db::trope_governance::active_community_groups(db)
+            .await
+            .map_err(|error| HandlerError::Transient(error.to_string()))?;
+        let slugs = extra
+            .iter()
+            .map(|(slug, _)| slug.clone())
+            .collect::<Vec<_>>();
+        let resolver = |slug: &str| -> Option<Vec<String>> {
+            extra
+                .iter()
+                .find(|(s, _)| s == slug)
+                .map(|(_, members)| members.clone())
+        };
+        match darkhold_domain::query::parse_query_with_tropes(
+            query_str,
+            darkhold_domain::query::QueryBudget::default(),
+            &resolver,
+            &slugs,
+        ) {
             Ok(ast) => Some(ast),
             Err(e) => {
                 // Invalid query in stored options is a data inconsistency - treat as fatal

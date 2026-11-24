@@ -6,7 +6,7 @@ use super::query_error::SearchError;
 use crate::search::SearchResult;
 use crate::{sql_owned, Backend, Database};
 use anyhow::Result;
-use darkhold_domain::query::parse_query;
+use darkhold_domain::query::{parse_query_with_tropes, QueryBudget};
 use darkhold_domain::query_sql::render_query;
 
 /// What the reader asked the search to leave out, and in what order it wants what remains.
@@ -63,7 +63,7 @@ async fn search_works_ast_impl(
     rules: &[FilterRule],
     scope: &SearchFilters,
 ) -> Result<Vec<SearchResult>> {
-    let (sql, texts, numbers) = prepared(db, query, viewer_id, rules, scope)?;
+    let (sql, texts, numbers) = prepared(db, query, viewer_id, rules, scope).await?;
     let rows: Vec<SearchRow> = match db.backend() {
         Backend::Sqlite => {
             let mut q = sqlx::query_as::<_, SearchRow>(&sql);
@@ -165,7 +165,7 @@ type SearchRow = (
 /// precedes every numeric one, so the pair reconstructs the placeholder order exactly. A single
 /// `Vec<Bind>` with an enum would work and would make this look like a query builder, which it
 /// is not.
-fn prepared(
+async fn prepared(
     db: &Database,
     query: &str,
     viewer_id: Option<&str>,
@@ -178,7 +178,19 @@ fn prepared(
         // A bad query is the reader's mistake, not a server fault, so it gets a
         // typed error the route can turn into a 422 carrying the reason. It was
         // an `anyhow!` string before, which made every typo a 500.
-        let ast = parse_query(query).map_err(|e| SearchError::parse(e.message, e.offset))?;
+        let extra = crate::trope_governance::active_community_groups(db).await?;
+        let slugs = extra
+            .iter()
+            .map(|(slug, _)| slug.clone())
+            .collect::<Vec<_>>();
+        let resolver = |slug: &str| -> Option<Vec<String>> {
+            extra
+                .iter()
+                .find(|(s, _)| s == slug)
+                .map(|(_, members)| members.clone())
+        };
+        let ast = parse_query_with_tropes(query, QueryBudget::default(), &resolver, &slugs)
+            .map_err(|e| SearchError::parse(e.message, e.offset))?;
         let fragment = render_query(&ast).map_err(|e| SearchError::render(e.message))?;
         (fragment.sql, fragment.binds)
     };
@@ -242,7 +254,7 @@ pub async fn explain_search(
         .iter()
         .map(|(filter_type, value)| FilterRule::new(filter_type.clone(), value.clone()))
         .collect();
-    let (sql, texts, numbers) = prepared(db, query, viewer_id, &rules, scope)?;
+    let (sql, texts, numbers) = prepared(db, query, viewer_id, &rules, scope).await?;
 
     let (engine, lines): (&'static str, Vec<String>) = match db.backend() {
         Backend::Sqlite => {
