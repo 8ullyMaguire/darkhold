@@ -1,0 +1,9 @@
+[Unit]
+Description=Darkhold automatic WIP/abandoned lifecycle sweep
+After=network-online.target
+
+[Service]
+Type=oneshot
+EnvironmentFile=/personal/secrets/estate/darkhold.env
+WorkingDirectory=/personal/documents/code/rust/darkhold
+ExecStart=/home/alvaro/.cargo-target/darkhold/release/dh lifecycle sweep --apply --all

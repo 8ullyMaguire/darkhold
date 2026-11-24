@@ -1,0 +1,10 @@
+[Unit]
+Description=Run the Darkhold lifecycle sweep daily
+
+[Timer]
+OnCalendar=*-*-* 04:45:00
+Persistent=true
+Unit=darkhold-lifecycle.service
+
+[Install]
+WantedBy=timers.target

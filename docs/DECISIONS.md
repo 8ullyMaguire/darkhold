@@ -166,3 +166,9 @@ The owner states ascend is unfrozen and authorises writes. The previous block co
 * The first TL2 assertion was too weak: searching the whole JSON body for `3` passed on a request id. The refusal now uses `AppError::TrustLevelInsufficient { level, required }`, which is a documented 403, and the test reads `error.message` and requires the phrase `trust level 3`.
 * Fixture rules learned here: `library_items.source_updated_at` requires canonical `…Z` (the generic RFC 3339 formatter emitted `+00:00`); every `?` needs a bind; PostgreSQL needs `$1::integer` for trust level, `$1::uuid` for ids, and boolean `true` for `is_curator`. The PG container also needs a bounded `pg_isready` wait after start before the first connection.
 * The final row is 13/13 on both engines. The live dry run, mutation checks and H3 rebuild/deploy remain unrun; no release binary changed.
+
+## M45-76.17 — lifecycle units — this turn
+
+* Mirrored the existing `darkhold-archive-bodies` convention: **user** units under `~/.config/systemd/user`, not system units, because that is how this estate installs its timed jobs and the plan's `sudo systemctl` spelling would put the job under a different account's environment.
+* The plan's `target/release/dh` path is not what the deploy host has. A bounded read-only probe confirmed `/home/alvaro/.cargo-target/darkhold/release/dh`, so `ExecStart` uses that absolute path (systemd does not expand `~`). The environment file remains the private one the archive unit already reads; its contents were neither printed nor committed.
+* The unit files are source artifacts only: they have not been copied to the host, `daemon-reload` has not run, and the timer is not enabled. The runbook requires a dry run and one bounded manual write before enabling; H3 and the operator session are the exact unblocks.
