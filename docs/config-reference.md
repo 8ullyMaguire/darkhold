@@ -206,12 +206,12 @@ The automatic mark carries `completion_source = 'sweep'`; the UI labels it
 `Abandoned · no update in N months` rather than attributing the decision to the
 author.
 
-**Planned, not yet readable from the file:** `auto_abandon`,
-`auto_abandon_after_months` and `completion_review_min_trust` are part of the
-`M45-76` plan, not of `WorksSection` in this tree. Writing them into
-`darkhold.toml` today has no effect; `docs/plans/automatic-work-lifecycle.md`
-wires them before the feature ships. `max_fork_depth` and
-`gated_metadata_public` are real file-backed keys today.
+All three keys are now read from `darkhold.toml` by `WorksSection` through the
+real `Config::load` path. `config_sections` writes non-default values to a file
+and also refuses `auto_abandon_after_months = 0`, naming `auto_abandon = false`
+as the way to disable the sweep. These keys are the configuration layer only:
+the migration, store sweep and completion route that consume them remain
+planned M45-76 work.
 
 ## `[tropes]`
 

@@ -395,6 +395,15 @@ pub struct WorksConfig {
     /// record is the public asset and the text is the prize — turns this on and
     /// gets a work page for every work, with unit reads still refused.
     pub gated_metadata_public: bool,
+    /// M45-76: run the daily sweep that marks stale works abandoned.
+    /// Default `true`; set `auto_abandon = false` to disable it.
+    pub auto_abandon: bool,
+    /// M45-76: months without story activity before an in-progress work is
+    /// marked abandoned. Default 4; zero is refused at load.
+    pub auto_abandon_after_months: u32,
+    /// M45-76: trust level that may review another author's completion.
+    /// Default 3.
+    pub completion_review_min_trust: i64,
 }
 
 impl Default for WorksConfig {
@@ -402,6 +411,9 @@ impl Default for WorksConfig {
         Self {
             max_fork_depth: 3,
             gated_metadata_public: false,
+            auto_abandon: true,
+            auto_abandon_after_months: 4,
+            completion_review_min_trust: 3,
         }
     }
 }
@@ -3532,7 +3544,27 @@ impl Config {
                 .as_ref()
                 .and_then(|w| w.gated_metadata_public)
                 .unwrap_or(false),
+            auto_abandon: file
+                .works
+                .as_ref()
+                .and_then(|w| w.auto_abandon)
+                .unwrap_or(true),
+            auto_abandon_after_months: file
+                .works
+                .as_ref()
+                .and_then(|w| w.auto_abandon_after_months)
+                .unwrap_or(4),
+            completion_review_min_trust: file
+                .works
+                .as_ref()
+                .and_then(|w| w.completion_review_min_trust)
+                .unwrap_or(3),
         };
+        if works.auto_abandon && works.auto_abandon_after_months == 0 {
+            anyhow::bail!(
+                "[works].auto_abandon_after_months must be greater than zero; set auto_abandon = false to disable the sweep"
+            );
+        }
 
         // --- adoption (spec §56.1) ----------------------------------------
         let adoption = AdoptionConfig {
@@ -5708,6 +5740,12 @@ struct WorksSection {
     max_fork_depth: Option<u32>,
     /// Publish gated works' records while withholding their text (default false).
     gated_metadata_public: Option<bool>,
+    /// M45-76: whether the automatic abandonment sweep runs (default true).
+    auto_abandon: Option<bool>,
+    /// M45-76: stale window in months (default 4); zero is refused at load.
+    auto_abandon_after_months: Option<u32>,
+    /// M45-76: trust bar for completion review (default 3).
+    completion_review_min_trust: Option<i64>,
 }
 
 /// The `[adoption]` table (spec §56.1, M45-28).

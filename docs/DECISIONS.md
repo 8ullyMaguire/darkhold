@@ -95,3 +95,9 @@ The owner states ascend is unfrozen and authorises writes. The previous block co
 ## Feature ledger repaired — this turn
 
 * `docs/FEATURE-LEDGER.md` was generated on 2026-11-23 from 978 rows and omitted UX1. Added a `UX1` requirement row with the live gate evidence, then regenerated its count table and header from `docs/requirements.csv` using the command the ledger itself names. No hand-written counts and no new current-state list.
+
+## M45-76.5 — config keys wired first — this turn
+
+* Chose the config row over Phase 1 migration/store work: it was the only unblocked slice with a bounded gate, and it corrected a documentation error I had introduced earlier ("planned, not file-backed"). RED was a compile failure naming the three missing `WorksConfig` fields; GREEN is 16/16 in the touched `config_sections` test file.
+* `auto_abandon_after_months = 0` is refused at load with guidance to set `auto_abandon = false`, so disabling the sweep is never confused with a zero-width sweep. This is configuration only; the migration, store sweep, route and live dry run remain M45-76 work and are not claimed shipped.
+* The config code is not in the running binary. Deployment is folded into H3: copy the committed source via the normal fast-forward, then rebuild with the project profile only when the deploy host is quiet. No release build or service restart was attempted this turn.

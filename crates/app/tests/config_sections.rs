@@ -653,3 +653,34 @@ membership_floor_per_thousand = 3
         "a configured gate puts a newcomer on probation: {standing:?}"
     );
 }
+
+#[test]
+fn works_lifecycle_keys_are_read_from_the_file() {
+    let configured = load(
+        "works-lifecycle",
+        r#"
+[works]
+auto_abandon = false
+auto_abandon_after_months = 6
+completion_review_min_trust = 4
+"#,
+    )
+    .expect("the [works] lifecycle keys must load");
+
+    assert!(!configured.works.auto_abandon);
+    assert_eq!(configured.works.auto_abandon_after_months, 6);
+    assert_eq!(configured.works.completion_review_min_trust, 4);
+}
+
+#[test]
+fn zero_abandon_months_is_refused_with_guidance() {
+    let error = load(
+        "works-zero-months",
+        "[works]\nauto_abandon_after_months = 0\n",
+    )
+    .expect_err("a zero-month sweep window must not load");
+    assert!(
+        error.contains("auto_abandon = false"),
+        "the error must name the way to disable the sweep: {error}"
+    );
+}
