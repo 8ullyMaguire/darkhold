@@ -198,3 +198,9 @@ The owner states ascend is unfrozen and authorises writes. The previous block co
 
 * The plan named `a_new_source_date_revives_an_abandoned_work` as the witness, but that test expects revival and stays green when the `last > marked` guard is removed. The real witness is the negative case `a_metadata_edit_does_not_revive`: with the guard gone, an old source date revives the work and the `revived:0` assertion fails. Mutant 0/1, restored 1/1.
 * Mutated only the domain source from a `$TMPDIR` copy; original SHA-256 prefix restored and no product source changed. One guard remains, plus H3 and the live dry run.
+
+## M45-76.23 — mutation guard 5 of 5 — this turn
+
+* First mutant form replaced the curator result with `Ok(false)`, which left the query result unused and was rejected by the repo's denied warnings before reaching the test. That is a compile failure, not evidence about the guard.
+* Corrected by inverting `value != 0` to `value == 0`, keeping the row used: the reviewer-authority test then failed on the low-trust non-curator assertion (0/1), and the restored source passed (1/1) with its original SHA-256 prefix.
+* All five planned mutation guards are now proven. No product source changed. H3, the live dry run, H1, M45-77 and the TA3 items remain parked on their existing unblocks.

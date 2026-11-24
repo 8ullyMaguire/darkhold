@@ -28,6 +28,7 @@ Done (latest): TA1 private taste pipeline, TA2 daily aggregation and TA3-1 BFS v
 | M45-76.20 | Mutation guard: hiatus is sweepable | Narrowing both candidate queries to `in_progress` only would silently strand hiatus works | mutant: 0 passed, 1 failed on `a_hiatus_work_is_swept`; restored: 1 passed; hash `eb9e97a15c23…` | this turn |
 | M45-76.21 | Mutation guard: conditional transition | Removing the `from` condition from both `apply_transition` updates would let a stale writer overwrite a newer state | mutant: 0 passed, 1 failed on `apply_transition_is_conditional_and_writes_one_mark`; restored: 1 passed | this turn |
 | M45-76.22 | Mutation guard: revival needs a newer update | Removing `last > marked` would revive abandoned works on metadata edits alone | mutant: 0 passed, 1 failed on `a_metadata_edit_does_not_revive`; restored: 1 passed; hash `9403454091e6…` | this turn |
+| M45-76.23 | Mutation guard: explicit curator grant | Inverting the curator check would give review authority to low-trust non-curators | mutant: 0 passed, 1 failed on `review_authority_uses_earned_trust_or_the_explicit_curator_grant`; restored: 1 passed; all five guards now proven | this turn |
 
 Open queue (*0 unblocked, 9 blocked*): none.
 
