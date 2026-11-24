@@ -94,15 +94,28 @@ async fn landing(State(state): State<AppState>, MaybeSession(session): MaybeSess
 
 /// The works the page offers, in catalogue freshness order, each linked only if it can actually be read here.
 async fn starters(state: &AppState) -> Vec<Starter> {
-    let Ok(ids) = darkhold_db::content::list_public_works_by_freshness(
-        state.db(),
-        darkhold_db::content::FreshnessSort::New,
-        STARTER_POOL,
-    )
-    .await
+    // Start with works a stranger might open; only if that pool is short do we fall back to the
+    // freshness queue, so a gated work is still named without ever taking a link slot.
+    let Ok(mut ids) =
+        darkhold_db::content::list_open_shelf_candidates(state.db(), STARTER_POOL).await
     else {
         return Vec::new();
     };
+    if ids.len() < (STARTERS + GATED_TEXT as i64) as usize {
+        if let Ok(fresh) = darkhold_db::content::list_public_works_by_freshness(
+            state.db(),
+            darkhold_db::content::FreshnessSort::New,
+            STARTER_POOL,
+        )
+        .await
+        {
+            for id in fresh {
+                if !ids.contains(&id) {
+                    ids.push(id);
+                }
+            }
+        }
+    }
 
     let mut out = Vec::with_capacity(STARTERS as usize + GATED_TEXT);
     let mut linked = 0usize;
