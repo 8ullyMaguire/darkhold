@@ -101,3 +101,9 @@ The owner states ascend is unfrozen and authorises writes. The previous block co
 * Chose the config row over Phase 1 migration/store work: it was the only unblocked slice with a bounded gate, and it corrected a documentation error I had introduced earlier ("planned, not file-backed"). RED was a compile failure naming the three missing `WorksConfig` fields; GREEN is 16/16 in the touched `config_sections` test file.
 * `auto_abandon_after_months = 0` is refused at load with guidance to set `auto_abandon = false`, so disabling the sweep is never confused with a zero-width sweep. This is configuration only; the migration, store sweep, route and live dry run remain M45-76 work and are not claimed shipped.
 * The config code is not in the running binary. Deployment is folded into H3: copy the committed source via the normal fast-forward, then rebuild with the project profile only when the deploy host is quiet. No release build or service restart was attempted this turn.
+
+## M45-76.6 — pure decision module — this turn
+
+* Used a separate integration test file as the RED probe because the plan's name filter alone matched zero tests: `cargo test -p darkhold-domain work_lifecycle` filtered out the integration file. The row's gate is therefore two explicit targets, `--lib work_lifecycle` (6 unit tests) and `--test work_lifecycle` (2 integration tests). The plan text says "expected 7"; the module it supplies has 6, so the discrepancy is recorded rather than hidden.
+* Mutation check passed: replacing `months * 30` with `months * 31` made the boundary test fail with `left: None, right: Abandon`; the source was restored immediately. No store migration, sweep or route was added; those remain later plan steps. The module is a plan step, not a user-visible feature yet.
+* Chose requirement id `M45-76.6` because `M45-76.1` is already the staleness-clock requirement in the CSV; the state row first drafted with that id was renamed before commit.

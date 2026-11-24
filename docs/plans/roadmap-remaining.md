@@ -11,6 +11,7 @@ Done (latest): TA1 private taste pipeline, TA2 daily aggregation and TA3-1 BFS v
 | UX1 | Ship the Open Shelf on the live instance | live `/` had 6 linked works, 1 `Open now`, 0 placeholder; first reader URL answered 200 | `9bf772ef`, `8f2de09e`, `fe7ac428`/`9c447373` |
 | H2 | Restore ollama on the deploy host | `systemctl is-active ollama` returned `active` after a bounded `systemctl start --no-block` | this turn |
 | M45-76.5 | Wire the three `[works]` lifecycle config keys | earlier docs said they were planned and silently ignored | `cargo test -p darkhold-app --test config_sections` -> 16 passed; zero months refused | this turn |
+| M45-76.6 | Add the pure `work_lifecycle` domain module | RED: integration probe could not import the module; mutation `30 -> 31` days went red | `cargo test -p darkhold-domain --lib work_lifecycle` -> 6 passed; `--test work_lifecycle` -> 2 passed | this turn |
 
 Open queue (*0 unblocked, 9 blocked*): none.
 
@@ -25,7 +26,7 @@ Blocked (*9*):
 | TA3-B3 | M63-32 likes/favorites half | owner chose leave parked; no public API exists | explicit owner decision and safe credential path |
 | TA3-B4 | Global Discord command registration | owner chose leave parked | explicit approval |
 | H1 | Remove the deploy host's temporary swapfiles | fresh probe: 14,871 MB swap used, the three build files hold ~7.4 GB, and a suki worker is at ~70% CPU; `swapoff` now would force those pages into 6.7 GB of free RAM | that host's swap use drops below 2 GB with no build or tagger workers, then `swapoff` the three files and delete them |
-| H3 | Rebuild and deploy with the project's thin-LTO release profile | M45-76.5 changed config source; the running binary predates it and still uses the recorded low-memory profile. The deploy host is busy (swap 14,871 MB, tagger active) | a quiet deploy host: no build or tagger workers and swap use below 2 GB; then build with the project profile, deploy, and verify the three `[works]` keys through the real loader plus live meta |
+| H3 | Rebuild and deploy with the project's thin-LTO release profile | M45-76.5 and M45-76.6 changed config and domain source; the running binary predates both and still uses the recorded low-memory profile. The deploy host is busy (swap 14,871 MB, tagger active) | a quiet deploy host: no build or tagger workers and swap use below 2 GB; then build with the project profile, deploy, and verify the three `[works]` keys through the real loader plus live meta |
 | M45-77 | Implement community trope proposals from the 13-step plan | docs-only in `a3861caa`; no Rust markers exist, and requirements M45-77.* are `planned`. Staffing blocker: only 2 accounts at/above TL3, `accounts.is_curator` true for 0, `curator_roles` empty; quorum 2 with proposer abstaining means no group can pass | grant at least one more curator through a real account (never lower the quorum), then follow `docs/plans/community-trope-proposals.md`: store-backed resolver in `parse_query`, all seven production parse sites, one parser and one 24-term budget, dual-engine tests, then turn the M45-77.* requirements green |
 
 The standing `/goal` paragraph lives in `docs/plans/next-goal.md`. Read it with this file; never paste counts or open steps into it.

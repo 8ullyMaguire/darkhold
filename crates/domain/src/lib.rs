@@ -129,6 +129,7 @@ pub mod webhook;
 pub mod window;
 pub mod wip_adoption;
 pub mod work_discussion;
+pub mod work_lifecycle;
 
 pub use error::{AppError, ErrorCode, Result};
 pub use ids::*;
