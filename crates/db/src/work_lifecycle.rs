@@ -7,6 +7,8 @@
 
 use crate::Database;
 
+pub use darkhold_domain::work_lifecycle::CompletionSource;
+
 /// One row the sweep is allowed to judge.
 #[derive(Debug)]
 pub struct Candidate {
@@ -156,4 +158,107 @@ pub async fn candidates(
             },
         )
         .collect())
+}
+
+/// Apply one transition and write its history row atomically.
+///
+/// `from` is part of the WHERE clause, not a check in Rust: the author can
+/// change completion between the sweep's SELECT and this UPDATE, and a
+/// zero-row result is the correct answer to that race, not an error.
+#[allow(clippy::too_many_arguments)]
+pub async fn apply_transition(
+    db: &Database,
+    work_id: &str,
+    from: &str,
+    to: &str,
+    source: CompletionSource,
+    actor_account_id: Option<&str>,
+    note: Option<&str>,
+    observed_last_activity: Option<&str>,
+    now: &str,
+) -> Result<bool, sqlx::Error> {
+    let update = db.sql(
+        "UPDATE works
+            SET completion = ?,
+                completion_source = ?,
+                completion_marked_at = ?
+          WHERE id = ? AND completion = ? AND deleted_at IS NULL",
+        "UPDATE works
+            SET completion = ?,
+                completion_source = ?,
+                completion_marked_at = ?
+          WHERE id = ?::uuid AND completion = ? AND deleted_at IS NULL",
+    );
+    let insert = db.sql(
+        "INSERT INTO work_completion_marks
+             (id, work_id, from_completion, to_completion, source,
+              actor_account_id, note, observed_last_activity, marked_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+        "INSERT INTO work_completion_marks
+             (id, work_id, from_completion, to_completion, source,
+              actor_account_id, note, observed_last_activity, marked_at)
+         VALUES (?::uuid, ?::uuid, ?, ?, ?, ?::uuid, ?, ?, ?)",
+    );
+    let mark_id = uuid::Uuid::new_v4().to_string();
+
+    match db.backend() {
+        crate::Backend::Sqlite => {
+            let mut tx = db.sqlite_pool().expect("sqlite handle").begin().await?;
+            let changed = sqlx::query(&update)
+                .bind(to)
+                .bind(source.as_str())
+                .bind(now)
+                .bind(work_id)
+                .bind(from)
+                .execute(&mut *tx)
+                .await?
+                .rows_affected()
+                > 0;
+            if changed {
+                sqlx::query(&insert)
+                    .bind(&mark_id)
+                    .bind(work_id)
+                    .bind(from)
+                    .bind(to)
+                    .bind(source.as_str())
+                    .bind(actor_account_id)
+                    .bind(note)
+                    .bind(observed_last_activity)
+                    .bind(now)
+                    .execute(&mut *tx)
+                    .await?;
+            }
+            tx.commit().await?;
+            Ok(changed)
+        }
+        crate::Backend::Postgres => {
+            let mut tx = db.postgres_pool().expect("postgres handle").begin().await?;
+            let changed = sqlx::query(&update)
+                .bind(to)
+                .bind(source.as_str())
+                .bind(now)
+                .bind(work_id)
+                .bind(from)
+                .execute(&mut *tx)
+                .await?
+                .rows_affected()
+                > 0;
+            if changed {
+                sqlx::query(&insert)
+                    .bind(&mark_id)
+                    .bind(work_id)
+                    .bind(from)
+                    .bind(to)
+                    .bind(source.as_str())
+                    .bind(actor_account_id)
+                    .bind(note)
+                    .bind(observed_last_activity)
+                    .bind(now)
+                    .execute(&mut *tx)
+                    .await?;
+            }
+            tx.commit().await?;
+            Ok(changed)
+        }
+    }
 }

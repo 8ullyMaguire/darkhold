@@ -119,3 +119,9 @@ The owner states ascend is unfrozen and authorises writes. The previous block co
 * The plan's numbered placeholders (`?1`, `?2`) were wrong for this tree: `Database::sql` rewrites each `?` sequentially to `$n`, so `?1::uuid` became `$11::uuid` and PostgreSQL asked for undetermined parameters. Changed both dialect strings to unnumbered `?` placeholders; the bind order is unchanged. This is a deviation from the plan text forced by the repo helper, recorded here.
 * Fixture defects were fixed while getting RED to GREEN: work ids needed the full 12 hex digits so foreign keys matched, and the naive-clock work needed `published_at` seeded explicitly. No production code was changed for either. The load-bearing `has_lib` mask is asserted directly: an import `update` event on an imported work is `None` while its `source_updated_at` survives.
 * Scope is only Step 3.1. `apply_transition` and `may_review_completion` are still unimplemented; no sweep or route consumes `candidates` yet. The deploy remains in H3.
+
+## M45-76.9 — conditional transition — this turn
+
+* Kept `from` in the UPDATE's WHERE clause so a concurrent author edit loses the race with `Ok(false)`, not an error. The history insert is inside the same transaction and is skipped when zero rows changed; the test asserts one mark row after a true call followed by a false one.
+* Same placeholder deviation as M45-76.8: the plan's `?1…?9` were converted to unnumbered `?` because `Database::sql` rewrites each `?` to `$n`. In the test's direct PostgreSQL branches (no `db.sql` rewrite) the literal had to be `$1::uuid`; using `?::uuid` there produced a syntax error.
+* Two test-fixture defects were found and fixed: the mark-count query had no bound work id, and the direct PostgreSQL reads needed `$1` rather than `?`. Neither affected production code. Scope is Step 3.2 only; `may_review_completion`, the sweep and the route remain unimplemented.

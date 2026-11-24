@@ -5,7 +5,7 @@
 //! hosted work keeps the event clock. Both are checked here rather than in a
 //! later sweep, so a query that silently reports nothing eligible fails.
 
-use darkhold_db::work_lifecycle::{candidates, Candidate};
+use darkhold_db::work_lifecycle::{apply_transition, candidates, Candidate, CompletionSource};
 use std::path::PathBuf;
 
 fn scratch(tag: &str) -> PathBuf {
@@ -110,6 +110,120 @@ async fn candidates_keep_the_author_clock_and_report_source_completion() {
         "complete work is not a candidate"
     );
     assert!(rows.iter().all(|c| c.completion_source == "import"));
+
+    tdb.cleanup().await;
+}
+
+async fn scalar(db: &darkhold_db::Database, sqlite: &str, postgres: &str, param: &str) -> i64 {
+    let sql = db.sql(sqlite, postgres);
+    match db.backend() {
+        darkhold_db::Backend::Sqlite => sqlx::query_scalar(&sql)
+            .bind(param)
+            .fetch_one(db.sqlite_pool().expect("sqlite handle"))
+            .await
+            .expect("scalar on SQLite"),
+        darkhold_db::Backend::Postgres => sqlx::query_scalar(&sql)
+            .bind(param)
+            .fetch_one(db.postgres_pool().expect("postgres handle"))
+            .await
+            .expect("scalar on PostgreSQL"),
+    }
+}
+
+#[tokio::test]
+async fn apply_transition_is_conditional_and_writes_one_mark() {
+    let tdb = test_support::TestDb::connect_with_dir("wl-transition", &scratch("transition")).await;
+    let db = tdb.db();
+    let work = "01957600-0000-4000-8000-000000000007";
+    let actor = "01957600-0000-4000-8000-00000000a001";
+
+    exec(db, "INSERT INTO accounts (id, status, email, age_state, created_at, updated_at, version) VALUES ('01957600-0000-4000-8000-00000000a001','active','wl@test.dev','adult','2026-01-01T00:00:00Z','2026-01-01T00:00:00Z',1)").await;
+    exec(db, "INSERT INTO pseuds (id, account_id, handle, display_name, discoverability, created_at, updated_at, version) VALUES ('01957600-0000-4000-8000-00000000b001','01957600-0000-4000-8000-00000000a001','wl','WL','listed','2026-01-01T00:00:00Z','2026-01-01T00:00:00Z',1)").await;
+    exec(db, "INSERT INTO works (id, owner_pseud_id, title, visibility, lifecycle, completion, created_at, updated_at) VALUES ('01957600-0000-4000-8000-000000000007','01957600-0000-4000-8000-00000000b001','Seven','public','published','in_progress','2026-01-01T00:00:00Z','2026-01-01T00:00:00Z')").await;
+
+    let first = apply_transition(
+        db,
+        work,
+        "in_progress",
+        "abandoned",
+        CompletionSource::Sweep,
+        Some(actor),
+        Some("stale"),
+        Some("2026-01-01T00:00:00Z"),
+        "2026-11-24T00:00:00Z",
+    )
+    .await
+    .expect("first transition");
+    assert!(
+        first,
+        "the conditional update must match the current completion"
+    );
+
+    let second = apply_transition(
+        db,
+        work,
+        "in_progress",
+        "abandoned",
+        CompletionSource::Sweep,
+        Some(actor),
+        Some("stale"),
+        Some("2026-01-01T00:00:00Z"),
+        "2026-11-24T00:00:00Z",
+    )
+    .await
+    .expect("second transition");
+    assert!(!second, "a stale `from` loses the race without an error");
+
+    let marks: i64 = scalar(
+        db,
+        "SELECT count(*) FROM work_completion_marks WHERE work_id = ?",
+        "SELECT count(*) FROM work_completion_marks WHERE work_id = ?::uuid",
+        work,
+    )
+    .await;
+    assert_eq!(marks, 1, "one transition writes exactly one history row");
+
+    let state: (String, String, String) = match db.backend() {
+        darkhold_db::Backend::Sqlite => sqlx::query_as(
+            "SELECT completion, completion_source, completion_marked_at FROM works WHERE id = ?",
+        )
+        .bind(work)
+        .fetch_one(db.sqlite_pool().expect("sqlite handle"))
+        .await
+        .expect("read work state"),
+        darkhold_db::Backend::Postgres => sqlx::query_as(
+            "SELECT completion, completion_source, completion_marked_at FROM works WHERE id = $1::uuid",
+        )
+        .bind(work)
+        .fetch_one(db.postgres_pool().expect("postgres handle"))
+        .await
+        .expect("read work state"),
+    };
+    assert_eq!(state.0, "abandoned");
+    assert_eq!(state.1, "sweep");
+    assert_eq!(state.2, "2026-11-24T00:00:00Z");
+
+    let stored_actor: Option<String> = match db.backend() {
+        darkhold_db::Backend::Sqlite => sqlx::query_scalar(
+            "SELECT actor_account_id FROM work_completion_marks WHERE work_id = ?",
+        )
+        .bind(work)
+        .fetch_one(db.sqlite_pool().expect("sqlite handle"))
+        .await
+        .expect("read mark actor"),
+        darkhold_db::Backend::Postgres => sqlx::query_scalar(
+            "SELECT actor_account_id::text FROM work_completion_marks WHERE work_id = $1::uuid",
+        )
+        .bind(work)
+        .fetch_one(db.postgres_pool().expect("postgres handle"))
+        .await
+        .expect("read mark actor"),
+    };
+    assert_eq!(
+        stored_actor.as_deref(),
+        Some(actor),
+        "actor must round-trip"
+    );
 
     tdb.cleanup().await;
 }
