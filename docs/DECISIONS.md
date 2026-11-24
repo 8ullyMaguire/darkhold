@@ -113,3 +113,9 @@ The owner states ascend is unfrozen and authorises writes. The previous block co
 * Added a dedicated `crates/db/tests/migrations.rs` probe because the plan's named `--test migrations` did not exist; the existing `migration_catalogue.rs` only checks catalogue-versus-disk, not that the schema changed. Both are now the row's gate.
 * The local PostgreSQL test container had to start and settle: the first run got "Connection reset by peer", a port check showed `5432/tcp -> 127.0.0.1:55433`, and a single retry after five seconds passed. No credential value is recorded; the harness takes `DARKHOLD_TEST_PG_URL` from the environment.
 * Existing abandoned rows are seeded from `updated_at`, not a guessed story clock. The migration is append-only; no existing migration was edited, so no checksum changes.
+
+## M45-76.8 — candidate query — this turn
+
+* The plan's numbered placeholders (`?1`, `?2`) were wrong for this tree: `Database::sql` rewrites each `?` sequentially to `$n`, so `?1::uuid` became `$11::uuid` and PostgreSQL asked for undetermined parameters. Changed both dialect strings to unnumbered `?` placeholders; the bind order is unchanged. This is a deviation from the plan text forced by the repo helper, recorded here.
+* Fixture defects were fixed while getting RED to GREEN: work ids needed the full 12 hex digits so foreign keys matched, and the naive-clock work needed `published_at` seeded explicitly. No production code was changed for either. The load-bearing `has_lib` mask is asserted directly: an import `update` event on an imported work is `None` while its `source_updated_at` survives.
+* Scope is only Step 3.1. `apply_transition` and `may_review_completion` are still unimplemented; no sweep or route consumes `candidates` yet. The deploy remains in H3.

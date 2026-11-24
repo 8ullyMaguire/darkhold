@@ -163,13 +163,13 @@ pub mod specialist;
 pub mod subscriptions;
 pub mod supply;
 pub mod tag_assertions;
+pub mod tag_backfill;
 pub mod tag_confirmation;
 pub mod tag_coverage;
-pub mod tag_backfill;
-pub mod taste_curation;
 pub mod tag_inference;
 pub mod tag_scripts;
 pub mod taste_brief;
+pub mod taste_curation;
 pub mod taste_explain;
 // ADR 0016: the rows the shared taste fold reads.
 pub mod taste_health;
@@ -195,6 +195,7 @@ pub mod work_backlink;
 pub mod work_characters;
 pub mod work_coordinates;
 pub mod work_discussion;
+pub mod work_lifecycle;
 pub mod work_metrics;
 
 use std::borrow::Cow;
