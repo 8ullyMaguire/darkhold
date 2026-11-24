@@ -6,22 +6,25 @@ Source of truth for this loop is this section. Update it in the same commit as a
 
 Done (latest): TA1 private taste pipeline, TA2 daily aggregation and TA3-1 BFS verification shipped and documented. AO3 refetch gained `--offset` and skip-already-tagged (`2108da6f`, `136c771b`). TA3-5 consistency check passed at `0af02914`. The owner then unblocked TA3-2 and TA3-4 via `clarify`; the per-source concurrency guard shipped in `10b610de`, merged with `origin/master` in `d80e8d3e`, and was deployed live: 4 workers active, zero sources with >1 leased import, live meta `0.1.0+d97e7f34`, succeeded jobs rose 450→452 in 30 s while queued stayed 21,122. TA3-4 shipped in `0573c8a0` and `0d7c4470`: a public TheForce thread and robots file were recorded, the XenForo family now claims and parses the host, and the adapter honours `Crawl-delay: 10`.
 
-Open queue (*0 unblocked, 6 blocked*): none — UX1 landed this cycle (see Done below).
+| # | done step | gate output | commit |
+| --- | --- | --- | --- |
+| UX1 | Ship the Open Shelf on the live instance | live `/` had 6 linked works, 1 `Open now`, 0 placeholder; first reader URL answered 200 | `9bf772ef`, `8f2de09e`, `fe7ac428`/`9c447373` |
 
-| # | area | step | why | gate | status |
-| --- | --- | --- | --- | --- | --- |
-| UX1 | landing | Ship the Open Shelf on the live instance | The landing listed gated titles and no links: newest publication events were all `accounts_only` | live `/` has 6 linked works, one `Open now`, no placeholder; first reader URL answers 200 | **done** — `9bf772ef`, `8f2de09e`, `fe7ac428`/`9c447373`; 5/5 targeted tests; binary 20:06, service restarted |
+Open queue (*0 unblocked, 9 blocked*): none.
 
-Blocked (*6*):
+Blocked (*9*):
 
 | # | blocked step | waits on | unblock gate |
 | --- | --- | --- | --- |
-| TA3-2 | Body import queue drain after concurrency increase | 21,122 queued jobs; 4 workers active, zero duplicate leased imports, but AO3 429 retries keep the queue flat | queued count reaches zero or a small steady tail, with no new adapter errors |
-| TA3-3 | Advance AO3 tag coverage | owner chose wait-and-retry; AO3 returned HTTP 429 on public probes | rate limit clears or a public cache/mirror exists; no auth or bypass |
+| TA3-2 | Body import queue drain after concurrency increase | 16,376 jobs and 15,765 import jobs still queued on the live DB; 3 jobs and 579 imports running; AO3 429 retries keep the queue from draining | queued count reaches zero or a small steady tail, with no new adapter errors |
+| TA3-3 | Advance AO3 tag coverage | direct public probe of `https://archiveofourown.org/works/1` returned HTTP 429 this turn | rate limit clears or a public cache/mirror exists; no auth or bypass |
 | TA3-B1 | Full estate gate | owner chose targeted-only | explicit owner request for the full sweep |
 | TA3-B2 | M69-24 taste-source follow-up | owner chose leave parked; another session owns the checkout | explicit handover |
 | TA3-B3 | M63-32 likes/favorites half | owner chose leave parked; no public API exists | explicit owner decision and safe credential path |
 | TA3-B4 | Global Discord command registration | owner chose leave parked | explicit approval |
+| H1 | Remove the deploy host's temporary swapfiles | `/swapfile-build`, `-build2`, `-build3` hold about 7.5 GB of live pages on thinkcentre; `swapoff` now would force those pages into 6.6 GB of free RAM | that host's swap use drops below 2 GB with no build or tagger workers running, then `swapoff` the three files and delete them |
+| H2 | Restore ollama on the deploy host | unit is inactive; an earlier start timed out and no owning session has asked for it | owning session requests it or its own timer starts it; record the resulting unit state |
+| H3 | Restore the project's thin-LTO release profile | the deployed binary uses the recorded low-memory profile and no source changed after the last build | a code change that requires a rebuild, plus a quiet deploy host; build with the project profile and verify live meta |
 
 The standing `/goal` paragraph lives in `docs/plans/next-goal.md`. Read it with this file; never paste counts or open steps into it.
 

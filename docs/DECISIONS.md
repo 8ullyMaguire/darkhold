@@ -74,3 +74,10 @@ The owner states ascend is unfrozen and authorises writes. The previous block co
 * **Scope:** the landing redesign stays server-rendered Rust HTML with a no-script `GET /search` form. No JS-only path, no cover-card grid, no build/health details on the public page.
 * **Candidate query:** the first deploy still rendered zero links because every one of the newest 10,000 works by publication event is `accounts_only`, while readable works have no event and sort behind them. `list_open_shelf_candidates` now pre-filters to inherited/`anyone` audiences with a current unit revision; the freshness queue is only a fallback for naming gated works. `reading_decision` remains the sole authority for a link. RED test with 65 newer gated works gave zero links; GREEN suite 5/5; live page gives six links whose reader URL answers 200.
 
+
+## Deferred host cleanup — 2026-11-24
+
+* **Swapfiles:** the three temporary `/swapfile-build*` files stay enabled. They hold about 7.5 GB of live pages while that host has 6.6 GB RAM free; removing them now would force OOM kills in the tagger and import workers. Unblock is measured swap use below 2 GB with no build or tagger workers, then `swapoff` and delete. This is recorded as row H1, not left as prose.
+* **ollama:** left inactive. A start attempt timed out and no owning session has asked for it; starting a model server unrequested would spend memory the deploy host does not have. Unblock is an explicit request or its own timer, recorded as row H2.
+* **Thin LTO:** not rebuilt. No source changed after the last deploy, and rebuilding an unchanged binary would violate the loop's no-rebuild rule and risk replacing a working live binary. Unblock is a real code change plus a quiet host, recorded as row H3.
+* **State prompt:** `docs/plans/next-goal.md` was rewritten in place because it still named the closed UX1 row. The paragraph now names state files and the per-turn contract only; counts and current rows stay in the roadmap. The SecondBrain mirror carries the same text.
