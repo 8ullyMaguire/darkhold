@@ -684,3 +684,52 @@ fn zero_abandon_months_is_refused_with_guidance() {
         "the error must name the way to disable the sweep: {error}"
     );
 }
+
+#[test]
+fn tropes_keys_are_read_from_the_file() {
+    let configured = load(
+        "tropes-full",
+        r#"
+[tropes]
+proposal_min_trust = 4
+quorum = 3
+voting_days = 14
+"#,
+    )
+    .expect("the [tropes] governance keys must load");
+    assert_eq!(configured.tropes.proposal_min_trust, 4);
+    assert_eq!(configured.tropes.quorum, 3);
+    assert_eq!(configured.tropes.voting_days, 14);
+}
+
+#[test]
+fn tropes_quorum_below_two_is_refused() {
+    let error = load("tropes-quorum-one", "[tropes]\nquorum = 1\n")
+        .expect_err("a one-vote quorum must not load");
+    assert!(
+        error.contains("quorum below 2"),
+        "the error must name the quorum rule: {error}"
+    );
+}
+
+#[test]
+fn tropes_typo_is_refused() {
+    // The `load` helper flattens anyhow to its outer "parsing <path>" context,
+    // so this case walks the chain directly: the rejected key is the point.
+    let dir = scratch_dir("tropes-typo");
+    let path = dir.join("darkhold.toml");
+    std::fs::write(&path, "[tropes]\nquo = 3\n").expect("write config");
+    let args = GlobalArgs {
+        config: Some(path),
+        ..GlobalArgs::default()
+    };
+    let error =
+        Config::load(&args).expect_err("an unknown [tropes] key must not be silently ignored");
+    let text = error
+        .chain()
+        .map(|link| link.to_string())
+        .collect::<Vec<_>>()
+        .join(" ");
+    assert!(text.contains("unknown field"), "{text}");
+    assert!(text.contains("quo"), "{text}");
+}

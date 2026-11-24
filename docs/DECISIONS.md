@@ -216,3 +216,9 @@ The owner states ascend is unfrozen and authorises writes. The previous block co
 * Seed groups win on a slug collision: `resolve` checks the shipped table before the store. Store groups pass the same non-empty and `MAX_MEMBERS` ceiling, so a proposal cannot smuggle a group that blows the 24-term budget.
 * Both plan mutations were proven from `$TMPDIR` copies: bypassing the resolver and dropping the extra slugs from the error each made its targeted test red (0/1), then the original source passed (1/1). The first bypass spelling failed to compile on type inference; an explicit `Vec<String>` collection made it a real assertion failure.
 * The free `trope_node` became a parser method, so all `trope:` call sites share the seed/store resolution and the same error. Steps 4–13 and H1/H3 remain parked as recorded.
+
+## M45-77.8 — `[tropes]` config reader — this turn
+
+* The keys live on `Config` with their own `TropesSection` and `deny_unknown_fields`, not on `TaxonomyConfig`: the latter already contains the declared-but-unread `taxonomy.trope_coverage` example.
+* The shared `load` test helper flattens `anyhow` to its outer `parsing <path>` context. For the typo case the test writes the file and calls `Config::load` directly so `error.chain()` can prove both `unknown field` and the rejected `quo` key; the first assertion using only `error.to_string()` was too weak and was replaced.
+* Steps 5–13, H1/H3 and the live dry run remain parked as recorded.

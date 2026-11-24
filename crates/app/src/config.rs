@@ -170,6 +170,8 @@ pub struct Config {
     pub exports: ExportsConfig,
     /// Work permission statements and fork guards (spec §40).
     pub works: WorksConfig,
+    /// Trope proposal governance (M45-77).
+    pub tropes: TropesConfig,
     /// WIP adoption bar (spec §56.1, M45-28).
     pub adoption: AdoptionConfig,
     /// Longevity signals: half-life and interaction warmth (spec §41).
@@ -414,6 +416,27 @@ impl Default for WorksConfig {
             auto_abandon: true,
             auto_abandon_after_months: 4,
             completion_review_min_trust: 3,
+        }
+    }
+}
+
+/// Trope proposal governance (M45-77, spec amendment).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct TropesConfig {
+    /// Curator OR trust level at or above this may propose and vote.
+    pub proposal_min_trust: i64,
+    /// Independent approvals required. Below 2 is refused at load.
+    pub quorum: u32,
+    /// Days a proposal stays open.
+    pub voting_days: i64,
+}
+
+impl Default for TropesConfig {
+    fn default() -> Self {
+        Self {
+            proposal_min_trust: 3,
+            quorum: 2,
+            voting_days: 7,
         }
     }
 }
@@ -3566,6 +3589,29 @@ impl Config {
             );
         }
 
+        // --- tropes (M45-77) ------------------------------------------------
+        let tropes = TropesConfig {
+            proposal_min_trust: file
+                .tropes
+                .as_ref()
+                .and_then(|t| t.proposal_min_trust)
+                .unwrap_or_else(|| TropesConfig::default().proposal_min_trust),
+            quorum: file
+                .tropes
+                .as_ref()
+                .and_then(|t| t.quorum)
+                .unwrap_or_else(|| TropesConfig::default().quorum),
+            voting_days: file
+                .tropes
+                .as_ref()
+                .and_then(|t| t.voting_days)
+                .unwrap_or_else(|| TropesConfig::default().voting_days),
+        };
+        anyhow::ensure!(
+            tropes.quorum >= 2,
+            "[tropes].quorum below 2 is not a quorum (§14.7)"
+        );
+
         // --- adoption (spec §56.1) ----------------------------------------
         let adoption = AdoptionConfig {
             min_trust_level: file
@@ -3928,6 +3974,7 @@ impl Config {
             exports,
             directory,
             works,
+            tropes,
             adoption,
             community: CommunityConfig::default(),
             bounties: {
@@ -4442,6 +4489,7 @@ impl Config {
             directory: DirectoryConfig::default(),
             monetization: MonetizationConfig::default(),
             works: WorksConfig::default(),
+            tropes: TropesConfig::default(),
             federation: FederationConfig::default(),
             adoption: AdoptionConfig::default(),
             community: CommunityConfig::default(),
@@ -5069,6 +5117,8 @@ struct FileConfig {
     exports: Option<ExportsSection>,
     directory: Option<DirectorySection>,
     works: Option<WorksSection>,
+    /// `[tropes]`: community trope proposal governance (M45-77).
+    tropes: Option<TropesSection>,
     /// `[federation]`: what this instance accepts from other instances.
     federation: Option<FederationConfig>,
     adoption: Option<AdoptionSection>,
@@ -5126,6 +5176,16 @@ struct FileConfig {
     trust: Option<TrustSection>,
     /// Self-governance (spec §14.5).
     governance: Option<GovernanceSection>,
+}
+
+/// The `[tropes]` file section (M45-77). Unknown keys are refused: a misspelled
+/// quorum must fail to load, not silently fall back to the default.
+#[derive(Debug, Default, Deserialize)]
+#[serde(deny_unknown_fields)]
+struct TropesSection {
+    proposal_min_trust: Option<i64>,
+    quorum: Option<u32>,
+    voting_days: Option<i64>,
 }
 
 /// The `[tiers]` file section (spec §12.6).
