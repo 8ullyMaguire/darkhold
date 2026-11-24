@@ -6,15 +6,11 @@ Source of truth for this loop is this section. Update it in the same commit as a
 
 Done (latest): TA1 private taste pipeline, TA2 daily aggregation and TA3-1 BFS verification shipped and documented. AO3 refetch gained `--offset` and skip-already-tagged (`2108da6f`, `136c771b`). TA3-5 consistency check passed at `0af02914`. The owner then unblocked TA3-2 and TA3-4 via `clarify`; the per-source concurrency guard shipped in `10b610de`, merged with `origin/master` in `d80e8d3e`, and was deployed live: 4 workers active, zero sources with >1 leased import, live meta `0.1.0+d97e7f34`, succeeded jobs rose 450→452 in 30 s while queued stayed 21,122. TA3-4 shipped in `0573c8a0` and `0d7c4470`: a public TheForce thread and robots file were recorded, the XenForo family now claims and parses the host, and the adapter honours `Crawl-delay: 10`.
 
-Open queue (*1 unblocked, 6 blocked*):
+Open queue (*0 unblocked, 6 blocked*): none — UX1 landed this cycle (see Done below).
 
 | # | area | step | why | gate | status |
 | --- | --- | --- | --- | --- | --- |
-| UX1 | landing | Deploy the Open Shelf release binary already committed in `9bf772ef` / `8f2de09e` | The code and 5/5 targeted tests are in place but the running binary predates them; live `/` still shows 7 spans and 0 work links | `curl /` shows >= 6 `/works/` link paths and one `Open now` heading; no `frontend not built` string | building (parallel-codegen release on thinkcentre) |
-
-| # | area | step | why | gate | status |
-| --- | --- | --- | --- | --- | --- |
-| UX1 | landing | Deploy the Open Shelf release binary already committed in `9bf772ef` / `8f2de09e` | The code and 5/5 targeted tests are in place but the running binary predates them; live `/` still shows 7 spans and 0 work links | `curl /` shows >= 6 `/works/` link paths and one `Open now` heading; no `frontend not built` string | building (parallel-codegen release on thinkcentre) |
+| UX1 | landing | Ship the Open Shelf on the live instance | The landing listed gated titles and no links: newest publication events were all `accounts_only` | live `/` has 6 linked works, one `Open now`, no placeholder; first reader URL answers 200 | **done** — `9bf772ef`, `8f2de09e`, `fe7ac428`/`9c447373`; 5/5 targeted tests; binary 20:06, service restarted |
 
 Blocked (*6*):
 
