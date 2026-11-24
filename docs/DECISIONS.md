@@ -193,3 +193,8 @@ The owner states ascend is unfrozen and authorises writes. The previous block co
 
 * Used the store-level `apply_transition_is_conditional_and_writes_one_mark`, not the app's idempotence case: the route returns `changed:false` before calling `apply_transition` when the requested value already equals the stored one, so it cannot observe this guard. The store test calls the transition twice with a stale `from` and is the real witness.
 * Removed the `completion = ?` condition and its bind from both dialect UPDATEs in a `$TMPDIR` copy; the test went 0/1 red on the stale-from assertion and 1/1 green after restore. No product source changed.
+
+## M45-76.22 — mutation guard 4 of 5 — this turn
+
+* The plan named `a_new_source_date_revives_an_abandoned_work` as the witness, but that test expects revival and stays green when the `last > marked` guard is removed. The real witness is the negative case `a_metadata_edit_does_not_revive`: with the guard gone, an old source date revives the work and the `revived:0` assertion fails. Mutant 0/1, restored 1/1.
+* Mutated only the domain source from a `$TMPDIR` copy; original SHA-256 prefix restored and no product source changed. One guard remains, plus H3 and the live dry run.
