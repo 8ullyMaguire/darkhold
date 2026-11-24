@@ -188,3 +188,8 @@ The owner states ascend is unfrozen and authorises writes. The previous block co
 
 * Mutated both dialect strings in the candidates query from a `$TMPDIR` copy so the hiatus case had to fail on whichever backend the test used. `a_hiatus_work_is_swept` went 0/1 red, and the restored source went 1/1 green with the original SHA-256 prefix.
 * No product source changed. Three guards remain, plus H3, the live dry run and the owner-gated items.
+
+## M45-76.21 — mutation guard 3 of 5 — this turn
+
+* Used the store-level `apply_transition_is_conditional_and_writes_one_mark`, not the app's idempotence case: the route returns `changed:false` before calling `apply_transition` when the requested value already equals the stored one, so it cannot observe this guard. The store test calls the transition twice with a stale `from` and is the real witness.
+* Removed the `completion = ?` condition and its bind from both dialect UPDATEs in a `$TMPDIR` copy; the test went 0/1 red on the stale-from assertion and 1/1 green after restore. No product source changed.
