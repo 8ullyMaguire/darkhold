@@ -234,3 +234,9 @@ The owner states ascend is unfrozen and authorises writes. The previous block co
 * The live-slug unique index permits only one proposed/active row per slug, so an `update` proposal has its own slug and names the group in `payload.target_slug`. The active row's `created_at` is the optimistic version token; a stale `target_version` aborts the decision transaction and rolls back the status write.
 * PostgreSQL needed explicit casts in both directions: `?::uuid` / `?::timestamptz` on binds and `::text` / `::bigint` on selected columns, because the row struct is shared with SQLite and sqlx will not silently widen UUID, timestamp or INT4 columns into `String`/`i64`.
 * `lh-pg-test` needs a bounded `pg_isready` wait after `docker start`; a fixed three-second sleep still caught it mid-recovery. Container stopped after the probe. Steps 7–13, H1/H3 and the live dry run remain parked.
+
+## M45-77.11 — authority predicate — this turn
+
+* Curator status (`accounts.is_curator` or an active `curator_roles` opt-in) is checked before the trust branches, so a TL2 curator keeps the Curator label. Level 5+ is labelled Operator but receives only eligibility — no extra vote and no bypass.
+* Used `fetch_optional` for the `is_curator` scalar instead of the plan's `unwrap_or(false)` on `fetch_one`: a missing account should be a denied answer, but a real driver error must still surface.
+* Steps 8–13, H1/H3 and the live dry run remain parked as recorded.

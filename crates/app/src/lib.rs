@@ -76,6 +76,8 @@ pub mod taste_knobs;
 pub mod taste_notify;
 pub mod taste_source;
 pub mod tts;
+// M45-77 Step 7: trope proposal authority.
+pub mod trope_authority;
 pub mod version;
 pub mod warmth;
 pub mod webhook_delivery;
