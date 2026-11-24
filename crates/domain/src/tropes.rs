@@ -98,6 +98,33 @@ pub fn expand(slug: &str) -> Option<&'static [&'static str]> {
     find(slug).map(|group| group.members)
 }
 
+/// Extra groups supplied by the store. Seed groups keep their slugs and win
+/// on a conflict, so a proposal can never shadow a shipped group (M45-77).
+pub type TropeResolver<'a> = dyn Fn(&str) -> Option<Vec<String>> + 'a;
+
+/// Resolve a slug first from the shipped groups, then from the store. Store
+/// groups are bounded by the same member ceiling as seed groups: one parser and
+/// one term budget serve both.
+#[must_use]
+pub fn resolve<'a>(slug: &str, extra: Option<&TropeResolver<'a>>) -> Option<Vec<String>> {
+    if let Some(members) = expand(slug) {
+        return Some(members.iter().map(|s| (*s).to_owned()).collect());
+    }
+    extra
+        .and_then(|r| r(slug))
+        .filter(|m| !m.is_empty() && m.len() <= MAX_MEMBERS)
+}
+
+/// Every active slug, seed first, for the unknown-name error.
+#[must_use]
+pub fn active_slugs(extra_slugs: &[String]) -> Vec<String> {
+    let mut all = slugs().into_iter().map(str::to_owned).collect::<Vec<_>>();
+    all.extend(extra_slugs.iter().cloned());
+    all.sort();
+    all.dedup();
+    all
+}
+
 /// The slugs, for a refusal that tells the reader what it could have written instead.
 #[must_use]
 pub fn slugs() -> Vec<&'static str> {

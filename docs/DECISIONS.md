@@ -210,3 +210,9 @@ The owner states ascend is unfrozen and authorises writes. The previous block co
 * The plan sketched `proposed_by TEXT NOT NULL ... ON DELETE SET NULL`, which is self-contradictory: SQLite would refuse the delete. Both dialect arms make `proposed_by` and `decided_by` nullable so deleting an account preserves proposal history without inventing a synthetic actor. No public read exposes those ids.
 * The first PostgreSQL probe failed in 0.00s because `lh-pg-test` had just been started and was not accepting connections. A two-second readiness wait after `docker start` made the same test pass; the container was stopped after the probe.
 * H1/H3 remain blocked: the deploy host still reported 14,188 MB swap used and the tagger active. This row is code and schema only, with no deploy.
+
+## M45-77.7 — resolver-aware parser — this turn
+
+* Seed groups win on a slug collision: `resolve` checks the shipped table before the store. Store groups pass the same non-empty and `MAX_MEMBERS` ceiling, so a proposal cannot smuggle a group that blows the 24-term budget.
+* Both plan mutations were proven from `$TMPDIR` copies: bypassing the resolver and dropping the extra slugs from the error each made its targeted test red (0/1), then the original source passed (1/1). The first bypass spelling failed to compile on type inference; an explicit `Vec<String>` collection made it a real assertion failure.
+* The free `trope_node` became a parser method, so all `trope:` call sites share the seed/store resolution and the same error. Steps 4–13 and H1/H3 remain parked as recorded.

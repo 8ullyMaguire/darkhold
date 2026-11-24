@@ -2,6 +2,8 @@
 //!
 //! Spec §15.3–15.6. Pure functions — no I/O.
 
+use crate::tropes::TropeResolver;
+
 /// A field in a fielded query.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum QueryField {
@@ -773,6 +775,23 @@ pub fn parse_query_with(
     Ok(ast)
 }
 
+/// Parse with store-backed trope groups. Every fielded term, budget and error
+/// still comes from this one parser (M45-77).
+pub fn parse_query_with_tropes<'a>(
+    input: &str,
+    budget: QueryBudget,
+    resolver: &'a TropeResolver<'a>,
+    extra_slugs: &[String],
+) -> std::result::Result<QueryAst, QueryError> {
+    let mut parser = Parser::new(input);
+    parser.budget = budget;
+    parser.trope_resolver = Some(resolver);
+    parser.extra_slugs = extra_slugs.to_vec();
+    let ast = parser.parse()?;
+    budget.check(&ast, 0)?;
+    Ok(ast)
+}
+
 /// Per-query cost bounds. §15.4.1.5, new in M46-05.
 ///
 /// Defaults are the spec's. Every field is instance config under §38.6, and a
@@ -933,6 +952,10 @@ struct Parser<'a> {
     /// nesting, and it is exactly the nesting that makes the compiled predicate
     /// exponentially wide -- so the depth is counted as it is entered.
     depth: usize,
+    /// Store-backed trope groups, when the caller supplies them (M45-77).
+    trope_resolver: Option<&'a TropeResolver<'a>>,
+    /// Their slugs, so an unknown name can name the groups that do exist.
+    extra_slugs: Vec<String>,
 }
 
 impl<'a> Parser<'a> {
@@ -942,6 +965,8 @@ impl<'a> Parser<'a> {
             pos: 0,
             budget: QueryBudget::default(),
             depth: 0,
+            trope_resolver: None,
+            extra_slugs: Vec::new(),
         }
     }
 
@@ -1247,7 +1272,7 @@ impl<'a> Parser<'a> {
                             return Ok(node);
                         }
                         if f == QueryField::Trope {
-                            return trope_node(&value, start);
+                            return self.trope_node(&value, start);
                         }
                         return Ok(QueryAst::Fielded(f, value));
                     }
@@ -1298,7 +1323,7 @@ impl<'a> Parser<'a> {
                 }
 
                 if f == QueryField::Trope {
-                    return trope_node(value, start);
+                    return self.trope_node(value, start);
                 }
                 return Ok(QueryAst::Fielded(f, value.to_owned()));
             }
@@ -1772,6 +1797,27 @@ impl<'a> Parser<'a> {
     fn advance_keyword(&mut self, kw: &str) {
         self.pos += kw.len();
     }
+
+    /// `trope:<slug>` becomes the `Or` of its member tags (M45-68, M45-77).
+    /// Seed and store groups expand through this one method, so the budget and
+    /// the unknown-name message cannot disagree about which groups exist.
+    fn trope_node(&self, value: &str, offset: usize) -> Result<QueryAst, QueryError> {
+        let members = crate::tropes::resolve(value, self.trope_resolver).ok_or_else(|| {
+            QueryError::new(
+                format!(
+                    "trope:{value}: not a trope group — expected one of {}",
+                    crate::tropes::active_slugs(&self.extra_slugs).join(", ")
+                ),
+                offset,
+            )
+        })?;
+        Ok(QueryAst::Or(
+            members
+                .into_iter()
+                .map(|member| QueryAst::Fielded(QueryField::Tag, member))
+                .collect(),
+        ))
+    }
 }
 
 impl std::fmt::Display for QueryError {
@@ -1782,31 +1828,46 @@ impl std::fmt::Display for QueryError {
 
 impl std::error::Error for QueryError {}
 
-/// `trope:<slug>` becomes the `Or` of its member tags (M45-68).
-///
-/// The expansion is a **disjunction**: a work carrying any one of the group's tags satisfies it. An
-/// unknown name is refused with the groups that exist, because "no works matched" for a name that was
-/// never a group is the answer that teaches a reader nothing.
-fn trope_node(value: &str, offset: usize) -> Result<QueryAst, QueryError> {
-    let members = crate::tropes::expand(value).ok_or_else(|| {
-        QueryError::new(
-            format!(
-                "trope:{value}: not a trope group — expected one of {}",
-                crate::tropes::slugs().join(", ")
-            ),
-            offset,
-        )
-    })?;
-    Ok(QueryAst::Or(
-        members
-            .iter()
-            .map(|member| QueryAst::Fielded(QueryField::Tag, (*member).to_owned()))
-            .collect(),
-    ))
-}
-
 #[cfg(test)]
 mod tests {
+    #[test]
+    fn community_trope_expands_through_the_same_parser() {
+        let extra: Vec<String> = vec!["gamer".into(), "litrpg".into()];
+        let resolver = |slug: &str| {
+            if slug == "system-progression" {
+                Some(extra.clone())
+            } else {
+                None
+            }
+        };
+        let ast = parse_query_with_tropes(
+            "trope:system-progression",
+            QueryBudget::default(),
+            &resolver,
+            &["system-progression".into()],
+        )
+        .unwrap();
+        match ast {
+            QueryAst::Or(parts) => assert_eq!(parts.len(), 2, "{parts:?}"),
+            other => panic!("expected OR, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn unknown_trope_lists_seed_and_community_slugs() {
+        let resolver = |_slug: &str| -> Option<Vec<String>> { None };
+        let err = parse_query_with_tropes(
+            "trope:nope",
+            QueryBudget::default(),
+            &resolver,
+            &["system-progression".into()],
+        )
+        .unwrap_err()
+        .to_string();
+        assert!(err.contains("system-grind"), "{err}");
+        assert!(err.contains("system-progression"), "{err}");
+    }
+
     #[test]
     fn quoted_unicode_and_fielded_phrases_parse() {
         let fielded = super::parse_query(concat!("title:", '"', "été bleu", '"')).unwrap();
