@@ -39,6 +39,9 @@ source credentials, session identifiers, IP addresses, file paths.
 - **Received metadata is a suggestion**, applied through the existing tag-proposal queue.
 - **An unknown entity named by a signal is created immediately and visibly unverified**, with a
   signal count that is **review priority only**.
+- **A trope group is not a signal-created entity.** `M45-77` holds a named group of tags behind
+  proposal plus two independent human approvals, because it changes what `trope:` means across the
+  catalogue; this is §14.7's taxonomy change, not §15.11's "usable immediately, unverified" name.
 - **The response never reveals who submitted a signal**, and never reveals how many accounts hold
   a work.
 - **Latent demand:** a signal for a work the instance does not hold is the one form of demand that

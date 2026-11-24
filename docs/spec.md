@@ -2841,6 +2841,13 @@ proposal → review → quorum → apply → reindex → preserve redirect/histo
 
 Cross-source identity proposals use an equivalent workflow.
 
+**`M45-77` addition (2026-11-24):** a community trope group — one name expanding to 1..10 real
+tags in `trope:` search — goes through this same proposal/review/quorum/apply shape. Curators
+(`accounts.is_curator` OR active `curator_roles`) and accounts at or above `[tropes].proposal_min_trust`
+(default 3) may propose; two independent approvals from that pool make the group active, and the
+proposer may not vote. The five shipped groups stay code-defined. Spec:
+`docs/spec-amendments/community-trope-proposals.md`.
+
 Metadata correction supports title, author attribution, summary, completion status, language, source mapping, taxonomy assertions.
 
 Authors control their authored work metadata under moderation policy. Curators cannot silently rewrite author text. Private imported metadata may be corrected locally without changing shared records. Source updates do not silently discard local overrides. Every shared correction records provenance and history.

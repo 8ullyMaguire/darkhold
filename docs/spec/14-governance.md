@@ -239,6 +239,13 @@ permanent ban 3, emergency containment 1 then review, metadata correction 2, ext
 **"Quorum" means human reviewers.** Three automated signals agreeing is a *confidence* threshold,
 and calling it quorum would corrupt a load-bearing term.
 
+**`M45-77` amendment (2026-11-24):** a community trope group — one name expanding to 1..10 real
+tags in `trope:` search — is a taxonomy change under this rule. Curators (`accounts.is_curator` OR
+an active `curator_roles` entry) and accounts at or above `[tropes].proposal_min_trust` (default 3)
+may propose one; two independent approvals from the same pool make it active, and the proposer may
+not vote. A one-person quorum is never implied by single-admin mode (§19.3). Spec:
+`docs/spec-amendments/community-trope-proposals.md`.
+
 ## 14.8 Appeals
 
 An appeal is filed against a sanction, decided by a fresh jury. The outcome ladder is explicit and

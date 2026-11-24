@@ -1,5 +1,26 @@
 # Known gaps
 
+## M45-77 — trope groups are code-defined; users cannot propose them (measured 2026-11-24)
+
+`trope:<slug>` expands from the static `TROPES` table in
+`crates/domain/src/tropes.rs`: five shipped groups, capped at 10 tags each by
+the 24-term query budget. `GET /api/v1/tropes` is read-only; there is no
+proposal, vote or store row behind a group. A signed-in account can create one
+canonical taxonomy node with `POST /api/v1/taxonomy` (including `kind="trope"`),
+but that is a single tag and `trope:` search ignores it. The operator-only
+`POST /api/v1/operator/trope-clusters` is the M69-18 coverage checklist, not
+search vocabulary.
+
+Live reviewer pool: 2 accounts at or above TL3, `accounts.is_curator` 0,
+`curator_roles` 0. The owner chose curator (`is_curator` OR active role) or
+TL>=3 to propose, with two independent approvals and the proposer excluded;
+that means no group can pass on this instance until another curator is
+granted. The rule is intentionally not weakened. Spec:
+`docs/spec-amendments/community-trope-proposals.md`; plan:
+`docs/plans/community-trope-proposals.md`; roadmap:
+`docs/ROADMAP-community-trope-proposals.md` (row `M45-77`). No code was changed
+for this finding.
+
 ## M45-76 — automatic WIP/abandoned lifecycle does not exist yet (measured 2026-11-24)
 
 The live `darkhold` database has the vocabulary but not the rule. `works.completion`

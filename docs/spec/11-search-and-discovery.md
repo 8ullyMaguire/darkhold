@@ -33,6 +33,15 @@ from any source" therefore cannot be expressed today. Spec:
 `docs/plans/stale-popular-unrated-search.md`; roadmap:
 `docs/ROADMAP-stale-popular-unrated-search.md`.
 
+**Not shipped yet (`M45-77`, measured 2026-11-24):** the five `trope:` groups are
+a static table in `crates/domain/src/tropes.rs` and `GET /api/v1/tropes` is
+read-only. Curators and TL>=3 accounts cannot propose a group of tags, and there
+is no quorum path to make one active. The accepted decision is a proposal with
+two independent approvals from curators (`is_curator` OR active role) or TL>=3
+accounts, proposer excluded; spec:
+`docs/spec-amendments/community-trope-proposals.md`; plan:
+`docs/plans/community-trope-proposals.md`.
+
 ## 11.3 Body full-text
 
 Where the retention policy is `cache`, the reader can search **inside** the text of the works they

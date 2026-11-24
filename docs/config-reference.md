@@ -206,6 +206,29 @@ The automatic mark carries `completion_source = 'sweep'`; the UI labels it
 `Abandoned · no update in N months` rather than attributing the decision to the
 author.
 
+**Planned, not yet readable from the file:** `auto_abandon`,
+`auto_abandon_after_months` and `completion_review_min_trust` are part of the
+`M45-76` plan, not of `WorksSection` in this tree. Writing them into
+`darkhold.toml` today has no effect; `docs/plans/automatic-work-lifecycle.md`
+wires them before the feature ships. `max_fork_depth` and
+`gated_metadata_public` are real file-backed keys today.
+
+## `[tropes]`
+
+Community trope proposal governance (M45-77, amendment
+`docs/spec-amendments/community-trope-proposals.md`).
+
+| Key | Type | Default | Purpose |
+|-----|------|---------|---------|
+| `proposal_min_trust` | `int` | `3` | Trust level at or above which a non-curator may propose and vote; `accounts.is_curator` OR an active curator role also grants the power |
+| `quorum` | `int` | `2` | Independent approvals required; values below 2 are refused at load, because a one-person quorum is not a quorum (§14.7) |
+| `voting_days` | `int` | `7` | Days a proposal stays open before it expires |
+
+The proposer may not vote on their own proposal, and one account gets one vote.
+These keys are wired through `FileConfig` in the M45-77 plan; the
+`config_sections` test loads them from a real `darkhold.toml` and also refuses a
+misspelled key.
+
 ## `[jobs]`
 
 Job queue settings (spec §38).
