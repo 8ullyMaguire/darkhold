@@ -25,6 +25,7 @@ Done (latest): TA1 private taste pipeline, TA2 daily aggregation and TA3-1 BFS v
 | M45-76.17 | Add lifecycle units and runbook | RED: all three files absent | file/flag probe exit 0; unit calls the deploy host's `dh` path; timer 04:45 and installed disabled | this turn |
 | M45-76.18 | Publish and render provenance | RED: `/meta` had no `works` block; card showed plain `Abandoned` | `cargo test -p darkhold-app --test lifecycle_meta` -> 1 passed; vitest WorkCard 6 passed; vite build exit 0 | this turn |
 | M45-76.19 | Mutation guard: source-complete outranks the clock | Removing `source_says_complete` from `decide` left `a_source_complete_work_is_concluded` green only if the suite does not guard it | mutant: 0 passed, 1 failed; restored: 1 passed, 0 failed; source hash `9403454091e6…` restored | this turn |
+| M45-76.20 | Mutation guard: hiatus is sweepable | Narrowing both candidate queries to `in_progress` only would silently strand hiatus works | mutant: 0 passed, 1 failed on `a_hiatus_work_is_swept`; restored: 1 passed; hash `eb9e97a15c23…` | this turn |
 
 Open queue (*0 unblocked, 9 blocked*): none.
 

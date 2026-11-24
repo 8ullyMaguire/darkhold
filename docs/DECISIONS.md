@@ -183,3 +183,8 @@ The owner states ascend is unfrozen and authorises writes. The previous block co
 
 * Mutated `crates/domain/src/work_lifecycle.rs` from a copy under `$TMPDIR` (the scratch path, never the system temp dir), ran only `a_source_complete_work_is_concluded`, and restored the original in a `finally` block. The mutant went 0/1 red; the restored source went 1/1 green; the SHA-256 prefix matched before and after.
 * No product source changed. The remaining four mutation guards are still unrun; H3, the live dry run and the owner-gated items are unchanged.
+
+## M45-76.20 — mutation guard 2 of 5 — this turn
+
+* Mutated both dialect strings in the candidates query from a `$TMPDIR` copy so the hiatus case had to fail on whichever backend the test used. `a_hiatus_work_is_swept` went 0/1 red, and the restored source went 1/1 green with the original SHA-256 prefix.
+* No product source changed. Three guards remain, plus H3, the live dry run and the owner-gated items.
