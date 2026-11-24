@@ -204,3 +204,9 @@ The owner states ascend is unfrozen and authorises writes. The previous block co
 * First mutant form replaced the curator result with `Ok(false)`, which left the query result unused and was rejected by the repo's denied warnings before reaching the test. That is a compile failure, not evidence about the guard.
 * Corrected by inverting `value != 0` to `value == 0`, keeping the row used: the reviewer-authority test then failed on the low-trust non-curator assertion (0/1), and the restored source passed (1/1) with its original SHA-256 prefix.
 * All five planned mutation guards are now proven. No product source changed. H3, the live dry run, H1, M45-77 and the TA3 items remain parked on their existing unblocks.
+
+## M45-77.6 — migration 0219 — this turn
+
+* The plan sketched `proposed_by TEXT NOT NULL ... ON DELETE SET NULL`, which is self-contradictory: SQLite would refuse the delete. Both dialect arms make `proposed_by` and `decided_by` nullable so deleting an account preserves proposal history without inventing a synthetic actor. No public read exposes those ids.
+* The first PostgreSQL probe failed in 0.00s because `lh-pg-test` had just been started and was not accepting connections. A two-second readiness wait after `docker start` made the same test pass; the container was stopped after the probe.
+* H1/H3 remain blocked: the deploy host still reported 14,188 MB swap used and the tagger active. This row is code and schema only, with no deploy.

@@ -1,4 +1,4 @@
-//! M45-76 Step 1: migration 0218 must put completion provenance in the schema.
+//! Migration catalogue probes: 0218 completion provenance and 0219 community tropes.
 //!
 //! The probe uses the real embedded catalogue through `TestDb`, not a hand-run
 //! SQL file: an operator upgrades by replacing one binary, so a migration that
@@ -90,6 +90,46 @@ async fn migration_0218_adds_completion_provenance() {
             .iter()
             .any(|id| id == "0218_work_completion_marks"),
         "the embedded catalogue must record 0218 as applied: {:?}",
+        tdb.applied_migrations()
+    );
+    tdb.cleanup().await;
+}
+
+#[tokio::test]
+async fn migration_0219_adds_community_trope_governance() {
+    let tdb = test_support::TestDb::connect_with_dir("m45-77-0219", &scratch("trope-schema")).await;
+    let db = tdb.db();
+    assert!(
+        has_table(db, "trope_proposals").await,
+        "trope_proposals is missing"
+    );
+    assert!(has_table(db, "trope_votes").await, "trope_votes is missing");
+    for column in [
+        "slug",
+        "action",
+        "payload",
+        "status",
+        "quorum_needed",
+        "closes_at",
+        "proposed_by",
+        "decided_by",
+    ] {
+        assert!(
+            has_column(db, "trope_proposals", column).await,
+            "trope_proposals.{column} is missing"
+        );
+    }
+    for column in ["proposal_id", "account_id", "value"] {
+        assert!(
+            has_column(db, "trope_votes", column).await,
+            "trope_votes.{column} is missing"
+        );
+    }
+    assert!(
+        tdb.applied_migrations()
+            .iter()
+            .any(|id| id == "0219_community_tropes"),
+        "the embedded catalogue must record 0219 as applied: {:?}",
         tdb.applied_migrations()
     );
     tdb.cleanup().await;
