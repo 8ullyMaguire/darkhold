@@ -196,6 +196,8 @@ pub mod work_characters;
 pub mod work_coordinates;
 pub mod work_discussion;
 pub mod work_lifecycle;
+// M45-77: community trope proposal governance.
+pub mod trope_governance;
 pub mod work_metrics;
 
 use std::borrow::Cow;

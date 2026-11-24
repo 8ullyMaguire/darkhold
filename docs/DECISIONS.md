@@ -228,3 +228,9 @@ The owner states ascend is unfrozen and authorises writes. The previous block co
 * `trope_governance::proposal_decided` delegates to the already-tested category tally instead of introducing a second quorum rule. `effective_status` compares canonical `Z` timestamps lexicographically and makes the deadline inclusive.
 * Slug grammar stays closed: 3–40 lowercase ASCII letters, digits and single hyphens. Removing the `--` rejection from a `$TMPDIR` copy made the slug test red (0/1); restoring it passed (1/1) with the original SHA-256 prefix.
 * Steps 6–13, H1/H3 and the live dry run remain parked as recorded.
+
+## M45-77.10 — dual-engine trope store — this turn
+
+* The live-slug unique index permits only one proposed/active row per slug, so an `update` proposal has its own slug and names the group in `payload.target_slug`. The active row's `created_at` is the optimistic version token; a stale `target_version` aborts the decision transaction and rolls back the status write.
+* PostgreSQL needed explicit casts in both directions: `?::uuid` / `?::timestamptz` on binds and `::text` / `::bigint` on selected columns, because the row struct is shared with SQLite and sqlx will not silently widen UUID, timestamp or INT4 columns into `String`/`i64`.
+* `lh-pg-test` needs a bounded `pg_isready` wait after `docker start`; a fixed three-second sleep still caught it mid-recovery. Container stopped after the probe. Steps 7–13, H1/H3 and the live dry run remain parked.
