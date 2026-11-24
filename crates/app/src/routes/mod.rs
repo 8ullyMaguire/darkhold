@@ -164,6 +164,7 @@ pub mod tombstones;
 pub mod translation;
 pub mod trends;
 pub mod trope_coverage;
+pub mod trope_proposals;
 pub mod typed_votes;
 pub mod vanguard;
 pub mod welcome;

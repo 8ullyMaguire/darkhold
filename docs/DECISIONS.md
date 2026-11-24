@@ -247,3 +247,10 @@ The owner states ascend is unfrozen and authorises writes. The previous block co
 * `ast_search::prepared` became async because the resolver reads active groups from the store; both callers were already async.
 * A failed group lookup is surfaced as an error rather than falling back to seed-only parsing. A silent fallback would let one surface disagree with another about what `trope:` means.
 * Steps 9–13, H1/H3 and the live dry run remain parked as recorded.
+
+## M45-77.13 — proposal/vote/settle routes — this turn
+
+* Authority refusal uses `TrustLevelInsufficient` rather than the plan's bare `AccessDenied`, so a TL2 caller sees both the level held and the configured bar. A proposer voting on their own proposal gets `AccessDenied` (403) for the independence rule.
+* The router is mounted under the existing `taxonomy` module gate, not a new module id: a new id would be disabled by default and make all five doors 404.
+* The tag-membership check uses a new `taxonomy::tag_exists` helper that reuses the renderer's three normal forms, with `query_sql::stripped_slug` made public for that reuse rather than reimplementing it.
+* `GET /tropes` now reports `source`, `proposal_id` and `version` and merges active community groups. Public proposal reads expose tallies and `expands_to`, never account ids or individual votes. Steps 10–13, H1/H3 and the live dry run remain parked.

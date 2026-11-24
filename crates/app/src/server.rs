@@ -1104,6 +1104,13 @@ pub fn build_router(state: AppState) -> Router {
             routes::taxonomy::router(),
             RouteClass::Write,
         ))
+        // Community trope proposals (M45-77): public reads and gated writes.
+        .merge(module_mount(
+            &state,
+            "taxonomy",
+            routes::trope_proposals::router(),
+            RouteClass::Write,
+        ))
         // The vocabulary as a document (T2.1): public, read-only, no session — the other site has none.
         .merge(module_mount(
             &state,

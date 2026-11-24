@@ -2127,3 +2127,39 @@ fn coverage_sentence(
         percent = share * 100.0
     )
 }
+
+/// Whether a tag name exists by the same three comparisons the query renderer
+/// uses for `tag:` (§15.3). A proposal must name real tags: an invented tag
+/// would expand to a group that matches nothing while looking usable.
+pub async fn tag_exists(db: &Database, tag: &str) -> Result<bool> {
+    let norm = darkhold_domain::exchange::normalise(tag);
+    let slug = darkhold_domain::query_sql::stripped_slug(tag);
+    let lower = tag.trim().to_lowercase();
+    let sql = db.sql(
+        "SELECT CASE WHEN EXISTS (SELECT 1 FROM canonical_entities \
+          WHERE kind = 'tag' AND (norm = ? OR norm = ? OR LOWER(canonical) = ?)) \
+          THEN 1 ELSE 0 END",
+        "SELECT CASE WHEN EXISTS (SELECT 1 FROM canonical_entities \
+          WHERE kind = 'tag' AND (norm = ? OR norm = ? OR LOWER(canonical) = ?)) \
+          THEN 1 ELSE 0 END",
+    );
+    let found: i64 = match db.backend() {
+        crate::Backend::Sqlite => {
+            sqlx::query_scalar(&sql)
+                .bind(&norm)
+                .bind(&slug)
+                .bind(&lower)
+                .fetch_one(db.sqlite_pool().expect("sqlite handle"))
+                .await?
+        }
+        crate::Backend::Postgres => {
+            sqlx::query_scalar(&sql)
+                .bind(&norm)
+                .bind(&slug)
+                .bind(&lower)
+                .fetch_one(db.postgres_pool().expect("postgres handle"))
+                .await?
+        }
+    };
+    Ok(found != 0)
+}

@@ -394,10 +394,10 @@ async fn tag_work(
 /// Public and static: the groups ship with the binary, so this is a document, not a query. A reader
 /// (or a client) can see exactly what `trope:dark-progression` will match before running it.
 async fn list_tropes(
-    State(_state): State<AppState>,
+    State(state): State<AppState>,
     MaybeSession(_user): MaybeSession,
-) -> Json<serde_json::Value> {
-    let items: Vec<serde_json::Value> = darkhold_domain::tropes::TROPES
+) -> ApiResult<Json<serde_json::Value>> {
+    let mut items: Vec<serde_json::Value> = darkhold_domain::tropes::TROPES
         .iter()
         .map(|group| {
             serde_json::json!({
@@ -405,10 +405,27 @@ async fn list_tropes(
                 "label": group.label,
                 "summary": group.summary,
                 "expands_to": group.members,
+                "source": "seed",
+                "proposal_id": null,
+                "version": "seed",
             })
         })
         .collect();
-    Json(serde_json::json!({ "items": items }))
+    let active = darkhold_db::trope_governance::active_group_details(state.db())
+        .await
+        .map_err(|e| ApiError(darkhold_domain::AppError::Internal(e)))?;
+    for group in active {
+        items.push(serde_json::json!({
+            "slug": group.slug,
+            "label": group.label,
+            "summary": group.summary,
+            "expands_to": group.members,
+            "source": "community",
+            "proposal_id": group.id,
+            "version": group.version,
+        }));
+    }
+    Ok(Json(serde_json::json!({ "items": items })))
 }
 
 /// §6.4's vote: a reader saying a tag is right, wrong, or taking the claim back.

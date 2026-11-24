@@ -8018,4 +8018,40 @@ pub const ROUTE_TABLE: &[RouteEntry] = &[
         path: "/works/{id}/completion",
         audience: Audience::Authenticated,
     },
+    // M45-77: community trope proposals. Public reads reveal no account ids.
+    RouteEntry {
+        file: "trope_proposals.rs",
+        handler: "create_proposal",
+        method: "POST",
+        path: "/tropes/proposals",
+        audience: Audience::Authenticated,
+    },
+    RouteEntry {
+        file: "trope_proposals.rs",
+        handler: "list_proposals",
+        method: "GET",
+        path: "/tropes/proposals",
+        audience: Audience::Public,
+    },
+    RouteEntry {
+        file: "trope_proposals.rs",
+        handler: "get_proposal",
+        method: "GET",
+        path: "/tropes/proposals/{id}",
+        audience: Audience::Public,
+    },
+    RouteEntry {
+        file: "trope_proposals.rs",
+        handler: "vote",
+        method: "POST",
+        path: "/tropes/proposals/{id}/vote",
+        audience: Audience::Authenticated,
+    },
+    RouteEntry {
+        file: "trope_proposals.rs",
+        handler: "settle",
+        method: "POST",
+        path: "/operator/tropes/settle",
+        audience: Audience::Operator,
+    },
 ];

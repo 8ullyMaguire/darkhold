@@ -452,7 +452,7 @@ fn taxonomy_predicate(relation: &str, node_column: &str, kind: &str, value: &str
 ///
 /// Not a second normaliser to adopt — it exists so a query can reach the rows
 /// that already carry it. See `taxonomy_predicate`.
-fn stripped_slug(value: &str) -> String {
+pub fn stripped_slug(value: &str) -> String {
     value
         .chars()
         .filter(|c| c.is_alphanumeric())

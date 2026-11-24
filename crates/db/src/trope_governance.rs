@@ -35,6 +35,18 @@ pub struct ProposalPayload {
     pub target_slug: Option<String>,
     /// The active row's `created_at`, used as an optimistic version token.
     pub target_version: Option<String>,
+    /// Coarse proposer role for public replies; never an account id.
+    pub proposer_role: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize)]
+pub struct ActiveGroupDetail {
+    pub id: String,
+    pub slug: String,
+    pub label: String,
+    pub summary: String,
+    pub members: Vec<String>,
+    pub version: String,
 }
 
 #[derive(Debug, Clone, Serialize, PartialEq, Eq)]
@@ -45,7 +57,7 @@ pub struct SettleReport {
     pub remaining: i64,
 }
 
-fn parse_payload(raw: &str) -> Result<ProposalPayload> {
+pub fn parse_payload(raw: &str) -> Result<ProposalPayload> {
     serde_json::from_str(raw).map_err(|e| anyhow!("malformed trope proposal payload: {e}"))
 }
 
@@ -437,6 +449,41 @@ pub async fn active_community_groups(db: &Database) -> Result<Vec<(String, Vec<S
         .map(|(slug, raw)| {
             let payload = parse_payload(&raw)?;
             Ok((slug, payload.members))
+        })
+        .collect()
+}
+
+/// Public taxonomy detail for active community groups: the row id is the
+/// proposal reference and `created_at` is the group's version token.
+pub async fn active_group_details(db: &Database) -> Result<Vec<ActiveGroupDetail>> {
+    let sql = db.sql(
+        "SELECT id, slug, payload, created_at FROM trope_proposals WHERE status = 'active' ORDER BY slug",
+        "SELECT id::text AS id, slug, payload, created_at::text AS created_at \
+         FROM trope_proposals WHERE status = 'active' ORDER BY slug",
+    );
+    let rows: Vec<(String, String, String, String)> = match db.backend() {
+        Backend::Sqlite => {
+            sqlx::query_as(&sql)
+                .fetch_all(db.sqlite_pool().expect("sqlite handle"))
+                .await?
+        }
+        Backend::Postgres => {
+            sqlx::query_as(&sql)
+                .fetch_all(db.postgres_pool().expect("postgres handle"))
+                .await?
+        }
+    };
+    rows.into_iter()
+        .map(|(id, slug, raw, version)| {
+            let payload = parse_payload(&raw)?;
+            Ok(ActiveGroupDetail {
+                id,
+                slug,
+                label: payload.label,
+                summary: payload.summary,
+                members: payload.members,
+                version,
+            })
         })
         .collect()
 }
