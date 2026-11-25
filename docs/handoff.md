@@ -11,7 +11,7 @@ Seven rows are queued as FS-01/02/03 and FS-04..FS-07 in `docs/plans/roadmap-rem
 and use; the rest is already implemented or explicitly parked. See
 `docs/spec-amendments/faceted-search-brief-2026-11-26.md`.
 
-## 2026-11-26 — UI critical pass (this commit)
+## 2026-11-26 — UI critical pass (ee830b5c)
 
 The full route sweep found three visual systems stitched together: server documents, SPA shell and injected Polaris
 chrome. Fixed in place: Archive palette is genuinely dark and its link/footer accent now passes AA (probe
