@@ -72,14 +72,14 @@ Done (earlier): TA1 private taste pipeline, TA2 daily aggregation and TA3-1 BFS 
 | TA3-B1 | Decide the full gate | owner chose targeted-only | owner asked why; no reason found; declined, no full sweep | 3d98fe05 |
 | TA3-B2 | Clear the checkout handover | another session was said to own the files | owner: no other session on darkhold; blocker closed, M69-24 stays planned/default-off | 3d98fe05 |
 | TA3-B4 | Register Discord commands globally | owner chose leave parked | 1 command / 13 subcommands registered; GET /applications/{id}/commands verified | 3d98fe05 |
-| UX-1 | UI/UX repair from the live library audit | RED: empty state, 9 nav items, 17 sub-44 targets, premature install strip | targeted tests 24/24, svelte-check 0 errors, vite build ok, live measurements 1440/390 | pending commit |
-| UX-2 | UI/UX repair from the live library audit | RED: empty state, 10 nav items (812px row in 522px), 17 sub-44 targets, premature install strip | targeted tests 24/24, svelte-check 0 errors, vite build ok, live nav scrollWidth <= clientWidth | pending commit |
-| UX-3 | UI/UX repair from the live library audit | RED: empty state, 9 nav items, 17 sub-44 targets, premature install strip | targeted tests 24/24, svelte-check 0 errors, vite build ok, live measurements 1440/390 | pending commit |
-| UX-4 | UI/UX repair from the live library audit | RED: empty state, 9 nav items, 17 sub-44 targets, premature install strip | targeted tests 24/24, svelte-check 0 errors, vite build ok, live measurements 1440/390 | pending commit |
-| UX-5 | UI/UX repair from the live library audit | RED: empty state, 9 nav items, 17 sub-44 targets, premature install strip | targeted tests 24/24, svelte-check 0 errors, vite build ok, live measurements 1440/390 | pending commit |
-| UX-6 | UI/UX repair from the live library audit | RED: empty state, 9 nav items, 17 sub-44 targets, premature install strip | targeted tests 24/24, svelte-check 0 errors, vite build ok, live measurements 1440/390 | pending commit |
-| UX-7 | UI/UX repair from the live library audit | RED: empty state, 9 nav items, 17 sub-44 targets, premature install strip | targeted tests 24/24, svelte-check 0 errors, vite build ok, live measurements 1440/390 | pending commit |
-| UX-8 | UI/UX repair from the live library audit | RED: empty state, 9 nav items, 17 sub-44 targets, premature install strip | targeted tests 24/24, svelte-check 0 errors, vite build ok, live measurements 1440/390 | pending commit |
+| UX-1 | UI/UX repair from the live library audit | RED: empty state, 9 nav items, 17 sub-44 targets, premature install strip | targeted tests 24/24, svelte-check 0 errors, vite build ok, live measurements 1440/390 | 452b4087 |
+| UX-2 | UI/UX repair from the live library audit | RED: empty state, 10 nav items (812px row in 522px), 17 sub-44 targets, premature install strip | targeted tests 24/24, svelte-check 0 errors, vite build ok, live nav scrollWidth <= clientWidth | 452b4087 |
+| UX-3 | UI/UX repair from the live library audit | RED: empty state, 9 nav items, 17 sub-44 targets, premature install strip | targeted tests 24/24, svelte-check 0 errors, vite build ok, live measurements 1440/390 | 452b4087 |
+| UX-4 | UI/UX repair from the live library audit | RED: empty state, 9 nav items, 17 sub-44 targets, premature install strip | targeted tests 24/24, svelte-check 0 errors, vite build ok, live measurements 1440/390 | 452b4087 |
+| UX-5 | UI/UX repair from the live library audit | RED: empty state, 9 nav items, 17 sub-44 targets, premature install strip | targeted tests 24/24, svelte-check 0 errors, vite build ok, live measurements 1440/390 | 452b4087 |
+| UX-6 | UI/UX repair from the live library audit | RED: empty state, 9 nav items, 17 sub-44 targets, premature install strip | targeted tests 24/24, svelte-check 0 errors, vite build ok, live measurements 1440/390 | 452b4087 |
+| UX-7 | UI/UX repair from the live library audit | RED: empty state, 9 nav items, 17 sub-44 targets, premature install strip | targeted tests 24/24, svelte-check 0 errors, vite build ok, live measurements 1440/390 | 452b4087 |
+| UX-8 | UI/UX repair from the live library audit | RED: empty state, 9 nav items, 17 sub-44 targets, premature install strip | targeted tests 24/24, svelte-check 0 errors, vite build ok, live measurements 1440/390 | 452b4087 |
 
 Open queue (*0 unblocked, 1 blocked*): none.
 
