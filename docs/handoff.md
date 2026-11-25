@@ -11,7 +11,7 @@ Seven rows are queued as FS-01/02/03 and FS-04..FS-07 in `docs/plans/roadmap-rem
 and use; the rest is already implemented or explicitly parked. See
 `docs/spec-amendments/faceted-search-brief-2026-11-26.md`.
 
-## 2026-11-26 — FS-03 include/exclude chips (this commit)
+## 2026-11-26 — FS-03 include/exclude chips (ead1bbba)
 
 Search filter chips now flip between `field:"value"` and `-field:"value"` with one click; the chip is struck through while excluded and flips back. The Search filter bar is the single include/exclude surface; server-owned QueryStatePanel chips and entity-page `MetadataChip` selection controls were left alone. A direct load of `/search` serves the server-rendered page, so the live DOM proof navigates there from the SPA shell. Proof: `Search.test.ts` 27/27, `svelte-check` 0 errors, release build 0, home 200, live browser requests include -> exclude -> include with all six assertions true.
 
