@@ -8,7 +8,7 @@ returns rows; mutant must fail.
 
 Relaxations are computed server-side only for a zero-hit query. Each removable top-level AND clause is removed in
 turn; a candidate is offered only when the shortened query actually returns rows. This avoids client-side guessing
-and avoids offering an empty "rescue". Cap at three candidates and eight clauses so a hostile query cannot fan out.
+and avoids offering an empty "rescue". Cap at three candidates and eight clauses so a hostile query cannot fan out. When one clause is itself impossible, dropping only the other clauses still leaves it; a second pass detects that blocking clause and offers removals that name it plus one more clause.
 The label names the removed clause (`Remove tag:impossible`) and the candidate query is copied verbatim into the URL
 on click, reusing the existing query/URL round trip from FS-05.
 
@@ -105,8 +105,9 @@ Build a `TestDb`, insert an account/pseud, three works tagged `fandom:alpha`, `f
 2. Every returned `query` is a clause-removal string and contains no `tag:impossible`.
 3. Follow the first relaxation query -> `items` non-empty.
 
-Mutant guard: temporarily invert `if rows.is_empty() { continue; }` to `if !rows.is_empty() { continue; }`; the test
-must fail; restore and rerun green.
+Mutant guard: temporarily invert `if rows.is_empty() { return None; }` in `probe_relaxation`; the test must fail with
+only zero-count candidates; restore and rerun green. Measured mutant exit was 101 with
+`assertion 'left == right' failed: expected three named removals`.
 
 ## Step 4 — frontend (`frontend/src/lib/api.ts`, `Search.svelte`, `Search.test.ts`)
 

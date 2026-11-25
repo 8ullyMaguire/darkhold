@@ -1887,6 +1887,86 @@ impl std::fmt::Display for QueryError {
 
 impl std::error::Error for QueryError {}
 
+/// Split a canonical query on top-level ` AND ` separators, respecting double quotes.
+pub fn and_clauses(query: &str) -> Vec<String> {
+    let mut parts = Vec::new();
+    let mut current = String::new();
+    let mut quoted = false;
+    let mut chars = query.chars().peekable();
+    while let Some(c) = chars.next() {
+        if c == '"' {
+            quoted = !quoted;
+            current.push(c);
+            continue;
+        }
+        if !quoted && c == 'A' {
+            let rest: String = chars.clone().take(3).collect();
+            if rest == "ND " {
+                chars.next();
+                chars.next();
+                chars.next();
+                if !current.trim().is_empty() {
+                    parts.push(current.trim().to_owned());
+                }
+                current.clear();
+                continue;
+            }
+        }
+        current.push(c);
+    }
+    if !current.trim().is_empty() {
+        parts.push(current.trim().to_owned());
+    }
+    parts
+}
+
+/// `(label, relaxed query)` for dropping one top-level AND clause at a time.
+pub fn relaxation_candidates(query: &str) -> Vec<(String, String)> {
+    let clauses = and_clauses(query);
+    if clauses.len() < 2 {
+        return Vec::new();
+    }
+    clauses
+        .iter()
+        .enumerate()
+        .take(8)
+        .map(|(i, dropped)| {
+            let rest = clauses
+                .iter()
+                .enumerate()
+                .filter(|(j, _)| *j != i)
+                .map(|(_, clause)| clause.as_str())
+                .collect::<Vec<_>>()
+                .join(" AND ");
+            (format!("Remove {dropped}"), rest)
+        })
+        .collect()
+}
+
+/// Same as `relaxation_candidates`, but always drops `forced` as well.
+/// Used when one clause is itself impossible: dropping only the other clauses
+/// still leaves the impossible clause, so those "relaxations" would be empty.
+pub fn relaxation_candidates_forcing(query: &str, forced: &str) -> Vec<(String, String)> {
+    let clauses = and_clauses(query);
+    if clauses.len() < 3 {
+        return Vec::new();
+    }
+    clauses
+        .iter()
+        .filter(|clause| clause.as_str() != forced)
+        .take(8)
+        .map(|dropped| {
+            let rest = clauses
+                .iter()
+                .filter(|clause| clause.as_str() != forced && clause.as_str() != dropped)
+                .map(|clause| clause.as_str())
+                .collect::<Vec<_>>()
+                .join(" AND ");
+            (format!("Remove {forced} and {dropped}"), rest)
+        })
+        .collect()
+}
+
 #[cfg(test)]
 mod tests {
     #[test]
@@ -1951,6 +2031,23 @@ mod tests {
     fn parse_phrase() {
         let ast = parse_query("\"we were never alone\"").unwrap();
         assert_eq!(ast, QueryAst::Phrase("we were never alone".to_owned()));
+    }
+
+    #[test]
+    fn relaxation_candidates_drop_one_top_level_clause_at_a_time() {
+        assert_eq!(and_clauses("fandom:\"A AND B\" AND tag:x"), vec![
+            "fandom:\"A AND B\"".to_owned(),
+            "tag:x".to_owned(),
+        ]);
+        let candidates = relaxation_candidates("a AND b AND c");
+        assert_eq!(candidates.len(), 3);
+        assert_eq!(candidates[0], ("Remove a".to_owned(), "b AND c".to_owned()));
+        assert_eq!(candidates[1], ("Remove b".to_owned(), "a AND c".to_owned()));
+        assert_eq!(candidates[2], ("Remove c".to_owned(), "a AND b".to_owned()));
+        assert!(relaxation_candidates("only-one-clause").is_empty());
+        let forced = relaxation_candidates_forcing("a AND b AND c", "a");
+        assert_eq!(forced.len(), 2);
+        assert_eq!(forced[0], ("Remove a and b".to_owned(), "c".to_owned()));
     }
 
     #[test]

@@ -1877,13 +1877,22 @@ export interface SearchStateView {
 }
 
 /** The search result envelope. */
+export interface SearchRelaxation {
+  label: string;
+  query: string;
+  /** Up to 20 hits, capped so a zero-result page stays cheap. */
+  count: number;
+}
+
 export interface SearchResultList {
   items: SearchResult[];
+  /** Only present on a zero-hit query; each candidate is known to return rows. */
   facets?: FacetGroupView[];
   /** Which set the counts describe — not the page of hits. */
   facets_over?: string;
   facets_computed_at_ms_ago?: number;
   state?: SearchStateView;
+  relaxations?: SearchRelaxation[];
 }
 
 /** Search works using the AST query language. */

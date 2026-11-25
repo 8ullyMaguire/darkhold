@@ -603,6 +603,21 @@
       description="Try a different query, or use fielded search like fandom:name, tag:name, mood:name."
     >
       {#snippet action()}
+        {#if results?.relaxations && results.relaxations.length > 0}
+          <div class="relaxations" aria-label="Ways to widen this search">
+            {#each results.relaxations as relaxation (relaxation.query)}
+              <button
+                type="button"
+                onclick={() => {
+                  query = relaxation.query;
+                  void runSearch();
+                }}
+              >
+                {relaxation.label} ({relaxation.count})
+              </button>
+            {/each}
+          </div>
+        {/if}
         <button type="button" onclick={saveThisSearch} disabled={savingSearch}>
           Save and get new matches
         </button>
@@ -617,6 +632,13 @@
 </section>
 
 <style>
+  .relaxations {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-2);
+    margin-bottom: var(--space-2);
+  }
+
   .within-form {
     display: flex;
     flex-wrap: wrap;

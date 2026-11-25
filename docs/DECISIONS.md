@@ -343,6 +343,10 @@ it uses the same filtered nav list as desktop. No backend, routes or credential
 handling changed.
 
 
+## 2026-11-26 — FS-06 rescue candidates are verified, not guessed
+
+Relaxations are computed on the server only for a zero-hit query and only offered when a probe confirms rows. When a clause is impossible by itself, dropping the other clauses alone would still be empty, so the fallback removes the blocker plus one more clause and names both removals. The UI never invents a candidate.
+
 ## 2026-11-26 — FS-01 derives crossovers from fandom taxonomy
 
 A crossover is a work linked to more than one distinct fandom node. Deriving it from work_tags joined to canonical_entities(kind=fandom) avoids a denormalised flag that an importer could leave stale. The two UI presets replace each other because crossover:exclude AND crossover:only is a contradiction, not a refinement.

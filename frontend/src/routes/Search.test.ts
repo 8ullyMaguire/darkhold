@@ -97,6 +97,24 @@ describe('Search page', () => {
     expect(searchWorks).toHaveBeenLastCalledWith('winter AND mood:"Angst"', 20);
   });
 
+  it('offers a non-empty relaxation on a zero-result query', async () => {
+    searchWorks.mockResolvedValue({
+      items: [],
+      relaxations: [
+        { label: 'Remove tag:impossible', query: 'fandom:alpha', count: 2 },
+      ],
+    });
+    render(Search);
+    await fireEvent.input(screen.getByLabelText('Search query'), {
+      target: { value: 'tag:impossible AND fandom:alpha' },
+    });
+    await fireEvent.click(screen.getByText('Search'));
+    const rescue = await screen.findByRole('button', { name: 'Remove tag:impossible (2)' });
+    await fireEvent.click(rescue);
+    expect(searchWorks).toHaveBeenLastCalledWith('fandom:alpha', 20);
+    expect(new URLSearchParams(window.location.search).get('q')).toBe('fandom:alpha');
+  });
+
   it('saves a zero-result query as a view and attaches one daily alert', async () => {
     createCatalogueView.mockResolvedValue({ id: 'view-1' });
     createSearchAlert.mockResolvedValue({ id: 'alert-1', status: 'created' });

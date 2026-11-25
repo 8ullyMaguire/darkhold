@@ -261,6 +261,105 @@ async fn clear_history(
     Ok(Json(serde_json::json!({ "cleared": cleared })))
 }
 
+#[derive(Debug, serde::Serialize)]
+pub struct SearchRelaxation {
+    pub label: String,
+    pub query: String,
+    pub count: usize,
+}
+
+/// FS-06: on a zero-hit query, offer up to three shorter queries that actually return rows.
+async fn probe_relaxation(
+    state: &AppState,
+    label: String,
+    candidate: String,
+    viewer_id: Option<&str>,
+    content_filters: &[(String, String)],
+    scope: &SearchFilters,
+) -> Option<SearchRelaxation> {
+    let rows = search_works_ast_scoped(
+        state.db(),
+        &candidate,
+        viewer_id,
+        20,
+        content_filters,
+        scope,
+    )
+    .await
+    .ok()?;
+    // Mutant guard: inverting this emptiness check offers empty "rescues".
+    if rows.is_empty() {
+        return None;
+    }
+    Some(SearchRelaxation {
+        label,
+        query: candidate,
+        count: rows.len(),
+    })
+}
+
+async fn zero_result_relaxations(
+    state: &AppState,
+    query: &str,
+    viewer_id: Option<&str>,
+    content_filters: &[(String, String)],
+    scope: &SearchFilters,
+) -> Vec<SearchRelaxation> {
+    let mut out: Vec<SearchRelaxation> = Vec::new();
+
+    for (label, candidate) in darkhold_domain::query::relaxation_candidates(query) {
+        if let Some(relaxation) =
+            probe_relaxation(state, label, candidate, viewer_id, content_filters, scope).await
+        {
+            if !out.iter().any(|r| r.query == relaxation.query) {
+                out.push(relaxation);
+            }
+        }
+        if out.len() == 3 {
+            return out;
+        }
+    }
+
+    // One clause can be impossible on its own. Dropping the other clauses then
+    // still leaves it, so every single-clause "rescue" is empty. Remove that
+    // blocker plus one more clause and name both removals.
+    if out.len() < 3 {
+        let clauses = darkhold_domain::query::and_clauses(query);
+        for blocker in &clauses {
+            let alone = search_works_ast_scoped(
+                state.db(),
+                blocker,
+                viewer_id,
+                1,
+                content_filters,
+                scope,
+            )
+            .await
+            .map(|rows| rows.len());
+            if !matches!(alone, Ok(0)) {
+                continue;
+            }
+            for (label, candidate) in
+                darkhold_domain::query::relaxation_candidates_forcing(query, blocker)
+            {
+                if let Some(relaxation) =
+                    probe_relaxation(state, label, candidate, viewer_id, content_filters, scope)
+                        .await
+                {
+                    if !out.iter().any(|r| r.query == relaxation.query) {
+                        out.push(relaxation);
+                    }
+                }
+                if out.len() == 3 {
+                    return out;
+                }
+            }
+            break;
+        }
+    }
+    out
+}
+
 async fn search(
     State(state): State<AppState>,
     MaybeSession(session): MaybeSession,
@@ -348,6 +447,20 @@ async fn search(
     .await
     .map_err(|e| search_failure_for(&params.q, e))?;
 
+    // FS-06: only a genuinely empty result set pays for relaxation probes.
+    let relaxations = if results.is_empty() {
+        zero_result_relaxations(
+            &state,
+            &params.q,
+            viewer_id.as_deref(),
+            &filters,
+            &scope,
+        )
+        .await
+    } else {
+        Vec::new()
+    };
+
     // §9.6 / M47-08b: record the search — AFTER it succeeded, so a 422 from the query language
     // leaves no entry (a query the parser rejected is not one the reader would want offered
     // back), and with the count the reader is about to see rather than a later recount.
@@ -431,6 +544,7 @@ async fn search(
 
     Ok(Json(serde_json::json!({
         "items": items,
+        "relaxations": relaxations,
         "filters": {
             "min_words": min_words,
             "max_words": max_words,
