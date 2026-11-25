@@ -1,4 +1,4 @@
-//! Migration catalogue probes: 0218 completion provenance and 0219 community tropes.
+//! Migration catalogue probes: 0218 completion provenance, 0219 community tropes, 0220 source/work index.
 //!
 //! The probe uses the real embedded catalogue through `TestDb`, not a hand-run
 //! SQL file: an operator upgrades by replacing one binary, so a migration that
@@ -130,6 +130,40 @@ async fn migration_0219_adds_community_trope_governance() {
             .iter()
             .any(|id| id == "0219_community_tropes"),
         "the embedded catalogue must record 0219 as applied: {:?}",
+        tdb.applied_migrations()
+    );
+    tdb.cleanup().await;
+}
+
+
+#[tokio::test]
+async fn migration_0220_adds_source_key_work_index() {
+    let tdb = test_support::TestDb::connect_with_dir("m45-75-0220", &scratch("source-index")).await;
+    let db = tdb.db();
+    let count: i64 = match db.backend() {
+        Backend::Sqlite => {
+            sqlx::query("SELECT count(*) FROM sqlite_master WHERE type = 'index' AND name = ?")
+                .bind("idx_library_items_source_work")
+                .fetch_one(db.sqlite_pool().expect("sqlite handle"))
+                .await
+                .expect("probe sqlite index")
+                .get(0)
+        }
+        Backend::Postgres => {
+            sqlx::query("SELECT count(*) FROM pg_indexes WHERE indexname = $1 AND tablename = 'library_items'")
+                .bind("idx_library_items_source_work")
+                .fetch_one(db.postgres_pool().expect("postgres handle"))
+                .await
+                .expect("probe postgres index")
+                .get(0)
+        }
+    };
+    assert!(count > 0, "idx_library_items_source_work is missing");
+    assert!(
+        tdb.applied_migrations()
+            .iter()
+            .any(|id| id == "0220_source_key_work_index"),
+        "the embedded catalogue must record 0220 as applied: {:?}",
         tdb.applied_migrations()
     );
     tdb.cleanup().await;

@@ -67,19 +67,21 @@ pub const TABLE_COLUMNS: [Column; 9] = [
     Column::Source,
 ];
 
-/// The columns `dh q` can print, and why there are only five.
+/// The columns `dh q` can print.
 ///
-/// `/api/v1/search` answers with a hit, not a catalogue row: `work_id`, `title`, `author_handle`,
-/// `word_count`, `score`. It has no likes, no lifecycle, no dates and no source key, so a `q`
-/// table that offered those columns would print four blanks that read as "this work has no
-/// likes" — the lie the renderer's own `score` rule refuses. A reader who wants the catalogue's
-/// row for a title uses `dh rec --q`, which is the surface that has one.
-pub const SEARCH_COLUMNS: [Column; 5] = [
+/// `/api/v1/search` answers with a hit, not a catalogue row. Since M45-75.6 the hit also
+/// carries `source_key` and `source_updated_at` from the source row that supplied the
+/// popularity figure, so those two are honest columns here: a work with no source row
+/// prints an empty string, not a fabricated date. Likes and lifecycle still belong to
+/// `dh rec --q`, which is the surface that has them.
+pub const SEARCH_COLUMNS: [Column; 7] = [
     Column::Rank,
     Column::Score,
     Column::Words,
     Column::Title,
     Column::Author,
+    Column::Source,
+    Column::Updated,
 ];
 
 /// The JSONL columns, in the order this file promises.

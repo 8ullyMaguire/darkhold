@@ -57,6 +57,11 @@ async fn source_clock_viewer_and_sort_are_honoured_on_both_engines() {
         exec(db, &format!("INSERT INTO works (id,owner_pseud_id,title,visibility,lifecycle,completion,created_at,updated_at) VALUES ('01957700-0000-4000-8000-0000000000{work}','{U}','Work {work}','public','published','in_progress','2026-11-20T00:00:00Z','2026-11-20T00:00:00Z')")).await;
         exec(db, &format!("INSERT INTO library_items (id,account_id,work_id,source_key,source_work_key,title,status,source_updated_at,source_url,likes,created_at,updated_at) VALUES ('01957700-0000-4000-8000-0000000010{work}','{A}','01957700-0000-4000-8000-0000000000{work}','{key}','w{work}','Work {work}','ongoing','{at}','https://example.invalid/{work}',{likes},'2026-01-01T00:00:00Z','2026-01-01T00:00:00Z')")).await;
     }
+    // The clocks deliberately disagree with the likes: work 01 is newer but
+    // work 02 is more popular, so the two orderings must name different hits.
+    exec(db, "UPDATE works SET updated_at='2026-11-21T00:00:00Z' WHERE id='01957700-0000-4000-8000-000000000001'").await;
+    exec(db, "UPDATE works SET updated_at='2026-11-19T00:00:00Z' WHERE id='01957700-0000-4000-8000-000000000002'").await;
+
     // The viewer rated work 01; work 02 stays unrated.
     exec(db, &format!("INSERT INTO rating (id,account_id,pseud_id,work_id,stars,created_at,updated_at) VALUES ('01957700-0000-4000-8000-000000000021','{A}','{U}','01957700-0000-4000-8000-000000000001',5,'2026-11-20T00:00:00Z','2026-11-20T00:00:00Z')")).await;
 
@@ -78,7 +83,11 @@ async fn source_clock_viewer_and_sort_are_honoured_on_both_engines() {
     let popular = search(db, "", None, "popularity").await;
     assert_eq!(popular.first().map(String::as_str), Some("01957700-0000-4000-8000-000000000002"));
     let newest = search(db, "", None, "newest").await;
-    assert_eq!(newest.len(), 2);
+    assert_eq!(
+        newest.first().map(String::as_str),
+        Some("01957700-0000-4000-8000-000000000001")
+    );
+    assert_ne!(popular.first(), newest.first(), "the two orders must differ");
     let bad = search_works_ast_scoped(db, "", None, 20, &[], &SearchFilters { sort: Some("nope".to_owned()), ..Default::default() }).await;
     assert!(bad.is_err(), "an unknown sort must be refused by name");
     assert!(format!("{:?}", bad.err()).contains("nope"));

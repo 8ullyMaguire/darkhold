@@ -645,6 +645,22 @@ mod tests {
     }
 
     #[test]
+    fn source_columns_are_printable() {
+        let (_, args) = args(&[
+            "dh", "q", "tag:a", "--jsonl", "--fields", "title,source,updated",
+        ]);
+        let shape = shape(&args, false).expect("source and updated are search columns now");
+        let names: Vec<&str> = shape
+            .fields
+            .as_deref()
+            .expect("fields")
+            .iter()
+            .map(|c| c.name())
+            .collect();
+        assert_eq!(names, vec!["title", "source", "updated"], "{names:?}");
+    }
+
+    #[test]
     fn source_sort_and_exclude_rated_are_one_shareable_expression() {
         let (_, args) = args(&[
             "dh", "q", "tag:a", "--source", "qq,sv", "--sort", "popularity", "--exclude-rated",

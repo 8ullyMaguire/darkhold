@@ -6,6 +6,10 @@ The open queue, gates and blocked table are in `docs/plans/roadmap-remaining.md`
 `docs/FEATURE-LEDGER.md`, generated from `docs/requirements.csv`; row-by-row status and evidence stay in that CSV.
 Do not add another “current state” list here.
 
+## 2026-11-25 — M45-75 follow-up closed
+
+Hit carries `source_key`/`source_updated_at`; CLI prints them. Sort proof now mutable and mutant-red. Migration 0220 adds the source/work index after EXPLAIN showed a scan; live plan uses it twice. Build 1m46, migrate 0, health 200, `0.1.0+af2441ca.dirty`.
+
 ## 2026-11-25 — M45-75 query vocabulary shipped
 
 Dual-engine suite 1/1 on SQLite and PostgreSQL; domain and CLI targeted tests 1/1; app check exit 0. Release build 2m20 with the estate gate, deployed at `0.1.0+01c32f62.dirty`, health 200. Live anonymous `me:rated` -> 401 and `sort=nope` -> 422. Canonical public query returned 0 because source-linked works are not public published; parked with the exact unblock, no visibility change.

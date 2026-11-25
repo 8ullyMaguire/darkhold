@@ -101,6 +101,8 @@ async fn search_works_ast_impl(
                 word_count,
                 score,
                 _likes,
+                source_key,
+                source_updated_at,
                 _rating,
                 _updated_at,
                 lifecycle,
@@ -112,6 +114,8 @@ async fn search_works_ast_impl(
                     author_handle,
                     word_count,
                     score,
+                    source_key,
+                    source_updated_at,
                     status: status_word(&lifecycle, &visibility),
                 }
             },
@@ -147,6 +151,8 @@ type SearchRow = (
     i64,
     i64,
     i64,
+    String,
+    String,
     String,
     String,
     String,
@@ -405,6 +411,12 @@ fn render_statement(
          COUNT(works_index_terms.term) AS score, \
          (SELECT COALESCE(CAST(MAX(li_likes.likes) AS BIGINT), 0) \
           FROM library_items li_likes WHERE li_likes.work_id = works.id) AS likes, \
+         (SELECT li_hit.source_key FROM library_items li_hit \
+          WHERE li_hit.work_id = works.id \
+          ORDER BY COALESCE(li_hit.likes, 0) DESC, li_hit.source_key ASC LIMIT 1) AS source_key, \
+         (SELECT li_hit.source_updated_at FROM library_items li_hit \
+          WHERE li_hit.work_id = works.id \
+          ORDER BY COALESCE(li_hit.likes, 0) DESC, li_hit.source_key ASC LIMIT 1) AS source_updated_at, \
          works.rating, works.updated_at, \
          works.lifecycle, works.visibility \
          FROM works \

@@ -145,3 +145,30 @@ given, append once.)
 | Post-filter search results in the route | A page-sized post-filter cannot produce a page-sized result: the works it drops are never replaced, so "20 hits" means fewer than 20 rows. |
 | Reuse `updated:` with a new meaning | Silently changes every saved query and feed that already uses it. |
 | Add source columns to `works` | Duplicates provenance already stored on `library_items`; the two would drift, and migration 0132's timestamp contract would need repeating. |
+
+
+## Follow-up 2026-11-25 — the hit must carry its own source fact
+
+The amendment's own canonical command asks for
+`dh q … --fields title,source,updated`, but `SearchResult` carries neither a
+source key nor the source clock and `dh q` refuses both columns. A documented
+query that cannot print its own answer is an unfinished surface, so three rows
+are added here before the next pass.
+
+- **M45-75.6** — a works search hit carries `source_key` and
+  `source_updated_at` from the source row that supplied the popularity figure:
+  the one with the highest `library_items.likes`, tie-broken by `source_key`.
+  A work with no source row carries empty strings, never a fabricated date.
+  `dh q … --jsonl --fields title,source,updated` must print those keys; the
+  table's `--cols` vocabulary gains the same two names.
+- **M45-75.7** — the ordering proof must be able to fail. The fixture gives the
+  two works different `updated_at` clocks, and asserts that `sort=popularity`
+  and `sort=newest` name different first hits. Removing the popularity `ORDER
+  BY` arm must redden that assertion before the row closes.
+- **M45-75.8** — the source predicates are proved against the live planner,
+  not by assumption: `explain` must show the existing `library_items_work`
+  index being used for the correlated `EXISTS`. No new index is created unless
+  the plan shows a scan of 90k rows.
+
+Non-goals unchanged: no source-key list grammar, no change to `/catalogue`, no
+wider `me:` vocabulary, no visibility change to manufacture live hits.

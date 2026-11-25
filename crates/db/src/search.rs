@@ -35,6 +35,10 @@ pub struct SearchResult {
     pub author_handle: String,
     pub word_count: i64,
     pub score: i64,
+    /// Source key of the row that supplied the popularity figure; empty when there is none.
+    pub source_key: String,
+    /// That row's author clock; empty when there is none.
+    pub source_updated_at: String,
     /// Lifecycle status from `works.lifecycle`/`works.visibility`, in the same grouped query as the hit.
     /// One of `live`, `held`, `private`. Not derived from provenance: a referenced work can be live.
     pub status: String,
@@ -247,6 +251,8 @@ pub async fn search_works(db: &Database, needle: &str, limit: i64) -> Result<Vec
                         author_handle,
                         word_count,
                         score,
+                        source_key: String::new(),
+                        source_updated_at: String::new(),
                         status: "live".to_string(),
                     },
                 )
@@ -295,6 +301,8 @@ pub async fn search_works(db: &Database, needle: &str, limit: i64) -> Result<Vec
                         author_handle,
                         word_count,
                         score,
+                        source_key: String::new(),
+                        source_updated_at: String::new(),
                         status: "live".to_string(),
                     },
                 )
