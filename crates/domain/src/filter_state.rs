@@ -246,6 +246,7 @@ fn collect(
         QueryAst::ExistsCharacter(_)
         | QueryAst::ExistsRelationship(_)
         | QueryAst::Scoped(_)
+        | QueryAst::Me(_)
         | QueryAst::Expand { .. } => {}
     }
 }

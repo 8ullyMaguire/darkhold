@@ -76,11 +76,26 @@ pub const TROPES: &[TropeGroup] = &[
             "conquest",
         ],
     },
+    TropeGroup {
+        slug: "system-progression",
+        label: "System progression fantasy",
+        summary: "Numbers, levels and a power curve: system, gamer, LitRPG, celestial and CYOA stories.",
+        members: &[
+            "system",
+            "gamer",
+            "litrpg",
+            "stat-grinding",
+            "progression",
+            "celestial",
+            "cyoa",
+        ],
+    },
 ];
 
 /// The most tags a group may hold, and why.
+
 ///
-/// The parser refuses a query over 24 terms, a `tag:` term costs two, and a group has to leave room
+/// The parser refuses a query over 24 terms, a `tag:` term costs one predicate, and a group has to leave room
 /// for the rest of the query — a fandom clause and a sort-worthy filter at least. Ten members is
 /// twenty terms, which leaves four: enough for `AND tag:<fandom>` and one more.
 pub const MAX_MEMBERS: usize = 10;
@@ -147,6 +162,15 @@ mod tests {
         assert!(expand("nonsense").is_none());
         let slugs = slugs();
         assert!(slugs.contains(&"system-grind"), "{slugs:?}");
+    }
+
+    #[test]
+    fn system_progression_names_the_words_a_reader_types() {
+        let members = expand("system-progression").expect("a group");
+        for word in ["system", "gamer", "celestial", "cyoa", "progression"] {
+            assert!(members.contains(&word), "{word} missing from {members:?}");
+        }
+        assert!(members.len() <= MAX_MEMBERS);
     }
 
     #[test]

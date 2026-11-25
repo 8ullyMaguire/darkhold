@@ -20,6 +20,7 @@ pub fn render_user_query(ast: &QueryAst) -> Result<SqlFragment, QueryError> {
 
 fn render_node(ast: &QueryAst) -> Result<SqlFragment, QueryError> {
     match ast {
+        QueryAst::Me(_) => Err(QueryError::new("me:rated is a works field", 0)),
         // Free text matches the handle and the display name. Not the bio: a
         // reader searching for a person wants the person, and a bio is prose
         // that would match on any word in it and return a long tail of

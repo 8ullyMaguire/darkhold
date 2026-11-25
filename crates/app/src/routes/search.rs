@@ -490,6 +490,9 @@ pub fn search_failure(error: anyhow::Error) -> ApiError {
 /// `Validation`.
 pub fn search_failure_for(expression: &str, error: anyhow::Error) -> ApiError {
     match error.downcast_ref::<SearchError>() {
+        Some(search) if search.problem.is_viewer_required() => {
+            ApiError(darkhold_domain::AppError::AuthRequired)
+        }
         Some(search) => match search.problem.offset() {
             Some(offset) => ApiError(darkhold_domain::AppError::QueryRejected {
                 message: search.problem.to_string(),

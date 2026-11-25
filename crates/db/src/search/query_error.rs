@@ -15,21 +15,30 @@ pub enum QueryProblem {
     Parse { message: String, offset: usize },
     /// The query parsed but a field or operator cannot be applied here.
     Render { message: String },
+    /// The query needs a signed-in viewer (M45-75 `me:rated`).
+    ViewerRequired { message: String },
 }
 
 impl QueryProblem {
     /// The reason, safe to show a reader.
     pub fn message(&self) -> &str {
         match self {
-            Self::Parse { message, .. } | Self::Render { message } => message,
+            Self::Parse { message, .. }
+            | Self::Render { message }
+            | Self::ViewerRequired { message } => message,
         }
     }
 
     /// The character offset, when the failure is a parse failure.
+    /// Whether this failure means "sign in first" rather than "fix the query".
+    pub fn is_viewer_required(&self) -> bool {
+        matches!(self, Self::ViewerRequired { .. })
+    }
+
     pub fn offset(&self) -> Option<usize> {
         match self {
             Self::Parse { offset, .. } => Some(*offset),
-            Self::Render { .. } => None,
+            Self::Render { .. } | Self::ViewerRequired { .. } => None,
         }
     }
 }
@@ -39,6 +48,7 @@ impl fmt::Display for QueryProblem {
         match self {
             Self::Parse { message, offset } => write!(f, "{message} at offset {offset}"),
             Self::Render { message } => f.write_str(message),
+            Self::ViewerRequired { message } => f.write_str(message),
         }
     }
 }
@@ -64,6 +74,14 @@ impl SearchError {
     pub fn render(message: impl Into<String>) -> Self {
         Self {
             problem: QueryProblem::Render {
+                message: message.into(),
+            },
+        }
+    }
+
+    pub fn viewer(message: impl Into<String>) -> Self {
+        Self {
+            problem: QueryProblem::ViewerRequired {
                 message: message.into(),
             },
         }

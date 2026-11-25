@@ -26,6 +26,10 @@ pub enum QueryField {
     Completion,
     Published,
     Updated,
+    /// An import's source key, e.g. `qq`, `sv`, `sb`, `ao3`.
+    Source,
+    /// The author's clock, from `library_items.source_updated_at`.
+    SourceUpdated,
     MinQuality,
     Quality,
     // --- Cross-entity fields -------------------------------------------------
@@ -93,6 +97,8 @@ impl QueryField {
             Self::Completion => "completion",
             Self::Published => "published",
             Self::Updated => "updated",
+            Self::Source => "source",
+            Self::SourceUpdated => "source_updated",
             Self::MinQuality => "min_quality",
             Self::Quality => "quality",
             Self::Words => "words",
@@ -136,6 +142,8 @@ impl QueryField {
             "completion" => Self::Completion,
             "published" => Self::Published,
             "updated" => Self::Updated,
+            "source" => Self::Source,
+            "source_updated" => Self::SourceUpdated,
             "min_quality" => Self::MinQuality,
             "quality" => Self::Quality,
             "words" => Self::Words,
@@ -185,6 +193,8 @@ impl QueryField {
             | Self::Completion
             | Self::Published
             | Self::Updated
+            | Self::Source
+            | Self::SourceUpdated
             | Self::MinQuality
             | Self::Quality
             | Self::Words
@@ -248,6 +258,7 @@ impl QueryField {
                 | QueryField::Active
                 | QueryField::Published
                 | QueryField::Updated
+                | QueryField::SourceUpdated
                 | QueryField::Joined
                 | QueryField::Bookmarked
                 // A rating is orderable by rank, not by number (M71-15).
@@ -266,7 +277,12 @@ impl QueryField {
     pub fn comparison_value(self) -> ValueKind {
         match self {
             Self::Rating => ValueKind::Rank,
-            Self::Active | Self::Published | Self::Updated | Self::Joined | Self::Bookmarked => {
+            Self::Active
+            | Self::Published
+            | Self::Updated
+            | Self::SourceUpdated
+            | Self::Joined
+            | Self::Bookmarked => {
                 ValueKind::Date
             }
             _ if self.is_comparable() => ValueKind::Number,
@@ -547,6 +563,28 @@ impl CompareOp {
     }
 }
 
+/// A viewer-relative field (M45-75). Only `me:rated` is in scope; the wider
+/// `Me(MeField)` design in `docs/plans/advanced-search-as-built.md` is not.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum MeField {
+    Rated,
+}
+
+impl MeField {
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Self::Rated => "rated",
+        }
+    }
+
+    pub fn parse(raw: &str) -> Option<Self> {
+        match raw {
+            "rated" => Some(Self::Rated),
+            _ => None,
+        }
+    }
+}
+
 /// The query AST.
 #[derive(Debug, Clone, PartialEq)]
 pub enum QueryAst {
@@ -571,6 +609,8 @@ pub enum QueryAst {
     Or(Vec<QueryAst>),
     /// Logical NOT.
     Not(Box<QueryAst>),
+    /// A viewer-relative leaf: `me:rated` (M45-75).
+    Me(MeField),
     /// A work has this character, with these properties.
     ///
     /// §15.3. The first of the two nodes that were specified in §15.3 and had no
@@ -877,7 +917,7 @@ impl QueryBudget {
             // A scoped predicate is ONE term to the budget -- it compiles to a
             // single EXISTS however many bounds it carries. Pricing it by arity
             // would price it against a structure that does not exist at runtime.
-            QueryAst::Scoped(_) => leaf(terms)?,
+            QueryAst::Scoped(_) | QueryAst::Me(_) => leaf(terms)?,
             QueryAst::MinMatch {
                 needed,
                 terms: inner,
@@ -1137,6 +1177,20 @@ impl<'a> Parser<'a> {
         let term = &self.input[start..self.pos];
         if term.is_empty() {
             return Err(QueryError::new("expected a term".to_owned(), start));
+        }
+
+        // Viewer-relative leaves are parsed before the generic `field:` branch:
+        // `me` is not a QueryField, and treating it as one would make a typo look
+        // like an ordinary fielded term (M45-75).
+        if let Some((head, value)) = term.split_once(':') {
+            if head == "me" {
+                return MeField::parse(value)
+                    .map(QueryAst::Me)
+                    .ok_or_else(|| QueryError::new(
+                        format!("me:{value} is not a viewer field; me:rated is available"),
+                        start,
+                    ));
+            }
         }
 
         // Check for fielded search: field:value, or a comparison field<op>value.

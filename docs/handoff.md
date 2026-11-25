@@ -6,6 +6,10 @@ The open queue, gates and blocked table are in `docs/plans/roadmap-remaining.md`
 `docs/FEATURE-LEDGER.md`, generated from `docs/requirements.csv`; row-by-row status and evidence stay in that CSV.
 Do not add another “current state” list here.
 
+## 2026-11-25 — M45-75 query vocabulary shipped
+
+Dual-engine suite 1/1 on SQLite and PostgreSQL; domain and CLI targeted tests 1/1; app check exit 0. Release build 2m20 with the estate gate, deployed at `0.1.0+01c32f62.dirty`, health 200. Live anonymous `me:rated` -> 401 and `sort=nope` -> 422. Canonical public query returned 0 because source-linked works are not public published; parked with the exact unblock, no visibility change.
+
 ## 2026-11-25 — M45-77 live quorum closed
 
 Owner-authorised generated credentials seeded three independent curator accounts; proposal `57faea22` passed 2/2 with two distinct voters, an active group exists and the public probe printed `PASS` (3 = 3). Credentials are 0600 in `/personal/secrets/estate/darkhold-curator-staff.env`. AO3 re-probe still 429. State table and ledger updated in the same commit.

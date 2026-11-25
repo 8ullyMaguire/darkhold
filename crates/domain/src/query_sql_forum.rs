@@ -25,6 +25,7 @@ pub fn render_forum_query(ast: &QueryAst) -> Result<SqlFragment, QueryError> {
 
 fn render_node(ast: &QueryAst) -> Result<SqlFragment, QueryError> {
     match ast {
+        QueryAst::Me(_) => Err(QueryError::new("me:rated is a works field", 0)),
         QueryAst::Text(text) => {
             // Both arms are coalesced. The title is NOT NULL by the schema, but
             // the `NOT` below reaches the whole expression, and one NULL arm

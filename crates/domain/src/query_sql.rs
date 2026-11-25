@@ -4,8 +4,13 @@
 
 use crate::query::{
     CharacterAssertion, CompareOp, QueryAst, QueryError, QueryField, RelationshipAssertion,
-    ScopedPredicate,
+    MeField, ScopedPredicate,
 };
+
+/// Replaced with the viewer's account id by the search store. A bind that must
+/// never be a literal: `me:rated` without a viewer is a 401, not a search for
+/// the string "\0viewer".
+pub const VIEWER_BIND: &str = "\0viewer";
 
 /// A rendered SQL fragment with its bind parameters.
 #[derive(Debug, Clone, PartialEq)]
@@ -89,6 +94,11 @@ fn render_node(ast: &QueryAst) -> Result<SqlFragment, QueryError> {
         QueryAst::Scoped(p) => render_scoped(p),
         QueryAst::MinMatch { needed, terms } => render_min_match(*needed, terms),
         QueryAst::Expand { field, term, depth } => render_expand(*field, term, *depth),
+        QueryAst::Me(MeField::Rated) => Ok(SqlFragment::new(
+            "EXISTS (SELECT 1 FROM rating r WHERE r.work_id = works.id \
+             AND CAST(r.account_id AS TEXT) = ? AND r.deleted_at IS NULL)",
+        )
+        .with_bind(VIEWER_BIND)),
         QueryAst::Not(inner) => {
             let inner = render_node(inner)?;
             // `NOT NULL` is NULL, not true, so a negated predicate over columns
@@ -701,6 +711,10 @@ fn date_column(field: &QueryField) -> Option<&'static str> {
     match field {
         QueryField::Published => Some("works.published_at"),
         QueryField::Updated => Some("works.updated_at"),
+        QueryField::SourceUpdated => Some(
+            "SUBSTR((SELECT MAX(li_src_up.source_updated_at) FROM library_items li_src_up \
+             WHERE li_src_up.work_id = works.id), 1, 10)",
+        ),
         _ => None,
     }
 }
@@ -791,6 +805,15 @@ fn render_fielded(field: &QueryField, value: &str) -> Result<SqlFragment, QueryE
         QueryField::Trope => Err(QueryError::new(
             "trope: is a group name and expands to tags before it reaches SQL; nothing should render \
              it",
+            0,
+        )),
+        QueryField::Source => Ok(SqlFragment::new(
+            "EXISTS (SELECT 1 FROM library_items li_src \
+             WHERE li_src.work_id = works.id AND li_src.source_key = ?)",
+        )
+        .with_bind(value.to_owned())),
+        QueryField::SourceUpdated => Err(QueryError::new(
+            "source_updated takes a comparison, e.g. source_updated:<=-4m",
             0,
         )),
         // A field that belongs to another surface. Rejecting it with a message

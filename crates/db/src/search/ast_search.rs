@@ -100,6 +100,7 @@ async fn search_works_ast_impl(
                 author_handle,
                 word_count,
                 score,
+                _likes,
                 _rating,
                 _updated_at,
                 lifecycle,
@@ -143,6 +144,7 @@ type SearchRow = (
     String,
     String,
     String,
+    i64,
     i64,
     i64,
     String,
@@ -202,8 +204,23 @@ async fn prepared(
     // the PostgreSQL form reused `$1` in the `blocks` subquery. Writing both
     // forms the same way removes that asymmetry: the bind list below is then
     // literally the same for either backend.
+    let mut user_binds = user_binds;
+    for bind in &mut user_binds {
+        if bind == darkhold_domain::query_sql::VIEWER_BIND {
+            match viewer_id {
+                Some(vid) => *bind = vid.to_owned(),
+                None => {
+                    return Err(SearchError::viewer(
+                        "me:rated needs a signed-in viewer; use DARKHOLD_COOKIE or the web search box",
+                    )
+                    .into())
+                }
+            }
+        }
+    }
+
     let signed_in = viewer_id.is_some();
-    let bound = scope_sql(scope);
+    let bound = scope_sql(scope)?;
     let sql = sql_owned(
         db,
         render_statement(signed_in, &user_where, rules, &bound, Dialect::Sqlite),
@@ -385,7 +402,10 @@ fn render_statement(
          (SELECT COALESCE({sum_expr}, 0) FROM units c \
           JOIN revisions cr ON cr.id = c.current_revision_id \
           WHERE c.work_id = works.id AND c.deleted_at IS NULL) AS word_count, \
-         COUNT(works_index_terms.term) AS score, works.rating, works.updated_at, \
+         COUNT(works_index_terms.term) AS score, \
+         (SELECT COALESCE(CAST(MAX(li_likes.likes) AS BIGINT), 0) \
+          FROM library_items li_likes WHERE li_likes.work_id = works.id) AS likes, \
+         works.rating, works.updated_at, \
          works.lifecycle, works.visibility \
          FROM works \
          LEFT JOIN works_index_terms ON works_index_terms.work_id = works.id \
@@ -501,7 +521,7 @@ fn rating_rank(rating: &str) -> i64 {
     }
 }
 
-fn scope_sql(scope: &SearchFilters) -> BoundScope {
+fn scope_sql(scope: &SearchFilters) -> Result<BoundScope> {
     let mut where_clause = String::new();
     let mut binds = Vec::new();
 
@@ -532,17 +552,27 @@ fn scope_sql(scope: &SearchFilters) -> BoundScope {
     let order_by = match scope.sort.as_deref() {
         Some("newest") => "s.updated_at DESC, s.score DESC",
         Some("title") => "s.title ASC, s.score DESC",
-        // `score` is the default, and every unrecognised value falls back to it rather than
-        // failing: a stored default written by an older build must not make search an error.
-        _ => "s.score DESC, s.updated_at DESC",
+        // Empty is "no preference"; the aliases name the same popularity order.
+        Some("popularity" | "likes" | "kudos" | "aggregate") => {
+            "s.likes DESC, s.score DESC, s.updated_at DESC"
+        }
+        None | Some("") => "s.score DESC, s.updated_at DESC",
+        // Any other word is a claim the store cannot honour. Echoing it in
+        // `filters.sort` while ranking by score is the lie this branch told.
+        Some(other) => {
+            return Err(SearchError::render(format!(
+                "unknown sort: {other}; available: popularity, likes, kudos, aggregate, newest, title"
+            ))
+            .into())
+        }
     }
     .to_owned();
 
-    BoundScope {
+    Ok(BoundScope {
         where_clause,
         order_by,
         binds,
-    }
+    })
 }
 
 #[cfg(test)]

@@ -96,6 +96,18 @@ pub struct QArgs {
     /// statement would be a diagnosis of something nobody ran.
     #[arg(long)]
     pub explain: bool,
+
+    /// Restrict to these source keys, comma-separated: qq,sv,sb,ffnet,ao3.
+    #[arg(long, value_name = "KEYS")]
+    pub source: Option<String>,
+
+    /// Order by this metric; popularity, newest, title and their aliases are accepted.
+    #[arg(long, value_name = "SORT")]
+    pub sort: Option<String>,
+
+    /// Append `AND NOT me:rated` (needs DARKHOLD_COOKIE).
+    #[arg(long)]
+    pub exclude_rated: bool,
 }
 
 /// The request URL for one expression.
@@ -107,15 +119,47 @@ pub struct QArgs {
 /// `explain` appends the flag `M63-08` added. It is a parameter rather than a second function so
 /// there is one place the request is spelled, and the flag is the only thing that varies.
 pub fn url(base_url: &str, expression: &str, limit: i64, explain: bool) -> String {
+    url_with_sort(base_url, expression, limit, None, explain)
+}
+
+/// The same URL with an explicit sort. `sort` is a parameter, not part of the
+/// expression: an ordering is not a predicate (§11.7), so it belongs beside
+/// `limit` rather than inside the shareable query string.
+pub fn url_with_sort(
+    base_url: &str,
+    expression: &str,
+    limit: i64,
+    sort: Option<&str>,
+    explain: bool,
+) -> String {
     let mut url = format!(
         "{}/api/v1/search?q={}&limit={limit}",
         base_url.trim_end_matches('/'),
         crate::rec::encode(expression)
     );
+    if let Some(sort) = sort.filter(|value| !value.is_empty()) {
+        url.push_str(&format!("&sort={}", crate::rec::encode(sort)));
+    }
     if explain {
         url.push_str("&explain=1");
     }
     url
+}
+
+/// CLI flags are sugar over ONE shareable expression, not a second grammar.
+pub fn expression_with(mut expression: String, args: &QArgs) -> Result<String, Failure> {
+    if let Some(sources) = args.source.as_deref() {
+        let keys: Vec<&str> = sources.split(',').map(str::trim).filter(|s| !s.is_empty()).collect();
+        if keys.is_empty() {
+            return Err(bad_request("--source needs at least one key"));
+        }
+        let clause = keys.iter().map(|k| format!("source:{k}")).collect::<Vec<_>>().join(" OR ");
+        expression = format!("({expression}) AND ({clause})");
+    }
+    if args.exclude_rated && !expression.contains("me:rated") {
+        expression.push_str(" AND NOT me:rated");
+    }
+    Ok(expression)
 }
 
 // ---------------------------------------------------------------------------
@@ -453,6 +497,15 @@ pub async fn run(cli: &Cli, args: &QArgs) -> Result<(), Failure> {
         Some(file) => file.expression.clone(),
         None => args.expression.join(" "),
     };
+    let expression = expression_with(expression, args)?;
+    if expression.contains("me:rated")
+        && cli.token.is_none()
+        && std::env::var("DARKHOLD_COOKIE").is_err()
+    {
+        return Err(bad_request(
+            "me:rated needs a viewer: set DARKHOLD_COOKIE or pass --token",
+        ));
+    }
     if expression.trim().is_empty() {
         return Err(bad_request("the expression is empty"));
     }
@@ -462,7 +515,13 @@ pub async fn run(cli: &Cli, args: &QArgs) -> Result<(), Failure> {
     // Before the request, so a contradiction costs no round trip and the message is about the
     // command rather than about the server's answer to a request it should never have got.
     let shape_decided = shape(args, cli.json)?;
-    let request_url = url(&cli.base_url, &expression, args.limit, args.explain);
+    let request_url = url_with_sort(
+        &cli.base_url,
+        &expression,
+        args.limit,
+        args.sort.as_deref(),
+        args.explain,
+    );
 
     let client = reqwest::Client::builder()
         .timeout(std::time::Duration::from_secs(60))
@@ -474,6 +533,9 @@ pub async fn run(cli: &Cli, args: &QArgs) -> Result<(), Failure> {
             let mut request = client.get(&request_url);
             if let Some(token) = &token {
                 request = request.bearer_auth(token);
+            }
+            if let Ok(cookie) = std::env::var("DARKHOLD_COOKIE") {
+                request = request.header("cookie", cookie);
             }
             request
         },
@@ -580,6 +642,22 @@ mod tests {
             .build()
             .expect("runtime")
             .block_on(future)
+    }
+
+    #[test]
+    fn source_sort_and_exclude_rated_are_one_shareable_expression() {
+        let (_, args) = args(&[
+            "dh", "q", "tag:a", "--source", "qq,sv", "--sort", "popularity", "--exclude-rated",
+        ]);
+        let expression = expression_with("tag:a".to_owned(), &args).expect("expression");
+        assert_eq!(
+            expression,
+            "(tag:a) AND (source:qq OR source:sv) AND NOT me:rated"
+        );
+        let url = url_with_sort("https://example.test", &expression, 5, args.sort.as_deref(), false);
+        assert!(url.contains("sort=popularity"), "{url}");
+        let once = expression_with("me:rated".to_owned(), &args).expect("expression");
+        assert_eq!(once.matches("me:rated").count(), 1, "{once}");
     }
 
     #[test]

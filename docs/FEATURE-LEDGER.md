@@ -15,11 +15,11 @@ aggregates it and names where to look next.
 | implemented-fully-tested | 461 |
 | implemented-locally-tested | 269 |
 | implemented-source-probe | 1 |
-| implemented-targeted-green | 25 |
+| implemented-targeted-green | 31 |
 | implemented-verified-e2e | 183 |
 | mutation-proven | 5 |
 | partial | 2 |
-| planned | 8 |
+| planned | 2 |
 | unsupported | 4 |
 
 The CSV is the source: a hand-written number here would become a second lie to maintain. Regenerate with:
