@@ -341,3 +341,8 @@ container), so the desktop row now has one More menu instead of six.
 Shelf links to /library/history; the old Shelf menu became History & stats to avoid a duplicate label. The install prompt stays near the top but is dismissible and styled; a context-triggered prompt would need a work-open event this shell does not have. Hit-target CSS lives in the global sheet because nav anchors are rendered by child components; two live injection passes proved zero sub-44 controls before paying for rebuilds. The phone header got its own account door after a mobile screenshot showed none;
 it uses the same filtered nav list as desktop. No backend, routes or credential
 handling changed.
+
+
+## 2026-11-26 — canonical scraper adoption (planned)
+
+A family census found the general-purpose AGPL `fanfic-scrapers` library and a newer drifted copy in ficnexus. No new crate will be created. Darkhold keeps SSRF/robots/provenance policy and its `SourceAdapter` surface; AO3 HTML parsing moves to the canonical library. gallery-dl findings: AO3 uses 0.5–1.5s request jitter and a 60s 429 cooldown with bounded retries, not a magic unblock. 503 remains a stop signal.

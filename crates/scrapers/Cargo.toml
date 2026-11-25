@@ -13,6 +13,9 @@ path = "src/lib.rs"
 
 [dependencies]
 polaris-slug = { path = "/personal/documents/code/polaris-slug" }
+# Family scraper library: AO3 HTML metadata grammar lives here; Darkhold keeps
+# transport safety, sanitisation and provenance in this adapter.
+fanfic-scrapers = { path = "../../../fanfic-scrapers" }
 async-trait.workspace = true
 encoding_rs.workspace = true
 flate2.workspace = true

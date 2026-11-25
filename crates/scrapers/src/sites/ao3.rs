@@ -39,7 +39,7 @@ use async_trait::async_trait;
 
 use crate::sanitize::sanitize_fragment;
 use crate::{
-    attr_of, collapse_whitespace, html_of, strip_tags, text_of, texts_of, Credentials, Fetcher,
+    attr_of, collapse_whitespace, html_of, strip_tags, text_of, Credentials, Fetcher,
     SourceAdapter, SourceCapabilities, SourceError, SourceKey, SourceResult, SourceUnit,
     SourceWork, UnitRef, Wall, WorkStatus,
 };
@@ -210,30 +210,22 @@ impl ArchiveSoftware {
             SourceError::Unsupported(format!("{url} is not an Archive-software work URL"))
         })?;
 
-        let title = text_of(&document, "h2.title.heading").ok_or_else(|| {
-            SourceError::Parse(format!("no title on the work page for work {work_id}"))
-        })?;
+        // AO3's HTML grammar is shared with Kindred through `fanfic-scrapers`.
+        // What stays here is everything that makes a Darkhold import safe:
+        // the wall checks above, the chapter-index keys below, the UTC date
+        // policy, and the chapter-body sanitisation in `parse_chapters`.
+        let work_id_for_url = work_id.clone();
+        let numeric_id = work_id.parse::<i64>().unwrap_or_default();
+        let detail = fanfic_scrapers::sites::ao3_detail::parse_work_detail(html, numeric_id)
+            .ok_or_else(|| {
+                SourceError::Parse(format!("no title on the work page for work {work_id}"))
+            })?;
 
-        if adult_gated && title.is_empty() {
+        if detail.title.is_empty() && adult_gated {
             return Err(SourceError::AuthRequired(
                 "this work is behind the adult-content confirmation".to_owned(),
             ));
         }
-
-        let author_text = texts_of(&document, "h3.byline.heading a[rel=author]").join(", ");
-        let author_text = if author_text.is_empty() {
-            text_of(&document, "h3.byline.heading").unwrap_or_else(|| "Anonymous".to_owned())
-        } else {
-            author_text
-        };
-        let author_url = attr_of(&document, "h3.byline.heading a[rel=author]", "href")
-            .and_then(|href| url.join(&href).ok())
-            .map(|url| url.to_string());
-
-        let summary = html_of(&document, "div.summary.module blockquote.userstuff")
-            .or_else(|| html_of(&document, "#summary blockquote.userstuff"))
-            .map(|raw| strip_tags(&raw))
-            .unwrap_or_default();
 
         let (chapter_count, chapter_total) = parse_chapter_counts(&document);
 
@@ -258,42 +250,38 @@ impl ArchiveSoftware {
             }
         }
 
-        let tags_of = |selector: &str| texts_of(&document, selector);
-        let rating_text = tags_of("dd.rating.tags a.tag").into_iter().next();
-        let warning_texts = tags_of("dd.warning.tags a.tag");
+        let mut warning_texts = Vec::new();
         let mut tags = Vec::new();
-        for selector in [
-            "dd.category.tags a.tag",
-            "dd.fandom.tags a.tag",
-            "dd.relationship.tags a.tag",
-            "dd.character.tags a.tag",
-            "dd.freeform.tags a.tag",
-        ] {
-            tags.extend(tags_of(selector));
+        for (name, kind) in detail.tags {
+            if kind == "warnings" {
+                warning_texts.push(name);
+            } else {
+                tags.push(name);
+            }
         }
 
-        let status = parse_status(&document);
+        let status = if detail.complete {
+            WorkStatus::Complete
+        } else {
+            WorkStatus::Ongoing
+        };
         let (published_at, updated_at) = parse_dates(&document);
-        let word_count = text_of(&document, "dl.stats > dd.words")
-            .or_else(|| text_of(&document, "dd.words"))
-            .and_then(|raw| parse_number(&raw));
-        let language = text_of(&document, "dd.language");
 
         Ok(SourceWork {
             source_key: self.key.clone(),
-            source_work_key: work_id.clone(),
-            source_url: self.work_url(&work_id),
-            title,
-            author_text,
-            author_url,
-            summary,
-            word_count,
-            language,
+            source_work_key: work_id,
+            source_url: self.work_url(&work_id_for_url),
+            title: detail.title,
+            author_text: detail.authors,
+            author_url: detail.author_url,
+            summary: detail.summary.map(|raw| strip_tags(&raw)).unwrap_or_default(),
+            word_count: (detail.word_count > 0).then_some(detail.word_count),
+            language: detail.language.filter(|value| !value.is_empty()),
             status,
             published_at,
             updated_at,
             units,
-            rating_text,
+            rating_text: detail.rating.filter(|value| !value.is_empty()),
             warning_texts,
             tags,
         })
@@ -757,6 +745,7 @@ fn clean_chapter_title(raw: &str, ordinal: u32) -> String {
 /// The label is the only signal: `<dt class="status">Completed:</dt>` versus
 /// `Updated:`. Anything else is `Unknown` — AO3 has no "abandoned" marker, and
 /// inferring one from an old revision date would invent a fact.
+#[cfg(test)]
 fn parse_status(document: &Html) -> WorkStatus {
     let Some(label) = text_of(document, "dl.stats > dt.status") else {
         return WorkStatus::Unknown;
@@ -814,6 +803,7 @@ fn parse_date(raw: &str) -> Option<OffsetDateTime> {
 }
 
 /// Parse `2,116` or `2116`.
+#[cfg(test)]
 fn parse_number(raw: &str) -> Option<i64> {
     let cleaned: String = raw
         .chars()

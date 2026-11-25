@@ -1034,6 +1034,7 @@ version = "0.1.0"
 dependencies = [
  "async-trait",
  "encoding_rs",
+ "fanfic-scrapers",
  "flate2",
  "polaris-slug",
  "primp",
@@ -1417,6 +1418,23 @@ name = "fallible-streaming-iterator"
 version = "0.1.9"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "7360491ce676a36bf9bb3c56c1aa791658183a54d2744120f27285738d90465a"
+
+[[package]]
+name = "fanfic-scrapers"
+version = "0.10.0"
+dependencies = [
+ "async-trait",
+ "chrono",
+ "primp",
+ "regex-lite",
+ "reqwest",
+ "scraper",
+ "serde",
+ "serde_json",
+ "tokio",
+ "tracing",
+ "urlencoding",
+]
 
 [[package]]
 name = "fastrand"
