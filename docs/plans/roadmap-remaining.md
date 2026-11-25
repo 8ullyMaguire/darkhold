@@ -58,9 +58,9 @@ Done (earlier): TA1 private taste pipeline, TA2 daily aggregation and TA3-1 BFS 
 | M45-75.6 | Print source facts on the hit | RED: `--fields source` refused with a five-column vocabulary | CLI shape test 1 passed; live hit `source_key=pawchive`, `source_updated_at=2025-05-18T11:29:57Z`; JSONL printed title/source/updated | e2f516e9 |
 | M45-75.7 | Make the sort proof able to fail | RED: the old fixture gave both works the same `updated_at` | clocks 2026-11-21 / 2026-11-19 vs likes 5 / 90; popular first 02, newest first 01; mutant `MUT_EXIT=101`, restored cmp=yes | e2f516e9 |
 | M45-75.8 | Prove the planner and add only the needed index | RED: EXPLAIN showed a seq scan of `library_items` for `source:sv` | migration 0220 1/1 SQLite + 1/1 PG; live ledger 0220; post-deploy plan references `idx_library_items_source_work` twice | e2f516e9 |
-| M45-75.9 | Decode a source row with no clock | RED: live `source:ao3` -> 500 `unexpected null; try decoding as an Option` | dual-engine suite 1/1 with a NULL-clock ao3 fixture; release rebuilt 1m48; live 200/5 with `source_updated_at=""` | pending commit |
-| M64-06 | Serve tag_jaccard once tags and engagement meet | RED: 0 of 1,247 engaged rows carried a tag | live 31,262 tagged / 9 engaged / 4 overlap; `/recommendation/surfaces` refuses=[] for discover.feed and story.similar | pending commit |
-| M45-75-live | Canonical query returns a public hit with an old clock | RED: qq/sv rows attach to no public published work | signed-in pawchive canonical query 5 hits, clock 2025-05-18; live source:ao3 200/5 and source:pawchive 200; spec amendment names the public pair, no visibility change | pending commit |
+| M45-75.9 | Decode a source row with no clock | RED: live `source:ao3` -> 500 `unexpected null; try decoding as an Option` | dual-engine suite 1/1 with a NULL-clock ao3 fixture; release rebuilt 1m48; live 200/5 with `source_updated_at=""` | bf3ad4d6 |
+| M64-06 | Serve tag_jaccard once tags and engagement meet | RED: 0 of 1,247 engaged rows carried a tag | live 31,262 tagged / 9 engaged / 4 overlap; `/recommendation/surfaces` refuses=[] for discover.feed and story.similar | bf3ad4d6 |
+| M45-75-live | Canonical query returns a public hit with an old clock | RED: qq/sv rows attach to no public published work | signed-in pawchive canonical query 5 hits, clock 2025-05-18; live source:ao3 200/5 and source:pawchive 200; spec amendment names the public pair, no visibility change | bf3ad4d6 |
 
 Open queue (*0 unblocked, 6 blocked*): none.
 
