@@ -43,8 +43,8 @@ Done (earlier): TA1 private taste pipeline, TA2 daily aggregation and TA3-1 BFS 
 | M45-77.15 | M45-77 Step 11: five mutation checks | RED: the five witnesses had to fail under mutation before any row could close | five mutants each `MUT_EXIT=101`, restored `REST_EXIT=0`; split-vote witness added and green first | this turn |
 | M45-77.16 | M45-77 Step 12: stage the public probe | RED: `scripts/trope-live-probe.sh` was missing | staging probe 1 passed; `bash -n` exit 0 | this turn |
 | H1 | Delete the three temporary build swapfiles | RED: files still present although `swapon --show` listed only `/swapfile` and `/dev/zram0` | after: no `/swapfile-build*` files and no fstab references | host cleanup, no commit |
-| H3 | Rebuild and deploy with the low-peak release profile | RED: live meta `0.1.0+9c447373`, trope tables and lifecycle columns absent | 3m16s build, `BUILD_EXIT=0` / `CLI_EXIT=0`; migrations 0218/0219 applied; live meta `0.1.0+d2b972b7`; all four units active | deployment, no source commit |
-| M45-77.17 | Run the public probe against the live instance | RED: first run `NameError: name 'slug' is not defined` (a `'` inside `python3 -c '...'` closed the shell string) | GREEN: `bash -n` exit 0, five seed groups printed with `source=seed`, staging test 1 passed | pending commit |
+| H3 | Rebuild and deploy with the low-peak release profile | RED: live meta `0.1.0+9c447373`, trope tables and lifecycle columns absent | 3m16s build, `BUILD_EXIT=0` / `CLI_EXIT=0`; migrations 0218/0219 applied; live meta `0.1.0+d2b972b7`; all four units active; stamp stays `d2b972b7` because `aadb1df2` is tests/docs only | deployment, no source commit |
+| M45-77.17 | Run the public probe against the live instance | RED: first run `NameError: name 'slug' is not defined` (a `'` inside `python3 -c '...'` closed the shell string) | GREEN: `bash -n` exit 0, five seed groups printed with `source=seed`, staging test 1 passed | `aadb1df2` |
 
 Open queue (*0 unblocked, 7 blocked*): none.
 
