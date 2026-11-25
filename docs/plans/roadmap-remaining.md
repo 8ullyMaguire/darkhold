@@ -82,8 +82,11 @@ Done (earlier): TA1 private taste pipeline, TA2 daily aggregation and TA3-1 BFS 
 | UX-6 | UI/UX repair from the live library audit | RED: empty state, 9 nav items, 17 sub-44 targets, premature install strip | targeted tests 24/24, svelte-check 0 errors, vite build ok, live measurements 1440/390 | 452b4087 |
 | UX-7 | UI/UX repair from the live library audit | RED: empty state, 9 nav items, 17 sub-44 targets, premature install strip | targeted tests 24/24, svelte-check 0 errors, vite build ok, live measurements 1440/390 | 452b4087 |
 | UX-8 | UI/UX repair from the live library audit | RED: empty state, 9 nav items, 17 sub-44 targets, premature install strip | targeted tests 24/24, svelte-check 0 errors, vite build ok, live measurements 1440/390 | 452b4087 |
+| FS-01 | Crossover include/exclude facet | RED: spec names crossovers at `docs/spec.md:2780`/`:6045`, but no requirement implements the filter | dual-engine test: `crossover:exclude` drops the crossover, `crossover:only` keeps it; URL round trip; mutant must fail | new |
+| FS-02 | Role metadata on tag joins | RED: spec names prominence/roles; ledger has no stored `main_relationship`/`side_relationship`/`pov`/`primary_character` | dual-engine test keeps main and side on one work; unknown roles stay null; mutant must fail | new |
+| FS-03 | Include/exclude parity on tag chips | RED: exclusion grammar and content filters exist, but no row makes every facet chip a must/must-not toggle | DOM test flips a chip and the query clause; chips keep current-filter counts (`M71-11`) | new |
 
-Open queue (*0 unblocked, 1 blocked*): none.
+Open queue (*3 unblocked, 1 blocked*): FS-01, FS-02, FS-03 (triage in `docs/spec-amendments/faceted-search-brief-2026-11-26.md`).
 
 Blocked (*1*):
 

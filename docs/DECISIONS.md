@@ -343,6 +343,12 @@ it uses the same filtered nav list as desktop. No backend, routes or credential
 handling changed.
 
 
+## 2026-11-26 — faceted-search brief triaged, no index cluster
+
+The owner pasted an outside brief describing a faceted search product. Its structural advice was accepted, but every claim about the current system was checked against `docs/requirements.csv` and `docs/spec.md`. Most of it is already shipped: saved searches, Boolean/facet grammar, current-filter facet counts, canonical tags and wrangling, recommendation reasons, completion/length facets, EPUB and per-device position. Three gaps are open as FS-01/02/03: crossover include/exclude, role metadata on tag joins, and include/exclude parity on facet chips.
+
+Rejected: standing up OpenSearch/Redis/S3 now. The instance has one corpus and a working query path; the cluster decision needs measured p95 and facet cardinality, not a generic architecture diagram. Also rejected: popularity-only ranking, default full-text body indexing, and any “supports every site” scraper claim. The full triage is `docs/spec-amendments/faceted-search-brief-2026-11-26.md`.
+
 ## 2026-11-26 — canonical scraper adoption (shipped 6c9e2469)
 
 A family census found the general-purpose AGPL `fanfic-scrapers` library and a newer drifted copy in ficnexus. No new crate will be created. Darkhold keeps SSRF/robots/provenance policy and its `SourceAdapter` surface; AO3 HTML parsing moves to the canonical library. gallery-dl findings: AO3 uses 0.5–1.5s request jitter and a 60s 429 cooldown with bounded retries, not a magic unblock. 503 remains a stop signal.

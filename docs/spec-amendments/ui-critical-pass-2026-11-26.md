@@ -46,3 +46,12 @@ Evidence: `/home/alvaro/.hermes/profiles/coding/cache/scratch/darkhold-ui-sweep-
 | UC-8 | heading order | zero h1 -> h3 skips on the signed-in sweep |
 | UC-9 | empty/loading states | `/roadmap` empty state has a "Suggest a feature" action; `/library` empty state has an "Import a work" action; notifications/jobs show skeleton + failure text |
 | UC-10 | live proof | screenshots and JSON sweep at both widths and both themes, 0 page errors |
+
+## Execution notes
+
+- The user chose the full-story reader with a sticky progress rail and explicit position restore via a reader-only progressive-enhancement script. ADR 0034 records the amended no-script rule.
+- The injected Polaris bar stays but becomes auth-aware; it reads `data-darkhold-signed-in` and `data-darkhold-has-search` from `<body>` and re-renders when a SPA changes them. Defaults preserve every other estate host.
+- Imported headings are demoted server-side in `reader_page.rs`; the external script only restores position and paints the progress rail.
+- The landing author mix is capped at two works per author. The first attempt raised the candidate pool to 240 and made `/` take 30s (408); the pool is back to 60 and the scan stops eight candidates after the shelf is full. Live `/` is 200 in 5.38s.
+- ADR 0033 still governs the reader palette: warm-paper prose inside dark chrome is correct, not a theme parity defect.
+

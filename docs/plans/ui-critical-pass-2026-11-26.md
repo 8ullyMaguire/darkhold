@@ -417,6 +417,13 @@ Live DOM proof: re-run the sweep from Step 6 and inspect at least `dark-out-home
 - exactly one `h1` on the reader and no inline script;
 - `/reader-position.js` returns 200.
 
+## Execution deviations
+
+- Step 5 puts `normalize_imported_body` in `reader_page.rs` rather than the shared sanitizer crate: the sanitiser emits exact tag names, and keeping the transform at the render edge avoids changing stored/imported bodies. A unit test pins it.
+- Restore uses the server's stored `position.fraction` via `data-restore-permille`, not localStorage; the saved position already follows the reader across devices.
+- Step 4's pool stayed at 60. A 240-row pool plus per-candidate `reading_decision` produced a live 408; the shelf now stops scanning eight candidates after it is full and allows two works per author.
+- Step 7's footer `Radio` description belongs to the shared `FamilyNav` package, not Darkhold's own footer; it is left for the estate UI owner rather than faked with a CSS override.
+
 ## Step 9 — record, gate, commit
 
 Update `docs/requirements.csv`, `docs/FEATURE-LEDGER.md`, `docs/plans/roadmap-remaining.md`, `docs/handoff.md` and a vault note under `/home/alvaro/secondbrain/10-Projects/darkhold/` with the same row ids `UC-1`..`UC-10` and the final live measurements.
