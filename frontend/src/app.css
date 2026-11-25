@@ -255,6 +255,11 @@ pre {
   text-transform: uppercase;
 }
 
+.work h1,
+.work .title {
+  overflow-wrap: anywhere;
+}
+
 .book-divider::before,
 .book-divider::after {
   content: '';
@@ -282,4 +287,25 @@ html[data-distraction-free='true'] .site-footer {
     transition-duration: 0.01ms !important;
     scroll-behavior: auto !important;
   }
+}
+
+/*
+ * Standalone controls, not links in prose: WCAG 2.5.8. The audit's tap-target
+ * probe excludes inline links; these are the ones that must be 44px.
+ * Checkbox/radio indicators are exempt and remain their native size.
+ */
+button,
+summary,
+input[type='submit'],
+input[type='button'],
+a.button,
+a.btn,
+a.action,
+a.pill,
+[role='button'],
+.tabs a,
+.tab-list a,
+.segmented a {
+  min-height: 44px;
+  min-width: 44px;
 }

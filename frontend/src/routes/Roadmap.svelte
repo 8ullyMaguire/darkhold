@@ -208,7 +208,7 @@ import { Button } from '@polaris/ui';
         </p>
         <p>
           {#if session.isSignedIn}
-            Suggest one below, or
+            <a class="button" href="#suggest">Suggest a feature</a>, or
           {:else}
             <a href="/sign-in">Sign in</a> to suggest one, or
           {/if}
@@ -255,7 +255,7 @@ import { Button } from '@polaris/ui';
       </section>
 
       {#if session.isSignedIn}
-        <section class="suggest-section">
+        <section class="suggest-section" id="suggest">
           <h2>Suggest a feature</h2>
           <form
             class="suggest-form"

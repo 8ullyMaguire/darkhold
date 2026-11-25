@@ -304,6 +304,13 @@ import { Button } from '@polaris/ui';
     applyTheme(resolveTheme(preference, darkQuery?.matches ?? false), document.documentElement);
   });
 
+  // The injected estate chrome reads these from <body> because it lives in a shadow root
+  // and cannot see the app's own header. It re-renders when they change after boot.
+  $effect(() => {
+    document.body.dataset.darkholdHasSearch = 'true';
+    document.body.dataset.darkholdSignedIn = session.isSignedIn ? 'true' : 'false';
+  });
+
   $effect(() => {
     const onPopState = () => {
       path = window.location.pathname;

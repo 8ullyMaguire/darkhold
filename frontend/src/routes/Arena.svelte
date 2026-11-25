@@ -174,7 +174,7 @@ import { Button } from '@polaris/ui';
           class:selected-worst={worstId === card.work_id}
         >
           <div class="card-header">
-            <h3>{card.title}</h3>
+            <h2>{card.title}</h2>
             <span class="fandom">{card.fandom}</span>
           </div>
           <div class="card-meta">
@@ -331,7 +331,7 @@ import { Button } from '@polaris/ui';
     align-items: baseline;
   }
 
-  .card-header h3 {
+  .card-header h2 {
     margin: 0;
     font-size: 1rem;
   }

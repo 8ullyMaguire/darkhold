@@ -95,7 +95,10 @@ pub(crate) fn shell_described(
         )
         .close("style");
     page.close("head");
-    page.open("body", &[("class", "doc")]);
+    page.open(
+        "body",
+        &[("class", "doc"), ("data-darkhold-has-search", "false")],
+    );
     page.open("p", &[("class", "site")])
         .open("a", &[("href", "/")])
         .text(site)

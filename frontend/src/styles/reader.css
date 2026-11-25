@@ -134,6 +134,23 @@
   margin: 0 0 1em;
 }
 
+/* Author HTML carries repeated titles and metadata lines. Demoted to quiet source notes at render time. */
+.reader-imported-heading {
+  margin: 1.25em 0 0.4em;
+  font-family: var(--font-interface, system-ui, sans-serif);
+  font-size: 0.82em;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--reader-muted);
+}
+
+.reader-imported-meta {
+  font-family: var(--font-mono, monospace);
+  font-size: 0.85em;
+  color: var(--reader-muted);
+}
+
 /*
  * The empty state explains itself (spec §21.1). A unit with no text says so,
  * rather than presenting an empty column.
@@ -436,14 +453,32 @@
 .reader-surface__controls a {
   color: var(--reader-link);
   text-decoration: none;
-  min-height: var(--tap-min);
+  min-height: 44px;
+  min-width: 44px;
   display: inline-flex;
   align-items: center;
+  justify-content: center;
 }
 
 .reader-surface__controls a:hover,
 .reader-surface__controls a:focus-visible {
   text-decoration: underline;
+}
+
+.reader-surface__rail {
+  flex: 1 1 6rem;
+  height: 4px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--reader-text) 14%, transparent);
+}
+
+.reader-surface__rail::after {
+  content: '';
+  display: block;
+  width: calc(var(--reader-progress, 0) * 1%);
+  height: 100%;
+  border-radius: inherit;
+  background: var(--reader-link);
 }
 
 .reader-surface__controls .position {
@@ -472,7 +507,7 @@
 }
 
 .reader-surface__search button {
-  min-height: var(--tap-min);
+  min-height: 44px;
   font: inherit;
   color: var(--reader-link);
   background: transparent;

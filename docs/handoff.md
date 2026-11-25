@@ -11,6 +11,18 @@ Seven rows are queued as FS-01/02/03 and FS-04..FS-07 in `docs/plans/roadmap-rem
 and use; the rest is already implemented or explicitly parked. See
 `docs/spec-amendments/faceted-search-brief-2026-11-26.md`.
 
+## 2026-11-26 — UI critical pass (this commit)
+
+The full route sweep found three visual systems stitched together: server documents, SPA shell and injected Polaris
+chrome. Fixed in place: Archive palette is genuinely dark and its link/footer accent now passes AA (probe
+`count=0` after the `:root[data-palette=archive]` override); body state attributes make the injected bar auth-aware
+without duplicate Search/Sign in (estate `48d1073`); landing metadata wraps as a row with a two-work-per-author cap
+and `Browse all`; reader imported headings become quiet paragraphs and the external `/reader-position.js` adds a
+progress rail and saved-position restore while the no-JS document stays readable; standalone controls reach 44px;
+headings and empty states are actionable. The expanded 240-candidate landing pool caused a live 408 and was replaced
+with a bounded scan. Verification: frontend 34/34, `svelte-check` 0 errors, landing 5/5, reader unit 1/1, release
+build exit 0, 148-probe sweep 0 errors and `overflowX=0` everywhere. Row-by-row evidence is `UC-1`..`UC-10`.
+
 ## 2026-11-25 — shell UX repair (452b4087)
 
 Signed-out Library card, 4-link + More nav (a screenshot caught six group menus still inline at 812/522px; collapsed to one More menu), styled header controls, dismissible PWA notice, mobile account door, compact footer, 16px body copy and 44px hit boxes. 24 targeted tests green, svelte-check 0 errors, Vite build green; live 1440/390 measurements clean. Rebuilt the embedded Rust binary because no assets.dir is configured in production.

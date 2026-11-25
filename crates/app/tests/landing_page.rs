@@ -241,6 +241,14 @@ async fn the_landing_page_is_a_document_with_no_script() {
         body.contains("120 words"),
         "the word count comes from the readable revision: {body}"
     );
+    assert!(
+        body.contains("Browse all"),
+        "an empty shelf still needs a next door: {body}"
+    );
+    assert!(
+        body.contains("class=\"meta\"") && body.contains("<span>"),
+        "metadata must be wrapped spans so it wraps as a row, not one word per line: {body}"
+    );
     test_support::assert_no_empty_section(&body, "landing");
 }
 

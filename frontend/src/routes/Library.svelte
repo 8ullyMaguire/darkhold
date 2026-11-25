@@ -592,7 +592,13 @@ import { Button } from '@polaris/ui';
         <EmptyState
           title="Nothing here"
           description="Works you import from other sites are listed here, with the address they came from."
-        />
+        >
+          {#snippet action()}
+            <a class="button" href="/import" onclick={(event) => handleLinkClick(event, '/import')}>
+              Import a work
+            </a>
+          {/snippet}
+        </EmptyState>
       {:else}
         <ul class="rows" aria-label="Imported works">
           {#each items as item (item.id)}

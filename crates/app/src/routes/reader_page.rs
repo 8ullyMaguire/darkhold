@@ -403,7 +403,10 @@ async fn read_unit_page(
     // costs one pass over the text; it repairs every row written by any import path, including ones this build has not
     // seen.
     let sanitized: Option<String> = revision.as_ref().map(|revision| {
-        darkhold_scrapers::sanitize::sanitize_fragment(&revision.sanitized_html, None)
+        normalize_imported_body(&darkhold_scrapers::sanitize::sanitize_fragment(
+            &revision.sanitized_html,
+            None,
+        ))
     });
     let body = render_page(
         &work,
@@ -881,6 +884,43 @@ fn work_search_matches(
         .collect()
 }
 
+/// Demote author headings in an already-sanitised body to styled paragraphs.
+///
+/// The sanitiser emits exact tag names with no attributes, so the closed input makes literal
+/// replacement sufficient. The reader keeps its own single `h1`; imported headings become small
+/// uppercase lines rather than competing titles.
+fn normalize_imported_body(html: &str) -> String {
+    let mut out = html.to_owned();
+    for level in 1..=6 {
+        out = out.replace(
+            &format!("<h{level}>"),
+            "<p class=\"reader-imported-heading\">",
+        );
+        out = out.replace(&format!("</h{level}>"), "</p>");
+    }
+    for label in ["Published:", "Updated:", "Words:", "Chapters:", "Status:"] {
+        let from = format!("<p>{label}");
+        let to = format!("<p class=\"reader-imported-meta\">{label}");
+        out = out.replace(&from, &to);
+    }
+    out
+}
+
+#[cfg(test)]
+mod ui_tests {
+    use super::normalize_imported_body;
+
+    #[test]
+    fn imported_headings_become_quiet_paragraphs() {
+        let html = "<h1>Planeswalker</h1><p>Published: 2025-06-29</p><h2>chapter 1</h2>";
+        let out = normalize_imported_body(html);
+        assert!(!out.contains("<h1>"));
+        assert!(!out.contains("<h2>"));
+        assert!(out.contains("<p class=\"reader-imported-heading\">Planeswalker</p>"));
+        assert!(out.contains("<p class=\"reader-imported-meta\">Published: 2025-06-29</p>"));
+    }
+}
+
 /// Render the reading page.
 #[allow(clippy::too_many_arguments)]
 fn render_page(
@@ -949,7 +989,14 @@ fn render_page(
     page.open("style", &[]).raw(&properties).close("style");
     page.close("head");
 
-    page.open("body", &[("class", "reader-surface")]);
+    page.open(
+        "body",
+        &[
+            ("class", "reader-surface"),
+            ("data-darkhold-has-search", "true"),
+            ("data-darkhold-signed-in", if signed_in { "true" } else { "false" }),
+        ],
+    );
 
     // ── the bar: the work, and the way back ────────────────────────────────
     page.open("header", &[("class", "reader-surface__bar")]);
@@ -1030,7 +1077,20 @@ fn render_page(
     }
 
     // ── the unit ──────────────────────────────────────────────────────────
-    page.open("main", &[("class", "reader-surface__main")]);
+    let restore = (!stale_position)
+        .then(|| position.map(|p| p.fraction))
+        .flatten()
+        .filter(|fraction| *fraction > 1);
+    page.open(
+        "main",
+        &[
+            ("class", "reader-surface__main"),
+            (
+                "data-restore-permille",
+                restore.map(|f| f.to_string()).as_deref().unwrap_or(""),
+            ),
+        ],
+    );
     // ── the reading controls ──────────────────────────────────────────────
     //
     // M71-08: real HTML before any script. Every item is a link or a statement, so the reader
@@ -1054,6 +1114,18 @@ fn render_page(
     page.open("span", &[("class", "position")])
         .text(&position_label(position, stale_position))
         .close("span");
+    page.open(
+        "div",
+        &[
+            ("class", "reader-surface__rail"),
+            ("role", "progressbar"),
+            ("aria-label", "Reading progress"),
+            ("aria-valuemin", "0"),
+            ("aria-valuemax", "100"),
+            ("aria-valuenow", "0"),
+        ],
+    );
+    page.close("div");
     if let Some(previous) = previous {
         page.open(
             "a",
@@ -1698,6 +1770,9 @@ fn render_page(
     page.close("form");
 
     page.close("main");
+    // CSP is `script-src 'self'`: an external same-origin file is the only script this document may carry.
+    page.open("script", &[("src", "/reader-position.js"), ("defer", "defer")]);
+    page.close("script");
     page.close("body");
     page.close("html");
 

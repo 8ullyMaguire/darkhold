@@ -11,13 +11,31 @@
  * want a dark interface with a warm-paper reading page.
  */
 
-@import '@polaris/ui/palettes/archive.css';
 @import '@polaris/ui/palettes/reading-room.css';
+/* archive must come after reading-room: both match the root element with equal specificity,
+   and reading-room's `:root` selector otherwise wins the cascade on <html data-palette=archive>. */
+@import '@polaris/ui/palettes/archive.css';
 @import '@polaris/ui/palettes/after-hours.css';
 @import '@polaris/ui/palettes/clear-day.css';
 
+/* The archived accent is a rust tone on paper; on the dark Archive chrome it needs a lighter form
+   for link text and focus rings. Measured 3.56:1 at #955335 on near-black, below AA. */
+:root[data-palette='archive'] {
+  --color-accent: #e8a877;
+  --accent: #e8a877;
+  --accent-hover: #f0b98f;
+  --accent-active: #d18a5a;
+  --accent-text: #e8a877;
+}
+
 :root {
   /* ---- typography ------------------------------------------------------ */
+  /* The injected estate chrome lives in a shadow root; inherited custom properties are the only styling contract it has. */
+  --polaris-bar-bg: var(--surface-0);
+  --polaris-bar-fg: var(--text-primary);
+  --polaris-bar-dim: var(--text-secondary);
+  --polaris-bar-line: var(--border-subtle, rgba(128,128,128,.3));
+
   --font-interface: 'Source Sans 3', 'Segoe UI', system-ui, -apple-system, sans-serif;
   --font-heading: 'Source Serif 4', Georgia, 'Times New Roman', serif;
   --font-reader: 'Literata', Georgia, 'Iowan Old Style', serif;

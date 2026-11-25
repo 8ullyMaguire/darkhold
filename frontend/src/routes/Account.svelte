@@ -247,7 +247,7 @@ import { Avatar, Button } from '@polaris/ui';
 
               {#if sessions.length > 1}
                 <div class="danger-zone">
-                  <h3>Sign out everywhere</h3>
+                  <h2>Sign out everywhere</h2>
                   <p>
                     Ends every session, including this one. Use it if you think somebody
                     else has your password.

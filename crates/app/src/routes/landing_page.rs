@@ -17,6 +17,8 @@
 //! The page carries **no script tag**. That is the assertion its test makes, and it is the difference between this and
 //! the shell it replaces.
 
+use std::collections::HashMap;
+
 use axum::extract::State;
 use axum::http::{header, StatusCode};
 use axum::response::{IntoResponse, Response};
@@ -120,9 +122,19 @@ async fn starters(state: &AppState) -> Vec<Starter> {
     let mut out = Vec::with_capacity(STARTERS as usize + GATED_TEXT);
     let mut linked = 0usize;
     let mut gated = 0usize;
+    // A freshness feed can be one prolific importer repeated six times. Show a range of hands:
+    // two works per author at most, and stop scanning once the shelf is full rather than asking
+    // the reader policy about every candidate in the pool.
+    let mut author_counts: HashMap<String, usize> = HashMap::new();
+    let mut scanned_after_full = 0usize;
     for id in ids {
-        if linked >= STARTERS as usize && gated >= GATED_TEXT {
+        if linked >= STARTERS as usize
+            && (gated >= GATED_TEXT || scanned_after_full >= GATED_TEXT * 4)
+        {
             break;
+        }
+        if linked >= STARTERS as usize {
+            scanned_after_full += 1;
         }
         let Ok(Some(work)) = darkhold_db::content::find_work(state.db(), id).await else {
             continue;
@@ -170,6 +182,14 @@ async fn starters(state: &AppState) -> Vec<Starter> {
             .flatten()
             .map(|pseud| pseud.handle)
             .unwrap_or_default();
+
+        if !author.is_empty() {
+            let count = author_counts.entry(author.clone()).or_insert(0);
+            if *count >= 2 {
+                continue;
+            }
+            *count += 1;
+        }
 
         out.push(Starter {
             title: work.title,
@@ -273,12 +293,19 @@ fn render(
              .landing .shelf-list{list-style:none;margin:0;padding:0}\
              .landing .shelf-list li{display:grid;grid-template-columns:2.5rem 1fr;column-gap:var(--space-3);align-items:baseline;border-bottom:1px solid var(--border-subtle, rgba(128,128,128,.3));padding:var(--space-3) 0}\
              .landing .shelf-list .rank{font-family:var(--font-mono);font-size:var(--text-sm);color:var(--text-secondary)}\
-             .landing .shelf-list a.work-title{font-size:var(--text-lg);text-decoration:none}",
+             .landing .shelf-list .work-title{font-size:var(--text-lg);text-decoration:none}\
+             .landing .shelf-list .meta{grid-column:2;display:flex;flex-wrap:wrap;gap:0 var(--space-3)}\
+             .landing .shelf-list .meta span{white-space:nowrap}\
+             .landing .shelf-head{display:flex;align-items:baseline;justify-content:space-between;gap:var(--space-3)}\
+             .landing .shelf-all{font-size:var(--text-sm);color:var(--text-link,inherit);min-height:44px;display:inline-flex;align-items:center}"
         )
         .close("style");
     page.close("head");
 
-    page.open("body", &[("class", "landing")]);
+    page.open(
+        "body",
+        &[("class", "landing"), ("data-darkhold-has-search", "true")],
+    );
     page.open("main", &[]);
 
     // ── the declaration ───────────────────────────────────────────────────
@@ -336,7 +363,12 @@ fn render(
     // ── open now: one ranked list, no cards ───────────────────────────────
     if !starters.is_empty() {
         page.open("section", &[("class", "shelf")]);
+        page.open("div", &[("class", "shelf-head")]);
         page.open("h2", &[]).text("Open now").close("h2");
+        page.open("a", &[("class", "shelf-all"), ("href", "/search")])
+            .text("Browse all")
+            .close("a");
+        page.close("div");
         page.open("ol", &[("class", "shelf-list")]);
         for (i, starter) in starters.iter().enumerate() {
             page.open("li", &[]);
@@ -369,9 +401,11 @@ fn render(
             if !starter.rating.is_empty() {
                 meta.push(starter.rating.replace('_', " "));
             }
-            page.open("div", &[("class", "meta")])
-                .text(&meta.join(" · "))
-                .close("div");
+            page.open("div", &[("class", "meta")]);
+            for part in &meta {
+                page.open("span", &[]).text(part).close("span");
+            }
+            page.close("div");
             page.close("li");
         }
         page.close("ol");

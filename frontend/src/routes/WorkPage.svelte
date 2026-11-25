@@ -329,7 +329,7 @@
 </script>
 
 {#if loading}
-  <Skeleton lines={4} />
+  <Skeleton lines={4} label="Loading this work and its chapters" />
 {:else if paywall}
   <!-- Paywall (spec §20.9): work exists and is priced, but the reader
        has not purchased it. Show the price and a buy button. -->

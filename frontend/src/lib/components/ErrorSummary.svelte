@@ -22,7 +22,7 @@
   screenshots of a stack trace.
 -->
 <div class="summary" role="alert" aria-labelledby="error-summary-title">
-  <h3 id="error-summary-title">That did not work</h3>
+  <h2 id="error-summary-title">That did not work</h2>
   <p class="message">{message}</p>
 
   {#if fields.length > 0}
@@ -53,7 +53,7 @@
     margin-bottom: var(--space-4);
   }
 
-  h3 {
+  h2 {
     margin: 0 0 var(--space-2);
     color: var(--color-danger);
     font-size: var(--text-lg);
