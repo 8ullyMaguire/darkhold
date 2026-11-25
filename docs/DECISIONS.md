@@ -347,6 +347,8 @@ handling changed.
 
 The owner pasted an outside brief describing a faceted search product. Its structural advice was accepted, but every claim about the current system was checked against `docs/requirements.csv` and `docs/spec.md`. Most of it is already shipped: saved searches, Boolean/facet grammar, current-filter facet counts, canonical tags and wrangling, recommendation reasons, completion/length facets, EPUB and per-device position. Three gaps are open as FS-01/02/03: crossover include/exclude, role metadata on tag joins, and include/exclude parity on facet chips.
 
+A second pass ranked the queue by live supply and use: 74,598 of 141,939 library items carry word counts, so a reading-time band facet (FS-07) is worth building; `saved_views` and `search_alerts` are both 0 despite shipped machinery, so FS-04 is a discoverability fix, not a rebuild; `work_warnings`, `series` and role tables are empty, so warning/series UX stays parked and FS-02 stays planned without invented roles. Full census and commands are in the spec amendment.
+
 Rejected: standing up OpenSearch/Redis/S3 now. The instance has one corpus and a working query path; the cluster decision needs measured p95 and facet cardinality, not a generic architecture diagram. Also rejected: popularity-only ranking, default full-text body indexing, and any “supports every site” scraper claim. The full triage is `docs/spec-amendments/faceted-search-brief-2026-11-26.md`.
 
 ## 2026-11-26 — canonical scraper adoption (shipped 6c9e2469)

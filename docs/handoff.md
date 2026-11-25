@@ -7,8 +7,9 @@ The open queue, gates and blocked table are in `docs/plans/roadmap-remaining.md`
 Do not add another “current state” list here.
 
 **Faceted-search brief (2026-11-26):** an outside brief was triaged against that CSV, not accepted at face value.
-Three real gaps are queued as FS-01/02/03 in `docs/plans/roadmap-remaining.md`; the rest is already implemented or
-explicitly parked. See `docs/spec-amendments/faceted-search-brief-2026-11-26.md`.
+Seven rows are queued as FS-01/02/03 and FS-04..FS-07 in `docs/plans/roadmap-remaining.md`, ranked by live supply
+and use; the rest is already implemented or explicitly parked. See
+`docs/spec-amendments/faceted-search-brief-2026-11-26.md`.
 
 ## 2026-11-25 — shell UX repair (452b4087)
 

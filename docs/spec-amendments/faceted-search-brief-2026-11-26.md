@@ -57,6 +57,62 @@ Counts beside each chip remain those for the current filter set (`M71-11`).
 Acceptance: DOM test flips one chip and asserts the query string changes from `tag:x` to `-tag:x` (or the grammar's
 named equivalent) and back; the chip's count does not become the unfiltered global count.
 
+## Ranked by live supply and use, 2026-11-26
+
+The second pass did not ask “what would a generic archive build?” It asked what this instance can actually answer
+today. Read-only PostgreSQL census (`sudo -u postgres psql -d darkhold`):
+
+| measurement | value | consequence |
+| --- | ---: | --- |
+| works / public published | 58,042 / 58,042 | corpus is large enough for facets to matter |
+| library items with `word_count` | 74,598 of 141,939 | length and reading-time bands have real supply |
+| public completed works | 291 | completion filter has supply; it is already implemented |
+| `work_tags` rows | 399,653 | tag facets are the main discovery substrate |
+| `work_characters` / `work_relationships` | 8,466 / 57 | character facets have supply; relationship supply is thin but real |
+| `work_character_roles` / `work_relationship_dynamics` | 0 / 0 | FS-02 cannot be filled from live data; keep it planned, do not fake roles |
+| `saved_views` / `search_alerts` / `search_history` | 0 / 0 / 2 | saved-search machinery exists but is undiscovered — surface it, do not rebuild it |
+| `work_warnings` / `content_warnings` | 0 / 0 | warning exclusions have no corpus; backfill is supply work, not UI work |
+| `series` / `series_entries` | 0 / 0 | series-length filters would be correct and empty; park |
+| distinct `works.language` | 1 | language facet has no discrimination live; keep the code, do not prioritise UX here |
+
+Ranking rule: supply that exists now first, then a small UI change over new machinery, then the brief's stated
+reader demand. That promotes four more rows:
+
+### FS-04 — surface saved searches and alerts where readers already are
+
+`M47-05`, `M21-D12`–`D15` and `M63-12` implement saved views, alerts and `dh watch`; live has zero saved views and
+zero alerts. Add “Save this search” to the active-filter strip and offer it on the zero-result page. This is
+discoverability, not a new store.
+
+Acceptance: from a filtered search, one click saves a named view; the saved view appears in the account's list; an
+alert can be created for it without a second form. Mutation: removing the save action must fail the DOM test.
+
+### FS-05 — search within the current result set
+
+`M10-03` is search within a *work*, not within the current filter results. Add a scoped input that narrows the
+active result set without clearing facets, and keep it in the URL. Do not send it to the global search endpoint.
+
+Acceptance: with a fandom filter active, the scoped query returns only rows matching both; clearing it restores the
+facet set; URL round trip keeps both clauses.
+
+### FS-06 — zero-result rescue
+
+Idea 80 in `~/secondbrain/10-Projects/ideas/darkhold.md` asks for the nearest three queries that would return
+something. Implement it against the facet counts already served by `M71-11`: remove one clause at a time, name the
+clause, and offer the closest non-empty alternatives. Never silently widen the query.
+
+Acceptance: a deliberately impossible tag returns an empty state plus three named relaxations; clicking one changes
+the URL and returns rows; a mutation that drops a clause without naming it fails the test.
+
+### FS-07 — reading-time band as a facet
+
+`M57` shows a reading estimate; `M64-10` makes length/status first-class; 74,598 live items carry word_count.
+Add `<30m`, `30–90m`, `2–5h`, `5h+` bands that filter on word count with an explicit “unknown” bucket. This is a
+new facet, but it reuses existing numbers and satisfies the brief's “how much time will this cost me?” question.
+
+Acceptance: dual-engine test places boundary word counts in the right bands and puts null word counts in “unknown”;
+counts come from the current filter set; mutation that drops the unknown bucket fails the test.
+
 ## Parked — explicit, not forgotten
 
 - **External OpenSearch/Redis/S3 split.** The brief recommends it as an architecture; this instance has one corpus,
@@ -67,6 +123,13 @@ named equivalent) and back; the chip's count does not become the unfiltered glob
   owner decision, not a schema gap.
 - **Podfic/audio availability as a filter.** `M40-02` covers narration/permission mechanics; no live supply is
   measured. Add a facet when narrations exist.
+- **Warning-based exclusion as a UI priority.** `work_warnings` and `content_warnings` both have 0 live rows.
+  The exclusion machinery must stay reliable, but a warning facet would be correct and empty until importers map
+  source warnings. Supply first, UI second.
+- **Series-length filters.** `series` and `series_entries` both have 0 live rows; the facet would be correct and
+  empty. The series-as-document work stays, but it is not a discovery priority.
+- **Language-facet UX polish.** Only one distinct language exists in `works`; the code stays, but spending UX
+  effort here would not change current results.
 
 ## Refused — record so it is not re-proposed
 
