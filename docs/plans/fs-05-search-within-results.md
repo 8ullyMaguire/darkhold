@@ -133,6 +133,8 @@ Expected: 28/28 pass, 0 svelte errors. Deploy only after the bundle changes; liv
 run a query, narrow it, copy `window.location.search`, reload, and confirm the restored query box still contains
 both clauses.
 
+Execution note: direct `/search` is server-rendered; a copied `?q=` URL restores there, while the SPA Search page restores it when mounted through in-app navigation. Live proof used both paths.
+
 ## Step 4 — state
 
 Mark FS-05 `implemented-verified-e2e`, regenerate the ledger counts, move the roadmap row to done, update the handoff

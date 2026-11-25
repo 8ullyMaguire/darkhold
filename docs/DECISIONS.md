@@ -343,6 +343,10 @@ it uses the same filtered nav list as desktop. No backend, routes or credential
 handling changed.
 
 
+## 2026-11-26 — FS-05 reuses the query grammar
+
+A scoped term is appended as `AND <term>` to the same canonical query that already carries fandom/tag/status/word-range facets. No second filter model and no backend change were introduced; existing dual-engine query tests cover AND semantics. Every run writes the full query to `?q=` so a copied link reproduces the visible result set through the server-rendered search page.
+
 ## 2026-11-26 — FS-03 exclusion lives on Search filter chips
 
 The Search filter bar owns fandom, tag, mood, rating, language and completion chips, so it is the one place where include/exclude parity belongs. QueryStatePanel chips are server-owned numeric/rating/sort/pinned facts and `MetadataChip` is an entity-page selection control; neither is a tag facet and neither was silently given a new exclusion meaning. Direct `/search` is a server-rendered page; the SPA Search page is reached by client navigation, and the live proof uses that route.

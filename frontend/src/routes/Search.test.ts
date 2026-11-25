@@ -27,6 +27,7 @@ vi.mock('../lib/session.svelte', () => ({
 }));
 
 beforeEach(() => {
+  window.history.replaceState({}, '', '/');
   searchWorks.mockReset();
   searchWorks.mockResolvedValue({ items: [] });
   fetchSearchHistory.mockReset();
@@ -58,6 +59,21 @@ describe('Search page', () => {
     expect(screen.getByText('Fandom')).toBeInTheDocument();
     expect(screen.getByText('Tag')).toBeInTheDocument();
     expect(screen.getByText('Rating')).toBeInTheDocument();
+  });
+
+  it('narrows within the current result set and keeps both clauses in the URL', async () => {
+    window.history.replaceState({}, '', '/');
+    render(Search);
+    await fireEvent.input(screen.getByLabelText('Search query'), { target: { value: 'winter' } });
+    await fireEvent.click(screen.getByText('Search'));
+    expect(searchWorks).toHaveBeenLastCalledWith('winter', 20);
+    await fireEvent.input(screen.getByLabelText('Search within these results'), {
+      target: { value: 'draco' },
+    });
+    await fireEvent.click(screen.getByText('Narrow'));
+    expect(searchWorks).toHaveBeenLastCalledWith('winter AND draco', 20);
+    expect(new URLSearchParams(window.location.search).get('q')).toBe('winter AND draco');
+    expect(screen.getByLabelText('Search within these results')).toHaveValue('');
   });
 
   it('flips a filter chip from include to exclude and back', async () => {

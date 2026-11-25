@@ -48,6 +48,7 @@
   };
 
   let query = $state('');
+  let scopedTerm = $state('');
   let results = $state<SearchResultList | null>(null);
   /** The real distribution under the current query, loaded beside the hits (M71-12). */
   let histogram = $state<Awaited<ReturnType<typeof fetchWordHistogram>> | null>(null);
@@ -96,7 +97,20 @@
     }
   }
 
+  /** Copy/paste restores exactly the query that produced the visible result set. */
+  function syncUrl(fullQuery: string) {
+    const url = new URL(window.location.href);
+    if (fullQuery.trim()) url.searchParams.set('q', fullQuery.trim());
+    else url.searchParams.delete('q');
+    window.history.replaceState(window.history.state, '', `${url.pathname}${url.search}`);
+  }
+
   onMount(() => {
+    const fromUrl = new URL(window.location.href).searchParams.get('q');
+    if (fromUrl) {
+      query = fromUrl;
+      void runSearch();
+    }
     void loadHistory();
   });
 
@@ -229,6 +243,7 @@
 
   async function runSearch() {
     const fullQuery = buildQuery();
+    syncUrl(fullQuery);
     if (!fullQuery.trim()) {
       results = null;
       return;
@@ -314,6 +329,16 @@
     void runSearch();
   }
 
+  /** FS-05: narrow the visible result set by appending a plain AND term to its query. */
+  function applyScopedSearch(event: Event) {
+    event.preventDefault();
+    const term = scopedTerm.trim();
+    if (!term || loading) return;
+    query = query.trim() ? `${query.trim()} AND ${term}` : term;
+    scopedTerm = '';
+    void runSearch();
+  }
+
   /**
    * FS-04: save the exact canonical query the reader just ran, then attach one daily alert.
    * A catalogue view is used because a global search string is not a library query; a
@@ -374,6 +399,20 @@
     <button type="submit" disabled={loading}>
       {loading ? 'Searching…' : 'Search'}
     </button>
+  </form>
+
+  <form class="within-form" onsubmit={applyScopedSearch}>
+    <label for="within-results">Search within these results</label>
+    <div>
+      <input
+        id="within-results"
+        type="search"
+        bind:value={scopedTerm}
+        placeholder="Add a word or phrase to the current search"
+        disabled={!buildQuery().trim()}
+      />
+      <button type="submit" disabled={!buildQuery().trim() || loading}>Narrow</button>
+    </div>
   </form>
 
   {#if history.length > 0}
@@ -559,6 +598,28 @@
 </section>
 
 <style>
+  .within-form {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--space-2);
+    margin-bottom: var(--space-3);
+  }
+
+  .within-form label {
+    font-weight: 600;
+  }
+
+  .within-form > div {
+    display: flex;
+    flex: 1 1 18rem;
+    gap: var(--space-2);
+  }
+
+  .within-form input {
+    flex: 1;
+  }
+
   .filter-tag.excluded {
     text-decoration: line-through;
     color: var(--color-muted);
