@@ -14,6 +14,17 @@ fn the_public_trope_probe_is_staged_without_credentials() {
     let script = root.join("scripts/trope-live-probe.sh");
     assert!(script.exists(), "trope-live-probe.sh is missing");
     let text = std::fs::read_to_string(&script).expect("read probe script");
+    // A single quote inside a `python3 -c '...'` block is a shell string
+    // terminator, not a Python quote: the first run died with NameError: slug.
+    let inline = text
+        .split("python3 -c '\n")
+        .nth(1)
+        .expect("inline vocabulary Python block");
+    let block = inline.split("\n'").next().expect("end of inline block");
+    assert!(
+        !block.contains('\''),
+        "the inline Python block must not contain single quotes"
+    );
     assert!(
         text.contains("/api/v1/tropes"),
         "the vocabulary must be probed"

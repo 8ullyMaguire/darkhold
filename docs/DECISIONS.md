@@ -278,3 +278,31 @@ The owner states ascend is unfrozen and authorises writes. The previous block co
 * `scripts/trope-live-probe.sh` performs only public GETs against `/api/v1/tropes` and `/api/v1/search`. It unsets `DARKHOLD_BASE_URL`, `DARKHOLD_TOKEN` and `DARKHOLD_COOKIE` before the first request and sends no auth header or cookie.
 * The script is staged but not executed: the fresh deploy-host probe still found ~14.5 GB swap used and four active `suki autotag` workers, so H3 remains blocked. Live proposal staffing also still needs a second curator/grant.
 * Unrelated in-flight diffs from another session remain in the shared worktree; only explicit paths were staged.
+
+## 2026-11-25 — deploy profile, host cleanup, and the quorum search
+
+* **Build profile:** the release binary was built with `CARGO_PROFILE_RELEASE_LTO=off` and
+  `CARGO_PROFILE_RELEASE_CODEGEN_UNITS=16` instead of the project's thin-LTO/`codegen-units=1`
+  profile. Reason: the deploy host had 1.8–4.1 GB available with the managed
+  `suki-tagger-drain.service` active, and thin-LTO has been SIGTERM'd by earlyoom at 3.4 GB RSS
+  here. The owner already removed the `>=8 GB` deploy gate and authorised a lower-peak profile.
+  Result: `BUILD_EXIT=0`, `CLI_EXIT=0` in 3m16s. The binary is functionally the d2b972b7 tree;
+  only optimisation settings changed. Recorded so the artifact is not mistaken for a thin-LTO build.
+* **Host cleanup (H1):** the three `/swapfile-build*` files were already disabled but still on
+  disk. They were deleted with no fstab references. The managed suki tagger workers were left
+  running — another product's job is not a source of memory for this deploy.
+* **Curator staffing:** the live electorate was re-censused. Two accounts are eligible (TL6 human
+  and a TL4 system account), zero have `is_curator`, zero have `curator_roles`. Every TL1–TL2
+  candidate is a fixture, probe or bulk-import account (`devreader` owns 58,035 works;
+  `batch_importer`, `seeder`, `probe1`, `ExtReader`, `ExtAuthor` are test accounts; `trmund33` has
+  one session and no works). Granting one would manufacture a quorum under one operator's control,
+  which is the bypass §14.7 forbids. No grant was made; owner designation of a real third curator
+  remains the unblock.
+* **Probe quoting defect:** the first live run of `scripts/trope-live-probe.sh` died with
+  `NameError: name 'slug' is not defined`. A single quote inside the `python3 -c '...'` block
+  terminated the shell string. Fixed with `.format()` and a staging-test guard against any single
+  quote in that block. The probe then printed all five seed groups with `source=seed`.
+* **Migration backup:** a works-only scoped dump was taken before DDL at
+  `/personal/backups/darkhold-20261125-112331-pre-0218-0219.dump` and verified with
+  `pg_restore -l | grep -c 'TABLE DATA'` = 1. The replaced running binary is kept at
+  `~/backups/darkhold-replaced-20261125-113906.bin`.

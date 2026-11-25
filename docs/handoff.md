@@ -268,3 +268,19 @@ Proof: full gate `/tmp/gate-all-m63-26-ba364ea5.log` `GATE_ALL_EXIT=0`, all eigh
 
 A concurrent session pushed `a8a6b8b5` (row 409 A3) during the M63-29 full gate, adding `darkhold-db` and a path dependency on `polaris-jobs` to the CLI. That made `layering` red and the path unavailable in this checkout. The shared crate exists on the thinkcentre mount, so `/home/alvaro/code-local/estate/crates` was symlinked to `/home/alvaro/mnt/thinkcentre/personal/documents/code/estate/crates` (environment fix, not a repo change). `layering.rs` now permits `darkhold-db` only when every import is confined to `src/jobs.rs`; the new guard reads the manifest and the source files. Targeted suite: 3/3. No other session work was reverted.
 
+## 2026-11-25 — H1/H3 closed; M45-76 and M45-77 deployed
+
+Release build from `d2b972b7` with `LTO=off`/`codegen-units=16` finished in 3m16s with both
+app and CLI exits 0. Frontend rebuilt first (`index-DeJTFeVo.js`, `✓ built in 19.93s`) and the
+served bundle matches `frontend/dist`. A works-only dump was verified before DDL; migrations
+0218 and 0219 applied (216 total). Live meta is `0.1.0+d2b972b7` with
+`works.auto_abandon_after_months=4`; 15,220 abandoned works carry a seeded
+`completion_marked_at`; the trope proposal and completion tables exist. Public
+`GET /api/v1/tropes/proposals` returns 200 with an empty list, while the sweep, vote and
+completion doors answer 401 anonymously. The staged public probe was fixed after its first
+live run exposed a shell-quoting `NameError`, then printed the five seed groups. Lifecycle
+units are installed under the user manager with the timer disabled, per the plan's dry-run
+rule. The three build swapfiles were deleted. The only M45-77 half still open is a real
+third curator: the two eligible accounts plus fixture TL1-2 accounts cannot form an
+independent quorum. TA3-2 remains queued (15,055 jobs / 14,338 imports) and AO3 still answers 429.
+

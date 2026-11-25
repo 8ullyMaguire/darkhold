@@ -20,7 +20,7 @@ curl -fsS "$BASE/api/v1/tropes" | python3 -c '
 import json, sys
 data = json.load(sys.stdin)
 for item in sorted(data.get("items", []), key=lambda row: row.get("slug", "")):
-    print(f"{item.get('slug')}\t{item.get('source')}")
+    print("{}\t{}".format(item.get("slug"), item.get("source")))
 '
 
 if [[ $# -lt 2 ]]; then
