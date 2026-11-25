@@ -124,9 +124,11 @@ given, append once.)
 2. The same query without `AND NOT me:rated` returns a strict superset for a
    viewer who has rated at least one of those works; for a viewer with no
    ratings the two sets are equal. Asserted in a two-engine test, not by eye.
-3. `?q=source:qq` returns **422** naming `source` as a works field or 200 with
-   hits — never a silent empty page. `?q=source:qq OR source:sv` returns rows
-   from both archives.
+3. `?q=source:ao3` returns 200 with hits (a NULL source clock decodes to an
+   empty string, never a 500), and `?q=source:pawchive` returns 200 with hits.
+   The OR form returning rows from both sides is proved by the two-engine test.
+   Live `qq`/`sv` items attach to no public published work; widening visibility
+   to manufacture a hit is forbidden, so they are not the live acceptance pair.
 4. `?sort=popularity` orders by descending likes; `?sort=newest` orders by our
    update clock; the two lists differ on a fixture built for that purpose. A
    mutant that removes the ORDER BY branch reddens the test.
@@ -172,3 +174,17 @@ are added here before the next pass.
 
 Non-goals unchanged: no source-key list grammar, no change to `/catalogue`, no
 wider `me:` vocabulary, no visibility change to manufacture live hits.
+
+- **M45-75.9** — a source row with no `source_updated_at` (AO3 imports have
+  none) still yields a 200 hit with an empty `source_updated_at`, on both
+  engines and live. The earlier projection decoded NULL into `String` and
+  returned 500 for `?q=source:ao3`; the fix wraps both correlated columns in
+  `COALESCE(..., '')`.
+
+Live acceptance decision, 2026-11-25: criterion 1 is met by the signed-in
+canonical query over pawchive (`source_key=pawchive`,
+`source_updated_at=2025-05-18T11:29:57Z`, older than 2026-07-26). Criterion 3
+is met by live `source:ao3` (5 hits, empty clock) and `source:pawchive` hits
+plus the dual-engine OR proof. This names different archives than the original
+draft because those are the two archives with public works; no visibility was
+changed and no source row was invented.

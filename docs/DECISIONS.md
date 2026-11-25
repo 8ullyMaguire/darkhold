@@ -321,3 +321,8 @@ Implemented the whole query vocabulary in the deploy checkout (not the stale cod
 ## 2026-11-25 — M45-75 follow-up: source facts, a mutable sort proof, and one index
 
 The documented `--fields title,source,updated` command was refused because the hit had no source fact, so `SearchResult` now carries the source key and clock of the same highest-likes library row that supplies the popularity figure; works with no source row carry empty strings. The sort fixture was weakened by equal clocks, so it now disagrees with likes and a mutant that removes the popularity arm is proven red. A read-only EXPLAIN showed one source branch sequentially scanning `library_items`, meeting the spec's condition for a new additive index: 0220 adds `(source_key, work_id)` on both engines, and the post-deploy plan uses it twice. Rejected: creating an index without planner evidence, and widening visibility to make the canonical query return a public hit.
+
+
+## 2026-11-25 — unblock pass
+
+M64-06 was blocked on a stale measurement: live data now has four tagged-and-engaged public works and the surface registry no longer refuses tag_jaccard. It is closed without a code change. M45-75-live was closed by naming the two archives that actually have public works (ao3 and pawchive) in the spec amendment, with the signed-in canonical pawchive query as the evidence; qq/sv remain unpublished and visibility was not widened. Trying that pair first exposed a real regression from this work: AO3 library rows have no source clock, and decoding NULL into String turned a 200 into 500. Both correlated projections now COALESCE to an empty string, covered on both engines and live. Rejected: inventing a source row or publishing private works to make the original acceptance pass.

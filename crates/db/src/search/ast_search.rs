@@ -411,12 +411,12 @@ fn render_statement(
          COUNT(works_index_terms.term) AS score, \
          (SELECT COALESCE(CAST(MAX(li_likes.likes) AS BIGINT), 0) \
           FROM library_items li_likes WHERE li_likes.work_id = works.id) AS likes, \
-         (SELECT li_hit.source_key FROM library_items li_hit \
+         COALESCE((SELECT li_hit.source_key FROM library_items li_hit \
           WHERE li_hit.work_id = works.id \
-          ORDER BY COALESCE(li_hit.likes, 0) DESC, li_hit.source_key ASC LIMIT 1) AS source_key, \
-         (SELECT li_hit.source_updated_at FROM library_items li_hit \
+          ORDER BY COALESCE(li_hit.likes, 0) DESC, li_hit.source_key ASC LIMIT 1), '') AS source_key, \
+         COALESCE((SELECT li_hit.source_updated_at FROM library_items li_hit \
           WHERE li_hit.work_id = works.id \
-          ORDER BY COALESCE(li_hit.likes, 0) DESC, li_hit.source_key ASC LIMIT 1) AS source_updated_at, \
+          ORDER BY COALESCE(li_hit.likes, 0) DESC, li_hit.source_key ASC LIMIT 1), '') AS source_updated_at, \
          works.rating, works.updated_at, \
          works.lifecycle, works.visibility \
          FROM works \

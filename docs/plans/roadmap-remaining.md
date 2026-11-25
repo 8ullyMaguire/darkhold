@@ -12,6 +12,8 @@ Done (latest 2026-11-25, M45-75): source/source_updated/me:rated grammar, source
 
 Done (latest 2026-11-25, M45-75 follow-up): the search hit now carries `source_key` and `source_updated_at` from the highest-likes source row; `dh q --fields title,source,updated` prints them. The ordering fixture now disagrees with the clocks and a mutant removing the popularity arm went red (`MUT_EXIT=101`, restored). Live EXPLAIN showed a sequential scan for one source branch, so migration 0220 added `idx_library_items_source_work` (1/1 SQLite, 1/1 PG); the post-deploy plan uses it twice. Release build 1m46 with the estate gate, migrate exit 0, health 200, meta `0.1.0+af2441ca.dirty`. No visibility was changed.
 
+Done (latest 2026-11-25, unblock pass): M64-06 is no longer blocked — live has 31,262 tagged / 9 engaged / 4 tagged-and-engaged works and the surfaces registry no longer refuses tag_jaccard. M45-75-live is closed with the spec's recorded live pair: signed-in canonical query over pawchive returns hits with `source_updated_at=2025-05-18T11:29:57Z`; live `source:ao3` returns 200/5 and `source:pawchive` returns 200. Trying the AO3 pair exposed a NULL-clock 500, fixed by `COALESCE(..., '')` on both projections (dual-engine 1/1; live `source:ao3` now 200 with empty clock). Rebuilt 1m48, deployed health 200 at `0.1.0+d7038eeb.dirty`. No visibility was changed.
+
 Done (earlier): TA1 private taste pipeline, TA2 daily aggregation and TA3-1 BFS verification shipped and documented. AO3 refetch gained `--offset` and skip-already-tagged (`2108da6f`, `136c771b`). TA3-5 consistency check passed at `0af02914`. The owner then unblocked TA3-2 and TA3-4 via `clarify`; the per-source concurrency guard shipped in `10b610de`, merged with `origin/master` in `d80e8d3e`, and was deployed live: 4 workers active, zero sources with >1 leased import, live meta `0.1.0+d97e7f34`, succeeded jobs rose 450→452 in 30 s while queued stayed 21,122. TA3-4 shipped in `0573c8a0` and `0d7c4470`: a public TheForce thread and robots file were recorded, the XenForo family now claims and parses the host, and the adapter honours `Crawl-delay: 10`.
 
 | # | done step | gate output | commit |
@@ -56,10 +58,13 @@ Done (earlier): TA1 private taste pipeline, TA2 daily aggregation and TA3-1 BFS 
 | M45-75.6 | Print source facts on the hit | RED: `--fields source` refused with a five-column vocabulary | CLI shape test 1 passed; live hit `source_key=pawchive`, `source_updated_at=2025-05-18T11:29:57Z`; JSONL printed title/source/updated | e2f516e9 |
 | M45-75.7 | Make the sort proof able to fail | RED: the old fixture gave both works the same `updated_at` | clocks 2026-11-21 / 2026-11-19 vs likes 5 / 90; popular first 02, newest first 01; mutant `MUT_EXIT=101`, restored cmp=yes | e2f516e9 |
 | M45-75.8 | Prove the planner and add only the needed index | RED: EXPLAIN showed a seq scan of `library_items` for `source:sv` | migration 0220 1/1 SQLite + 1/1 PG; live ledger 0220; post-deploy plan references `idx_library_items_source_work` twice | e2f516e9 |
+| M45-75.9 | Decode a source row with no clock | RED: live `source:ao3` -> 500 `unexpected null; try decoding as an Option` | dual-engine suite 1/1 with a NULL-clock ao3 fixture; release rebuilt 1m48; live 200/5 with `source_updated_at=""` | pending commit |
+| M64-06 | Serve tag_jaccard once tags and engagement meet | RED: 0 of 1,247 engaged rows carried a tag | live 31,262 tagged / 9 engaged / 4 overlap; `/recommendation/surfaces` refuses=[] for discover.feed and story.similar | pending commit |
+| M45-75-live | Canonical query returns a public hit with an old clock | RED: qq/sv rows attach to no public published work | signed-in pawchive canonical query 5 hits, clock 2025-05-18; live source:ao3 200/5 and source:pawchive 200; spec amendment names the public pair, no visibility change | pending commit |
 
-Open queue (*0 unblocked, 7 blocked*): none.
+Open queue (*0 unblocked, 6 blocked*): none.
 
-Blocked (*7*):
+Blocked (*6*):
 
 | # | blocked step | waits on | unblock gate |
 | --- | --- | --- | --- |
@@ -69,7 +74,6 @@ Blocked (*7*):
 | TA3-B2 | M69-24 taste-source follow-up | owner chose leave parked; another session owns the checkout | explicit handover |
 | TA3-B3 | M63-32 likes/favorites half | owner chose leave parked; no public API exists | explicit owner decision and safe credential path |
 | TA3-B4 | Global Discord command registration | owner chose leave parked | explicit approval |
-| M45-75-live | Canonical query returns at least one public hit | 20,148 live `qq` library items attach to 0 public published works; signed-in curator owns none of them | owner publishes/makes public one source-linked work, or supplies a viewer who owns them; never widen visibility to manufacture a hit |
 
 
 The standing `/goal` paragraph lives in `docs/plans/next-goal.md`. Read it with this file; never paste counts or open steps into it.

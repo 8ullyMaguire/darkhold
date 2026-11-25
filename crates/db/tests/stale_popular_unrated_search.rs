@@ -57,6 +57,16 @@ async fn source_clock_viewer_and_sort_are_honoured_on_both_engines() {
         exec(db, &format!("INSERT INTO works (id,owner_pseud_id,title,visibility,lifecycle,completion,created_at,updated_at) VALUES ('01957700-0000-4000-8000-0000000000{work}','{U}','Work {work}','public','published','in_progress','2026-11-20T00:00:00Z','2026-11-20T00:00:00Z')")).await;
         exec(db, &format!("INSERT INTO library_items (id,account_id,work_id,source_key,source_work_key,title,status,source_updated_at,source_url,likes,created_at,updated_at) VALUES ('01957700-0000-4000-8000-0000000010{work}','{A}','01957700-0000-4000-8000-0000000000{work}','{key}','w{work}','Work {work}','ongoing','{at}','https://example.invalid/{work}',{likes},'2026-01-01T00:00:00Z','2026-01-01T00:00:00Z')")).await;
     }
+    // AO3 import rows can carry no source clock at all. The hit must decode
+    // that as an empty string, not turn a 200 search into a 500.
+    exec(
+        db,
+        &format!("INSERT INTO library_items (id,account_id,work_id,source_key,source_work_key,title,status,source_updated_at,source_url,likes,created_at,updated_at) \
+         VALUES ('01957700-0000-4000-8000-000000001099','{A}','01957700-0000-4000-8000-000000000002','ao3','a02','Work 2', \
+                 'ongoing',NULL,'https://archiveofourown.org/works/2',7,'2026-01-01T00:00:00Z','2026-01-01T00:00:00Z')"),
+    )
+    .await;
+
     // The clocks deliberately disagree with the likes: work 01 is newer but
     // work 02 is more popular, so the two orderings must name different hits.
     exec(db, "UPDATE works SET updated_at='2026-11-21T00:00:00Z' WHERE id='01957700-0000-4000-8000-000000000001'").await;
@@ -88,6 +98,8 @@ async fn source_clock_viewer_and_sort_are_honoured_on_both_engines() {
         Some("01957700-0000-4000-8000-000000000001")
     );
     assert_ne!(popular.first(), newest.first(), "the two orders must differ");
+    let null_clock = search(db, "source:ao3", None, "newest").await;
+    assert_eq!(null_clock.len(), 1, "a NULL source clock still yields a hit");
     let bad = search_works_ast_scoped(db, "", None, 20, &[], &SearchFilters { sort: Some("nope".to_owned()), ..Default::default() }).await;
     assert!(bad.is_err(), "an unknown sort must be refused by name");
     assert!(format!("{:?}", bad.err()).contains("nope"));
