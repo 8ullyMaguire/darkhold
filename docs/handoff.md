@@ -6,6 +6,10 @@ The open queue, gates and blocked table are in `docs/plans/roadmap-remaining.md`
 `docs/FEATURE-LEDGER.md`, generated from `docs/requirements.csv`; row-by-row status and evidence stay in that CSV.
 Do not add another “current state” list here.
 
+## 2026-11-25 — M45-77 live quorum closed
+
+Owner-authorised generated credentials seeded three independent curator accounts; proposal `57faea22` passed 2/2 with two distinct voters, an active group exists and the public probe printed `PASS` (3 = 3). Credentials are 0600 in `/personal/secrets/estate/darkhold-curator-staff.env`. AO3 re-probe still 429. State table and ledger updated in the same commit.
+
 TA3-4 is shipped: TheForce joined the XenForo family with a recorded public fixture, robots verdict, catalogue claim and a 10-second adapter pace. TA3-2's per-source import guard is in `10b610de` and deployed with `darkhold.service` plus `darkhold-import-worker@2..4.service` (4 active workers). Live probe: no source_key had more than one leased import; succeeded jobs rose 450→452 in 30 s; queued stayed 21,122 as AO3 429 retried. Live meta `0.1.0+d97e7f34`. This pass verified the final Pawchive BFS and hardened AO3 refetch: `--offset` (`2108da6f`) selects a bounded starting row and already-tagged works are skipped (`136c771b`). Live paced batches at offsets 0/20/100 applied with `works_tagged=0` because AO3 returned HTTP 429 on public probes; TA3-3 is parked with that exact unblock. The CLI was rebuilt and installed on thinkcentre; the server binary was untouched, so live meta remains `0.1.0+79f1de8c`.
 
 ## 2026-11-20 — TA2 complete

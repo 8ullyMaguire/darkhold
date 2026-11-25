@@ -6,6 +6,8 @@ Source of truth for this loop is this section. Update it in the same commit as a
 
 Done (latest, 2026-11-25): H1 and H3 closed. The low-peak release build (`LTO=off`, `codegen-units=16`, 3m16s) produced `0.1.0+d2b972b7`; migrations 0218/0219 applied (216 total, max 0219); 15,220 abandoned works got `completion_marked_at`. Live proof: `/api/v1/meta` carries `works.auto_abandon_after_months=4`; `trope_proposals`, `trope_votes` and `work_completion_marks` exist; `GET /api/v1/tropes/proposals` -> 200 `{"items":[]}`; `POST /api/v1/lifecycle/sweep` and `POST /api/v1/works/{id}/completion` -> 401 anonymously (doors mounted, not open); the served bundle matches `frontend/dist`. Three temporary swapfiles were disabled before this pass and are now deleted. Backup: `/personal/backups/darkhold-20261125-112331-pre-0218-0219.dump` (works table, `TABLE_DATA=1`); replaced binary: `~/backups/darkhold-replaced-20261125-113906.bin`.
 
+Done (latest 2026-11-25, live governance): the owner authorised seeding independent curator staff instead of granting a fixture account. Three accounts registered through the real route (201) and signed in (200); credentials are 0600 in `/personal/secrets/estate/darkhold-curator-staff.env`, never in the repo. Proposal `57faea22-634a-404e-9a0c-eb145648746e` (community-proof-20261125, members 100days/1920s) returned 201; two distinct curators voted yes (200/200); the DB row is `passed 2 yes / 0 no / quorum 2` with a second `active` row; the public probe printed `trope:community-proof-20261125 -> 3`, `member tags -> 3`, `PASS`. AO3 re-probe still 429.
+
 Done (earlier): TA1 private taste pipeline, TA2 daily aggregation and TA3-1 BFS verification shipped and documented. AO3 refetch gained `--offset` and skip-already-tagged (`2108da6f`, `136c771b`). TA3-5 consistency check passed at `0af02914`. The owner then unblocked TA3-2 and TA3-4 via `clarify`; the per-source concurrency guard shipped in `10b610de`, merged with `origin/master` in `d80e8d3e`, and was deployed live: 4 workers active, zero sources with >1 leased import, live meta `0.1.0+d97e7f34`, succeeded jobs rose 450→452 in 30 s while queued stayed 21,122. TA3-4 shipped in `0573c8a0` and `0d7c4470`: a public TheForce thread and robots file were recorded, the XenForo family now claims and parses the host, and the adapter honours `Crawl-delay: 10`.
 
 | # | done step | gate output | commit |
@@ -45,10 +47,11 @@ Done (earlier): TA1 private taste pipeline, TA2 daily aggregation and TA3-1 BFS 
 | H1 | Delete the three temporary build swapfiles | RED: files still present although `swapon --show` listed only `/swapfile` and `/dev/zram0` | after: no `/swapfile-build*` files and no fstab references | host cleanup, no commit |
 | H3 | Rebuild and deploy with the low-peak release profile | RED: live meta `0.1.0+9c447373`, trope tables and lifecycle columns absent | 3m16s build, `BUILD_EXIT=0` / `CLI_EXIT=0`; migrations 0218/0219 applied; live meta `0.1.0+d2b972b7`; all four units active; stamp stays `d2b972b7` because `aadb1df2` is tests/docs only | deployment, no source commit |
 | M45-77.17 | Run the public probe against the live instance | RED: first run `NameError: name 'slug' is not defined` (a `'` inside `python3 -c '...'` closed the shell string) | GREEN: `bash -n` exit 0, five seed groups printed with `source=seed`, staging test 1 passed | `aadb1df2` |
+| M45-77.18 | Close live governance with seeded independent curators | RED: 2 eligible accounts, 0 `is_curator`, 0 `curator_roles`, so no proposal could reach quorum | 3x register 201 / login 200; propose 201 (`57faea22`), vote 200/200; DB `passed 2/0 quorum 2` plus `active`; public probe PASS (3 = 3) | this commit |
 
-Open queue (*0 unblocked, 7 blocked*): none.
+Open queue (*0 unblocked, 6 blocked*): none.
 
-Blocked (*7*):
+Blocked (*6*):
 
 | # | blocked step | waits on | unblock gate |
 | --- | --- | --- | --- |
@@ -58,7 +61,6 @@ Blocked (*7*):
 | TA3-B2 | M69-24 taste-source follow-up | owner chose leave parked; another session owns the checkout | explicit handover |
 | TA3-B3 | M63-32 likes/favorites half | owner chose leave parked; no public API exists | explicit owner decision and safe credential path |
 | TA3-B4 | Global Discord command registration | owner chose leave parked | explicit approval |
-| M45-77 | Implement community trope proposals from the 12-step plan | Steps 2–12 shipped **and deployed**: migration 0219, parser/config/rule/store/authority/parse-site wiring, five doors, 16-case dual-engine suite, five proven mutants, and a public probe that now runs (five seed groups, `source=seed`). Live: `GET /tropes/proposals` 200 `{"items":[]}`, vote/sweep/completion doors 401 anonymously. Staffing is unchanged and is the only remaining half: 2 eligible accounts (one TL6 human, one TL4 system), 0 `is_curator`, 0 `curator_roles`; every TL1–2 candidate is a fixture/probe/bulk account, so granting one would manufacture a quorum rather than staff it | owner designates a real third independent curator, then propose/vote from real sessions and run `scripts/trope-live-probe.sh` with a group; never lower quorum or use a fixture account |
 
 The standing `/goal` paragraph lives in `docs/plans/next-goal.md`. Read it with this file; never paste counts or open steps into it.
 

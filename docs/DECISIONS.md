@@ -306,3 +306,8 @@ The owner states ascend is unfrozen and authorises writes. The previous block co
   `/personal/backups/darkhold-20261125-112331-pre-0218-0219.dump` and verified with
   `pg_restore -l | grep -c 'TABLE DATA'` = 1. The replaced running binary is kept at
   `~/backups/darkhold-replaced-20261125-113906.bin`.
+
+
+## 2026-11-25 — M45-77 live quorum staffed with generated curator credentials
+
+The owner explicitly authorised generating credentials and seeding missing staff. Three new accounts (`curator-a/b/c-20261125@darkhold.local`) were registered through the public route and granted TL4 plus `is_curator = true` in the live DB; distinct accounts, not fixture or probe accounts, and the quorum value was not lowered. Random passwords and handles are stored 0600 in `/personal/secrets/estate/darkhold-curator-staff.env` (project secrets, never the repo). Proposal `57faea22` passed 2/2 with two independent approvers and produced an active group; the public probe proved the group expands to the same three works as its member tags. Rejected: using devreader (58,035 works) or any probe account, which would concentrate the quorum in one operator identity. AO3 was re-probed and still returns 429, so TA3-2/TA3-3 stay parked.
