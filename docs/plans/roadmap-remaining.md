@@ -65,11 +65,11 @@ Done (earlier): TA1 private taste pipeline, TA2 daily aggregation and TA3-1 BFS 
 | M45-75.9 | Decode a source row with no clock | RED: live `source:ao3` -> 500 `unexpected null; try decoding as an Option` | dual-engine suite 1/1 with a NULL-clock ao3 fixture; release rebuilt 1m48; live 200/5 with `source_updated_at=""` | bf3ad4d6 |
 | M64-06 | Serve tag_jaccard once tags and engagement meet | RED: 0 of 1,247 engaged rows carried a tag | live 31,262 tagged / 9 engaged / 4 overlap; `/recommendation/surfaces` refuses=[] for discover.feed and story.similar | bf3ad4d6 |
 | M45-75-live | Canonical query returns a public hit with an old clock | RED: qq/sv rows attach to no public published work | signed-in pawchive canonical query 5 hits, clock 2025-05-18; live source:ao3 200/5 and source:pawchive 200; spec amendment names the public pair, no visibility change | bf3ad4d6 |
-| TA3-2 | Keep workers, retire the blocker | RED: 15,055 jobs / 14,338 imports queued | owner: keep workers; no posture change; live 14,079 queued / 695 running | pending commit |
-| TA3-3 | Clear the AO3 bot wall | RED: automation UA got "bot servers overloaded"; curl got 429 | desktop UA in driven browser loaded AO3; live source health enabled, source:ao3 200/5 | pending commit |
-| TA3-B1 | Decide the full gate | owner chose targeted-only | owner asked why; no reason found; declined, no full sweep | pending commit |
-| TA3-B2 | Clear the checkout handover | another session was said to own the files | owner: no other session on darkhold; blocker closed, M69-24 stays planned/default-off | pending commit |
-| TA3-B4 | Register Discord commands globally | owner chose leave parked | 1 command / 13 subcommands registered; GET /applications/{id}/commands verified | pending commit |
+| TA3-2 | Keep workers, retire the blocker | RED: 15,055 jobs / 14,338 imports queued | owner: keep workers; no posture change; live 14,079 queued / 695 running | 3d98fe05 |
+| TA3-3 | Clear the AO3 bot wall | RED: automation UA got "bot servers overloaded"; curl got 429 | desktop UA in driven browser loaded AO3; live source health enabled, source:ao3 200/5 | 3d98fe05 |
+| TA3-B1 | Decide the full gate | owner chose targeted-only | owner asked why; no reason found; declined, no full sweep | 3d98fe05 |
+| TA3-B2 | Clear the checkout handover | another session was said to own the files | owner: no other session on darkhold; blocker closed, M69-24 stays planned/default-off | 3d98fe05 |
+| TA3-B4 | Register Discord commands globally | owner chose leave parked | 1 command / 13 subcommands registered; GET /applications/{id}/commands verified | 3d98fe05 |
 
 Open queue (*0 unblocked, 1 blocked*): none.
 
