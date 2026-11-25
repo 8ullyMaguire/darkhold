@@ -343,6 +343,6 @@ it uses the same filtered nav list as desktop. No backend, routes or credential
 handling changed.
 
 
-## 2026-11-26 — canonical scraper adoption (planned)
+## 2026-11-26 — canonical scraper adoption (shipped 6c9e2469)
 
 A family census found the general-purpose AGPL `fanfic-scrapers` library and a newer drifted copy in ficnexus. No new crate will be created. Darkhold keeps SSRF/robots/provenance policy and its `SourceAdapter` surface; AO3 HTML parsing moves to the canonical library. gallery-dl findings: AO3 uses 0.5–1.5s request jitter and a 60s 429 cooldown with bounded retries, not a magic unblock. 503 remains a stop signal.

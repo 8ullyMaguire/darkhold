@@ -308,3 +308,11 @@ rule. The three build swapfiles were deleted. The only M45-77 half still open is
 third curator: the two eligible accounts plus fixture TL1-2 accounts cannot form an
 independent quorum. TA3-2 remains queued (15,055 jobs / 14,338 imports) and AO3 still answers 429.
 
+
+## Canonical scraper adoption (2026-11-26)
+
+Commit 6c9e2469: AO3 work metadata parsing now comes from the family
+`fanfic-scrapers` library (2db9be6). Darkhold retains wall detection, chapter
+index keys, UTC date policy, source manifest and body sanitisation. Targeted
+verification: `cargo test -p darkhold-scrapers --test ao3_fixtures` → 11 passed,
+0 failed. No deploy accompanied this refactor; the live binary is unchanged.

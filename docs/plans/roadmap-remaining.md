@@ -14,7 +14,7 @@ Done (latest 2026-11-25, M45-75 follow-up): the search hit now carries `source_k
 
 Done (latest 2026-11-25, Discord): built darkbot with a toolchain new enough for edition2024 dependencies, sourced the bot env file privately and ran `darkbot discord-register` globally: 1 command / 13 subcommands. Discord's own GET /applications/{id}/commands returned count 1, name darkhold, all 13 subcommands. No token was printed or stored in the repo.
 
-Planned (2026-11-26, canonical scraper): move AO3 parsing to the family `fanfic-scrapers` library, keep Darkhold safety/policy local, and adopt gallery-dl-style request pacing in the shared crate. No new crate; ficnexus vendored copy is reconciled upstream.
+Shipped 6c9e2469 (2026-11-26, canonical scraper): move AO3 parsing to the family `fanfic-scrapers` library, keep Darkhold safety/policy local, and adopt gallery-dl-style request pacing in the shared crate. No new crate; ficnexus vendored copy is reconciled upstream.
 
 Done (latest 2026-11-25, shell UX): the signed-out Library is now an explained card with Sign in and Browse Discover actions; the top row is Discover / Search / Library / Shelf / More with every old route still in More (the screenshot caught six inline menus overflowing at 812/522px, then one More menu fixed it); the header has a real sign-in action and a labelled appearance control; the PWA notice is styled and dismissible; footer and body type were tightened. Live measurements at 1440×1000 and 390×844 found no horizontal overflow and zero standalone controls under 44px on the shipped binary; desktop nav 522/522 with one More menu, phone 390/390 with a 73px Sign in at right edge 371; served bundle index-BtztjIyz.js.
 
