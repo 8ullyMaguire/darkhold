@@ -105,6 +105,8 @@ function applyCrossover(mode: 'exclude' | 'only') {
 Add a DOM test asserting the two buttons emit `crossover:exclude` and `crossover:only` as last `searchWorks` calls.
 Because the frontend bundle is embedded, rebuild once after both Rust and frontend changes.
 
+Execution note: the PostgreSQL admin URL must point at the existing `postgres` database on port 55433 (`postgres://darkhold:darkhold@localhost:55433/postgres`); pointing it at `darkhold` fails with "database does not exist". The live proof used the server API plus the SPA presets.
+
 ## Step 6 — URL/UI proof and state
 
 The server-rendered `/search?q=crossover%3Aonly` and the SPA query box both use this grammar. Prove with:

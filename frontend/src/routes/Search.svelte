@@ -163,6 +163,19 @@
    * Re-applying is idempotent: the completion filter is replaced, not appended, so clicking twice
    * cannot send `completion:"complete" AND completion:"complete"`.
    */
+  /** FS-01: crossover is a query mode, not a second filter model. */
+  function applyCrossover(mode: 'exclude' | 'only') {
+    const term = `crossover:${mode}`;
+    // Two crossover modes in one query are a contradiction, not a refinement.
+    const rest = query
+      .split(/\s+AND\s+/)
+      .map((part) => part.trim())
+      .filter((part) => part && !part.startsWith('crossover:'))
+      .join(' AND ');
+    query = rest ? `${rest} AND ${term}` : term;
+    void runSearch();
+  }
+
   function applyShortCompletePreset() {
     minWords = '';
     maxWords = 10_000;
@@ -437,6 +450,12 @@
     <div class="presets">
       <button type="button" class="preset" onclick={applyShortCompletePreset}>
         Complete, under 10k
+      </button>
+      <button type="button" class="preset" onclick={() => applyCrossover('exclude')}>
+        No crossovers
+      </button>
+      <button type="button" class="preset" onclick={() => applyCrossover('only')}>
+        Crossovers only
       </button>
     </div>
     <div class="filter-row">

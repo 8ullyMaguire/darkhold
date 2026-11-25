@@ -61,6 +61,14 @@ describe('Search page', () => {
     expect(screen.getByText('Rating')).toBeInTheDocument();
   });
 
+  it('offers crossover include and exclude presets', async () => {
+    render(Search);
+    await fireEvent.click(screen.getByText('No crossovers'));
+    expect(searchWorks).toHaveBeenLastCalledWith('crossover:exclude', 20);
+    await fireEvent.click(screen.getByText('Crossovers only'));
+    expect(searchWorks).toHaveBeenLastCalledWith('crossover:only', 20);
+  });
+
   it('narrows within the current result set and keeps both clauses in the URL', async () => {
     window.history.replaceState({}, '', '/');
     render(Search);

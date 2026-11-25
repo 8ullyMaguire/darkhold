@@ -11,6 +11,12 @@ Seven rows are queued as FS-01/02/03 and FS-04..FS-07 in `docs/plans/roadmap-rem
 and use; the rest is already implemented or explicitly parked. See
 `docs/spec-amendments/faceted-search-brief-2026-11-26.md`.
 
+## 2026-11-26 — FS-01 crossover facet (this commit)
+
+`crossover:exclude` and `crossover:only` compile to a correlated count of distinct fandom taxonomy nodes; no new column or migration. The SPA offers both as mutually exclusive presets, so one click replaces the other mode instead of producing a contradiction. Proof: parser 1/1, dual-engine SQLite 1/1 and PostgreSQL 1/1, mutant exit 101 at `only must keep exactly the crossover`, Search DOM 29/29, live `?q=crossover:only` 200, browser presets replace modes in the URL.
+
+FS-02 is logged as blocked in the roadmap: its role tables are empty and no public source supplies roles; exact unblock and owner are recorded there.
+
 ## 2026-11-26 — FS-05 search within results (1c36bb46)
 
 The SPA Search page now has a **Search within these results** field that appends a plain AND term to the active canonical query; it does not add a second filter model. Every run writes the full query to `?q=`, and the server-rendered `/search?q=...` restores it, so a copied link carries facets and scoped terms together. Proof: `Search.test.ts` 28/28, `svelte-check` 0 errors, release build 0, home 200, live browser probe all six assertions true.

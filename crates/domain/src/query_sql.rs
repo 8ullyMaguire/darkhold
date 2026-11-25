@@ -520,6 +520,7 @@ fn render_expand(
 fn field_taxonomy_kind(field: QueryField) -> &'static str {
     match field {
         QueryField::Fandom => "fandom",
+        QueryField::Crossover => "crossover",
         QueryField::Character => "character",
         QueryField::Relationship => "ship",
         QueryField::Mood => "mood",
@@ -864,6 +865,18 @@ fn render_fielded(field: &QueryField, value: &str) -> Result<SqlFragment, QueryE
                 .map_err(|_| QueryError::new("unknown quality signal", 0))?;
             Ok(SqlFragment::new("EXISTS (SELECT 1 FROM quality_signals qs WHERE qs.work_id = works.id AND qs.signal_kind = ? AND qs.value >= CAST(? AS BIGINT))")
                 .with_bind(kind).with_bind(quality_threshold(threshold)?))
+        }
+        QueryField::Crossover => {
+            let operator = match value {
+                "exclude" => "<=",
+                "only" => ">",
+                _ => return Err(QueryError::new("crossover requires exclude or only", 0)),
+            };
+            Ok(SqlFragment::new(format!(
+                "(SELECT COUNT(DISTINCT wt.node_id) FROM work_tags wt \
+                 WHERE wt.work_id = works.id AND EXISTS \
+                 (SELECT 1 FROM canonical_entities ce WHERE ce.id = wt.node_id AND ce.kind = 'fandom')) {operator} 1"
+            )))
         }
         QueryField::Completion => {
             // `Completion`'s serde spelling is `hiatus`, and that is what `works.completion`

@@ -24,6 +24,8 @@ pub enum QueryField {
     Edition,
     Rating,
     Completion,
+    /// Crossover mode: `exclude` (at most one fandom) or `only` (more than one).
+    Crossover,
     Published,
     Updated,
     /// An import's source key, e.g. `qq`, `sv`, `sb`, `ao3`.
@@ -95,6 +97,7 @@ impl QueryField {
             Self::Edition => "edition",
             Self::Rating => "rating",
             Self::Completion => "completion",
+            Self::Crossover => "crossover",
             Self::Published => "published",
             Self::Updated => "updated",
             Self::Source => "source",
@@ -140,6 +143,7 @@ impl QueryField {
             "edition" => Self::Edition,
             "rating" => Self::Rating,
             "completion" => Self::Completion,
+            "crossover" => Self::Crossover,
             "published" => Self::Published,
             "updated" => Self::Updated,
             "source" => Self::Source,
@@ -197,6 +201,7 @@ impl QueryField {
             | Self::SourceUpdated
             | Self::MinQuality
             | Self::Quality
+            | Self::Crossover
             | Self::Words
             | Self::Kudos => EntityKind::Works,
             // Forum-only.
@@ -1946,6 +1951,22 @@ mod tests {
     fn parse_phrase() {
         let ast = parse_query("\"we were never alone\"").unwrap();
         assert_eq!(ast, QueryAst::Phrase("we were never alone".to_owned()));
+    }
+
+    #[test]
+    fn crossover_mode_is_a_works_field_with_two_values() {
+        let ast = parse_query("crossover:only").expect("only parses");
+        assert_eq!(
+            ast,
+            QueryAst::Fielded(QueryField::Crossover, "only".to_owned())
+        );
+        assert!(parse_query("crossover:exclude").is_ok());
+        let bad = parse_query("crossover:maybe").expect("parser is value-agnostic");
+        assert!(
+            crate::query_sql::render_query(&bad).is_err(),
+            "unknown mode must be rejected at render time"
+        );
+        assert_eq!(QueryField::Crossover.entity(), EntityKind::Works);
     }
 
     #[test]

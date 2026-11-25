@@ -343,6 +343,10 @@ it uses the same filtered nav list as desktop. No backend, routes or credential
 handling changed.
 
 
+## 2026-11-26 — FS-01 derives crossovers from fandom taxonomy
+
+A crossover is a work linked to more than one distinct fandom node. Deriving it from work_tags joined to canonical_entities(kind=fandom) avoids a denormalised flag that an importer could leave stale. The two UI presets replace each other because crossover:exclude AND crossover:only is a contradiction, not a refinement.
+
 ## 2026-11-26 — FS-05 reuses the query grammar
 
 A scoped term is appended as `AND <term>` to the same canonical query that already carries fandom/tag/status/word-range facets. No second filter model and no backend change were introduced; existing dual-engine query tests cover AND semantics. Every run writes the full query to `?q=` so a copied link reproduces the visible result set through the server-rendered search page.

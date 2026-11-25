@@ -93,14 +93,14 @@ Done (earlier): TA1 private taste pipeline, TA2 daily aggregation and TA3-1 BFS 
 | UC-9 | Phone width no longer overflows | RED: work page 402px content in 358px viewport | `overflow-wrap: anywhere`; 148-probe sweep overflowX=0 everywhere | ee830b5c |
 | UC-10 | Full critical pass is live and measured | RED: three visual systems and contradictory auth state | 148 probes, 0 page errors, canary 0 -> 1; release build exit 0; health 200; build mode OFF | ee830b5c |
 | FS-03 | Include/exclude parity on Search filter chips | RED: no chip toggle, only typed `NOT` grammar | DOM test 27/27; live SPA-nav requests `AND mood:"Angst"` -> `AND -mood:"Angst"` -> back; chip excluded class and Include label restored | ead1bbba |
+| FS-01 | Crossover include/exclude facet | RED: spec names crossovers at `docs/spec.md:2780`/`:6045`, no requirement implements the filter | Dual-engine 1/1 SQLite + 1/1 PG; parser 1/1; mutant exit 101; DOM 29/29; live API 200 and URL presets replace modes | this commit |
 | FS-05 | Search within the current result set | RED: `M10-03` scopes to a work, not to active filter results | DOM test 28/28; live unscoped -> scoped q=`winter AND draco`; URL holds both clauses and server round trip restores the input | 1c36bb46 |
 | FS-04 | Save a search and attach a daily alert from the Search page | RED: live `saved_views=0`, `search_alerts=0` although the routes shipped | Search DOM test 26/26; live POST saved-views 201, search-alerts 200 created, cleanup 204, proof rows 0 | af11e192 |
-| FS-01 | Crossover include/exclude facet | RED: spec names crossovers at `docs/spec.md:2780`/`:6045`, but no requirement implements the filter | dual-engine test: `crossover:exclude` drops the crossover, `crossover:only` keeps it; URL round trip; mutant must fail | new |
 | FS-02 | Role metadata on tag joins | RED: spec names prominence/roles; ledger has no stored `main_relationship`/`side_relationship`/`pov`/`primary_character` | dual-engine test keeps main and side on one work; unknown roles stay null; mutant must fail | new |
 | FS-06 | Zero-result rescue | RED: backlog idea 80 exists; no requirement or route offers nearest non-empty relaxations | impossible tag returns three named clause removals; clicking one changes URL and returns rows; mutant must fail | new |
 | FS-07 | Reading-time band facet | RED: 74,598 live `library_items` carry `word_count`, but no facet groups them into time bands | dual-engine test covers `<30m`, `30–90m`, `2–5h`, `5h+` and `unknown`; counts under current filter set | new |
 
-Open queue (*4 unblocked, 1 blocked*): FS-01, FS-02, FS-06, FS-07. Ranking rule and live supply census are in
+Open queue (*3 unblocked, 1 blocked*): FS-06, FS-07. Ranking rule and live supply census are in
 `docs/spec-amendments/faceted-search-brief-2026-11-26.md`; role metadata stays planned because live role tables are empty.
 
 Blocked (*1*):
@@ -5562,3 +5562,8 @@ Archive full pass: 28,488 scanned, 11,885 works tagged, 329,455 assertions, 57,7
 ### M63-32 like counts — Blocked (2026-11-20)
 
 Public Pawchive API has no likes/endorsements field; favorites require an account session and post pages expose no count. Clears when an authenticated favorites/likes export or an owner-provided out-of-tree session credential exists. Views/comments are explicitly not a substitute.
+
+### FS-02 role metadata on tag joins — Blocked (2026-11-26)
+
+Live census: work_character_roles=0, work_relationship_dynamics=0; no importer writes main/side/POV roles and no public source exposes them. Exact unblock: an owner-supplied role mapping or an authenticated export that carries per-work prominence, stored through the existing taxonomy assertion path. Owner: the project owner (user). Not invented from tag order or guessed prominence.
+
