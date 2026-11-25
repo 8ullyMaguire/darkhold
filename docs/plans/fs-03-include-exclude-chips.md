@@ -97,6 +97,8 @@ node node_modules/svelte-check/bin/svelte-check --tsconfig ./tsconfig.json
 Expected: 27/27 tests pass; `svelte-check` 0 errors. No backend change, so no migration. The frontend bundle is
 embedded in the binary, so deploy after the bundle changes and prove live with a browser chip flip on `/search`.
 
+Execution note: direct `/search` is served by `crates/app/src/routes/search_page.rs`, not the SPA. The live DOM proof therefore loads `/library` and follows the in-app Search link before interacting. No server-rendered facet code was changed.
+
 ## Step 4 — state
 
 Mark FS-03 `implemented-verified-e2e` in `docs/requirements.csv`, regenerate `docs/FEATURE-LEDGER.md` counts, move

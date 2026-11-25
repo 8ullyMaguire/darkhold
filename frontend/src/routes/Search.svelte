@@ -59,7 +59,7 @@
 
   let selectedField = $state<FilterField>('fandom');
   let selectedValue = $state('');
-  let selectedFilters = $state<{ field: FilterField; value: string }[]>([]);
+  let selectedFilters = $state<{ field: FilterField; value: string; excluded: boolean }[]>([]);
 
   // Word-count range. Two number inputs rather than a slider: a slider cannot
   // express "any minimum" and "any maximum" independently, and a reader who
@@ -135,7 +135,7 @@
 
   function addFilter() {
     if (!selectedValue || selectedValue.startsWith('Any ')) return;
-    selectedFilters = [...selectedFilters, { field: selectedField, value: selectedValue }];
+    selectedFilters = [...selectedFilters, { field: selectedField, value: selectedValue, excluded: false }];
     selectedValue = '';
     void runSearch();
   }
@@ -154,13 +154,21 @@
     maxWords = 10_000;
     selectedFilters = [
       ...selectedFilters.filter((f) => f.field !== 'status'),
-      { field: 'status', value: 'Complete' },
+      { field: 'status', value: 'Complete', excluded: false },
     ];
     void runSearch();
   }
 
   function removeFilter(index: number) {
     selectedFilters = selectedFilters.filter((_, i) => i !== index);
+    void runSearch();
+  }
+
+  /** FS-03: one click flips a tag/fandom/mood/rating/language chip from must to must-not. */
+  function flipFilter(index: number) {
+    selectedFilters = selectedFilters.map((filter, i) =>
+      i === index ? { ...filter, excluded: !filter.excluded } : filter,
+    );
     void runSearch();
   }
 
@@ -205,10 +213,11 @@
     const freeText = query.trim();
     const filterParts = selectedFilters.map((f) => {
       // The one field whose name and value are not the ones on screen: see COMPLETION_VALUES.
-      if (f.field === 'status') {
-        return `completion:"${COMPLETION_VALUES[f.value] ?? f.value}"`;
-      }
-      return `${f.field}:"${f.value}"`;
+      const term =
+        f.field === 'status'
+          ? `completion:"${COMPLETION_VALUES[f.value] ?? f.value}"`
+          : `${f.field}:"${f.value}"`;
+      return f.excluded ? `-${term}` : term;
     });
     const range = wordRangeTerm();
     if (range) filterParts.push(range);
@@ -416,7 +425,15 @@
       <ul class="active-filters">
         {#each selectedFilters as filter, i}
           <li>
-            <span class="filter-tag">{filter.field}: {filter.value}</span>
+            <span class="filter-tag" class:excluded={filter.excluded}>{filter.field}: {filter.value}</span>
+            <button
+              type="button"
+              class="flip"
+              aria-label={`${filter.excluded ? 'Include' : 'Exclude'} ${filter.field}: ${filter.value}`}
+              onclick={() => flipFilter(i)}
+            >
+              {filter.excluded ? 'Include' : 'Exclude'}
+            </button>
             <button type="button" class="remove" onclick={() => removeFilter(i)} aria-label="Remove filter">
               &times;
             </button>
@@ -542,6 +559,15 @@
 </section>
 
 <style>
+  .filter-tag.excluded {
+    text-decoration: line-through;
+    color: var(--color-muted);
+  }
+
+  .active-filters .flip {
+    min-height: 2.75rem;
+  }
+
   .save-search {
     display: flex;
     flex-wrap: wrap;

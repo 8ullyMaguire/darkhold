@@ -60,6 +60,19 @@ describe('Search page', () => {
     expect(screen.getByText('Rating')).toBeInTheDocument();
   });
 
+  it('flips a filter chip from include to exclude and back', async () => {
+    render(Search);
+    await fireEvent.input(screen.getByLabelText('Search query'), { target: { value: 'winter' } });
+    await fireEvent.change(screen.getByLabelText('Field'), { target: { value: 'mood' } });
+    await fireEvent.input(screen.getByLabelText('Value'), { target: { value: 'Angst' } });
+    await fireEvent.click(screen.getByText('Add'));
+    expect(searchWorks).toHaveBeenLastCalledWith('winter AND mood:"Angst"', 20);
+    await fireEvent.click(screen.getByLabelText('Exclude mood: Angst'));
+    expect(searchWorks).toHaveBeenLastCalledWith('winter AND -mood:"Angst"', 20);
+    await fireEvent.click(screen.getByLabelText('Include mood: Angst'));
+    expect(searchWorks).toHaveBeenLastCalledWith('winter AND mood:"Angst"', 20);
+  });
+
   it('saves a zero-result query as a view and attaches one daily alert', async () => {
     createCatalogueView.mockResolvedValue({ id: 'view-1' });
     createSearchAlert.mockResolvedValue({ id: 'alert-1', status: 'created' });

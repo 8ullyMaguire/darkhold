@@ -11,6 +11,10 @@ Seven rows are queued as FS-01/02/03 and FS-04..FS-07 in `docs/plans/roadmap-rem
 and use; the rest is already implemented or explicitly parked. See
 `docs/spec-amendments/faceted-search-brief-2026-11-26.md`.
 
+## 2026-11-26 — FS-03 include/exclude chips (this commit)
+
+Search filter chips now flip between `field:"value"` and `-field:"value"` with one click; the chip is struck through while excluded and flips back. The Search filter bar is the single include/exclude surface; server-owned QueryStatePanel chips and entity-page `MetadataChip` selection controls were left alone. A direct load of `/search` serves the server-rendered page, so the live DOM proof navigates there from the SPA shell. Proof: `Search.test.ts` 27/27, `svelte-check` 0 errors, release build 0, home 200, live browser requests include -> exclude -> include with all six assertions true.
+
 ## 2026-11-26 — FS-04 saved-search discoverability (af11e192)
 
 The saved-view and alert routes existed but the live tables were empty: 0 saved views, 0 alerts. The Search page now offers **Save this search** on any non-empty query and **Save and get new matches** in the zero-result state. It stores the canonical query as a `catalogue` view and attaches one daily alert in the same action. A library view was rejected because it would reinterpret a global search string against shelf/tag/status columns. Verification: `Search.test.ts` 26/26, `svelte-check` 0 errors, live POST saved-views 201, POST search-alerts 200 created, cleanup 204, proof rows 0.

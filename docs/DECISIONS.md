@@ -343,6 +343,10 @@ it uses the same filtered nav list as desktop. No backend, routes or credential
 handling changed.
 
 
+## 2026-11-26 — FS-03 exclusion lives on Search filter chips
+
+The Search filter bar owns fandom, tag, mood, rating, language and completion chips, so it is the one place where include/exclude parity belongs. QueryStatePanel chips are server-owned numeric/rating/sort/pinned facts and `MetadataChip` is an entity-page selection control; neither is a tag facet and neither was silently given a new exclusion meaning. Direct `/search` is a server-rendered page; the SPA Search page is reached by client navigation, and the live proof uses that route.
+
 ## 2026-11-26 — FS-04 uses a catalogue view, not a library view
 
 A global search string is a canonical query for the catalogue index. Storing it as a `library` view would reinterpret its fields against shelf/tag/status columns, so the save action uses `kind: catalogue` with `params` set to the exact query string, then creates one daily alert against the returned view id. The temporary proof session was deleted and the proof rows removed after the live 201/200 check.
