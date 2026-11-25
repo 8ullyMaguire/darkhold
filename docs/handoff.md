@@ -11,7 +11,7 @@ Seven rows are queued as FS-01/02/03 and FS-04..FS-07 in `docs/plans/roadmap-rem
 and use; the rest is already implemented or explicitly parked. See
 `docs/spec-amendments/faceted-search-brief-2026-11-26.md`.
 
-## 2026-11-26 — FS-05 search within results (this commit)
+## 2026-11-26 — FS-05 search within results (1c36bb46)
 
 The SPA Search page now has a **Search within these results** field that appends a plain AND term to the active canonical query; it does not add a second filter model. Every run writes the full query to `?q=`, and the server-rendered `/search?q=...` restores it, so a copied link carries facets and scoped terms together. Proof: `Search.test.ts` 28/28, `svelte-check` 0 errors, release build 0, home 200, live browser probe all six assertions true.
 
