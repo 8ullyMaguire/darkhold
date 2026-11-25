@@ -15,7 +15,7 @@ export type ThemePreference = Theme | 'system';
 export const STORAGE_KEY = 'darkhold.theme';
 
 export const THEME_LABELS: Record<ThemePreference, string> = {
-  system: 'Match system',
+  system: 'System default',
   archive: 'Archive (dark)',
   'reading-room': 'Reading Room',
   'after-hours': 'After Hours',

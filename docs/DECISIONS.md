@@ -331,3 +331,13 @@ M64-06 was blocked on a stale measurement: live data now has four tagged-and-eng
 ## 2026-11-25 — final blocker retirements
 
 TA3-2 stays with its workers by owner decision and is no longer a blocker. TA3-3 is resolved: a driven browser with a normal desktop UA clears the AO3 bot wall, and live source:ao3 returns 200/5; the fingerprint-enabled importer can continue tag backfill. TA3-B1 was declined — there is no reason to run a full sweep while targeted verification covers changes. TA3-B2 was closed because no other session owns the checkout; M69-24 remains planned and default-off. TA3-B4 was done directly: global slash-command registration built from the repo, sourced from the bot env file, verified against Discord's stored command list. Only TA3-B3 remains, needing an owner decision about a safe engagement source; see docs/OWNER-UNBLOCK-STEPS.md.
+
+
+## 2026-11-25 — shell UX repair
+
+The live audit found a signed-out Library with no usable next step and an overloaded header. The row was cut from nine destinations to four plain links plus More, with Write moved into Create and every original href preserved. A first pass only renamed the groups;
+the live screenshot showed six inline menus still overflowing (812px in a 522px
+container), so the desktop row now has one More menu instead of six.
+Shelf links to /library/history; the old Shelf menu became History & stats to avoid a duplicate label. The install prompt stays near the top but is dismissible and styled; a context-triggered prompt would need a work-open event this shell does not have. Hit-target CSS lives in the global sheet because nav anchors are rendered by child components; two live injection passes proved zero sub-44 controls before paying for rebuilds. The phone header got its own account door after a mobile screenshot showed none;
+it uses the same filtered nav list as desktop. No backend, routes or credential
+handling changed.

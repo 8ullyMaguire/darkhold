@@ -114,17 +114,19 @@ describe('application shell', () => {
     expect(brand?.textContent?.trim()).toBe('Darkhold');
 
     // The four destinations a person arrives to do are plain links in the row.
-    for (const label of ['Discover', 'Search', 'Library', 'Write']) {
+    for (const label of ['Discover', 'Search', 'Library', 'Shelf']) {
       expect(screen.getAllByText(label).length).toBeGreaterThan(0);
     }
 
-    // The rest live under five menus rather than in one eighteen-link row. The
-    // menu TRIGGERS are always rendered; their contents are not, because a menu
-    // that renders its items when closed is not a menu.
+    // Everything else lives behind ONE More menu. Six inline group menus were
+    // still overflowing the row at 1440px (nav scrollWidth 812 / clientWidth
+    // 522), so the trigger count itself is the regression guard here.
     const triggers = screen.getAllByTestId('menu-trigger').map((b) => b.textContent?.trim() ?? '');
-    for (const menu of ['Read', 'Create', 'Shelf', 'Forum', 'More']) {
-      expect(triggers).toContain(menu);
-    }
+    expect(triggers).toEqual(['More']);
+    // Four links + one trigger, measured against the old ten-item 812px row.
+    expect(document.querySelectorAll('nav.desktop > *').length).toBe(5);
+    // The phone header has the same account door the desktop header has.
+    expect(screen.getAllByRole('button', { name: 'Sign in' }).length).toBeGreaterThan(0);
 
     /**
      * The regression that made this row overflow: "Write" and "Library" were both
@@ -148,7 +150,7 @@ describe('application shell', () => {
       if (href) inHeader.add(href);
     }
     // Four primary links plus the drawer, which lists all eighteen.
-    for (const href of ['/discover', '/library', '/search', '/write']) {
+    for (const href of ['/discover', '/library', '/search', '/library/history']) {
       expect(inHeader.has(href)).toBe(true);
     }
   });
@@ -162,15 +164,15 @@ describe('application shell', () => {
     mockShell(false);
     render(App);
 
-    // The queue sits in the Library menu now, so the link is not rendered until
+    // The queue sits in the More menu now, so the link is not rendered until
     // the menu opens. Asserting the link exists without opening the menu would
     // pass on the old header and fail here for the right reason.
-    // By label, not by index: an index silently points at a different menu the
+    // By label, not by index: an index silently points at a different trigger the
     // moment the groups are reordered, and the test would then pass for the wrong
     // reason.
     const shelf = screen
       .getAllByTestId('menu-trigger')
-      .find((b) => b.textContent?.trim() === 'Shelf')!;
+      .find((b) => b.textContent?.trim() === 'More')!;
     await fireEvent.click(shelf);
     const link = screen.getAllByRole('link', { name: /your queue/i });
     expect(link.length).toBeGreaterThan(0);
@@ -267,7 +269,7 @@ describe('application shell', () => {
     const read = await waitFor(() => {
       const found = screen
         .getAllByTestId('menu-trigger')
-        .find((b) => b.textContent?.trim() === 'Read');
+        .find((b) => b.textContent?.trim() === 'More');
       expect(found).toBeDefined();
       return found!;
     });
@@ -387,7 +389,7 @@ describe('application shell', () => {
 
     // The header is driven by the session store, which asked /auth/me.
     await waitFor(() => {
-      expect(screen.getByText('Sign in')).toBeInTheDocument();
+      expect(screen.getAllByText('Sign in').length).toBeGreaterThan(0);
     });
     expect(screen.getByText('Register')).toBeInTheDocument();
     expect(screen.queryByTestId('writing-as')).toBeNull();
@@ -399,7 +401,7 @@ describe('application shell', () => {
 
     const writingAs = await screen.findByTestId('writing-as');
     expect(writingAs.textContent).toContain('@quill');
-    expect(screen.getByText('Account')).toBeInTheDocument();
+    expect(screen.getAllByText('Account').length).toBeGreaterThan(0);
     expect(screen.queryByText('Register')).toBeNull();
   });
 

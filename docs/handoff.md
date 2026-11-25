@@ -6,6 +6,10 @@ The open queue, gates and blocked table are in `docs/plans/roadmap-remaining.md`
 `docs/FEATURE-LEDGER.md`, generated from `docs/requirements.csv`; row-by-row status and evidence stay in that CSV.
 Do not add another “current state” list here.
 
+## 2026-11-25 — shell UX repair
+
+Signed-out Library card, 4-link + More nav (a screenshot caught six group menus still inline at 812/522px; collapsed to one More menu), styled header controls, dismissible PWA notice, mobile account door, compact footer, 16px body copy and 44px hit boxes. 24 targeted tests green, svelte-check 0 errors, Vite build green; live 1440/390 measurements clean. Rebuilt the embedded Rust binary because no assets.dir is configured in production.
+
 ## 2026-11-25 — final blocker retirement
 
 TA3-2/3/B1/B2/B4 retired per owner decisions and live proof. Discord global registration verified with 1 command / 13 subcommands. Only TA3-B3 remains blocked.

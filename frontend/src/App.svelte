@@ -67,7 +67,7 @@ import { Button } from '@polaris/ui';
   import Roadmap from './routes/Roadmap.svelte';
   import RoadmapCard from './routes/RoadmapCard.svelte';
   import Directory from './routes/Directory.svelte';
-  import { handleLinkClick, matchRoute } from './lib/router';
+  import { handleLinkClick, matchRoute, navigate } from './lib/router';
   import { titleFor } from './lib/title';
   import {
     fetchModules,
@@ -118,7 +118,7 @@ import { Button } from '@polaris/ui';
    * recording: a comment is not a use.
    */
   const NAV_GROUPS = [
-    { label: 'Read', items: [
+    { label: 'Explore more', items: [
       { href: '/discover', label: 'Discover', module: 'discovery' },
       { href: '/search', label: 'Search', module: 'search' },
       { href: '/media', label: 'Media', module: 'media' },
@@ -136,12 +136,13 @@ import { Button } from '@polaris/ui';
     // working perfectly. Renaming the group fixes the suite; renaming the test
     // selector would hide the same collision from anyone who writes the next one.
     { label: 'Create', items: [
-      // '/write' is deliberately NOT here: it is one of the four primary links, and
-      // listing it under a group too printed the word "Write" twice in one row.
+      // Write moved here when the top-level row shrank to four plain links. Keeping it
+      // only in this group avoids printing the same word twice in one row.
+      { href: '/write', label: 'Write' },
       { href: '/import', label: 'Import a work', module: 'imports' },
       { href: '/exports', label: 'Export your library', module: 'exports' },
     ] },
-    { label: 'Shelf', items: [
+    { label: 'History & stats', items: [
       // '/library' is a primary link; naming it here again would print "Library"
       // twice in one row. What a reader wants from a shelf is what is ON it, so
       // the group holds the parts of the library that are not the library.
@@ -149,7 +150,7 @@ import { Button } from '@polaris/ui';
       { href: '/concierge', label: 'Your queue', module: 'concierge' },
       { href: '/analytics', label: 'Your analytics', module: 'analytics' },
     ] },
-    { label: 'Forum', items: [
+    { label: 'Community', items: [
       { href: '/community', label: 'Forum', module: 'community' },
       { href: '/directory', label: 'Directory', module: 'directory' },
       { href: '/roadmap', label: 'Roadmap', module: 'roadmap' },
@@ -164,9 +165,9 @@ import { Button } from '@polaris/ui';
   /** The four destinations a person arrives to do. */
   const PRIMARY = [
     { href: '/discover', label: 'Discover', module: 'discovery' },
-    { href: '/library', label: 'Library', module: 'library' },
     { href: '/search', label: 'Search', module: 'search' },
-    { href: '/write', label: 'Write' },
+    { href: '/library', label: 'Library', module: 'library' },
+    { href: '/library/history', label: 'Shelf' },
   ];
 
   /**
@@ -227,13 +228,21 @@ import { Button } from '@polaris/ui';
     // one: the module decided where its surface belongs, and this is the slot it declared.
     ...(moduleLinks.length > 0 ? [{ label: 'Modules', items: moduleLinks }] : []),
   ]);
+  // The desktop row keeps only four plain destinations plus one More menu. Every
+  // grouped destination stays reachable, but no longer competes for row width.
+  let moreNavItems = $derived(
+    navGroups.flatMap((group) => group.items.map(({ href, label }) => ({ href, label }))),
+  );
+
   let moreOpen = $state(false);
   let docsSearchOpen = $state(false);
 
   /** PWA: install affordance only when the browser offers one; update only when a worker waits. */
   let installAction = $state<null | (() => void)>(null);
   let updateAction = $state<null | (() => void)>(null);
+  let pwaDismissed = $state(false);
   onMount(() => {
+    pwaDismissed = localStorage.getItem('darkhold:pwa-notice-dismissed') === '1';
     if (import.meta.env.PROD) {
       registerPwa({
         onInstallAvailable: (install) => { installAction = install; },
@@ -403,14 +412,12 @@ import { Button } from '@polaris/ui';
           {item.label}
         </a>
       {/each}
-      {#each navGroups as group (group.label)}
-        <NavMenu
-          label={group.label}
-          items={group.items}
-          current={groupIsCurrent(group.items)}
-          onnavigate={(href, event) => handleLinkClick(event, href)}
-        />
-      {/each}
+      <NavMenu
+        label="More"
+        items={moreNavItems}
+        current={navGroups.some((group) => groupIsCurrent(group.items))}
+        onnavigate={(href, event) => onLinkClick(event, href)}
+      />
     </nav>
 
     <!--
@@ -498,9 +505,9 @@ import { Button } from '@polaris/ui';
           <Button variant="quiet" size="sm" onclick={signOut}>Sign out</Button>
         </NavMenu>
       {:else}
-        <a href="/sign-in" onclick={(event) => onLinkClick(event, '/sign-in')}>Sign in</a>
+        <Button variant="primary" size="sm" onclick={() => navigate('/sign-in')}>Sign in</Button>
         <a href="/register" onclick={(event) => onLinkClick(event, '/register')}>Register</a>
-        <label class="visually-hidden" for="theme-select-anon">Appearance</label>
+        <label class="control-label" for="theme-select-anon">Appearance</label>
         <!--
           The theme control stays in the row while signed OUT. Anonymous, the row
           fits exactly (581/581 measured), so there is no reason to hide anything
@@ -521,9 +528,9 @@ import { Button } from '@polaris/ui';
     </div>
   </div>
 
-  <!-- Mobile navigation: four destinations plus everything else behind More. -->
+  <!-- Mobile navigation: the same filtered four destinations, More, and an account door. -->
   <nav class="mobile" aria-label="Main">
-    {#each PRIMARY as item (item.href)}
+    {#each primaryNav as item (item.href)}
       <a
         href={item.href}
         aria-current={isCurrent(item.href) ? 'page' : undefined}
@@ -533,18 +540,32 @@ import { Button } from '@polaris/ui';
       </a>
     {/each}
     <Button variant="quiet" size="sm" onclick={() => (moreOpen = true)}>More</Button>
+    {#if session.isSignedIn}
+      <Button variant="quiet" size="sm" onclick={() => (moreOpen = true)}>Account</Button>
+    {:else}
+      <Button variant="primary" size="sm" onclick={() => navigate('/sign-in')}>Sign in</Button>
+    {/if}
   </nav>
 </header>
 
-{#if installAction || updateAction}
+{#if (installAction || updateAction) && !pwaDismissed}
   <div class="pwa-notice" role="status" aria-live="polite">
     {#if updateAction}
       <span>A new version is ready.</span>
-      <button type="button" class="btn quiet sm" onclick={() => updateAction?.()}>Reload to update</button>
+      <Button variant="primary" size="sm" onclick={() => updateAction?.()}>Reload to update</Button>
     {:else if installAction}
-      <span>Keep Darkhold on this device for offline reading.</span>
-      <button type="button" class="btn quiet sm" onclick={() => installAction?.()}>Install</button>
+      <span>Install Darkhold for offline reading.</span>
+      <Button variant="quiet" size="sm" onclick={() => installAction?.()}>Install</Button>
     {/if}
+    <Button
+      variant="quiet"
+      size="sm"
+      aria-label="Dismiss notice"
+      onclick={() => {
+        pwaDismissed = true;
+        localStorage.setItem('darkhold:pwa-notice-dismissed', '1');
+      }}>Dismiss</Button
+    >
   </div>
 {/if}
 
@@ -645,17 +666,17 @@ import { Button } from '@polaris/ui';
 <DocsSearch open={docsSearchOpen} onclose={() => (docsSearchOpen = false)} />
 
 <footer class="site-footer">
-  <div class="container">
-    <div class="book-divider">Darkhold</div>
-    <p>
-      A self-hosted home for fanfiction. Built in the open; the plan, the
-      decision records and the verification log all live in the repository.
-    </p>
-    <!--
-      The siblings, read from the estate's own document rather than written here: a hand-written list is a
-      list that goes stale the first time a site is added (M72-07). Renders nothing when the document is not
-      served — development, a proxy that drops it — which is the same posture the injected topbar takes.
-    -->
+  <div class="container footer-grid">
+    <div>
+      <p class="footer-brand">Darkhold</p>
+      <p>A self-hosted home for fanfiction. Built in the open: the plan, the decision records and the verification log are all readable.</p>
+      <nav class="footer-links" aria-label="Footer">
+        <a href="/docs" onclick={(event) => onLinkClick(event, '/docs')}>Docs</a>
+        <a href="/roadmap" onclick={(event) => onLinkClick(event, '/roadmap')}>Roadmap</a>
+        <a href="/community" onclick={(event) => onLinkClick(event, '/community')}>Community</a>
+      </nav>
+    </div>
+    <!-- FamilyNav reads the estate's own document, so adding a site never means editing this footer. -->
     <FamilyNav self="darkhold" />
   </div>
 </footer>
@@ -910,6 +931,12 @@ import { Button } from '@polaris/ui';
     white-space: nowrap;
   }
 
+  .control-label {
+    align-self: center;
+    font-size: var(--text-sm);
+    color: var(--color-muted);
+  }
+
   .controls > a:hover {
     color: var(--color-text);
   }
@@ -1017,7 +1044,8 @@ import { Button } from '@polaris/ui';
   .mobile {
     display: flex;
     align-items: center;
-    gap: var(--space-3);
+    gap: var(--space-1);
+    padding-right: var(--space-3);
     overflow-x: auto;
     padding: 0 var(--space-4) var(--space-3);
   }
@@ -1057,18 +1085,47 @@ import { Button } from '@polaris/ui';
   main {
     padding: var(--space-5) var(--space-4) var(--space-8);
     min-height: 60vh;
+    font-size: var(--text-base);
   }
 
   .site-footer {
     border-top: var(--border-width) solid var(--color-border);
     background: var(--color-surface);
-    padding: var(--space-5) 0 var(--space-7);
+    padding: var(--space-4) 0 var(--space-5);
     color: var(--color-muted);
     font-size: var(--text-sm);
   }
 
+  .footer-grid {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: space-between;
+    gap: var(--space-5);
+  }
+
+  .footer-brand {
+    margin: 0 0 var(--space-2);
+    color: var(--color-text);
+    font-family: var(--font-heading);
+    font-size: var(--text-lg, 1.25rem);
+    font-weight: 600;
+  }
+
   .site-footer p {
-    max-width: 52ch;
+    max-width: 62ch;
+  }
+
+  .footer-links {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-4);
+    margin-top: var(--space-3);
+  }
+
+  .footer-links a {
+    min-height: 2.75rem;
+    display: inline-flex;
+    align-items: center;
   }
 
   .drawer-nav {

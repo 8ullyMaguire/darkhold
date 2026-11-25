@@ -39,6 +39,35 @@ html {
   scroll-padding-top: var(--header-height);
 }
 
+/*
+ * Standalone controls get a real hit box at both widths. Inline prose links are
+ * exempt, so this lives in the global sheet: header nav anchors are rendered by
+ * child components and a scoped selector in App.svelte cannot reach them.
+ */
+.site-header a,
+.site-header button,
+.site-header select,
+.site-footer a,
+.skip-link,
+.pwa-notice button {
+  display: inline-flex;
+  align-items: center;
+  min-height: 2.75rem;
+}
+
+/* The phone row is tight; a two-line "Sign in" looks broken. */
+.site-header button {
+  white-space: nowrap;
+}
+
+/* Short labels (Shelf, More, Docs) still need a square hit box. */
+.site-header a,
+.site-header button,
+.footer-links a {
+  min-width: 2.75rem;
+  justify-content: center;
+}
+
 body {
   margin: 0;
   min-height: 100vh;

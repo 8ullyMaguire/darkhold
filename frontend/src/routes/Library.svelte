@@ -404,14 +404,28 @@ import { Button } from '@polaris/ui';
 </script>
 
 <h1>Library</h1>
-  <ReadingGoalRing />
 
 {#if !session.isSignedIn}
-  <p class="note">
-    <a href="/sign-in" onclick={(event) => handleLinkClick(event, '/sign-in')}>Sign in</a> to see the
-    works you have imported.
-  </p>
+  <section class="signed-out" aria-labelledby="signed-out-title">
+    <div class="signed-out-card">
+      <p class="eyebrow">Your shelf, synced</p>
+      <h2 id="signed-out-title">Sign in to see your library</h2>
+      <p>
+        The works you import, the shelves you put them on, your reading status and your
+        saved views live with your account. If you only want to read, browse first.
+      </p>
+      <div class="signed-out-actions">
+        <Button variant="primary" onclick={() => navigate('/sign-in')}>Sign in</Button>
+        <Button variant="secondary" onclick={() => navigate('/discover')}>Browse Discover</Button>
+      </div>
+      <p class="goal-line">
+        <a href="/sign-in" onclick={(event) => handleLinkClick(event, '/sign-in')}>Set a reading goal</a>
+        after you sign in.
+      </p>
+    </div>
+  </section>
 {:else}
+  <ReadingGoalRing />
   <div class="layout">
     <aside class="sidebar" aria-label="Shelves and saved views">
       <section>
@@ -1061,6 +1075,50 @@ import { Button } from '@polaris/ui';
     flex-direction: column;
     gap: var(--space-1);
     font-size: var(--text-sm);
+    color: var(--color-muted);
+  }
+
+  .signed-out {
+    min-height: 24rem;
+    display: grid;
+    align-items: center;
+  }
+
+  .signed-out-card {
+    max-width: 46rem;
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-lg);
+    padding: var(--space-6);
+    background: var(--color-surface-raised);
+  }
+
+  .eyebrow {
+    margin: 0 0 var(--space-2);
+    color: var(--color-muted);
+    font-size: var(--text-sm);
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+  }
+
+  .signed-out-card h2 {
+    margin: 0 0 var(--space-3);
+    font-family: var(--font-heading);
+    font-size: var(--text-2xl, 1.75rem);
+  }
+
+  .signed-out-card p {
+    font-size: var(--text-base);
+  }
+
+  .signed-out-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-3);
+    margin-top: var(--space-5);
+  }
+
+  .goal-line {
+    margin-top: var(--space-5);
     color: var(--color-muted);
   }
 </style>
