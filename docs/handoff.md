@@ -6,6 +6,10 @@ The open queue, gates and blocked table are in `docs/plans/roadmap-remaining.md`
 `docs/FEATURE-LEDGER.md`, generated from `docs/requirements.csv`; row-by-row status and evidence stay in that CSV.
 Do not add another “current state” list here.
 
+## 2026-11-25 — final blocker retirement
+
+TA3-2/3/B1/B2/B4 retired per owner decisions and live proof. Discord global registration verified with 1 command / 13 subcommands. Only TA3-B3 remains blocked.
+
 ## 2026-11-25 — unblock pass
 
 Closed M64-06 (live data now has 4 tagged-and-engaged works) and M45-75-live (pawchive canonical hit; ao3 200/5). Fixed the NULL source-clock 500 found while probing ao3; rebuilt and deployed. Remaining blockers need owner actions; see `docs/OWNER-UNBLOCK-STEPS.md`.

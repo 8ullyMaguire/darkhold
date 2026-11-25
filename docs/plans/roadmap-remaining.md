@@ -12,6 +12,10 @@ Done (latest 2026-11-25, M45-75): source/source_updated/me:rated grammar, source
 
 Done (latest 2026-11-25, M45-75 follow-up): the search hit now carries `source_key` and `source_updated_at` from the highest-likes source row; `dh q --fields title,source,updated` prints them. The ordering fixture now disagrees with the clocks and a mutant removing the popularity arm went red (`MUT_EXIT=101`, restored). Live EXPLAIN showed a sequential scan for one source branch, so migration 0220 added `idx_library_items_source_work` (1/1 SQLite, 1/1 PG); the post-deploy plan uses it twice. Release build 1m46 with the estate gate, migrate exit 0, health 200, meta `0.1.0+af2441ca.dirty`. No visibility was changed.
 
+Done (latest 2026-11-25, Discord): built darkbot with a toolchain new enough for edition2024 dependencies, sourced the bot env file privately and ran `darkbot discord-register` globally: 1 command / 13 subcommands. Discord's own GET /applications/{id}/commands returned count 1, name darkhold, all 13 subcommands. No token was printed or stored in the repo.
+
+Done (latest 2026-11-25, owner decisions): TA3-2 stays with its workers by owner decision (live 14,079 queued / 695 running), removed from blockers. TA3-3 resolved: a driven browser with a desktop UA clears the AO3 bot wall and live source:ao3 returns 200/5; tag backfill is normal queue work. TA3-B1 declined (no reason to run a full sweep while targeted verification is the rule). TA3-B2 closed: no other session owns the checkout; M69-24 remains planned and default-off.
+
 Done (latest 2026-11-25, unblock pass): M64-06 is no longer blocked — live has 31,262 tagged / 9 engaged / 4 tagged-and-engaged works and the surfaces registry no longer refuses tag_jaccard. M45-75-live is closed with the spec's recorded live pair: signed-in canonical query over pawchive returns hits with `source_updated_at=2025-05-18T11:29:57Z`; live `source:ao3` returns 200/5 and `source:pawchive` returns 200. Trying the AO3 pair exposed a NULL-clock 500, fixed by `COALESCE(..., '')` on both projections (dual-engine 1/1; live `source:ao3` now 200 with empty clock). Rebuilt 1m48, deployed health 200 at `0.1.0+d7038eeb.dirty`. No visibility was changed.
 
 Done (earlier): TA1 private taste pipeline, TA2 daily aggregation and TA3-1 BFS verification shipped and documented. AO3 refetch gained `--offset` and skip-already-tagged (`2108da6f`, `136c771b`). TA3-5 consistency check passed at `0af02914`. The owner then unblocked TA3-2 and TA3-4 via `clarify`; the per-source concurrency guard shipped in `10b610de`, merged with `origin/master` in `d80e8d3e`, and was deployed live: 4 workers active, zero sources with >1 leased import, live meta `0.1.0+d97e7f34`, succeeded jobs rose 450→452 in 30 s while queued stayed 21,122. TA3-4 shipped in `0573c8a0` and `0d7c4470`: a public TheForce thread and robots file were recorded, the XenForo family now claims and parses the host, and the adapter honours `Crawl-delay: 10`.
@@ -61,19 +65,19 @@ Done (earlier): TA1 private taste pipeline, TA2 daily aggregation and TA3-1 BFS 
 | M45-75.9 | Decode a source row with no clock | RED: live `source:ao3` -> 500 `unexpected null; try decoding as an Option` | dual-engine suite 1/1 with a NULL-clock ao3 fixture; release rebuilt 1m48; live 200/5 with `source_updated_at=""` | bf3ad4d6 |
 | M64-06 | Serve tag_jaccard once tags and engagement meet | RED: 0 of 1,247 engaged rows carried a tag | live 31,262 tagged / 9 engaged / 4 overlap; `/recommendation/surfaces` refuses=[] for discover.feed and story.similar | bf3ad4d6 |
 | M45-75-live | Canonical query returns a public hit with an old clock | RED: qq/sv rows attach to no public published work | signed-in pawchive canonical query 5 hits, clock 2025-05-18; live source:ao3 200/5 and source:pawchive 200; spec amendment names the public pair, no visibility change | bf3ad4d6 |
+| TA3-2 | Keep workers, retire the blocker | RED: 15,055 jobs / 14,338 imports queued | owner: keep workers; no posture change; live 14,079 queued / 695 running | pending commit |
+| TA3-3 | Clear the AO3 bot wall | RED: automation UA got "bot servers overloaded"; curl got 429 | desktop UA in driven browser loaded AO3; live source health enabled, source:ao3 200/5 | pending commit |
+| TA3-B1 | Decide the full gate | owner chose targeted-only | owner asked why; no reason found; declined, no full sweep | pending commit |
+| TA3-B2 | Clear the checkout handover | another session was said to own the files | owner: no other session on darkhold; blocker closed, M69-24 stays planned/default-off | pending commit |
+| TA3-B4 | Register Discord commands globally | owner chose leave parked | 1 command / 13 subcommands registered; GET /applications/{id}/commands verified | pending commit |
 
-Open queue (*0 unblocked, 6 blocked*): none.
+Open queue (*0 unblocked, 1 blocked*): none.
 
-Blocked (*6*):
+Blocked (*1*):
 
 | # | blocked step | waits on | unblock gate |
 | --- | --- | --- | --- |
-| TA3-2 | Body import queue drain after concurrency increase | fresh 2026-11-25 probe: 15,055 jobs and 14,338 import jobs queued; 1 job and 680 imports running; a public GET of `https://archiveofourown.org/works/1` still answers 429 | queued count reaches zero or a small steady tail, with no new adapter errors |
-| TA3-3 | Advance AO3 tag coverage | direct public probe of `https://archiveofourown.org/works/1` returned HTTP 429 this turn | rate limit clears or a public cache/mirror exists; no auth or bypass |
-| TA3-B1 | Full estate gate | owner chose targeted-only | explicit owner request for the full sweep |
-| TA3-B2 | M69-24 taste-source follow-up | owner chose leave parked; another session owns the checkout | explicit handover |
 | TA3-B3 | M63-32 likes/favorites half | owner chose leave parked; no public API exists | explicit owner decision and safe credential path |
-| TA3-B4 | Global Discord command registration | owner chose leave parked | explicit approval |
 
 
 The standing `/goal` paragraph lives in `docs/plans/next-goal.md`. Read it with this file; never paste counts or open steps into it.

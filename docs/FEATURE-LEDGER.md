@@ -8,15 +8,15 @@ aggregates it and names where to look next.
 
 | status | rows |
 |---|---:|
-| blocked | 6 |
-| done | 3 |
-| evaluated-and-rejected | 7 |
+| blocked | 1 |
+| done | 6 |
+| evaluated-and-rejected | 8 |
 | implemented | 52 |
 | implemented-fully-tested | 461 |
 | implemented-locally-tested | 269 |
 | implemented-source-probe | 1 |
 | implemented-targeted-green | 32 |
-| implemented-verified-e2e | 187 |
+| implemented-verified-e2e | 188 |
 | mutation-proven | 5 |
 | partial | 2 |
 | planned | 2 |

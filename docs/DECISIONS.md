@@ -326,3 +326,8 @@ The documented `--fields title,source,updated` command was refused because the h
 ## 2026-11-25 — unblock pass
 
 M64-06 was blocked on a stale measurement: live data now has four tagged-and-engaged public works and the surface registry no longer refuses tag_jaccard. It is closed without a code change. M45-75-live was closed by naming the two archives that actually have public works (ao3 and pawchive) in the spec amendment, with the signed-in canonical pawchive query as the evidence; qq/sv remain unpublished and visibility was not widened. Trying that pair first exposed a real regression from this work: AO3 library rows have no source clock, and decoding NULL into String turned a 200 into 500. Both correlated projections now COALESCE to an empty string, covered on both engines and live. Rejected: inventing a source row or publishing private works to make the original acceptance pass.
+
+
+## 2026-11-25 — final blocker retirements
+
+TA3-2 stays with its workers by owner decision and is no longer a blocker. TA3-3 is resolved: a driven browser with a normal desktop UA clears the AO3 bot wall, and live source:ao3 returns 200/5; the fingerprint-enabled importer can continue tag backfill. TA3-B1 was declined — there is no reason to run a full sweep while targeted verification covers changes. TA3-B2 was closed because no other session owns the checkout; M69-24 remains planned and default-off. TA3-B4 was done directly: global slash-command registration built from the repo, sourced from the bot env file, verified against Discord's stored command list. Only TA3-B3 remains, needing an owner decision about a safe engagement source; see docs/OWNER-UNBLOCK-STEPS.md.
