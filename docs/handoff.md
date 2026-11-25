@@ -11,6 +11,10 @@ Seven rows are queued as FS-01/02/03 and FS-04..FS-07 in `docs/plans/roadmap-rem
 and use; the rest is already implemented or explicitly parked. See
 `docs/spec-amendments/faceted-search-brief-2026-11-26.md`.
 
+## 2026-11-26 — FS-04 saved-search discoverability (this commit)
+
+The saved-view and alert routes existed but the live tables were empty: 0 saved views, 0 alerts. The Search page now offers **Save this search** on any non-empty query and **Save and get new matches** in the zero-result state. It stores the canonical query as a `catalogue` view and attaches one daily alert in the same action. A library view was rejected because it would reinterpret a global search string against shelf/tag/status columns. Verification: `Search.test.ts` 26/26, `svelte-check` 0 errors, live POST saved-views 201, POST search-alerts 200 created, cleanup 204, proof rows 0.
+
 ## 2026-11-26 — UI critical pass (ee830b5c)
 
 The full route sweep found three visual systems stitched together: server documents, SPA shell and injected Polaris

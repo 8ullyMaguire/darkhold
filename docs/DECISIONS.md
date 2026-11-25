@@ -343,6 +343,10 @@ it uses the same filtered nav list as desktop. No backend, routes or credential
 handling changed.
 
 
+## 2026-11-26 — FS-04 uses a catalogue view, not a library view
+
+A global search string is a canonical query for the catalogue index. Storing it as a `library` view would reinterpret its fields against shelf/tag/status columns, so the save action uses `kind: catalogue` with `params` set to the exact query string, then creates one daily alert against the returned view id. The temporary proof session was deleted and the proof rows removed after the live 201/200 check.
+
 ## 2026-11-26 — faceted-search brief triaged, no index cluster
 
 The owner pasted an outside brief describing a faceted search product. Its structural advice was accepted, but every claim about the current system was checked against `docs/requirements.csv` and `docs/spec.md`. Most of it is already shipped: saved searches, Boolean/facet grammar, current-filter facet counts, canonical tags and wrangling, recommendation reasons, completion/length facets, EPUB and per-device position. Three gaps are open as FS-01/02/03: crossover include/exclude, role metadata on tag joins, and include/exclude parity on facet chips.

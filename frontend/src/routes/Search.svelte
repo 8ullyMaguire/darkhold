@@ -1,13 +1,17 @@
 <script lang="ts">
   import { onMount } from 'svelte';
   import {
+    ApiError,
     clearSearchHistory,
+    createCatalogueView,
+    createSearchAlert,
     fetchSearchHistory,
     fetchWordHistogram,
     searchWorks,
     type SearchHistoryEntry,
     type SearchResultList,
   } from '../lib/api';
+  import { session } from '../lib/session.svelte';
   import Combobox from '../lib/components/Combobox.svelte';
   import EmptyState from '../lib/components/EmptyState.svelte';
   import FacetPanel from '../lib/components/FacetPanel.svelte';
@@ -50,6 +54,8 @@
   let loading = $state(false);
   let error = $state<unknown>(null);
   let searched = $state(false);
+  let savingSearch = $state(false);
+  let saveNote = $state<string | null>(null);
 
   let selectedField = $state<FilterField>('fandom');
   let selectedValue = $state('');
@@ -299,6 +305,35 @@
     void runSearch();
   }
 
+  /**
+   * FS-04: save the exact canonical query the reader just ran, then attach one daily alert.
+   * A catalogue view is used because a global search string is not a library query; a
+   * library view would reinterpret its fields against shelves/tags/statuses.
+   */
+  async function saveThisSearch() {
+    const params = buildQuery().trim();
+    if (!params || savingSearch) return;
+    saveNote = null;
+    if (!session.isSignedIn) {
+      saveNote = 'Sign in to save this search and get new matches.';
+      return;
+    }
+    savingSearch = true;
+    try {
+      const name = params.length > 60 ? `${params.slice(0, 57)}…` : params;
+      const view = await createCatalogueView({ name, kind: 'catalogue', params, scope: 'private' });
+      await createSearchAlert({ saved_search_id: view.id, frequency: 'daily' });
+      saveNote = `Saved as “${name}”; a daily alert is on.`;
+    } catch (failure) {
+      saveNote =
+        failure instanceof ApiError && failure.isAuthRequired
+          ? 'Sign in to save this search and get new matches.'
+          : `Could not save this search: ${failure instanceof Error ? failure.message : 'unknown error'}`;
+    } finally {
+      savingSearch = false;
+    }
+  }
+
   function onSubmit(e: Event) {
     e.preventDefault();
     if (debounceTimer) clearTimeout(debounceTimer);
@@ -434,6 +469,15 @@
     />
   {/if}
 
+  {#if buildQuery().trim()}
+    <div class="save-search" aria-label="Save this search">
+      <button type="button" onclick={saveThisSearch} disabled={savingSearch}>
+        {savingSearch ? 'Saving…' : 'Save this search'}
+      </button>
+      {#if saveNote}<p role="status">{saveNote}</p>{/if}
+    </div>
+  {/if}
+
   {#if histogram && histogram.buckets.length > 0}
     <WordHistogram
       {histogram}
@@ -482,7 +526,13 @@
     <EmptyState
       title="No matches found"
       description="Try a different query, or use fielded search like fandom:name, tag:name, mood:name."
-    />
+    >
+      {#snippet action()}
+        <button type="button" onclick={saveThisSearch} disabled={savingSearch}>
+          Save and get new matches
+        </button>
+      {/snippet}
+    </EmptyState>
   {:else}
     <EmptyState
       title="Start typing to search"
@@ -492,6 +542,19 @@
 </section>
 
 <style>
+  .save-search {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--space-2);
+    margin-bottom: var(--space-3);
+  }
+
+  .save-search button,
+  .save-search p {
+    margin: 0;
+  }
+
   .search-page {
     max-width: 720px;
     margin: 0 auto;

@@ -7,12 +7,23 @@ const searchWorks = vi.fn();
 const fetchSearchHistory = vi.fn();
 const clearSearchHistory = vi.fn();
 const fetchWordHistogram = vi.fn();
+const createCatalogueView = vi.fn();
+const createSearchAlert = vi.fn();
 
 vi.mock('../lib/api', () => ({
   searchWorks: (...args: unknown[]) => searchWorks(...args),
   fetchSearchHistory: (...args: unknown[]) => fetchSearchHistory(...args),
   clearSearchHistory: (...args: unknown[]) => clearSearchHistory(...args),
   fetchWordHistogram: (...args: unknown[]) => fetchWordHistogram(...args),
+  ApiError: class ApiError extends Error {
+    isAuthRequired = false;
+  },
+  createCatalogueView: (...args: unknown[]) => createCatalogueView(...args),
+  createSearchAlert: (...args: unknown[]) => createSearchAlert(...args),
+}));
+
+vi.mock('../lib/session.svelte', () => ({
+  session: { isSignedIn: true },
 }));
 
 beforeEach(() => {
@@ -24,6 +35,8 @@ beforeEach(() => {
   clearSearchHistory.mockResolvedValue({ cleared: 0 });
   fetchWordHistogram.mockReset();
   fetchWordHistogram.mockResolvedValue({ unit: 'words', buckets: [], measured: 0, unknown: 0, total: 0 });
+  createCatalogueView.mockReset();
+  createSearchAlert.mockReset();
 });
 
 describe('Search page', () => {
@@ -45,6 +58,31 @@ describe('Search page', () => {
     expect(screen.getByText('Fandom')).toBeInTheDocument();
     expect(screen.getByText('Tag')).toBeInTheDocument();
     expect(screen.getByText('Rating')).toBeInTheDocument();
+  });
+
+  it('saves a zero-result query as a view and attaches one daily alert', async () => {
+    createCatalogueView.mockResolvedValue({ id: 'view-1' });
+    createSearchAlert.mockResolvedValue({ id: 'alert-1', status: 'created' });
+    render(Search);
+    await fireEvent.input(screen.getByLabelText('Search query'), {
+      target: { value: 'tag:no-such-tag' },
+    });
+    await fireEvent.click(screen.getByText('Search'));
+    await waitFor(() => expect(screen.getByText('No matches found')).toBeTruthy());
+    await fireEvent.click(screen.getByText('Save and get new matches'));
+    await waitFor(() =>
+      expect(createCatalogueView).toHaveBeenCalledWith({
+        name: 'tag:no-such-tag',
+        kind: 'catalogue',
+        params: 'tag:no-such-tag',
+        scope: 'private',
+      }),
+    );
+    expect(createSearchAlert).toHaveBeenCalledWith({
+      saved_search_id: 'view-1',
+      frequency: 'daily',
+    });
+    expect(await screen.findByText(/a daily alert is on/i)).toBeTruthy();
   });
 });
 

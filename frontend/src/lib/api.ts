@@ -2759,6 +2759,35 @@ export function deleteSavedView(id: string): Promise<void> {
   return apiFetch<void>(`/saved-views/${encodeURIComponent(id)}`, { method: 'DELETE' });
 }
 
+export interface CreateCatalogueViewInput {
+  name: string;
+  kind: 'catalogue';
+  params: string;
+  scope?: 'private' | 'public';
+}
+
+/** Store the canonical query string a search page produced, verbatim. */
+export function createCatalogueView(input: CreateCatalogueViewInput): Promise<SavedView> {
+  return apiFetch<SavedView>('/saved-views', {
+    method: 'POST',
+    body: JSON.stringify(input),
+  });
+}
+
+export interface CreateSearchAlertInput {
+  saved_search_id: string;
+  frequency: 'daily' | 'weekly';
+}
+
+export function createSearchAlert(
+  input: CreateSearchAlertInput,
+): Promise<{ id: string; status: string }> {
+  return apiFetch<{ id: string; status: string }>('/search-alerts', {
+    method: 'POST',
+    body: JSON.stringify(input),
+  });
+}
+
 /** What the reader's library occupies. */
 export interface StorageUsage {
   imported_bytes: number;
