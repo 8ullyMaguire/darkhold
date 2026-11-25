@@ -11,7 +11,7 @@ Seven rows are queued as FS-01/02/03 and FS-04..FS-07 in `docs/plans/roadmap-rem
 and use; the rest is already implemented or explicitly parked. See
 `docs/spec-amendments/faceted-search-brief-2026-11-26.md`.
 
-## 2026-11-26 — FS-01 crossover facet (this commit)
+## 2026-11-26 — FS-01 crossover facet (9ab9066c)
 
 `crossover:exclude` and `crossover:only` compile to a correlated count of distinct fandom taxonomy nodes; no new column or migration. The SPA offers both as mutually exclusive presets, so one click replaces the other mode instead of producing a contradiction. Proof: parser 1/1, dual-engine SQLite 1/1 and PostgreSQL 1/1, mutant exit 101 at `only must keep exactly the crossover`, Search DOM 29/29, live `?q=crossover:only` 200, browser presets replace modes in the URL.
 
