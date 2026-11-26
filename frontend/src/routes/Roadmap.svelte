@@ -206,13 +206,13 @@ import { Button } from '@polaris/ui';
           The board fills as readers suggest ideas and vote on them. Nothing has been suggested on
           this instance so far, so every stage is empty.
         </p>
-        <p>
+        <p class="empty-cta">
           {#if session.isSignedIn}
-            <a class="button" href="#suggest">Suggest a feature</a>, or
+            <a class="cta-button" href="#suggest">Suggest a feature</a>
           {:else}
-            <a href="/sign-in">Sign in</a> to suggest one, or
+            <a class="cta-button" href="/sign-in" onclick={(e) => handleLinkClick(e, '/sign-in')}>Sign in to suggest</a>
           {/if}
-          <a href="/arena">vote in the arena</a> to move what others have suggested.
+          <a class="secondary-link" href="/arena" onclick={(e) => handleLinkClick(e, '/arena')}>vote in the arena</a>
         </p>
       </section>
     {:else if board}
@@ -285,8 +285,8 @@ import { Button } from '@polaris/ui';
     <section class="arena-section" aria-label="Arena voting">
       {#if !session.isSignedIn}
         <p class="arena-signin">
-          <a href="/sign-in" onclick={(e) => handleLinkClick(e, '/sign-in')}>Sign in</a>
-          to vote on upcoming features.
+          <a class="cta-button" href="/sign-in" onclick={(e) => handleLinkClick(e, '/sign-in')}>Sign in to vote</a>
+          on upcoming features.
         </p>
       {:else if voteError}
         <ErrorSummary error={voteError} />
@@ -420,17 +420,55 @@ import { Button } from '@polaris/ui';
   }
 
   .tab {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 44px;
     padding: 0.5rem 1rem;
     border: none;
+    border-bottom: 2px solid transparent;
     background: none;
     cursor: pointer;
     font-weight: 500;
-    border-radius: 4px;
   }
 
   .tab.active {
+    border-bottom-color: var(--accent);
+    color: var(--text-link);
+    font-weight: 700;
+  }
+
+  .board-empty {
+    max-width: 46rem;
+    margin: 0 auto;
+    padding: 2rem 1.5rem;
+    border: 1px dashed var(--border);
+    border-radius: 8px;
+    text-align: center;
+  }
+
+  .empty-cta {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-wrap: wrap;
+    gap: 0.5rem 1rem;
+  }
+
+  .cta-button,
+  .secondary-link {
+    display: inline-flex;
+    align-items: center;
+    min-height: 44px;
+    text-decoration: none;
+  }
+
+  .cta-button {
+    padding: 0 1rem;
+    border-radius: 4px;
     background: var(--accent);
     color: var(--color-accent-contrast);
+    font-weight: 600;
   }
 
   .board {
@@ -620,6 +658,11 @@ import { Button } from '@polaris/ui';
 
   .arena-signin,
   .arena-empty {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-wrap: wrap;
+    gap: 0 0.5rem;
     text-align: center;
     color: var(--muted);
     padding: 2rem 0;

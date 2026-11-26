@@ -103,6 +103,8 @@ describe('Roadmap board page', () => {
     await waitFor(() => expect(screen.getByText('No feature cards yet')).toBeInTheDocument());
     expect(screen.getAllByText('No feature cards yet')).toHaveLength(1);
     expect(screen.queryAllByText(/Nothing here yet/)).toHaveLength(0);
+    expect(screen.getByRole('link', { name: 'Sign in to suggest' }).className).toContain('cta-button');
+    expect(screen.getByRole('link', { name: 'vote in the arena' }).className).toContain('secondary-link');
   });
 
   it('shows Elo ratings on cards', async () => {
@@ -138,7 +140,7 @@ describe('Roadmap board page', () => {
     await waitFor(() => expect(screen.getByText('Better search')).toBeInTheDocument());
     await screen.getByRole('button', { name: 'Arena' }).click();
     await waitFor(() =>
-      expect(screen.getByText('to vote on upcoming features.')).toBeInTheDocument(),
+      expect(screen.getByRole('link', { name: 'Sign in to vote' }).className).toContain('cta-button'),
     );
   });
 
