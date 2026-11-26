@@ -41,7 +41,9 @@ describe('SignInGate', () => {
     expect(note.textContent).toContain('see the works you have imported');
     expect(note.textContent).toContain('Sign in');
     // The link is the whole affordance, so it has to be a link.
-    expect(screen.getByRole('link', { name: 'Sign in' }).getAttribute('href')).toBe('/sign-in');
+    const link = screen.getByRole('link', { name: 'Sign in' });
+    expect(link.getAttribute('href')).toBe('/sign-in');
+    expect(link.className).toContain('gate-link');
   });
 
   it('says nothing about failure, because nothing failed', () => {

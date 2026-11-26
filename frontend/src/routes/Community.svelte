@@ -163,12 +163,13 @@
       <div class="forum-toolbar">
         <input
           type="search"
+          aria-label="Filter forums"
           placeholder="Filter forums..."
           class="forum-filter-input"
           bind:value={filterQuery}
         />
-        <a href="/community/search" onclick={(e) => handleLinkClick(e, '/community/search')}>
-          <button>Search posts</button>
+        <a class="search-link" href="/community/search" onclick={(e) => handleLinkClick(e, '/community/search')}>
+          Search posts
         </a>
       </div>
       <ul class="card-list">
@@ -255,6 +256,10 @@
     margin-bottom: 1.5rem;
   }
   .tabs button {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 44px;
     padding: 0.5rem 1rem;
     border: none;
     background: none;
@@ -270,6 +275,38 @@
     opacity: 0.4;
     cursor: not-allowed;
   }
+  .forum-toolbar {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 0.75rem;
+    margin-bottom: 1.5rem;
+  }
+
+  .forum-filter-input {
+    flex: 1 1 18rem;
+    max-width: 24rem;
+    min-height: 44px;
+    padding: 0 0.75rem;
+    border: 1px solid var(--border);
+    border-radius: 0.5rem;
+    background: transparent;
+    color: inherit;
+    font: inherit;
+  }
+
+  .search-link {
+    display: inline-flex;
+    align-items: center;
+    min-height: 44px;
+    padding: 0 1rem;
+    border-radius: 0.25rem;
+    background: var(--accent);
+    color: var(--color-accent-contrast);
+    font-weight: 600;
+    text-decoration: none;
+  }
+
   .card-list {
     list-style: none;
     padding: 0;

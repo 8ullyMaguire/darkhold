@@ -402,3 +402,7 @@ Took the next review row after R-05. Audited `/sign-in` signed out at desktop an
 ## 2026-11-26 — R-07 roadmap review (e1c5b05f)
 
 Took the next review row after R-06. Audited `/roadmap` at desktop and phone width across Board, Arena and Changelog, wrote GOOD/BAD/UGLY/SUGGESTION, then fixed only Darkhold-owned SPA defects: 44px underline tabs, a centred bordered board empty panel with a primary sign-in CTA and a secondary arena link, and a primary arena sign-in button. Empty data was left empty. Evidence is in `docs/reviews/r07-roadmap.md`; the row is Done in `docs/reviews/page-review-queue.md`.
+
+## 2026-11-26 — R-08 community review (this commit)
+
+Took the next review row after R-07. Audited `/community` signed out and signed in at desktop and phone width across all four tabs, wrote GOOD/BAD/UGLY/SUGGESTION, then fixed only Darkhold-owned SPA code: a bordered 44px sign-in gate (shared by nine pages), 44px tabs, a labelled 44px forum filter and a real 44px Search posts link. Estate chrome and missing forum metadata remain separate-owner/data SUGGESTION. Temporary session deleted. Evidence is in `docs/reviews/r08-community.md`; the row is Done in `docs/reviews/page-review-queue.md`.

@@ -52,6 +52,13 @@ describe('Community page', () => {
     await waitFor(() => expect(screen.getByText('General')).toBeInTheDocument());
   });
 
+  it('labels the forum filter and gives search posts a real link', async () => {
+    const { container } = render(Community);
+    await waitFor(() => expect(container.querySelector('.forum-filter-input')).not.toBeNull());
+    expect(screen.getByLabelText('Filter forums')).toBeInTheDocument();
+    expect(container.querySelector('.search-link')?.textContent).toContain('Search posts');
+  });
+
   it('switches to groups tab', async () => {
     render(Community);
     await waitFor(() => expect(screen.getByText('General')).toBeInTheDocument());

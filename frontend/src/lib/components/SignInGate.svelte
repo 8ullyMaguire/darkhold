@@ -52,8 +52,8 @@
   <Skeleton lines={skeletonLines} label="Checking your session" />
 {:else if !session.isSignedIn}
   <p class="note" data-testid="signin-note">
-    <a href="/sign-in" onclick={(event) => handleLinkClick(event, '/sign-in')}>Sign in</a>
-    to {purpose}.
+    <a class="gate-link" href="/sign-in" onclick={(event) => handleLinkClick(event, '/sign-in')}>Sign in</a>
+    <span>to {purpose}.</span>
   </p>
 {:else}
   {@render children()}
@@ -61,7 +61,27 @@
 
 <style>
   .note {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 0.5rem 1rem;
+    max-width: 46rem;
+    margin: 0 auto;
+    padding: 2rem 1.5rem;
+    border: 1px dashed var(--border);
+    border-radius: 0.5rem;
     color: var(--text-muted);
-    max-width: var(--measure);
+  }
+
+  .gate-link {
+    display: inline-flex;
+    align-items: center;
+    min-height: 44px;
+    padding: 0 1rem;
+    border-radius: 0.25rem;
+    background: var(--accent);
+    color: var(--color-accent-contrast);
+    font-weight: 600;
+    text-decoration: none;
   }
 </style>
