@@ -34,6 +34,7 @@
 -->
 <script lang="ts">
   import type { Snippet } from 'svelte';
+  import { clampPanel } from '../nav-menu-clamp';
 
   interface NavItem {
     href: string;
@@ -92,15 +93,16 @@
    */
   $effect(() => {
     if (!open || !anchor || !menu) return;
-    const width = menu.getBoundingClientRect().width;
-    if (width === 0) return;
-    const margin = 8;
-    let left = anchor.left;
-    if (left - width / 2 < margin) left = margin + width / 2;
-    if (left + width / 2 > window.innerWidth - margin) {
-      left = window.innerWidth - margin - width / 2;
-    }
-    if (left !== anchor.left) anchor = { ...anchor, left };
+    const { width, height } = menu.getBoundingClientRect();
+    if (width === 0 || height === 0) return;
+    const clamped = clampPanel(
+      anchor,
+      width,
+      height,
+      window.innerWidth,
+      window.innerHeight,
+    );
+    if (clamped.left !== anchor.left || clamped.top !== anchor.top) anchor = clamped;
   });
 
   function show() {
@@ -353,6 +355,10 @@
    */
   .panel.floating {
     position: fixed;
+    /* The pure clamp keeps the panel's top on-screen; this keeps its own box
+       scrollable if the viewport is shorter than the list of destinations. */
+    max-height: calc(100vh - 16px);
+    overflow-y: auto;
   }
 
   .panel a {

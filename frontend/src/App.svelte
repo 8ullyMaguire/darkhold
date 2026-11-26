@@ -331,10 +331,10 @@ import { Button } from '@polaris/ui';
 
     // The docs page has a visible Search help button. It asks for the same
     // dialog rather than duplicating the shortcut handler.
-    window.addEventListener('darkhold:docs-search', onDocsSearchRequest);
     const onDocsSearchRequest = () => {
       docsSearchOpen = true;
     };
+    window.addEventListener('darkhold:docs-search', onDocsSearchRequest);
 
     const onSystemChange = () => {
       if (preference === 'system') {

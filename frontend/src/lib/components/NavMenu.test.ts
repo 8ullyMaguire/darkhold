@@ -11,6 +11,7 @@
 import { render, screen, fireEvent } from '@testing-library/svelte';
 import { describe, expect, it, vi } from 'vitest';
 import NavMenu from './NavMenu.svelte';
+import { clampPanel } from '../nav-menu-clamp';
 
 const ITEMS = [
   { href: '/discover', label: 'Discover' },
@@ -176,5 +177,28 @@ describe('NavMenu', () => {
     expect(panel.className).toContain('floating');
     expect(panel.getAttribute('style')).toContain('left:');
     expect(panel.getAttribute('style')).toContain('top:');
+  });
+});
+
+describe('NavMenu panel clamping', () => {
+  it('leaves a panel that already fits exactly where it is', () => {
+    expect(clampPanel({ left: 700, top: 96 }, 208, 240, 1440, 700)).toEqual({
+      left: 700,
+      top: 96,
+    });
+  });
+
+  it('lifts a panel whose bottom would pass the viewport', () => {
+    expect(clampPanel({ left: 700, top: 620 }, 208, 240, 1440, 700)).toEqual({
+      left: 700,
+      top: 452,
+    });
+  });
+
+  it('keeps a panel taller than the viewport on-screen', () => {
+    expect(clampPanel({ left: 700, top: 96 }, 208, 900, 1440, 700)).toEqual({
+      left: 700,
+      top: 8,
+    });
   });
 });
