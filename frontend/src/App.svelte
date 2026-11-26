@@ -329,6 +329,13 @@ import { Button } from '@polaris/ui';
     };
     window.addEventListener('keydown', onKeydown);
 
+    // The docs page has a visible Search help button. It asks for the same
+    // dialog rather than duplicating the shortcut handler.
+    window.addEventListener('darkhold:docs-search', onDocsSearchRequest);
+    const onDocsSearchRequest = () => {
+      docsSearchOpen = true;
+    };
+
     const onSystemChange = () => {
       if (preference === 'system') {
         applyTheme(resolveTheme('system', darkQuery?.matches ?? false), document.documentElement);
@@ -339,6 +346,7 @@ import { Button } from '@polaris/ui';
     return () => {
       window.removeEventListener('popstate', onPopState);
       window.removeEventListener('keydown', onKeydown);
+      window.removeEventListener('darkhold:docs-search', onDocsSearchRequest);
       darkQuery?.removeEventListener('change', onSystemChange);
     };
   });

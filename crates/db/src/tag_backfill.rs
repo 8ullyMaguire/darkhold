@@ -41,33 +41,31 @@ pub async fn backfill_from_provenance(
     }
     let (sqlite_sql, postgres_sql) = match source {
         Some(_) => (
-            "SELECT CAST(work_id AS TEXT) AS work_id, provenance_json
+            "SELECT CAST(work_id AS TEXT) AS work_id, source_key, provenance_json
                FROM library_items
               WHERE work_id IS NOT NULL AND provenance_json IS NOT NULL
-                AND provenance_json <> '{}' AND source_key = ?
+                AND source_key = ?
               ORDER BY id LIMIT ?",
-            "SELECT CAST(work_id AS TEXT) AS work_id, provenance_json
+            "SELECT CAST(work_id AS TEXT) AS work_id, source_key, provenance_json
                FROM library_items
               WHERE work_id IS NOT NULL AND provenance_json IS NOT NULL
-                AND provenance_json <> '{}' AND source_key = $1
+                AND source_key = $1
               ORDER BY id LIMIT $2",
         ),
         None => (
-            "SELECT CAST(work_id AS TEXT) AS work_id, provenance_json
+            "SELECT CAST(work_id AS TEXT) AS work_id, source_key, provenance_json
                FROM library_items
               WHERE work_id IS NOT NULL AND provenance_json IS NOT NULL
-                AND provenance_json <> '{}'
               ORDER BY id LIMIT ?",
-            "SELECT CAST(work_id AS TEXT) AS work_id, provenance_json
+            "SELECT CAST(work_id AS TEXT) AS work_id, source_key, provenance_json
                FROM library_items
               WHERE work_id IS NOT NULL AND provenance_json IS NOT NULL
-                AND provenance_json <> '{}'
               ORDER BY id LIMIT $1",
         ),
     };
     let rows = match db.backend() {
         crate::Backend::Sqlite => {
-            let mut query = sqlx::query_as::<_, (String, String)>(sqlite_sql);
+            let mut query = sqlx::query_as::<_, (String, String, String)>(sqlite_sql);
             if let Some(source) = source {
                 query = query.bind(source);
             }
@@ -75,7 +73,7 @@ pub async fn backfill_from_provenance(
             query.fetch_all(db.sqlite_pool().expect("sqlite")).await?
         }
         crate::Backend::Postgres => {
-            let mut query = sqlx::query_as::<_, (String, String)>(postgres_sql);
+            let mut query = sqlx::query_as::<_, (String, String, String)>(postgres_sql);
             if let Some(source) = source {
                 query = query.bind(source);
             }
@@ -86,12 +84,18 @@ pub async fn backfill_from_provenance(
         }
     };
 
-    for (work_id, provenance) in rows {
+    for (work_id, source_key, provenance) in rows {
         report.scanned += 1;
         let Ok(value) = serde_json::from_str::<Value>(&provenance) else {
             continue;
         };
-        let claims = claims_from(&value);
+        let mut claims = claims_from(&value);
+        // AO3 metadata arrived in the stored document text, not `provenance_json`.
+        // Read only the labelled lines; no source body is copied into the crate
+        // or logged, and an unreadable document simply yields no claims.
+        if claims.is_empty() && source_key == "ao3" {
+            claims = document_claims_for_work(db, &work_id).await?;
+        }
         if claims.is_empty() {
             continue;
         }
@@ -142,6 +146,100 @@ fn claims_from(value: &Value) -> Vec<(String, String)> {
 }
 
 
+/// Read the first stored revision of an AO3 work and take only its labelled
+/// metadata lines. The source body is never logged, shipped or returned; only
+/// canonical tag labels reach the assertion store.
+async fn document_claims_for_work(db: &Database, work_id: &str) -> Result<Vec<(String, String)>> {
+    let sql = db.sql(
+        "SELECT r.document_json
+           FROM units u
+           JOIN revisions r ON r.id = u.current_revision_id
+          WHERE u.work_id = ?1 AND u.deleted_at IS NULL
+          ORDER BY u.order_key LIMIT 1",
+        "SELECT r.document_json
+           FROM units u
+           JOIN revisions r ON r.id = u.current_revision_id
+          WHERE u.work_id = $1::uuid AND u.deleted_at IS NULL
+          ORDER BY u.order_key LIMIT 1",
+    );
+    let document: Option<String> = match db.backend() {
+        crate::Backend::Sqlite => {
+            sqlx::query_scalar(&sql)
+                .bind(work_id)
+                .fetch_optional(db.sqlite_pool().expect("sqlite"))
+                .await?
+        }
+        crate::Backend::Postgres => {
+            sqlx::query_scalar(&sql)
+                .bind(work_id)
+                .fetch_optional(db.postgres_pool().expect("postgres"))
+                .await?
+        }
+    };
+    let Some(document) = document else {
+        return Ok(Vec::new());
+    };
+    let Ok(value) = serde_json::from_str::<Value>(&document) else {
+        return Ok(Vec::new());
+    };
+    let mut text = String::new();
+    collect_text(&value, &mut text);
+    Ok(claims_from_document_text(&text))
+}
+
+fn collect_text(value: &Value, out: &mut String) {
+    match value {
+        Value::Object(map) => {
+            if let Some(Value::String(text)) = map.get("text") {
+                out.push_str(text);
+                out.push('\n');
+            }
+            for (_, child) in map {
+                collect_text(child, out);
+            }
+        }
+        Value::Array(items) => {
+            for child in items {
+                collect_text(child, out);
+            }
+        }
+        _ => {}
+    }
+}
+
+/// Parse AO3's own `Label: a, b` metadata lines. Only these five labels count;
+/// a bare sentence in a chapter is not a source tag.
+fn claims_from_document_text(text: &str) -> Vec<(String, String)> {
+    let mut seen = std::collections::HashSet::new();
+    let mut claims = Vec::new();
+    for line in text.lines() {
+        let line = line.trim();
+        for (label, kind) in [
+            ("Fandom:", "fandom"),
+            ("Relationships:", "relationship"),
+            ("Characters:", "character"),
+            ("Tags:", "tag"),
+            ("Warnings:", "warning"),
+        ] {
+            let Some(rest) = line.strip_prefix(label) else {
+                continue;
+            };
+            for raw in rest.split(',') {
+                let canonical = raw.trim();
+                if canonical.is_empty() || canonical.len() > 200 {
+                    continue;
+                }
+                let key = (kind.to_owned(), canonical.to_ascii_lowercase());
+                if seen.insert(key) {
+                    claims.push((kind.to_owned(), canonical.to_owned()));
+                }
+            }
+            break;
+        }
+    }
+    claims
+}
+
 /// Write, or count in a dry run, the source assertions for one work.
 pub async fn assert_claims(
     db: &Database,
@@ -170,4 +268,31 @@ pub async fn assert_claims(
         written += 1;
     }
     Ok((written, created))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::claims_from_document_text;
+
+    #[test]
+    fn ao3_document_json_lines_become_source_claims() {
+        let document = r#"{"type":"doc","content":[{"type":"paragraph","content":[{"type":"text","text":"Fandom: Harry Potter\nRelationships: James Potter/Lily Evans Potter, Sirius Black/Remus Lupin\nCharacters: Harry Potter, Lily Evans Potter\nTags: Voyeurism, Anal Sex\nWarnings: Underage Sex"}]}]}"#;
+        let value: serde_json::Value = serde_json::from_str(document).expect("json");
+        let mut text = String::new();
+        super::collect_text(&value, &mut text);
+        let claims = claims_from_document_text(&text);
+        assert_eq!(claims.len(), 8, "text={text:?} claims={claims:?}");
+    }
+
+    #[test]
+    fn ao3_labelled_lines_become_source_claims() {
+        let text = "Read a story.\nFandom: Harry Potter - J. K. Rowling\nRelationships: James Potter/Lily Evans Potter, Sirius Black/Remus Lupin\nCharacters: Harry Potter, Lily Evans Potter\nTags: Voyeurism, Anal Sex\nWarnings: Underage Sex\nOriginal URL: https://example.invalid";
+        let claims = claims_from_document_text(text);
+        assert_eq!(claims.len(), 8, "{claims:?}");
+        assert!(claims.contains(&("fandom".into(), "Harry Potter - J. K. Rowling".into())));
+        assert!(claims.contains(&("relationship".into(), "James Potter/Lily Evans Potter".into())));
+        assert!(claims.contains(&("character".into(), "Harry Potter".into())));
+        assert!(claims.contains(&("tag".into(), "Voyeurism".into())));
+        assert!(claims.contains(&("warning".into(), "Underage Sex".into())));
+    }
 }

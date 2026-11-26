@@ -62,9 +62,15 @@
   {:else}
     <h1>Help</h1>
     <p class="summary">
-      Everything you need to use this site, in plain words. Press
-      <kbd>Ctrl</kbd>+<kbd>K</kbd> (or <kbd>⌘</kbd>+<kbd>K</kbd>) anywhere to search.
+      Everything you need to use this site, in plain words.
     </p>
+    <button
+      type="button"
+      class="search-help"
+      onclick={() => window.dispatchEvent(new CustomEvent('darkhold:docs-search'))}
+    >
+      Search help <kbd>Ctrl</kbd>+<kbd>K</kbd>
+    </button>
     <ul class="index">
       {#each DOCS as d (d.slug)}
         <li>
@@ -87,6 +93,26 @@
   .summary {
     color: var(--text-2, #666);
     font-size: 1.05rem;
+  }
+  .search-help {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    min-height: 44px;
+    padding: 0.5rem 0.9rem;
+    border: 1px solid var(--border, #ddd);
+    border-radius: 8px;
+    background: var(--surface-2, #f6f6f6);
+    color: var(--text-1, #222);
+    font: inherit;
+    cursor: pointer;
+  }
+  .search-help:hover { background: var(--surface-3, #eee); }
+  .search-help:focus-visible { outline: 2px solid var(--accent, #06c); outline-offset: 2px; }
+  .search-help kbd {
+    font-family: var(--font-mono, monospace);
+    font-size: 0.8em;
+    color: var(--text-2, #666);
   }
   .toc {
     background: var(--surface-2, #f6f6f6);

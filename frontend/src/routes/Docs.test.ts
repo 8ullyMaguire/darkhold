@@ -1,5 +1,5 @@
 import { render, screen } from '@testing-library/svelte';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 
 import Docs from './Docs.svelte';
 
@@ -21,6 +21,17 @@ describe('Docs page', () => {
     const toc = screen.getAllByRole('link', { name: 'What this site is' });
     expect(toc.length).toBeGreaterThan(0);
     expect(toc[0]?.getAttribute('href')).toBe('#what-this-site-is');
+  });
+
+  it('shows a visible Search help button that opens the same dialog', async () => {
+    const listener = vi.fn();
+    window.addEventListener('darkhold:docs-search', listener);
+    render(Docs);
+    const button = screen.getByRole('button', { name: /Search help/ });
+    expect(button).toHaveAttribute('type', 'button');
+    button.click();
+    expect(listener).toHaveBeenCalledTimes(1);
+    window.removeEventListener('darkhold:docs-search', listener);
   });
 
   it('shows a 404 message for unknown slug', () => {

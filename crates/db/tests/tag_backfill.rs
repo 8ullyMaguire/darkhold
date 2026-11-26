@@ -190,3 +190,92 @@ async fn backfill_writes_source_tags_and_is_idempotent() {
     drop(db);
     let _ = std::fs::remove_dir_all(dir);
 }
+
+async fn seed_ao3_document(db: &darkhold_db::Database) {
+    exec(
+        db,
+        &format!(
+            "INSERT INTO accounts (id, status, email, age_state, created_at, updated_at, version)
+             VALUES ('{ACCOUNT}','active','ao3doc@example.invalid','adult',
+                     '2026-01-01T00:00:00Z','2026-01-01T00:00:00Z',1)"
+        ),
+    )
+    .await;
+    exec(
+        db,
+        &format!(
+            "INSERT INTO pseuds (id, account_id, handle, display_name, discoverability, created_at,
+                                 updated_at, version)
+             VALUES ('{PSEUD}','{ACCOUNT}','ao3doc','AO3 Document','listed',
+                     '2026-01-01T00:00:00Z','2026-01-01T00:00:00Z',1)"
+        ),
+    )
+    .await;
+    exec(
+        db,
+        &format!(
+            "INSERT INTO works (id, owner_pseud_id, title, summary, visibility, lifecycle,
+                                created_at, updated_at, version)
+             VALUES ('{WORK_A}','{PSEUD}','AO3 Document Work','summary','public','published',
+                     '2026-01-01T00:00:00Z','2026-01-01T00:00:00Z',1)"
+        ),
+    )
+    .await;
+    exec(
+        db,
+        &format!(
+            "INSERT INTO library_items (id, account_id, work_id, source_key, source_work_key, title,
+                                        author_text, source_url, likes, provenance_json,
+                                        created_at, updated_at, version)
+             VALUES ('01956c00-0000-4000-8000-000000000099','{ACCOUNT}','{WORK_A}','ao3','w1',
+                     'AO3 Document Work','Someone','https://example.invalid/ao3',0,'{{}}',
+                     '2026-01-01T00:00:00Z','2026-01-01T00:00:00Z',1)"
+        ),
+    )
+    .await;
+    let revision = "01956c00-0000-4000-8000-000000000098";
+    exec(
+        db,
+        &format!(
+            "INSERT INTO units (id, work_id, order_key, title, created_at, updated_at, version)
+             VALUES ('{WORK_A}','{WORK_A}',1,'Chapter 1','2026-01-01T00:00:00Z','2026-01-01T00:00:00Z',1)"
+        ),
+    )
+    .await;
+    let document = r#"{"type":"doc","content":[{"type":"paragraph","content":[{"type":"text","text":"Fandom: Harry Potter\nRelationships: James Potter/Lily Evans Potter\nCharacters: Harry Potter, Lily Evans Potter\nTags: Voyeurism, Anal Sex\nWarnings: Underage Sex"}]}]}"#;
+    exec(
+        db,
+        &format!(
+            "INSERT INTO revisions (id, unit_id, revision_number, document_json, sanitized_html,
+                                    plain_text, word_count, created_by_pseud_id, created_at)
+             VALUES ('{revision}','{WORK_A}',1,'{document}','<p>x</p>','x',100,'{PSEUD}',
+                     '2026-01-01T00:00:00Z')"
+        ),
+    )
+    .await;
+    exec(
+        db,
+        &format!("UPDATE units SET current_revision_id = '{revision}' WHERE id = '{WORK_A}'"),
+    )
+    .await;
+}
+
+#[tokio::test]
+async fn ao3_document_labels_are_backfilled_without_provenance() {
+    let (db, dir) = database("ao3doc").await;
+    seed_ao3_document(&db).await;
+    let report = backfill_from_provenance(&db, Some("ao3"), 10, false)
+        .await
+        .expect("ao3 document backfill");
+    assert_eq!(report.scanned, 1, "{report:?}");
+    assert_eq!(report.works_tagged, 1, "{report:?}");
+    assert_eq!(report.assertions, 7, "{report:?}");
+    let tags: i64 = count(
+        &db,
+        &format!("SELECT COUNT(*) FROM work_tags WHERE work_id = '{WORK_A}' AND source = 'imported'"),
+    )
+    .await;
+    assert_eq!(tags, 7, "document labels were not asserted");
+    drop(db);
+    let _ = std::fs::remove_dir_all(dir);
+}

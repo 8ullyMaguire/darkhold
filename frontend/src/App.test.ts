@@ -425,6 +425,15 @@ describe('application shell', () => {
     expect(await screen.findByText('Sign in to see this page')).toBeInTheDocument();
   });
 
+  it('opens the docs search when the docs page asks for it', async () => {
+    mockShell(false);
+    render(App);
+
+    window.dispatchEvent(new CustomEvent('darkhold:docs-search'));
+
+    expect(await screen.findByRole('searchbox', { name: 'Search help pages' })).toBeInTheDocument();
+  });
+
   /**
    * Nine addresses answered with one `<title>`: nothing in the SPA ever assigned
    * `document.title`, so every route shipped the shell's sentence and eight tabs were one tab.
