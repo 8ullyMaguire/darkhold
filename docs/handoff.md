@@ -391,6 +391,6 @@ as SUGGESTION, not guessed away in the client. Evidence is in `docs/reviews/r03-
 
 Took the next review row after R-03. Audited `/search` via in-app navigation at desktop and phone width, default and queried, wrote GOOD/BAD/UGLY/SUGGESTION, then fixed only Darkhold-owned surface defects: a stacked histogram on phones, grouped counts in both the client and server gap sentences, an honest `Counts:` age, 44px result links and a `Results` heading. The single-author/zero-points feed remains a data/operator SUGGESTION, not a client-side invention. Evidence is in `docs/reviews/r04-search.md`; the row is Done in `docs/reviews/page-review-queue.md`.
 
-## 2026-11-26 — R-05 work/reader review (this commit)
+## 2026-11-26 — R-05 work/reader review (b80ceb7b)
 
 Took the next review row after R-04. Audited a published work page and its first reader unit at desktop and phone width, wrote GOOD/BAD/UGLY/SUGGESTION, then fixed only Darkhold-owned rendering: importer markup is stripped from summaries before text output, counts are grouped, rating/language are humanised, navigation links reach 44px, and a leading imported title that repeats the reader bar is removed. Triple chapter headings, a malformed source URL and placeholder copy are importer data and stay SUGGESTION. Evidence is in `docs/reviews/r05-work-reader.md`; the row is Done in `docs/reviews/page-review-queue.md`.
