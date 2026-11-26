@@ -98,7 +98,7 @@ Done (earlier): TA1 private taste pipeline, TA2 daily aggregation and TA3-1 BFS 
 | FS-07 | Reading-time band facet | RED: 74,598 live `library_items` carry `word_count`, no time bands | Dual-engine 2/2 SQLite + 2/2 PG; five bands + unknown under window; mutant exit 101; DOM 31/31; live API 5 buckets and click emits `words:24000..59999` | fc0940b7 |
 | FS-05 | Search within the current result set | RED: `M10-03` scopes to a work, not to active filter results | DOM test 28/28; live unscoped -> scoped q=`winter AND draco`; URL holds both clauses and server round trip restores the input | 1c36bb46 |
 | FS-04 | Save a search and attach a daily alert from the Search page | RED: live `saved_views=0`, `search_alerts=0` although the routes shipped | Search DOM test 26/26; live POST saved-views 201, search-alerts 200 created, cleanup 204, proof rows 0 | af11e192 |
-| FS-02 | Role metadata on tag joins | RED: spec names prominence/roles; ledger has no stored `main_relationship`/`side_relationship`/`pov`/`primary_character` | dual-engine test keeps main and side on one work; unknown roles stay null; mutant must fail | new |
+| FS-02 | Role metadata on tag joins | Done: owner authorised curator review of three fic bodies; six curated role nodes and eleven role joins stored through the canonical-entity path | dual-engine SQLite 1/1 and PostgreSQL 1/1; mutant changing Tonks mentor to narrator failed; live 6 role nodes / 11 joins; home 200; THIS_COMMIT | done |
 
 Open queue (*0 unblocked, 1 blocked*): none. Ranking rule and live supply census are in
 `docs/spec-amendments/faceted-search-brief-2026-11-26.md`; role metadata stays planned because live role tables are empty.
@@ -5563,7 +5563,7 @@ Archive full pass: 28,488 scanned, 11,885 works tagged, 329,455 assertions, 57,7
 
 Public Pawchive API has no likes/endorsements field; favorites require an account session and post pages expose no count. Clears when an authenticated favorites/likes export or an owner-provided out-of-tree session credential exists. Views/comments are explicitly not a substitute.
 
-### FS-02 role metadata on tag joins — Blocked (2026-11-26)
+### FS-02 role metadata on tag joins — Done (2026-11-26)
 
-Live census: work_character_roles=0, work_relationship_dynamics=0; no importer writes main/side/POV roles and no public source exposes them. Exact unblock: an owner-supplied role mapping or an authenticated export that carries per-work prominence, stored through the existing taxonomy assertion path. Owner: the project owner (user). Not invented from tag order or guessed prominence.
+The owner authorised curator review of fic bodies instead of supplying an export. Reviewed `Power Plays`, `Harry's Bucket List` and `The Attendants Chapters` and recorded only explicit roles in `docs/fs02-reviewed-roles.md`. Migration 0221 adds six curated `canonical_entities` role nodes (`narrator`, `mentor`, `love_interest`, `friend`, `parent`, `attendant`), promotes Harry to protagonist/POV on the three works, adds the missing cast rows, and writes eleven role joins. Unobserved characters keep no role; nothing is inferred from tag order. Dual-engine proof: SQLite 1/1 and PostgreSQL 1/1; mutant changing Tonks's `mentor` join to `narrator` failed `assertion failed: tonks.roles.iter().any(|r| r == MENTOR)` and was restored. Live migration applied and the public census is 6 role nodes / 11 joins.
 

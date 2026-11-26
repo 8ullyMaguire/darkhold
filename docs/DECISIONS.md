@@ -378,3 +378,7 @@ Rejected: standing up OpenSearch/Redis/S3 now. The instance has one corpus and a
 ## 2026-11-26 — canonical scraper adoption (shipped 6c9e2469)
 
 A family census found the general-purpose AGPL `fanfic-scrapers` library and a newer drifted copy in ficnexus. No new crate will be created. Darkhold keeps SSRF/robots/provenance policy and its `SourceAdapter` surface; AO3 HTML parsing moves to the canonical library. gallery-dl findings: AO3 uses 0.5–1.5s request jitter and a 60s 429 cooldown with bounded retries, not a magic unblock. 503 remains a stop signal.
+
+### 2026-11-26 — FS-02 roles come from reviewed bodies, not tag order
+
+The owner authorised curator review of a handful of fic bodies. Only roles explicit in those bodies are asserted; unobserved roles stay absent. Role names live in `canonical_entities` as curated `kind='role'` nodes rather than a compiled CHECK, and the migration is idempotent on both engines. No importer or character-order guess was introduced.
