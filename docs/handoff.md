@@ -395,6 +395,6 @@ Took the next review row after R-03. Audited `/search` via in-app navigation at 
 
 Took the next review row after R-04. Audited a published work page and its first reader unit at desktop and phone width, wrote GOOD/BAD/UGLY/SUGGESTION, then fixed only Darkhold-owned rendering: importer markup is stripped from summaries before text output, counts are grouped, rating/language are humanised, navigation links reach 44px, and a leading imported title that repeats the reader bar is removed. Triple chapter headings, a malformed source URL and placeholder copy are importer data and stay SUGGESTION. Evidence is in `docs/reviews/r05-work-reader.md`; the row is Done in `docs/reviews/page-review-queue.md`.
 
-## 2026-11-26 — R-06 sign-in review (this commit)
+## 2026-11-26 — R-06 sign-in review (52061b82)
 
 Took the next review row after R-05. Audited `/sign-in` signed out at desktop and phone width, default and error state, wrote GOOD/BAD/UGLY/SUGGESTION, then fixed only Darkhold-owned SPA defects: centring the form, enlarging secondary links, removing the false link underline from the Polaris button, moving password recovery beside the field and suppressing the header/nav sign-in button on this route. Technical error codes and estate chrome remain separate-owner SUGGESTION. Evidence is in `docs/reviews/r06-signin.md`; the row is Done in `docs/reviews/page-review-queue.md`.
