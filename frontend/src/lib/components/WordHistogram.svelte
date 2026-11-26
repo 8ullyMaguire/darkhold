@@ -61,7 +61,7 @@
         onclick={() => onselect?.(bucket.low, bucket.high)}
       >
         <span class="caption">{label(bucket)}</span>
-        <span class="count">{pending ? '—' : bucket.count}</span>
+        <span class="count">{pending ? '—' : fmt(bucket.count)}</span>
       </button>
     {/each}
   </div>
@@ -112,5 +112,30 @@
   }
   .count {
     font-family: var(--font-mono);
+  }
+
+  /* Ten quantile columns cannot fit a phone. The server still owns the edges and
+     the click still applies them; only the drawing changes to a stacked list. */
+  @media (max-width: 48rem) {
+    .bars {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr);
+      height: auto;
+    }
+    .bar {
+      flex: none;
+      flex-direction: row;
+      align-items: center;
+      justify-content: space-between;
+      width: 100%;
+      height: auto !important;
+      min-height: 44px;
+      padding: var(--space-2) var(--space-3);
+    }
+    .caption {
+      white-space: normal;
+      overflow-wrap: anywhere;
+      text-align: left;
+    }
   }
 </style>

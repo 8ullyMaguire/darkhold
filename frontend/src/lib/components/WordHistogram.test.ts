@@ -33,6 +33,15 @@ describe('WordHistogram', () => {
     expect(onselect).toHaveBeenCalledWith(1000, 4999);
   });
 
+  it('formats large bucket counts with separators', () => {
+    const big = {
+      ...histogram,
+      buckets: [{ index: 0, low: 0, high: 999, count: 12_345, share: 1 }],
+    };
+    const { getByText } = render(WordHistogram, { props: { histogram: big } });
+    expect(getByText('12,345')).toBeTruthy();
+  });
+
   it('shows an em dash rather than a zero while the distribution is pending', () => {
     const { getAllByText } = render(WordHistogram, { props: { histogram, pending: true } });
     expect(getAllByText('—')).toHaveLength(2);

@@ -49,8 +49,12 @@
     return facet.replace(/_/g, ' ').replace(/^./, (c) => c.toUpperCase());
   }
 
+  function fmt(value: number): string {
+    return value.toLocaleString('en-US');
+  }
+
   function age(): string {
-    return ageMs >= 1000 ? `${(ageMs / 1000).toFixed(1)}s ago` : `${ageMs}ms ago`;
+    return ageMs >= 1000 ? `${(ageMs / 1000).toFixed(1)}s ago` : 'now';
   }
 
   /** M71-13: the fandom facet leads with the one aggregate the API already publishes, not a typed-in copy claim. */
@@ -59,7 +63,7 @@
     const total = group.known + group.unknown;
     if (total <= 0) return 'Nothing to measure against';
     const percent = Math.round((group.known / total) * 100);
-    return `${group.known} of ${total} works are tagged (${percent}%)`;
+    return `${fmt(group.known)} of ${fmt(total)} works are tagged (${percent}%)`;
   }
 </script>
 
@@ -67,7 +71,7 @@
   {#if facetsOver}
     <p class="over">{facetsOver}</p>
   {/if}
-  <p class="age">Counts from {age()}</p>
+  <p class="age">Counts: {age()}</p>
 
   {#each facets as group (group.facet)}
     <section class="group" role="group" aria-label={labelFor(group.facet)} data-facet={group.facet}>
@@ -82,14 +86,14 @@
               <button type="button" onclick={() => onselect?.(group.facet, bucket.key)}>
                 <span class="label">{bucket.label}</span>
                 <span class="count" aria-label={pending ? 'Count pending' : `${bucket.count} works`}>
-                  {pending ? '—' : bucket.count}
+                  {pending ? '—' : fmt(bucket.count)}
                 </span>
               </button>
             {:else}
               <span class="value">
                 <span class="label">{bucket.label}</span>
                 <span class="count" aria-label={pending ? 'Count pending' : `${bucket.count} works`}>
-                  {pending ? '—' : bucket.count}
+                  {pending ? '—' : fmt(bucket.count)}
                 </span>
               </span>
             {/if}

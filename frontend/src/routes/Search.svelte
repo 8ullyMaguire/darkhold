@@ -588,6 +588,7 @@
   {:else if loading && !results}
     <Skeleton lines={5} label="Searching" />
   {:else if results && results.items.length > 0}
+    <h2 class="results-heading">Results</h2>
     <ul class="results">
       {#each results.items as item (item.work_id)}
         <li>
@@ -639,6 +640,12 @@
 </section>
 
 <style>
+  .results-heading {
+    margin: var(--space-5) 0 var(--space-2);
+    font-family: var(--font-heading);
+    font-size: var(--text-xl);
+  }
+
   .relaxations {
     display: flex;
     flex-wrap: wrap;

@@ -557,7 +557,7 @@ async fn search(
             "unexpressed_note": filter_state.unexpressed_note(),
         },
         "facets": facets,
-        "facets_over": "the catalogue under min_words, max_words and max_rating — not this page of hits",
+        "facets_over": "Counts describe the catalogue under min_words, max_words and max_rating — not this page of hits",
         // M71-11: facet counts are memoised for a minute; the age travels so a page can say how old they are.
         "facets_computed_at_ms_ago": facets_computed_at.elapsed().as_millis() as u64,
     })))

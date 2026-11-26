@@ -291,6 +291,7 @@ describe('Search page presets', () => {
     await fireEvent.input(screen.getByPlaceholderText(/fandom:/), { target: { value: 'quiet' } });
     await fireEvent.click(screen.getByText('Search'));
     expect(await screen.findByText('The Quiet Archive')).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Results' })).toBeInTheDocument();
     expect(screen.getByText('Points elsewhere')).toBeInTheDocument();
     expect(screen.getByText('Live')).toBeInTheDocument();
     expect(screen.getByText(/42,300 words/)).toBeInTheDocument();

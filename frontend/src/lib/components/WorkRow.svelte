@@ -65,6 +65,9 @@
     min-width: 0;
   }
   h3 a {
+    display: inline-flex;
+    align-items: center;
+    min-height: 44px;
     color: var(--text-link);
     text-decoration: none;
   }

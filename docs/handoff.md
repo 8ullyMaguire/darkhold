@@ -386,3 +386,7 @@ reason, author and match percent; titles are underlined links; the feed has an h
 is labelled `Order` on this surface. The all-one-author feed and repost duplicates are data/ranking issues recorded
 as SUGGESTION, not guessed away in the client. Evidence is in `docs/reviews/r03-discover.md`; the row is Done in
 `docs/reviews/page-review-queue.md`.
+
+## 2026-11-26 — R-04 search SPA review (this commit)
+
+Took the next review row after R-03. Audited `/search` via in-app navigation at desktop and phone width, default and queried, wrote GOOD/BAD/UGLY/SUGGESTION, then fixed only Darkhold-owned surface defects: a stacked histogram on phones, grouped counts in both the client and server gap sentences, an honest `Counts:` age, 44px result links and a `Results` heading. The single-author/zero-points feed remains a data/operator SUGGESTION, not a client-side invention. Evidence is in `docs/reviews/r04-search.md`; the row is Done in `docs/reviews/page-review-queue.md`.

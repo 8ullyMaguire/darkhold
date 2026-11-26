@@ -12,6 +12,23 @@ use crate::{Backend, Database, Result};
 use serde::Serialize;
 use std::collections::BTreeMap;
 
+/// A gap sentence with a raw 30900 is a number the reader has to count twice.
+/// No dependency is needed for a thousands separator; the value is a display-only copy of an i64.
+fn fmt_count(value: i64) -> String {
+    let sign = if value < 0 { "-" } else { "" };
+    let digits = value.unsigned_abs().to_string();
+    let mut groups = Vec::new();
+    let mut rest = digits.as_str();
+    while rest.len() > 3 {
+        let (head, tail) = rest.split_at(rest.len() - 3);
+        groups.push(tail.to_string());
+        rest = head;
+    }
+    groups.push(rest.to_string());
+    groups.reverse();
+    format!("{sign}{}", groups.join(","))
+}
+
 /// What a facet is allowed to be about.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "snake_case")]
@@ -279,7 +296,9 @@ fn when_unknown(known: i64, total: i64, what: &str) -> Option<String> {
         ))
     } else {
         Some(format!(
-            "{unknown} of {total} works in this view have no known {what}."
+            "{} of {} works in this view have no known {what}.",
+            fmt_count(unknown),
+            fmt_count(total)
         ))
     }
 }
@@ -303,8 +322,9 @@ fn answer(facet: Facet, buckets: Vec<Bucket>, known: i64, total: i64) -> FacetAn
         ))
     } else if unknown > 0 {
         Some(format!(
-            "{} of {total} works in this view have no known {}.",
-            unknown,
+            "{} of {} works in this view have no known {}.",
+            fmt_count(unknown),
+            fmt_count(total),
             facet.name()
         ))
     } else {
@@ -612,5 +632,18 @@ fn histogram_of(rows: &[Scanned], buckets: usize) -> WordHistogram {
         unknown,
         when_unknown,
         buckets: out,
+    }
+}
+
+#[cfg(test)]
+mod r04_count_format_tests {
+    use super::fmt_count;
+
+    #[test]
+    fn gap_sentences_group_large_counts() {
+        assert_eq!(fmt_count(30900), "30,900");
+        assert_eq!(fmt_count(58042), "58,042");
+        assert_eq!(fmt_count(12), "12");
+        assert_eq!(fmt_count(-1200), "-1,200");
     }
 }

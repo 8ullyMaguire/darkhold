@@ -40,6 +40,23 @@ describe('FacetPanel', () => {
     expect(getAllByRole('group')).toHaveLength(2);
   });
 
+  it('formats large counts with separators and calls a fresh count current', () => {
+    const { getByText } = render(FacetPanel, {
+      props: {
+        facets: [{
+          facet: 'status',
+          buckets: [{ key: 'complete', label: 'Complete', count: 58_042 }],
+          known: 58_042,
+          unknown: 0,
+          when_unknown: null,
+        }],
+        ageMs: 0,
+      },
+    });
+    expect(getByText('58,042')).toBeTruthy();
+    expect(getByText('Counts: now')).toBeTruthy();
+  });
+
   it('leads the fandom facet with coverage from the one aggregate the API already returns', () => {
     const { getByText } = render(FacetPanel, {
       props: {
