@@ -23,3 +23,5 @@ Role vocabulary added as curated canonical entities: `narrator`, `mentor`, `love
 - Mutant: change one role join to an unreviewed role; the test must fail, then restore.
 - Apply migration 0221 on the live instance; query `work_character_roles` count and the three works' roles.
 - Gates once at end: `ok: repo`, `ok: ledger`.
+
+Execution note: `TA3-B3` was later closed with a throwaway account; see `docs/handoff.md` and `docs/DECISIONS.md`. No credential values were retained.

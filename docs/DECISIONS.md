@@ -382,3 +382,7 @@ A family census found the general-purpose AGPL `fanfic-scrapers` library and a n
 ### 2026-11-26 — FS-02 roles come from reviewed bodies, not tag order
 
 The owner authorised curator review of a handful of fic bodies. Only roles explicit in those bodies are asserted; unobserved roles stay absent. Role names live in `canonical_entities` as curated `kind='role'` nodes rather than a compiled CHECK, and the migration is idempotent on both engines. No importer or character-order guess was introduced.
+
+### 2026-11-26 — TA3-B3 closed with a throwaway account
+
+The owner authorised creating and removing a throwaway account. Kudos were posted to 53 exact-title matches through the real authenticated API and verified before erasure; the account was then erased and its credential file deleted. The row records a proven capability, not persistent favorites — removing the account necessarily removes its kudos. No credential value was stored in the repo or printed in the conversation.

@@ -4,7 +4,7 @@ Authority: owner instruction "finish every roadmap row before any review row; fo
 desktop and phone width in a real browser, read the live DOM, be critical, write GOOD/BAD/UGLY/SUGGESTION, then work
 on anything relevant, re-measure before/after, and move the row to Done in the same commit as the proving line."
 
-Roadmap queue is empty of unblocked rows (`FS-02` is done; `TA3-B3` is blocked and logged in
+Roadmap queue is empty (`FS-02` and `TA3-B3` are done; all review rows are done
 `docs/plans/roadmap-remaining.md`), so review work starts now.
 
 | row | page | widths | status | evidence |
