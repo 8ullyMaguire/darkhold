@@ -110,6 +110,28 @@ Blocked (*1*):
 | TA3-B3 | M63-32 likes/favorites half | Done: owner authorised a throwaway account instead. Generated credentials in a mode-600 scratch file (never in repo or chat), registered a temporary account, POSTed kudos to all 53 chosen works, verified `53/53` live kudos, then erased the account through `/api/v1/me/erasure` and deleted the credential file. | `REGISTER 201`, `ME 200`, CSRF header present, `KUDOS_OK 25 + 25 + 3 = 53`, live DB `53/53`, erasure `200 deleted=true`, post-erasure `0` throwaway pseuds and `0` throwaway kudos; 5d91b65f | owner chose leave parked; no public API exists |
 
 
+## Suki crosswalk intake — parked, not in the execution queue (2026-11-26)
+
+Eight candidates from Suki's 320-feature inventory were triaged against the spec, the 1,055-row
+ledger and the live database. None is in the open queue and no requirement row was added; the counts
+above are unchanged. Full triage: `docs/spec-amendments/suki-crosswalk-2026-11-26.md`; gates and
+acceptance commands: `docs/plans/suki-crosswalk-intake-2026-11-26.md`.
+
+| # | parked candidate | gate / supply |
+| --- | --- | --- |
+| XW-1 | Explicit ranking feedback and side-by-side arm comparison | experiments off, 0 snapshots |
+| XW-2 | Reader-facing identification queue | 8,469 `work_characters` rows |
+| XW-3 | Named, switchable negative exclusion sets | `work_tag_votes = 0`, start from mutes |
+| XW-4 | Reviewer calibration against audited ground truth | `review = 0`, seed an audited set |
+| XW-5 | "Garden" order over least-described works | default off; owner decision needed |
+| XW-6 | Rebuild lock and drift check on decision inputs | insurance; single worker today |
+| XW-7 | Saved Filter revision history and insights | `saved_views = 0`, surface first |
+| XW-8 | Source-endorsement priors for taste cold start | 1,247 of 141,317 rows endorsed |
+
+The owner's feedback/auto-promote idea split three ways: already in Suki SPEC §594, already built here
+as `M64-01`…`M64-16`, and only the explicit reader feedback is missing. Do not re-spec the promotion
+machinery; the first move is to enable one surface's buckets and collect impressions.
+
 The standing `/goal` paragraph lives in `docs/plans/next-goal.md`. Read it with this file; never paste counts or open steps into it.
 
 ## TA2 — daily fanfiction aggregation, Pawchive grouping, unbounded taste bodies — 2026-11-20
