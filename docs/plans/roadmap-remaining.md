@@ -107,7 +107,7 @@ Blocked (*1*):
 
 | # | blocked step | waits on | unblock gate |
 | --- | --- | --- | --- |
-| TA3-B3 | M63-32 likes/favorites half | Done: owner authorised a throwaway account instead. Generated credentials in a mode-600 scratch file (never in repo or chat), registered a temporary account, POSTed kudos to all 53 chosen works, verified `53/53` live kudos, then erased the account through `/api/v1/me/erasure` and deleted the credential file. | `REGISTER 201`, `ME 200`, CSRF header present, `KUDOS_OK 25 + 25 + 3 = 53`, live DB `53/53`, erasure `200 deleted=true`, post-erasure `0` throwaway pseuds and `0` throwaway kudos; THIS_COMMIT | owner chose leave parked; no public API exists |
+| TA3-B3 | M63-32 likes/favorites half | Done: owner authorised a throwaway account instead. Generated credentials in a mode-600 scratch file (never in repo or chat), registered a temporary account, POSTed kudos to all 53 chosen works, verified `53/53` live kudos, then erased the account through `/api/v1/me/erasure` and deleted the credential file. | `REGISTER 201`, `ME 200`, CSRF header present, `KUDOS_OK 25 + 25 + 3 = 53`, live DB `53/53`, erasure `200 deleted=true`, post-erasure `0` throwaway pseuds and `0` throwaway kudos; 5d91b65f | owner chose leave parked; no public API exists |
 
 
 The standing `/goal` paragraph lives in `docs/plans/next-goal.md`. Read it with this file; never paste counts or open steps into it.
