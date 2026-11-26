@@ -1,0 +1,19 @@
+# docs/plans/next-goal.md — plan card
+
+Source: `docs/plans/next-goal.md`. Translated 2026-11-26 into the uniform card shape; no new work is invented. The source document remains authoritative.
+
+## Exact file paths
+
+No explicit file paths were recorded in the source document.
+
+## Copy-pasteable code / commands
+
+No fenced command block was recorded in the source document.
+
+## Verification command and expected output
+
+Read the project context files first (handoff, roadmap-remaining, DECISIONS, FEATURE-LEDGER, requirements.csv and matching project notes), then keep working this goal turn after turn from the project's own root: rewrite the state notes in place rather than restating counts, take the highest-leverage item finishable this turn, decide ambiguity yourself with best judgement, and unblock aggressively instead of waiting — generate and store credentials yourself where the owner has authorised it, stub or seed missing non-public infrastructure, and push truly blocked items down the road while moving immediately to the next actionable step. Prove the item with the real output of one targeted command: the touched test file plus the row acceptance command, never the whole suite; never rebuild when the binary did not change; run one bounded build job and wait once; batch reads; keep each command short. End every turn with the state notes regenerated, everything committed with its hash named, and a short summary of what shipped, what the gate printed and what is left until completion. Invariants: public data only, no invented evidence, production changes verified on the host that owns the data, and secrets never printed or committed.
+
+## RED/GREEN evidence
+
+No RED/GREEN evidence was recorded in the source document.
