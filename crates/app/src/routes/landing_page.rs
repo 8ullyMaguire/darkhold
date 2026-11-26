@@ -196,12 +196,28 @@ async fn starters(state: &AppState) -> Vec<Starter> {
             .filter(|unit| unit.current_revision_id.is_some())
             .map(|unit| unit.word_count)
             .sum();
-        let author = darkhold_db::identity::find_pseud(state.db(), work.owner_pseud_id)
+        // UIR-0: credit exactly the public contributors the work page credits. Using the owner pseud here made
+        // `/` and `/works/{id}` disagree about the same work (one showed `devwriter`, the other `MarcusBlack`).
+        // This is a presentation projection only: no imported metadata is rewritten.
+        let contributors = darkhold_db::collaboration::public_contributors(state.db(), work.id)
             .await
-            .ok()
-            .flatten()
-            .map(|pseud| pseud.handle)
             .unwrap_or_default();
+        let author = contributors
+            .iter()
+            .map(|(handle, display_name, role)| {
+                let name = if display_name.trim().is_empty() {
+                    handle.as_str()
+                } else {
+                    display_name.as_str()
+                };
+                if role != "owner" && role != "author" {
+                    format!("{name} ({})", role.replace('_', " "))
+                } else {
+                    name.to_string()
+                }
+            })
+            .collect::<Vec<_>>()
+            .join(", ");
 
         if !author.is_empty() {
             let count = author_counts.entry(author.clone()).or_insert(0);

@@ -393,3 +393,7 @@ The owner authorised creating and removing a throwaway account. Kudos were poste
 ### 2026-11-26 — port skeleton patterns, not the React stack
 
 The greenfield skeleton scored 8.15/10 against the live build's 5.20/10. The decision is to keep Rust/Axum, Svelte, the two-renderer topology and ADR 0033/0034, and port only the patterns that won: one site nav, availability/evidence words, work-dossier anatomy, URL-held search constraints, and honest state copy. Ranking feedback stays parked as XW-1 because the experiment loop is off. Recorded in ADR 0035 and `docs/spec-amendments/ui-refactor-from-skeleton-2026-11-26.md`; execution cards are queued in `docs/plans/ui-refactor-from-skeleton-2026-11-26.md`. Docs-only: no build or deploy accompanied this decision.
+
+## 2026-11-26 — UIR-0: shelf byline is a public-contributor projection
+
+The landing shelf previously printed the owner pseud handle (`hollowgast`) while `/works/{id}` printed the same work's public contributor (`Public Writer`). Decision: the shelf projects `public_contributors(work.id)` with the same display-name/role rule as `work_page.rs`; imported authorship metadata is not rewritten. Rejected: keeping `find_pseud(owner_pseud_id)` (inconsistent byline) and mutating stored contributor rows (destroys provenance). Reader controls recede to `opacity: 0.62`, not `0.14`, so they remain legible at scroll 0. ADR 0033/0034, XW-1 and the injected Polaris bar are untouched. Proof is in `docs/plans/ui-refactor-from-skeleton-2026-11-26.md`.

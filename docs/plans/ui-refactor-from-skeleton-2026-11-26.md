@@ -79,6 +79,43 @@ cargo test -p darkhold-app --test landing_page
 Expected: the new disagreement test passes; quote its first line in the card. Mutation: change
 the shelf fixture author by one character, re-run, require `FAILED`, restore.
 
+**Status:** code/tests done; live DOM opacity proof is the UIR-6 checkpoint.
+
+Execution evidence (2026-11-26):
+
+```
+# First RED exposed a fixture-order bug, not the product bug:
+$ cargo test -p darkhold-app --test landing_page
+error returned from database: (code: 787) FOREIGN KEY constraint failed
+test result: FAILED. 2 passed; 3 failed; 0 ignored; 0 measured; 0 filtered out
+RED_EXIT=101
+
+# Fixture order fixed (work before work_contributors), real RED:
+$ cargo test -p darkhold-app --test landing_page
+assertion `left: "/by hollowgast/"`, right: `"/by Public Writer/"`: the shelf and the work page must credit the same public contributor
+test result: FAILED. 4 passed; 1 failed; 0 ignored; 0 measured; 0 filtered out
+RED2_EXIT=101
+
+# GREEN after projecting public contributors on the shelf:
+$ cargo test -p darkhold-app --test landing_page
+test a_signed_in_reader_is_sent_to_discovery ... ok
+test result: ok. 5 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 7.45s
+GREEN2_EXIT=0
+
+# Mutation: display name `Public Writer` -> `Public Writeq` in the fixture:
+$ cargo test -p darkhold-app --test landing_page
+test the_landing_page_is_a_document_with_no_script ... FAILED
+test result: FAILED. 4 passed; 1 failed; 0 ignored; 0 measured; 0 filtered out; finished in 16.46s
+MUT_EXIT=101
+# Restored to `Public Writer`; prior GREEN applies to the restored file byte-for-byte.
+
+# Reader-control floor:
+$ grep -n 'to { opacity: 0.62' frontend/src/styles/reader.css
+441:  to { opacity: 0.62; transform: translateY(-0.2rem); }
+```
+
+The first assertion used the pseud handle; GREEN uses the work-page display-name rule, so the shelf and work page print the same string for the same work. No metadata was rewritten. XW-1 and the injected Polaris bar were not touched.
+
 ---
 
 ## UIR-1 — One Darkhold nav on every surface

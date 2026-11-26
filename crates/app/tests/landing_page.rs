@@ -44,6 +44,7 @@ const WORK: &str = "01957000-0000-4000-8000-0000000000d0";
 const UNIT: &str = "01956000-0000-4000-8000-0000000000c1";
 const REVISION: &str = "01956000-0000-4000-8000-0000000000c2";
 const PSEUD: &str = "01955000-0000-4000-8000-0000000000e1";
+const PUBLIC_PSEUD: &str = "01955000-0000-4000-8000-0000000000e2";
 const ACCOUNT: &str = "01955000-0000-4000-8000-0000000000a1";
 
 struct Harness {
@@ -94,11 +95,23 @@ impl Harness {
         ))
         .await;
         self.exec(&format!(
+            "INSERT INTO pseuds (id, account_id, handle, display_name, discoverability, created_at,
+                                 updated_at, version)
+             VALUES ('{PUBLIC_PSEUD}','{ACCOUNT}','publicwriter','Public Writer','listed',
+                     '2026-01-01T00:00:00Z','2026-01-01T00:00:00Z',1)"
+        ))
+        .await;
+        self.exec(&format!(
             "INSERT INTO works (id, owner_pseud_id, title, summary, language, rating, visibility,
                                 lifecycle, completion, published_at, created_at, updated_at, version)
              VALUES ('{WORK}','{PSEUD}','The Long Way Round','A blurb.','en','general','public',
                      'published','complete','2026-01-01T00:00:00Z','2026-01-01T00:00:00Z',
                      '2026-01-01T00:00:00Z',1)"
+        ))
+        .await;
+        self.exec(&format!(
+            "INSERT INTO work_contributors (work_id, pseud_id, role, public_attribution, created_at)
+             VALUES ('{WORK}','{PUBLIC_PSEUD}','owner',1,'2026-01-01T00:00:00Z')"
         ))
         .await;
         self.exec(&format!(
@@ -240,6 +253,10 @@ async fn the_landing_page_is_a_document_with_no_script() {
     assert!(
         body.contains("120 words"),
         "the word count comes from the readable revision: {body}"
+    );
+    assert!(
+        body.contains("by Public Writer") && !body.contains("by hollowgast"),
+        "the shelf and the work page must credit the same public contributor: {body}"
     );
     assert!(
         body.contains("Browse all"),

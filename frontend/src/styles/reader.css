@@ -438,7 +438,7 @@
 
 @keyframes reader-controls-recede {
   from { opacity: 1; transform: none; }
-  to { opacity: 0.14; transform: translateY(-0.2rem); }
+  to { opacity: 0.62; transform: translateY(-0.2rem); }
 }
 
 @media (prefers-reduced-motion: no-preference) {

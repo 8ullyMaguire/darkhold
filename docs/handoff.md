@@ -434,3 +434,15 @@ The search capability was already present: `tag:`, `words:>`, `language:` and `s
 AO3's document-text tag fallback was also applied live: 2,082 works, 52,382 assertions, and the probe work went from 0 to 54 tags. Source-date coverage remains uneven (ao3 55/2,995, archive 0/28,488, pawchive 26,655/26,858), so stale-date results are dominated by sources that actually carry a source clock. That is a data-coverage limit, not a query limitation.
 
 Final live DOM after `24e5b2cd`: More panel `y=8 height=684 bottom=692` in a 700px viewport (unclamped would have bottomed at 748); Search help button 44px and dialog opens; footer Radio has its tagline; zero Darkhold page errors. `App` 15/15, `NavMenu` 16/16, `Docs` 5/5, `svelte-check` 0 errors/10 warnings. The remaining page error is the separately owned estate `attachShadow` duplicate.
+
+## 2026-11-26 — UIR-0 checkpoint (code/tests)
+
+- `crates/app/src/routes/landing_page.rs`: shelf byline now projects `public_contributors(work.id)` with the work-page display-name/role rule instead of `find_pseud(owner_pseud_id)`.
+- `crates/app/tests/landing_page.rs`: fixture has one hidden owner pseud and one public contributor; assertion requires `by Public Writer` and forbids `by hollowgast`.
+- `frontend/src/styles/reader.css`: faded reader-control floor `0.14 -> 0.62` (line 441).
+- RED after fixing fixture order: `test result: FAILED. 4 passed; 1 failed`, `RED2_EXIT=101`.
+- GREEN: `test result: ok. 5 passed; 0 failed`, `GREEN2_EXIT=0`.
+- Mutant `Public Writer -> Public Writeq`: `test the_landing_page_is_a_document_with_no_script ... FAILED`, `test result: FAILED. 4 passed; 1 failed`, `MUT_EXIT=101`; restored.
+- First RED attempt failed earlier on a fixture-order FK error (`code: 787`, `2 passed; 3 failed`); that was fixed before the real RED.
+- Live DOM proof at 1440/390 and the validated contrast canary are still UIR-6; no build or deploy was run for this checkpoint.
+- Roadmap UIR-0 row marked done; DECISIONS records the projection decision. XW-1 and the injected Polaris bar untouched.
