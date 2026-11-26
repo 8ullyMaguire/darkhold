@@ -107,7 +107,7 @@ Blocked (*1*):
 
 | # | blocked step | waits on | unblock gate |
 | --- | --- | --- | --- |
-| TA3-B3 | M63-32 likes/favorites half | Blocked: owner authorised use of their account, but the saved Darkhold vault login returns `AUTH_REQUIRED` and the pasted credential was not used. 53 exact-title matches selected from 68 qualifying reading-list titles (one best duplicate per title, by max word count). | Update the saved Darkhold login out-of-band (masked vault prompt or out-of-tree credential file), then POST `/api/v1/works/{id}/kudos` for the 53 chosen work ids; owner: user | owner chose leave parked; no public API exists |
+| TA3-B3 | M63-32 likes/favorites half | Blocked: owner authorised use of their account, but the saved Darkhold vault login returns `AUTH_REQUIRED` and the pasted credential was not used. 53 exact-title matches selected from 68 qualifying reading-list titles (one best duplicate per title, by max word count). | Create a mode-600 out-of-tree env file on thinkcentre (`DARKHOLD_EMAIL=...`, `DARKHOLD_PASSWORD=...`) and tell me only its path; saved vault entries fill email only and Polaris has no saved login. Then POST `/api/v1/works/{id}/kudos` for the 53 chosen work ids; owner: user | owner chose leave parked; no public API exists |
 
 
 The standing `/goal` paragraph lives in `docs/plans/next-goal.md`. Read it with this file; never paste counts or open steps into it.
