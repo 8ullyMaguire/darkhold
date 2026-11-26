@@ -387,6 +387,6 @@ is labelled `Order` on this surface. The all-one-author feed and repost duplicat
 as SUGGESTION, not guessed away in the client. Evidence is in `docs/reviews/r03-discover.md`; the row is Done in
 `docs/reviews/page-review-queue.md`.
 
-## 2026-11-26 — R-04 search SPA review (this commit)
+## 2026-11-26 — R-04 search SPA review (3e647694)
 
 Took the next review row after R-03. Audited `/search` via in-app navigation at desktop and phone width, default and queried, wrote GOOD/BAD/UGLY/SUGGESTION, then fixed only Darkhold-owned surface defects: a stacked histogram on phones, grouped counts in both the client and server gap sentences, an honest `Counts:` age, 44px result links and a `Results` heading. The single-author/zero-points feed remains a data/operator SUGGESTION, not a client-side invention. Evidence is in `docs/reviews/r04-search.md`; the row is Done in `docs/reviews/page-review-queue.md`.
