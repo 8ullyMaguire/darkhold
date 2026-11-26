@@ -360,7 +360,7 @@ index keys, UTC date policy, source manifest and body sanitisation. Targeted
 verification: `cargo test -p darkhold-scrapers --test ao3_fixtures` → 11 passed,
 0 failed. No deploy accompanied this refactor; the live binary is unchanged.
 
-## 2026-11-26 — R-01 landing review (this commit)
+## 2026-11-26 — R-01 landing review (fd4e68ff)
 
 Roadmap has no unblocked rows, so review rows began. R-01 audited `/` in a real browser at desktop and phone width,
 wrote GOOD/BAD/UGLY/SUGGESTION, then fixed only document-owned defects: grouped counts, two-part metadata groups that

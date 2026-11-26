@@ -9,7 +9,7 @@ Roadmap queue is empty of unblocked rows (`FS-02` and `TA3-B3` are blocked and l
 
 | row | page | widths | status | evidence |
 |---|---|---|---|---|
-| R-01 | `/` public landing | 1440×1000, 390×844 | Done | before small=7/3, `141939`, orphan `general`, two Sign in; after small=2/0 (remaining desktop links are 652×28, above WCAG 24px), grouped `141,940`, one Sign in, `meta-main`/`meta-state`, no orphan, `Start reading`; home 200; lib 1 passed; landing 5 passed; mutant exit 101; THIS_COMMIT |
+| R-01 | `/` public landing | 1440×1000, 390×844 | Done | before small=7/3, `141939`, orphan `general`, two Sign in; after small=2/0 (remaining desktop links are 652×28, above WCAG 24px), grouped `141,940`, one Sign in, `meta-main`/`meta-state`, no orphan, `Start reading`; home 200; lib 1 passed; landing 5 passed; mutant exit 101; fd4e68ff |
 | R-02 | `/library` signed out and signed in | 1440×1000, 390×844 | Pending | pending |
 | R-03 | `/discover` | 1440×1000, 390×844 | Pending | pending |
 | R-04 | `/search` SPA (in-app navigation) | 1440×1000, 390×844 | Pending | pending |
