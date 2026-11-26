@@ -38,6 +38,26 @@ const STARTER_POOL: i64 = 60;
 /// Gated works are still named on the page (a reader sees what exists), but as text only.
 const GATED_TEXT: usize = 2;
 
+
+/// Digit grouping is a readability fix, not a locale claim: 141939 is a number blob,
+/// 141,939 is a count a reader can parse at a glance.
+fn grouped(n: i64) -> String {
+    let negative = n < 0;
+    let digits = n.abs().to_string();
+    let mut out = String::with_capacity(digits.len() + digits.len() / 3 + 1);
+    for (index, ch) in digits.chars().enumerate() {
+        if index > 0 && (digits.len() - index) % 3 == 0 {
+            out.push(',');
+        }
+        out.push(ch);
+    }
+    if negative {
+        format!("-{out}")
+    } else {
+        out
+    }
+}
+
 pub fn router() -> Router<AppState> {
     Router::new().route("/", get(landing))
 }
@@ -279,6 +299,7 @@ fn render(
              .landing .tagline{font-size:var(--text-lg);color:var(--text-secondary);margin:0 0 var(--space-5)}\
              .landing h2{font-family:var(--font-heading);font-size:var(--text-xl);margin:var(--space-7) 0 var(--space-3)}\
              .landing p{margin:0 0 var(--space-3)}\
+              .landing p a{display:inline-flex;align-items:center;min-height:44px}\
              .landing .counts{font-family:var(--font-mono);font-size:var(--text-sm);color:var(--text-secondary)}\
              .landing ul{list-style:none;margin:0;padding:0}\
              .landing li{border-bottom:1px solid var(--border-subtle, rgba(128,128,128,.3));padding:var(--space-3) 0}\
@@ -289,13 +310,15 @@ fn render(
              padding-top:var(--space-4);font-size:var(--text-sm);color:var(--text-secondary)}\
              .landing .shelf-search{display:flex;gap:var(--space-2);margin:0 0 var(--space-6)}\
              .landing .shelf-search input{flex:1;min-width:0;padding:var(--space-2) var(--space-3);border:1px solid var(--border-subtle, rgba(128,128,128,.35));background:var(--surface, transparent);color:inherit;font:inherit}\
-             .landing .shelf-search button{padding:var(--space-2) var(--space-4);font:inherit;cursor:pointer}\
+             .landing .shelf-search button{padding:var(--space-2) var(--space-4);min-height:44px;font:inherit;cursor:pointer;\
+              border:1px solid var(--color-accent);background:var(--color-accent);color:var(--color-accent-contrast)}\
              .landing .shelf-list{list-style:none;margin:0;padding:0}\
              .landing .shelf-list li{display:grid;grid-template-columns:2.5rem 1fr;column-gap:var(--space-3);align-items:baseline;border-bottom:1px solid var(--border-subtle, rgba(128,128,128,.3));padding:var(--space-3) 0}\
              .landing .shelf-list .rank{font-family:var(--font-mono);font-size:var(--text-sm);color:var(--text-secondary)}\
-             .landing .shelf-list .work-title{font-size:var(--text-lg);text-decoration:none}\
-             .landing .shelf-list .meta{grid-column:2;display:flex;flex-wrap:wrap;gap:0 var(--space-3)}\
+             .landing .shelf-list .work-title{font-size:var(--text-lg);text-decoration:underline;text-underline-offset:.18em}\
+             .landing .shelf-list .meta{grid-column:2;display:flex;flex-wrap:wrap;align-items:baseline;gap:.15rem var(--space-3)}\
              .landing .shelf-list .meta span{white-space:nowrap}\
+              .landing .shelf-list .meta .meta-state::before{content:'·';margin-right:var(--space-3);color:var(--text-secondary)}\
              .landing .shelf-head{display:flex;align-items:baseline;justify-content:space-between;gap:var(--space-3)}\
              .landing .shelf-all{font-size:var(--text-sm);color:var(--text-link,inherit);min-height:44px;display:inline-flex;align-items:center}"
         )
@@ -316,7 +339,7 @@ fn render(
             .close("p");
     }
     if let Some(total) = total {
-        let mut line = format!("{total} works catalogued");
+        let mut line = format!("{} works catalogued", grouped(total));
         if let Some(sources) = sources {
             if sources > 0 {
                 line.push_str(&format!(
@@ -364,7 +387,7 @@ fn render(
     if !starters.is_empty() {
         page.open("section", &[("class", "shelf")]);
         page.open("div", &[("class", "shelf-head")]);
-        page.open("h2", &[]).text("Open now").close("h2");
+        page.open("h2", &[]).text("Start reading").close("h2");
         page.open("a", &[("class", "shelf-all"), ("href", "/search")])
             .text("Browse all")
             .close("a");
@@ -388,22 +411,28 @@ fn render(
                         .close("span");
                 }
             }
-            let mut meta = Vec::new();
+            let mut main = Vec::new();
             if !starter.author.trim().is_empty() {
-                meta.push(format!("by {}", starter.author));
+                main.push(format!("by {}", starter.author));
             }
             if starter.words > 0 {
-                meta.push(format!("{} words", starter.words));
+                main.push(format!("{} words", grouped(starter.words)));
             }
+            let mut state = Vec::new();
             if !starter.completion.is_empty() {
-                meta.push(starter.completion.replace('_', " "));
+                state.push(starter.completion.replace('_', " "));
             }
             if !starter.rating.is_empty() {
-                meta.push(starter.rating.replace('_', " "));
+                state.push(starter.rating.replace('_', " "));
             }
             page.open("div", &[("class", "meta")]);
-            for part in &meta {
-                page.open("span", &[]).text(part).close("span");
+            page.open("span", &[("class", "meta-main")])
+                .text(&main.join(" · "))
+                .close("span");
+            if !state.is_empty() {
+                page.open("span", &[("class", "meta-state")])
+                    .text(&state.join(" · "))
+                    .close("span");
             }
             page.close("div");
             page.close("li");
@@ -446,16 +475,31 @@ fn render(
     page.close("p");
     page.close("section");
 
-    page.open("footer", &[]);
-    page.open("a", &[("href", "/sign-in")])
-        .text("Sign in")
-        .close("a");
-    page.text(" · ");
-    page.open("a", &[("href", "/docs")]).text("Help").close("a");
-    page.close("footer");
+    page.open("p", &[("class", "landing-help")])
+        .text("Need the details? ")
+        .open("a", &[("href", "/docs")])
+        .text("Read the docs")
+        .close("a")
+        .text(".")
+        .close("p");
 
     page.close("main");
     page.close("body");
     page.close("html");
     page.finish()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::grouped;
+
+    #[test]
+    fn counts_are_grouped_for_reading() {
+        assert_eq!(grouped(0), "0");
+        assert_eq!(grouped(999), "999");
+        assert_eq!(grouped(1_000), "1,000");
+        assert_eq!(grouped(141_939), "141,939");
+        assert_eq!(grouped(1_000_000), "1,000,000");
+        assert_eq!(grouped(-12_345), "-12,345");
+    }
 }

@@ -359,3 +359,12 @@ Commit 6c9e2469: AO3 work metadata parsing now comes from the family
 index keys, UTC date policy, source manifest and body sanitisation. Targeted
 verification: `cargo test -p darkhold-scrapers --test ao3_fixtures` → 11 passed,
 0 failed. No deploy accompanied this refactor; the live binary is unchanged.
+
+## 2026-11-26 — R-01 landing review (this commit)
+
+Roadmap has no unblocked rows, so review rows began. R-01 audited `/` in a real browser at desktop and phone width,
+wrote GOOD/BAD/UGLY/SUGGESTION, then fixed only document-owned defects: grouped counts, two-part metadata groups that
+cannot orphan the rating, 44px body links, an accented Search button, one Sign in door, a clearer `Start reading`
+heading, and an in-document docs link. Estate-chrome defects (invisible Polaris wordmark, unlabeled icons) are logged
+as SUGGESTION for the estate owner rather than overridden from this repo. Before/after and mutant evidence are in
+`docs/reviews/r01-landing.md`; the row is Done in `docs/reviews/page-review-queue.md`.

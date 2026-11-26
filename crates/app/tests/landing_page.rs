@@ -246,8 +246,14 @@ async fn the_landing_page_is_a_document_with_no_script() {
         "an empty shelf still needs a next door: {body}"
     );
     assert!(
-        body.contains("class=\"meta\"") && body.contains("<span>"),
-        "metadata must be wrapped spans so it wraps as a row, not one word per line: {body}"
+        body.contains("class=\"meta\"")
+            && body.contains("class=\"meta-main\"")
+            && body.contains("class=\"meta-state\""),
+        "metadata must be two wrapped groups so the rating never orphans on a phone: {body}"
+    );
+    assert!(
+        !body.contains("Sign in</a> ·"),
+        "the estate bar already carries Sign in; the document must not duplicate it: {body}"
     );
     test_support::assert_no_empty_section(&body, "landing");
 }
