@@ -24,6 +24,27 @@ Done (latest 2026-11-25, unblock pass): M64-06 is no longer blocked — live has
 
 Done (earlier): TA1 private taste pipeline, TA2 daily aggregation and TA3-1 BFS verification shipped and documented. AO3 refetch gained `--offset` and skip-already-tagged (`2108da6f`, `136c771b`). TA3-5 consistency check passed at `0af02914`. The owner then unblocked TA3-2 and TA3-4 via `clarify`; the per-source concurrency guard shipped in `10b610de`, merged with `origin/master` in `d80e8d3e`, and was deployed live: 4 workers active, zero sources with >1 leased import, live meta `0.1.0+d97e7f34`, succeeded jobs rose 450→452 in 30 s while queued stayed 21,122. TA3-4 shipped in `0573c8a0` and `0d7c4470`: a public TheForce thread and robots file were recorded, the XenForo family now claims and parses the host, and the adapter honours `Crawl-delay: 10`.
 
+## Skeleton port refactor — queued, not started (2026-11-26)
+
+Comparison `8.15` (greenfield skeleton) vs `5.20` (live `0.1.0+24e5b2cd`) on the fixed rubric.
+Decision ADR 0035: port patterns, not the React stack. Spec
+`docs/spec-amendments/ui-refactor-from-skeleton-2026-11-26.md`; execution cards
+`docs/plans/ui-refactor-from-skeleton-2026-11-26.md`. These rows are **queued**, not in the Done
+table below and not counted as open roadmap requirements. Do not start ranking feedback here:
+`XW-1` stays gated on the experiment loop.
+
+| id | queued refactor | gate to close |
+| --- | --- | --- |
+| UIR-0 | Repair reader controls at scroll 0 and same-work author/word conflict | DOM opacity at least 0.6 at scroll 0; shelf and reader agree on one work id; mutation red then restored |
+| UIR-1 | One Darkhold-destination nav with active state on server-rendered and SPA surfaces | one site nav per surface; one account control; injected Polaris bar intact; app nav scrollWidth at most clientWidth at 390 |
+| UIR-2 | Availability and evidence in words on every work row | `Readable here` or `Reference only · text not held` on all work rows; unknown is `unmeasured`; targeted tests green |
+| UIR-3 | Work dossier anatomy: facts, choose-if/avoid-if, biggest unknown, export | work page prints four blocks; `cargo test -p darkhold-app --test work_page` green |
+| UIR-4 | URL-held search constraints, closed sort, named zero-result recovery | unknown sort named; zero-result copy names narrowest constraint; `cargo test -p darkhold-app --test search_page` green |
+| UIR-5 | Honest absent/degraded/conflict/module-off copy | no product-facing `coming soon` or `locked`; module-off surfaces absent |
+| UIR-6 | Live DOM proof at 1440 and 390 with validated contrast canary | zero overflow, zero sub-44 standalone targets, zero contrast failures, availability strings present |
+
+Order: UIR-0, UIR-1, UIR-2/UIR-3/UIR-4, UIR-5, UIR-6. A docs-only commit does not start the queue.
+
 | # | done step | gate output | commit |
 | --- | --- | --- | --- |
 | UX1 | Ship the Open Shelf on the live instance | live `/` had 6 linked works, 1 `Open now`, 0 placeholder; first reader URL answered 200 | `9bf772ef`, `8f2de09e`, `fe7ac428`/`9c447373` |

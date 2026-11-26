@@ -389,3 +389,7 @@ The owner authorised curator review of a handful of fic bodies. Only roles expli
 ### 2026-11-26 — TA3-B3 closed with a throwaway account
 
 The owner authorised creating and removing a throwaway account. Kudos were posted to 53 exact-title matches through the real authenticated API and verified before erasure; the account was then erased and its credential file deleted. The row records a proven capability, not persistent favorites — removing the account necessarily removes its kudos. No credential value was stored in the repo or printed in the conversation.
+
+### 2026-11-26 — port skeleton patterns, not the React stack
+
+The greenfield skeleton scored 8.15/10 against the live build's 5.20/10. The decision is to keep Rust/Axum, Svelte, the two-renderer topology and ADR 0033/0034, and port only the patterns that won: one site nav, availability/evidence words, work-dossier anatomy, URL-held search constraints, and honest state copy. Ranking feedback stays parked as XW-1 because the experiment loop is off. Recorded in ADR 0035 and `docs/spec-amendments/ui-refactor-from-skeleton-2026-11-26.md`; execution cards are queued in `docs/plans/ui-refactor-from-skeleton-2026-11-26.md`. Docs-only: no build or deploy accompanied this decision.

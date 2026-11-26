@@ -7520,3 +7520,10 @@ Evidence recorded in the source:
 - this._stateObserver = new MutationObserver(() => {
 - Guard against duplicate observers by disconnecting before re-render if one exists. Keep the "no caps/nav => empty element" contract intact.
 
+### Card 127 — UI refactor from the skeleton — queued, not started (2026-11-26)
+
+Source: `docs/plans/ui-refactor-from-skeleton-2026-11-26.md` (new, unexecuted).
+
+Files named in the source: `docs/spec-amendments/ui-refactor-from-skeleton-2026-11-26.md`, `docs/adr/0035-port-skeleton-patterns-not-the-stack.md`, `crates/app/src/routes/landing_page.rs`, `crates/app/src/routes/search_page.rs`, `crates/app/src/routes/work_page.rs`, `crates/app/src/App.svelte`, `frontend/src/styles/reader.css`, `frontend/src/lib/components/WorkRow.svelte`, `frontend/src/lib/components/WorkCard.svelte`, `docs/plans/roadmap-remaining.md`.
+
+Status: queued (UIR-0 through UIR-6). No RED/GREEN evidence is claimed; the plan's verification commands were not executed in the docs-only pass. Ranking feedback remains parked as XW-1.
