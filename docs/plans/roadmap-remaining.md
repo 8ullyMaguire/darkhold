@@ -98,7 +98,7 @@ Done (earlier): TA1 private taste pipeline, TA2 daily aggregation and TA3-1 BFS 
 | FS-07 | Reading-time band facet | RED: 74,598 live `library_items` carry `word_count`, no time bands | Dual-engine 2/2 SQLite + 2/2 PG; five bands + unknown under window; mutant exit 101; DOM 31/31; live API 5 buckets and click emits `words:24000..59999` | fc0940b7 |
 | FS-05 | Search within the current result set | RED: `M10-03` scopes to a work, not to active filter results | DOM test 28/28; live unscoped -> scoped q=`winter AND draco`; URL holds both clauses and server round trip restores the input | 1c36bb46 |
 | FS-04 | Save a search and attach a daily alert from the Search page | RED: live `saved_views=0`, `search_alerts=0` although the routes shipped | Search DOM test 26/26; live POST saved-views 201, search-alerts 200 created, cleanup 204, proof rows 0 | af11e192 |
-| FS-02 | Role metadata on tag joins | Done: owner authorised curator review of three fic bodies; six curated role nodes and eleven role joins stored through the canonical-entity path | dual-engine SQLite 1/1 and PostgreSQL 1/1; mutant changing Tonks mentor to narrator failed; live 6 role nodes / 11 joins; home 200; THIS_COMMIT | done |
+| FS-02 | Role metadata on tag joins | Done: owner authorised curator review of three fic bodies; six curated role nodes and eleven role joins stored through the canonical-entity path | dual-engine SQLite 1/1 and PostgreSQL 1/1; mutant changing Tonks mentor to narrator failed; live 6 role nodes / 11 joins; home 200; fdda05dd | done |
 
 Open queue (*0 unblocked, 1 blocked*): none. Ranking rule and live supply census are in
 `docs/spec-amendments/faceted-search-brief-2026-11-26.md`; role metadata stays planned because live role tables are empty.
@@ -107,7 +107,7 @@ Blocked (*1*):
 
 | # | blocked step | waits on | unblock gate |
 | --- | --- | --- | --- |
-| TA3-B3 | M63-32 likes/favorites half | owner chose leave parked; no public API exists | explicit owner decision and safe credential path |
+| TA3-B3 | M63-32 likes/favorites half | Blocked: owner authorised use of their account, but the saved Darkhold vault login returns `AUTH_REQUIRED` and the pasted credential was not used. 53 exact-title matches selected from 68 qualifying reading-list titles (one best duplicate per title, by max word count). | Update the saved Darkhold login out-of-band (masked vault prompt or out-of-tree credential file), then POST `/api/v1/works/{id}/kudos` for the 53 chosen work ids; owner: user | owner chose leave parked; no public API exists |
 
 
 The standing `/goal` paragraph lives in `docs/plans/next-goal.md`. Read it with this file; never paste counts or open steps into it.

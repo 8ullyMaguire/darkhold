@@ -1,0 +1,57 @@
+# TA3-B3 candidate works — rating >= 7/10, exact title match in Darkhold
+# One work per title: highest max(library_items.word_count), then published_at DESC, then id.
+# Non-secret data. Do not store cookies or auth headers.
+
+A Necromantic Gamer's Journey(DxD)	d9920aa3-bf5e-4f44-9ec5-2e94cee38ec5	190660
+A New Player in The Force	b28342bb-0e75-4790-aaaa-1e54e6e601a5	404023
+A New Player in the Force: The Gathering Storm	8dfb9e9b-79c4-41b8-89f7-892ea2a07816	638039
+An Extra Devilish Leviathan	bb4030ee-662a-4e24-b620-4c536829f595	96424
+A Perverted Galaxy Far Far Away	c9ca3eb2-e48e-4ec8-b101-29490beb0cd2	247298
+A Precise Note	9139b0b5-6c97-4d67-a1ac-2bc85f275386	142609
+A Precise Note [MHA | Izuku-Centric]	b4080fa0-4f97-4055-bd4e-7ebc5f88b461	147046
+A Ruinous Gift	5323dfc1-7361-4705-b5e0-dc7e0b46180d	289573
+[ASOIAF] Lord of Nature	dc80ea64-fd68-42df-a32e-9b57bffa97f9	311135
+A Strange Old World	03b80501-5150-4f1b-9570-7cbafe36d932	207577
+Between A Wife And A Hard Cock	2f877ab4-2bc2-44f0-86c5-a03f33e33bdd	25026
+Black Days	9c87b9d5-d048-4141-95a6-e6f6588d73a4	14883
+Business	c1a282af-7c70-4f64-8507-642b162c5ba4	12628
+Chastity	15c27170-b9e3-44ac-aa30-4af992521785	168958
+Deal With The Devil	bded2612-36b3-4815-83a2-3ce292290034	57457
+From Hogwarts To Olympus: A Demigod's Odyssey	114fa240-e514-4131-8a70-f71ed943d4dd	39566
+Gamer of the Night	36272c75-2cad-4fad-acac-2040314e4217	55803
+Gaming Badly in DxD	77cdbc3b-9900-4d28-8a5a-f13600e0d5be	370715
+Highschool DxD: Dragon's Ascent	fbb9ea93-1045-477d-b7ed-e9ddb3d7fefd	178865
+(High School DxD) Magician of Darkness	0704ba41-1126-4946-ab18-778a12125a0e	63502
+HP - Shadow Monarch!	a5c0af6d-9445-43ab-9ba8-b47f748a0e46	313460
+Into the Darkness	64c8a932-224e-4973-9c74-d2eb85ed27bf	131182
+Isekai Reborn: The Student	4fac05e6-d136-4cde-94c7-58c5e14e8369	53665
+Jedi Insurgency (Star Wars Gamer SI)	6dcbc4a9-7171-48da-a772-f40765f1b752	259171
+Kaleidoscope	d053efaa-71d2-40fa-89a2-1de441ee4880	511746
+Lady Isabella Black	1e64a345-7015-41b0-9810-5945d706f04a	78387
+Leveling through Lust [Original]	c3a045ec-087c-4cc0-8633-a087ff8503be	459288
+Lightning Strikes Twice	62c0f005-8489-407f-abe8-eeb58ccdbe08	207427
+Mars' Multiversal Mania	ddb59e4f-7889-4dab-815e-936e273415d2	218058
+My Fiancée Likes to Be Humiliated	5f3ea33c-ff4d-46b6-824b-4204d41d042d	30752
+My, My, This Here Anakin Guy	68d7e9a1-63e1-4d54-9eb9-80054f019fd5	18250
+Neglect and Attention	1e2e1960-b1e7-4c94-976f-3339e2699952	16774
+Negotiating With The Raikage	91732d9b-dcaf-42fe-b5b1-34baf1a26064	44002
+Pink Drinks	df214aee-9d38-4df7-adca-8798c5d1f752	23006
+Power Corrupts (Gamer SI)	b5a12680-49f1-461b-a42d-92f6dbf19164	583904
+Professor Potter	8c110fe3-8754-4bbf-afaf-d56af74d6828	248731
+Psycho of the Dead	54ed77fa-a708-4e2e-9209-9b38223ec968	150108
+Rogue Knight	c7e005f0-e624-4948-af3f-7ddbfa6bb354	45412
+Royal Punishment	262453da-2f1d-4fee-ab38-350c21656737	19668
+Shut up and Sith: or how I learned to keep calm and UNLIMITED POWAH! - A SWTOR Gamer Story	3ed4b34b-1bdc-4b5a-b0d8-6c3350f82aed	60766
+Tainted Desire	979e1947-c212-4f4c-9969-0644183bf4d4	175577
+That Time I Was Reincarnated In Brockton Bay	b0531034-f9a9-4127-bbb3-31990b0de927	50475
+The Benefits of Saving Veela	2caa70a3-201b-4e26-a8ba-8fb7d05fbb71	263506
+The Celestial Inquisitor	b0d9b68f-b8a9-4619-8537-4aef5acc537a	189059
+The Guild of Gamers: The Supervillain	40b5bbe0-eb1d-42d6-b6e6-58e46a6497b4	295348
+The Seducer System	b790ce52-686d-4f2a-a1cd-a5152920b023	250884
+The Strange Case of Love	845c9d52-13d2-452a-973f-ea5c255d1feb	40741
+The XXX-Gene	a3a84bfb-65a3-4378-92b4-ff76d90280ef	296170
+Troop of Beasts	86d418fa-1203-4cf8-8bf7-c78e7f52057d	27187
+Twin Love	0f386707-cb27-4c41-b31e-fc0e257f3bb3	9872
+Two Minds, One Wand	ce64c34c-c1b4-4b3b-a87f-13a9e92fdeef	563027
+Will of the Force	566ba963-caa1-4e91-9bd2-d90617396725	60234
+Young Celestial Wizard	3399ecb4-2b5f-4c21-bb8f-af63554b5e15	394294

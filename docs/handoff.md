@@ -411,6 +411,6 @@ Took the next review row after R-07. Audited `/community` signed out and signed 
 
 Took the final review row after R-08. Audited `/docs` and one article at desktop and phone width, wrote GOOD/BAD/UGLY/SUGGESTION, then fixed only Darkhold-owned SPA code: removed a duplicated intro, made TOC rows real 44px anchors with generated heading IDs, trimmed index summaries at word boundaries, used two columns on wide viewports, and raised body/breadcrumb links to 44px. Remaining small items are estate chrome and static `kbd` chips. Evidence is in `docs/reviews/r09-docs.md`; the row is Done in `docs/reviews/page-review-queue.md`.
 
-## 2026-11-26 — FS-02 reviewed role metadata (this commit)
+## 2026-11-26 — FS-02 reviewed role metadata (fdda05dd)
 
 Took the now-unblocked roadmap row. The owner authorised deriving roles from fic bodies rather than supplying an export, so I reviewed three real works and recorded only explicit evidence in `docs/fs02-reviewed-roles.md`. Migration 0221 stores six curated role nodes, protagonist/POV claims and eleven role joins through the existing canonical-entity schema on both engines; unobserved roles stay absent. SQLite and PostgreSQL proofs both passed, and a mentor→narrator mutant failed. Live migration applied: 6 role nodes, 11 joins, home 200. TA3-B3 remains blocked: the saved Darkhold vault login for the supplied identifier returns `AUTH_REQUIRED`, and the pasted credential was not used; exact unblock is an updated saved vault login or an out-of-tree credential file, owner: the user.
