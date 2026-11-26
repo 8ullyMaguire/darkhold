@@ -368,3 +368,12 @@ cannot orphan the rating, 44px body links, an accented Search button, one Sign i
 heading, and an in-document docs link. Estate-chrome defects (invisible Polaris wordmark, unlabeled icons) are logged
 as SUGGESTION for the estate owner rather than overridden from this repo. Before/after and mutant evidence are in
 `docs/reviews/r01-landing.md`; the row is Done in `docs/reviews/page-review-queue.md`.
+
+## 2026-11-26 — R-02 library review (this commit)
+
+Took the next review row after R-01. Audited `/library` signed out and signed in at desktop and phone width, wrote
+GOOD/BAD/UGLY/SUGGESTION, then fixed only Darkhold-owned SPA defects: the 0-work page now hides filters, maintenance
+links, new-shelf form and storage telemetry and offers one primary `Import a work`; the signed-out goal link and the
+signed-in ring link are 44px targets; and the `Writing as @handle` status is one ellipsised flex line with a full-handle
+title. Estate-bar duplication and its intermittent shadow-root error are logged as SUGGESTION, not overridden here.
+Evidence is in `docs/reviews/r02-library.md`; the row is Done in `docs/reviews/page-review-queue.md`.

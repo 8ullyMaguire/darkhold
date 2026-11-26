@@ -401,6 +401,7 @@ describe('application shell', () => {
 
     const writingAs = await screen.findByTestId('writing-as');
     expect(writingAs.textContent).toContain('@quill');
+    expect(writingAs.getAttribute('title')).toContain('@quill');
     expect(screen.getAllByText('Account').length).toBeGreaterThan(0);
     expect(screen.queryByText('Register')).toBeNull();
   });

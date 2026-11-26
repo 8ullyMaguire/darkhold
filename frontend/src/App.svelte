@@ -473,8 +473,10 @@ import { Button } from '@polaris/ui';
             href="/pseud"
             onclick={(event) => onLinkClick(event, '/pseud')}
             data-testid="writing-as"
+            title={`@${session.activePseud.handle}`}
           >
-            Writing as <strong>@{session.activePseud.handle}</strong>
+            <span class="writing-label">Writing as</span>
+            <strong>@{session.activePseud.handle}</strong>
           </a>
         {/if}
 
@@ -982,8 +984,17 @@ import { Button } from '@polaris/ui';
     color: var(--color-text);
   }
 
+  .writing-label {
+    flex: 0 0 auto;
+  }
+
   .writing-as strong {
     color: var(--color-text);
+    display: inline;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
   }
 
   /*

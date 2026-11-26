@@ -463,11 +463,13 @@ import { Button } from '@polaris/ui';
           {/each}
         </ul>
 
-        <form class="new-shelf" onsubmit={makeShelf}>
-          <label for="new-shelf-name">New shelf</label>
-          <input id="new-shelf-name" bind:value={newShelf} maxlength="80" placeholder="Favourites" />
-          <Button type="submit" variant="quiet" size="sm" loading={busy}>Add</Button>
-        </form>
+        {#if total > 0}
+            <form class="new-shelf" onsubmit={makeShelf}>
+            <label for="new-shelf-name">New shelf</label>
+            <input id="new-shelf-name" bind:value={newShelf} maxlength="80" placeholder="Favourites" />
+            <Button type="submit" variant="quiet" size="sm" loading={busy}>Add</Button>
+          </form>
+        {/if}
       </section>
 
       {#if views.length > 0}
@@ -496,7 +498,7 @@ import { Button } from '@polaris/ui';
         </section>
       {/if}
 
-      {#if storage}
+      {#if storage && total > 0}
         <section class="storage">
           <h2>Storage</h2>
           <p class="fact">{formatBytes(storage.total_bytes)} in {storage.item_count} works</p>
@@ -508,37 +510,39 @@ import { Button } from '@polaris/ui';
     </aside>
 
     <div class="main">
-      <div class="filter-bar">
-        <label>
-          Tag
-          <input bind:value={tagFilter} placeholder="any tag" onchange={() => void reload()} />
-        </label>
-        <label>
-          Status
-          <select bind:value={statusFilter} onchange={() => void reload()}>
-            <option value="">any status</option>
-            {#each STATUSES as entry (entry.value)}
-              <option value={entry.value}>{entry.label}</option>
-            {/each}
-          </select>
-        </label>
-        <label>
-          Source
-          <input bind:value={sourceFilter} placeholder="any source" onchange={() => void reload()} />
-        </label>
-        <label>
-          Updated since
-          <input type="date" bind:value={updatedSince} onchange={() => void reload()} />
-        </label>
-        <label>
-          Sort
-          <select bind:value={sort} onchange={() => void reload()}>
-            {#each SORTS as entry (entry.value)}
-              <option value={entry.value}>{entry.label}</option>
-            {/each}
-          </select>
-        </label>
-      </div>
+      {#if total > 0}
+          <div class="filter-bar">
+          <label>
+            Tag
+            <input bind:value={tagFilter} placeholder="any tag" onchange={() => void reload()} />
+          </label>
+          <label>
+            Status
+            <select bind:value={statusFilter} onchange={() => void reload()}>
+              <option value="">any status</option>
+              {#each STATUSES as entry (entry.value)}
+                <option value={entry.value}>{entry.label}</option>
+              {/each}
+            </select>
+          </label>
+          <label>
+            Source
+            <input bind:value={sourceFilter} placeholder="any source" onchange={() => void reload()} />
+          </label>
+          <label>
+            Updated since
+            <input type="date" bind:value={updatedSince} onchange={() => void reload()} />
+          </label>
+          <label>
+            Sort
+            <select bind:value={sort} onchange={() => void reload()}>
+              {#each SORTS as entry (entry.value)}
+                <option value={entry.value}>{entry.label}</option>
+              {/each}
+            </select>
+          </label>
+        </div>
+      {/if}
 
       {#if error}
         <ErrorSummary {error} />
@@ -559,13 +563,15 @@ import { Button } from '@polaris/ui';
         </ul>
       {/if}
 
-      <div class="actions">
-        <Button variant="quiet" onclick={() => void reload()} disabled={loading}>Refresh</Button>
-        <Button variant="quiet" onclick={() => navigate('/import')}>Import something</Button>
-        <Button variant="quiet" onclick={() => void checkUpdates()} loading={busy}>
-          Check for updates
-        </Button>
-      </div>
+      {#if total > 0}
+        <div class="actions">
+          <Button variant="quiet" onclick={() => void reload()} disabled={loading}>Refresh</Button>
+          <Button variant="primary" onclick={() => navigate('/import')}>Import a work</Button>
+          <Button variant="quiet" onclick={() => void checkUpdates()} loading={busy}>
+            Check for updates
+          </Button>
+        </div>
+      {/if}
 
       {#if selected.length > 0}
         <div class="batch-bar" role="region" aria-label="Batch actions">
@@ -594,9 +600,7 @@ import { Button } from '@polaris/ui';
           description="Works you import from other sites are listed here, with the address they came from."
         >
           {#snippet action()}
-            <a class="button" href="/import" onclick={(event) => handleLinkClick(event, '/import')}>
-              Import a work
-            </a>
+            <Button variant="primary" onclick={() => navigate('/import')}>Import a work</Button>
           {/snippet}
         </EmptyState>
       {:else}
@@ -1126,5 +1130,13 @@ import { Button } from '@polaris/ui';
   .goal-line {
     margin-top: var(--space-5);
     color: var(--color-muted);
+  }
+  .goal-line a {
+    display: inline-flex;
+    align-items: center;
+    min-height: 44px;
+    font-size: var(--text-sm);
+    font-weight: 400;
+    text-decoration-color: var(--color-border);
   }
 </style>

@@ -349,9 +349,22 @@ describe('the library page', () => {
     expect(document.body.textContent).toContain('Showing 1 of 1.');
   });
 
-  it('says so when the library is empty rather than showing an empty list', async () => {
+  it('makes the import action the only next step when the library is empty', async () => {
     items = [];
+    storage = {
+      imported_bytes: 0,
+      export_bytes: 0,
+      total_bytes: 0,
+      item_count: 0,
+      blob_count: 0,
+      counts: 'stored bytes, each blob counted once',
+    };
     render(Library);
     await waitFor(() => expect(document.body.textContent).toContain('Nothing here'));
+    expect(document.querySelector('.storage')).toBeNull();
+    expect(document.querySelector('input[placeholder="any tag"]')).toBeNull();
+    expect(document.querySelector('.actions')).toBeNull();
+    expect(document.body.textContent).not.toContain('Import something');
+    expect(document.body.textContent?.match(/Import a work/g)).toHaveLength(1);
   });
 });

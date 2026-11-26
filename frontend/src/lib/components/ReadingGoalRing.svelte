@@ -146,4 +146,10 @@
     margin: 0;
     font-size: 0.85rem;
   }
+
+  .no-goal a {
+    display: inline-flex;
+    align-items: center;
+    min-height: 44px;
+  }
 </style>
