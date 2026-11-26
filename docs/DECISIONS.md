@@ -1,3 +1,6 @@
+<!-- uniform-docs: refusals and decision register; current state -> docs/STATUS.md -->
+> Refusals and the decision register: the original repo record is retained below unchanged. 27 ADR records under `docs/adr/` were counted 2026-11-26. Current state is `docs/STATUS.md`; do not add a second status list here.
+
 # Owner-unblock decisions (2026-11-19)
 
 These decisions are made under the owner's instruction to unblock every row possible with best judgement. Credentials are stored out-of-tree and never appear here or in any repository.

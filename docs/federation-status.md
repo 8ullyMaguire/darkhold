@@ -1,3 +1,6 @@
+<!-- uniform-docs: current state -> docs/STATUS.md; repo-specific detail below is retained unchanged -->
+> Current state is the single pointer in `docs/STATUS.md`. The list below is retained as repo-specific detail, not as a second status authority.
+
 # Darkhold Federation — Progress Update
 
 ## What's Done
