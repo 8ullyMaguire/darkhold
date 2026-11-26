@@ -447,7 +447,7 @@ Final live DOM after `24e5b2cd`: More panel `y=8 height=684 bottom=692` in a 700
 - Live DOM proof at 1440/390 and the validated contrast canary are still UIR-6; no build or deploy was run for this checkpoint.
 - Roadmap UIR-0 row marked done; DECISIONS records the projection decision. XW-1 and the injected Polaris bar untouched.
 
-## 2026-11-26 — UIR-1 checkpoint (repo code/tests)
+## 2026-11-26 — UIR-1 checkpoint (e410e983)
 
 - `crates/app/src/routes/document.rs`: added `SITE_NAV`, `SITE_NAV_CSS`, `shell_active`, `site_nav_html`, `emit_site_nav` and two unit tests. One Darkhold nav, one `aria-current="page"`, one `Sign in` control, no script.
 - `crates/app/src/routes/landing_page.rs`, `search_page.rs`, `work_page.rs`: nav wired before `main`; active states Shelf, Search, Discover respectively. The injected bar and body flags are unchanged.
