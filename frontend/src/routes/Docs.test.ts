@@ -18,6 +18,9 @@ describe('Docs page', () => {
     render(Docs, { props: { slug: 'getting-started' } });
     expect(screen.getByText('Help')).toBeInTheDocument();
     expect(screen.getAllByText('Getting started').length).toBeGreaterThan(0);
+    const toc = screen.getAllByRole('link', { name: 'What this site is' });
+    expect(toc.length).toBeGreaterThan(0);
+    expect(toc[0]?.getAttribute('href')).toBe('#what-this-site-is');
   });
 
   it('shows a 404 message for unknown slug', () => {

@@ -73,10 +73,14 @@ function summaryOf(markdown: string): string {
     .map((p) => p.trim())
     .find((p) => p.length > 0 && !p.startsWith('#'));
   if (!firstPara) return '';
-  return firstPara
+  const plain = firstPara
     .replace(/\*\*|\*|`|\[|\]\([^)]*\)/g, '')
     .replace(/\s+/g, ' ')
-    .slice(0, 140);
+    .trim();
+  if (plain.length <= 140) return plain;
+  const cut = plain.slice(0, 140);
+  const lastSpace = cut.lastIndexOf(' ');
+  return `${cut.slice(0, lastSpace > 0 ? lastSpace : cut.length)}…`;
 }
 
 const SOURCES: Record<string, string> = {

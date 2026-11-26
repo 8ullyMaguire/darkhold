@@ -17,8 +17,18 @@
   const doc = $derived(slug === '' ? undefined : docBySlug(slug));
   const html = $derived(doc ? marked.parse(doc.markdown, { async: false }) : '');
 
+  function anchorId(text: string): string {
+    return text
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, '-')
+      .replace(/^-|-$/g, '');
+  }
+
   /** Docs are authored markdown with relative links like `/docs/x`. */
   function fixLinks(node: HTMLElement) {
+    for (const heading of node.querySelectorAll<HTMLHeadingElement>('h2')) {
+      if (!heading.id) heading.id = anchorId(heading.textContent?.trim() ?? '');
+    }
     for (const a of node.querySelectorAll<HTMLAnchorElement>('a[href^="/docs/"]')) {
       a.addEventListener('click', (e) => {
         e.preventDefault();
@@ -34,13 +44,12 @@
     <Breadcrumb items={[{ label: 'Help', href: '/docs' }, { label: doc.title }]} />
     <article class="doc" use:fixLinks>
       <h1>{doc.title}</h1>
-      <p class="summary">{doc.summary}</p>
       {#if doc.sections.length > 0}
         <nav class="toc" aria-label="On this page">
           <h2>On this page</h2>
           <ul>
             {#each doc.sections as s}
-              <li>{s}</li>
+              <li><a href={`#${anchorId(s)}`}>{s}</a></li>
             {/each}
           </ul>
         </nav>
@@ -94,7 +103,20 @@
   }
   .toc ul {
     margin: 0;
-    padding-left: 1.1rem;
+    padding: 0;
+    list-style: none;
+  }
+  .toc li a {
+    display: flex;
+    align-items: center;
+    min-height: 44px;
+    color: var(--text-link);
+  }
+  .docs-page :global(nav.crumbs a),
+  .docs-page :global(.doc a) {
+    display: inline-flex;
+    align-items: center;
+    min-height: 44px;
   }
   .index {
     list-style: none;
@@ -122,6 +144,12 @@
   .index .summary {
     font-size: 0.9rem;
   }
+  @media (min-width: 60rem) {
+    .index {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+  }
+
   kbd {
     border: 1px solid var(--border, #bbb);
     border-bottom-width: 2px;

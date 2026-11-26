@@ -10,6 +10,8 @@ describe('the docs registry', () => {
       expect(doc.title.length).toBeGreaterThan(0);
       expect(doc.markdown).not.toMatch(/^#\s/m); // title stripped from body
       expect(doc.summary.length).toBeGreaterThan(0);
+      expect(doc.summary.length).toBeLessThanOrEqual(141);
+      if (doc.summary.length > 140) expect(doc.summary.endsWith('…')).toBe(true);
     }
   });
 
