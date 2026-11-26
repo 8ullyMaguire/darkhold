@@ -79,6 +79,12 @@ import { Button } from '@polaris/ui';
       oninput={(event) => (password = event.currentTarget.value)}
     />
 
+    <p class="forgot">
+      <a class="action-link" href="/password-reset" onclick={(event) => handleLinkClick(event, '/password-reset')}>
+        Forgot your password?
+      </a>
+    </p>
+
     <p class="note">
       An unknown address and a wrong password produce the same answer, so this form cannot
       be used to find out which addresses have accounts.
@@ -86,11 +92,8 @@ import { Button } from '@polaris/ui';
 
     <div class="actions">
       <Button type="submit" loading={submitting}>Sign in</Button>
-      <a href="/register" onclick={(event) => handleLinkClick(event, '/register')}>
+      <a class="action-link" href="/register" onclick={(event) => handleLinkClick(event, '/register')}>
         Create an account
-      </a>
-      <a href="/password-reset" onclick={(event) => handleLinkClick(event, '/password-reset')}>
-        Forgot your password?
       </a>
     </div>
   </form>
@@ -99,6 +102,7 @@ import { Button } from '@polaris/ui';
 <style>
   .page {
     max-width: 30rem;
+    margin-inline: auto;
   }
 
   h1 {
@@ -113,6 +117,7 @@ import { Button } from '@polaris/ui';
   }
 
   .polaris-button {
+    text-decoration: none;
     display: inline-flex;
     align-items: center;
     justify-content: center;
@@ -128,6 +133,17 @@ import { Button } from '@polaris/ui';
     font-size: var(--text-sm);
     max-width: 52ch;
     margin: 0 0 var(--space-4);
+  }
+
+  .forgot {
+    margin: var(--space-1) 0 var(--space-3);
+    text-align: right;
+  }
+
+  .action-link {
+    display: inline-flex;
+    align-items: center;
+    min-height: 44px;
   }
 
   .actions {

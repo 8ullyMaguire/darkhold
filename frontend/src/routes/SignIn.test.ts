@@ -19,4 +19,11 @@ describe('SignIn page', () => {
     render(SignIn);
     expect(screen.getByRole('button', { name: /sign in/i })).toBeInTheDocument();
   });
+
+  it('puts the password recovery link beside the password field, not in the action row', () => {
+    const { container } = render(SignIn);
+    expect(container.querySelector('.forgot a')?.textContent).toContain('Forgot your password?');
+    expect(container.querySelectorAll('.actions a')).toHaveLength(1);
+    expect(container.querySelector('.actions a')?.textContent).toContain('Create an account');
+  });
 });

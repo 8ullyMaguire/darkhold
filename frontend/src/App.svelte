@@ -514,7 +514,9 @@ import { Button } from '@polaris/ui';
           <Button variant="quiet" size="sm" onclick={signOut}>Sign out</Button>
         </NavMenu>
       {:else}
-        <Button variant="primary" size="sm" onclick={() => navigate('/sign-in')}>Sign in</Button>
+        {#if route.id !== 'sign-in'}
+          <Button variant="primary" size="sm" onclick={() => navigate('/sign-in')}>Sign in</Button>
+        {/if}
         <a href="/register" onclick={(event) => onLinkClick(event, '/register')}>Register</a>
         <label class="control-label" for="theme-select-anon">Appearance</label>
         <!--
@@ -551,7 +553,7 @@ import { Button } from '@polaris/ui';
     <Button variant="quiet" size="sm" onclick={() => (moreOpen = true)}>More</Button>
     {#if session.isSignedIn}
       <Button variant="quiet" size="sm" onclick={() => (moreOpen = true)}>Account</Button>
-    {:else}
+    {:else if route.id !== 'sign-in'}
       <Button variant="primary" size="sm" onclick={() => navigate('/sign-in')}>Sign in</Button>
     {/if}
   </nav>
