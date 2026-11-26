@@ -11,7 +11,7 @@ Roadmap queue is empty of unblocked rows (`FS-02` and `TA3-B3` are blocked and l
 |---|---|---|---|---|
 | R-01 | `/` public landing | 1440×1000, 390×844 | Done | before small=7/3, `141939`, orphan `general`, two Sign in; after small=2/0 (remaining desktop links are 652×28, above WCAG 24px), grouped `141,940`, one Sign in, `meta-main`/`meta-state`, no orphan, `Start reading`; home 200; lib 1 passed; landing 5 passed; mutant exit 101; fd4e68ff |
 | R-02 | `/library` signed out and signed in | 1440×1000, 390×844 | Done | before small=1/1 signed-out, 6/6 signed-in, filters+storage at 0 works, identity clipped; after small=0 in all four cases, no filter/storage/duplicate import, one primary Import a work, identity scrollWidth=clientWidth=176; Library 10/10, App 14/14, Ring 5/5, svelte 0 errors; mutant exit 101; home 200; 8651de6f |
-| R-03 | `/discover` | 1440×1000, 390×844 | Pending | pending |
+| R-03 | `/discover` | 1440×1000, 390×844 | Done | before eyebrow repeated title, no rationale, label Sort; after eyebrow = server reason + author + match percent, title once as underlined link, Order label, end-of-feed line, small=0/0, overflow=0, errors=0; Discover 5/5, SortControl 12/12, svelte 0 errors; mutant failed title-duplication assertion; home 200; THIS_COMMIT |
 | R-04 | `/search` SPA (in-app navigation) | 1440×1000, 390×844 | Pending | pending |
 | R-05 | a published `/works/{id}` and its reader | 1440×1000, 390×844 | Pending | pending |
 | R-06 | `/sign-in` | 1440×1000, 390×844 | Pending | pending |

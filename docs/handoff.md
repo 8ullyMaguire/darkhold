@@ -377,3 +377,12 @@ links, new-shelf form and storage telemetry and offers one primary `Import a wor
 signed-in ring link are 44px targets; and the `Writing as @handle` status is one ellipsised flex line with a full-handle
 title. Estate-bar duplication and its intermittent shadow-root error are logged as SUGGESTION, not overridden here.
 Evidence is in `docs/reviews/r02-library.md`; the row is Done in `docs/reviews/page-review-queue.md`.
+
+## 2026-11-26 — R-03 discover review (this commit)
+
+Took the next review row after R-02. Audited `/discover` at desktop and phone width, wrote GOOD/BAD/UGLY/SUGGESTION,
+then fixed only Darkhold-owned SPA defects: the eyebrow no longer repeats the title, it carries the server's own
+reason, author and match percent; titles are underlined links; the feed has an honest end line; and the sort control
+is labelled `Order` on this surface. The all-one-author feed and repost duplicates are data/ranking issues recorded
+as SUGGESTION, not guessed away in the client. Evidence is in `docs/reviews/r03-discover.md`; the row is Done in
+`docs/reviews/page-review-queue.md`.

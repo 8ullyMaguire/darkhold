@@ -2858,6 +2858,10 @@ export interface DiscoveryItem {
   title?: string;
   author_handle?: string;
   word_count?: number;
+  /** The server's own explanation and match estimate, carried for the eyebrow line. */
+  reason?: string;
+  reason_code?: string;
+  match_percent?: number;
   /**
    * Item 9: the id of the recorded recommendation slot this item was served as.
    *

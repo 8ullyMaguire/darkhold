@@ -34,9 +34,11 @@
     surface: string;
     /** Called when the reader picks a value, so the page can refetch. */
     onchange?: (sort: SortValue) => void;
+    /** Some surfaces offer modes as well as orders; Say what the control does here. */
+    label?: string;
   }
 
-  let { surface, onchange }: Props = $props();
+  let { surface, onchange, label = 'Sort' }: Props = $props();
 
   let current = $state<SortValue>('new');
   /** Whether the value came from the reader's stored preference. */
@@ -127,7 +129,7 @@
 </script>
 
 <div class="sort-control" data-testid="sort-control">
-  <label class="label" for="sort-{surface}">Sort</label>
+  <label class="label" for="sort-{surface}">{label}</label>
   <select
     id="sort-{surface}"
     disabled={!loaded || busy}

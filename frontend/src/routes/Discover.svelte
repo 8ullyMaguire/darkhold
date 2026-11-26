@@ -91,6 +91,11 @@ import { Button } from '@polaris/ui';
     window.location.assign(`/works/${encodeURIComponent(id)}`);
   }
 
+  /** The count is already on the wire; format it rather than re-deriving it. */
+  function formatWords(count: number): string {
+    return `${new Intl.NumberFormat('en-US').format(count)} words`;
+  }
+
   async function load() {
     loading = true;
     error = null;
@@ -150,7 +155,7 @@ import { Button } from '@polaris/ui';
   {/if}
 
   <div class="sort-row">
-    <SortControl surface="discover" onchange={(sort) => { chosenSort = sort; void load(); }} />
+    <SortControl surface="discover" label="Order" onchange={(sort) => { chosenSort = sort; void load(); }} />
   </div>
 
   {#if session.isSignedIn}
@@ -186,7 +191,13 @@ import { Button } from '@polaris/ui';
             href={`/works/${encodeURIComponent(item.work_id)}`}
             onclick={(event) => handleLinkClick(event, `/works/${encodeURIComponent(item.work_id)}`)}
           >
-            <span class="feed-work">{item.title ?? item.work_id}{#if item.title && item.author_handle}&nbsp;·{/if}{#if item.author_handle}&nbsp;by {item.author_handle}{/if}</span>
+            <span class="feed-work">
+              {#if item.reason}{item.reason}{/if}
+              {#if item.author_handle}{#if item.reason} ·&nbsp;{/if}by {item.author_handle}{/if}
+              {#if item.match_percent !== undefined} ·&nbsp;{item.match_percent}% match{/if}
+              {#if item.word_count} ·&nbsp;{formatWords(item.word_count)}{/if}
+              {#if !item.reason && !item.author_handle && item.match_percent === undefined && !item.word_count}Recommended work{/if}
+            </span>
             {#if item.title}<span class="feed-title">{item.title}</span>{/if}
           </a>
           <!--
@@ -201,6 +212,7 @@ import { Button } from '@polaris/ui';
         </li>
       {/each}
     </ul>
+    <p class="feed-end">That's the whole feed for now.</p>
   {/if}
 </section>
 
@@ -257,6 +269,12 @@ import { Button } from '@polaris/ui';
     text-decoration: underline;
     text-underline-offset: 2px;
   }
+
+  .feed-end {
+    margin: var(--space-4) 0 0;
+    color: var(--text-muted);
+    font-size: var(--text-sm);
+  }
   .feed-work {
     font-family: var(--font-mono);
     font-size: 0.875rem;
@@ -265,5 +283,8 @@ import { Button } from '@polaris/ui';
   .feed-title {
     font-weight: 600;
     margin-top: 0.25rem;
+    color: var(--color-accent);
+    text-decoration: underline;
+    text-underline-offset: 0.18em;
   }
 </style>

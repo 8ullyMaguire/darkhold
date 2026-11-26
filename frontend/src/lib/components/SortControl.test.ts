@@ -57,6 +57,12 @@ describe('SortControl', () => {
     expect(SORT_LABELS['for-you']).toBe('For you');
   });
 
+  it('lets a surface name the control when it offers modes, not just orders', () => {
+    render(SortControl, { props: { surface: 'discover', label: 'Order' } });
+    expect(screen.getByText('Order')).toBeTruthy();
+    expect(screen.queryByText('Sort')).toBeNull();
+  });
+
   it('shows the order the server resolved, not a local guess', async () => {
     (fetchSort as any).mockResolvedValue(state('top', 'preference'));
     render(SortControl, { props: { surface: 'discover' } });

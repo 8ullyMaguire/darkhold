@@ -22,6 +22,9 @@ const FEED = {
       title: 'Discovery Test',
       author_handle: 'alice',
       word_count: 3000,
+      reason: 'Readers have rated it highly.',
+      reason_code: 'rated_by_readers',
+      match_percent: 87,
       rating: 'teen',
       tags: [],
       summary: 'A test work.',
@@ -51,8 +54,12 @@ describe('Discover page', () => {
 
     expect(container.querySelectorAll('.feed .feed-row')).toHaveLength(1);
     expect(container.querySelectorAll('.feed .card')).toHaveLength(0);
-    // The row carries the server's own words, not a client-formatted guess.
-    expect(container.querySelector('.feed-row')?.textContent).toContain('by alice');
+    // The eyebrow carries DIFFERENT facts than the title: author and the server's
+    // own word count, formatted. Repeating the title here doubled every row.
+    expect(container.querySelector('.feed-work')?.textContent?.replace(/\s+/g, ' ').trim())
+      .toBe('Readers have rated it highly. · by alice · 87% match · 3,000 words');
+    expect(container.querySelector('.feed-work')?.textContent).not.toContain('Discovery Test');
+    expect(container.textContent).toContain("That's the whole feed for now.");
   });
 
   it('fetches the feed on mount', async () => {
