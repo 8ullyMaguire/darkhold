@@ -83,6 +83,7 @@ pub(crate) fn shell_described(
              .doc .byline,.doc .status,.doc .metrics,.doc .discussion,.doc .counts{font-family:var(--font-mono);font-size:var(--text-sm);color:var(--text-secondary)}\
              .doc .start-link{display:inline-block;padding:var(--space-2) var(--space-4);border:1px solid currentColor;\
              text-decoration:none;color:var(--text-link, inherit)}\
+             .doc .site a,.doc .byline a,.doc .start-link,.doc .entries a,.doc .contents a{display:inline-flex;align-items:center;min-height:44px}\
              .doc .summary p{font-family:var(--font-reading, var(--font-interface));font-size:var(--text-lg)}\
              .doc ul{list-style:none;margin:0;padding:0}\
              .doc .tag-list{display:flex;flex-wrap:wrap;gap:var(--space-2)}\

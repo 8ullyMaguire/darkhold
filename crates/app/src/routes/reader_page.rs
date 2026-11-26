@@ -403,10 +403,10 @@ async fn read_unit_page(
     // costs one pass over the text; it repairs every row written by any import path, including ones this build has not
     // seen.
     let sanitized: Option<String> = revision.as_ref().map(|revision| {
-        normalize_imported_body(&darkhold_scrapers::sanitize::sanitize_fragment(
-            &revision.sanitized_html,
-            None,
-        ))
+        normalize_imported_body(
+            &darkhold_scrapers::sanitize::sanitize_fragment(&revision.sanitized_html, None),
+            Some(&work.title),
+        )
     });
     let body = render_page(
         &work,
@@ -889,7 +889,7 @@ fn work_search_matches(
 /// The sanitiser emits exact tag names with no attributes, so the closed input makes literal
 /// replacement sufficient. The reader keeps its own single `h1`; imported headings become small
 /// uppercase lines rather than competing titles.
-fn normalize_imported_body(html: &str) -> String {
+fn normalize_imported_body(html: &str, work_title: Option<&str>) -> String {
     let mut out = html.to_owned();
     for level in 1..=6 {
         out = out.replace(
@@ -903,6 +903,42 @@ fn normalize_imported_body(html: &str) -> String {
         let to = format!("<p class=\"reader-imported-meta\">{label}");
         out = out.replace(&from, &to);
     }
+    // The bar already names the work. An importer that puts the title at the top of the body
+    // makes the reader say the same thing twice; drop that one heading, never a chapter heading.
+    if let Some(title) = work_title {
+        let stem = title
+            .split(['[', '('])
+            .next()
+            .unwrap_or(title)
+            .trim()
+            .to_lowercase();
+        let marker = "<p class=\"reader-imported-heading\">";
+        if stem.len() > 8 {
+            if let Some(start) = out.find(marker) {
+                let text_start = start + marker.len();
+                if let Some(rel_end) = out[text_start..].find("</p>") {
+                    let end = text_start + rel_end + 4;
+                    let head: String = stem.chars().take(16).collect();
+                    if out[text_start..text_start + rel_end]
+                        .to_lowercase()
+                        .contains(&head)
+                    {
+                        out.replace_range(start..end, "");
+                    }
+                }
+            }
+        }
+    }
+    // Some importers leave the title as bare text before the TOC, with no heading tag at all.
+    // Remove that first plain-text occurrence only; an occurrence inside a tag belongs to the body.
+    if let Some(title) = work_title {
+        if let Some(pos) = out.find(title) {
+            let before = &out[..pos];
+            if before.rfind('>') > before.rfind('<') {
+                out.replace_range(pos..pos + title.len(), "");
+            }
+        }
+    }
     out
 }
 
@@ -913,11 +949,36 @@ mod ui_tests {
     #[test]
     fn imported_headings_become_quiet_paragraphs() {
         let html = "<h1>Planeswalker</h1><p>Published: 2025-06-29</p><h2>chapter 1</h2>";
-        let out = normalize_imported_body(html);
+        let out = normalize_imported_body(html, None);
         assert!(!out.contains("<h1>"));
         assert!(!out.contains("<h2>"));
         assert!(out.contains("<p class=\"reader-imported-heading\">Planeswalker</p>"));
         assert!(out.contains("<p class=\"reader-imported-meta\">Published: 2025-06-29</p>"));
+    }
+
+    #[test]
+    fn a_leading_imported_title_does_not_repeat_the_reader_bar() {
+        let html = "<h1>Planeswalker: Ashes in Eternity (ASOIAF/MULTICROSS)</h1><h2>chapter 1</h2><p>Prose.</p>";
+        let out = normalize_imported_body(html, Some("Planeswalker: Ashes in Eternity [ASOIAF/MULTICROSS]"));
+        assert!(!out.contains("Ashes in Eternity"), "the bar owns the title: {out}");
+        assert!(out.contains("<p class=\"reader-imported-heading\">chapter 1</p>"));
+        assert!(out.contains("Prose."));
+    }
+
+    #[test]
+    fn a_source_title_in_parentheses_is_still_recognised() {
+        let html = "<p class=\"reader-imported-heading\">PLANESWALKER: ASHES IN ETERNITY (ASOIAF/MULTICROSS)</p><p class=\"reader-imported-heading\">chapter 1</p>";
+        let out = normalize_imported_body(html, Some("Planeswalker: Ashes in Eternity [ASOIAF/MULTICROSS]"));
+        assert!(!out.contains("PLANESWALKER"), "the bar owns the title: {out}");
+        assert!(out.contains("<p class=\"reader-imported-heading\">chapter 1</p>"));
+    }
+
+    #[test]
+    fn a_bare_title_before_the_contents_is_not_repeated() {
+        let html = "Planeswalker: Ashes in Eternity [ASOIAF/MULTICROSS]<p class=\"reader-imported-heading\">Planeswalker: Ashes in Eternity [ASOIAF/MULTICROSS]</p><p>Prose.</p>";
+        let out = normalize_imported_body(html, Some("Planeswalker: Ashes in Eternity [ASOIAF/MULTICROSS]"));
+        assert_eq!(out.matches("Planeswalker: Ashes in Eternity").count(), 1, "one body mention: {out}");
+        assert!(out.contains("Prose."));
     }
 }
 

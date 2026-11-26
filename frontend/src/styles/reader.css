@@ -86,6 +86,9 @@
 }
 
 .reader-surface__toc a {
+  display: flex;
+  align-items: center;
+  min-height: 44px;
   text-decoration: none;
 }
 
@@ -342,8 +345,11 @@
 }
 
 .reader-surface__nav a {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
   text-decoration: none;
-  padding: var(--space-2, 0.5rem) 0;
+  padding: var(--space-2, 0.5rem) var(--space-3, 0.75rem);
 }
 
 .reader-surface__nav a:hover,
@@ -498,7 +504,8 @@
 
 .reader-surface__search input {
   width: 20ch;
-  min-height: var(--tap-min);
+  /* --tap-min is 24px for fine pointers; this field is still typed into with a mouse. */
+  min-height: 44px;
   font: inherit;
   color: var(--reader-text);
   background: transparent;

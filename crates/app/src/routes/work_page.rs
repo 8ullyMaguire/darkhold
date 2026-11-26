@@ -35,6 +35,63 @@ pub fn router() -> Router<AppState> {
     Router::new().route("/works/{id}", get(work_page))
 }
 
+/// Importer summaries can carry literal `<p>` tags. This page deliberately renders them as TEXT —
+/// never as author HTML — so the tags are removed rather than escaped into the reader's face.
+fn plain_summary(raw: &str) -> String {
+    let mut out = String::with_capacity(raw.len());
+    let mut in_tag = false;
+    for ch in raw.chars() {
+        if ch == '<' {
+            in_tag = true;
+        } else if ch == '>' {
+            in_tag = false;
+        } else if !in_tag {
+            out.push(ch);
+        }
+    }
+    out.replace("&amp;", "&")
+        .replace("&lt;", "<")
+        .replace("&gt;", ">")
+        .replace("&quot;", "\"")
+        .trim()
+        .to_string()
+}
+
+fn grouped_count(value: i64) -> String {
+    let digits = value.unsigned_abs().to_string();
+    let mut parts = Vec::new();
+    let mut rest = digits.as_str();
+    while rest.len() > 3 {
+        let (head, tail) = rest.split_at(rest.len() - 3);
+        parts.push(tail.to_string());
+        rest = head;
+    }
+    parts.push(rest.to_string());
+    parts.reverse();
+    format!("{}", parts.join(","))
+}
+
+#[cfg(test)]
+mod r05_tests {
+    use super::{grouped_count, plain_summary};
+
+    #[test]
+    fn importer_markup_does_not_reach_the_reader_as_text() {
+        let raw = "<p>Just trying out for fun, updates will be sporadic</p>\n\nSecond &amp; final <b>line</b>.";
+        let out = plain_summary(raw);
+        assert_eq!(
+            out,
+            "Just trying out for fun, updates will be sporadic\n\nSecond & final line."
+        );
+    }
+
+    #[test]
+    fn counts_are_grouped_for_reading() {
+        assert_eq!(grouped_count(5367), "5,367");
+        assert_eq!(grouped_count(12), "12");
+    }
+}
+
 async fn work_page(
     State(state): State<AppState>,
     MaybeSession(session): MaybeSession,
@@ -143,19 +200,25 @@ async fn document(state: &AppState, work: &darkhold_db::content::Work) -> Respon
     // ── status line: only the facts that are set ──
     let mut status = Vec::new();
     if !work.rating.is_empty() {
-        status.push(work.rating.replace('_', " "));
+        status.push(match work.rating.as_str() {
+            "general" => "General audiences".to_string(),
+            other => other.replace('_', " "),
+        });
     }
     if !work.completion.is_empty() {
         status.push(work.completion.replace('_', " "));
     }
     if words > 0 {
-        status.push(format!("{words} words"));
+        status.push(format!("{} words", grouped_count(words)));
     }
     if readable.len() > 1 {
         status.push(format!("{} chapters", readable.len()));
     }
     if !work.language.is_empty() {
-        status.push(work.language.clone());
+        status.push(match work.language.as_str() {
+            "en" => "English".to_string(),
+            other => other.to_string(),
+        });
     }
     if !status.is_empty() {
         page.open("p", &[("class", "status")])
@@ -202,7 +265,10 @@ async fn document(state: &AppState, work: &darkhold_db::content::Work) -> Respon
         for paragraph in work.summary.split("\n\n") {
             let paragraph = paragraph.trim();
             if !paragraph.is_empty() {
-                page.open("p", &[]).text(paragraph).close("p");
+                let paragraph = plain_summary(paragraph);
+                if !paragraph.is_empty() {
+                    page.open("p", &[]).text(&paragraph).close("p");
+                }
             }
         }
         page.close("section");
@@ -251,7 +317,7 @@ async fn document(state: &AppState, work: &darkhold_db::content::Work) -> Respon
                 .text(&title)
                 .close("a");
             if unit.word_count > 0 {
-                page.text(&format!(" — {} words", unit.word_count));
+                page.text(&format!(" — {} words", grouped_count(unit.word_count)));
             }
             page.close("li");
         }
