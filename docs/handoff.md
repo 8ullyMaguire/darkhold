@@ -407,6 +407,6 @@ Took the next review row after R-06. Audited `/roadmap` at desktop and phone wid
 
 Took the next review row after R-07. Audited `/community` signed out and signed in at desktop and phone width across all four tabs, wrote GOOD/BAD/UGLY/SUGGESTION, then fixed only Darkhold-owned SPA code: a bordered 44px sign-in gate (shared by nine pages), 44px tabs, a labelled 44px forum filter and a real 44px Search posts link. Estate chrome and missing forum metadata remain separate-owner/data SUGGESTION. Temporary session deleted. Evidence is in `docs/reviews/r08-community.md`; the row is Done in `docs/reviews/page-review-queue.md`.
 
-## 2026-11-26 — R-09 docs review (this commit)
+## 2026-11-26 — R-09 docs review (ebb7bfc6)
 
 Took the final review row after R-08. Audited `/docs` and one article at desktop and phone width, wrote GOOD/BAD/UGLY/SUGGESTION, then fixed only Darkhold-owned SPA code: removed a duplicated intro, made TOC rows real 44px anchors with generated heading IDs, trimmed index summaries at word boundaries, used two columns on wide viewports, and raised body/breadcrumb links to 44px. Remaining small items are estate chrome and static `kbd` chips. Evidence is in `docs/reviews/r09-docs.md`; the row is Done in `docs/reviews/page-review-queue.md`.
