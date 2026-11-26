@@ -422,3 +422,13 @@ Tried every saved Darkhold vault login and a fresh masked-save entry. Each `brow
 ## 2026-11-26 — TA3-B3 throwaway-account proof (5d91b65f)
 
 Owner authorised a generated throwaway account instead of the stale personal login. Created random credentials in a mode-600 scratch file (never printed, never in the repo), registered through `/api/v1/auth/register`, and POSTed kudos with the session's `darkhold_csrf` cookie echoed in `x-csrf-token`. The endpoint rate-limited at 25/minute; retries with a 65s wait completed the remaining three. Live DB proof was `53/53` kudos on the throwaway account before erasure. The account was then erased through `/api/v1/me/erasure` with `confirm_handle`; the response was `200 deleted=true`, the credential file was deleted, and a final census showed `0` throwaway pseuds and `0` throwaway kudos. This closes the row as a capability proof: the persistent favorites are intentionally gone because the throwaway was removed, as the owner requested. No credential value entered the repo or conversation.
+
+## 2026-11-26 — More-menu overflow and cross-source filters
+
+Owner reported that the desktop `More` dropdown ran past the bottom of the viewport, and asked for a live test of a multi-source fanfic query: several tags, >30k words, English, and no source update for at least three months.
+
+The menu's `NavMenu.svelte` fixed panel was clamped on X only. `clampPanel` in `lib/nav-menu-clamp.ts` now clamps both axes and keeps a taller-than-viewport panel at the 8px margin; `.panel.floating` also gets `max-height: calc(100vh - 16px)` and `overflow-y:auto`. `NavMenu` 16/16 passed. A first attempt exported the clamp from a Svelte `<script module>`; that hung Vitest, so the pure function lives in its own `.ts` file.
+
+The search capability was already present: `tag:`, `words:>`, `language:` and `source_updated:<=-3m` compose in the shared AST query. Live API returned four stale, >30k, English hits for `(tag:apocalypse OR tag:reincarnation OR tag:isekai OR tag:"time travel")`; the same query without the stale filter returned 100 hits across `archive` (96) and `pawchive` (4). `crates/db/tests/cross_source_tag_filters.rs` now proves the combination on SQLite and PostgreSQL with three sources, and a fresh-clock mutant admitted the third work and was restored.
+
+AO3's document-text tag fallback was also applied live: 2,082 works, 52,382 assertions, and the probe work went from 0 to 54 tags. Source-date coverage remains uneven (ao3 55/2,995, archive 0/28,488, pawchive 26,655/26,858), so stale-date results are dominated by sources that actually carry a source clock. That is a data-coverage limit, not a query limitation.
