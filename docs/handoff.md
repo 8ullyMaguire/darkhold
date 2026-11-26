@@ -446,3 +446,13 @@ Final live DOM after `24e5b2cd`: More panel `y=8 height=684 bottom=692` in a 700
 - First RED attempt failed earlier on a fixture-order FK error (`code: 787`, `2 passed; 3 failed`); that was fixed before the real RED.
 - Live DOM proof at 1440/390 and the validated contrast canary are still UIR-6; no build or deploy was run for this checkpoint.
 - Roadmap UIR-0 row marked done; DECISIONS records the projection decision. XW-1 and the injected Polaris bar untouched.
+
+## 2026-11-26 — UIR-1 checkpoint (repo code/tests)
+
+- `crates/app/src/routes/document.rs`: added `SITE_NAV`, `SITE_NAV_CSS`, `shell_active`, `site_nav_html`, `emit_site_nav` and two unit tests. One Darkhold nav, one `aria-current="page"`, one `Sign in` control, no script.
+- `crates/app/src/routes/landing_page.rs`, `search_page.rs`, `work_page.rs`: nav wired before `main`; active states Shelf, Search, Discover respectively. The injected bar and body flags are unchanged.
+- `crates/app/tests/{landing_page,search_page,work_page}.rs`: assert the nav, the active state and the single account control. Two stale R-05 assertions corrected.
+- RED: `error[E0432]: unresolved import super::site_nav_html`, `RED_EXIT=101`.
+- GREEN: unit `2 passed`, landing `5 passed`, route_inventory `6 passed`, search `3 passed`; work `6 passed` after stale assertions, `WORK2_EXIT=0`.
+- Mutant `==` -> `!=` on the active comparison: `only_the_current_destination_is_marked ... FAILED`, `test result: FAILED. 1 passed; 1 failed`, `MUT3_EXIT=101`; restored.
+- Public-host `polaris-chrome` count and the 1440/390 DOM checks are still UIR-6; no build or deploy was run for this checkpoint.

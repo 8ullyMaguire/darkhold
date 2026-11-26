@@ -250,6 +250,15 @@ async fn the_landing_page_is_a_document_with_no_script() {
         body.contains(&format!("/works/{WORK}/units/{UNIT}")),
         "the starter links the server-rendered reader, not an application route: {body}"
     );
+    assert_eq!(
+        body.matches("aria-current=\"page\"").count(),
+        1,
+        "one active Darkhold destination: {body}"
+    );
+    assert!(
+        body.contains("aria-label=\"Darkhold\"") && body.contains(">Shelf</a>"),
+        "the server-rendered shelf carries the Darkhold nav: {body}"
+    );
     assert!(
         body.contains("120 words"),
         "the word count comes from the readable revision: {body}"

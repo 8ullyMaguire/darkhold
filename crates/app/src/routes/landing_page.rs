@@ -28,6 +28,7 @@ use axum::Router;
 use crate::assets;
 use crate::auth::MaybeSession;
 use crate::html::Html;
+use crate::routes::document as docs;
 use crate::state::AppState;
 
 /// How many works the landing page offers to start from.
@@ -338,6 +339,7 @@ fn render(
              .landing .shelf-head{display:flex;align-items:baseline;justify-content:space-between;gap:var(--space-3)}\
              .landing .shelf-all{font-size:var(--text-sm);color:var(--text-link,inherit);min-height:44px;display:inline-flex;align-items:center}"
         )
+        .raw(docs::SITE_NAV_CSS)
         .close("style");
     page.close("head");
 
@@ -345,6 +347,7 @@ fn render(
         "body",
         &[("class", "landing"), ("data-darkhold-has-search", "true")],
     );
+    page.raw(&docs::site_nav_html(Some("/")));
     page.open("main", &[]);
 
     // ── the declaration ───────────────────────────────────────────────────

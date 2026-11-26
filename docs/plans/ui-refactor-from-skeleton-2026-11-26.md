@@ -154,6 +154,43 @@ Expected: `1` (the estate bar is still present). Then in the browser at 1440 and
 and exactly one visible account/sign-in control. At 390 assert app nav `scrollWidth <= clientWidth`
 and that adjacent links are not closer than 4px without a visible separator.
 
+**Status:** repo code/tests done; public-host and 1440/390 DOM checks are the UIR-6 checkpoint.
+
+Execution evidence (2026-11-26):
+
+```
+# RED: the shared builder did not exist.
+$ cargo test -p darkhold-app --lib uir1_nav_tests
+error[E0432]: unresolved import `super::site_nav_html`
+RED_EXIT=101
+
+# GREEN: builder + the three server surfaces + route inventory.
+$ cargo test -p darkhold-app --lib uir1_nav_tests && cargo test -p darkhold-app --test landing_page --test search_page --test work_page --test route_inventory
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 306 filtered out
+Running tests/landing_page.rs
+test result: ok. 5 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out
+Running tests/route_inventory.rs
+test result: ok. 6 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out
+Running tests/search_page.rs
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out
+Running tests/work_page.rs
+test result: FAILED. 5 passed; 1 failed; 0 ignored; 0 measured; 0 filtered out
+# Two stale R-05 assertions (`general`, `2000 words`) were behind this failure.
+
+$ cargo test -p darkhold-app --test work_page
+test result: ok. 6 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 33.42s
+WORK2_EXIT=0
+
+# Mutation: active comparison `==` -> `!=` in emit_site_nav.
+$ cargo test -p darkhold-app --lib uir1_nav_tests
+test routes::document::uir1_nav_tests::only_the_current_destination_is_marked ... FAILED
+test result: FAILED. 1 passed; 1 failed; 0 ignored; 0 measured; 306 filtered out
+MUT3_EXIT=101
+# Restored to `==`; prior GREEN applies to the restored file byte-for-byte.
+```
+
+The server nav uses the SPA's destination vocabulary (Shelf / Discover / Search / Library / More), one `aria-current="page"`, and one `Sign in` control. `/discover` is the active state on a work page because a work is reached through discovery; `/` is the anonymous Shelf. The injected Polaris bar, its body flags, XW-1, ADR 0033 and ADR 0034 are untouched.
+
 ---
 
 ## UIR-2 — Availability and evidence on every work row

@@ -134,6 +134,15 @@ async fn an_anonymous_search_is_a_document_with_real_links() {
     let (status, body) = get(harness.client(), "/search?q=Harbour", None).await;
     assert_eq!(status, StatusCode::OK, "{body}");
     assert!(!body.contains("<script"), "no JavaScript required: {body}");
+    assert_eq!(
+        body.matches("aria-current=\"page\"").count(),
+        1,
+        "one active Darkhold destination: {body}"
+    );
+    assert!(
+        body.contains("aria-label=\"Darkhold\"") && body.contains(">Search</a>"),
+        "the search document carries the Darkhold nav: {body}"
+    );
     assert!(body.contains("Harbour Lights"), "{body}");
     assert!(body.contains("A Second Harbour Work"), "{body}");
     assert!(

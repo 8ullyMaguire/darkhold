@@ -36,7 +36,7 @@ table below and not counted as open roadmap requirements. Do not start ranking f
 | id | queued refactor | gate to close |
 | --- | --- | --- |
 | UIR-0 | Repair reader controls at scroll 0 and same-work author/word conflict | Code/tests done in `6dee3208`: shelf credits `by Public Writer`, not `by hollowgast`; `5 passed`, mutant `4 passed/1 failed`; CSS floor `0.62`; live opacity proof deferred to UIR-6 |
-| UIR-1 | One Darkhold-destination nav with active state on server-rendered and SPA surfaces | one site nav per surface; one account control; injected Polaris bar intact; app nav scrollWidth at most clientWidth at 390 |
+| UIR-1 | One Darkhold-destination nav with active state on server-rendered and SPA surfaces | Repo code/tests done in `THIS_COMMIT`: one nav + one active + one Sign in on `/`, `/search`, work; `2/2 + 5/5 + 6/6 + 3/3 + 6/6`, mutant red/restored; public-host and 390px DOM proof deferred to UIR-6 |
 | UIR-2 | Availability and evidence in words on every work row | `Readable here` or `Reference only · text not held` on all work rows; unknown is `unmeasured`; targeted tests green |
 | UIR-3 | Work dossier anatomy: facts, choose-if/avoid-if, biggest unknown, export | work page prints four blocks; `cargo test -p darkhold-app --test work_page` green |
 | UIR-4 | URL-held search constraints, closed sort, named zero-result recovery | unknown sort named; zero-result copy names narrowest constraint; `cargo test -p darkhold-app --test search_page` green |

@@ -212,15 +212,24 @@ async fn a_public_work_renders_as_a_readable_document() {
         !body.contains("<script"),
         "the work page must read without JavaScript: {body}"
     );
+    assert_eq!(
+        body.matches("aria-current=\"page\"").count(),
+        1,
+        "one active Darkhold destination: {body}"
+    );
+    assert!(
+        body.contains("aria-label=\"Darkhold\"") && body.contains(">Discover</a>"),
+        "the work document carries the Darkhold nav: {body}"
+    );
     assert!(body.contains("The Long Way Round"), "{body}");
     assert!(
         body.contains("Hollow Gast") && body.contains("/people/hollowgast"),
         "the credited author is a link: {body}"
     );
     assert!(body.contains("A blurb about the thing."), "{body}");
-    assert!(body.contains("general"), "rating is stated: {body}");
+    assert!(body.contains("General audiences"), "rating is stated: {body}");
     assert!(
-        body.contains("2000 words"),
+        body.contains("2,000 words"),
         "length is the readable total: {body}"
     );
     assert!(body.contains("slow burn"), "tags are listed: {body}");

@@ -57,7 +57,7 @@ async fn search_page(
     let query = params.q.trim();
     let stylesheet = assets::app_stylesheet(&state).await;
     let site = state.config().site.name.clone();
-    let mut page = docs::shell(
+    let mut page = docs::shell_active(
         &site,
         &if query.is_empty() {
             format!("Search — {site}")
@@ -65,6 +65,8 @@ async fn search_page(
             format!("Search: {query} — {site}")
         },
         stylesheet.as_deref(),
+        Some("/search"),
+        None,
     );
 
     page.open("main", &[("class", "doc")]);

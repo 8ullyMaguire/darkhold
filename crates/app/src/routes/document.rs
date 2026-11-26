@@ -14,9 +14,32 @@ use axum::response::{IntoResponse, Response};
 
 use crate::html::Html;
 
+/// The five Darkhold destinations the server-rendered documents offer. The labels match the SPA's
+/// primary vocabulary (`App.svelte`); `Shelf` is `/` here because this anonymous open shelf is the
+/// server-rendered shelf, and `More` resolves to Help because a document cannot hold a JS menu.
+pub(crate) const SITE_NAV: [(&str, &str); 5] = [
+    ("/", "Shelf"),
+    ("/discover", "Discover"),
+    ("/search", "Search"),
+    ("/library", "Library"),
+    ("/docs", "More"),
+];
+
+/// Inherited-token styling only. No inline script and no reach into the injected shadow root.
+pub(crate) const SITE_NAV_CSS: &str = "nav.site-nav{display:flex;flex-wrap:wrap;align-items:center;\
+ gap:var(--space-3);max-width:46rem;margin:0 auto;padding:var(--space-2) var(--space-4);\
+ border-bottom:1px solid var(--border-subtle,rgba(128,128,128,.35))}\
+ nav.site-nav a{display:inline-flex;align-items:center;min-height:44px;\
+ color:var(--text-link,inherit);text-decoration:none}\
+ nav.site-nav a[aria-current=page]{text-decoration:underline;text-underline-offset:.2em;\
+ color:var(--text-primary)}\
+ nav.site-nav .site-nav-account{margin-left:auto;border:1px solid var(--border-subtle,rgba(128,128,128,.35));\
+ padding:0 var(--space-3)}\
+ @media(max-width:600px){nav.site-nav{gap:var(--space-2);padding:var(--space-2) var(--space-3)}}\n";
+
 /// The document frame. Callers open their content, then close `body` and `html` themselves.
 pub(crate) fn shell(site: &str, title: &str, stylesheet: Option<&str>) -> Html {
-    shell_described(site, title, stylesheet, None)
+    shell_active(site, title, stylesheet, None, None)
 }
 
 /// The same frame, with a `<meta name="description">`.
@@ -25,10 +48,12 @@ pub(crate) fn shell(site: &str, title: &str, stylesheet: Option<&str>) -> Html {
 /// `meta[name=description]` on `/works/<id>` and found nothing (polaris-qa, 2026-11-14). Search results and link previews
 /// then write their own sentence about a page whose own text was right there. The description is the work's summary --
 /// the field the page already renders -- not a second thing to maintain.
-pub(crate) fn shell_described(
+/// The document frame with the one current Darkhold destination marked.
+pub(crate) fn shell_active(
     site: &str,
     title: &str,
     stylesheet: Option<&str>,
+    active: Option<&str>,
     description: Option<&str>,
 ) -> Html {
     let mut page = Html::new();
@@ -94,12 +119,14 @@ pub(crate) fn shell_described(
              .doc .held{font-size:var(--text-lg)}\
              .doc .entries .meta{font-family:var(--font-mono);font-size:var(--text-sm);color:var(--text-secondary)}",
         )
+        .raw(SITE_NAV_CSS)
         .close("style");
     page.close("head");
     page.open(
         "body",
         &[("class", "doc"), ("data-darkhold-has-search", "false")],
     );
+    emit_site_nav(&mut page, active);
     page.open("p", &[("class", "site")])
         .open("a", &[("href", "/")])
         .text(site)
@@ -165,4 +192,62 @@ fn clip(text: &str, max: usize) -> String {
     }
     cut.push('\u{2026}');
     cut
+}
+
+/// The same markup the shell emits, exposed for the landing document (which owns its own head style).
+pub(crate) fn site_nav_html(active: Option<&str>) -> String {
+    let mut page = Html::new();
+    emit_site_nav(&mut page, active);
+    page.finish()
+}
+
+fn emit_site_nav(page: &mut Html, active: Option<&str>) {
+    page.open("nav", &[("class", "site-nav"), ("aria-label", "Darkhold")]);
+    for (href, label) in SITE_NAV {
+        page.open_opt(
+            "a",
+            &[
+                ("href", Some(href)),
+                ("aria-current", (href == active.unwrap_or_default()).then_some("page")),
+            ],
+        )
+        .text(label)
+        .close("a");
+    }
+    page.open("a", &[("class", "site-nav-account"), ("href", "/sign-in")])
+        .text("Sign in")
+        .close("a");
+    page.close("nav");
+}
+
+#[cfg(test)]
+mod uir1_nav_tests {
+    use super::site_nav_html;
+
+    #[test]
+    fn one_darkhold_nav_carries_the_five_destinations_and_one_account_control() {
+        let html = site_nav_html(Some("/"));
+        assert_eq!(html.matches("<nav ").count(), 1, "{html}");
+        assert!(html.contains("aria-label=\"Darkhold\""), "{html}");
+        for href in ["/", "/discover", "/search", "/library", "/docs"] {
+            assert!(html.contains(&format!("href=\"{href}\"")), "missing {href}: {html}");
+        }
+        assert_eq!(html.matches("href=\"/sign-in\"").count(), 1, "{html}");
+        assert!(!html.contains("<script"), "{html}");
+    }
+
+    #[test]
+    fn only_the_current_destination_is_marked() {
+        for (active, label) in [("/", "Shelf"), ("/search", "Search"), ("/discover", "Discover")] {
+            let html = site_nav_html(Some(active));
+            assert_eq!(html.matches("aria-current=\"page\"").count(), 1, "{html}");
+            let marked = html
+                .split("<a ")
+                .skip(1)
+                .find(|part| part.contains("aria-current=\"page\""))
+                .unwrap_or_else(|| panic!("no marked link: {html}"));
+            assert!(marked.contains(&format!(">{label}</a>")), "{marked}");
+        }
+        assert_eq!(site_nav_html(None).matches("aria-current").count(), 0);
+    }
 }
