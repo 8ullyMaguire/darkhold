@@ -11,7 +11,7 @@ Seven rows are queued as FS-01/02/03 and FS-04..FS-07 in `docs/plans/roadmap-rem
 and use; the rest is already implemented or explicitly parked. See
 `docs/spec-amendments/faceted-search-brief-2026-11-26.md`.
 
-## 2026-11-26 — FS-07 reading-time facet (this commit)
+## 2026-11-26 — FS-07 reading-time facet (fc0940b7)
 
 The facet scan now answers a `reading_time` group from the same word-count rows as `length`, using a stated 200 words/minute and five measured bands (`under_30m`, `30m_90m`, `90m_2h`, `2h_5h`, `over_5h`) plus the existing `unknown` count. The `90m_2h` band closes a gap the brief's four labels would otherwise leave. Clicking a band emits the equivalent `words:` range, so no new grammar was added. This was the last unblocked roadmap row; the only remaining roadmap row is blocked `FS-02`.
 
