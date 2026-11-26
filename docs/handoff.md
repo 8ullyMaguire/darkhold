@@ -369,7 +369,7 @@ heading, and an in-document docs link. Estate-chrome defects (invisible Polaris 
 as SUGGESTION for the estate owner rather than overridden from this repo. Before/after and mutant evidence are in
 `docs/reviews/r01-landing.md`; the row is Done in `docs/reviews/page-review-queue.md`.
 
-## 2026-11-26 — R-02 library review (this commit)
+## 2026-11-26 — R-02 library review (8651de6f)
 
 Took the next review row after R-01. Audited `/library` signed out and signed in at desktop and phone width, wrote
 GOOD/BAD/UGLY/SUGGESTION, then fixed only Darkhold-owned SPA defects: the 0-work page now hides filters, maintenance
