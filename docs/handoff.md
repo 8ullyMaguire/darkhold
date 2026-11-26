@@ -435,7 +435,7 @@ AO3's document-text tag fallback was also applied live: 2,082 works, 52,382 asse
 
 Final live DOM after `24e5b2cd`: More panel `y=8 height=684 bottom=692` in a 700px viewport (unclamped would have bottomed at 748); Search help button 44px and dialog opens; footer Radio has its tagline; zero Darkhold page errors. `App` 15/15, `NavMenu` 16/16, `Docs` 5/5, `svelte-check` 0 errors/10 warnings. The remaining page error is the separately owned estate `attachShadow` duplicate.
 
-## 2026-11-26 — UIR-0 checkpoint (code/tests)
+## 2026-11-26 — UIR-0 checkpoint (6dee3208)
 
 - `crates/app/src/routes/landing_page.rs`: shelf byline now projects `public_contributors(work.id)` with the work-page display-name/role rule instead of `find_pseud(owner_pseud_id)`.
 - `crates/app/tests/landing_page.rs`: fixture has one hidden owner pseud and one public contributor; assertion requires `by Public Writer` and forbids `by hollowgast`.
