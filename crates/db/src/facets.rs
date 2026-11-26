@@ -17,6 +17,7 @@ use std::collections::BTreeMap;
 #[serde(rename_all = "snake_case")]
 pub enum Facet {
     Length,
+    ReadingTime,
     Status,
     Rating,
     Cadence,
@@ -26,6 +27,7 @@ impl Facet {
     pub fn parse(name: &str) -> Option<Self> {
         match name {
             "length" => Some(Self::Length),
+            "reading_time" => Some(Self::ReadingTime),
             "status" => Some(Self::Status),
             "rating" => Some(Self::Rating),
             "cadence" => Some(Self::Cadence),
@@ -36,6 +38,7 @@ impl Facet {
     pub fn name(self) -> &'static str {
         match self {
             Self::Length => "length",
+            Self::ReadingTime => "reading_time",
             Self::Status => "status",
             Self::Rating => "rating",
             Self::Cadence => "cadence",
@@ -97,6 +100,7 @@ pub async fn all_facets(db: &Database, filter: &FacetFilter) -> Result<Vec<Facet
     let rows = scan(db, filter).await?;
     Ok(vec![
         length_facet(&rows),
+        reading_time_facet(&rows),
         status_facet(&rows),
         rating_facet(&rows),
         cadence_facet(&rows),
@@ -339,6 +343,41 @@ fn length_facet(rows: &[Scanned]) -> FacetAnswer {
         }
     }
     answer(Facet::Length, tally(buckets), known, rows.len() as i64)
+}
+
+fn reading_time_facet(rows: &[Scanned]) -> FacetAnswer {
+    // 200 words/minute, stated rather than hidden: the labels are a reading-cost estimate,
+    // not a different unit pretending to be words. The extra 90m–2h band closes the gap
+    // between the brief's four named bands so no measured work disappears.
+    const BANDS: [(&str, &str, i64, i64); 5] = [
+        ("under_30m", "Under 30 minutes", 0, 5_999),
+        ("30m_90m", "30 – 90 minutes", 6_000, 17_999),
+        ("90m_2h", "90 minutes – 2 hours", 18_000, 23_999),
+        ("2h_5h", "2 – 5 hours", 24_000, 59_999),
+        ("over_5h", "Over 5 hours", 60_000, i64::MAX),
+    ];
+    let mut buckets: BTreeMap<String, (String, i64)> = BTreeMap::new();
+    let mut known = 0;
+    for row in rows {
+        if let Some(words) = row.words {
+            known += 1;
+            let (key, label) = BANDS
+                .iter()
+                .find(|(_, _, low, high)| words >= *low && words <= *high)
+                .map(|(key, label, _, _)| (*key, *label))
+                .unwrap_or(("over_5h", "Over 5 hours"));
+            buckets
+                .entry(key.to_owned())
+                .and_modify(|entry| entry.1 += 1)
+                .or_insert((label.to_owned(), 1));
+        }
+    }
+    answer(
+        Facet::ReadingTime,
+        tally(buckets),
+        known,
+        rows.len() as i64,
+    )
 }
 
 fn status_facet(rows: &[Scanned]) -> FacetAnswer {

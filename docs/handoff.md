@@ -11,6 +11,10 @@ Seven rows are queued as FS-01/02/03 and FS-04..FS-07 in `docs/plans/roadmap-rem
 and use; the rest is already implemented or explicitly parked. See
 `docs/spec-amendments/faceted-search-brief-2026-11-26.md`.
 
+## 2026-11-26 — FS-07 reading-time facet (this commit)
+
+The facet scan now answers a `reading_time` group from the same word-count rows as `length`, using a stated 200 words/minute and five measured bands (`under_30m`, `30m_90m`, `90m_2h`, `2h_5h`, `over_5h`) plus the existing `unknown` count. The `90m_2h` band closes a gap the brief's four labels would otherwise leave. Clicking a band emits the equivalent `words:` range, so no new grammar was added. This was the last unblocked roadmap row; the only remaining roadmap row is blocked `FS-02`.
+
 ## 2026-11-26 — FS-06 zero-result rescue (ce4e366e)
 
 A zero-hit query now returns up to three named clause removals, each verified server-side to return rows. When one clause is impossible, a second pass removes that blocker plus one more clause and names both. The SPA renders them in the empty state; clicking one rewrites `?q=` and reruns the search. Proof: domain 1/1, app acceptance 1/1, mutant exit 101, Search DOM 30/30, live API 3/3 non-empty, browser click removed the impossible tag.

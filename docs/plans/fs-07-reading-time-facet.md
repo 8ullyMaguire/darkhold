@@ -73,6 +73,8 @@ case 'reading_time':
 Add `"reading_time"` to the `selectable` list passed to `FacetPanel` if that list is explicit.
 Add a DOM test that a `reading_time` bucket click emits the matching `words:` clause and updates `?q=`.
 
+Execution note: mutant changed `30m_90m` high bound from `17_999` to `23_999` and failed with `one work in 30m_90m: count 2`; restored green.
+
 ## Step 4 — verification
 
 ```bash

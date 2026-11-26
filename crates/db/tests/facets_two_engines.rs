@@ -186,11 +186,11 @@ async fn the_facet_scan_decodes_the_word_sum_on_this_engine() {
     let db = connect().await;
     fixture(&db).await;
 
-    // No filters: this is the live request that returned 500, and it must answer four facets.
+    // No filters: this is the live request that returned 500, and it must answer five facets.
     let answers = all_facets(&db, &FacetFilter::default())
         .await
         .expect("the facet scan must decode on this engine");
-    assert_eq!(answers.len(), 4, "length, status, rating, cadence");
+    assert_eq!(answers.len(), 5, "length, reading_time, status, rating, cadence");
 
     let length = answers
         .iter()
@@ -230,4 +230,93 @@ async fn the_facet_scan_decodes_the_word_sum_on_this_engine() {
         .find(|answer| answer.facet == "length")
         .expect("a length facet");
     assert_eq!(length.known, 1, "{length:?}");
+}
+
+#[tokio::test]
+async fn reading_time_bands_partition_measured_works_on_this_engine() {
+    let db = connect().await;
+    let sql = format!(
+        "INSERT INTO accounts (id, email, created_at, updated_at)
+         VALUES ('{ACCOUNT}', 'reading-time@example.invalid', '2026-01-01T00:00:00Z', '2026-01-01T00:00:00Z')"
+    );
+    exec(&db, &sql, &sql).await;
+    let sql = format!(
+        "INSERT INTO pseuds (id, account_id, handle, display_name, created_at, updated_at)
+         VALUES ('{PSEUD}', '{ACCOUNT}', 'reading', 'Reading', '2026-01-01T00:00:00Z', '2026-01-01T00:00:00Z')"
+    );
+    exec(&db, &sql, &sql).await;
+
+    // 200 words/minute: 3k, 12k, 20k, 30k and 90k words land in five different bands.
+    let plans = [
+        ("01955100-0000-4000-8000-0000000d0011", 3_000i64),
+        ("01955100-0000-4000-8000-0000000d0012", 12_000),
+        ("01955100-0000-4000-8000-0000000d0013", 20_000),
+        ("01955100-0000-4000-8000-0000000d0014", 30_000),
+        ("01955100-0000-4000-8000-0000000d0015", 90_000),
+        ("01955100-0000-4000-8000-0000000d0016", 0),
+    ];
+    for (index, (work, words)) in plans.iter().enumerate() {
+        let sql = format!(
+            "INSERT INTO works (id, owner_pseud_id, title, language, rating, visibility, lifecycle,
+                                published_at, created_at, updated_at, version)
+             VALUES ('{work}','{PSEUD}','Work {index}','en','teen','public','published',
+                     '2026-01-01T00:00:00Z','2026-01-01T00:00:00Z','2026-01-05T00:00:00Z',1)"
+        );
+        exec(&db, &sql, &sql).await;
+        let sql = format!(
+            "INSERT INTO units (id, work_id, order_key, title, created_at, updated_at, version)
+             VALUES ('{work}', '{work}', 1, 'One', '2026-01-01T00:00:00Z', '2026-01-01T00:00:00Z', 1)"
+        );
+        exec(&db, &sql, &sql).await;
+        if *words > 0 {
+            let revision = format!("01955100-0000-4000-8000-0000000e00{:02}", index + 1);
+            let sql = format!(
+                "INSERT INTO revisions (id, unit_id, revision_number, document_json, sanitized_html,
+                                        plain_text, word_count, created_by_pseud_id, created_at)
+                 VALUES ('{revision}','{work}',1,'{{}}','<p>x</p>','x',{words},'{PSEUD}',
+                         '2026-01-01T00:00:00Z')"
+            );
+            exec(&db, &sql, &sql).await;
+            let sql = format!(
+                "UPDATE units SET current_revision_id = '{revision}' WHERE id = '{work}'"
+            );
+            exec(&db, &sql, &sql).await;
+        }
+    }
+
+    let answers = all_facets(&db, &FacetFilter::default())
+        .await
+        .expect("facet scan");
+    let reading = answers
+        .iter()
+        .find(|answer| answer.facet == "reading_time")
+        .expect("a reading_time facet");
+    assert_eq!(reading.known, 5, "{reading:?}");
+    assert_eq!(reading.unknown, 1, "the unrevised work is unknown, not zero: {reading:?}");
+    for key in ["under_30m", "30m_90m", "90m_2h", "2h_5h", "over_5h"] {
+        assert!(
+            reading.buckets.iter().any(|bucket| bucket.key == key && bucket.count == 1),
+            "one work in {key}: {:?}",
+            reading.buckets
+        );
+    }
+    let summed: i64 = reading.buckets.iter().map(|bucket| bucket.count).sum();
+    assert_eq!(summed, 5, "the five bands partition the measured set exactly once");
+
+    let windowed = all_facets(
+        &db,
+        &FacetFilter {
+            min_words: Some(60_000),
+            ..FacetFilter::default()
+        },
+    )
+    .await
+    .expect("windowed facet scan");
+    let reading = windowed
+        .iter()
+        .find(|answer| answer.facet == "reading_time")
+        .expect("a reading_time facet");
+    assert_eq!(reading.known, 1, "counts must follow the current filter set: {reading:?}");
+    assert_eq!(reading.unknown, 0, "{reading:?}");
+    assert!(reading.buckets.iter().any(|bucket| bucket.key == "over_5h" && bucket.count == 1));
 }

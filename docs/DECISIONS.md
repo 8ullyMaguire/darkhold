@@ -343,6 +343,10 @@ it uses the same filtered nav list as desktop. No backend, routes or credential
 handling changed.
 
 
+## 2026-11-26 — FS-07 reading time is a re-bucketing, not a new column
+
+The facet scan already carries each work's measured word sum under the current filter set. Reading time re-buckets that sum at a stated 200 words/minute. A `90m_2h` band was added because the brief's four named bands leave a gap in which measured works would otherwise vanish. Clicking a band emits the equivalent `words:` clause; no second grammar was introduced.
+
 ## 2026-11-26 — FS-06 rescue candidates are verified, not guessed
 
 Relaxations are computed on the server only for a zero-hit query and only offered when a probe confirms rows. When a clause is impossible by itself, dropping the other clauses alone would still be empty, so the fallback removes the blocker plus one more clause and names both removals. The UI never invents a candidate.

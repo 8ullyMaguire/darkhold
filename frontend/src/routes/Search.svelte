@@ -296,6 +296,13 @@
         if (key === '5k_20k') return 'words:5000..19999';
         if (key === 'over_20k') return 'words:>=20000';
         return null;
+      case 'reading_time':
+        if (key === 'under_30m') return 'words:<=5999';
+        if (key === '30m_90m') return 'words:6000..17999';
+        if (key === '90m_2h') return 'words:18000..23999';
+        if (key === '2h_5h') return 'words:24000..59999';
+        if (key === 'over_5h') return 'words:>=60000';
+        return null;
       case 'status':
         return `status:"${key}"`;
       case 'rating':
@@ -571,7 +578,7 @@
       pending={loading}
       facetsOver={results.facets_over ?? ''}
       ageMs={results.facets_computed_at_ms_ago ?? 0}
-      selectable={['length', 'status', 'rating']}
+      selectable={['length', 'reading_time', 'status', 'rating']}
       onselect={onFacetSelect}
     />
   {/if}

@@ -397,6 +397,30 @@ describe('M71-11 facet counts on the search page', () => {
     await fireEvent.click(screen.getByText('Under 1,000 words'));
     await waitFor(() => expect(searchWorks.mock.calls[1][0]).toContain('words:<=999'));
   });
+
+  it('turns a reading-time band click into the matching word range', async () => {
+    searchWorks.mockResolvedValue({
+      items: [],
+      facets: [
+        {
+          facet: 'reading_time',
+          buckets: [{ key: '2h_5h', label: '2 – 5 hours', count: 3 }],
+          known: 3,
+          unknown: 1,
+        },
+      ],
+      facets_over: 'the catalogue under the word window',
+      facets_computed_at_ms_ago: 0,
+    });
+    render(Search);
+    await fireEvent.input(screen.getByPlaceholderText(/fandom:/), { target: { value: 'story' } });
+    await fireEvent.click(screen.getByRole('button', { name: 'Search' }));
+    expect(await screen.findByText('2 – 5 hours')).toBeInTheDocument();
+    await fireEvent.click(screen.getByText('2 – 5 hours'));
+    await waitFor(() =>
+      expect(searchWorks.mock.calls[1][0]).toContain('words:24000..59999'),
+    );
+  });
 });
 
 describe('M71-12 word histogram on the search page', () => {
