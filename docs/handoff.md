@@ -399,6 +399,6 @@ Took the next review row after R-04. Audited a published work page and its first
 
 Took the next review row after R-05. Audited `/sign-in` signed out at desktop and phone width, default and error state, wrote GOOD/BAD/UGLY/SUGGESTION, then fixed only Darkhold-owned SPA defects: centring the form, enlarging secondary links, removing the false link underline from the Polaris button, moving password recovery beside the field and suppressing the header/nav sign-in button on this route. Technical error codes and estate chrome remain separate-owner SUGGESTION. Evidence is in `docs/reviews/r06-signin.md`; the row is Done in `docs/reviews/page-review-queue.md`.
 
-## 2026-11-26 — R-07 roadmap review (this commit)
+## 2026-11-26 — R-07 roadmap review (e1c5b05f)
 
 Took the next review row after R-06. Audited `/roadmap` at desktop and phone width across Board, Arena and Changelog, wrote GOOD/BAD/UGLY/SUGGESTION, then fixed only Darkhold-owned SPA defects: 44px underline tabs, a centred bordered board empty panel with a primary sign-in CTA and a secondary arena link, and a primary arena sign-in button. Empty data was left empty. Evidence is in `docs/reviews/r07-roadmap.md`; the row is Done in `docs/reviews/page-review-queue.md`.
