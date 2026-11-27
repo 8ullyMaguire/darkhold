@@ -484,7 +484,7 @@ Final live DOM after `24e5b2cd`: More panel `y=8 height=684 bottom=692` in a 700
 - Mutant `Remove the last constraint` -> `Remove a constraint`: `5 passed; 1 failed`, `MUT_EXIT=101`; restored.
 - Live `/search` URL checks remain in UIR-6; no build or deploy was run for this checkpoint.
 
-## 2026-11-26 — UIR-5 checkpoint
+## 2026-11-26 — UIR-5 checkpoint (d652c834)
 
 - `frontend/src/lib/state-copy.ts` holds the six accepted sentences; `WorkEditor.svelte`, `autosave.ts`, `affinity.rs` and `gravity_dial.rs` now use them.
 - `WorkRow.svelte` uses the degraded sentence for reference-only and `Hosted, access needed` for hosted-but-restricted; `community.rs` says a topic is closed to new replies.
