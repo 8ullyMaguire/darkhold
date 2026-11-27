@@ -456,3 +456,12 @@ Final live DOM after `24e5b2cd`: More panel `y=8 height=684 bottom=692` in a 700
 - GREEN: unit `2 passed`, landing `5 passed`, route_inventory `6 passed`, search `3 passed`; work `6 passed` after stale assertions, `WORK2_EXIT=0`.
 - Mutant `==` -> `!=` on the active comparison: `only_the_current_destination_is_marked ... FAILED`, `test result: FAILED. 1 passed; 1 failed`, `MUT3_EXIT=101`; restored.
 - Public-host `polaris-chrome` count and the 1440/390 DOM checks are still UIR-6; no build or deploy was run for this checkpoint.
+
+## 2026-11-26 — UIR-2 checkpoint
+
+- `crates/app/src/routes/landing_page.rs`: pure `availability()` helper; each shelf row now carries `Readable here` or `Reference only · text not held` with the same word-boundary separator as the other meta spans.
+- `crates/app/src/routes/search_page.rs`: each result prints `Source: <key>` and, when present, the source clock; absent evidence prints `source unmeasured`. `Status:` remains separate.
+- `frontend/src/lib/components/WorkRow.svelte` and `WorkCard.svelte`: `availability` prop defaults to `unmeasured`; a missing prop renders the word, never an empty span.
+- Svelte RED `4 failed | 9 passed`, GREEN `13 passed`; Rust RED `3 passed; 2 failed`, GREEN landing `5 passed` and search `3 passed`, `GREEN_EXIT=0`.
+- Mutant `Some(_)` -> reference-only words: landing `4 passed; 1 failed`, `MUT_EXIT=101`; restored.
+- The live DOM proof stays in UIR-6; no build or deploy was run for this checkpoint.

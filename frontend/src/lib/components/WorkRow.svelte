@@ -12,8 +12,9 @@
     href: string;
     provenance: 'hosted' | 'hosted_locked' | 'referenced' | 'known';
     status: 'live' | 'held' | 'private';
+    availability?: string;
   }
-  let { title, author, words, score, href, provenance, status }: Props = $props();
+  let { title, author, words, score, href, provenance, status, availability = 'unmeasured' }: Props = $props();
 
   const provenanceWords: Record<Props['provenance'], { label: string; title: string }> = {
     hosted: { label: 'Hosted here', title: 'This instance holds readable text.' },
@@ -41,6 +42,7 @@
   <p class="facts">
     <span class="provenance {provenance}" title={provenanceView.title}>{provenanceView.label}</span>
     <span class="status {status}" title={statusView.title}>{statusView.label}</span>
+    <span class="availability">{availability}</span>
   </p>
 </article>
 

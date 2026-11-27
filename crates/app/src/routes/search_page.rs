@@ -140,6 +140,17 @@ async fn search_page(
                         page.open("p", &[("class", "status")])
                             .text(&format!("Status: {}", hit.status))
                             .close("p");
+                        let mut source = if hit.source_key.trim().is_empty() {
+                            "source unmeasured".to_string()
+                        } else {
+                            format!("Source: {}", hit.source_key)
+                        };
+                        if !hit.source_updated_at.trim().is_empty() {
+                            source.push_str(&format!(" · updated {}", hit.source_updated_at));
+                        }
+                        page.open("p", &[("class", "source")])
+                            .text(&source)
+                            .close("p");
                         page.close("li");
                     }
                     page.close("ul");

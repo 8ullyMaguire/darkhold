@@ -59,6 +59,14 @@ fn grouped(n: i64) -> String {
     }
 }
 
+/// A row says whether the text is held here. `None` is never rendered as a blank.
+fn availability(href: &Option<String>) -> &'static str {
+    match href {
+        Some(_) => "Readable here",
+        None => "Reference only · text not held",
+    }
+}
+
 pub fn router() -> Router<AppState> {
     Router::new().route("/", get(landing))
 }
@@ -336,6 +344,7 @@ fn render(
              .landing .shelf-list .meta{grid-column:2;display:flex;flex-wrap:wrap;align-items:baseline;gap:.15rem var(--space-3)}\
              .landing .shelf-list .meta span{white-space:nowrap}\
               .landing .shelf-list .meta .meta-state::before{content:'·';margin-right:var(--space-3);color:var(--text-secondary)}\
+             .landing .shelf-list .meta .meta-availability::before{content:'·';margin-right:var(--space-3);color:var(--text-secondary)}\
              .landing .shelf-head{display:flex;align-items:baseline;justify-content:space-between;gap:var(--space-3)}\
              .landing .shelf-all{font-size:var(--text-sm);color:var(--text-link,inherit);min-height:44px;display:inline-flex;align-items:center}"
         )
@@ -453,6 +462,9 @@ fn render(
                     .text(&state.join(" · "))
                     .close("span");
             }
+            page.open("span", &[("class", "meta-availability")])
+                .text(availability(&starter.href))
+                .close("span");
             page.close("div");
             page.close("li");
         }

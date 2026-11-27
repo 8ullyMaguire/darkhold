@@ -42,4 +42,14 @@ describe('WorkRow', () => {
     expect(screen.getByText('Catalogued only')).toBeTruthy();
     expect(screen.getByText('Private')).toBeTruthy();
   });
+
+  it('says unmeasured when availability is not supplied', () => {
+    render(WorkRow, { props: base });
+    expect(screen.getByText('unmeasured')).toBeTruthy();
+  });
+
+  it('prints an explicit availability instead of a blank span', () => {
+    render(WorkRow, { props: { ...base, availability: 'Readable here' } });
+    expect(screen.getByText('Readable here')).toBeTruthy();
+  });
 });

@@ -268,6 +268,10 @@ async fn the_landing_page_is_a_document_with_no_script() {
         "the shelf and the work page must credit the same public contributor: {body}"
     );
     assert!(
+        body.contains("Readable here"),
+        "a linked starter says the text is readable here: {body}"
+    );
+    assert!(
         body.contains("Browse all"),
         "an empty shelf still needs a next door: {body}"
     );
@@ -368,6 +372,10 @@ async fn a_work_the_stranger_cannot_read_is_text_not_a_dead_link() {
     assert!(
         !body.contains(&format!("/works/{WORK}/units/{UNIT}")),
         "a work the visitor cannot open must not be a link: {body}"
+    );
+    assert!(
+        body.contains("Reference only · text not held"),
+        "a gated title says why there is no link: {body}"
     );
     test_support::assert_no_empty_section(&body, "landing");
 }

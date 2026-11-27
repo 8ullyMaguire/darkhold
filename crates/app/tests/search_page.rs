@@ -161,6 +161,10 @@ async fn an_anonymous_search_is_a_document_with_real_links() {
         !body.contains("Harbour Secret"),
         "private work is absent: {body}"
     );
+    assert!(
+        body.contains("source unmeasured"),
+        "evidence says when a source clock is absent: {body}"
+    );
     test_support::assert_no_empty_section(&body, "search document");
 }
 

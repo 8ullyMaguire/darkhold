@@ -74,6 +74,8 @@
     abandonAfterMonths?: number;
     /** Actions, drawn in the footer. */
     actions?: import('svelte').Snippet;
+    /** Whether the text is held here; absent means unknown, never a blank. */
+    availability?: string;
   }
 
   let {
@@ -88,6 +90,7 @@
     onselect,
     actions,
     abandonAfterMonths,
+    availability = 'unmeasured',
   }: Props = $props();
 
   const RATING_LABEL: Record<WorkSummary['rating'], string> = {
@@ -161,6 +164,7 @@
   {/snippet}
 
   {#snippet chipRow()}
+    <MetadataChip label={availability} tone={availability === 'Readable here' ? 'primary' : 'neutral'} />
     <MetadataChip label={describeCompletionWithSource(work.completion, work.completion_source, abandonAfterMonths)} tone={work.completion === 'complete' ? 'primary' : 'neutral'} />
     {#if variant !== 'compact'}
       <MetadataChip label={RATING_LABEL[work.rating]} />

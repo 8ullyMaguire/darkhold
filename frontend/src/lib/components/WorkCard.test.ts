@@ -101,4 +101,16 @@ describe('M45-76 provenance', () => {
     expect(getByText('Abandoned')).toBeTruthy();
     expect(queryByText('Abandoned · no update in 7 months')).toBeFalsy();
   });
+
+  it('says unmeasured when availability is not supplied', () => {
+    const { getByText } = render(WorkCard, { props: { work: sampleWork() } });
+    expect(getByText('unmeasured')).toBeTruthy();
+  });
+
+  it('prints an explicit availability on the card', () => {
+    const { getByText } = render(WorkCard, {
+      props: { work: sampleWork(), availability: 'Reference only · text not held' },
+    });
+    expect(getByText('Reference only · text not held')).toBeTruthy();
+  });
 });

@@ -243,6 +243,45 @@ cd frontend && npm test -- src/lib/components/WorkCard.test.ts src/lib/component
 Expected: all three commands exit 0; each card names the first line of real output. Mutation: set
 one fixture's `href` to `None`, require the availability test to fail, restore.
 
+**Status:** done; live DOM proof remains the UIR-6 checkpoint.
+
+Execution evidence (2026-11-26):
+
+```
+# RED — Svelte availability props did not exist:
+$ node node_modules/vitest/vitest.mjs run src/lib/components/WorkCard.test.ts src/lib/components/WorkRow.test.ts
+ Test Files  2 failed (2)
+      Tests  4 failed | 9 passed (13)
+
+# RED — server rows did not print availability or source evidence:
+$ cargo test -p darkhold-app --test landing_page --test search_page
+test a_work_the_stranger_cannot_read_is_text_not_a_dead_link ... FAILED
+test the_landing_page_is_a_document_with_no_script ... FAILED
+test result: FAILED. 3 passed; 2 failed; 0 ignored; 0 measured; 0 filtered out
+RED2_EXIT=101
+
+# GREEN — Svelte:
+$ node node_modules/vitest/vitest.mjs run src/lib/components/WorkCard.test.ts src/lib/components/WorkRow.test.ts
+ ✓ src/lib/components/WorkRow.test.ts (5 tests)
+ ✓ src/lib/components/WorkCard.test.ts (8 tests)
+ Test Files  2 passed (2)
+      Tests  13 passed (13)
+
+# GREEN — server:
+$ cargo test -p darkhold-app --test landing_page --test search_page
+test result: ok. 5 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out
+GREEN_EXIT=0
+
+# Mutation — `Some(_)` changed from `Readable here` to the reference-only words:
+$ cargo test -p darkhold-app --test landing_page
+test the_landing_page_is_a_document_with_no_script ... FAILED
+test result: FAILED. 4 passed; 1 failed; 0 ignored; 0 measured; 0 filtered out
+MUT_EXIT=101
+# Restored. The fixture's href is derived from the readable-unit query, so the helper return value
+# is the stable mutation point rather than editing generated fixture state.
+```
+
 ---
 
 ## UIR-3 — Work dossier anatomy
