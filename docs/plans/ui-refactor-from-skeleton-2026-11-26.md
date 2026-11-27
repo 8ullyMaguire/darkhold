@@ -313,6 +313,33 @@ cargo test -p darkhold-app --test route_inventory
 Expected: exit 0; quote the first line. Then fetch one live work URL and assert the page text
 contains all four block labels and the string `unmeasured` where a fact is absent.
 
+**Status:** repo code/tests done; live work-URL fetch remains the UIR-6 checkpoint.
+
+Execution evidence (2026-11-26):
+
+```
+# RED — dossier labels were absent from the work document:
+$ cargo test -p darkhold-app --test work_page
+test a_public_work_renders_as_a_readable_document ... FAILED
+test result: FAILED. 5 passed; 1 failed; 0 ignored; 0 measured; 0 filtered out
+RED_EXIT=101
+
+# GREEN — dossier plus route inventory:
+$ cargo test -p darkhold-app --test work_page --test route_inventory
+test result: ok. 6 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out
+test result: ok. 6 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out
+GREEN_EXIT=0
+
+# Mutation — `Work facts` -> `Work factz`:
+$ cargo test -p darkhold-app --test work_page
+test a_public_work_renders_as_a_readable_document ... FAILED
+test result: FAILED. 5 passed; 1 failed; 0 ignored; 0 measured; 0 filtered out
+MUT_EXIT=101
+# Restored to `Work facts`.
+```
+
+The dossier prints the four blocks in order: `Work facts` with eleven fixed rows, `Choose this if` / `Avoid this if` derived from completion, measured length and warnings, `Biggest unknown` naming the absent source clock, and `Export work` linking to the existing `/exports` door. No recommendation reason is duplicated from `WhyRecommended.svelte`; XW-1 and the injected Polaris bar are untouched.
+
 ---
 
 ## UIR-4 — Constrained search and named recovery

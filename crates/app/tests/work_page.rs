@@ -221,6 +221,21 @@ async fn a_public_work_renders_as_a_readable_document() {
         body.contains("aria-label=\"Darkhold\"") && body.contains(">Discover</a>"),
         "the work document carries the Darkhold nav: {body}"
     );
+    for label in [
+        "Work facts",
+        "Choose this if",
+        "Avoid this if",
+        "Biggest unknown",
+        "Export work",
+        "unmeasured",
+    ] {
+        assert!(body.contains(label), "dossier label {label:?} missing: {body}");
+    }
+    assert_eq!(
+        body.matches("Work facts").count(),
+        1,
+        "dossier blocks are not duplicated: {body}"
+    );
     assert!(body.contains("The Long Way Round"), "{body}");
     assert!(
         body.contains("Hollow Gast") && body.contains("/people/hollowgast"),

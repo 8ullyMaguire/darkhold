@@ -117,7 +117,11 @@ pub(crate) fn shell_active(
              .doc ol li,.doc .entries li{margin:0 0 var(--space-2)}\
              .doc .site{margin:0 0 var(--space-5);font-family:var(--font-mono);font-size:var(--text-sm)}\
              .doc .held{font-size:var(--text-lg)}\
-             .doc .entries .meta{font-family:var(--font-mono);font-size:var(--text-sm);color:var(--text-secondary)}",
+             .doc .entries .meta{font-family:var(--font-mono);font-size:var(--text-sm);color:var(--text-secondary)}\
+             .doc .dossier{margin-top:var(--space-6);padding-top:var(--space-4);border-top:1px solid var(--border-subtle,rgba(128,128,128,.35))}\
+             .doc .dossier dl{display:grid;grid-template-columns:minmax(8rem,auto) 1fr;gap:var(--space-1) var(--space-3);margin:0}\
+             .doc .dossier dt{font-family:var(--font-mono);font-size:var(--text-sm);color:var(--text-secondary)}\
+             .doc .dossier dd{margin:0;overflow-wrap:anywhere}",
         )
         .raw(SITE_NAV_CSS)
         .close("style");

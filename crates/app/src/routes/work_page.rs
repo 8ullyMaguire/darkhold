@@ -154,6 +154,12 @@ async fn document(state: &AppState, work: &darkhold_db::content::Work) -> Respon
     let warnings = darkhold_db::taxonomy::list_work_warnings(db, &work.id.to_string())
         .await
         .unwrap_or_default();
+    let characters = darkhold_db::work_characters::characters_for_work(db, &work.id.to_string())
+        .await
+        .unwrap_or_default();
+    let relationships = darkhold_db::work_characters::relationships_for_work(db, &work.id.to_string())
+        .await
+        .unwrap_or_default();
     let metrics = if work.show_public_ratings {
         darkhold_db::work_metrics::get_metrics(db, &work.id)
             .await
@@ -245,6 +251,109 @@ async fn document(state: &AppState, work: &darkhold_db::content::Work) -> Respon
     page.open("p", &[("class", "provenance")])
         .text(sentence)
         .close("p");
+
+    // ── the work dossier (UIR-3): fixed facts, decision words, the unknown, and the export door ──
+    // Every absent fact is named `unmeasured`; no taste claim is inferred from tags or ranking signals.
+    let completion = if work.completion.trim().is_empty() {
+        "unmeasured".to_string()
+    } else {
+        work.completion.replace('_', " ")
+    };
+    let rating = match work.rating.as_str() {
+        "general" => "General audiences".to_string(),
+        "" => "unmeasured".to_string(),
+        other => other.replace('_', " "),
+    };
+    let warning_words = if warnings.is_empty() {
+        "unmeasured".to_string()
+    } else {
+        warnings
+            .iter()
+            .map(|warning| warning.canonical.as_str())
+            .collect::<Vec<_>>()
+            .join(", ")
+    };
+    let character_words = if characters.is_empty() {
+        "unmeasured".to_string()
+    } else {
+        format!("{} named", characters.len())
+    };
+    let relationship_words = if relationships.is_empty() {
+        "unmeasured".to_string()
+    } else {
+        format!("{} claimed", relationships.len())
+    };
+    let availability = if readable.is_empty() {
+        "Reference only · text not held"
+    } else {
+        "Readable here"
+    };
+    let length_words = if words > 0 {
+        format!("{} words", grouped_count(words))
+    } else {
+        "unmeasured".to_string()
+    };
+    let parts_words = if readable.is_empty() {
+        "unmeasured".to_string()
+    } else {
+        readable.len().to_string()
+    };
+    let facts: [(&str, &str); 11] = [
+        ("Source", "unmeasured"),
+        ("Last source update", "unmeasured"),
+        ("Words", &length_words),
+        ("Parts", &parts_words),
+        ("Completion", &completion),
+        ("Rating", &rating),
+        ("Warnings", &warning_words),
+        ("Relationships", &relationship_words),
+        ("Characters", &character_words),
+        ("Availability", availability),
+        ("Evidence", sentence),
+    ];
+    page.open("section", &[("class", "dossier")]);
+    page.open("h2", &[]).text("Work facts").close("h2");
+    page.open("dl", &[]);
+    for (label, value) in facts {
+        page.open("dt", &[]).text(label).close("dt");
+        page.open("dd", &[]).text(value).close("dd");
+    }
+    page.close("dl");
+
+    let choose = [
+        if completion == "complete" { "You want a completed work." } else { "You want a work that is still in progress." },
+        if words > 0 { "You want a measured length." } else { "You want a length that has been measured." },
+        if warnings.is_empty() { "You want no warnings recorded here." } else { "You want the recorded warnings." },
+    ];
+    let avoid = [
+        "You need a different completion state.",
+        "You need a different length.",
+        "You need a different warning profile.",
+    ];
+    page.open("h2", &[]).text("Choose this if").close("h2");
+    page.open("ul", &[]);
+    for line in choose {
+        page.open("li", &[]).text(line).close("li");
+    }
+    page.close("ul");
+    page.open("h2", &[]).text("Avoid this if").close("h2");
+    page.open("ul", &[]);
+    for line in avoid {
+        page.open("li", &[]).text(line).close("li");
+    }
+    page.close("ul");
+    page.open("h2", &[]).text("Biggest unknown").close("h2");
+    page.open("p", &[])
+        .text("The source and its last update are unmeasured; no source row supplies them.")
+        .close("p");
+    page.open("h2", &[]).text("Export work").close("h2");
+    page.open("p", &[])
+        .open("a", &[("href", "/exports")])
+        .text("Choose an export format")
+        .close("a")
+        .text(" — sign in is required to start an export.")
+        .close("p");
+    page.close("section");
 
     // ── the primary action, before the summary: a reader who already knows what this is should not scroll ──
     if let Some(first) = readable.first() {

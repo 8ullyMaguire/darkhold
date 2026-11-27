@@ -465,3 +465,12 @@ Final live DOM after `24e5b2cd`: More panel `y=8 height=684 bottom=692` in a 700
 - Svelte RED `4 failed | 9 passed`, GREEN `13 passed`; Rust RED `3 passed; 2 failed`, GREEN landing `5 passed` and search `3 passed`, `GREEN_EXIT=0`.
 - Mutant `Some(_)` -> reference-only words: landing `4 passed; 1 failed`, `MUT_EXIT=101`; restored.
 - The live DOM proof stays in UIR-6; no build or deploy was run for this checkpoint.
+
+## 2026-11-26 — UIR-3 checkpoint
+
+- `crates/app/src/routes/work_page.rs`: added the four-block dossier with eleven fixed facts, two decision lists, a named biggest-unknown line and a link to `/exports`; characters and relationships are read from the claims tables and counted, never guessed.
+- `crates/app/src/routes/document.rs`: added scoped dossier CSS to the shared document shell.
+- `crates/app/tests/work_page.rs`: asserts all four labels, `unmeasured`, and no duplicated `Work facts` heading.
+- RED `test result: FAILED. 5 passed; 1 failed`, `RED_EXIT=101`; GREEN `work_page 6 passed`, `route_inventory 6 passed`, `GREEN_EXIT=0`.
+- Mutant `Work facts` -> `Work factz`: `5 passed; 1 failed`, `MUT_EXIT=101`; restored.
+- The live work-URL fetch of all four labels stays in UIR-6; no build or deploy was run for this checkpoint.
