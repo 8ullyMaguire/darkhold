@@ -466,7 +466,7 @@ Final live DOM after `24e5b2cd`: More panel `y=8 height=684 bottom=692` in a 700
 - Mutant `Some(_)` -> reference-only words: landing `4 passed; 1 failed`, `MUT_EXIT=101`; restored.
 - The live DOM proof stays in UIR-6; no build or deploy was run for this checkpoint.
 
-## 2026-11-26 — UIR-3 checkpoint
+## 2026-11-26 — UIR-3 checkpoint (f2278885)
 
 - `crates/app/src/routes/work_page.rs`: added the four-block dossier with eleven fixed facts, two decision lists, a named biggest-unknown line and a link to `/exports`; characters and relationships are read from the claims tables and counted, never guessed.
 - `crates/app/src/routes/document.rs`: added scoped dossier CSS to the shared document shell.
