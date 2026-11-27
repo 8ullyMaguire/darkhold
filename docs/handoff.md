@@ -457,7 +457,7 @@ Final live DOM after `24e5b2cd`: More panel `y=8 height=684 bottom=692` in a 700
 - Mutant `==` -> `!=` on the active comparison: `only_the_current_destination_is_marked ... FAILED`, `test result: FAILED. 1 passed; 1 failed`, `MUT3_EXIT=101`; restored.
 - Public-host `polaris-chrome` count and the 1440/390 DOM checks are still UIR-6; no build or deploy was run for this checkpoint.
 
-## 2026-11-26 — UIR-2 checkpoint
+## 2026-11-26 — UIR-2 checkpoint (ba8b2a96)
 
 - `crates/app/src/routes/landing_page.rs`: pure `availability()` helper; each shelf row now carries `Readable here` or `Reference only · text not held` with the same word-boundary separator as the other meta spans.
 - `crates/app/src/routes/search_page.rs`: each result prints `Source: <key>` and, when present, the source clock; absent evidence prints `source unmeasured`. `Status:` remains separate.
