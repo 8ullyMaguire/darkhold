@@ -474,3 +474,12 @@ Final live DOM after `24e5b2cd`: More panel `y=8 height=684 bottom=692` in a 700
 - RED `test result: FAILED. 5 passed; 1 failed`, `RED_EXIT=101`; GREEN `work_page 6 passed`, `route_inventory 6 passed`, `GREEN_EXIT=0`.
 - Mutant `Work facts` -> `Work factz`: `5 passed; 1 failed`, `MUT_EXIT=101`; restored.
 - The live work-URL fetch of all four labels stays in UIR-6; no build or deploy was run for this checkpoint.
+
+## 2026-11-26 — UIR-4 checkpoint
+
+- `crates/app/src/routes/search_page.rs`: added the `Constraints` disclosure with named GET fields, closed sort vocabulary, grammar-term composition, `SearchFilters` bounds/rating, `422` unknown-sort response, named degradation for unsupported anonymous constraints, and zero-result recovery naming the narrowest active constraint.
+- `crates/app/tests/search_page.rs`: asserts all named fields, the `422` sort error naming `nope`, and `source=nowhere` in the recovery sentence.
+- RED `3 passed; 3 failed`, `RED_EXIT=101`; first GREEN attempt named `score` as an invalid backend sort and was corrected to `popularity|newest|title`.
+- GREEN `search_page 6 passed`, `m71_15_search_state 4 passed`, `GREEN2_EXIT=0`.
+- Mutant `Remove the last constraint` -> `Remove a constraint`: `5 passed; 1 failed`, `MUT_EXIT=101`; restored.
+- Live `/search` URL checks remain in UIR-6; no build or deploy was run for this checkpoint.

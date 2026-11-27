@@ -205,3 +205,44 @@ async fn a_signed_in_reader_keeps_the_search_application() {
     assert_eq!(status, StatusCode::OK, "{body}");
     assert!(body.contains("<script"), "the member keeps the SPA: {body}");
 }
+
+#[tokio::test]
+async fn constraints_are_named_get_fields_in_a_disclosure() {
+    let harness = Harness::new("constraints").await;
+    harness.seed().await;
+
+    let (status, body) = get(harness.client(), "/search?q=Harbour", None).await;
+    assert_eq!(status, StatusCode::OK, "{body}");
+    assert!(body.contains("<details"), "constraints must be visible without script: {body}");
+    assert!(body.contains(">Constraints</summary>"), "{body}");
+    for name in [
+        "fandom", "relationship", "completion", "length", "warning", "source",
+        "language", "availability", "reading_status", "sort",
+    ] {
+        assert!(body.contains(&format!("name=\"{name}\"")), "missing GET field {name}: {body}");
+    }
+}
+
+#[tokio::test]
+async fn an_unknown_sort_is_named_instead_of_replaced() {
+    let harness = Harness::new("bad-sort").await;
+    harness.seed().await;
+
+    let (status, body) = get(harness.client(), "/search?q=Harbour&sort=nope", None).await;
+    assert_eq!(status, StatusCode::UNPROCESSABLE_ENTITY, "{body}");
+    assert!(body.contains("Unsupported sort: nope"), "{body}");
+}
+
+#[tokio::test]
+async fn zero_results_name_the_narrowest_constraint_to_remove() {
+    let harness = Harness::new("zero").await;
+    harness.seed().await;
+
+    let (status, body) = get(harness.client(), "/search?q=Harbour&source=nowhere", None).await;
+    assert_eq!(status, StatusCode::OK, "{body}");
+    assert!(
+        body.contains("No works match these constraints. Remove the last constraint"),
+        "{body}"
+    );
+    assert!(body.contains("source=nowhere"), "the narrowest constraint must be named: {body}");
+}

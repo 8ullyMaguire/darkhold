@@ -371,6 +371,36 @@ cargo test -p darkhold-app --test m71_15_search_state
 Expected: exit 0. Live: `/search?q=mystery` returns 200 with a count and at most 50 rows;
 `/search?q=mystery&sort=nope` names `nope`; `/search?q=<impossible>` shows the named recovery.
 
+**Status:** repo code/tests done; live URL checks remain the UIR-6 checkpoint.
+
+Execution evidence (2026-11-26):
+
+```
+# RED — no constraints form, sort validation or named recovery:
+$ cargo test -p darkhold-app --test search_page
+test constraints_are_named_get_fields_in_a_disclosure ... FAILED
+test an_unknown_sort_is_named_instead_of_replaced ... FAILED
+test zero_results_name_the_narrowest_constraint_to_remove ... FAILED
+test result: FAILED. 3 passed; 3 failed; 0 ignored; 0 measured; 0 filtered out
+RED_EXIT=101
+
+# GREEN — after mapping the closed UI sort vocabulary to the backend's
+# `popularity|newest|title` values (the first run named `score` as invalid):
+$ cargo test -p darkhold-app --test search_page --test m71_15_search_state
+test result: ok. 6 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out
+test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out
+GREEN2_EXIT=0
+
+# Mutation — `Remove the last constraint` -> `Remove a constraint`:
+$ cargo test -p darkhold-app --test search_page
+test zero_results_name_the_narrowest_constraint_to_remove ... FAILED
+test result: FAILED. 5 passed; 1 failed; 0 ignored; 0 measured; 0 filtered out
+MUT_EXIT=101
+# Restored to `Remove the last constraint`.
+```
+
+The single no-script input remains; a visible `<details>` named `Constraints` carries every named GET field. Fandom, relationship, completion, language and source are appended to the same query string the grammar already owns; length becomes `SearchFilters` bounds, rating becomes the rating ceiling, and the UI sort vocabulary maps to the backend's `popularity|newest|title`. Unknown sort returns `422` with `Unsupported sort: <value>`. Warning, availability and reading status are shown but explicitly named as not applied by this document search rather than silently ignored. Zero results name the narrowest active constraint. XW-1 and the injected Polaris bar are untouched.
+
 ---
 
 ## UIR-5 — Honest state copy
