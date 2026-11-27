@@ -40,7 +40,7 @@ table below and not counted as open roadmap requirements. Do not start ranking f
 | UIR-2 | Availability and evidence in words on every work row | Done in `ba8b2a96`: landing `5/5`, search `3/3`, WorkCard/WorkRow `13/13`; mutant red/restored; unknown is `unmeasured`, source is named or `source unmeasured` |
 | UIR-3 | Work dossier anatomy: facts, choose-if/avoid-if, biggest unknown, export | Done in `f2278885`: four blocks present, `work_page 6/6`, `route_inventory 6/6`, label mutant red/restored; live work fetch deferred to UIR-6 |
 | UIR-4 | URL-held search constraints, closed sort, named zero-result recovery | Done in `f844a16d`: all named GET fields present, unknown sort `422`, recovery names `source=nowhere`; `search_page 6/6`, `m71_15 4/4`, mutant red/restored |
-| UIR-5 | Honest absent/degraded/conflict/module-off copy | no product-facing `coming soon` or `locked`; module-off surfaces absent |
+| UIR-5 | Honest absent/degraded/conflict/module-off copy | Done in `THIS_COMMIT`: copy deck `14/14`, `cargo check` exit 0, exact-word grep only comments/identifiers; no product-facing `coming soon` or `locked` |
 | UIR-6 | Live DOM proof at 1440 and 390 with validated contrast canary | zero overflow, zero sub-44 standalone targets, zero contrast failures, availability strings present |
 
 Order: UIR-0, UIR-1, UIR-2/UIR-3/UIR-4, UIR-5, UIR-6. A docs-only commit does not start the queue.

@@ -91,7 +91,7 @@ async fn write(
         match refusal {
             DialRefusal::Locked => ApiError(AppError::field(
                 "strength",
-                "gravity is locked on this instance; the operator set it and readers cannot change it",
+                "This operation is unavailable because its module is not enabled.",
             )),
             DialRefusal::OutOfRange => ApiError(AppError::field(
                 "strength",

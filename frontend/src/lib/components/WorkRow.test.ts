@@ -31,10 +31,10 @@ describe('WorkRow', () => {
     const { container } = render(WorkRow, {
       props: { ...base, provenance: 'referenced', status: 'held' },
     });
-    expect(screen.getByText('Points elsewhere')).toBeTruthy();
+    expect(screen.getByText('Reference only · text not held')).toBeTruthy();
     expect(screen.getByText('Held')).toBeTruthy();
     expect(container.querySelectorAll('a')).toHaveLength(1);
-    expect(screen.getByText('Points elsewhere').getAttribute('title')).toMatch(/no text here/i);
+    expect(screen.getByText('Reference only · text not held').getAttribute('title')).toBe('Text is not held. The source address is unmeasured.');
   });
 
   it('uses a single, honest word for unknown provenance', () => {

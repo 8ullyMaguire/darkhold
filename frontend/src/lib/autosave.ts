@@ -25,6 +25,7 @@
  */
 
 import { ApiError } from './api';
+import { REVISION_CONFLICT as CONFLICT_COPY } from './state-copy';
 
 /** What the editor can be doing. */
 export type SaveState = 'idle' | 'pending' | 'saving' | 'saved' | 'offline' | 'conflict' | 'error';
@@ -232,7 +233,7 @@ export class UnitAutosave {
       if (failure instanceof ApiError && failure.code === 'REVISION_CONFLICT') {
         this.setState(
           'conflict',
-          'This unit changed somewhere else. Your text is kept — reload the other version or save yours over it.',
+          CONFLICT_COPY,
         );
       } else if (
         failure instanceof ApiError &&

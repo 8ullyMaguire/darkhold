@@ -483,3 +483,12 @@ Final live DOM after `24e5b2cd`: More panel `y=8 height=684 bottom=692` in a 700
 - GREEN `search_page 6 passed`, `m71_15_search_state 4 passed`, `GREEN2_EXIT=0`.
 - Mutant `Remove the last constraint` -> `Remove a constraint`: `5 passed; 1 failed`, `MUT_EXIT=101`; restored.
 - Live `/search` URL checks remain in UIR-6; no build or deploy was run for this checkpoint.
+
+## 2026-11-26 — UIR-5 checkpoint
+
+- `frontend/src/lib/state-copy.ts` holds the six accepted sentences; `WorkEditor.svelte`, `autosave.ts`, `affinity.rs` and `gravity_dial.rs` now use them.
+- `WorkRow.svelte` uses the degraded sentence for reference-only and `Hosted, access needed` for hosted-but-restricted; `community.rs` says a topic is closed to new replies.
+- Vitest RED `1 failed | 4 passed`, GREEN `14 passed` across state-copy, WorkRow and autosave.
+- `cargo check -p darkhold-app` finished with `CHECK_EXIT=0`.
+- Exact grep for `coming soon|locked` leaves only comments, JSON field names and Rust field names; no product-facing sentence uses either word.
+- Live copy spot-check remains in UIR-6; no build or deploy was run for this checkpoint.

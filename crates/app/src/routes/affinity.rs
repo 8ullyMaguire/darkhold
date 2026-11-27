@@ -61,7 +61,7 @@ async fn my_affinity(
         None => json!({
             "scored": false,
             "affinity": null,
-            "note": "there is not enough evidence to score you yet: bookmark or rate something, or judge a pair in the arena",
+            "note": "There is not enough evidence for a verdict.",
         }),
     }))
 }

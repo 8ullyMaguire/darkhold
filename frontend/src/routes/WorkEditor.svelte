@@ -40,6 +40,7 @@
   } from '../lib/labels';
   import { deleteWorkPricing, fetchWorkPricing, setWorkPricing } from '../lib/api';
   import { handleLinkClick } from '../lib/router';
+  import { REVISION_CONFLICT } from '../lib/state-copy';
 import { Button } from '@polaris/ui';
   import ErrorSummary from '../lib/components/ErrorSummary.svelte';
   import PreReadPanel from '../lib/components/PreReadPanel.svelte';
@@ -186,8 +187,7 @@ import { Button } from '@polaris/ui';
     } catch (failure) {
       metaError = failure;
       if (failure instanceof ApiError && failure.code === 'REVISION_CONFLICT') {
-        metaMessage =
-          'This work changed somewhere else. Reload to see the current version before saving again.';
+        metaMessage = REVISION_CONFLICT;
       }
     } finally {
       savingMeta = false;

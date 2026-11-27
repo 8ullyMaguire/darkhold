@@ -424,6 +424,41 @@ grep -R -n 'coming soon\|locked' crates/app/src/routes frontend/src/lib/componen
 Expected: no product-facing hits (test fixtures and historical docs may match; name any hit and
 say why it is not user-facing).
 
+**Status:** done; live copy spot-check remains the UIR-6 checkpoint.
+
+Execution evidence (2026-11-26):
+
+```
+# RED — shared copy module and accepted sentences did not exist:
+$ node node_modules/vitest/vitest.mjs run src/lib/state-copy.test.ts src/lib/components/WorkRow.test.ts
+ Test Files  2 failed (2)
+      Tests  1 failed | 4 passed (5)
+
+# GREEN — copy deck, WorkRow, autosave:
+$ node node_modules/vitest/vitest.mjs run src/lib/state-copy.test.ts src/lib/components/WorkRow.test.ts src/lib/autosave.test.ts
+ ✓ src/lib/state-copy.test.ts (1 test)
+ ✓ src/lib/autosave.test.ts (8 tests)
+ ✓ src/lib/components/WorkRow.test.ts (5 tests)
+ Test Files  3 passed (3)
+      Tests  14 passed (14)
+
+# Rust string edits compile:
+$ cargo check -p darkhold-app
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 9m 20s
+CHECK_EXIT=0
+
+# Exact product-copy grep:
+$ grep -R -nE "\b(coming soon|locked)\b" crates/app/src/routes frontend/src/lib/components
+crates/app/src/routes/works.rs:2102:/// tier's meaning is "listed and locked".
+crates/app/src/routes/works.rs:2104:    // M70-04, ... listed but locked ...
+crates/app/src/routes/gravity_dial.rs:58:        "locked": taste.gravity_locked,
+crates/app/src/routes/community.rs:509:    if topic.locked {
+crates/app/src/routes/community.rs:1389:/// `locked:true`, and the `..` range ...
+crates/app/src/routes/provenance.rs:125:            // Restricted ... still the locked case ...
+```
+
+All remaining exact-word hits are comments, JSON field names, or Rust field names; none is product-facing copy. `WorkRow` now says `Reference only · text not held` and `Hosted, access needed`; revision conflicts, missing evidence, unavailable modules and closed topics use the accepted sentences instead of `locked` or vague refusals. XW-1 and the injected Polaris bar are untouched.
+
 ---
 
 ## UIR-6 — Live proof before closing

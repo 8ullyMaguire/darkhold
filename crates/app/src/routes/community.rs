@@ -509,7 +509,7 @@ async fn post_reply(
     if topic.locked {
         return Err(ApiError(darkhold_domain::AppError::field(
             "body",
-            "this topic is locked",
+            "This topic is closed to new replies.",
         )));
     }
     let min_trust = darkhold_db::community::category_min_trust(state.db(), &topic.category_id)

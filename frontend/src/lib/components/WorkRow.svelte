@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { DEGRADED } from '../state-copy';
   /**
    * M71-03: one result row in The Archive (ADR 0033). Dense, text-first, and honest about two
    * independent facts: where the text lives (`provenance`) and what state the record is in
@@ -18,8 +19,8 @@
 
   const provenanceWords: Record<Props['provenance'], { label: string; title: string }> = {
     hosted: { label: 'Hosted here', title: 'This instance holds readable text.' },
-    hosted_locked: { label: 'Hosted, locked', title: 'Text is here but needs access.' },
-    referenced: { label: 'Points elsewhere', title: 'No text here — this is a pointer to a source.' },
+    hosted_locked: { label: 'Hosted, access needed', title: 'Text is held here. Access is required.' },
+    referenced: { label: 'Reference only · text not held', title: DEGRADED },
     known: { label: 'Catalogued only', title: 'A record without text or a source yet.' },
   };
   const statusWords: Record<Props['status'], { label: string; title: string }> = {
