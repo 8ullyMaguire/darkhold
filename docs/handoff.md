@@ -475,7 +475,7 @@ Final live DOM after `24e5b2cd`: More panel `y=8 height=684 bottom=692` in a 700
 - Mutant `Work facts` -> `Work factz`: `5 passed; 1 failed`, `MUT_EXIT=101`; restored.
 - The live work-URL fetch of all four labels stays in UIR-6; no build or deploy was run for this checkpoint.
 
-## 2026-11-26 — UIR-4 checkpoint
+## 2026-11-26 — UIR-4 checkpoint (f844a16d)
 
 - `crates/app/src/routes/search_page.rs`: added the `Constraints` disclosure with named GET fields, closed sort vocabulary, grammar-term composition, `SearchFilters` bounds/rating, `422` unknown-sort response, named degradation for unsupported anonymous constraints, and zero-result recovery naming the narrowest active constraint.
 - `crates/app/tests/search_page.rs`: asserts all named fields, the `422` sort error naming `nope`, and `source=nowhere` in the recovery sentence.
